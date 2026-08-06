@@ -38,6 +38,7 @@ export type {
 } from "./matter-suggestion.ts";
 export {
   resolveAutoFileDecision,
+  AUTO_FILE_ACTIVITY_WINDOW_LIMIT,
   AUTO_FILE_MAX_FIRES_PER_WINDOW,
   AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES,
   AUTO_FILE_RECENT_FIRE_WINDOW,

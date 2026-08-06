@@ -411,6 +411,12 @@ export interface AutoFileRuleActivity {
 // often than the cap is exactly the rule the breaker is about to stop, and reading more of its
 // firings would not change that answer.
 //
+// `windowLimit` CAPS THE COUNT THIS REPORTS, so it must sit strictly above the breaker's threshold or
+// the reported count can never reach it and the breaker is disabled with nothing to see. The value to
+// pass is `AUTO_FILE_ACTIVITY_WINDOW_LIMIT` from @magna-carta/email-filing, which is derived from the
+// threshold for exactly this reason; it is not imported here because that would invert the dependency
+// between the data-access layer and the domain package that owns the rule.
+//
 // An undo is read off the link's own state, because the undo IS the ordinary unlink route and that
 // route is unchanged: a link the rule made and somebody removed is a reversal, whoever removed it.
 export async function readAutoFileRuleActivity(

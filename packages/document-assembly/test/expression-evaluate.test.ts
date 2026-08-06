@@ -1,3 +1,4 @@
+import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { describe, expect, it } from "vitest";
 import { expressionScopeFor } from "../src/dictionary.ts";
 import type { ExpressionType } from "../src/expression/catalog.ts";
@@ -226,6 +227,104 @@ describe("dates", () => {
       scale: 0,
     });
     expect(valueOf("monthName(custom.filedOn)")).toEqual({ kind: "text", text: "January" });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// The calendar range, over ALL THREE date helpers
+// ---------------------------------------------------------------------------------------------
+//
+// The property is one sentence: a date helper either produces a date the rest of the language can read
+// and order, or it refuses. It never produces a third thing. A five-digit or negative year is that
+// third thing — it renders as an empty string and it compares backwards against every in-range date,
+// both silently — so the boundary is asserted exactly rather than approximately, and then generated
+// over so the claim covers offsets nobody thought to enumerate.
+
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+describe("the calendar range every date helper shares", () => {
+  const HELPERS = ["addDays", "addMonths", "addYears"] as const;
+
+  it("refuses an out-of-range result rather than producing an unreadable date", () => {
+    for (const source of [
+      "addDays(custom.filedOn, 4000000)",
+      "addDays(custom.filedOn, -4000000)",
+      "addMonths(custom.filedOn, 200000)",
+      "addYears(custom.filedOn, 100000)",
+    ]) {
+      const outcome = run(source);
+      expect(outcome.kind, source).toBe("refusal");
+      if (outcome.kind !== "refusal") continue;
+      expect(outcome.refusal.code, source).toBe("magnitude");
+    }
+  });
+
+  it("holds the boundary exactly on both ends", () => {
+    // 9999-12-31 is the last representable day and 0001-01-01 the first: one day either side refuses.
+    expect(valueOf('addDays(date "9999-12-30", 1)')).toEqual({
+      kind: "date",
+      isoDate: "9999-12-31",
+    });
+    expect(run('addDays(date "9999-12-31", 1)').kind).toBe("refusal");
+    expect(valueOf('addDays(date "0001-01-02", -1)')).toEqual({
+      kind: "date",
+      isoDate: "0001-01-01",
+    });
+    expect(run('addDays(date "0001-01-01", -1)').kind).toBe("refusal");
+  });
+
+  it("never yields a value outside the shape the formatter and the ordering both read", () => {
+    // Seeded so a failure reproduces from its seed rather than from a screenshot — the discipline
+    // test/expression-fuzz.test.ts already keeps for the grammar.
+    const random = seededRandomSource("date-helper-calendar-range");
+    const nextInt = (bound: number): number => {
+      const bytes = random(4);
+      const value =
+        ((bytes[0] ?? 0) << 24) |
+        ((bytes[1] ?? 0) << 16) |
+        ((bytes[2] ?? 0) << 8) |
+        (bytes[3] ?? 0);
+      return (value >>> 0) % bound;
+    };
+
+    for (let iteration = 0; iteration < 2_000; iteration += 1) {
+      const helper = HELPERS[nextInt(HELPERS.length)] as string;
+      // Offsets that straddle the boundary from far outside it to well inside, both signs.
+      const magnitude = [1, 12, 366, 4_000, 400_000, 4_000_000, Number.MAX_SAFE_INTEGER][
+        nextInt(7)
+      ] as number;
+      const offset = nextInt(2) === 0 ? magnitude : -magnitude;
+      const outcome = run(`${helper}(custom.filedOn, ${offset})`);
+      expect(["value", "refusal"]).toContain(outcome.kind);
+      if (outcome.kind !== "value") continue;
+      expect(outcome.value.kind).toBe("date");
+      if (outcome.value.kind !== "date") continue;
+      // The two properties every downstream reader depends on: the formatter's pattern matches, and
+      // the raw-string ordering the comparison arm uses is a real ordering on it.
+      expect(outcome.value.isoDate).toMatch(CALENDAR_DATE);
+      const year = Number(outcome.value.isoDate.slice(0, 4));
+      expect(year).toBeGreaterThanOrEqual(1);
+      expect(year).toBeLessThanOrEqual(9999);
+    }
+  });
+
+  it("refuses to order a date-shaped value that is not a calendar date", () => {
+    // The residual path: a value that reached the evaluator already carrying a non-calendar isoDate.
+    const checked = checkExpression("custom.filedOn > custom.filedOn", {
+      scope: SCOPE,
+      required: "boolean",
+    });
+    expect(checked.ok).toBe(true);
+    if (!checked.ok) return;
+    const outcome = evaluate(checked.value, {
+      values: new Map<string, ExpressionValue>([
+        ["custom.filedOn", { kind: "date", isoDate: "03/14/2026" }],
+      ]),
+      budget: createEvaluationBudget(),
+    });
+    expect(outcome.kind).toBe("refusal");
+    if (outcome.kind !== "refusal") return;
+    expect(outcome.refusal.code).toBe("invalid-operand");
   });
 });
 

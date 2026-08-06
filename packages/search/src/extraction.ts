@@ -44,6 +44,12 @@ export type TextExtractionResult =
       readonly passages: readonly Passage[];
       // One entry per page the extractor looked at, in page order. Empty for a format that has no
       // pages at all, which is why it is not a substitute for `passages`.
+      //
+      // A FORWARD SEAM: nothing persists this yet. The index consumer reads `passages` and the catalog
+      // records document count, size, and schema generation — so the native/ocr distinction described
+      // above is produced correctly and then discarded. Saying so here rather than leaving it implied,
+      // because a reader who assumes the corpus report is already possible would be wrong: it needs a
+      // store on the split row first, which is the change that makes this field readable.
       readonly pages: readonly PageProvenance[];
     }
   | TextExtractionFailure;
@@ -108,8 +114,28 @@ export function passagesFromPages(
 // out as the passages the index takes plus the provenance record the reports read. Both halves are
 // derived from the same input here rather than assembled twice at the call site, because a passage
 // whose page is not in the provenance list — or the reverse — is a document nobody can account for.
+//
+// EXACTLY ONE PAGE PER INDEX. The engines report page indexes and nothing downstream re-checks them: a
+// `chunkId` is `page-<index>`, so a repeated index becomes two passages sharing one chunk id handed to
+// the index, and two provenance rows for one page. If one of the duplicates carried lines and the other
+// did not, the provenance list would hold `{page: 7, hasText: true}` and `{page: 7, hasText: false}` at
+// once — two answers to a question the corpus report exists to answer once. A retry inside the
+// recognition container, a page split across two result records, or a plain engine bug is enough to
+// produce it, so the assembly point is where it is settled rather than trusted.
+//
+// The kept entry is the one with lines, and `native` wins a tie — the document's own text layer is the
+// exact characters the author typed, where recognition is a reading of a picture of them.
 export function extractedFromPages(pages: readonly ExtractedPage[]): TextExtractionResult {
-  const ordered = [...pages].sort((left, right) => left.pageIndex - right.pageIndex);
+  const byPageIndex = new Map<number, ExtractedPage>();
+  for (const page of pages) {
+    // A negative index would become page 0 in a passage, which is not a page anyone can turn to.
+    if (!Number.isInteger(page.pageIndex) || page.pageIndex < 0) continue;
+    const held = byPageIndex.get(page.pageIndex);
+    if (held === undefined || preferredPage(held, page) === page) {
+      byPageIndex.set(page.pageIndex, page);
+    }
+  }
+  const ordered = [...byPageIndex.values()].sort((left, right) => left.pageIndex - right.pageIndex);
   const passages = passagesFromPages(ordered);
   const withText = new Set(passages.map((passage) => passage.chunkId));
   return extracted(
@@ -120,4 +146,16 @@ export function extractedFromPages(pages: readonly ExtractedPage[]): TextExtract
       hasText: withText.has(`page-${page.pageIndex}`),
     })),
   );
+}
+
+// Which of two readings of the same page to keep. Text beats no text, then native beats ocr; failing
+// both, the one already held stays, so the choice is deterministic rather than arrival-ordered.
+function preferredPage(held: ExtractedPage, candidate: ExtractedPage): ExtractedPage {
+  const heldHasText = held.lines.some((line) => line.text.trim() !== "");
+  const candidateHasText = candidate.lines.some((line) => line.text.trim() !== "");
+  if (heldHasText !== candidateHasText) return heldHasText ? held : candidate;
+  if (held.provenance !== candidate.provenance) {
+    return held.provenance === "native" ? held : candidate;
+  }
+  return held;
 }

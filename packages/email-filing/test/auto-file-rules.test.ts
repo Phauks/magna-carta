@@ -53,6 +53,9 @@ function evidence(overrides: Partial<AutoFileEvidence> = {}): AutoFileEvidence {
     existingLinks: [],
     dkimVerdict: "pass",
     dkimVerifiedDomain: "opposing.example",
+    // The ordinary case: the signature covered the whole body. A signature carrying `l=` covers only a
+    // prefix, and the cases that exercise that are explicit about it.
+    dkimBodyFullyCovered: true,
     capturedVia: "addin",
     targetMatters: [{ matterId: MATTER, status: "open", systemOwned: false }],
     conflictHold: false,
@@ -499,5 +502,96 @@ describe("failing closed", () => {
   it("never throws on a malformed input", () => {
     expect(() => resolveAutoFileDecision(null as unknown as AutoFileEvidence)).not.toThrow();
     expect(resolveAutoFileDecision(null as unknown as AutoFileEvidence).outcome).toBe("noRule");
+  });
+});
+
+describe("a signature that covered only part of the body", () => {
+  // With l= the signature covers a prefix and the rest is unsigned, so a legitimately signed message
+  // can be replayed with arbitrary content appended and still verify. The appended part is the
+  // attacker's, which is exactly what a sender-identity rule must not file unattended.
+  it("does not authenticate the sender for a correspondentMatter rule", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({
+        matchedRules: [senderRule()],
+        threadMatterIds: [],
+        dkimBodyFullyCovered: false,
+      }),
+    );
+    expect(decision.outcome).toBe("noRule");
+    expect(decision.suppressionReason).toBe("senderNotAuthenticated");
+  });
+
+  it("still files the same rule when the signature covered the whole body", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({
+        matchedRules: [senderRule()],
+        threadMatterIds: [],
+        dkimBodyFullyCovered: true,
+      }),
+    );
+    expect(decision.outcome).toBe("file");
+  });
+
+  // A thread rule rests on knowing a Message-ID the firm holds, not on who sent the message, so the
+  // body-coverage question does not bind there.
+  it("does not bind a threadContinuation rule", () => {
+    const decision = resolveAutoFileDecision(evidence({ dkimBodyFullyCovered: false }));
+    expect(decision.outcome).toBe("file");
+  });
+});
+
+describe("a conflict hold is always stated", () => {
+  // The outcome is `stage` either way; the explanation is the whole product of this function, and a
+  // reader asking "why is this staged" must not be told only about the rule's posture when a conflict
+  // check is also holding it.
+  it("names the conflict even when another demotion won the ladder", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({ matchedRules: [threadRule({ promotion: "stage" })], conflictHold: true }),
+    );
+    expect(decision.outcome).toBe("stage");
+    expect(decision.demotionReason).toBe("rulePosture");
+    expect(decision.reasons).toContain("A conflict check held the filing for review.");
+  });
+
+  it("does not say it twice when the conflict hold is itself the demotion", () => {
+    const decision = resolveAutoFileDecision(evidence({ conflictHold: true }));
+    expect(decision.demotionReason).toBe("conflictHold");
+    const held = decision.reasons.filter(
+      (reason) => reason === "A conflict check held the filing for review.",
+    );
+    expect(held).toHaveLength(1);
+  });
+
+  it("says nothing about a conflict when there is none", () => {
+    const decision = resolveAutoFileDecision(evidence({ conflictHold: false }));
+    expect(decision.reasons).not.toContain("A conflict check held the filing for review.");
+  });
+});
+
+describe("malformed evidence in the deciding sets", () => {
+  // The ambiguity guardrail refuses when the deciding evidence names more than one matter. Dropping a
+  // malformed entry would SHRINK that set, so a thread genuinely resolving to two matters — one of
+  // them malformed — would fire on the survivor. Unevaluable is not permission.
+  it("refuses a malformed thread matter id rather than skipping it", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({ threadMatterIds: [MATTER, ""] as unknown as readonly string[] }),
+    );
+    expect(decision.outcome).toBe("noRule");
+    expect(decision.suppressionReason).toBe("incompleteEvidence");
+  });
+
+  it("refuses a non-string subject matter id rather than skipping it", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({ subjectMatterIds: [null] as unknown as readonly string[] }),
+    );
+    expect(decision.outcome).toBe("noRule");
+    expect(decision.suppressionReason).toBe("incompleteEvidence");
+  });
+
+  it("would otherwise have fired on the surviving matter", () => {
+    // The same evidence with both ids well-formed is the ambiguity case, which is what the malformed
+    // entry must not be allowed to collapse into a single-matter firing.
+    const decision = resolveAutoFileDecision(evidence({ threadMatterIds: [MATTER, OTHER_MATTER] }));
+    expect(decision.suppressionReason).toBe("ambiguousEvidence");
   });
 });
