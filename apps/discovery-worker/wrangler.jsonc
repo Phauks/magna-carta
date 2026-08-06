@@ -1,0 +1,42 @@
+{
+  // The standalone discovery-engine worker. It owns the DiscoveryEngineContainer Durable Object
+  // (a Container-backed DO that runs the pure-Rust discovery engine on port 8080) and is reached
+  // only via a service binding from the main app worker — it has no public routes.
+  //
+  // Separate from the search container by design: extraction saturates CPU for hours during a bulk
+  // load, while the search container's premise is staying warm for sub-second queries. Sharing them
+  // would let a load make review search slow.
+  "name": "magna-carta-discovery",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The pure-Rust discovery engine Container Durable Object (Container-backed, sqlite-class).
+  // The Container runs the engine HTTP service (POST /identify|/read|/digest|/archive/enumerate|
+  // /archive/expand, GET /ready) on port 8080. Its image builds in Cloudflare Workers Builds from
+  // containers/discovery/Dockerfile with the build context set to the repo root, so the Dockerfile
+  // can COPY the shared crate deps (crates/engine-host, crates/discovery-core and the engines it
+  // stands on) that the container host path-depends on.
+  "containers": [
+    {
+      "class_name": "DiscoveryEngineContainer",
+      "image": "../../containers/discovery/Dockerfile",
+      "image_build_context": "../../",
+      // Higher than the interactive engines': a bulk load is the workload this exists for, and the
+      // queue lane feeding it is deliberately separate from every interactive ingest lane.
+      "max_instances": 20,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "DISCOVERY_ENGINE", "class_name": "DiscoveryEngineContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DiscoveryEngineContainer"] }],
+  // No cron triggers: the Container scales to zero after its sleepAfter, so it bills only while a
+  // load is actually processing. A warm-poke cron would pay for an always-on instance to save a
+  // cold start that a queue-driven bulk load never notices.
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}
