@@ -16,6 +16,7 @@ import {
   searchEngineNotImplemented,
   type SearchIndexPort,
 } from "@magna-carta/search/port";
+import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { splitIdentifierForDocumentVersion, splitObjectKey } from "@magna-carta/search/split";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
@@ -205,7 +206,7 @@ describe("searchIndexQueue — publishing and convergence", () => {
 
     expect(acks).toEqual(["msg-1"]);
     const expectedKey = splitObjectKey(
-      MATTER,
+      corpusOfMatter(MATTER),
       await splitIdentifierForDocumentVersion(message.documentId as FileId, 1),
     );
     expect((await stub.status()).objectKey).toBe(expectedKey);
@@ -236,7 +237,7 @@ describe("searchIndexQueue — publishing and convergence", () => {
     await seedJob(first);
     await searchIndexQueue(makeBatch(first).batch, env, ports(extractsTwoPages));
     const firstKey = splitObjectKey(
-      MATTER,
+      corpusOfMatter(MATTER),
       await splitIdentifierForDocumentVersion(first.documentId as FileId, 1),
     );
     // The engine port under test reports a publish without writing bytes, so stand the object up here

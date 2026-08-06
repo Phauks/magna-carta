@@ -2,10 +2,15 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import { ACCOUNT_BALANCE_TABLE, LEDGER_LINE_TABLE } from "@magna-carta/ledger/statements";
 import {
   activeTrustHoldPredicate,
+  activeTrustReconciliationMatchPredicate,
   TRUST_ACCOUNT_TABLE,
+  TRUST_BANK_STATEMENT_LINE_TABLE,
+  TRUST_BANK_STATEMENT_TABLE,
   TRUST_HOLD_TABLE,
   TRUST_LEDGER_NODE_TABLE,
   TRUST_MOVEMENT_TABLE,
+  TRUST_RECONCILIATION_MATCH_TABLE,
+  TRUST_RECONCILIATION_TABLE,
 } from "./statements.ts";
 
 // Fitness queries: re-prove the trust invariants over the WHOLE table. Zero rows = healthy.
@@ -102,6 +107,58 @@ export function trustTransfersMissingCounterpartyLineStatement(
     .bind();
 }
 
+// ONE STATEMENT LINE CLEARS ONCE, AND SO DOES ONE ENTRY. The one-to-one rule is checked by the
+// composer and cannot be a UNIQUE index, because a match's active state is derived from the absence
+// of a withdrawal row rather than stored in a column. Two active matches on the same line — or on
+// the same entry — would let a firm's reconciliation account for one real event twice, and a proof
+// built on that ties out while the bank and the ledger disagree.
+export function trustReconciliationDoubleMatchesStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT reconciliation_id, side, matched_key, matches FROM (SELECT x.reconciliation_id AS reconciliation_id, 'statement line' AS side, x.statement_line_id AS matched_key, COUNT(*) AS matches FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE ${activeTrustReconciliationMatchPredicate("x")} GROUP BY x.reconciliation_id, x.statement_line_id UNION ALL SELECT x.reconciliation_id, 'ledger entry', x.entry_id, COUNT(*) FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE ${activeTrustReconciliationMatchPredicate("x")} GROUP BY x.reconciliation_id, x.entry_id) WHERE matches > 1`,
+    )
+    .bind();
+}
+
+// A MATCH STAYS INSIDE THE PERIOD IT BELONGS TO. The migration's triggers refuse a line from another
+// statement at insert; this re-proves it over stored rows, because a trigger dropped by a future
+// table rebuild is a control that silently stops existing.
+export function trustReconciliationMatchesOffStatementStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT x.id AS match_id FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x JOIN ${TRUST_RECONCILIATION_TABLE} r ON r.id = x.reconciliation_id JOIN ${TRUST_BANK_STATEMENT_LINE_TABLE} l ON l.id = x.statement_line_id WHERE l.statement_id <> r.statement_id`,
+    )
+    .bind();
+}
+
+// A CLOSED RECONCILIATION'S FROZEN PROOF IS ARITHMETICALLY WHAT IT CLAIMS. The adjusted bank figure
+// is the statement's closing balance plus deposits in transit less outstanding disbursements, and
+// `frozen_balanced` says the three legs agreed. A row where those do not hold together is a frozen
+// attestation that contradicts itself, which is worse than an honest red: it is a number a firm
+// would file.
+export function trustReconciliationsWithIncoherentProofStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT r.id AS reconciliation_id FROM ${TRUST_RECONCILIATION_TABLE} r WHERE r.status = 'closed' AND (r.frozen_adjusted_bank_minor <> r.frozen_statement_closing_minor + r.frozen_outstanding_deposits_minor - r.frozen_outstanding_disbursements_minor OR (r.frozen_balanced = 1 AND (r.frozen_adjusted_bank_minor <> r.frozen_book_balance_minor OR r.frozen_book_balance_minor <> r.frozen_client_total_minor)) OR (r.frozen_balanced = 0 AND r.frozen_adjusted_bank_minor = r.frozen_book_balance_minor AND r.frozen_book_balance_minor = r.frozen_client_total_minor))`,
+    )
+    .bind();
+}
+
+// A RECONCILIATION AND ITS STATEMENT ARE ABOUT THE SAME ACCOUNT. Nothing composes one that is not,
+// but a reconciliation whose statement belongs elsewhere would prove one account's bank balance
+// against another's client ledgers and could report that as balanced.
+export function trustReconciliationsCrossingAccountsStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT r.id AS reconciliation_id FROM ${TRUST_RECONCILIATION_TABLE} r JOIN ${TRUST_BANK_STATEMENT_TABLE} s ON s.id = r.statement_id WHERE s.trust_account_id <> r.trust_account_id`,
+    )
+    .bind();
+}
+
 const FITNESS_STATEMENTS = [
   ["commingled trust entries", commingledTrustEntriesStatement],
   ["entries touching more than one client", multiClientTrustEntriesStatement],
@@ -112,6 +169,19 @@ const FITNESS_STATEMENTS = [
   [
     "matter transfers missing their destination line",
     trustTransfersMissingCounterpartyLineStatement,
+  ],
+  ["statement lines or entries matched more than once", trustReconciliationDoubleMatchesStatement],
+  [
+    "reconciliation matches naming another statement's line",
+    trustReconciliationMatchesOffStatementStatement,
+  ],
+  [
+    "closed reconciliations whose frozen proof contradicts itself",
+    trustReconciliationsWithIncoherentProofStatement,
+  ],
+  [
+    "reconciliations whose statement belongs to another account",
+    trustReconciliationsCrossingAccountsStatement,
   ],
 ] as const;
 

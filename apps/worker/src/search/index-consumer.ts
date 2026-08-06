@@ -4,6 +4,7 @@ import {
   replaceDocumentSplitStatements,
 } from "@magna-carta/data-access/index-split-statements";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { TextExtractionPort } from "@magna-carta/search/extraction";
 import type { SearchIndexPort } from "@magna-carta/search/port";
 import { splitIdentifierForDocumentVersion, splitObjectKey } from "@magna-carta/search/split";
@@ -104,15 +105,20 @@ export async function indexOne(
 
   const documentId = message.documentId as FileId;
   const matterId = message.matterId as MatterId;
+  // The corpus this document is indexed into. A document that arrives through this consumer arrives
+  // because it was committed to a matter, and a matter's corpus is the matter — the identity mapping.
+  // Past this line the pipeline knows only "a corpus", which is what lets a second kind of corpus feed
+  // the same consumer without moving a published split.
+  const corpus = corpusOfMatter(matterId);
   const splitId: IndexSplitId = await splitIdentifierForDocumentVersion(
     documentId,
     message.version,
   );
-  const objectKey = splitObjectKey(matterId, splitId);
+  const objectKey = splitObjectKey(corpus, splitId);
 
   const built = await ports.index.index({
     firmId: message.firmId as FirmId,
-    matterId,
+    corpus,
     documentId,
     version: message.version,
     objectKey,
@@ -142,6 +148,10 @@ export async function indexOne(
     {
       statements: replaceDocumentSplitStatements(database, {
         id: splitId,
+        // The catalog is still keyed by matter. It is the one part of the scope that costs a per-firm
+        // schema change to widen, and unlike the object key it costs the same whenever it is done — the
+        // rows are a rebuildable index of derived objects, not the objects themselves. It widens with
+        // the corpus kind that first needs it.
         matterId,
         documentId,
         version: message.version,

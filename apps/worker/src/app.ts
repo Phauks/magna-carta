@@ -20,6 +20,8 @@ import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
+import { registerBillingRoutes } from "./routes/billing.ts";
+import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
 import { registerTrustRoutes } from "./routes/trust.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTemplatesRoutes } from "./routes/templates.ts";
@@ -30,6 +32,7 @@ import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categ
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
+import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
@@ -548,6 +551,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // The conflicts-of-interest check surface: run a check against the directory corpus, read a
   // completed check back with its hits, and record a reviewer's disposition of a hit.
   registerConflictsRoutes(app, chokepoint);
+  // The case calendar: litigation events and deadlines recorded here, plus the matter timeline that
+  // federates them with what every other subsystem already recorded — read in place, never copied.
+  registerCalendarRoutes(app, chokepoint);
   // Custodian — the register of physical client originals the firm holds in safekeeping: the
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.
@@ -560,6 +566,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // Trust accounting movements: client money into a matter's trust ledger, out of it, and
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);
+  registerTrustReconciliationRoutes(app, chokepoint);
+  // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
+  // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
+  registerBillingRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

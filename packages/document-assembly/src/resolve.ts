@@ -57,16 +57,20 @@ import {
 // template version uses, so the reads are PLANNED before any value is touched.
 
 // The dictionary version the resolver was built against, recorded on the provenance row beside the
-// engine version so a document assembled today stays explicable after the dictionary grows.
-export const DICTIONARY_VERSION = 1;
+// engine version so a document assembled today stays explicable after the dictionary grows. Its home is
+// catalog/revision.ts, beside the catalogue whose version it names.
+export { DICTIONARY_VERSION, mergeFieldCatalogRevision } from "./catalog/revision.ts";
 
-// The time zone a document's dates render in. The design's rule is the MATTER'S OFFICE'S zone, never the
-// server's and never the acting member's, so a filing date is the date it was in the office that filed
-// it. The Locations model carries no time-zone column yet, so every office resolves to the platform's
-// normalized zone today; this function is the one place that column plugs in when Locations gains it,
-// rather than a default scattered through the formatters.
-export function timeZoneForLocation(_location: LocationMergeRow | undefined): string {
-  return "UTC";
+// The time zone a document's dates render in: the MATTER'S OFFICE'S zone, never the server's and
+// never the acting member's, so a filing date is the date it was in the office that filed it.
+//
+// This is the ONE place the office's zone enters the platform, rather than a default scattered
+// through the formatters. An office that carries no zone — one recorded before the column existed —
+// falls back to the platform's normalized zone, which is what every office resolved to before: a
+// document that rendered correctly yesterday renders identically today.
+export function timeZoneForLocation(location: LocationMergeRow | undefined): string {
+  const recorded = location?.timeZone;
+  return recorded === null || recorded === undefined || recorded.length === 0 ? "UTC" : recorded;
 }
 
 // How the caller fetches an asset's bytes. Injected rather than imported: the bytes live in the firm's
@@ -178,7 +182,17 @@ function valuesFromMatter(matter: MatterMergeRow, into: Map<string, MergeValue>)
   set("matter.status", textValue(matter.status));
   set("matter.openedOn", instantValue(matter.openedAt));
   set("matter.eBilling", { kind: "boolean", value: matter.eBilling !== 0 });
-  set("client.displayName", textValue(matter.clientDisplayName));
+  // The client's name arrives as a NAME with only its display part: the matter's own row records the
+  // string, not the Directory record's separated parts and not whether the client is a person or an
+  // organisation. So the default rendering is exactly what it always was, and a rendering that needs a
+  // part — surname first, initials — is a declared absence naming the missing part rather than a guess
+  // made from a string that happens to contain a space.
+  set(
+    "client.displayName",
+    matter.clientDisplayName === null || matter.clientDisplayName === ""
+      ? undefined
+      : { kind: "name", display: matter.clientDisplayName },
+  );
   set("client.code", textValue(matter.clientCode));
 }
 

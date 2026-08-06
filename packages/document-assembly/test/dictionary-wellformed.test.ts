@@ -27,7 +27,7 @@ describe("dictionary well-formedness (fitness)", () => {
   // repeating block walks rather than writes, and an `image`, which REPLACES its placeholder with a
   // drawing. Both are carved out explicitly rather than by loosening the rule, so a scalar entry that
   // lost its default format still fails here.
-  const UNRENDERED: readonly string[] = new Set(["list", "image"]);
+  const UNRENDERED: ReadonlySet<string> = new Set(["list", "image"]);
   const RENDERED = DICTIONARY.filter((entry) => !UNRENDERED.has(entry.valueType));
 
   it("every entry that a document renders declares a default format its own value type supports", () => {
@@ -70,6 +70,19 @@ describe("dictionary well-formedness (fitness)", () => {
   it("every entry carries a description the field inspector can show", () => {
     for (const entry of DICTIONARY) {
       expect(entry.description.length, entry.key).toBeGreaterThan(10);
+    }
+  });
+
+  it("every entry carries the presentation metadata a picker row is built from", () => {
+    // The dictionary is the ONE home and the read contract is its projection. An entry missing a label
+    // or a group is an entry the picker would have to invent one for — which is how a second catalogue
+    // with its own way of being wrong gets started.
+    for (const entry of DICTIONARY) {
+      expect(entry.label.length, entry.key).toBeGreaterThan(0);
+      expect(entry.group.length, entry.key).toBeGreaterThan(0);
+      expect(entry.subject.length, entry.key).toBeGreaterThan(0);
+      expect(["primary", "secondary"], entry.key).toContain(entry.prominence);
+      expect(Array.isArray(entry.synonyms), entry.key).toBe(true);
     }
   });
 

@@ -4,20 +4,32 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustBankStatementId,
+  TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
+  TrustReconciliationId,
+  TrustReconciliationMatchId,
   TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { ACCOUNT_BALANCE_TABLE, MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
+import {
+  ACCOUNT_BALANCE_TABLE,
+  LEDGER_ENTRY_TABLE,
+  LEDGER_LINE_TABLE,
+  MAX_BOUND_PARAMETERS,
+} from "@magna-carta/ledger/statements";
 import { assertSafeInteger } from "@magna-carta/money/money";
 import type {
+  TrustBankStatementLineDirection,
+  TrustBankStatementSource,
   TrustDisbursementAuthorizationBasis,
   TrustDisbursementDecisionKind,
   TrustDisbursementMethod,
+  TrustFrozenProof,
   TrustMovementKind,
   TrustMovementMethod,
   TrustNodeKind,
@@ -31,6 +43,10 @@ export const TRUST_TRANSFER_TABLE = "trust_transfer";
 export const TRUST_MOVEMENT_TABLE = "trust_movement";
 export const TRUST_DISBURSEMENT_REQUEST_TABLE = "trust_disbursement_request";
 export const TRUST_DISBURSEMENT_DECISION_TABLE = "trust_disbursement_decision";
+export const TRUST_BANK_STATEMENT_TABLE = "trust_bank_statement";
+export const TRUST_BANK_STATEMENT_LINE_TABLE = "trust_bank_statement_line";
+export const TRUST_RECONCILIATION_TABLE = "trust_reconciliation";
+export const TRUST_RECONCILIATION_MATCH_TABLE = "trust_reconciliation_match";
 
 // The capability a member must hold to submit or approve a trust disbursement. Spelled here as a
 // literal because the value it has to agree with is the one baked into the sole-authorizer trigger
@@ -528,4 +544,357 @@ export function selectActiveTrustManagerCountStatement(database: SqlDatabase): S
   return database.prepare(
     `SELECT COUNT(*) AS manager_count FROM (SELECT mr.member_user_id AS user_id FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active')`,
   );
+}
+
+// A ceiling on every reconciliation read. A month of activity on one trust account is hundreds of
+// items, not thousands; this exists so a runaway period truncates to an obviously-short answer
+// instead of pulling an unbounded result set into a request handler.
+export const MAX_TRUST_RECONCILIATION_ROWS = 5_000;
+
+export interface InsertTrustBankStatementRow {
+  readonly id: TrustBankStatementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly openingBalanceMinor: number;
+  readonly closingBalanceMinor: number;
+  readonly currency: string;
+  readonly statementReference: string | null;
+  readonly source: TrustBankStatementSource;
+  readonly supersedesStatementId: TrustBankStatementId | null;
+  readonly recordedBy: UserId;
+  readonly recordedAt: string;
+}
+
+// The bank's own figures. The two balances are SIGNED and asserted only as safe integers, never as
+// positive: a trust bank account really can be overdrawn, and refusing to record that would refuse
+// to record the exact condition a reconciliation exists to surface.
+export function insertTrustBankStatementStatement(
+  database: SqlDatabase,
+  row: InsertTrustBankStatementRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_BANK_STATEMENT_TABLE} (id, trust_account_id, period_start, period_end, opening_balance_minor, closing_balance_minor, currency, statement_reference, source, supersedes_statement_id, recorded_by, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.periodStart,
+      row.periodEnd,
+      assertMinorUnits(row.openingBalanceMinor, "statement opening_balance_minor"),
+      assertMinorUnits(row.closingBalanceMinor, "statement closing_balance_minor"),
+      row.currency,
+      row.statementReference,
+      row.source,
+      row.supersedesStatementId,
+      row.recordedBy,
+      row.recordedAt,
+    );
+}
+
+const BANK_STATEMENT_COLUMNS = `id, trust_account_id, period_start, period_end, opening_balance_minor, closing_balance_minor, currency, statement_reference, source, supersedes_statement_id, recorded_by, recorded_at`;
+
+export function selectTrustBankStatementStatement(
+  database: SqlDatabase,
+  statementId: TrustBankStatementId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT ${BANK_STATEMENT_COLUMNS} FROM ${TRUST_BANK_STATEMENT_TABLE} WHERE id = ?1`)
+    .bind(statementId);
+}
+
+// The statements recorded for one account, most recent period first — what a member picks from when
+// starting a reconciliation.
+export function selectTrustBankStatementsForAccountStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${BANK_STATEMENT_COLUMNS} FROM ${TRUST_BANK_STATEMENT_TABLE} WHERE trust_account_id = ?1 ORDER BY period_end DESC, id LIMIT ?2`,
+    )
+    .bind(trustAccountId, limit);
+}
+
+export interface InsertTrustBankStatementLineRow {
+  readonly id: TrustBankStatementLineId;
+  readonly statementId: TrustBankStatementId;
+  readonly postedOn: string;
+  readonly direction: TrustBankStatementLineDirection;
+  readonly amountMinor: number;
+  readonly description: string;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+  readonly sourceRowNumber: number | null;
+  readonly recordedAt: string;
+}
+
+export function insertTrustBankStatementLineStatement(
+  database: SqlDatabase,
+  row: InsertTrustBankStatementLineRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_BANK_STATEMENT_LINE_TABLE} (id, statement_id, posted_on, direction, amount_minor, description, reference, counterparty_name, source_row_number, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+    )
+    .bind(
+      row.id,
+      row.statementId,
+      row.postedOn,
+      row.direction,
+      assertMinorUnits(row.amountMinor, "statement line amount_minor"),
+      row.description,
+      row.reference,
+      row.counterpartyName,
+      row.sourceRowNumber,
+      row.recordedAt,
+    );
+}
+
+const BANK_STATEMENT_LINE_COLUMNS = `id, statement_id, posted_on, direction, amount_minor, description, reference, counterparty_name, source_row_number`;
+
+export function selectTrustBankStatementLinesStatement(
+  database: SqlDatabase,
+  statementId: TrustBankStatementId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${BANK_STATEMENT_LINE_COLUMNS} FROM ${TRUST_BANK_STATEMENT_LINE_TABLE} WHERE statement_id = ?1 ORDER BY posted_on, id LIMIT ?2`,
+    )
+    .bind(statementId, limit);
+}
+
+export interface InsertTrustReconciliationRow {
+  readonly id: TrustReconciliationId;
+  readonly trustAccountId: TrustAccountId;
+  readonly statementId: TrustBankStatementId;
+  readonly openedBy: UserId;
+  readonly openedAt: string;
+  readonly supersedesReconciliationId: TrustReconciliationId | null;
+  readonly note: string | null;
+}
+
+// Opened, and carrying no proof at all. Every frozen column stays null until the close writes them,
+// which the table's shape CHECK states rather than leaving to this composer to remember.
+export function insertTrustReconciliationStatement(
+  database: SqlDatabase,
+  row: InsertTrustReconciliationRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_RECONCILIATION_TABLE} (id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_balanced, supersedes_reconciliation_id, note) VALUES (?1, ?2, ?3, 'open', ?4, ?5, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?6, ?7)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.statementId,
+      row.openedBy,
+      row.openedAt,
+      row.supersedesReconciliationId,
+      row.note,
+    );
+}
+
+const RECONCILIATION_COLUMNS = `id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_balanced, supersedes_reconciliation_id, note`;
+
+export function selectTrustReconciliationStatement(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT ${RECONCILIATION_COLUMNS} FROM ${TRUST_RECONCILIATION_TABLE} WHERE id = ?1`)
+    .bind(reconciliationId);
+}
+
+export function selectTrustReconciliationsForAccountStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${RECONCILIATION_COLUMNS} FROM ${TRUST_RECONCILIATION_TABLE} WHERE trust_account_id = ?1 ORDER BY opened_at DESC, id LIMIT ?2`,
+    )
+    .bind(trustAccountId, limit);
+}
+
+// THE FREEZE. The `status = 'open'` guard rides the write because D1 has no interactive
+// transaction: a second close arriving concurrently matches zero rows and changes nothing rather
+// than overwriting the proof the first one froze. The migration's triggers make the same rule
+// structural — a closed row refuses every further update — so this guard is the nicer error in front
+// of the real mechanism, never the mechanism itself.
+export function closeTrustReconciliationStatement(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+  proof: TrustFrozenProof,
+  closedBy: UserId,
+  closedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TRUST_RECONCILIATION_TABLE} SET status = 'closed', closed_by = ?2, closed_at = ?3, frozen_statement_closing_minor = ?4, frozen_outstanding_deposits_minor = ?5, frozen_outstanding_disbursements_minor = ?6, frozen_adjusted_bank_minor = ?7, frozen_book_balance_minor = ?8, frozen_client_total_minor = ?9, frozen_unmatched_line_count = ?10, frozen_unmatched_movement_count = ?11, frozen_balanced = ?12 WHERE id = ?1 AND status = 'open'`,
+    )
+    .bind(
+      reconciliationId,
+      closedBy,
+      closedAt,
+      assertMinorUnits(proof.statementClosingMinor, "frozen statement_closing_minor"),
+      assertMinorUnits(proof.outstandingDepositsMinor, "frozen outstanding_deposits_minor"),
+      assertMinorUnits(
+        proof.outstandingDisbursementsMinor,
+        "frozen outstanding_disbursements_minor",
+      ),
+      assertMinorUnits(proof.adjustedBankMinor, "frozen adjusted_bank_minor"),
+      assertMinorUnits(proof.bookBalanceMinor, "frozen book_balance_minor"),
+      assertMinorUnits(proof.clientLedgerTotalMinor, "frozen client_total_minor"),
+      proof.unmatchedLineCount,
+      proof.unmatchedItemCount,
+      proof.balanced ? 1 : 0,
+    );
+}
+
+export interface InsertTrustReconciliationMatchRow {
+  readonly id: TrustReconciliationMatchId;
+  readonly reconciliationId: TrustReconciliationId;
+  readonly statementLineId: TrustBankStatementLineId;
+  readonly entryId: LedgerEntryId;
+  readonly unmatchesMatchId: TrustReconciliationMatchId | null;
+  readonly matchedBy: UserId;
+  readonly matchedAt: string;
+}
+
+// A person's assertion, written by a person's act. There is no code path anywhere that composes one
+// of these from a suggestion without a caller naming both ends.
+export function insertTrustReconciliationMatchStatement(
+  database: SqlDatabase,
+  row: InsertTrustReconciliationMatchRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_RECONCILIATION_MATCH_TABLE} (id, reconciliation_id, statement_line_id, entry_id, unmatches_match_id, matched_by, matched_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    )
+    .bind(
+      row.id,
+      row.reconciliationId,
+      row.statementLineId,
+      row.entryId,
+      row.unmatchesMatchId,
+      row.matchedBy,
+      row.matchedAt,
+    );
+}
+
+// A match is active when it is an assertion and no row withdraws it — status DERIVED from the link,
+// exactly as an active hold is. Written once, as a predicate over a match alias, because every
+// reader of "what is still matched" has to agree on it: the unmatched-line list, the outstanding
+// item list, and the fitness query that re-proves both.
+export function activeTrustReconciliationMatchPredicate(matchAlias: string): string {
+  return `${matchAlias}.unmatches_match_id IS NULL AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} w WHERE w.unmatches_match_id = ${matchAlias}.id)`;
+}
+
+// The stronger predicate the OUTSTANDING read uses: active, and belonging to a reconciliation
+// nothing supersedes. A closed reconciliation's matches are frozen and can never be withdrawn, so
+// without this a match that turned out to be wrong would suppress its item from every future
+// outstanding list forever. Superseding the reconciliation is the remedy, and this is what makes it
+// one: the replacement re-asserts the matches that were right and simply omits the one that was not.
+export function bindingTrustReconciliationMatchPredicate(matchAlias: string): string {
+  return `${activeTrustReconciliationMatchPredicate(matchAlias)} AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_TABLE} s WHERE s.supersedes_reconciliation_id = ${matchAlias}.reconciliation_id)`;
+}
+
+const RECONCILIATION_MATCH_COLUMNS = `x.id, x.reconciliation_id, x.statement_line_id, x.entry_id, x.unmatches_match_id, x.matched_by, x.matched_at`;
+
+export function selectTrustReconciliationMatchStatement(
+  database: SqlDatabase,
+  matchId: TrustReconciliationMatchId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${RECONCILIATION_MATCH_COLUMNS}, (SELECT w.id FROM ${TRUST_RECONCILIATION_MATCH_TABLE} w WHERE w.unmatches_match_id = x.id) AS unmatched_by_match_id FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.id = ?1`,
+    )
+    .bind(matchId);
+}
+
+// What one reconciliation still holds matched, oldest first.
+export function selectActiveTrustReconciliationMatchesStatement(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${RECONCILIATION_MATCH_COLUMNS}, NULL AS unmatched_by_match_id FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.reconciliation_id = ?1 AND ${activeTrustReconciliationMatchPredicate("x")} ORDER BY x.matched_at, x.id LIMIT ?2`,
+    )
+    .bind(reconciliationId, limit);
+}
+
+// The statement lines this reconciliation has not tied to anything. Scoped to THIS reconciliation —
+// unlike the outstanding-item read, which asks whether an item has reached any statement at all —
+// because the proof is about one period and a line's fate in some other reconciliation says nothing
+// about whether this one accounted for it.
+export function selectUnmatchedTrustBankStatementLinesStatement(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+  statementId: TrustBankStatementId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${BANK_STATEMENT_LINE_COLUMNS} FROM ${TRUST_BANK_STATEMENT_LINE_TABLE} l WHERE l.statement_id = ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.statement_line_id = l.id AND x.reconciliation_id = ?1 AND ${activeTrustReconciliationMatchPredicate("x")}) ORDER BY l.posted_on, l.id LIMIT ?3`,
+    )
+    .bind(reconciliationId, statementId, limit);
+}
+
+// THE BOOK LEG, as of a civil date. The trust bank account is an asset, so a debit adds; summing
+// every line on it up to the period end reproduces exactly, and keeps reproducing, because reports
+// read `effective_date` and a reversal is its own dated entry rather than an edit. Deliberately not
+// the stored `account_balance`, which is a live figure with no as-of.
+export function selectTrustBookBalanceAsOfStatement(
+  database: SqlDatabase,
+  bankLedgerAccountId: LedgerAccountId,
+  asOfDate: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS balance_minor FROM ${LEDGER_LINE_TABLE} l JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE l.account_id = ?1 AND e.effective_date <= ?2`,
+    )
+    .bind(bankLedgerAccountId, asOfDate);
+}
+
+// THE CLIENT LEG, as of the same date: every ledger account the sub-ledger tree names under this
+// trust account, summed in liability terms. It walks the nodes rather than reading any parent's
+// stored balance, because a roll-up's stored balance stays at zero forever and reading one would
+// silently report that the clients hold nothing.
+export function selectTrustClientLedgerTotalAsOfStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  asOfDate: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND e.effective_date <= ?2`,
+    )
+    .bind(trustAccountId, asOfDate);
+}
+
+// THE OUTSTANDING ITEMS: everything the firm recorded on or before the period end that moved this
+// account's bank balance and that no binding match ties to a statement line. Keyed by the LEDGER
+// ENTRY, so an earned-fee transfer out of trust — which records a trust_transfer and no movement row
+// at all — appears here exactly as a disbursement does. The movement and transfer records are
+// LEFT-joined for display; an item with neither would be an entry that reached the trust bank
+// without any trust record beside it, which the fitness suite treats as corruption rather than as a
+// row to hide.
+export function selectOutstandingTrustBankItemsStatement(
+  database: SqlDatabase,
+  bankLedgerAccountId: LedgerAccountId,
+  asOfDate: string,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.description AS description, SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor, m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id FROM ${LEDGER_ENTRY_TABLE} e JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.entry_id = e.id AND ${bindingTrustReconciliationMatchPredicate("x")}) GROUP BY e.id, e.effective_date, e.description, m.id, m.kind, m.reference, m.counterparty_name, t.id ORDER BY e.effective_date, e.id LIMIT ?3`,
+    )
+    .bind(bankLedgerAccountId, asOfDate, limit);
 }

@@ -102,6 +102,26 @@ export const PROBLEM_TYPES = {
   // row at a time. DISTINCT from `validation` (request-shape): the request is well formed and the
   // caller is entitled to make it — the count it names is over, so a client offers to open a new one.
   "custody-stocktake-closed": "custody-stocktake-closed",
+  // A calendar window or deadline horizon wider than one read is allowed to be (HTTP 422). A
+  // REFUSAL and deliberately not a silent clamp: a caller that asked for three years and quietly
+  // received one cannot tell that from a firm with nothing recorded in years two and three, so the
+  // page would be a wrong answer that looks like a right one. DISTINCT from `validation` — the
+  // request is well-formed and the dates are real; the span is one the platform will not serve.
+  "calendar-window-too-wide": "calendar-window-too-wide",
+  // A deadline sourced from a statutory catalog when none is encoded (HTTP 422). The columns exist
+  // and the shape is reserved, but no jurisdiction has verified rules encoded, and a deadline
+  // claiming a catalog authority nobody consulted is exactly the false confidence that makes a
+  // computed date worse than no date. Fixed by researching and verifying a jurisdiction, never by
+  // the caller rewriting the request — which is why it is not `validation`.
+  "calendar-deadline-catalog-unavailable": "calendar-deadline-catalog-unavailable",
+  // A write against a deadline that is no longer open (HTTP 409): satisfying, editing, vacating, or
+  // superseding one already satisfied, vacated, or superseded. A settled deadline is superseded by a
+  // new one rather than re-decided, so both stay on the record.
+  "calendar-deadline-settled": "calendar-deadline-settled",
+  // An attempt to rename or recode an event type that ships with the platform (HTTP 422). A platform
+  // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
+  // deactivates the shipped one, which changes nothing for anybody else.
+  "calendar-platform-type-immutable": "calendar-platform-type-immutable",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
@@ -174,6 +194,31 @@ export const PROBLEM_TYPES = {
   // is the point of the control, so this is not a permission failure — the member holds the
   // capability; they are the wrong person for this particular act.
   "trust-disbursement-authorization-refused": "trust-disbursement-authorization-refused",
+  // A write against a reconciliation that has already closed (HTTP 409): a second close, a match, or
+  // a withdrawal. Closing a reconciliation freezes the proof it attested to, and the frozen figures
+  // never change afterwards — so a period redone later is a NEW reconciliation superseding the old
+  // one, never an edit. DISTINCT from `conflict` in that nothing is retryable: the caller opens a
+  // new reconciliation, or reads the one that was frozen.
+  "trust-reconciliation-closed": "trust-reconciliation-closed",
+  // Something the reconciliation has already accounted for (HTTP 409): a statement line or a ledger
+  // entry that is already matched in this reconciliation, a match that was already withdrawn, or a
+  // bank statement that has already been superseded by a correction. One line clears one entry, so
+  // a second assertion about either end is refused rather than silently ignored — two active matches
+  // would let a firm account for one real event twice and still appear to tie out.
+  "trust-reconciliation-already-accounted-for": "trust-reconciliation-already-accounted-for",
+  // A statement file that cannot be imported as it stands (HTTP 422): columns nothing recognized, a
+  // file that changed between being previewed and being confirmed, or a file in which no row could
+  // be read at all. DISTINCT from `validation` (request-shape) — the request is well-formed; the
+  // FILE is what cannot be carried across, and the detail names the headers found, the fingerprint
+  // that no longer matches, or how many rows were rejected. Nothing is ever stored from a file the
+  // firm has not confirmed, and no date is ever reinterpreted under a convention nobody stated.
+  "trust-statement-import-refused": "trust-statement-import-refused",
+  // Something the trust rules refuse about a bank statement, a match, or a reconciliation on their
+  // own terms (HTTP 422): a statement line dated outside the period it is filed under, a currency
+  // the account does not hold, a statement with no lines, or a ledger entry that is not an
+  // outstanding item on this account as of the period. DISTINCT from `validation` — the request is
+  // well-formed; the record it describes is not one the rules permit.
+  "trust-reconciliation-refused": "trust-reconciliation-refused",
   // A matter close refused by one of the rules the close hook runs (HTTP 409). Today the only such
   // rule is trust's: a matter whose client trust ledger still holds money, or carries an active
   // disputed-funds hold, does not close — a closed matter with somebody else's money in it is how
@@ -181,6 +226,28 @@ export const PROBLEM_TYPES = {
   // which nothing but time fixes): here the matter is closable and something specific stands in the
   // way, so `errors[]` names each rule that refused and what clears it.
   "matter-close-refused": "matter-close-refused",
+  // A billing change aimed at an invoice that is no longer a working document (HTTP 409): the
+  // invoice has been finalized or voided, and its header, lines, and work-in-progress claims are
+  // frozen at the database. DISTINCT from `conflict` because nothing about waiting or retrying
+  // changes it — a finalized invoice is corrected by a credit note, which is a different operation
+  // producing a second permanent record rather than editing the first.
+  "billing-invoice-not-editable": "billing-invoice-not-editable",
+  // Two drafts reached for the same unbilled time or cost entry and this one lost (HTTP 409). The
+  // partial unique index on active claims is what arbitrates, so the loser learns it lost rather
+  // than quietly composing a line over work that belongs to somebody else's bill. The remedy is to
+  // look at the invoice that holds it, not to retry.
+  "billing-work-already-claimed": "billing-work-already-claimed",
+  // Finalization needs to know which of the firm's ledger accounts plays a posting role — the
+  // receivable, fee income, advanced client costs — and that role has not been mapped (HTTP 422).
+  // Deliberately a refusal rather than a guess: posting a real receivable into a plausible-looking
+  // account puts money in the wrong place on the firm's balance sheet, and the detail names the
+  // missing role and where to set it.
+  "billing-account-role-unmapped": "billing-account-role-unmapped",
+  // Something the billing rules refuse on their own terms (HTTP 422): a matter belonging to a
+  // different client than the invoice bills, a matter with no client party to bill, non-billable
+  // time, an empty invoice, or more claimed work than one finalize batch can carry. DISTINCT from
+  // `validation` — the request is well-formed; what it asks for is not a bill the rules permit.
+  "billing-refused": "billing-refused",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

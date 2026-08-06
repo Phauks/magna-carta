@@ -47,6 +47,8 @@ import type {
   DocumentTypeId,
   DocumentCheckoutId,
   EmailAttachmentId,
+  EmailAutoFileDecisionId,
+  EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
   EmailMessageId,
@@ -62,11 +64,18 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  InvoiceId,
+  InvoiceLineId,
+  InvoiceWipClaimId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
   LocationAddressId,
   LocationId,
+  MatterDeadlineId,
+  MatterEventId,
+  MatterEventParticipantId,
+  MatterEventTypeId,
   MatterId,
   MatterPartyId,
   MatterTypeId,
@@ -87,11 +96,15 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TrustAccountId,
+  TrustBankStatementId,
+  TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
+  TrustReconciliationId,
+  TrustReconciliationMatchId,
   TrustTransferId,
   UploadSessionId,
   UserId,
@@ -344,6 +357,12 @@ export const location = sqliteTable(
       .notNull()
       .default("active"),
     jurisdiction: text("jurisdiction"), // jurisdiction key the trust-rules catalog will key off
+    // The office's IANA time zone (America/Los_Angeles), never a fixed offset — an offset breaks
+    // across daylight saving, which is the whole reason a zone is stored instead. Nullable while
+    // offices that predate the column are filled in; timeZoneForLocation in
+    // packages/document-assembly/src/resolve.ts is the one place it enters the platform, so a null
+    // resolves to the platform-normalized zone in exactly one spot rather than in every formatter.
+    timeZone: text("time_zone"),
     numberCode: text("number_code"), // short code the matter-numbering location segment renders
     addressBlock: text("address_block"), // free-text letterhead address
     footer: text("footer"), // free-text letterhead footer
@@ -968,6 +987,14 @@ export const auditLog = sqliteTable(
   (table) => [
     index("audit_log_created_at_index").on(table.createdAt),
     index("audit_log_event_index").on(table.event),
+    // A matter's own lifecycle — opened, closed, reopened — lives on two nullable `matter` columns
+    // and in this log, and nowhere else, so the matter timeline reads those three events from here
+    // over a STRICT allowlist of event keys (packages/calendar/src/sources/matter-lifecycle.ts).
+    // Leading with subject_id confines that walk to one matter; created_at then id carry the
+    // newest-first order, so the read is an index walk rather than a scan of the firm's every
+    // audited action. It is deliberately not a general timeline substrate: this table records when a
+    // row was WRITTEN, not when the thing happened.
+    index("audit_log_subject_created_id_index").on(table.subjectId, table.createdAt, table.id),
   ],
 );
 
@@ -1813,6 +1840,14 @@ export const conflictsCheck = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => [
+    // A matter's own conflicts history, newest first: leading with the matter confines the walk, and
+    // created_at then id carry the order. Without it the matter timeline's conflicts source would
+    // scan every check the firm has ever run to find the handful belonging to one matter.
+    index("conflicts_check_subject_matter_created_id_index").on(
+      table.subjectMatterId,
+      table.createdAt,
+      table.id,
+    ),
     check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
     check(
       "conflicts_check_strictness_check",
@@ -2041,6 +2076,11 @@ export const emailMatterLink = sqliteTable(
     linkedAt: text("linked_at"),
     capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
     tags: text("tags"), // JSON array of per-matter tag strings; null when none
+    // Null means a person made this link; non-null means an auto-file rule did, and names which one.
+    // The one fact every read of a link needs; everything richer is a join to the decision ledger.
+    autoFileRuleId: text("auto_file_rule_id")
+      .$type<EmailAutoFileRuleId>()
+      .references(() => emailAutoFileRule.id),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -2167,6 +2207,162 @@ export const emailCaptureAddress = sqliteTable(
   ],
 );
 
+// One typed, matter-bound, revocable delegation: a member who could have filed a class of messages by
+// hand telling the platform to do it for future ones. The kind set is CLOSED — adding a fourth is a
+// schema change on purpose, because the guardrails have to know what a rule MEANS in order to reason
+// about competing evidence, which a pattern or an expression could not tell them. A matter's capture
+// address is not mirrored here: the credential is already the rule, and a second home for that fact
+// would drift on the first token rotation.
+//
+// A rule carries two independent answers — WHICH matter (kind + match_value) and WHETHER the
+// resulting link may be `filed` rather than `staged` (promotion). Promotion is a request, never a
+// guarantee: the firm-level ceiling and every guardrail can still demote it to staging.
+export const emailAutoFileRule = sqliteTable(
+  "email_auto_file_rule",
+  {
+    id: text("id").primaryKey().$type<EmailAutoFileRuleId>(), // emailAutoFileRule_ handle
+    kind: text("kind", { enum: ["threadContinuation", "correspondentMatter"] }).notNull(),
+    // A rule always names exactly one matter. A multi-matter rule would fire several filings from one
+    // condition, multiplying a wrong rule's blast radius by the number of matters it named.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // One column whose meaning is fixed by `kind`: the normalized From address for
+    // correspondentMatter, the email_thread identifier for threadContinuation.
+    matchValue: text("match_value").notNull(),
+    promotion: text("promotion", { enum: ["stage", "file"] })
+      .notNull()
+      .default("stage"),
+    state: text("state", { enum: ["active", "suspended", "revoked"] })
+      .notNull()
+      .default("active"),
+    // Why a suspended rule is out of service. Suspension is never deletion: a suspended rule with its
+    // history explains what had been filing, and a deleted one leaves the firm unable to say.
+    suspendedReason: text("suspended_reason", {
+      enum: ["creatorAccessWithdrawn", "matterClosed", "blastBound", "undoRate", "member"],
+    }),
+    // The delegating principal. Not decorative: this member's access to the matter is re-checked at
+    // every fire, because access is withdrawn as well as granted and a durable rule must not outlive
+    // the access that authorized it.
+    createdBy: text("created_by").$type<UserId>(),
+    // The manual filing that occasioned the offer, where there was one — the rule's authorizing act,
+    // so an audit of "why did this file itself" terminates in a person's decision rather than in a
+    // configuration screen.
+    createdFromEmailMessageId: text("created_from_email_message_id")
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The same rule cannot be created twice.
+    uniqueIndex("email_auto_file_rule_kind_match_matter_unique_index").on(
+      table.kind,
+      table.matchValue,
+      table.matterId,
+    ),
+    // The fire-time lookup, and the reason evaluation cost does not scale with the firm's rule count:
+    // a capture resolves its candidates by match VALUE, never by scanning the rule table.
+    index("email_auto_file_rule_kind_match_index").on(table.kind, table.matchValue),
+    index("email_auto_file_rule_matter_id_index").on(table.matterId),
+    // The suspension review — "which rules stopped, and why". PARTIAL, over the rules that are not
+    // in service, which is both the only set the review wants and the small one. A full index on a
+    // three-value column would additionally be a trap: the query planner would prefer it for the
+    // fire-time lookup's `state = 'active'` term over the (kind, match_value) walk, turning the one
+    // read on the capture path into a walk of every active rule in the firm.
+    index("email_auto_file_rule_state_index")
+      .on(table.state)
+      .where(sql`${table.state} != 'active'`),
+    check(
+      "email_auto_file_rule_kind_check",
+      sql`${table.kind} IN ('threadContinuation', 'correspondentMatter')`,
+    ),
+    check("email_auto_file_rule_promotion_check", sql`${table.promotion} IN ('stage', 'file')`),
+    check(
+      "email_auto_file_rule_state_check",
+      sql`${table.state} IN ('active', 'suspended', 'revoked')`,
+    ),
+    check(
+      "email_auto_file_rule_suspended_reason_check",
+      sql`${table.suspendedReason} IS NULL OR ${table.suspendedReason} IN ('creatorAccessWithdrawn', 'matterClosed', 'blastBound', 'undoRate', 'member')`,
+    ),
+    // A suspended rule always says why, and a rule that is not suspended never carries a stale reason.
+    check(
+      "email_auto_file_rule_suspended_reason_state_check",
+      sql`(${table.state} = 'suspended') = (${table.suspendedReason} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// The evaluation ledger: what a rule did, or what stopped it. Written only where something happened —
+// at least one rule matched, or a match was suppressed — so the table stays proportional to rule
+// activity rather than to the firm's mail volume.
+//
+// NO MESSAGE CONTENT OF ANY KIND lands here: not a subject, not an address, not a display name. The
+// reason enums and the identifiers are the whole record, the same rule the capture's idempotency body
+// follows; the plain-language sentences a person reads are rendered from these at read time.
+export const emailAutoFileDecision = sqliteTable(
+  "email_auto_file_decision",
+  {
+    id: text("id").primaryKey().$type<EmailAutoFileDecisionId>(), // emailAutoFileDecision_ handle
+    emailMessageId: text("email_message_id")
+      .notNull()
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    // Null where the outcome is attributable to the evidence rather than to any one rule — two rules
+    // disagreeing, or a rule contradicted by the subject line.
+    autoFileRuleId: text("auto_file_rule_id")
+      .$type<EmailAutoFileRuleId>()
+      .references(() => emailAutoFileRule.id),
+    // The matter the decision was about; null where the guardrails refused before a single matter was
+    // resolved.
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    outcome: text("outcome", { enum: ["filed", "staged", "suppressed"] }).notNull(),
+    // Why nothing fired, from a closed set matching the guardrails. A decision that DID fire but
+    // landed staged instead of filed records that demotion inside `evidence`, because the outcome
+    // column already carries the fact that it staged.
+    suppressionReason: text("suppression_reason", {
+      enum: [
+        "ambiguousEvidence",
+        "creatorAccessWithdrawn",
+        "senderNotAuthenticated",
+        "signatureFailed",
+        "humanFilingDecision",
+        "matterNotOpen",
+        "ruleNotActive",
+        "incompleteEvidence",
+      ],
+    }),
+    // The deciding evidence as a small identifier-and-enum JSON structure: which matters the deciding
+    // signals named, which rule fired, and the demotion reason where one applies.
+    evidence: text("evidence").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The per-rule fire/undo derivation, bounded to a rolling window — the input to the circuit
+    // breaker and to the undo-rate feedback, and the reason no counter is maintained on the rule row.
+    index("email_auto_file_decision_rule_created_index").on(table.autoFileRuleId, table.createdAt),
+    // "Why did this message file itself" — one message's decision history.
+    index("email_auto_file_decision_email_message_id_index").on(table.emailMessageId),
+    check(
+      "email_auto_file_decision_outcome_check",
+      sql`${table.outcome} IN ('filed', 'staged', 'suppressed')`,
+    ),
+    check(
+      "email_auto_file_decision_suppression_reason_check",
+      sql`${table.suppressionReason} IS NULL OR ${table.suppressionReason} IN ('ambiguousEvidence', 'creatorAccessWithdrawn', 'senderNotAuthenticated', 'signatureFailed', 'humanFilingDecision', 'matterNotOpen', 'ruleNotActive', 'incompleteEvidence')`,
+    ),
+    // A suppressed decision always says why, and a decision that acted never carries a stale reason.
+    check(
+      "email_auto_file_decision_suppression_reason_outcome_check",
+      sql`(${table.outcome} = 'suppressed') = (${table.suppressionReason} IS NOT NULL)`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Document automation — the assembly-template catalogue and the provenance of what it produced.
 // ---------------------------------------------------------------------------------------------
@@ -2277,6 +2473,45 @@ export const documentTemplateVersion = sqliteTable(
     check(
       "document_template_version_scan_verdict_check",
       sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'flagged')`,
+    ),
+  ],
+);
+
+// Which registered template versions bind which merge keys — the index behind "where is this field
+// used", the picker's usage ordering, and the guard that refuses to destroy a firm's own field a
+// template names.
+//
+// The objection to a bindings table is that it is a second copy of a fact the manifest already states,
+// with its own way of going stale. That objection is answered by immutability rather than waved at: A
+// TEMPLATE VERSION NEVER CHANGES. These rows are derived from one and written in the same batch as it,
+// and neither side ever moves again — so there is no update path, no reconciliation, and no staleness
+// mode. What it buys is an index seek where the alternative is `instr()` over every stored manifest.
+export const documentTemplateFieldBinding = sqliteTable(
+  "document_template_field_binding",
+  {
+    templateVersionId: text("template_version_id")
+      .notNull()
+      .$type<DocumentTemplateVersionId>()
+      .references((): AnySQLiteColumn => documentTemplateVersion.id),
+    // The merge key the version's manifest names. Not a foreign key: the dictionary is code, not a
+    // table, and a binding onto a key a later dictionary deprecates is exactly what this index exists
+    // to report rather than a row the database should have refused.
+    mergeKey: text("merge_key").notNull(),
+  },
+  (table) => [
+    // One row per distinct key per version, and the pair is the whole identity — there is nothing else
+    // to record about a binding, and no surrogate key would be looked up by.
+    primaryKey({ columns: [table.templateVersionId, table.mergeKey] }),
+    // The other direction: every version that binds one key. The primary key serves "what does this
+    // version bind"; this serves "who binds this field", which is the question an administrator asks
+    // before deprecating one and the guard asks before destroying one.
+    index("document_template_field_binding_merge_key_index").on(
+      table.mergeKey,
+      table.templateVersionId,
+    ),
+    check(
+      "document_template_field_binding_merge_key_nonempty_check",
+      sql`length(${table.mergeKey}) > 0`,
     ),
   ],
 );
@@ -3495,6 +3730,864 @@ export const trustDisbursementDecision = sqliteTable(
       sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.movementId} IS NOT NULL AND ${table.reason} IS NULL)
         OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND length(${table.reason}) > 0)
         OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
+    ),
+  ],
+);
+
+// One period of a trust bank account exactly as the institution reported it. This is the ONLY
+// external input to the whole trust subsystem: every other row here is the firm's own assertion
+// about its own records, and the no-negative floor guards those records rather than the bank. An
+// item the firm never recorded — a bank fee, a returned deposit, a forged check — exists nowhere in
+// the platform until it arrives on one of these.
+//
+// Entered by a member or imported from a file the bank produced; the source is recorded because
+// where a figure came from is part of what the reconciliation attests to. Balances are SIGNED and
+// deliberately carry no positive check: a bank account really can be overdrawn, and a schema that
+// refused to record it would refuse to record the exact condition reconciliation exists to catch.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A bank that reissues a corrected statement is
+// a NEW row naming the one it supersedes, because a reconciliation already closed against the
+// original attested to the figures as they then read.
+export const trustBankStatement = sqliteTable(
+  "trust_bank_statement",
+  {
+    id: text("id").primaryKey().$type<TrustBankStatementId>(), // trustBankStatement_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    periodStart: text("period_start").notNull(), // YYYY-MM-DD civil date
+    periodEnd: text("period_end").notNull(), // YYYY-MM-DD civil date
+    openingBalanceMinor: integer("opening_balance_minor").notNull(),
+    closingBalanceMinor: integer("closing_balance_minor").notNull(),
+    currency: text("currency").notNull(),
+    statementReference: text("statement_reference"), // the number the bank printed, when it printed one
+    // How the figures got here. `imported` says a file the firm supplied was parsed, previewed, and
+    // confirmed by a person; it never means a machine decided to store them on its own.
+    source: text("source", { enum: ["entered", "imported"] }).notNull(),
+    // The statement this one replaces, when a bank reissues a period. Never an edit of the original.
+    supersedesStatementId: text("supersedes_statement_id")
+      .$type<TrustBankStatementId>()
+      .references((): AnySQLiteColumn => trustBankStatement.id),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // A statement is superseded at most once; a second correction supersedes the correction.
+    uniqueIndex("trust_bank_statement_supersedes_unique_index").on(table.supersedesStatementId),
+    // The statement list for one account, most recent period last — the read every reconciliation
+    // starts from.
+    index("trust_bank_statement_account_period_index").on(table.trustAccountId, table.periodEnd),
+    check("trust_bank_statement_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "trust_bank_statement_period_order_check",
+      sql`${table.periodEnd} >= ${table.periodStart}`,
+    ),
+    check("trust_bank_statement_source_check", sql`${table.source} IN ('entered', 'imported')`),
+  ],
+);
+
+// One item on a bank statement: a date, a direction, an amount, and whatever text the bank printed
+// beside it. `direction` is stated from the account holder's side — a `deposit` increased the trust
+// bank balance and a `withdrawal` reduced it — so a line can be compared with a recorded movement
+// without anyone having to reason about the bank's own debit/credit convention.
+//
+// `counterparty_name` is the other party as the BANK named it, which is frequently not what the firm
+// called them and frequently not a Directory contact. It exists because it is what a person matches
+// on; it is classified as personal data for the same reason the movement's payee is.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A line typed wrong is not edited: the
+// statement it belongs to is superseded by a corrected one.
+export const trustBankStatementLine = sqliteTable(
+  "trust_bank_statement_line",
+  {
+    id: text("id").primaryKey().$type<TrustBankStatementLineId>(), // trustBankStatementLine_ handle
+    statementId: text("statement_id")
+      .notNull()
+      .$type<TrustBankStatementId>()
+      .references(() => trustBankStatement.id),
+    postedOn: text("posted_on").notNull(), // YYYY-MM-DD civil date, as the bank posted it
+    direction: text("direction", { enum: ["deposit", "withdrawal"] }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    description: text("description").notNull(), // the bank's own narrative for the item
+    reference: text("reference"), // check number, wire reference — null when the bank printed none
+    counterpartyName: text("counterparty_name"),
+    // Which row of the imported file this line came from, and null on a line a member typed. It is
+    // what lets an import report point at the row a person has to look at in their own file.
+    sourceRowNumber: integer("source_row_number"),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // The statement in bank order, and the read the matcher's candidate window narrows from.
+    index("trust_bank_statement_line_statement_posted_index").on(table.statementId, table.postedOn),
+    // Matching draws candidates by amount before anything else, so the amount leads this index.
+    index("trust_bank_statement_line_amount_index").on(table.amountMinor, table.statementId),
+    check("trust_bank_statement_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check(
+      "trust_bank_statement_line_description_nonempty_check",
+      sql`length(${table.description}) > 0`,
+    ),
+    check(
+      "trust_bank_statement_line_direction_check",
+      sql`${table.direction} IN ('deposit', 'withdrawal')`,
+    ),
+    check(
+      "trust_bank_statement_line_source_row_check",
+      sql`${table.sourceRowNumber} IS NULL OR ${table.sourceRowNumber} > 0`,
+    ),
+  ],
+);
+
+// A firm's attempt to tie one bank statement to its own records, and — once closed — the frozen
+// proof it produced. Three totals must agree as of the period end: the statement's closing balance
+// adjusted for items the firm recorded that have not reached the bank yet, the book balance of the
+// trust bank account, and the sum of every client ledger under it.
+//
+// The frozen columns are the whole point of the row. While the reconciliation is open, the proof is
+// recomputed on every read and moves as postings land; the close writes what the proof said at that
+// instant, and from then on it never changes — a reversal posted next week with a backdated
+// effective date must not alter an attestation somebody already signed. A reconciliation that did
+// NOT balance closes anyway, recording exactly that: the record of a problem is the value, and a
+// close that refused an unbalanced proof would teach firms to leave the disagreement unrecorded.
+//
+// `status` here is a real lifecycle rather than the derived-state pattern the holds and disbursement
+// tables use, because closing IS the freeze rather than a second event another row could imply. The
+// migration's triggers make it one-way: a closed reconciliation refuses every further write, and an
+// open one refuses any change to what it is about. A correction is a new reconciliation naming the
+// one it supersedes.
+export const trustReconciliation = sqliteTable(
+  "trust_reconciliation",
+  {
+    id: text("id").primaryKey().$type<TrustReconciliationId>(), // trustReconciliation_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    statementId: text("statement_id")
+      .notNull()
+      .$type<TrustBankStatementId>()
+      .references(() => trustBankStatement.id),
+    status: text("status", { enum: ["open", "closed"] }).notNull(),
+    openedBy: text("opened_by").notNull().$type<UserId>(),
+    openedAt: text("opened_at").notNull(), // UTC instant
+    closedBy: text("closed_by").$type<UserId>(),
+    closedAt: text("closed_at"), // UTC instant
+    // The frozen proof. Every one of these is null while the reconciliation is open and non-null
+    // once it has closed, which the shape check states rather than leaving to a caller.
+    frozenStatementClosingMinor: integer("frozen_statement_closing_minor"),
+    frozenOutstandingDepositsMinor: integer("frozen_outstanding_deposits_minor"),
+    frozenOutstandingDisbursementsMinor: integer("frozen_outstanding_disbursements_minor"),
+    frozenAdjustedBankMinor: integer("frozen_adjusted_bank_minor"),
+    frozenBookBalanceMinor: integer("frozen_book_balance_minor"),
+    frozenClientTotalMinor: integer("frozen_client_total_minor"),
+    frozenUnmatchedLineCount: integer("frozen_unmatched_line_count"),
+    frozenUnmatchedMovementCount: integer("frozen_unmatched_movement_count"),
+    // 1 when the three legs agreed at the moment of the close, 0 when they did not. Stored rather
+    // than left to be re-derived from the totals so that "this period did not tie out" is a fact a
+    // report filters on directly.
+    frozenBalanced: integer("frozen_balanced"),
+    // The reconciliation this one replaces — a period redone against a corrected statement, or after
+    // the missing movements were recorded. Never an edit of the original.
+    supersedesReconciliationId: text("supersedes_reconciliation_id")
+      .$type<TrustReconciliationId>()
+      .references((): AnySQLiteColumn => trustReconciliation.id),
+    note: text("note"),
+  },
+  (table) => [
+    uniqueIndex("trust_reconciliation_supersedes_unique_index").on(
+      table.supersedesReconciliationId,
+    ),
+    index("trust_reconciliation_account_opened_index").on(table.trustAccountId, table.openedAt),
+    index("trust_reconciliation_statement_index").on(table.statementId),
+    check("trust_reconciliation_status_check", sql`${table.status} IN ('open', 'closed')`),
+    // Open carries no proof and no closer; closed carries all of both. A half-frozen row would
+    // attest to part of a proof, which is not something anyone can rely on.
+    check(
+      "trust_reconciliation_shape_check",
+      sql`(${table.status} = 'open' AND ${table.closedBy} IS NULL AND ${table.closedAt} IS NULL AND ${table.frozenStatementClosingMinor} IS NULL AND ${table.frozenOutstandingDepositsMinor} IS NULL AND ${table.frozenOutstandingDisbursementsMinor} IS NULL AND ${table.frozenAdjustedBankMinor} IS NULL AND ${table.frozenBookBalanceMinor} IS NULL AND ${table.frozenClientTotalMinor} IS NULL AND ${table.frozenUnmatchedLineCount} IS NULL AND ${table.frozenUnmatchedMovementCount} IS NULL AND ${table.frozenBalanced} IS NULL)
+        OR (${table.status} = 'closed' AND ${table.closedBy} IS NOT NULL AND ${table.closedAt} IS NOT NULL AND ${table.frozenStatementClosingMinor} IS NOT NULL AND ${table.frozenOutstandingDepositsMinor} IS NOT NULL AND ${table.frozenOutstandingDisbursementsMinor} IS NOT NULL AND ${table.frozenAdjustedBankMinor} IS NOT NULL AND ${table.frozenBookBalanceMinor} IS NOT NULL AND ${table.frozenClientTotalMinor} IS NOT NULL AND ${table.frozenUnmatchedLineCount} IS NOT NULL AND ${table.frozenUnmatchedMovementCount} IS NOT NULL AND ${table.frozenBalanced} IN (0, 1))`,
+    ),
+    check(
+      "trust_reconciliation_outstanding_sign_check",
+      sql`(${table.frozenOutstandingDepositsMinor} IS NULL OR ${table.frozenOutstandingDepositsMinor} >= 0)
+        AND (${table.frozenOutstandingDisbursementsMinor} IS NULL OR ${table.frozenOutstandingDisbursementsMinor} >= 0)
+        AND (${table.frozenUnmatchedLineCount} IS NULL OR ${table.frozenUnmatchedLineCount} >= 0)
+        AND (${table.frozenUnmatchedMovementCount} IS NULL OR ${table.frozenUnmatchedMovementCount} >= 0)`,
+    ),
+  ],
+);
+
+// One person's assertion that one statement line and one recorded ledger entry are the same event.
+// NOTHING in this platform writes one of these on its own: the matcher offers bounded suggestions
+// and a member confirms each, because a wrong automatic match hides exactly the discrepancy the
+// reconciliation exists to find — the totals would tie out on a report while the ledger and the bank
+// disagreed about which items actually happened.
+//
+// The book side is a LEDGER ENTRY rather than a `trust_movement`, and that is load-bearing: an
+// earned-fee transfer out of trust records a `trust_transfer` and no movement row at all, so a match
+// keyed on movements could never clear one, and every such transfer would sit outstanding forever.
+// Anything that moves the bank balance is an entry touching the trust bank account, whatever composed
+// it; the movement or transfer record beside it is joined for display.
+//
+// One line to one entry. A single bank line covering several recorded items — one deposit slip for
+// three checks — is a real shape this does not yet express; it reads as one match plus items left
+// outstanding, and the proof reports the resulting difference rather than hiding it.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A match a person got wrong is withdrawn by a
+// NEW row naming it in `unmatches_match_id`, on the same derivation the hold model uses: a match is
+// active when no row unmatches it, so no status column exists anywhere that could disagree with the
+// rows. A withdrawal repeats the line and the entry it releases, exactly as a hold release repeats
+// the node it frees.
+export const trustReconciliationMatch = sqliteTable(
+  "trust_reconciliation_match",
+  {
+    id: text("id").primaryKey().$type<TrustReconciliationMatchId>(), // trustReconciliationMatch_ handle
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustReconciliationId>()
+      .references(() => trustReconciliation.id),
+    statementLineId: text("statement_line_id")
+      .notNull()
+      .$type<TrustBankStatementLineId>()
+      .references(() => trustBankStatementLine.id),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // The match this row withdraws, and null on a match itself.
+    unmatchesMatchId: text("unmatches_match_id")
+      .$type<TrustReconciliationMatchId>()
+      .references((): AnySQLiteColumn => trustReconciliationMatch.id),
+    matchedBy: text("matched_by").notNull().$type<UserId>(),
+    matchedAt: text("matched_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // A match is withdrawn at most once: two concurrent withdrawals leave one row, and the loser's
+    // whole batch aborts.
+    uniqueIndex("trust_reconciliation_match_unmatches_unique_index").on(table.unmatchesMatchId),
+    index("trust_reconciliation_match_reconciliation_index").on(table.reconciliationId),
+    // "Has this line been matched, and has this entry cleared" — the two reads the proof and the
+    // unmatched lists are built from.
+    index("trust_reconciliation_match_line_index").on(table.statementLineId),
+    index("trust_reconciliation_match_entry_index").on(table.entryId),
+  ],
+);
+
+// Billing and invoicing — the invoice spine.
+//
+// The tables below are organized by their MUTABILITY posture, which is the property worth organizing
+// a billing subsystem by: getting it wrong in either direction is the characteristic failure of one
+// hung off an append-only ledger. A draft is a working document and is freely editable; a finalized
+// invoice is an evidentiary record frozen by trigger; the numbering pair is append-only from birth;
+// and exactly one row is deliberately mutable — invoice_matter_balance, whose bounds CHECK is the
+// only mechanism that can abort a whole D1 batch on a business condition.
+
+// The invoice header. It carries NO stored total and NO stored balance: both derive from the
+// per-matter balance rows, so a payment never has a reason to touch this row and can never drift
+// from the subledger. The letterhead, remit-to, and client billing name are SNAPSHOT at finalize and
+// never read live — a later edit to an office address must not silently alter a document the firm
+// already gave somebody.
+export const invoice = sqliteTable(
+  "invoice",
+  {
+    id: text("id").primaryKey().$type<InvoiceId>(), // invoice_ handle
+    // Exactly one client per invoice, resolved through matter_party where role = 'client'. An
+    // invoice spanning two clients cannot be applied from trust at all (a trust entry touching two
+    // clients is refused at the composition guard), cannot be sensibly aged, and is
+    // indistinguishable at the row level from a billing error.
+    clientEntityId: text("client_entity_id").notNull(),
+    currency: text("currency").notNull(),
+    status: text("status", { enum: ["draft", "final", "void"] })
+      .notNull()
+      .default("draft"),
+    // Drawn inside the finalize batch, never at draft: a number drawn at draft is a number burned by
+    // every abandoned draft, and gaps are the first thing an auditor asks about.
+    invoiceNumber: text("invoice_number"),
+    numberScopeKey: text("number_scope_key"),
+    numberDrawnValue: integer("number_drawn_value"),
+    billingPeriodStart: text("billing_period_start"), // civil PlainDate
+    billingPeriodEnd: text("billing_period_end"),
+    issueDate: text("issue_date"),
+    dueDate: text("due_date"),
+    notes: text("notes"),
+    // The presentation snapshot: the office whose letterhead the bill was issued on, and the text of
+    // that letterhead as it stood at finalize.
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    letterheadAddressBlock: text("letterhead_address_block"),
+    letterheadFooter: text("letterhead_footer"),
+    remitTo: text("remit_to"),
+    clientBillingName: text("client_billing_name"),
+    finalizedAt: text("finalized_at"),
+    finalizedBy: text("finalized_by").$type<UserId>(),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by").$type<UserId>(),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    index("invoice_client_status_index").on(table.clientEntityId, table.status),
+    index("invoice_status_due_date_index").on(table.status, table.dueDate),
+    index("invoice_created_at_id_index").on(table.createdAt, table.id),
+    uniqueIndex("invoice_number_unique_index")
+      .on(table.invoiceNumber)
+      .where(sql`${table.invoiceNumber} IS NOT NULL`),
+    check("invoice_status_check", sql`${table.status} IN ('draft', 'final', 'void')`),
+    check("invoice_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_number_paired_check",
+      sql`(${table.status} = 'final') = (${table.invoiceNumber} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_number_draw_paired_check",
+      sql`(${table.invoiceNumber} IS NULL) = (${table.numberDrawnValue} IS NULL) AND (${table.invoiceNumber} IS NULL) = (${table.numberScopeKey} IS NULL)`,
+    ),
+    check(
+      "invoice_finalized_paired_check",
+      sql`(${table.status} = 'final') = (${table.finalizedAt} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_voided_paired_check",
+      sql`(${table.status} = 'void') = (${table.voidedAt} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_dates_final_check",
+      sql`${table.status} <> 'final' OR (${table.issueDate} IS NOT NULL AND ${table.dueDate} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// What the client is told, in presentation order. Every line NAMES ITS MATTER — there is no
+// invoice.matter_id, because a stored column that is supposed to agree with the lines is a column
+// that will eventually disagree with them.
+//
+// The description is a SNAPSHOT taken when the line is composed, not a view of the time entry's
+// narrative. Bill review edits the LINE. Two records, both true and both worth keeping: the entry is
+// the timekeeper's contemporaneous record of what was done, and the line is what the client was
+// told. It also makes a finalized invoice self-contained — re-renderable years later without reading
+// a single row from the work-in-progress stores.
+export const invoiceLine = sqliteTable(
+  "invoice_line",
+  {
+    id: text("id").primaryKey().$type<InvoiceLineId>(), // invoiceLine_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    lineIndex: integer("line_index").notNull(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["fee", "cost", "flat_fee", "discount", "adjustment", "interest", "tax"],
+    }).notNull(),
+    description: text("description").notNull(),
+    quantityE4: integer("quantity_e4"), // hours at scale 4 on a fee line; null on a flat amount
+    rateE4: integer("rate_e4"), // the rate snapshot the entry carried; billing never re-resolves one
+    // MAY BE NEGATIVE. A discount, write-down, or courtesy adjustment is an ordinary line, which is
+    // why roundInvoiceLine is half-away-from-zero rather than half-up.
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // The UTBMS codes as strings rather than catalog references: the line is a snapshot, and an
+    // exporter reading a code that was later renamed or deactivated must still emit what was billed.
+    utbmsTaskCode: text("utbms_task_code"),
+    utbmsActivityCode: text("utbms_activity_code"),
+    utbmsExpenseCode: text("utbms_expense_code"),
+    // Resolved at draft and snapshot. A firm that has configured no tax rate produces no tax line at
+    // all, so the default is the empty answer.
+    taxTreatment: text("tax_treatment", { enum: ["taxable", "exempt"] })
+      .notNull()
+      .default("exempt"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("invoice_line_position_unique_index").on(table.invoiceId, table.lineIndex),
+    index("invoice_line_matter_index").on(table.matterId, table.invoiceId),
+    check(
+      "invoice_line_kind_check",
+      sql`${table.kind} IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')`,
+    ),
+    check("invoice_line_currency_check", sql`length(${table.currency}) = 3`),
+    check("invoice_line_description_nonempty_check", sql`length(${table.description}) > 0`),
+    check("invoice_line_tax_treatment_check", sql`${table.taxTreatment} IN ('taxable', 'exempt')`),
+    check("invoice_line_index_check", sql`${table.lineIndex} >= 0`),
+  ],
+);
+
+// Which work-in-progress rows this invoice has taken. THE CLAIM IS THE TRUTH; the entry's invoice_id
+// column is a MIRROR kept for the "what is still unbilled on this matter" read, which is the hot read
+// and must not join.
+//
+// N claims to one line is representable without inventing anything, which is what lets several
+// entries consolidate onto one line — and what lets a flat fee claim every contributing entry with a
+// null invoice_line_id and a zero claimed amount, so realization reporting can still attribute the
+// work the fee covered.
+export const invoiceWipClaim = sqliteTable(
+  "invoice_wip_claim",
+  {
+    id: text("id").primaryKey().$type<InvoiceWipClaimId>(), // invoiceWipClaim_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    sourceKind: text("source_kind", { enum: ["time_entry", "cost_entry"] }).notNull(),
+    sourceId: text("source_id").notNull(),
+    invoiceLineId: text("invoice_line_id")
+      .$type<InvoiceLineId>()
+      .references(() => invoiceLine.id),
+    claimedAmountMinor: integer("claimed_amount_minor").notNull(),
+    claimedAt: text("claimed_at").notNull(),
+    // Set when a draft releases the entry back to unbilled work-in-progress. The released row REMAINS,
+    // so "this entry was on a draft that was abandoned on the 3rd" stays answerable, and the partial
+    // unique index makes the released row invisible to uniqueness so the entry can be claimed again.
+    releasedAt: text("released_at"),
+  },
+  (table) => [
+    uniqueIndex("invoice_wip_claim_active_source_unique_index")
+      .on(table.sourceKind, table.sourceId)
+      .where(sql`${table.releasedAt} IS NULL`),
+    index("invoice_wip_claim_invoice_index").on(table.invoiceId),
+    index("invoice_wip_claim_line_index").on(table.invoiceLineId),
+    check(
+      "invoice_wip_claim_source_kind_check",
+      sql`${table.sourceKind} IN ('time_entry', 'cost_entry')`,
+    ),
+  ],
+);
+
+// The derived balance, and the single most important table in the subsystem. Created in the finalize
+// batch, one row per (invoice, matter), and mutable ONLY inside a posting batch — exactly as
+// account_balance is, for exactly the same reason: D1 has no interactive transactions, so a bounds
+// CHECK is the only mechanism that can abort a whole batch on a business condition.
+//
+// Per (invoice, matter) rather than per invoice because an earned-fee transfer draws on one matter
+// leaf, so the ceiling it must respect is that matter's share of the invoice. A single-matter
+// invoice, which is most of them, has exactly one row.
+export const invoiceMatterBalance = sqliteTable(
+  "invoice_matter_balance",
+  {
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    totalMinor: integer("total_minor").notNull(),
+    appliedMinor: integer("applied_minor").notNull().default(0),
+    currency: text("currency").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.invoiceId, table.matterId] }),
+    index("invoice_matter_balance_matter_index").on(table.matterId),
+    check("invoice_matter_balance_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_matter_balance_bounds_check",
+      sql`${table.appliedMinor} >= 0 AND ${table.appliedMinor} <= ${table.totalMinor}`,
+    ),
+  ],
+);
+
+// The invoice-number sequence. next_value is the sanctioned exception to append-only, as it is for
+// matter numbers; the mechanism lives in packages/sequence-numbering.
+export const invoiceNumberCounter = sqliteTable(
+  "invoice_number_counter",
+  {
+    scopeKey: text("scope_key").primaryKey(), // '' = firm-wide; a Location code for a per-office sequence
+    nextValue: integer("next_value").notNull(),
+  },
+  (table) => [check("invoice_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
+);
+
+// One row per counter value a draw consumed. The composite primary key is the load-bearing backstop
+// on the draw — NOT the invoice_number unique index, which fires only when two draws render the same
+// STRING. Append-only unconditionally by trigger.
+export const invoiceNumberAllocation = sqliteTable(
+  "invoice_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    uniqueIndex("invoice_number_allocation_invoice_unique_index").on(table.invoiceId),
+    check("invoice_number_allocation_drawn_value_check", sql`${table.drawnValue} > 0`),
+  ],
+);
+
+// Which of the firm's ledger accounts plays each role a billing posting needs. The product chart of
+// accounts does not exist yet, and this is the seam that stands in for it: an unmapped role REFUSES
+// finalization with a named error rather than posting somewhere plausible. The role set is the stable
+// contract across the boundary the operating chart of accounts will populate.
+export const firmAccountRole = sqliteTable(
+  "firm_account_role",
+  {
+    role: text("role", {
+      enum: [
+        "accounts_receivable",
+        "fee_income",
+        "client_costs_advanced",
+        "cost_recovery_income",
+        "tax_payable",
+        "fee_adjustments",
+        "fee_write_off",
+        "operating_bank",
+        "client_credit_liability",
+      ],
+    }).primaryKey(),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check(
+      "firm_account_role_role_check",
+      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')`,
+    ),
+  ],
+);
+
+// ---- Case calendar: litigation events and deadlines ----
+//
+// Two structural positions govern this group. First, only facts BORN here get a row: a hearing, a
+// filing, an order, a deposition, a deadline — the things the platform records nowhere else. What
+// another subsystem already recorded (a document filed, mail captured, an assembly run, an original
+// moved, money through trust, time and costs booked) is read in place through the source registry in
+// @magna-carta/calendar, so the timeline cannot disagree with the register it is built from. Nothing
+// is projected into these tables and nothing is backfilled into them.
+//
+// Second, a date here is a CIVIL date and a time is a separate optional wall-clock time, resolved in
+// an explicit zone. There is no UTC timestamp on an event or a deadline anywhere in this group:
+// storing midnight-local-as-UTC is the daylight-saving off-by-one that moves a hearing by a day when
+// the clocks change, and a docketing system cannot have that failure. The instants in the group
+// (recorded_at, satisfied_at, created_at) are instants about the RECORD, never about the appearance.
+
+// The per-firm event-type catalog — hearing, trial, filing, service, deposition, and whatever else a
+// firm's practice has. A catalog table rather than a platform enum for the reason matter_type,
+// document_type, and custody_item_type are: a firm whose practice has a proceeding nobody thought of
+// must not be blocked, and a growing list of similar things is a declaration, not code. Soft-
+// deactivate only, so an event already classified under a retired type keeps its meaning.
+//
+// `origin` separates the seeded platform vocabulary from a firm's own additions: a platform row's
+// name and code are immutable (a firm may deactivate it, never redefine it under everyone else),
+// where a firm row is entirely the firm's. `category` drives grouping and iconography ONLY — nothing
+// in the engine branches on it, the same discipline custody_location.kind carries.
+export const matterEventType = sqliteTable(
+  "matter_event_type",
+  {
+    id: text("id").primaryKey().$type<MatterEventTypeId>(), // matterEventType_ handle
+    name: text("name").notNull(),
+    code: text("code"),
+    category: text("category", { enum: ["litigation", "transaction", "firm", "other"] })
+      .notNull()
+      .default("litigation"),
+    origin: text("origin", { enum: ["platform", "firm"] })
+      .notNull()
+      .default("firm"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("matter_event_type_name_unique_index").on(table.name),
+    uniqueIndex("matter_event_type_code_unique_index").on(table.code),
+    check("matter_event_type_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "matter_event_type_category_check",
+      sql`${table.category} IN ('litigation', 'transaction', 'firm', 'other')`,
+    ),
+    check("matter_event_type_origin_check", sql`${table.origin} IN ('platform', 'firm')`),
+  ],
+);
+
+// One thing that happened or will happen in the case: a hearing, a filing, service, an order, a
+// deposition, a mediation, a trial, a client meeting. Member-entered — there is no court integration
+// and no docket feed, so every row here is a person's assertion about a proceeding.
+//
+// matter_id is REQUIRED. Every read over this table is "what happened on this case", and the
+// visibility predicate keys off the matter; a personal appointment that belongs to nobody's case has
+// a different audience and a different privacy posture and is its own thing when it is built, not a
+// null here.
+//
+// An event is MUTABLE, deliberately, and that is the one place this group departs from the custody
+// ledger. The ledger is append-only because its value in a dispute is that nobody could make it say
+// otherwise afterwards; a calendar is a plan and a record of a plan, hearings move, and a firm made
+// to record a compensating row to fix a typo stops recording. A continued hearing is the same
+// hearing on a new date: the row is edited and the audit_log row written in the same batch carries
+// the change, rather than leaving two hearings on the calendar for every consumer to hide one of.
+//
+// location_text is free text (a courtroom, a department number, an address) rather than a `location`
+// foreign key: a courthouse is not one of the firm's offices, exactly as a bank vault is not, and
+// that table drives letterhead, remit-to, matter numbering, and staffing for every subsystem that
+// reads it. court_reference is likewise the court's own case number as a string, not an invented
+// court-identity schema built to hold one field.
+export const matterEvent = sqliteTable(
+  "matter_event",
+  {
+    id: text("id").primaryKey().$type<MatterEventId>(), // matterEvent_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    // What the firm asserts about the event. There is deliberately no fourth "missed" value: a
+    // status says what a person recorded, and nothing in this platform derives one.
+    status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
+      .notNull()
+      .default("scheduled"),
+    startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
+    startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day, which is what a filing is
+    endsOn: text("ends_on"), // null on a point event; set on a range, which is what a three-day trial is
+    endsAtTime: text("ends_at_time"),
+    // The IANA zone the wall-clock time is read in, REQUIRED. It lives on the row rather than on the
+    // office because no property of the firm, the matter, or the office says which zone a hearing is
+    // in: a Nevada firm appearing in a California court has a hearing in America/Los_Angeles. The
+    // user interface defaults it from the matter's office and a person overrides it per row.
+    timeZone: text("time_zone").notNull(),
+    locationText: text("location_text"),
+    courtReference: text("court_reference"),
+    // When a person asserted this, as against when it happens. The custody-movement precedent: the
+    // two diverge routinely, and collapsing them would make a hearing typed on Monday for a Friday
+    // indistinguishable from one nobody recorded at all.
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter timeline's filter, its sort, and its keyset predicate out of one composite.
+    index("matter_event_matter_starts_on_id_index").on(table.matterId, table.startsOn, table.id),
+    // The firm-wide date-ranged calendar read.
+    index("matter_event_starts_on_id_index").on(table.startsOn, table.id),
+    // "What is still scheduled" — filtered before it is sorted, so the filter column leads.
+    index("matter_event_status_starts_on_index").on(table.status, table.startsOn),
+    index("matter_event_type_index").on(table.eventTypeId),
+    check("matter_event_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_event_status_check",
+      sql`${table.status} IN ('scheduled', 'occurred', 'cancelled')`,
+    ),
+    check("matter_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    // A civil date is stored as a civil date. The shape check is what keeps an instant, a locale
+    // rendering, or a naive local datetime out of a column the whole timeline sorts on as text.
+    check(
+      "matter_event_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_event_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_event_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_event_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_event_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    // An end time on an event with no start time says nothing anybody can render: "all day, until
+    // half past four" is not a shape the calendar can draw or a person can act on.
+    check(
+      "matter_event_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// Who was there, or will be. The three shapes that really occur are the three the custody ledger's
+// borrower model already found, and the resolution is the same: a firm member, a Directory entity,
+// or somebody external to both. A judge is an ordinary participant with the role "judge" — forcing
+// one into the Directory as a prerequisite would pollute the conflicts corpus with people who are
+// party to nothing, which is the argument the custody ledger makes about an external borrower.
+//
+// `role` is a short firm-supplied label (appearing counsel, judge, court reporter, witness,
+// interpreter) and NOT a platform enum, for the reason the ownership role and the release-authority
+// basis are free text: the vocabulary is jurisdiction-specific, no engine consumes it, and a closed
+// set here would be this schema inventing procedure.
+export const matterEventParticipant = sqliteTable(
+  "matter_event_participant",
+  {
+    id: text("id").primaryKey().$type<MatterEventParticipantId>(), // matterEventParticipant_ handle
+    eventId: text("event_id")
+      .notNull()
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key
+    // (the matter_party and custody_owner precedent).
+    entityId: text("entity_id"),
+    participantName: text("participant_name"),
+    role: text("role"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_event_participant_event_index").on(table.eventId),
+    // "What is on this member's calendar" — the firm calendar's member filter, resolved as a
+    // predicate rather than by reading every event and discarding most of them.
+    index("matter_event_participant_member_index").on(table.memberUserId),
+    index("matter_event_participant_entity_index").on(table.entityId),
+    check(
+      "matter_event_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'entity', 'external')`,
+    ),
+    // A kind names which column carries the participant; a kind with no matching value is a record
+    // that cannot answer the question it exists to answer (mirrors custody_movement's borrower shape).
+    check(
+      "matter_event_participant_shape_check",
+      sql`(${table.participantKind} = 'member' AND ${table.memberUserId} IS NOT NULL)
+        OR (${table.participantKind} = 'entity' AND ${table.entityId} IS NOT NULL)
+        OR (${table.participantKind} = 'external' AND ${table.participantName} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A date the firm must do something by. It is NOT an event and collapsing the two would lose the two
+// things that make a deadline a deadline: that it can be SATISFIED, and that it CAME FROM SOMEWHERE.
+//
+// Nothing in this platform computes a due date. No business-day arithmetic, no court-holiday
+// calendar, no service-method offsets, no cascade when a trigger date moves, and no default deadline
+// created when a matter opens. Missed deadlines are the largest single source of malpractice claims,
+// and that cuts toward VISIBILITY and against ARITHMETIC: a computed deadline that is wrong is worse
+// than none, because it will be trusted precisely because it was computed, and the firm that would
+// have looked the rule up will not. `source`, `catalog_entry_key`, and `catalog_version` are the
+// columns a verified jurisdiction-keyed catalog will one day write through a propose-and-confirm
+// path — a member accepts a proposed date and that acceptance creates the row; the catalog never
+// writes one by itself, and an existing row is never recomputed when the catalog changes. The
+// columns land now because the alternative is rebuilding this table later.
+//
+// Overdue is DERIVED, never stored. A deadline past its due instant and still open is overdue,
+// computed at read time (packages/calendar/src/overdue.ts). There is no sweep, no scheduled job, no
+// state transition, and no column that says the firm failed — the platform reports what it can see
+// and does not adjudicate, because the deadline may have been extended by a stipulation nobody has
+// typed in, satisfied under another matter, or vacated by an order that arrived this morning.
+export const matterDeadline = sqliteTable(
+  "matter_deadline",
+  {
+    id: text("id").primaryKey().$type<MatterDeadlineId>(), // matterDeadline_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    title: text("title").notNull(),
+    dueOn: text("due_on").notNull(), // civil date, YYYY-MM-DD
+    // Real and load-bearing: many filing deadlines are five in the afternoon, and one whose time
+    // nobody recorded must not be silently rendered as midnight.
+    dueAtTime: text("due_at_time"),
+    // The COURT'S zone, not the office's. Required for the same reason it is required on an event.
+    timeZone: text("time_zone").notNull(),
+    source: text("source", { enum: ["member", "court_order", "statutory_catalog"] })
+      .notNull()
+      .default("member"),
+    catalogEntryKey: text("catalog_entry_key"),
+    catalogVersion: text("catalog_version"),
+    // The rule, statute, or order the firm says this comes from. Not parsed, not validated, not
+    // resolved against anything — it is the firm's own note of authority, and it is what a person
+    // reads when deciding whether the date is right.
+    authorityText: text("authority_text"),
+    // The event that started the clock (the date of death, of service, of an order's entry). A LINK
+    // and never a computation: nothing derives due_on from it, and moving the trigger event does not
+    // move the deadline.
+    triggerEventId: text("trigger_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    state: text("state", { enum: ["open", "satisfied", "vacated", "superseded"] })
+      .notNull()
+      .default("open"),
+    satisfiedAt: text("satisfied_at"), // UTC instant
+    satisfiedBy: text("satisfied_by").$type<UserId>(),
+    // The filing that discharged it, where the firm recorded one.
+    satisfyingEventId: text("satisfying_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    satisfactionNote: text("satisfaction_note"),
+    // Required on vacated and superseded, because "why is this deadline no longer in force" is the
+    // question a person asks six months later and the only bad answer is silence.
+    stateReason: text("state_reason"),
+    supersededByDeadlineId: text("superseded_by_deadline_id").$type<MatterDeadlineId>(),
+    // A small firm-set ordinal, and never a platform judgement about severity.
+    priority: integer("priority"),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The upcoming-deadlines read: filtered by state before it is sorted by due date, so the filter
+    // column leads and one composite serves the filter, the ascending sort, and the keyset predicate.
+    index("matter_deadline_state_due_on_id_index").on(table.state, table.dueOn, table.id),
+    // The matter's own deadline list and the timeline merge.
+    index("matter_deadline_matter_due_on_id_index").on(table.matterId, table.dueOn, table.id),
+    index("matter_deadline_trigger_event_index").on(table.triggerEventId),
+    check("matter_deadline_title_check", sql`length(${table.title}) > 0`),
+    check("matter_deadline_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "matter_deadline_due_on_shape_check",
+      sql`${table.dueOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_deadline_due_at_time_shape_check",
+      sql`${table.dueAtTime} IS NULL OR ${table.dueAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_deadline_source_check",
+      sql`${table.source} IN ('member', 'court_order', 'statutory_catalog')`,
+    ),
+    // A catalog key and version belong to a catalog-sourced deadline and to nothing else: a member's
+    // own date carrying a catalog entry key would claim an authority nobody verified.
+    check(
+      "matter_deadline_catalog_shape_check",
+      sql`(${table.source} = 'statutory_catalog' AND ${table.catalogEntryKey} IS NOT NULL AND ${table.catalogVersion} IS NOT NULL)
+        OR (${table.source} <> 'statutory_catalog' AND ${table.catalogEntryKey} IS NULL AND ${table.catalogVersion} IS NULL)`,
+    ),
+    check(
+      "matter_deadline_state_check",
+      sql`${table.state} IN ('open', 'satisfied', 'vacated', 'superseded')`,
+    ),
+    check(
+      "matter_deadline_state_reason_check",
+      sql`${table.state} NOT IN ('vacated', 'superseded') OR (${table.stateReason} IS NOT NULL AND length(${table.stateReason}) > 0)`,
+    ),
+    // A satisfied deadline names who discharged it and when; an unsatisfied one claims neither.
+    check(
+      "matter_deadline_satisfaction_shape_check",
+      sql`(${table.state} = 'satisfied' AND ${table.satisfiedAt} IS NOT NULL AND ${table.satisfiedBy} IS NOT NULL)
+        OR (${table.state} <> 'satisfied' AND ${table.satisfiedAt} IS NULL AND ${table.satisfiedBy} IS NULL)`,
+    ),
+    check(
+      "matter_deadline_superseded_shape_check",
+      sql`(${table.supersededByDeadlineId} IS NULL) OR (${table.state} = 'superseded')`,
+    ),
+    check(
+      "matter_deadline_priority_check",
+      sql`${table.priority} IS NULL OR ${table.priority} > 0`,
     ),
   ],
 );

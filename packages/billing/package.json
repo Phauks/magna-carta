@@ -1,0 +1,37 @@
+{
+  "name": "@magna-carta/billing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./billing-validation": "./src/billing-validation.ts",
+    "./statements": "./src/statements.ts",
+    "./account-roles": "./src/account-roles.ts",
+    "./numbering": "./src/numbering.ts",
+    "./line-amounts": "./src/line-amounts.ts",
+    "./draft": "./src/draft.ts",
+    "./finalize": "./src/finalize.ts",
+    "./queries": "./src/queries.ts",
+    "./fitness": "./src/fitness.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/billing-core": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

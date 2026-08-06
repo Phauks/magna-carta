@@ -21,7 +21,13 @@
       "path": "../../packages/ai-detection/tsconfig.build.json"
     },
     {
+      "path": "../../packages/billing/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/billing-core/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/calendar/tsconfig.build.json"
     },
     {
       "path": "../../packages/conflicts/tsconfig.build.json"
@@ -87,6 +93,9 @@
       "path": "../../packages/integrations/tsconfig.build.json"
     },
     {
+      "path": "../../packages/ledger/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/locations/tsconfig.build.json"
     },
     {
@@ -109,6 +118,9 @@
     },
     {
       "path": "../../packages/search/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/sequence-numbering/tsconfig.build.json"
     },
     {
       "path": "../../packages/shipping/tsconfig.build.json"

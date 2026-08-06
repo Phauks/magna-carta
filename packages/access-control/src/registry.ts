@@ -99,6 +99,11 @@ export const PERMISSIONS = [
   "emails:file", // capture/file an email to a matter (the API entrance)
   "emails:read", // read a matter's filed emails and threads, and the wall-safe "already filed" signal
   "emails:manageLinks", // accept a staged link, link to additional matters, unlink
+  // Separate from emails:manageLinks on purpose: filing mail and configuring the machine to file
+  // mail are different grants. A rule is durable, acts unattended, and acts on behalf of people who
+  // did not create it, so a firm must be able to say "you may file mail" without also saying "you
+  // may set up automatic filing".
+  "emails:manageAutoFileRules", // create/update/suspend/resume/revoke a matter's auto-file rules
   "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
@@ -122,6 +127,27 @@ export const PERMISSIONS = [
   // matter, and its sub-ledger spans every matter a client has.
   "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
   "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
+  // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
+  // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
+  // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and
+  // finalizing are different keys; applying moves CLIENT money onto a bill, which is the same reason
+  // trust separates reading a balance from moving one; and crediting reverses an evidentiary record
+  // the firm has already given somebody. All bind resource: "firm" — one invoice may bill several of
+  // a client's matters, so the matter is not its tenancy root.
+  "billing:read", // read invoices, lines, unbilled work-in-progress, balances, and the receivables aging
+  "billing:draft", // create a draft invoice, claim work-in-progress onto it, edit its lines, void it
+  "billing:finalize", // turn a draft into an evidentiary record: draw its number and post the receivable
+  "billing:apply", // move client money onto a finalized invoice (payments, earned fees taken from trust)
+  "billing:credit", // credit notes and write-offs against a finalized invoice
+  "billing:configure", // billing arrangements, tax rates, the numbering scheme, the account-role map
+  // Case calendar — litigation events, deadlines, and the matter timeline that federates them with
+  // everything else the firm already recorded. Two keys, because reading a case's history and
+  // asserting when a hearing is are genuinely different capabilities: everyone working a matter needs
+  // to see what is coming, and a wrong hearing date entered by somebody who was not there is a
+  // missed appearance. Both bind resource: "matter" for the matter-scoped routes and "firm" for the
+  // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
+  "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
+  "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

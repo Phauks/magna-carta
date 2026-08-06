@@ -721,6 +721,7 @@ export type LocationAck = {
 export type LocationRequest = {
     name: string;
     jurisdiction?: string | null;
+    timeZone?: string | null;
     numberCode?: string | null;
     addressBlock?: string | null;
     footer?: string | null;
@@ -744,6 +745,7 @@ export type LocationDetail = {
     name: string;
     status: 'active' | 'closed';
     jurisdiction: string | null;
+    timeZone: string | null;
     numberCode: string | null;
     addressBlock: string | null;
     footer: string | null;
@@ -763,6 +765,7 @@ export type LetterheadLogo = {
 export type PatchLocationRequest = {
     name?: string;
     jurisdiction?: string | null;
+    timeZone?: string | null;
     numberCode?: string | null;
     addressBlock?: string | null;
     footer?: string | null;
@@ -1270,6 +1273,190 @@ export type CreatedConflictsDispositionResponse = {
 export type RecordConflictsDispositionRequest = {
     kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
     rationale: string;
+};
+
+export type TimelineEntryPage = {
+    data: Array<TimelineEntry>;
+    nextCursor: string | null;
+};
+
+export type TimelineEntry = {
+    sourceKey: string;
+    kind: string;
+    sortKey: string;
+    rowId: string;
+    matterId: string | null;
+    actorUserId: string | null;
+    label: string | null;
+    link: string;
+};
+
+export type MatterEventPage = {
+    data: Array<MatterEventDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterEventDetail = {
+    id: string;
+    matterId: string;
+    eventTypeId: string | null;
+    title: string;
+    description: string | null;
+    status: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    locationText: string | null;
+    courtReference: string | null;
+    recordedAt: string;
+    recordedBy: string | null;
+};
+
+export type MatterEventWithParticipants = {
+    event: MatterEventDetail;
+    participants: Array<MatterEventParticipantDetail>;
+};
+
+export type MatterEventParticipantDetail = {
+    id: string;
+    participantKind: 'member' | 'entity' | 'external';
+    memberUserId: string | null;
+    entityId: string | null;
+    participantName: string | null;
+    role: string | null;
+};
+
+export type FirmCalendarPage = {
+    data: Array<TimelineEntry>;
+    nextCursor: string | null;
+};
+
+export type MatterDeadlinePage = {
+    data: Array<MatterDeadlineDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterDeadlineDetail = {
+    id: string;
+    matterId: string;
+    title: string;
+    dueOn: string;
+    dueAtTime: string | null;
+    timeZone: string;
+    source: string;
+    authorityText: string | null;
+    triggerEventId: string | null;
+    state: 'open' | 'satisfied' | 'vacated' | 'superseded';
+    satisfiedAt: string | null;
+    satisfiedBy: string | null;
+    satisfyingEventId: string | null;
+    stateReason: string | null;
+    priority: number | null;
+    overdue: boolean;
+};
+
+export type MatterEventTypeList = {
+    data: Array<MatterEventTypeDetail>;
+};
+
+export type MatterEventTypeDetail = {
+    id: string;
+    name: string;
+    code: string | null;
+    category: 'litigation' | 'transaction' | 'firm' | 'other';
+    origin: 'platform' | 'firm';
+    active: boolean;
+};
+
+export type CalendarCreatedResponse = {
+    id: string;
+};
+
+export type CreateMatterEventRequest = {
+    eventTypeId?: string | null;
+    title: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone: string;
+    locationText?: string | null;
+    courtReference?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type MatterEventParticipantInput = {
+    participantKind: 'member' | 'entity' | 'external';
+    memberUserId?: string | null;
+    entityId?: string | null;
+    participantName?: string | null;
+    role?: string | null;
+};
+
+export type CalendarAckResponse = {
+    ok: true;
+};
+
+export type UpdateMatterEventRequest = {
+    eventTypeId?: string | null;
+    title?: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn?: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+    locationText?: string | null;
+    courtReference?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type CreateMatterDeadlineRequest = {
+    title: string;
+    dueOn: string;
+    dueAtTime?: string | null;
+    timeZone: string;
+    source?: 'member' | 'court_order';
+    authorityText?: string | null;
+    triggerEventId?: string | null;
+    priority?: number | null;
+};
+
+export type UpdateMatterDeadlineRequest = {
+    title?: string;
+    dueOn?: string;
+    dueAtTime?: string | null;
+    timeZone?: string;
+    authorityText?: string | null;
+    triggerEventId?: string | null;
+    priority?: number | null;
+};
+
+export type SatisfyMatterDeadlineRequest = {
+    satisfyingEventId?: string | null;
+    satisfactionNote?: string | null;
+};
+
+export type CloseMatterDeadlineRequest = {
+    stateReason: string;
+    supersededByDeadlineId?: string | null;
+};
+
+export type CreateMatterEventTypeRequest = {
+    name: string;
+    code?: string | null;
+    category?: 'litigation' | 'transaction' | 'firm' | 'other';
+};
+
+export type UpdateMatterEventTypeRequest = {
+    name?: string;
+    code?: string | null;
+    category?: 'litigation' | 'transaction' | 'firm' | 'other';
 };
 
 export type CustodyLocation = {
@@ -2094,6 +2281,369 @@ export type TrustMovementRecord = {
     recordedAt: string;
 };
 
+export type TrustBankStatementAck = {
+    trustBankStatementId: string;
+    linesRecorded: number;
+};
+
+export type TrustRecordBankStatementRequest = {
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: 'USD';
+    statementReference?: string | null;
+    supersedesStatementId?: string | null;
+    lines: Array<TrustBankStatementLineInput>;
+};
+
+export type TrustBankStatementLineInput = {
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference?: string | null;
+    counterpartyName?: string | null;
+};
+
+export type TrustBankStatementsResponse = {
+    statements: Array<TrustBankStatementRecord>;
+};
+
+export type TrustBankStatementRecord = {
+    id: string;
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: string;
+    statementReference: string | null;
+    source: 'entered' | 'imported';
+    supersedesStatementId: string | null;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankStatementLinesResponse = {
+    lines: Array<TrustBankStatementLineRecord>;
+};
+
+export type TrustBankStatementLineRecord = {
+    id: string;
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+    sourceRowNumber: number | null;
+};
+
+export type TrustStatementImportPreviewResponse = {
+    columnMapping: {
+        [key: string]: string;
+    };
+    rows: Array<TrustStatementImportPreviewRow>;
+    rejections: Array<TrustStatementImportRejection>;
+    depositTotalMinor: number;
+    withdrawalTotalMinor: number;
+    earliestPostedOn: string | null;
+    latestPostedOn: string | null;
+    fingerprint: string;
+};
+
+export type TrustStatementImportPreviewRow = {
+    rowNumber: number;
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustStatementImportRejection = {
+    rowNumber: number;
+    reason: string;
+};
+
+export type TrustStatementImportPreviewRequest = {
+    fileText: string;
+    dateFormat?: 'iso' | 'month-day-year' | 'day-month-year';
+    currency: 'USD';
+};
+
+export type TrustStatementImportReport = {
+    trustBankStatementId: string;
+    linesRecorded: number;
+    rowsRejected: number;
+    depositTotalMinor: number;
+    withdrawalTotalMinor: number;
+};
+
+export type TrustStatementImportRequest = {
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: 'USD';
+    statementReference?: string | null;
+    supersedesStatementId?: string | null;
+    fileText: string;
+    dateFormat?: 'iso' | 'month-day-year' | 'day-month-year';
+    confirmedFingerprint: string;
+};
+
+export type TrustReconciliationAck = {
+    trustReconciliationId: string;
+};
+
+export type TrustOpenReconciliationRequest = {
+    statementId: string;
+    supersedesReconciliationId?: string | null;
+    note?: string | null;
+};
+
+export type TrustReconciliationsResponse = {
+    reconciliations: Array<TrustReconciliationRecord>;
+};
+
+export type TrustReconciliationRecord = {
+    id: string;
+    trustAccountId: string;
+    statementId: string;
+    status: 'open' | 'closed';
+    openedBy: string;
+    openedAt: string;
+    closedBy: string | null;
+    closedAt: string | null;
+    frozenProof: {
+        statementClosingMinor: number;
+        outstandingDepositsMinor: number;
+        outstandingDisbursementsMinor: number;
+        adjustedBankMinor: number;
+        bookBalanceMinor: number;
+        clientLedgerTotalMinor: number;
+        unmatchedLineCount: number;
+        unmatchedItemCount: number;
+        balanced: boolean;
+    } | null;
+    supersedesReconciliationId: string | null;
+    note: string | null;
+};
+
+export type TrustReconciliationDetail = {
+    reconciliation: TrustReconciliationRecord;
+    proof: TrustThreeWayProof;
+};
+
+export type TrustThreeWayProof = {
+    trustAccountId: string;
+    statementId: string;
+    asOfDate: string;
+    currency: string;
+    statementClosingMinor: number;
+    outstandingDeposits: Array<TrustBankItem>;
+    outstandingDepositsMinor: number;
+    outstandingDisbursements: Array<TrustBankItem>;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    unmatchedStatementLines: Array<TrustBankStatementLineRecord>;
+    balanced: boolean;
+    disagreements: Array<TrustReconciliationDisagreement>;
+};
+
+export type TrustBankItem = {
+    ledgerEntryId: string;
+    effectiveDate: string;
+    description: string;
+    bankDeltaMinor: number;
+    trustMovementId: string | null;
+    movementKind: 'deposit' | 'disbursement' | 'matter_transfer' | null;
+    trustTransferId: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustReconciliationDisagreement = {
+    leg: 'bank-to-book' | 'book-to-client';
+    differenceMinor: number;
+};
+
+export type TrustMatchSuggestionsResponse = {
+    unmatchedLines: Array<TrustBankStatementLineRecord>;
+    outstandingItems: Array<TrustBankItem>;
+    suggestions: Array<TrustMatchSuggestion>;
+};
+
+export type TrustMatchSuggestion = {
+    statementLineId: string;
+    ledgerEntryId: string;
+    signals: Array<'amount-equal' | 'same-day' | 'within-window' | 'reference-equal' | 'counterparty-similar'>;
+    dayGap: number;
+};
+
+export type TrustReconciliationMatchAck = {
+    trustReconciliationMatchId: string;
+};
+
+export type TrustRecordMatchRequest = {
+    statementLineId: string;
+    ledgerEntryId: string;
+};
+
+export type TrustReconciliationCloseAck = {
+    trustReconciliationId: string;
+    frozenProof: TrustFrozenProof;
+    proof: TrustThreeWayProof;
+};
+
+export type TrustFrozenProof = {
+    statementClosingMinor: number;
+    outstandingDepositsMinor: number;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    unmatchedLineCount: number;
+    unmatchedItemCount: number;
+    balanced: boolean;
+};
+
+export type BillingInvoiceAck = {
+    invoiceId: string;
+    status: 'draft' | 'final' | 'void';
+};
+
+export type BillingCreateInvoiceRequest = {
+    clientEntityId: string;
+    currency: 'USD';
+    billingPeriodStart?: string | null;
+    billingPeriodEnd?: string | null;
+    notes?: string | null;
+    locationId?: string | null;
+};
+
+export type BillingClaimAck = {
+    invoiceId: string;
+    claimIds: Array<string>;
+    lineIds: Array<string>;
+};
+
+export type BillingAddClaimsRequest = {
+    claims: Array<BillingClaimRequest>;
+};
+
+export type BillingClaimRequest = {
+    sourceKind: 'time_entry' | 'cost_entry';
+    sourceId: string;
+};
+
+export type BillingUpdateLineRequest = {
+    description?: string;
+    quantityE4?: number | null;
+    rateE4?: number | null;
+    amountMinor?: number;
+    taxTreatment?: 'taxable' | 'exempt';
+};
+
+export type BillingVoidDraftRequest = {
+    reason: string;
+};
+
+export type BillingFinalizeAck = {
+    invoiceId: string;
+    invoiceNumber: string;
+    totalMinor: number;
+    currency: string;
+    ledgerEntryId: string;
+};
+
+export type BillingFinalizeRequest = {
+    issueDate: string;
+    dueDate: string;
+    numberScopeKey?: string;
+    locationId?: string | null;
+    letterheadAddressBlock?: string | null;
+    letterheadFooter?: string | null;
+    remitTo?: string | null;
+    clientBillingName?: string | null;
+};
+
+export type BillingAccountRoleMapResponse = {
+    assignments: Array<BillingAccountRoleAssignment>;
+};
+
+export type BillingAccountRoleAssignment = {
+    role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability';
+    ledgerAccountId: string;
+};
+
+export type BillingAccountRoleRequest = {
+    assignments: Array<BillingAccountRoleAssignment>;
+};
+
+export type BillingInvoiceListResponse = {
+    data: Array<BillingInvoiceListItem>;
+    nextCursor: string | null;
+};
+
+export type BillingInvoiceListItem = {
+    id: string;
+    clientEntityId: string;
+    currency: string;
+    status: 'draft' | 'final' | 'void';
+    invoiceNumber: string | null;
+    issueDate: string | null;
+    dueDate: string | null;
+    totalMinor: number;
+    appliedMinor: number;
+    unpaidMinor: number;
+    createdAt: string;
+};
+
+export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
+    lines: Array<{
+        id: string;
+        lineIndex: number;
+        matterId: string;
+        kind: string;
+        description: string;
+        amountMinor: number;
+    }>;
+    matterBalances: Array<{
+        matterId: string;
+        totalMinor: number;
+        appliedMinor: number;
+        unpaidMinor: number;
+    }>;
+};
+
+export type BillingUnbilledResponse = {
+    matterId: string;
+    timeEntryCount: number;
+    timeAmountMinor: number;
+    costEntryCount: number;
+    costAmountMinor: number;
+    receivableTotalMinor: number;
+    receivableAppliedMinor: number;
+    receivableUnpaidMinor: number;
+};
+
+export type BillingAgingResponse = {
+    asOfDate: string;
+    buckets: Array<{
+        label: string;
+        invoiceCount: number;
+        unpaidMinor: number;
+    }>;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -2482,7 +3032,15 @@ export type DeletedMergeFieldMapping = {
 };
 
 export type MergeFields = {
+    revision: string;
+    groups: Array<MergeFieldGroup>;
     fields: Array<MergeFieldEntry>;
+};
+
+export type MergeFieldGroup = {
+    key: string;
+    label: string;
+    order: number;
 };
 
 export type MergeFieldEntry = {
@@ -2494,6 +3052,19 @@ export type MergeFieldEntry = {
     absence: string;
     sensitivity: string;
     description: string;
+    label: string;
+    group: string;
+    subject: string;
+    subjectLabel: string;
+    prominence: string;
+    synonyms: Array<string>;
+    exampleRenderings: {
+        [key: string]: string;
+    };
+    availability: string;
+    availabilityNote: string;
+    status: string;
+    supersededBy: string | null;
 };
 
 export type SubmittedAssembly = {
@@ -8428,6 +8999,862 @@ export type ConflictsRecordDispositionResponses = {
 
 export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
 
+export type CalendarMatterTimelineData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        kind?: string | Array<string>;
+        from?: string;
+        to?: string;
+        direction?: 'past' | 'future' | 'all';
+    };
+    url: '/api/v1/matters/{matterId}/timeline';
+};
+
+export type CalendarMatterTimelineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarMatterTimelineError = CalendarMatterTimelineErrors[keyof CalendarMatterTimelineErrors];
+
+export type CalendarMatterTimelineResponses = {
+    /**
+     * One page of the timeline
+     */
+    200: TimelineEntryPage;
+};
+
+export type CalendarMatterTimelineResponse = CalendarMatterTimelineResponses[keyof CalendarMatterTimelineResponses];
+
+export type CalendarListEventsData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/matters/{matterId}/events';
+};
+
+export type CalendarListEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventsError = CalendarListEventsErrors[keyof CalendarListEventsErrors];
+
+export type CalendarListEventsResponses = {
+    /**
+     * One page of recorded events
+     */
+    200: MatterEventPage;
+};
+
+export type CalendarListEventsResponse = CalendarListEventsResponses[keyof CalendarListEventsResponses];
+
+export type CalendarCreateEventData = {
+    body: CreateMatterEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/events';
+};
+
+export type CalendarCreateEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateEventError = CalendarCreateEventErrors[keyof CalendarCreateEventErrors];
+
+export type CalendarCreateEventResponses = {
+    /**
+     * The recorded event
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateEventResponse = CalendarCreateEventResponses[keyof CalendarCreateEventResponses];
+
+export type CalendarGetEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}';
+};
+
+export type CalendarGetEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarGetEventError = CalendarGetEventErrors[keyof CalendarGetEventErrors];
+
+export type CalendarGetEventResponses = {
+    /**
+     * The event and its participants
+     */
+    200: MatterEventWithParticipants;
+};
+
+export type CalendarGetEventResponse = CalendarGetEventResponses[keyof CalendarGetEventResponses];
+
+export type CalendarUpdateEventData = {
+    body: UpdateMatterEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}';
+};
+
+export type CalendarUpdateEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateEventError = CalendarUpdateEventErrors[keyof CalendarUpdateEventErrors];
+
+export type CalendarUpdateEventResponses = {
+    /**
+     * The event was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateEventResponse = CalendarUpdateEventResponses[keyof CalendarUpdateEventResponses];
+
+export type CalendarFirmCalendarData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        from: string;
+        to: string;
+        matterId?: string;
+        memberId?: string;
+        kind?: string | Array<string>;
+    };
+    url: '/api/v1/calendar/events';
+};
+
+export type CalendarFirmCalendarErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarFirmCalendarError = CalendarFirmCalendarErrors[keyof CalendarFirmCalendarErrors];
+
+export type CalendarFirmCalendarResponses = {
+    /**
+     * One page of the firm calendar
+     */
+    200: FirmCalendarPage;
+};
+
+export type CalendarFirmCalendarResponse = CalendarFirmCalendarResponses[keyof CalendarFirmCalendarResponses];
+
+export type CalendarListDeadlinesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+        state?: 'open' | 'satisfied' | 'vacated' | 'superseded';
+        from?: string;
+        through?: string;
+        overdue?: 'true' | 'false';
+    };
+    url: '/api/v1/calendar/deadlines';
+};
+
+export type CalendarListDeadlinesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListDeadlinesError = CalendarListDeadlinesErrors[keyof CalendarListDeadlinesErrors];
+
+export type CalendarListDeadlinesResponses = {
+    /**
+     * One page of deadlines
+     */
+    200: MatterDeadlinePage;
+};
+
+export type CalendarListDeadlinesResponse = CalendarListDeadlinesResponses[keyof CalendarListDeadlinesResponses];
+
+export type CalendarListEventTypesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/calendar/event-types';
+};
+
+export type CalendarListEventTypesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventTypesError = CalendarListEventTypesErrors[keyof CalendarListEventTypesErrors];
+
+export type CalendarListEventTypesResponses = {
+    /**
+     * The catalog
+     */
+    200: MatterEventTypeList;
+};
+
+export type CalendarListEventTypesResponse = CalendarListEventTypesResponses[keyof CalendarListEventTypesResponses];
+
+export type CalendarCreateEventTypeData = {
+    body: CreateMatterEventTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/event-types';
+};
+
+export type CalendarCreateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateEventTypeError = CalendarCreateEventTypeErrors[keyof CalendarCreateEventTypeErrors];
+
+export type CalendarCreateEventTypeResponses = {
+    /**
+     * The event type
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateEventTypeResponse = CalendarCreateEventTypeResponses[keyof CalendarCreateEventTypeResponses];
+
+export type CalendarCancelEventData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/cancel';
+};
+
+export type CalendarCancelEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCancelEventError = CalendarCancelEventErrors[keyof CalendarCancelEventErrors];
+
+export type CalendarCancelEventResponses = {
+    /**
+     * The event was cancelled
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarCancelEventResponse = CalendarCancelEventResponses[keyof CalendarCancelEventResponses];
+
+export type CalendarCreateDeadlineData = {
+    body: CreateMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/deadlines';
+};
+
+export type CalendarCreateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateDeadlineError = CalendarCreateDeadlineErrors[keyof CalendarCreateDeadlineErrors];
+
+export type CalendarCreateDeadlineResponses = {
+    /**
+     * The recorded deadline
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateDeadlineResponse = CalendarCreateDeadlineResponses[keyof CalendarCreateDeadlineResponses];
+
+export type CalendarUpdateDeadlineData = {
+    body: UpdateMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}';
+};
+
+export type CalendarUpdateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateDeadlineError = CalendarUpdateDeadlineErrors[keyof CalendarUpdateDeadlineErrors];
+
+export type CalendarUpdateDeadlineResponses = {
+    /**
+     * The deadline was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateDeadlineResponse = CalendarUpdateDeadlineResponses[keyof CalendarUpdateDeadlineResponses];
+
+export type CalendarSatisfyDeadlineData = {
+    body: SatisfyMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/satisfy';
+};
+
+export type CalendarSatisfyDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSatisfyDeadlineError = CalendarSatisfyDeadlineErrors[keyof CalendarSatisfyDeadlineErrors];
+
+export type CalendarSatisfyDeadlineResponses = {
+    /**
+     * The deadline was satisfied
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarSatisfyDeadlineResponse = CalendarSatisfyDeadlineResponses[keyof CalendarSatisfyDeadlineResponses];
+
+export type CalendarVacateDeadlineData = {
+    body: CloseMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/vacate';
+};
+
+export type CalendarVacateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarVacateDeadlineError = CalendarVacateDeadlineErrors[keyof CalendarVacateDeadlineErrors];
+
+export type CalendarVacateDeadlineResponses = {
+    /**
+     * The deadline was vacated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarVacateDeadlineResponse = CalendarVacateDeadlineResponses[keyof CalendarVacateDeadlineResponses];
+
+export type CalendarSupersedeDeadlineData = {
+    body: CloseMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/supersede';
+};
+
+export type CalendarSupersedeDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSupersedeDeadlineError = CalendarSupersedeDeadlineErrors[keyof CalendarSupersedeDeadlineErrors];
+
+export type CalendarSupersedeDeadlineResponses = {
+    /**
+     * The deadline was superseded
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarSupersedeDeadlineResponse = CalendarSupersedeDeadlineResponses[keyof CalendarSupersedeDeadlineResponses];
+
+export type CalendarUpdateEventTypeData = {
+    body: UpdateMatterEventTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventTypeId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar/event-types/{eventTypeId}';
+};
+
+export type CalendarUpdateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateEventTypeError = CalendarUpdateEventTypeErrors[keyof CalendarUpdateEventTypeErrors];
+
+export type CalendarUpdateEventTypeResponses = {
+    /**
+     * The event type was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateEventTypeResponse = CalendarUpdateEventTypeResponses[keyof CalendarUpdateEventTypeResponses];
+
+export type CalendarDeactivateEventTypeData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventTypeId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar/event-types/{eventTypeId}/deactivate';
+};
+
+export type CalendarDeactivateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarDeactivateEventTypeError = CalendarDeactivateEventTypeErrors[keyof CalendarDeactivateEventTypeErrors];
+
+export type CalendarDeactivateEventTypeResponses = {
+    /**
+     * The event type was deactivated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarDeactivateEventTypeResponse = CalendarDeactivateEventTypeResponses[keyof CalendarDeactivateEventTypeResponses];
+
 export type CustodyListLocationsData = {
     body?: never;
     path?: never;
@@ -12194,6 +13621,1179 @@ export type TrustMatterLedgerResponses = {
 };
 
 export type TrustMatterLedgerResponse = TrustMatterLedgerResponses[keyof TrustMatterLedgerResponses];
+
+export type TrustListBankStatementsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/bank-statements';
+};
+
+export type TrustListBankStatementsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListBankStatementsError = TrustListBankStatementsErrors[keyof TrustListBankStatementsErrors];
+
+export type TrustListBankStatementsResponses = {
+    /**
+     * The recorded statements
+     */
+    200: TrustBankStatementsResponse;
+};
+
+export type TrustListBankStatementsResponse = TrustListBankStatementsResponses[keyof TrustListBankStatementsResponses];
+
+export type TrustRecordBankStatementData = {
+    body: TrustRecordBankStatementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements';
+};
+
+export type TrustRecordBankStatementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordBankStatementError = TrustRecordBankStatementErrors[keyof TrustRecordBankStatementErrors];
+
+export type TrustRecordBankStatementResponses = {
+    /**
+     * The statement and its lines were recorded
+     */
+    201: TrustBankStatementAck;
+};
+
+export type TrustRecordBankStatementResponse = TrustRecordBankStatementResponses[keyof TrustRecordBankStatementResponses];
+
+export type TrustBankStatementLinesData = {
+    body?: never;
+    path: {
+        statementId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-statements/{statementId}/lines';
+};
+
+export type TrustBankStatementLinesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustBankStatementLinesError = TrustBankStatementLinesErrors[keyof TrustBankStatementLinesErrors];
+
+export type TrustBankStatementLinesResponses = {
+    /**
+     * The statement's lines
+     */
+    200: TrustBankStatementLinesResponse;
+};
+
+export type TrustBankStatementLinesResponse2 = TrustBankStatementLinesResponses[keyof TrustBankStatementLinesResponses];
+
+export type TrustPreviewStatementImportData = {
+    body: TrustStatementImportPreviewRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements/import/preview';
+};
+
+export type TrustPreviewStatementImportErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustPreviewStatementImportError = TrustPreviewStatementImportErrors[keyof TrustPreviewStatementImportErrors];
+
+export type TrustPreviewStatementImportResponses = {
+    /**
+     * What the file contains
+     */
+    200: TrustStatementImportPreviewResponse;
+};
+
+export type TrustPreviewStatementImportResponse = TrustPreviewStatementImportResponses[keyof TrustPreviewStatementImportResponses];
+
+export type TrustImportBankStatementData = {
+    body: TrustStatementImportRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements/import';
+};
+
+export type TrustImportBankStatementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustImportBankStatementError = TrustImportBankStatementErrors[keyof TrustImportBankStatementErrors];
+
+export type TrustImportBankStatementResponses = {
+    /**
+     * The statement was recorded from the confirmed file
+     */
+    201: TrustStatementImportReport;
+};
+
+export type TrustImportBankStatementResponse = TrustImportBankStatementResponses[keyof TrustImportBankStatementResponses];
+
+export type TrustListReconciliationsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/reconciliations';
+};
+
+export type TrustListReconciliationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListReconciliationsError = TrustListReconciliationsErrors[keyof TrustListReconciliationsErrors];
+
+export type TrustListReconciliationsResponses = {
+    /**
+     * The reconciliations
+     */
+    200: TrustReconciliationsResponse;
+};
+
+export type TrustListReconciliationsResponse = TrustListReconciliationsResponses[keyof TrustListReconciliationsResponses];
+
+export type TrustOpenReconciliationData = {
+    body: TrustOpenReconciliationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/reconciliations';
+};
+
+export type TrustOpenReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenReconciliationError = TrustOpenReconciliationErrors[keyof TrustOpenReconciliationErrors];
+
+export type TrustOpenReconciliationResponses = {
+    /**
+     * The reconciliation is open
+     */
+    201: TrustReconciliationAck;
+};
+
+export type TrustOpenReconciliationResponse = TrustOpenReconciliationResponses[keyof TrustOpenReconciliationResponses];
+
+export type TrustGetReconciliationData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}';
+};
+
+export type TrustGetReconciliationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustGetReconciliationError = TrustGetReconciliationErrors[keyof TrustGetReconciliationErrors];
+
+export type TrustGetReconciliationResponses = {
+    /**
+     * The reconciliation and its live proof
+     */
+    200: TrustReconciliationDetail;
+};
+
+export type TrustGetReconciliationResponse = TrustGetReconciliationResponses[keyof TrustGetReconciliationResponses];
+
+export type TrustReconciliationSuggestionsData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/suggestions';
+};
+
+export type TrustReconciliationSuggestionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustReconciliationSuggestionsError = TrustReconciliationSuggestionsErrors[keyof TrustReconciliationSuggestionsErrors];
+
+export type TrustReconciliationSuggestionsResponses = {
+    /**
+     * What is unaccounted for, and what might pair with what
+     */
+    200: TrustMatchSuggestionsResponse;
+};
+
+export type TrustReconciliationSuggestionsResponse = TrustReconciliationSuggestionsResponses[keyof TrustReconciliationSuggestionsResponses];
+
+export type TrustRecordReconciliationMatchData = {
+    body: TrustRecordMatchRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches';
+};
+
+export type TrustRecordReconciliationMatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordReconciliationMatchError = TrustRecordReconciliationMatchErrors[keyof TrustRecordReconciliationMatchErrors];
+
+export type TrustRecordReconciliationMatchResponses = {
+    /**
+     * The match was recorded
+     */
+    201: TrustReconciliationMatchAck;
+};
+
+export type TrustRecordReconciliationMatchResponse = TrustRecordReconciliationMatchResponses[keyof TrustRecordReconciliationMatchResponses];
+
+export type TrustWithdrawReconciliationMatchData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        matchId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches/{matchId}/withdrawal';
+};
+
+export type TrustWithdrawReconciliationMatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustWithdrawReconciliationMatchError = TrustWithdrawReconciliationMatchErrors[keyof TrustWithdrawReconciliationMatchErrors];
+
+export type TrustWithdrawReconciliationMatchResponses = {
+    /**
+     * The withdrawal was recorded
+     */
+    201: TrustReconciliationMatchAck;
+};
+
+export type TrustWithdrawReconciliationMatchResponse = TrustWithdrawReconciliationMatchResponses[keyof TrustWithdrawReconciliationMatchResponses];
+
+export type TrustCloseReconciliationData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/close';
+};
+
+export type TrustCloseReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustCloseReconciliationError = TrustCloseReconciliationErrors[keyof TrustCloseReconciliationErrors];
+
+export type TrustCloseReconciliationResponses = {
+    /**
+     * The reconciliation is closed and its proof frozen
+     */
+    201: TrustReconciliationCloseAck;
+};
+
+export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type BillingListInvoicesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        clientEntityId?: string;
+        status?: 'draft' | 'final' | 'void';
+        cursor?: string;
+    };
+    url: '/api/v1/billing/invoices';
+};
+
+export type BillingListInvoicesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingListInvoicesError = BillingListInvoicesErrors[keyof BillingListInvoicesErrors];
+
+export type BillingListInvoicesResponses = {
+    /**
+     * A page of invoices
+     */
+    200: BillingInvoiceListResponse;
+};
+
+export type BillingListInvoicesResponse = BillingListInvoicesResponses[keyof BillingListInvoicesResponses];
+
+export type BillingCreateInvoiceData = {
+    body: BillingCreateInvoiceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/invoices';
+};
+
+export type BillingCreateInvoiceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingCreateInvoiceError = BillingCreateInvoiceErrors[keyof BillingCreateInvoiceErrors];
+
+export type BillingCreateInvoiceResponses = {
+    /**
+     * The draft invoice was opened
+     */
+    201: BillingInvoiceAck;
+};
+
+export type BillingCreateInvoiceResponse = BillingCreateInvoiceResponses[keyof BillingCreateInvoiceResponses];
+
+export type BillingAddClaimsData = {
+    body: BillingAddClaimsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/claims';
+};
+
+export type BillingAddClaimsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingAddClaimsError = BillingAddClaimsErrors[keyof BillingAddClaimsErrors];
+
+export type BillingAddClaimsResponses = {
+    /**
+     * The work was claimed and its lines composed
+     */
+    201: BillingClaimAck;
+};
+
+export type BillingAddClaimsResponse = BillingAddClaimsResponses[keyof BillingAddClaimsResponses];
+
+export type BillingReleaseClaimData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+        claimId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/claims/{claimId}/release';
+};
+
+export type BillingReleaseClaimErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingReleaseClaimError = BillingReleaseClaimErrors[keyof BillingReleaseClaimErrors];
+
+export type BillingReleaseClaimResponses = {
+    /**
+     * The claim was released
+     */
+    201: BillingInvoiceAck;
+};
+
+export type BillingReleaseClaimResponse = BillingReleaseClaimResponses[keyof BillingReleaseClaimResponses];
+
+export type BillingUpdateLineData = {
+    body: BillingUpdateLineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+        lineId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/lines/{lineId}';
+};
+
+export type BillingUpdateLineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingUpdateLineError = BillingUpdateLineErrors[keyof BillingUpdateLineErrors];
+
+export type BillingUpdateLineResponses = {
+    /**
+     * The line was updated
+     */
+    200: BillingInvoiceAck;
+};
+
+export type BillingUpdateLineResponse = BillingUpdateLineResponses[keyof BillingUpdateLineResponses];
+
+export type BillingVoidDraftData = {
+    body: BillingVoidDraftRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/void';
+};
+
+export type BillingVoidDraftErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingVoidDraftError = BillingVoidDraftErrors[keyof BillingVoidDraftErrors];
+
+export type BillingVoidDraftResponses = {
+    /**
+     * The draft was voided and its work released
+     */
+    201: BillingInvoiceAck;
+};
+
+export type BillingVoidDraftResponse = BillingVoidDraftResponses[keyof BillingVoidDraftResponses];
+
+export type BillingFinalizeInvoiceData = {
+    body: BillingFinalizeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/finalization';
+};
+
+export type BillingFinalizeInvoiceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingFinalizeInvoiceError = BillingFinalizeInvoiceErrors[keyof BillingFinalizeInvoiceErrors];
+
+export type BillingFinalizeInvoiceResponses = {
+    /**
+     * The invoice was finalized and the receivable posted
+     */
+    201: BillingFinalizeAck;
+};
+
+export type BillingFinalizeInvoiceResponse = BillingFinalizeInvoiceResponses[keyof BillingFinalizeInvoiceResponses];
+
+export type BillingAccountRolesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/account-roles';
+};
+
+export type BillingAccountRolesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingAccountRolesError = BillingAccountRolesErrors[keyof BillingAccountRolesErrors];
+
+export type BillingAccountRolesResponses = {
+    /**
+     * The account-role map
+     */
+    200: BillingAccountRoleMapResponse;
+};
+
+export type BillingAccountRolesResponse = BillingAccountRolesResponses[keyof BillingAccountRolesResponses];
+
+export type BillingSetAccountRolesData = {
+    body: BillingAccountRoleRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/account-roles';
+};
+
+export type BillingSetAccountRolesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingSetAccountRolesError = BillingSetAccountRolesErrors[keyof BillingSetAccountRolesErrors];
+
+export type BillingSetAccountRolesResponses = {
+    /**
+     * The account-role map was updated
+     */
+    200: BillingAccountRoleMapResponse;
+};
+
+export type BillingSetAccountRolesResponse = BillingSetAccountRolesResponses[keyof BillingSetAccountRolesResponses];
+
+export type BillingInvoiceDetailData = {
+    body?: never;
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}';
+};
+
+export type BillingInvoiceDetailErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingInvoiceDetailError = BillingInvoiceDetailErrors[keyof BillingInvoiceDetailErrors];
+
+export type BillingInvoiceDetailResponses = {
+    /**
+     * The invoice
+     */
+    200: BillingInvoiceDetailResponse;
+};
+
+export type BillingInvoiceDetailResponse2 = BillingInvoiceDetailResponses[keyof BillingInvoiceDetailResponses];
+
+export type BillingMatterUnbilledData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/unbilled';
+};
+
+export type BillingMatterUnbilledErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingMatterUnbilledError = BillingMatterUnbilledErrors[keyof BillingMatterUnbilledErrors];
+
+export type BillingMatterUnbilledResponses = {
+    /**
+     * The matter's unbilled work and its receivable
+     */
+    200: BillingUnbilledResponse;
+};
+
+export type BillingMatterUnbilledResponse = BillingMatterUnbilledResponses[keyof BillingMatterUnbilledResponses];
+
+export type BillingReceivablesAgingData = {
+    body?: never;
+    path?: never;
+    query?: {
+        asOfDate?: string;
+    };
+    url: '/api/v1/billing/receivables/aging';
+};
+
+export type BillingReceivablesAgingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingReceivablesAgingError = BillingReceivablesAgingErrors[keyof BillingReceivablesAgingErrors];
+
+export type BillingReceivablesAgingResponses = {
+    /**
+     * The aging buckets
+     */
+    200: BillingAgingResponse;
+};
+
+export type BillingReceivablesAgingResponse = BillingReceivablesAgingResponses[keyof BillingReceivablesAgingResponses];
 
 export type TimeEntriesListData = {
     body?: never;

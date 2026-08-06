@@ -7,9 +7,9 @@ spec: in-progress
 plan: todo
 built: in-progress by="Opus 4.8"
 ui: todo
-load-profile: todo
+load-profile: done by="Opus 5"
 tested: in-progress by="Opus 4.8"
-next: The jurisdiction corpus stream, then three-way reconciliation
+next: The jurisdiction corpus stream, then compliance surfacing over it
 link-spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
 link-plan:
 adrs: ADR-0009
@@ -23,3 +23,5 @@ blocked-by:
 **The matter-close gate** is the matter shell's close hook filled for the first time: a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance, the account holding it, and the movements that clear it. Rules are handed to the shell by the composition root rather than imported by it, and a rule may also guard the close batch itself, so a deposit landing between the check and the commit aborts the close instead of slipping under it. A matter with no trust ledger closes freely.
 
 **Two-person disbursement authorization** (owner-directed) closes the last open piece of sub-slice 2: a disbursement is a pending request until a second member approves it, and the movement posts only on that approval, with the approver as `authorized_by` and the submitter as `recorded_by`. The approver-differs rule is a database trigger, not route discipline; the available-balance ceiling is re-read at approval time through the same composer an ungated payment used, so a request overtaken by other activity refuses instead of posting; rejection and withdrawal are recorded, append-only, alongside the request. A firm with a single member holding `trust:manage` may still pay, with that basis stated on the record, and the database withdraws the exception the moment a second such member exists. Three recommended defaults are flagged for owner review: every disbursement is gated rather than only those over a threshold, a pending request never expires, and no new permission was minted.
+
+**Three-way reconciliation** closes sub-slice 4. A bank statement is a recorded period with its lines — entered by a member, or imported from a file through a preview that reports what it found and stores nothing until a separate confirmation quotes that report's fingerprint back. Statement lines are tied to recorded ledger entries by a person: the platform ranks bounded candidates and shows the reasons, and nothing anywhere records a match on its own. The proof ties three totals as of the period end — the statement's closing balance adjusted for outstanding items, the trust bank account's book balance, and the sum of the client ledgers — both ledger legs computed from dated rows rather than a stored balance, so a period reproduces. Unmatched lines and unmatched recorded items are named outcomes rather than errors, and a proof that does not tie out records which leg disagrees and by how much rather than being forced green. Closing freezes the proof on an append-only row the database refuses to reopen; an unbalanced period closes recording exactly that, and a correction is a new reconciliation superseding the old. The load profile gained the trust volume — the sub-ledger tree, movements, holds, two years of monthly statements each carrying an unrecorded service charge, and the reconciliations over them — with the three-way computation and the client-ledger reads measured against index-walk plans. Flags T9, T10, and T11 shipped as the analysis's recommended defaults and are listed for owner review.

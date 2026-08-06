@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./corpus": "./src/corpus.ts",
     "./port": "./src/port.ts",
     "./fusion": "./src/fusion.ts",
     "./extraction": "./src/extraction.ts",

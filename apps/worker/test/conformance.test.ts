@@ -105,12 +105,14 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
+  "trust.previewStatementImport":
+    "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
-// outbound-comms). Each such slice adds its operationId namespace here as it builds; the billing,
-// payments, and comms rows land with their slices.
-const MONEY_NAMESPACES = new Set<string>(["trust"]);
+// outbound-comms). Each such slice adds its operationId namespace here as it builds; the payments
+// and comms rows land with their slices.
+const MONEY_NAMESPACES = new Set<string>(["trust", "billing"]);
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
 // unknown off the document record) so the fitness functions never stringify a non-string.
@@ -222,6 +224,19 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // holds money for, and the reconciliation that proves it is per ACCOUNT. Every movement names a
   // matter, but the matter is where the money lands, not the resource the capability governs.
   trust: "firm",
+  // billing:* governs the firm's own invoices and the money that comes back against them. It binds
+  // the FIRM on the trust reasoning: one invoice may bill several of a client's matters, the
+  // receivable it posts is the firm's asset, and the account-role map it resolves through is the
+  // firm's chart of accounts. Every line names a matter, but the matter is what is billed, not the
+  // resource the capability governs.
+  billing: "firm",
+  // calendar:* governs litigation events, deadlines, and the matter timeline that federates them
+  // with everything else the firm recorded. It binds BOTH resources, on the emails:* reasoning: an
+  // event and a deadline always name a matter, so those routes carry the matter resource, while the
+  // firm-wide calendar, the deadline list across every matter, and the event-type catalog have no
+  // single matter by construction — each is a matter-scoped read repeated under one visibility
+  // predicate, and the catalog is firm configuration with no matter at all.
+  calendar: ["matter", "firm"],
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -670,6 +685,35 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "aiDetection.detect",
       "assemblies.status",
       "assemblies.submit",
+      "billing.accountRoles",
+      "billing.addClaims",
+      "billing.createInvoice",
+      "billing.finalizeInvoice",
+      "billing.invoiceDetail",
+      "billing.listInvoices",
+      "billing.matterUnbilled",
+      "billing.receivablesAging",
+      "billing.releaseClaim",
+      "billing.setAccountRoles",
+      "billing.updateLine",
+      "billing.voidDraft",
+      "calendar.cancelEvent",
+      "calendar.createDeadline",
+      "calendar.createEvent",
+      "calendar.createEventType",
+      "calendar.deactivateEventType",
+      "calendar.firmCalendar",
+      "calendar.getEvent",
+      "calendar.listDeadlines",
+      "calendar.listEventTypes",
+      "calendar.listEvents",
+      "calendar.matterTimeline",
+      "calendar.satisfyDeadline",
+      "calendar.supersedeDeadline",
+      "calendar.updateDeadline",
+      "calendar.updateEvent",
+      "calendar.updateEventType",
+      "calendar.vacateDeadline",
       "conflicts.getCheck",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
@@ -917,13 +961,25 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "toolsConnection.get",
       "toolsTurnCredentials.get",
       "trust.approveDisbursement",
+      "trust.bankStatementLines",
+      "trust.closeReconciliation",
       "trust.deposit",
+      "trust.getReconciliation",
+      "trust.importBankStatement",
+      "trust.listBankStatements",
       "trust.listDisbursementRequests",
+      "trust.listReconciliations",
       "trust.matterLedger",
+      "trust.openReconciliation",
+      "trust.previewStatementImport",
+      "trust.reconciliationSuggestions",
+      "trust.recordBankStatement",
+      "trust.recordReconciliationMatch",
       "trust.rejectDisbursement",
       "trust.requestDisbursement",
       "trust.transferBetweenMatters",
       "trust.withdrawDisbursement",
+      "trust.withdrawReconciliationMatch",
       "uploads.abort",
       "uploads.complete",
       "uploads.get",

@@ -38,7 +38,7 @@ import {
 
 const SEALED_SOCIAL_SECURITY_NUMBER = "987-65-4321";
 const PROTECTED_KEY = "client.socialSecurityNumber";
-const ABSENCE_MARKER = "[CLIENT SOCIAL SECURITY NUMBER]";
+const ABSENCE_MARKER = "[CLIENT&apos;S SOCIAL SECURITY NUMBER]";
 
 let firmId: FirmId;
 let bucketName: string;

@@ -53,7 +53,14 @@ import {
   documentAutomationMeasurements,
   DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/document-automation-measurements.ts";
+import {
+  trustHotPathPlans,
+  trustMeasurementHandle,
+  trustMeasurements,
+  TRUST_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/trust-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
+import { readTrustThreeWayProof } from "@magna-carta/trust/reconciliation";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
 
@@ -236,12 +243,51 @@ describe("load-profile smoke", () => {
         "templates.version-for-assembly",
         "assembly.merge-context",
         "templates.custom-field-catalog",
+        "templates.merge-field-catalog",
+        "templates.field-binding-lookup",
       ].sort(),
     );
     for (const result of automationResults) {
       expect(result.iterations).toBe(2);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
+
+    // The trust measured set runs over the snapshot directly — every operation is a read, and the
+    // one that matters is the whole three-way proof for the period the generator left open.
+    const trustHandle = trustMeasurementHandle(snapshot);
+    const trustResults = await runMeasurements(trustHandle, trustMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(trustResults.map((result) => result.name).sort()).toEqual(
+      [
+        "trust-proof.three-way",
+        "trust-match.suggestions",
+        "trust-client-ledger.movements-by-node",
+        "trust-available-balance.by-node",
+        "trust-fitness.table-wide",
+      ].sort(),
+    );
+    for (const result of trustResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // And the proof is not merely timed but PROVEN honest: the generator puts a service charge on
+    // every statement that the firm never records, so the open period cannot tie out and the proof
+    // must say which leg is out rather than quietly agreeing.
+    const { proof } = await readTrustThreeWayProof(
+      snapshot.database,
+      snapshot.manifest.trustProbes.openReconciliationId,
+    );
+    expect(proof.balanced).toBe(false);
+    expect(proof.disagreements.map((disagreement) => disagreement.leg)).toContain("bank-to-book");
+    // Book and client agree by construction while the composition guard holds, so that leg stays
+    // silent — a row here would mean an entry reached the ledger without going through the guard.
+    expect(proof.disagreements.map((disagreement) => disagreement.leg)).not.toContain(
+      "book-to-client",
+    );
+    expect(proof.unmatchedStatementLines.length).toBeGreaterThan(0);
 
     // The co-party surfacing path is not merely timed but PROVEN expressed: the identically-named
     // co-party pair makes each member a co-party hit of the other, so the append-only log the checks
@@ -382,9 +428,28 @@ describe("load-profile smoke", () => {
         "assembly.merge-context.parties",
         "assembly.merge-context.custom-field-values",
         "templates.custom-field-catalog",
+        "templates.field-binding-lookup",
       ].sort(),
     );
     expect(findFullScans(automationPlans, DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The trust hot-path plans: same label-set-first guard, then the scan check. The proof's two
+    // as-of totals are sums over ledger_line and must walk the account index rather than the table —
+    // they are the reads that would silently degrade as a firm's book grows. Only the fitness sweep,
+    // table-wide by nature, is allowlisted.
+    const trustPlans = trustHotPathPlans(snapshot);
+    expect(trustPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "trust-proof.book-balance-as-of",
+        "trust-proof.client-total-as-of",
+        "trust-proof.outstanding-items",
+        "trust-proof.unmatched-lines",
+        "trust-statement.lines-by-statement",
+        "trust-client-ledger.movements-by-node",
+        "trust-available-balance.by-node",
+      ].sort(),
+    );
+    expect(findFullScans(trustPlans, TRUST_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

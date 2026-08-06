@@ -124,6 +124,12 @@ export const ENTITY_PREFIXES = {
   emailParticipant: "emailParticipant",
   emailAttachment: "emailAttachment",
   emailCaptureAddress: "emailCaptureAddress",
+  // Auto-file rules. `emailAutoFileRule` is one typed, matter-bound, revocable delegation — a person
+  // who could have filed a class of messages by hand telling the platform to do it for them;
+  // `emailAutoFileDecision` is one row of the evaluation ledger, recording what a rule did or what
+  // stopped it, in identifiers and enums only.
+  emailAutoFileRule: "emailAutoFileRule",
+  emailAutoFileDecision: "emailAutoFileDecision",
   // Discovery search index. An `indexSplit` is one immutable Tantivy split — a self-contained bundle of
   // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
   // enumerates to know which splits are live for a matter.
@@ -168,6 +174,12 @@ export const ENTITY_PREFIXES = {
   // proposed payment out of a client ledger that has not moved any money yet, and a
   // `trustDisbursementDecision` is the single append-only row that settles one — the approval that
   // posts the movement, or the rejection or withdrawal that does not.
+  //
+  // Reconciliation adds the bank's side of the same money: a `trustBankStatement` is one period as
+  // the institution reported it, a `trustBankStatementLine` is one item on that statement, a
+  // `trustReconciliation` is a firm's attempt to tie a statement to its own records, and a
+  // `trustReconciliationMatch` is a person's assertion that one statement line and one recorded
+  // movement are the same event.
   trustAccount: "trustAccount",
   trustLedgerNode: "trustLedgerNode",
   trustHold: "trustHold",
@@ -175,6 +187,40 @@ export const ENTITY_PREFIXES = {
   trustMovement: "trustMovement",
   trustDisbursementRequest: "trustDisbursementRequest",
   trustDisbursementDecision: "trustDisbursementDecision",
+  trustBankStatement: "trustBankStatement",
+  trustBankStatementLine: "trustBankStatementLine",
+  trustReconciliation: "trustReconciliation",
+  trustReconciliationMatch: "trustReconciliationMatch",
+  // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
+  // entities); an `invoiceLine` is what the client is told, in presentation order; an
+  // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the
+  // concurrency control that stops two drafts billing one hour. An `invoiceApplication` is one unit
+  // of value reaching an invoice — a payment, a transfer of earned fees out of trust, a credit note,
+  // a client credit, a write-off, or the reversal of one of those. A `creditNote` and its
+  // `creditNoteLine` correct a finalized invoice without editing it; a `clientCredit` is value owed
+  // back to a client that has not been discharged yet; an `invoiceDelivery` is one attempt at
+  // getting a bill to the client, recorded per attempt because a re-send is not a change to the
+  // financial record. A `billingArrangement` is the effective-dated record of how a matter is
+  // billed, and a `taxRate` is one rate in the firm's own configured catalog.
+  invoiceLine: "invoiceLine",
+  invoiceWipClaim: "invoiceWipClaim",
+  invoiceApplication: "invoiceApplication",
+  creditNote: "creditNote",
+  creditNoteLine: "creditNoteLine",
+  clientCredit: "clientCredit",
+  invoiceDelivery: "invoiceDelivery",
+  billingArrangement: "billingArrangement",
+  taxRate: "taxRate",
+  // The case calendar. A `matterEvent` is one thing that happened or will happen in the case that no
+  // other subsystem records — a hearing, a filing, service, an order, a deposition; a
+  // `matterEventType` is the per-firm classification catalog behind it; a `matterEventParticipant`
+  // is one person who was or will be there, whether a firm member, a Directory entity, or somebody
+  // external to both. A `matterDeadline` is a date the firm must do something by, which is a
+  // different record from an event because it can be satisfied and it comes from somewhere.
+  matterEvent: "matterEvent",
+  matterEventType: "matterEventType",
+  matterEventParticipant: "matterEventParticipant",
+  matterDeadline: "matterDeadline",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

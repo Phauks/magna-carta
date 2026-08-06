@@ -120,6 +120,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
   },
+  // An auto-file rule resolves to a subject by its match VALUE for one of its two kinds: a
+  // correspondent rule's match value IS a person's mailbox, frozen the same way email_participant's
+  // address is and reachable by erasure the same way (a thread rule's match value is an internal
+  // thread handle and names nobody). It is retained on the matter's footing rather than deleted
+  // because the rule is the authorizing record behind every automatic filing already made on that
+  // matter — the answer to "why is this message here" — and the subject-side scrub happens at the
+  // Directory entity, as it does for every other row in this group. created_by is the delegating
+  // member and is administrative provenance on the same row, not a second subject key.
+  {
+    table: "email_auto_file_rule",
+    subjectKey: "match_value",
+    action: "retain-under-matter",
+    note: "a correspondent rule's match value is the sender's mailbox, and the rule is what explains every automatic filing it produced",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
@@ -225,6 +239,79 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "payee",
     action: "report-manual",
     note: "who a proposed trust payment would have gone to, held as free text with no structured subject, on an append-only row that survives a refusal",
+  },
+  // A bank statement line names the other party as the BANK printed it — frequently not what the
+  // firm called them, and frequently not a Directory contact at all. It is the same free-text
+  // residue class the movement's counterparty sits in, and it takes the same treatment for the same
+  // reason, with one difference worth stating: this text is the institution's record rather than the
+  // firm's, so the firm cannot correct it without the statement ceasing to be what the bank sent.
+  {
+    table: "trust_bank_statement_line",
+    subjectKey: "counterparty_name",
+    action: "report-manual",
+    note: "the other party as the bank named it on a statement line, held as free text with no structured subject, on an append-only row the firm did not author",
+  },
+  // Billing. The invoice header is the one billing table with a structured subject reference: it
+  // says the firm charged this client. It is retained on the same basis as matter_party and the
+  // trust sub-ledger node — a bill the firm issued is a financial record it is obliged to keep and
+  // to be able to account for, and the subject-side scrub happens at the Directory entity. Erasing
+  // it would leave a receivable in the ledger nobody could attribute.
+  {
+    table: "invoice",
+    subjectKey: "client_entity_id",
+    action: "retain-under-matter",
+    note: "who the firm billed, on a record it must be able to produce for its own accounts and for a fee dispute",
+  },
+  // The billing name and letterhead snapshot are the client's name as it was PRINTED on a bill the
+  // firm has already given somebody. There is no separate structured subject to resolve — the row's
+  // client_entity_id above is it — and re-writing the printed name would make the finalized invoice
+  // stop being the document the client received, which is the property the whole snapshot exists to
+  // give. The residue class matter.description and custody_item.description sit in.
+  {
+    table: "invoice",
+    subjectKey: "client_billing_name",
+    action: "report-manual",
+    note: "the client's name as it was printed on a bill already issued, frozen so the finalized invoice re-renders as the document the client received",
+  },
+  // An invoice line's description is the firm's own narrative of work done, snapshot at composition.
+  // Where it names a person it does so as free text with no structured subject — the same residue
+  // class the time-entry narrative it was composed from sits in, and it takes the same treatment for
+  // the same reason, with the line frozen once its invoice is finalized.
+  {
+    table: "invoice_line",
+    subjectKey: "description",
+    action: "report-manual",
+    note: "what the client was told the firm did, held as free text with no structured subject, frozen once the invoice is finalized",
+  },
+  // The case calendar. Only one of its four tables carries a structured reference to a person: who
+  // was, or will be, at a hearing. It resolves to a subject three ways because all three shapes
+  // really occur, and the third is why one key would not be enough — an EXTERNAL participant (the
+  // court reporter, an interpreter, a witness nobody in the firm has a Directory record for) has no
+  // entity id by construction, so keying only on that column would leave exactly those people
+  // unreachable by erasure. The frozen-name key follows the precedent email_participant.address and
+  // custody_movement.borrower_name already set.
+  //
+  // Retention is the matter's: who appeared on a case, and in what role, is part of that matter's
+  // record for the same reason matter_party is, and the subject-side scrub happens at the Directory
+  // entity. The member key is the firm member's own attendance — activity, the line
+  // time_entry.timekeeper_user_id sits on, rather than the current-state line member_role sits on.
+  {
+    table: "matter_event_participant",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "who attended a proceeding on a matter is part of that matter's record",
+  },
+  {
+    table: "matter_event_participant",
+    subjectKey: "participant_name",
+    action: "retain-under-matter",
+    note: "an external participant with no Directory record — the only handle erasure has on them",
+  },
+  {
+    table: "matter_event_participant",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
 ];
 
@@ -332,6 +419,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance on a configuration row — current state, not an activity record about the member (the
   // same line integration_connection and scoped_setting sit on).
   "email_capture_address",
+  // The auto-file evaluation ledger. It is built to hold nothing about a person: identifiers, a
+  // closed outcome enum, a closed reason enum, and an evidence structure of identifiers and enums —
+  // never a subject line, an address, or a display name. The rule it names is registered above, and
+  // the message it names carries its own personal data on email_message.
+  "email_auto_file_decision",
   // Document-automation template catalogue — firm-authored assembly inputs and their stored bytes. A
   // template can itself embed sample or boilerplate personal data in its fixed text, which is content-
   // level residue for the residue report exactly as a matter document's contents are; the ROWS carry
@@ -340,6 +432,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // a firm configuration row (the same line email_capture_address sits on).
   "document_template",
   "document_template_version",
+  // The merge-field binding index. Two columns, both derived from the version row above: the version's
+  // identifier and the merge KEY its manifest names. A key is the platform's own token or a firm's own
+  // field handle — it names a fact, never holds one — so there is nothing here about a person even in
+  // the residual sense the manifest itself sits on. It is erased with the version it derives from.
+  "document_template_field_binding",
   // Custodian structure and catalogs. The three tables that reference a person are registered in
   // PII_TABLES above; these carry none of their own.
   // The container tree is the firm's own safes, shelves, and offsite sites — the firm's premises,
@@ -393,4 +490,48 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance about a firm control, the line custody_destruction_request sits on. The payee the
   // request named is registered above; nothing about a data subject is repeated here.
   "trust_disbursement_decision",
+  // A bank statement is the institution's report about the FIRM's own bank account — a period, two
+  // balances, and the firm's reference for it. It is the same line `trust_account` sits on; the one
+  // column about anybody else is the line's counterparty, registered above.
+  "trust_bank_statement",
+  // A reconciliation is a control row about MONEY and its proof: the account, the statement, the
+  // frozen totals, and firm-member provenance (opened_by / closed_by) — the custody_stocktake line.
+  // A match is one member's assertion tying a statement line to a ledger entry, carrying two handles
+  // and the member who asserted it. Neither carries a column about a data subject; whose money the
+  // ledger holds resolves through trust_ledger_node, registered above.
+  "trust_reconciliation",
+  "trust_reconciliation_match",
+  // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
+  // PII_TABLES above; these five carry none of their own.
+  // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two
+  // timestamps — a record about the firm's own bookkeeping, whose client resolves through the
+  // invoice, not through this row.
+  "invoice_wip_claim",
+  // A derived balance: an invoice, a matter, and two integers. It is the line account_balance sits
+  // on, and whose money it concerns resolves through the invoice.
+  "invoice_matter_balance",
+  // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
+  // value. Nothing about any person.
+  "invoice_number_counter",
+  "invoice_number_allocation",
+  // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
+  // by another name, and configuration rather than personal data (the line `rate_card` sits on).
+  "firm_account_role",
+  // The case calendar. The one table that references a person (matter_event_participant) is
+  // registered in PII_TABLES above; these three carry no structured personal-data column.
+  // The event-type catalog is a classification vocabulary (hearing, deposition, filing), the line
+  // matter_type, document_type, and custody_item_type sit on.
+  "matter_event_type",
+  // An event describes a PROCEEDING: its type, when and where it is, the court's own case number,
+  // and firm-member provenance (recorded_by). Its title and description are free text and can name
+  // the people a hearing concerns ("Smith custody hearing"), but that is content with no structured
+  // subject column to resolve — the residue class matter.description and custody_item.description
+  // established, handled by the residue report rather than by a key here. Who attended IS keyed, on
+  // matter_event_participant above.
+  "matter_event",
+  // A deadline is a DATE the firm must act by, plus the firm's own note of the authority it comes
+  // from and, where one was recorded, why it is no longer in force. Its title, authority note, state
+  // reason, and satisfaction note are the same free-text residue class the event's title sits in;
+  // recorded_by / satisfied_by are firm-member provenance on a control row about a date.
+  "matter_deadline",
 ];

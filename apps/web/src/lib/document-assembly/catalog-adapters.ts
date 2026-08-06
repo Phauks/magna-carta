@@ -7,7 +7,7 @@
  * in this file changes — it maps contract types, not a transport.
  */
 import {
-  MERGE_FIELD_GROUP_LABELS,
+  mergeFieldGroupLabel,
   MERGE_FIELD_VALUE_TYPE_LABELS,
   type DetectedFieldConversion,
   type MergeFieldCatalog,
@@ -44,7 +44,7 @@ function pickerOption(entry: MergeFieldEntry): MergeFieldPickerOption {
     key: entry.key,
     label: entry.label,
     group: entry.group,
-    groupLabel: MERGE_FIELD_GROUP_LABELS[entry.group],
+    groupLabel: mergeFieldGroupLabel(entry.group),
     valueTypeLabel: MERGE_FIELD_VALUE_TYPE_LABELS[entry.valueType],
     description: entry.description,
     status: chipStatusForAvailability(entry.availability),

@@ -245,6 +245,21 @@ describe("end-to-end", () => {
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
+        // The six billing keys split by what they let a member do: reading and drafting reach the
+        // practitioner set, finalizing and crediting reach Owner/Admin + Attorney, applying client
+        // money reaches Owner/Admin + Attorney + Billing, and configuring the account-role map is
+        // Owner/Admin alone (20260805T230000_billing-invoices). Owner/Admin holds all six.
+        "billing:apply",
+        "billing:configure",
+        "billing:credit",
+        "billing:draft",
+        "billing:finalize",
+        "billing:read",
+        // calendar:read reaches every default role — "when is the hearing" is a question every seat
+        // in a firm asks; calendar:manage asserts when a hearing IS and reaches Owner/Admin,
+        // Attorney, and Paralegal only (20260806T000000_case-calendar).
+        "calendar:manage",
+        "calendar:read",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
         // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
         "conflicts:dispose",
@@ -263,6 +278,10 @@ describe("end-to-end", () => {
         "directory:viewSensitiveIdentifiers",
         "documents:assemble",
         "emails:file",
+        // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
+        // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
+        // it only by an explicit firm grant.
+        "emails:manageAutoFileRules",
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
@@ -488,6 +507,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Read-shaped POST: ranks the matters an open message might belong to. The message facts ride
       // the body rather than a URL because they are the firm's mail; nothing is written or filed.
       "emails.suggestMatters",
+      // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
+      // Nothing is stored; the separate, audited import route is what records anything.
+      "trust.previewStatementImport",
     ]);
 
     for (const { operation, label } of mutatingV1) {

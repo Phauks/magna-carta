@@ -7,7 +7,16 @@
 // fragment set every run. Tables are emitted width-independent (single space around each cell, no
 // padding to column max-width) so one long note can never re-pad — and diff — every other row.
 
-export const GROUPS = ["phase-0", "phase-1", "phase-2", "cross-cutting", "phase-3", "phase-4"];
+export const GROUPS = [
+  "phase-0",
+  "phase-1",
+  "phase-2",
+  "cross-cutting",
+  "phase-3",
+  "phase-4",
+  "phase-5",
+  "phase-6",
+];
 export const STAGE_KEYS = ["research", "spec", "plan", "built", "ui", "load-profile", "tested"];
 export const STATES = ["done", "in-progress", "todo", "n/a"];
 
