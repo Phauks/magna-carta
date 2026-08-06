@@ -3,6 +3,7 @@ import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispa
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
 import { catalogEntryFor, embeddingEntry, isZdrEligible, type CatalogEntry } from "./catalog.ts";
 import type {
+  ConversationInput,
   EmbedInput,
   EmbeddingResult,
   GenerateInput,
@@ -197,10 +198,55 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
     }
   }
 
+  // The provider-native request body for a conversation. This translation is the ONLY new code on
+  // this operation: the ZDR guard, the gateway options, the usage extraction, the response-text
+  // reconciliation, and the caller-safe failure mapping are all the shipped ones, unchanged. The
+  // system instruction rides its own top-level field rather than a message, exactly as it arrives on
+  // ConversationInput, so the separation holds all the way to the wire; `member` maps to the
+  // provider's `user` role here and nowhere else in the codebase.
+  function conversationRequestBody(input: ConversationInput): unknown {
+    return {
+      system: input.systemPrompt,
+      messages: input.messages.map((message) => ({
+        role: message.role === "member" ? "user" : "assistant",
+        content: message.content,
+      })),
+    };
+  }
+
   return {
     generate: runGenerate,
     // A durable Workflow step invokes one operation per step; the buffered result shape matches generate.
     generateDurable: runGenerate,
+
+    async generateConversation(input: ConversationInput): Promise<Dispatch<GenerateResult>> {
+      // An empty conversation is a caller bug, not an upstream condition: there is nothing to answer,
+      // and dispatching it would spend on a request whose result is meaningless. Refused before the
+      // binding, with the same non-retryable category the other local refusal uses.
+      if (input.messages.length === 0) {
+        return adapterError<GenerateResult>(
+          integrationProblem("validation", 400, "Conversation has no messages", {
+            detail: "A conversation request must carry at least one message.",
+          }),
+        );
+      }
+      // The same fail-closed guard, in the same place, before dispatch: a non-eligible model returns
+      // the caller-safe non-retryable problem and the binding is never called.
+      const resolved = resolveZdrEntry(input.modelId);
+      if (!resolved.ok) return adapterError<GenerateResult>(resolved.problem);
+      const entry = resolved.entry;
+      const gateway = gatewayOptions(input.firmId, entry.slot, env);
+      try {
+        const response = await ai.run(input.modelId, conversationRequestBody(input), { gateway });
+        return ok({
+          text: responseText(response),
+          usage: extractUsage(response),
+          snapshotId: entry.snapshotId,
+        });
+      } catch {
+        return gatewayFailure<GenerateResult>();
+      }
+    },
 
     async generateStream(input): Promise<Dispatch<StreamResult>> {
       const resolved = resolveZdrEntry(input.modelId);

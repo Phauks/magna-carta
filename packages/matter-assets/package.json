@@ -1,0 +1,42 @@
+{
+  "name": "@magna-carta/matter-assets",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./classes": "./src/classes.ts",
+    "./validation": "./src/validation.ts",
+    "./settings": "./src/settings.ts",
+    "./asset-type-statements": "./src/asset-type-statements.ts",
+    "./asset-type-service": "./src/asset-type-service.ts",
+    "./asset-statements": "./src/asset-statements.ts",
+    "./asset-service": "./src/asset-service.ts",
+    "./valuation-statements": "./src/valuation-statements.ts",
+    "./valuation-service": "./src/valuation-service.ts",
+    "./as-of": "./src/as-of.ts",
+    "./interest-statements": "./src/interest-statements.ts",
+    "./interest-service": "./src/interest-service.ts",
+    "./document-link-statements": "./src/document-link-statements.ts",
+    "./document-link-service": "./src/document-link-service.ts",
+    "./identifier-statements": "./src/identifier-statements.ts",
+    "./identifier-service": "./src/identifier-service.ts",
+    "./queries": "./src/queries.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

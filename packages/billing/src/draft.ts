@@ -10,6 +10,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
+import { readMatterClientEntityIds } from "@magna-carta/matters/matter-party";
 import { BillingValidationError } from "./billing-validation.ts";
 import { invoiceLineAmountMinor, RATE_SCALE_DIVISOR } from "./line-amounts.ts";
 import {
@@ -24,7 +25,6 @@ import {
   readInvoiceClaim,
   readInvoiceLine,
   readInvoiceLines,
-  readMatterClientEntityIds,
   releaseAllInvoiceClaimsStatement,
   releaseInvoiceClaimStatement,
   setWorkInProgressInvoiceMirrorStatement,
@@ -326,6 +326,19 @@ export async function addClaimsToDraft(
       throw new BillingValidationError(
         "invoice-client-mismatch",
         `matter ${entry.matterId} belongs to client ${clientEntityId}, but this invoice bills ${invoice.clientEntityId}: one invoice bills one client`,
+      );
+    }
+    // ONE CURRENCY PER INVOICE, refused here rather than absorbed later. The line is written with
+    // the entry's own currency, but `finalizeInvoice` aggregates every line under the INVOICE's
+    // currency — so a line that disagreed would be silently re-labelled at finalize and billed as if
+    // it had always been in the invoice's money. Unreachable while the work-in-progress stores are
+    // pinned to USD by their own CHECK constraints, which means the guard today is those constraints
+    // rather than any code: the first second currency added to the registry would remove it without
+    // a line of this package changing.
+    if (entry.currency !== invoice.currency) {
+      throw new BillingValidationError(
+        "invoice-line-currency-mismatch",
+        `${request.sourceKind} ${request.sourceId} is recorded in ${entry.currency}, but this invoice bills in ${invoice.currency}: a bill states one currency, and converting one here would invent an exchange rate nobody approved`,
       );
     }
 

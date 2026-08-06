@@ -39,9 +39,16 @@ import { CustodyValidationError } from "./validation.ts";
 // most likely to grow, and the whole register is the widest a stocktake ever gets.
 
 // A bound on both reads. A firm holds low thousands of packets; ten thousand is far past any real
-// register and exists so a runaway scope truncates to an obviously-short answer rather than pulling
-// an unbounded result set into a request handler.
-const MAX_RECONCILIATION_ROWS = 10_000;
+// register and exists so a runaway scope cannot pull an unbounded result set into a request handler.
+//
+// TRUNCATION IS REPORTED AS DATA, NEVER LEFT TO BE INFERRED FROM A SHORT ANSWER. Both reads request
+// one row past the cap purely to learn whether there was one, and `CustodyReconciliation.truncated`
+// carries the answer to every surface that renders the report. A partial count that looks complete is
+// worse than no count: it under-reports missing originals (the packets past the cut are never
+// expected, so they can never be reported missing) while over-reporting others, and a firm would file
+// the numbers believing them whole. `closeCustodyStocktake` refuses to freeze counts drawn from a
+// truncated reconciliation for the same reason.
+export const MAX_RECONCILIATION_ROWS = 10_000;
 
 export interface CustodyReconciliationLine {
   readonly outcome: CustodyReconciliationOutcome;
@@ -85,6 +92,14 @@ export interface CustodyReconciliation {
   // reports and must not have drift under it afterwards. The two disagreeing is not a fault: it is
   // the register having been put right since.
   readonly frozenCounts: CustodyReconciliationCounts | null;
+  // Whether either bounded read hit its cap. TRUE means this report is a partial answer about a
+  // register larger than the cap, and every count on it is a floor rather than a finding: packets
+  // past the cut were never expected, so they were never reported missing. A close of a truncated
+  // reconciliation is refused rather than frozen.
+  readonly truncated: boolean;
+  // The cap that was applied to each read, so a surface can say how partial the answer is rather than
+  // asking its reader to know the constant.
+  readonly rowLimit: number;
 }
 
 export interface CustodyReconciliationCounts {
@@ -95,9 +110,17 @@ export interface CustodyReconciliationCounts {
   readonly unregistered: number;
 }
 
+// The cap the caller applies to both reads. A parameter rather than a hard-wired constant, exactly
+// as `limit` is on every other read in this package — `MAX_RECONCILIATION_ROWS` is the platform's
+// default, not a fact the report is entitled to hide from its caller.
+export interface CustodyReconciliationBounds {
+  readonly rowLimit?: number;
+}
+
 export async function reconcileCustodyStocktake(
   database: SqlDatabase,
   stocktakeId: CustodyStocktakeId,
+  bounds: CustodyReconciliationBounds = {},
 ): Promise<CustodyReconciliation> {
   const stocktake = await readCustodyStocktake(database, stocktakeId);
   if (stocktake === undefined) {
@@ -106,7 +129,7 @@ export async function reconcileCustodyStocktake(
       `no such custody stocktake: ${stocktakeId}`,
     );
   }
-  return reconcileAgainstRegister(database, stocktake);
+  return reconcileAgainstRegister(database, stocktake, bounds);
 }
 
 // The reconciliation over an already-loaded stocktake row. Split out so the close path can draw the
@@ -115,7 +138,9 @@ export async function reconcileCustodyStocktake(
 export async function reconcileAgainstRegister(
   database: SqlDatabase,
   stocktake: CustodyStocktakeRow,
+  bounds: CustodyReconciliationBounds = {},
 ): Promise<CustodyReconciliation> {
+  const rowLimit = bounds.rowLimit ?? MAX_RECONCILIATION_ROWS;
   // The scope is expanded ONCE, here, and passed down as a value list — the same discipline the
   // packet list read follows. A null scope is the whole register.
   const scopeLocationIds =
@@ -123,17 +148,25 @@ export async function reconcileAgainstRegister(
       ? undefined
       : await readCustodyLocationSubtreeIds(database, stocktake.scope_location_id);
 
-  const [expected, sightings] = await Promise.all([
-    readCustodyExpectedPackets(database, scopeLocationIds, MAX_RECONCILIATION_ROWS),
-    readCustodyStocktakeSightings(database, stocktake.id, MAX_RECONCILIATION_ROWS),
+  // One row past the cap on each read, purely to learn whether there was one. The extra row is
+  // discarded; what it buys is the difference between "the register holds exactly this much" and
+  // "the register holds more than this and the rest of the answer is missing".
+  const [expectedRead, sightingsRead] = await Promise.all([
+    readCustodyExpectedPackets(database, scopeLocationIds, rowLimit + 1),
+    readCustodyStocktakeSightings(database, stocktake.id, rowLimit + 1, "newest-first"),
   ]);
+  const truncated = expectedRead.length > rowLimit || sightingsRead.length > rowLimit;
+  const expected = expectedRead.slice(0, rowLimit);
+  const sightings = sightingsRead.slice(0, rowLimit);
 
   const inScope = scopeLocationIds === undefined ? undefined : new Set(scopeLocationIds);
 
   // A packet may be recorded more than once during a count — two people walk the same shelf, or one
-  // corrects themselves by recording the later, truer observation. The LAST observation wins, by
-  // observed_at then id, because the sighting read returns them in exactly that order and a later
-  // look at the same object is the better evidence of where it is.
+  // corrects themselves by recording the later, truer observation. The LAST observation wins, because
+  // a later look at the same object is the better evidence of where it is. The read returns them
+  // NEWEST first, so the last observation is the FIRST one seen here and an earlier row never
+  // overwrites it — which is also what makes the rule survive the cap, since the rows the cap drops
+  // are then the oldest ones rather than the corrections.
   const lastSightingByPacket = new Map<CustodyPacketId, CustodyStocktakeSightingRow>();
   const unregisteredSightings: CustodyStocktakeSightingRow[] = [];
   for (const sighting of sightings) {
@@ -142,8 +175,11 @@ export async function reconcileAgainstRegister(
       continue;
     }
     if (sighting.packet_id === null) continue;
+    if (lastSightingByPacket.has(sighting.packet_id)) continue;
     lastSightingByPacket.set(sighting.packet_id, sighting);
   }
+  // Read newest-first above; a person reads a count's findings forwards.
+  unregisteredSightings.reverse();
 
   const expectedById = new Map<CustodyPacketId, CustodyExpectedPacketRow>();
   for (const packet of expected) expectedById.set(packet.id, packet);
@@ -220,6 +256,8 @@ export async function reconcileAgainstRegister(
     unexpected,
     unregistered,
     frozenCounts: frozenCountsOf(stocktake),
+    truncated,
+    rowLimit,
   };
 }
 

@@ -20,7 +20,7 @@ import {
 import {
   insertTrustDisbursementDecisionStatement,
   insertTrustDisbursementRequestStatement,
-  selectActiveTrustManagerCountStatement,
+  selectActiveTrustManagersStatement,
   selectPendingTrustDisbursementRequestsStatement,
   selectTrustDisbursementRequestStatement,
 } from "./statements.ts";
@@ -213,14 +213,17 @@ async function loadPendingRequest(
   return request;
 }
 
-// How many members could possibly authorize a disbursement in this firm. Read only to turn the
+// Which members could possibly authorize a disbursement in this firm. Read only to turn the
 // sole-authorizer trigger's abort into a sentence — the trigger is what actually holds, because this
 // read and the write that follows it cannot be one atomic act.
-async function readActiveTrustManagerCount(database: SqlDatabase): Promise<number> {
-  const { results } = await selectActiveTrustManagerCountStatement(database).all<{
-    manager_count: number;
+async function readActiveTrustManagers(
+  database: SqlDatabase,
+): Promise<readonly { user_id: string; display_name: string }[]> {
+  const { results } = await selectActiveTrustManagersStatement(database).all<{
+    user_id: string;
+    display_name: string;
   }>();
-  return results[0]?.manager_count ?? 0;
+  return results;
 }
 
 export interface TrustDisbursementApprovalInput {
@@ -255,11 +258,23 @@ export async function composeTrustDisbursementApproval(
   const request = await loadPendingRequest(database, input.requestId);
 
   const approverIsRequester = input.approvedBy === request.requestedBy;
-  if (approverIsRequester && (await readActiveTrustManagerCount(database)) > 1) {
-    throw new TrustValidationError(
-      "trust-disbursement-decider-is-requester",
-      `${input.approvedBy} submitted this disbursement request, and this firm has other members who can authorize a trust disbursement; one of them must approve it`,
-    );
+  if (approverIsRequester) {
+    const managers = await readActiveTrustManagers(database);
+    if (managers.length > 1) {
+      // The refusal NAMES them. The trigger this mirrors counts a direct grant of `trust:manage`
+      // whether or not it has expired, deliberately, because over-counting authorizers refuses the
+      // sole-manager exception and that is the safe direction to be wrong in. A firm told only that
+      // it "has other members" cannot find the lapsed grant that is speaking for a person who no
+      // longer works there, and would be locked out of paying client money out at all.
+      const others = managers
+        .filter((manager) => manager.user_id !== input.approvedBy)
+        .map((manager) => `${manager.display_name} (${manager.user_id})`)
+        .join(", ");
+      throw new TrustValidationError(
+        "trust-disbursement-decider-is-requester",
+        `${input.approvedBy} submitted this disbursement request, and this firm has other members who can authorize a trust disbursement; one of them must approve it: ${others}`,
+      );
+    }
   }
   const authorizationBasis: TrustDisbursementAuthorizationBasis = approverIsRequester
     ? "sole_trust_manager"

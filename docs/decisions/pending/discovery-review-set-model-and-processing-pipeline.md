@@ -61,9 +61,17 @@ processed them.
    all checked before the first retained byte, with every entry re-entering the ingest gate and the
    original kept as the as-received evidence copy.
 
-8. **The index scope key widens from matter to corpus now** — `corpus_kind` + `corpus_id`, with the
-   split key becoming `search/<corpusKind>/<corpusId>/splits/`. A matter document loaded into a review
-   set is indexed in both corpora on purpose.
+8. **The index scope key widens from matter to corpus now** — a `corpus_kind` + `corpus_id` pair in
+   the type system, with the derived split key becoming `search/<corpusId>/splits/`. **The kind is
+   not a path segment.** The design proposed `search/<corpusKind>/<corpusId>/splits/`, and the build
+   ruled the kind segment redundant: a corpus identifier is a self-describing prefixed handle
+   (`matter_…`, and a review set's own prefix later) drawn from disjoint namespaces, so two kinds can
+   never collide on an id, and adding the segment would buy nothing while changing the key of every
+   split ever published. The kind survives where it does real work — the discriminated union that
+   makes a second kind an additive member the compiler finds every behavioural consumer of. Because
+   the key is derived rather than stored, its exact bytes are a compatibility contract with the
+   objects in the bucket, pinned by a byte-identical fixture in `packages/search/test/split.test.ts`.
+   A matter document loaded into a review set is indexed in both corpora on purpose.
 
 9. **The extraction port becomes composite**, native-first, recognition only for raster pages with no
    text layer — which closes the born-digital-PDF gap the shipped port documents, platform-wide rather

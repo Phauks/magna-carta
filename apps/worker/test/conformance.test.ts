@@ -237,6 +237,21 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // single matter by construction — each is a matter-scoped read repeated under one visibility
   // predicate, and the catalog is firm configuration with no matter at all.
   calendar: ["matter", "firm"],
+  // matterAssets:* governs the register of what a client or an estate owns. It binds the MATTER —
+  // the clean contrast with custody:*'s firm binding, and the reason is structural rather than
+  // stylistic: a custody packet may have no matter at all by construction, while an asset row IS one
+  // matter's assertion about one thing owned and cannot exist without a matter. The firm arm covers
+  // the two configuration reads that have no single matter by construction: the per-firm type
+  // catalog and the platform class registry, which are firm configuration in the same sense the
+  // event-type catalog is.
+  matterAssets: ["matter", "firm"],
+  // magnus:* governs the conversational assistant. It binds the FIRM, on the custody reasoning rather
+  // than the matterAssets one: a conversation may carry an optional matter link, but it exists
+  // perfectly well without one — a member asking a general question is the ordinary case, not an edge
+  // case — so binding to "matter" would name a resource most rows do not have. The link answers which
+  // matter's file a transcript belongs to; it is not the resource the capability governs, and it puts
+  // none of that matter's content into anything the assistant is sent.
+  magnus: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -872,6 +887,33 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "locations.setAddresses",
       "locations.setLetterheadLogo",
       "locations.update",
+      "magnus.acknowledge",
+      "magnus.availability",
+      "magnus.deleteConversation",
+      "magnus.events",
+      "magnus.getConversation",
+      "magnus.getTurn",
+      "magnus.listConversations",
+      "magnus.renameConversation",
+      "magnus.startConversation",
+      "magnus.submitTurn",
+      "matterAssets.addInterest",
+      "matterAssets.appendValuation",
+      "matterAssets.createAsset",
+      "matterAssets.createAssetBatch",
+      "matterAssets.createAssetType",
+      "matterAssets.deleteAsset",
+      "matterAssets.endInterest",
+      "matterAssets.getAsset",
+      "matterAssets.linkDocument",
+      "matterAssets.listAssetClasses",
+      "matterAssets.listAssetTypes",
+      "matterAssets.listAssets",
+      "matterAssets.listValuations",
+      "matterAssets.readIdentifierValue",
+      "matterAssets.recordIdentifier",
+      "matterAssets.unlinkDocument",
+      "matterAssets.updateAsset",
       "matterTypes.create",
       "matterTypes.deactivate",
       "matterTypes.list",

@@ -9,6 +9,7 @@ members = [
   "decryption-core",
   "email-core",
   "search-core",
+  "discovery-core",
 ]
 
 [workspace.package]

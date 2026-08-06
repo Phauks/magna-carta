@@ -35,6 +35,8 @@ import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
+import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
+import { registerMagnusRoutes } from "./routes/magnus.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -126,7 +128,7 @@ export type Bindings = {
   // only calls it at build time (POST /build) and surfaces any absence as a build failure.
   BUNDLE_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
-  // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
+  // (src/inference/inference-consumer.ts) reaches the model binding, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
   // The email-capture queue: both entrances (the forward/CC Email Worker and the authenticated
@@ -147,6 +149,20 @@ export type Bindings = {
   // The document-assembly queue the coordinator enqueues onto. The message carries IDENTIFIERS ONLY —
   // the consumer resolves the merge context, which never leaves its memory.
   DOCUMENT_ASSEMBLY: Queue<import("./assemblies/assembly-types.ts").DocumentAssemblyMessage>;
+  // The conversational assistant's push surface: one Durable Object per conversation, keyed
+  // firmId:conversationId. It STORES NOTHING — it reads a turn's state back from the firm's own
+  // database and pushes it, so exactly one copy of a transcript exists.
+  MAGNUS_CONVERSATION: DurableObjectNamespace<
+    import("./magnus/magnus-conversation.ts").MagnusConversation
+  >;
+  // The assistant's off-hot-path work queue. The message carries IDENTIFIERS ONLY — what the member
+  // typed stays in the turn row the consumer reads back through the firm-scoped data-access layer.
+  MAGNUS: Queue<import("./magnus/magnus-types.ts").MagnusTurnJob>;
+  // Selects the assistant's inference implementation at deploy time. ABSENT IS THE DEFAULT AND THE
+  // DEFAULT IS THE DETERMINISTIC STUB, which reaches no provider; only the literal value "gateway"
+  // selects the real gateway port. The firm-level consent settings still gate every request on top of
+  // this — turning the assistant on is two deliberate acts, not one.
+  MAGNUS_INFERENCE_ADAPTER?: string;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
@@ -558,6 +574,17 @@ export function createApp(options: CreateAppOptions = {}) {
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.
   registerCustodyRoutes(app, chokepoint);
+  // The matter asset register — what a client or an estate owns, kept on the matter: the asset row
+  // and its class attributes, the append-only value history and its as-of reads, interests held by
+  // directory entities, links to documents that stay ordinary matter files, and account numbers
+  // sealed to their last four characters. Beside Custodian on purpose: the two are the register
+  // pair, and the boundary between them (property in the client's ownership, against objects in the
+  // firm's possession) is the first thing a reader of either one needs.
+  registerMatterAssetRoutes(app, chokepoint);
+  // Magnus — the conversational assistant: the conversation and turn record, the two fail-closed
+  // consent gates, the submit-and-watch path, and the transcript reads. Every route here refuses
+  // unless the firm has opened both gates, and the default adapter reaches no provider.
+  registerMagnusRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);

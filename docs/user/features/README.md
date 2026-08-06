@@ -4,6 +4,7 @@ One plain-language guide per user-visible feature. Naming: `<feature>.md` (e.g. 
 
 Each guide follows the per-feature pattern in [`../README.md`](../README.md): what it does, how to do the common tasks, tips/edge cases, related features — no internal architecture.
 
+- [`asset-register.md`](asset-register.md) — Asset register: what an estate or a client owns, kept on the matter, with a dated value history, interests, and linked documents (backend built, screens pending).
 - [`case-calendar-and-deadlines.md`](case-calendar-and-deadlines.md) — Case calendar and deadlines: recording hearings and filings, recording the dates the firm must act by, and the matter timeline that gathers everything already recorded about a case (backend built, screens pending).
 - [`document-templates-and-assembly.md`](document-templates-and-assembly.md) — Document templates and assembly: authoring a template in Word, registering it, and producing a document onto a matter (backend built, screens pending).
 - [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).

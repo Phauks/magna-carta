@@ -84,12 +84,17 @@ a rule that changes later will never move a date you already accepted — it wil
 - **Supersede** it when a new deadline replaces it. Both stay on the record and the old one names the
   new.
 
-A settled deadline is never edited or re-decided. Record a new one that supersedes it.
+A settled deadline is never edited or re-decided. Record a new one that supersedes it — and if
+somebody settles a deadline while you have it open for editing, your edit is refused rather than
+quietly rewriting a deadline the firm has already dealt with.
 
 ## Overdue
 
 A deadline that is still open and whose date and time have passed is shown as **overdue**, worked out
-in that deadline's own time zone every time you look.
+in that deadline's own time zone every time you look. Filtering a list to the overdue ones asks the
+same question of every row, so a deadline due today in a Pacific court is not on that list at nine in
+the morning — it is due at the end of its own day, in its own zone, not at midnight somewhere else. A
+deadline with no time recorded is due at the end of the day it names.
 
 Nothing anywhere records that your firm missed something. There is no flag, no nightly job, and no
 status that changes on its own. The platform reports what it can see and does not draw a conclusion —

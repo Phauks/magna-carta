@@ -15,6 +15,7 @@ import {
   migratedDatabase,
   options,
   seedMatters,
+  visibility,
 } from "./support.ts";
 
 const DEADLINE = {
@@ -32,7 +33,7 @@ describe("recording a deadline", () => {
     seedMatters(raw);
     const { deadlineId, effect } = await createMatterDeadline(database, DEADLINE, options);
     await commit(database, effect);
-    const stored = await readMatterDeadline(database, deadlineId);
+    const stored = await readMatterDeadline(database, deadlineId, visibility);
     expect(stored?.due_on).toBe("2026-09-07");
     expect(stored?.due_at_time).toBe("17:00");
     expect(stored?.state).toBe("open");
@@ -100,7 +101,7 @@ describe("settling a deadline", () => {
       options,
     );
     await commit(database, satisfyEffect);
-    const stored = await readMatterDeadline(database, deadlineId);
+    const stored = await readMatterDeadline(database, deadlineId, visibility);
     expect(stored?.state).toBe("satisfied");
     expect(stored?.satisfying_event_id).toBe(eventId);
     expect(stored?.satisfied_by).toBe(ACTOR);
@@ -133,7 +134,7 @@ describe("settling a deadline", () => {
       options,
     );
     await commit(database, effect);
-    const stored = await readMatterDeadline(database, deadlineId);
+    const stored = await readMatterDeadline(database, deadlineId, visibility);
     expect(stored?.state).toBe("vacated");
     expect(stored?.state_reason).toBe("vacated by stipulation entered 1 September");
   });

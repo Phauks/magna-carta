@@ -79,6 +79,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("emails:manageAutoFileRules");
     expect(grantsFor("Attorney")).toContain("emails:manageAutoFileRules");
     expect(grantsFor("Paralegal")).not.toContain("emails:manageAutoFileRules");
+    // Reading every member's assistant conversation is a supervision capability and a separate grant
+    // from being able to hold one, so it stops at Owner/Admin by seed.
+    expect(grantsFor("Owner/Admin")).toContain("magnus:readAllConversations");
+    expect(grantsFor("Attorney")).not.toContain("magnus:readAllConversations");
+    expect(grantsFor("Paralegal")).not.toContain("magnus:readAllConversations");
+    expect(grantsFor("Attorney")).toContain("magnus:converse");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -113,6 +119,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "files:upload",
         "firm:reportIncident",
         "firm:scanFile",
+        // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
+        // both firm-level consent settings default closed and every route reads them first.
+        // magnus:readAllConversations is Owner/Admin only, so it is absent here.
+        "magnus:converse",
+        // Logging what an estate owns is the paralegal's job, so this role carries both asset keys.
+        // Unlike custody:read and calendar:read, neither reaches Billing or Read-only by seed: the
+        // register concentrates a matter's financially sensitive facts in one surface, so a firm
+        // that wants its bookkeeper on it grants that deliberately.
+        "matterAssets:manage",
+        "matterAssets:read",
         "matters:create",
         "support:request",
         "tools:aiTextDetection",

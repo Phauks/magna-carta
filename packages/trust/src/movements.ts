@@ -2,7 +2,6 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
-  LedgerAccountId,
   LedgerEntryId,
   MatterId,
   TrustAccountId,
@@ -16,6 +15,7 @@ import type { Money } from "@magna-carta/money/money";
 import {
   assertTrustAccountOpen,
   ensureMatterTrustLeaf,
+  type EnsuredMatterLeaf,
   loadTrustAccount,
   loadTrustNode,
   type TrustServiceOptions,
@@ -83,8 +83,10 @@ export interface TrustMovementOptions extends TrustServiceOptions {
 // on that matter. Lazy creation is why this is a descriptor rather than a node identifier: the
 // majority of matters never hold client money and should never own an account, and the leaf's
 // creation, its zero floor, and the first posting all belong in the ONE batch this composer returns.
+//
+// It names the MATTER and says nothing about the client: whose ledger this is follows from the
+// matter's own client party and is resolved inside `ensureMatterTrustLeaf`, never asserted alongside.
 export interface MatterTrustLeafReference {
-  readonly clientEntityId: string;
   readonly matterId: MatterId;
   readonly clientNodeName: string;
   readonly matterLeafName: string;
@@ -113,7 +115,10 @@ async function resolveOpenTrustAccount(
   return { account, jurisdiction: requireTrustJurisdiction(account) };
 }
 
-function assertMovementCurrency(account: TrustAccountSnapshot, amount: Money): number {
+// Exported because every composer that moves money inside a trust account runs it — including the
+// earned-fee transfer in transfer.ts, which posts a line into this same account and would otherwise
+// compare minor units across two currencies while deciding whether the money is there.
+export function assertMovementCurrency(account: TrustAccountSnapshot, amount: Money): number {
   const currency = currencyCode(amount);
   if (currency !== account.currency) {
     throw new TrustValidationError(
@@ -155,27 +160,29 @@ async function assertWithinAvailable(
 // A leaf this batch is creating is invisible to both the ledger's account read and the trust role
 // read, so both are told about it here, in one place, from the same facts.
 function declarePendingLeaf(
-  ledgerAccountId: LedgerAccountId,
   account: TrustAccountSnapshot,
-  nodeId: TrustLedgerNodeId,
-  reference: MatterTrustLeafReference,
+  leaf: EnsuredMatterLeaf,
+  matterId: MatterId,
 ): {
   pendingAccounts: Map<string, PendingAccount>;
   pendingRoles: Map<string, TrustAccountRole>;
 } {
   return {
     pendingAccounts: new Map([
-      [ledgerAccountId, { type: "liability" as const, currency: account.currency }],
+      [leaf.ledgerAccountId, { type: "liability" as const, currency: account.currency }],
     ]),
+    // The client the guard is told about is the one the node row is being written with: both come
+    // out of the same `EnsuredMatterLeaf`, so the guard can never be handed an attribution that
+    // differs from what this batch is about to store — which is the whole point of declaring it.
     pendingRoles: new Map<string, TrustAccountRole>([
       [
-        ledgerAccountId,
+        leaf.ledgerAccountId,
         {
           kind: "matter",
           trustAccountId: account.id,
-          nodeId,
-          clientEntityId: reference.clientEntityId,
-          matterId: reference.matterId,
+          nodeId: leaf.nodeId,
+          clientEntityId: leaf.clientEntityId,
+          matterId,
         },
       ],
     ]),
@@ -223,9 +230,7 @@ export async function composeTrustDeposit(
     { trustAccountId: account.id, ...input.to },
     options,
   );
-  const pending = leaf.created
-    ? declarePendingLeaf(leaf.ledgerAccountId, account, leaf.nodeId, input.to)
-    : undefined;
+  const pending = leaf.created ? declarePendingLeaf(account, leaf, input.to.matterId) : undefined;
 
   const posted = await composeTrustEntry(
     database,
@@ -401,10 +406,10 @@ export interface MatterToMatterTransferInput {
 // of that account.
 //
 // The destination is a descriptor rather than a node identifier so that moving funds onto a matter
-// that has never held client money works without a preparatory step. It carries its own client
-// identity rather than inheriting the source's, so a caller aiming at another client's matter is
-// refused by the composition guard's one-client rule instead of silently re-attributing that
-// matter's ledger to this client.
+// that has never held client money works without a preparatory step. It names only the matter: the
+// destination's client is resolved from that matter's own client party, so a caller aiming at
+// another client's matter is refused by the composition guard's one-client rule — the guard now sees
+// the destination matter's REAL client rather than one the caller chose to make the two agree.
 export async function composeMatterToMatterTransfer(
   database: SqlDatabase,
   input: MatterToMatterTransferInput,
@@ -440,9 +445,7 @@ export async function composeMatterToMatterTransfer(
 
   await assertWithinAvailable(database, from.id, amountMinor);
 
-  const pending = to.created
-    ? declarePendingLeaf(to.ledgerAccountId, account, to.nodeId, input.to)
-    : undefined;
+  const pending = to.created ? declarePendingLeaf(account, to, input.to.matterId) : undefined;
 
   const posted = await composeTrustEntry(
     database,

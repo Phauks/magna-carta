@@ -60,8 +60,26 @@ ADR-0072, ADR-0079.) **Invariants:**
   have is not a fact we invent. Only the roles an invoice's lines actually need are resolved, so a
   firm that never bills a hard cost is not made to map `client_costs_advanced`.
 - **One client per invoice, every line naming its matter.** Validated at draft composition through
-  `matter_party` where `role = 'client'`, and re-proved over stored rows by `fitness.ts`.
+  `matter_party` where `role = 'client'` — read via `readMatterClientEntityIds` in
+  `@magna-carta/matters/matter-party`, the one home for that derivation, which trust attributes a
+  client ledger with too — and re-proved over stored rows by `fitness.ts`.
   `matter.client_display_name` is display-only and is never the link.
+- **One currency per invoice.** A claim whose entry currency differs from the invoice's is refused by
+  name at `addClaimsToDraft`. Finalization aggregates every line under the INVOICE's currency, so a
+  line that disagreed would be silently re-labelled rather than converted; the work-in-progress
+  stores' USD CHECK constraints make this unreachable today, which is exactly why the guard is in the
+  code and not left to the schema.
+- **Direction comes from the sign; the line carries the magnitude.** A negative invoice line is a
+  first-class shape (no positivity CHECK, `roundInvoiceLine` is half-away-from-zero for it, and
+  `postingRoleForLine` has discount and adjustment arms), so a role subtotal can net negative on a
+  bill whose total is positive. That posts as a DEBIT of its magnitude — a ledger line is always a
+  positive amount plus a direction. A per-matter subtotal that nets negative is refused by name
+  (`invoice-matter-total-negative`) before the balance CHECK can abort the batch on a column name.
+- **A numbering scope is opened deliberately.** The scope key selects which counter the number is
+  drawn from, so an unrecognized one is refused (`unknown-number-scope`) unless the caller passes
+  `createNumberScope`. It is never normalized to rescue a near-miss: folding `nyc` into `NYC` merges
+  two sequences a firm may have meant to keep apart. Gaplessness is what an auditor asks about, and a
+  typo must not be able to redefine which sequence it is a property of.
 - **Hard costs credit Client Costs Advanced; soft costs credit Cost Recovery Income.** The firm is
   being repaid for money it advanced, not earning. `cost_entry.disbursement_class` already carries
   the distinction. That account runs negative until operating disbursements land — a documented open
@@ -78,7 +96,11 @@ ADR-0072, ADR-0079.) **Invariants:**
 
 - Depends on `@magna-carta/billing-core` (the shared work-in-progress freeze contract),
   `@magna-carta/data-access`, `@magna-carta/identifiers`, `@magna-carta/ledger` (the posting),
+  `@magna-carta/matters` (`matter-party` — the matter-to-client link, read from its one home),
   `@magna-carta/money`, and `@magna-carta/sequence-numbering`.
+- **`billing-core`'s `IllegalTransitionError` never reaches an HTTP boundary from here.** The
+  finalize claim loop catches it and rethrows `BillingValidationError("work-in-progress-not-billable")`
+  naming the entry and the state it is in — the same contract timekeeping and costs hold.
 - **It does NOT depend on `@magna-carta/trust`, and must not compose a trust statement.** When the
   application path lands, trust entries are composed only by `composeTrustToOperatingTransfer` and
   billing merges the returned statements into its own batch. Billing never reimplements a trust rule.

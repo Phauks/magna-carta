@@ -221,6 +221,28 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The matter asset register — what a client or an estate owns, recorded against one matter. A
+  // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
+  // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one
+  // dated assertion of what the thing was worth, appended and never edited; a `matterAssetInterest`
+  // is one Directory entity's stake in it; a `matterAssetEncumbrance` is a charge secured against
+  // it; a `matterAssetDocument` links an already-ingested file to it; and a `matterAssetIdentifier`
+  // holds a credential-adjacent number (an account or policy number) as ciphertext plus the last
+  // four characters everything else reads.
+  matterAsset: "matterAsset",
+  matterAssetType: "matterAssetType",
+  matterAssetInterest: "matterAssetInterest",
+  matterAssetValuation: "matterAssetValuation",
+  matterAssetEncumbrance: "matterAssetEncumbrance",
+  matterAssetDocument: "matterAssetDocument",
+  matterAssetIdentifier: "matterAssetIdentifier",
+  // Magnus — the conversational assistant a firm member talks to. A `magnusConversation` is one
+  // thread a member started, kept as a firm record; a `magnusTurn` is one message inside it, from
+  // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The
+  // member acknowledgement of the disclosure is keyed by the member's own `user_id` and needs no
+  // handle of its own.
+  magnusConversation: "magnusConversation",
+  magnusTurn: "magnusTurn",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

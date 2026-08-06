@@ -72,6 +72,14 @@ import type {
   LedgerLineId,
   LocationAddressId,
   LocationId,
+  MagnusConversationId,
+  MagnusTurnId,
+  MatterAssetDocumentId,
+  MatterAssetId,
+  MatterAssetIdentifierId,
+  MatterAssetInterestId,
+  MatterAssetTypeId,
+  MatterAssetValuationId,
   MatterDeadlineId,
   MatterEventId,
   MatterEventParticipantId,
@@ -4591,3 +4599,601 @@ export const matterDeadline = sqliteTable(
     ),
   ],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Matter assets — the register of what a client or an estate owns.
+//
+// An asset row is ONE MATTER'S ASSERTION about one thing owned, and every number on it is dated.
+// Both halves are structural. matter_id is NOT NULL because the same house is a different record in
+// the husband's divorce and in his mother's estate: different valuation dates, different
+// encumbrances, different disposition, different privilege. A cross-matter "thing" identity would
+// have to reconcile those, and reconciling them is how one matter's numbers leak into another.
+// Carrying an asset forward from a prior matter is a copy with recorded provenance, never a shared
+// row. And there is NO current-value column on any table here — the append-only valuation history
+// below is the whole of what an asset is worth.
+//
+// The boundary with Custodian, which is the question a reader arrives with: Custodian describes
+// OBJECTS IN THE FIRM'S POSSESSION (where the paper deed is, who last touched it); the asset
+// register describes PROPERTY IN THE CLIENT'S OWNERSHIP (what land the deed describes, what it was
+// worth at the date of death). They overlap on a minority of rows, are joined by one nullable
+// column, and neither copies a fact from the other.
+
+// The per-firm asset-type catalog, sitting UNDER the platform class. The class is a closed enum
+// because it decides which structured attribute table exists, which merge subject the row appears
+// under, and which column a search hits — a firm cannot mint the concept "has a parcel number",
+// which is a schema fact with a table, an index, and a report column behind it. The type is where
+// the long tail lives without a schema change: single-family residence, condominium, timeshare and
+// mineral interest under realProperty; checking, brokerage and individual retirement account under
+// financialAccount. Seeded on provisioning, extended by the firm, soft-deactivated and never deleted
+// (every asset already classified under it keeps its meaning) — the custody_item_type and
+// document_type shape exactly.
+//
+// The invariant the write path enforces: an asset's type must belong to the asset's class. A firm
+// that wants a retirement account under `vehicle` is making a data-entry error, not expressing a
+// preference.
+export const matterAssetType = sqliteTable(
+  "matter_asset_type",
+  {
+    id: text("id").primaryKey().$type<MatterAssetTypeId>(), // matterAssetType_ handle
+    name: text("name").notNull(),
+    class: text("class", {
+      enum: [
+        "realProperty",
+        "financialAccount",
+        "vehicle",
+        "firearm",
+        "businessInterest",
+        "insurancePolicy",
+        "receivable",
+        "digitalAsset",
+        "personalProperty",
+        "other",
+      ],
+    }).notNull(),
+    code: text("code"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    // The firm's own ordering within a class, so a picker lists the common kinds first.
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("matter_asset_type_name_unique_index").on(table.name),
+    uniqueIndex("matter_asset_type_code_unique_index").on(table.code),
+    // The picker read: everything under one class, in the firm's order.
+    index("matter_asset_type_class_position_index").on(table.class, table.position),
+    check("matter_asset_type_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "matter_asset_type_class_check",
+      sql`${table.class} IN ('realProperty', 'financialAccount', 'vehicle', 'firearm', 'businessInterest', 'insurancePolicy', 'receivable', 'digitalAsset', 'personalProperty', 'other')`,
+    ),
+  ],
+);
+
+// The core asset row. ONLY TWO FIELDS ARE REQUIRED — the class and a description — which is the
+// deliberate inversion of Custodian's mandatory owner link. There, orphan prevention is structural
+// because an unattributable original is the catastrophe. Here the catastrophe is a register nobody
+// fills in, and every required attribute is a reason to keep the list in a spreadsheet instead. A row
+// that says personalProperty / "contents of the garage, not yet itemized" is a useful row.
+//
+// The CLASS IS FROZEN at creation. A class change is a delete-and-recreate wearing an update: it
+// orphans the attribute row and moves the asset to a different merge subject. The answer to a
+// mis-classed row is to delete it and add it again, which is cheap because the row is minutes old and
+// soft delete already exists — so freezing costs nothing and removes a whole family of
+// partial-migration states.
+//
+// estate_treatment is ASSERTED BY A PERSON, NEVER DERIVED. Whether a jointly held house passes
+// outside probate turns on the form of co-ownership, which is jurisdiction-specific, unevenly named,
+// and the single fact this register most refuses to infer: encoding "joint tenancy means non-probate"
+// would be right in most states and catastrophic in the ones where it is not, on the one document a
+// court reads. `undetermined` is the default and is reported as its own group rather than merged away.
+//
+// The PRICE of a sale is deliberately not a column: it is a valuation row with basis `sale`, so the
+// history tells the whole story and there is one home for every number.
+export const matterAsset = sqliteTable(
+  "matter_asset",
+  {
+    id: text("id").primaryKey().$type<MatterAssetId>(), // matterAsset_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    class: text("class", {
+      enum: [
+        "realProperty",
+        "financialAccount",
+        "vehicle",
+        "firearm",
+        "businessInterest",
+        "insurancePolicy",
+        "receivable",
+        "digitalAsset",
+        "personalProperty",
+        "other",
+      ],
+    }).notNull(),
+    assetTypeId: text("asset_type_id")
+      .$type<MatterAssetTypeId>()
+      .references(() => matterAssetType.id),
+    description: text("description").notNull(),
+    acquiredOn: text("acquired_on"), // civil date
+    estateTreatment: text("estate_treatment", {
+      enum: ["probateEstate", "nonProbateTransfer", "undetermined"],
+    })
+      .notNull()
+      .default("undetermined"),
+    disposition: text("disposition", {
+      enum: ["retained", "sold", "transferred", "distributed", "abandoned", "lost"],
+    })
+      .notNull()
+      .default("retained"),
+    dispositionOn: text("disposition_on"), // civil date
+    // The custody item that holds this thing, where the firm holds it at all. Points at an ITEM
+    // rather than a packet because the item is Custodian's unit of description. NO UNIQUE INDEX: the
+    // same held object can be scheduled in two matters (the decedent's estate and the related
+    // trust), and forbidding that would force a firm to unlink to get past a constraint, which is how
+    // a link stops being trustworthy. The asset copies no location, status, or movement history from
+    // it, and Custodian copies no valuation back — a detail view that wants either reads the other
+    // subsystem. Set and cleared through the patch route in slice 4·3·3.
+    custodyItemId: text("custody_item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    // The matter's register list, filtered by class and keyset-walked newest first. The filter
+    // columns lead so one composite serves the filter, the sort, and the cursor predicate.
+    index("matter_asset_matter_class_created_id_index").on(
+      table.matterId,
+      table.class,
+      table.createdAt,
+      table.id,
+    ),
+    index("matter_asset_type_index").on(table.assetTypeId),
+    check("matter_asset_description_check", sql`length(${table.description}) > 0`),
+    check(
+      "matter_asset_class_check",
+      sql`${table.class} IN ('realProperty', 'financialAccount', 'vehicle', 'firearm', 'businessInterest', 'insurancePolicy', 'receivable', 'digitalAsset', 'personalProperty', 'other')`,
+    ),
+    check(
+      "matter_asset_estate_treatment_check",
+      sql`${table.estateTreatment} IN ('probateEstate', 'nonProbateTransfer', 'undetermined')`,
+    ),
+    check(
+      "matter_asset_disposition_check",
+      sql`${table.disposition} IN ('retained', 'sold', 'transferred', 'distributed', 'abandoned', 'lost')`,
+    ),
+  ],
+);
+
+// Real property's structured attributes, one-to-one on the asset. A class with structure gets its own
+// table rather than nullable columns on matter_asset (which would let a vehicle carry a parcel
+// number) or a generic attribute bag (which re-implements custom fields and makes "find the property
+// with this parcel number" a scan over strings).
+//
+// The column names match `PropertyReference` in @magna-carta/property-links exactly (its `apn` is
+// carried here as `parcel_number` under the full-names rule, mapped at the boundary). That is not
+// cosmetic: it means a real-property asset renders assessor, mapping, and listing-site lookups today
+// through that package with no new code, no credential, and no adapter.
+//
+// The parcel number is PLAINTEXT AND INDEXED because it appears on the assessor's public roll, and
+// searching by it is the point. That is the whole line this subsystem draws: an identifier on a
+// public record is an ordinary searchable column, and an identifier that functions as a
+// credential-adjacent secret lives in matter_asset_identifier as ciphertext.
+export const matterAssetRealProperty = sqliteTable(
+  "matter_asset_real_property",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    street: text("street"),
+    city: text("city"),
+    region: text("region"),
+    postal: text("postal"),
+    county: text("county"),
+    parcelNumber: text("parcel_number"),
+    legalDescription: text("legal_description"),
+    recordingReference: text("recording_reference"),
+  },
+  (table) => [
+    index("matter_asset_real_property_parcel_index").on(table.parcelNumber),
+    index("matter_asset_real_property_region_city_index").on(table.region, table.city),
+  ],
+);
+
+// A financial account's structured attributes, one-to-one on the asset. The ACCOUNT NUMBER IS NOT
+// HERE: a full account number is a credential-adjacent secret, so it lives in
+// matter_asset_identifier as ciphertext with its last four characters beside it, and every list,
+// schedule, and merge field reads the suffix. Keeping the suffix on the identifier row rather than
+// here means one home for the fact and no plaintext fragment that has to stay in step with a
+// ciphertext somewhere else.
+export const matterAssetFinancialAccount = sqliteTable(
+  "matter_asset_financial_account",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    institutionName: text("institution_name"),
+    // An optional directoryOrganization_ handle, by value with no cross-domain foreign key (the
+    // matter_party and custody_owner precedent).
+    institutionOrganizationId: text("institution_organization_id"),
+  },
+  (table) => [
+    index("matter_asset_financial_account_institution_index").on(table.institutionOrganizationId),
+  ],
+);
+
+// The append-only valuation history — the register's second structural invariant. A VALUATION IS
+// APPENDED, NEVER UPDATED AND NEVER DELETED, and there is no current-value column anywhere.
+//
+// An estate needs the date-of-death value and today's value and, in a long administration, several in
+// between; a family-law matter needs date-of-marriage and date-of-separation values for the same
+// house. One mutable number cannot answer two of those questions, and a number editable after a
+// schedule was filed means the register and the filed document can silently disagree with nobody able
+// to say when they diverged. A typo is corrected by a COMPENSATING ROW carrying
+// corrects_valuation_id, which supersedes the corrected row in every read — the same discipline the
+// financial ledger applies to a mis-posted entry and the custody ledger to a mis-recorded movement.
+// The RAISE(ABORT) triggers that make that a guarantee rather than a convention are in the
+// hand-written migration, because drizzle-kit cannot model a trigger.
+//
+// as_of_date and recorded_at are separate for the reason the custody ledger separates occurred_at
+// from recorded_at: an appraisal dated the day of death is typed in four months later, and collapsing
+// the two makes back-dating either impossible or indistinguishable from falsification. Reports read
+// as_of_date; recorded_at proves when the assertion was made.
+//
+// `basis` is a CLOSED platform vocabulary, unlike the type catalog, because it is read by reports, by
+// merge fields, and eventually by a court — a firm inventing its own basis is not a capability anyone
+// wants. `sale` is how a disposition's price enters, so there is one home for every number.
+// `automatedEstimate` exists with nothing writing it, so an external valuation adapter has a truthful
+// basis to write and can never masquerade as an appraisal.
+export const matterAssetValuation = sqliteTable(
+  "matter_asset_valuation",
+  {
+    id: text("id").primaryKey().$type<MatterAssetValuationId>(), // matterAssetValuation_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    // When set, the row is that ENCUMBRANCE's balance as of a date rather than the asset's value as
+    // of a date — one append-only table, one trigger set, one as-of query shape, and net equity as one
+    // read with a sign flip. Declared now and unused until the encumbrance table lands in slice 4·3·2;
+    // adding it later would mean rebuilding a table whose triggers have to be dropped to do it.
+    encumbranceId: text("encumbrance_id"),
+    asOfDate: text("as_of_date").notNull(), // civil date — the date the figure speaks to
+    amountMinor: integer("amount_minor"),
+    currency: text("currency"),
+    basis: text("basis", {
+      enum: [
+        "appraisal",
+        "statement",
+        "taxAssessment",
+        "marketQuote",
+        "guideBook",
+        "broker",
+        "sale",
+        "purchasePrice",
+        "courtDetermined",
+        "clientEstimate",
+        "automatedEstimate",
+      ],
+    }).notNull(),
+    sourceNote: text("source_note"),
+    // The appraisal, statement, or bill of sale behind the figure — an ordinary matter file. A
+    // valuation whose support is in the file is worth more than one that is not, and this is the
+    // cheapest possible way to say so.
+    supportingFileId: text("supporting_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    // The row this one corrects. No foreign key, exactly as custody_movement.corrects_movement_id has
+    // none: an append-only ledger carries no referential dependency, and keeping it that way is what
+    // lets the table be rebuilt if its vocabulary ever widens.
+    correctsValuationId: text("corrects_valuation_id").$type<MatterAssetValuationId>(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    // THE characteristic read: for one asset, the latest as_of_date at or before a requested date,
+    // newest recording winning a tie. Declared ascending because SQLite walks an ascending index
+    // backwards at the same cost, so one composite serves both directions.
+    index("matter_asset_valuation_asset_as_of_index").on(
+      table.assetId,
+      table.asOfDate,
+      table.recordedAt,
+    ),
+    index("matter_asset_valuation_corrects_index").on(table.correctsValuationId),
+    check(
+      "matter_asset_valuation_as_of_shape_check",
+      sql`${table.asOfDate} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    // An amount with no currency cannot be interpreted, and a currency with no amount says nothing.
+    // Money is minor units plus a currency, never a float, and no total is ever computed across two.
+    check(
+      "matter_asset_valuation_amount_shape_check",
+      sql`(${table.amountMinor} IS NULL) = (${table.currency} IS NULL)`,
+    ),
+    check(
+      "matter_asset_valuation_basis_check",
+      sql`${table.basis} IN ('appraisal', 'statement', 'taxAssessment', 'marketQuote', 'guideBook', 'broker', 'sale', 'purchasePrice', 'courtDetermined', 'clientEstimate', 'automatedEstimate')`,
+    ),
+  ],
+);
+
+// Who holds an interest in the asset. THE OWNER LINK IS OPTIONAL HERE and mandatory in Custodian, and
+// the inversion is deliberate: a custody packet with no owner is an orphan nobody can release, while
+// an asset with no recorded interest is simply an asset of the matter — the common case for an estate
+// where everything is the decedent's. Interests are for the exceptions (the jointly held house, the
+// part-owned business, the account with a named beneficiary), and forcing a row for the common case
+// would be friction with no failure behind it.
+//
+// interest_role is a FIRM-CONFIGURABLE LABEL validated against the firm's own catalog rather than a
+// closed platform enum, exactly as the custody ownership role is and for the same reason: tenancy
+// forms are jurisdiction-specific and unevenly named, and the platform has no engine that consumes
+// them, so a closed vocabulary would be false precision a later engine has to migrate away from.
+//
+// A fractional share is a RATIONAL NUMBER, not a decimal, because one third is not representable as
+// one and three siblings whose shares sum to less than the whole on a court filing is a defect the
+// schema should make impossible rather than a rounding note. Both parts null means the share is
+// unstated, which is different from zero. Ending an interest writes a date; no row ever disappears.
+export const matterAssetInterest = sqliteTable(
+  "matter_asset_interest",
+  {
+    id: text("id").primaryKey().$type<MatterAssetInterestId>(), // matterAssetInterest_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key
+    // (the matter_party and custody_owner precedent).
+    entityId: text("entity_id").notNull(),
+    interestRole: text("interest_role"),
+    shareNumerator: integer("share_numerator"),
+    shareDenominator: integer("share_denominator"),
+    effectiveFrom: text("effective_from").notNull(),
+    effectiveTo: text("effective_to"), // null while the interest is current
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_asset_interest_asset_index").on(table.assetId),
+    // The one read that spans matters: what does this person hold an interest in.
+    index("matter_asset_interest_entity_index").on(table.entityId, table.effectiveTo),
+    check(
+      "matter_asset_interest_share_shape_check",
+      sql`(${table.shareNumerator} IS NULL) = (${table.shareDenominator} IS NULL)`,
+    ),
+    check(
+      "matter_asset_interest_share_denominator_check",
+      sql`${table.shareDenominator} IS NULL OR ${table.shareDenominator} > 0`,
+    ),
+  ],
+);
+
+// The document link — the association the owner asked for first. A link over ordinary File Manager
+// files, and simpler here than the custody_scan it reuses, which is a direct dividend of
+// matter-rooting: Custodian had to solve `file.matter_id NOT NULL` against a packet that may have no
+// matter. An asset always has a matter, so its documents are ordinary matter documents in an ordinary
+// matter folder. A deed attached to a house is still in the matter's file list, still previewable,
+// still convertible, still under any legal hold, still in discovery — it gained an association and
+// lost nothing. Bytes never reach an asset route: upload is the File Manager's presigned-upload and
+// quarantine chokepoint, and this row links the resulting handle.
+//
+// MANY-TO-MANY, and the divergence from custody_scan's unique index on file_id is deliberate: one
+// brokerage statement lists four accounts, one appraisal covers a house and its contents, one
+// photograph shows a room of furniture. Requiring a file to belong to one asset would force a firm to
+// upload the same statement four times, which is how a link stops being used. Do not "fix" it.
+export const matterAssetDocument = sqliteTable(
+  "matter_asset_document",
+  {
+    id: text("id").primaryKey().$type<MatterAssetDocumentId>(), // matterAssetDocument_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    kind: text("kind", {
+      enum: [
+        "deed",
+        "title",
+        "statement",
+        "appraisal",
+        "policy",
+        "registration",
+        "billOfSale",
+        "photograph",
+        "correspondence",
+        "other",
+      ],
+    }).notNull(),
+    note: text("note"),
+    linkedAt: text("linked_at").notNull(),
+    linkedBy: text("linked_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_asset_document_asset_index").on(table.assetId),
+    // The reverse read: which assets does this file evidence. Not unique — see the table comment.
+    index("matter_asset_document_file_index").on(table.fileId),
+    check(
+      "matter_asset_document_kind_check",
+      sql`${table.kind} IN ('deed', 'title', 'statement', 'appraisal', 'policy', 'registration', 'billOfSale', 'photograph', 'correspondence', 'other')`,
+    ),
+  ],
+);
+
+// A credential-adjacent identifier: a full account, policy, certificate, or tax number. The line this
+// table draws, stated once: AN IDENTIFIER THAT APPEARS ON A PUBLIC RECORD IS AN ORDINARY SEARCHABLE
+// COLUMN (a parcel number, a vehicle identification number, a plate, a firearm serial — all of them
+// on a title, a roll, or transfer paperwork, and all of them things a person searches by). AN
+// IDENTIFIER THAT FUNCTIONS AS A CREDENTIAL-ADJACENT SECRET lives here as ciphertext, with only its
+// last four characters readable without a decrypt.
+//
+// value_ciphertext is registered in protected-columns.ts and reaches the world only through the
+// data-access protected-field chokepoint: encrypted on write, permission-checked and audited on read.
+// Every list, detail, schedule, and merge field reads `display_suffix` and nothing else, so the full
+// value has exactly one read path and it is a deliberate act with an audit row.
+//
+// value_ciphertext is NULLABLE: a firm may record no full number at all, and display_suffix alone is
+// a complete and often preferable record. The register never asks for the whole number to function.
+//
+// NO COLUMN HERE HOLDS A CREDENTIAL — no password, passphrase, seed or recovery phrase, private key,
+// personal identification number, or safe combination, in plaintext or protected. A protected column
+// is decryptable by any member holding the decrypt permission, and for a self-custodied digital asset
+// the seed phrase IS the asset: whoever reads it can take it, irreversibly, with no record. Storing
+// one would convert a records system into a bearer instrument. The write path refuses a request that
+// names one with its own problem type, and the documented answer is the one the platform already has
+// — a sealed envelope in the custody register, where a physical object has a location, a hold, and an
+// append-only record of every hand it has passed through.
+export const matterAssetIdentifier = sqliteTable(
+  "matter_asset_identifier",
+  {
+    id: text("id").primaryKey().$type<MatterAssetIdentifierId>(), // matterAssetIdentifier_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    kind: text("kind", {
+      enum: ["accountNumber", "policyNumber", "certificateNumber", "taxIdentifier", "other"],
+    }).notNull(),
+    // At most four characters, plaintext, and the ONLY part of the value any ordinary read returns.
+    displaySuffix: text("display_suffix"),
+    valueCiphertext: text("value_ciphertext"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    index("matter_asset_identifier_asset_index").on(table.assetId),
+    check(
+      "matter_asset_identifier_kind_check",
+      sql`${table.kind} IN ('accountNumber', 'policyNumber', 'certificateNumber', 'taxIdentifier', 'other')`,
+    ),
+    check(
+      "matter_asset_identifier_suffix_length_check",
+      sql`${table.displaySuffix} IS NULL OR length(${table.displaySuffix}) <= 4`,
+    ),
+    // A row that carries neither a suffix nor a sealed value records nothing at all.
+    check(
+      "matter_asset_identifier_presence_check",
+      sql`${table.displaySuffix} IS NOT NULL OR ${table.valueCiphertext} IS NOT NULL`,
+    ),
+  ],
+);
+
+// Magnus — the conversational assistant. Three tables, and the shape of them IS the retention
+// posture: a transcript is the firm's own WORK PRODUCT — protected, deletable, archivable — kept in
+// the firm's own database under the firm-scoped data-access layer, not ephemeral state in some
+// object's storage. There is exactly one copy of a transcript and the push transport is a view of it.
+// It is discoverable in the way email is, which is why any surface that searches across the firm's
+// records has to let a firm say whether transcripts are in scope rather than sweeping them in
+// silently; that control belongs to the discovery surface, not to these tables.
+
+// One conversation. The title is member-supplied ONLY — a model-generated title would be a model call
+// over privileged content producing a second copy of it in a column that surfaces in every list, so a
+// conversation with no title displays by its start instant instead.
+export const magnusConversation = sqliteTable(
+  "magnus_conversation",
+  {
+    id: text("id").primaryKey().$type<MagnusConversationId>(), // magnusConversation_ handle
+    title: text("title"),
+    // The member. Never null — there is no system-originated conversation. Not a foreign key, for the
+    // same reason audit_log's actor is not: the record outlives the member row.
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    // Scopes the RECORD, not the prompt. A matter link puts none of that matter's content into any
+    // request; it answers which matter's file this transcript belongs to, which is a retention and
+    // access question. Nullable and present from day one because backfilling the association from
+    // memory later is impossible.
+    matterId: text("matter_id").$type<MatterId>(),
+    state: text("state", { enum: ["active", "archived", "deleted"] })
+      .notNull()
+      .default("active"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    // The member's own list — the read every session makes — walks this index rather than the firm's
+    // every conversation.
+    index("magnus_conversation_created_by_index").on(table.createdBy, table.createdAt),
+    index("magnus_conversation_matter_index").on(table.matterId),
+    check(
+      "magnus_conversation_state_check",
+      sql`${table.state} IN ('active', 'archived', 'deleted')`,
+    ),
+  ],
+);
+
+// One message, from either speaker. ONE table rather than two, because the ordering between the two
+// speakers IS the record and two tables would need a merge to reconstruct it.
+//
+// `content` is TEXT and nullable: a Magnus turn is pending before it has anything to say. It is
+// inline in D1 rather than in R2 because the per-turn caps in @magna-carta/magnus's limits module are
+// what keep a turn from being bulk; the R2 escalation is a named seam, not a built one.
+export const magnusTurn = sqliteTable(
+  "magnus_turn",
+  {
+    id: text("id").primaryKey().$type<MagnusTurnId>(), // magnusTurn_ handle
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // Monotonic within the conversation. Ordering is explicit and never inferred from a timestamp two
+    // rows can share; the UNIQUE below is what arbitrates a race between two submissions.
+    sequence: integer("sequence").notNull(),
+    speaker: text("speaker", { enum: ["member", "magnus"] }).notNull(),
+    content: text("content"),
+    status: text("status", { enum: ["pending", "complete", "failed", "refused"] }).notNull(),
+    // A closed label, NEVER an upstream body. Null unless the turn failed or was refused.
+    failureLabel: text("failure_label", {
+      enum: ["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"],
+    }),
+    // Null on a member turn; recorded on every settled Magnus turn — the provenance answer to "what
+    // produced this", which is what makes a specific answer traceable to a specific model version a
+    // year later.
+    modelId: text("model_id"),
+    snapshotId: text("snapshot_id"),
+    // Null on a member turn; set on completion from the inference RESPONSE, never from gateway logs.
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    // Whether earlier turns did not fit the bounded request window, so this answer was built on part
+    // of the conversation. Recorded and surfaced rather than hidden: silent truncation is what
+    // produces a confidently wrong answer built on a premise the member believes was in scope.
+    contextTruncated: integer("context_truncated", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("magnus_turn_conversation_sequence_unique").on(
+      table.conversationId,
+      table.sequence,
+    ),
+    // The firm's daily turn ceiling counts member turns over a date range; without this it is a scan
+    // of every turn the firm has ever taken, on the hot path of every submission.
+    index("magnus_turn_created_at_index").on(table.createdAt),
+    check("magnus_turn_speaker_check", sql`${table.speaker} IN ('member', 'magnus')`),
+    check(
+      "magnus_turn_status_check",
+      sql`${table.status} IN ('pending', 'complete', 'failed', 'refused')`,
+    ),
+    check(
+      "magnus_turn_failure_label_check",
+      sql`${table.failureLabel} IS NULL OR ${table.failureLabel} IN ('model-unavailable', 'not-eligible', 'ceiling-reached', 'too-large', 'cancelled')`,
+    ),
+  ],
+);
+
+// One row per member who has accepted the disclosure. The version column is the whole point of the
+// table: when the disclosure changes because Magnus gains a capability, every member's stored version
+// stops matching the current constant and every member is re-prompted automatically. An
+// acknowledgement without a version is an acknowledgement of an unknown thing.
+export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledgement", {
+  userId: text("user_id").primaryKey().$type<UserId>(),
+  disclosureVersion: integer("disclosure_version").notNull(),
+  acknowledgedAt: text("acknowledged_at").notNull(),
+});

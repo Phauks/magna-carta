@@ -11,6 +11,9 @@
       "path": "apps/convert-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/discovery-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/email-worker/tsconfig.build.json"
     },
     {
@@ -132,6 +135,12 @@
     },
     {
       "path": "packages/locations/tsconfig.build.json"
+    },
+    {
+      "path": "packages/magnus/tsconfig.build.json"
+    },
+    {
+      "path": "packages/matter-assets/tsconfig.build.json"
     },
     {
       "path": "packages/matters/tsconfig.build.json"

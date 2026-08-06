@@ -148,6 +148,30 @@ export const PERMISSIONS = [
   // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
   "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
   "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
+  // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
+  // because the register concentrates a matter's financially sensitive facts (what the estate owns,
+  // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a
+  // scheduling paralegal matters:manage has not thereby decided to give them the estate's asset
+  // ledger, so these do not ride the matters keys. Both bind resource: "matter" — an asset row is one
+  // matter's assertion and cannot exist without one, the clean contrast with custody:*'s firm
+  // binding. The namespace is matterAssets rather than the bare word because "assets" already means
+  // two other things here (Workers Static Assets, and the firm's own property register that the
+  // asset design deliberately excludes), and a permission key is read by people deciding who sees
+  // what. There is deliberately no third key for reading a full account or policy number: that read
+  // is gated by the decrypt permission already carried on the protected column
+  // (directory:viewSensitiveIdentifiers, the key a firm already grants for exactly this class of
+  // secret), so matterAssets:read alone never reveals one and no second grant has to be kept in step.
+  "matterAssets:read", // read the register — assets, class attributes, valuations, interests, linked documents, the type catalog
+  "matterAssets:manage", // record and edit assets, append valuations, add and end interests, link and unlink documents, manage the type catalog
+  // Magnus — the conversational assistant. Two keys, because using the assistant and reading what
+  // everyone else asked it are different capabilities: the transcript is a firm record and a
+  // supervision surface, so "may hold a conversation" must be grantable without "may read every
+  // member's conversation". Both bind resource: "firm" — a conversation may carry an optional matter
+  // link but exists without one, so the firm is its tenancy root. There is deliberately no
+  // per-member enable switch beside these: a second authorization mechanism the chokepoint does not
+  // know about is how a feature ends up enforced by discipline in a route handler.
+  "magnus:converse", // start conversations, submit turns, read and delete one's OWN conversations
+  "magnus:readAllConversations", // read any member's conversation in the firm (the audited supervision read)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

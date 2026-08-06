@@ -242,6 +242,17 @@ function custodyErrorResponse(
         status: 409,
         detail: caught.message,
       });
+    // Also a state and not a shape complaint: the walk is real and the close is a close the caller
+    // may make, but the reconciliation behind it is a partial answer and freezing it would put a
+    // number on the record that understates what is missing. A client shows the two ways out — a
+    // narrower scope, or an abandoned close.
+    case "custody-stocktake-truncated":
+      return problemJson(c, {
+        type: "custody-stocktake-truncated",
+        title: "This count is too large to close with frozen numbers",
+        status: 409,
+        detail: caught.message,
+      });
     case "custody-owner-required":
       return problemJson(c, {
         type: "custody-owner-required",
@@ -303,6 +314,7 @@ function custodyErrorResponse(
     // contract-visible types that carry no extra information for a client.
     case "custody-no-review-scheduled":
     case "custody-invalid-review-interval":
+    case "custody-invalid-trigger-date":
     case "custody-label-selection-invalid":
     case "custody-release-signatories-must-differ":
     case "custody-ownership-role-not-in-catalog":
@@ -565,6 +577,9 @@ const CustodyBorrower = z
 // and refused on every other kind. There is deliberately no vocabulary of acceptable authorities:
 // what document suffices to release an original varies by jurisdiction, so the firm writes what it
 // relied on and the register's job is to make sure something was written and to freeze it.
+//
+// The member who checked identity is NOT a field here. It is the authenticated caller: an assertion
+// about a check you made is not a claim you should be able to enter on somebody else's behalf.
 const CustodyReleaseAuthorization = z
   .object({
     authorityBasis: z
@@ -581,13 +596,10 @@ const CustodyReleaseAuthorization = z
       .describe(
         "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted.",
       ),
-    identityVerifiedByUserId: identifierField("user").describe(
-      "The firm member who made that check.",
-    ),
     witnessedByUserId: identifierField("user")
       .optional()
       .describe(
-        "The second signatory, when the firm requires two. Must be a different person from the member who checked identity.",
+        "The second signatory, when the firm requires two. Must be an ACTIVE member of this firm other than the caller — the caller is recorded as the member who checked identity, so a release cannot be signed twice by one person.",
       ),
   })
   .openapi("CustodyReleaseAuthorization");
@@ -891,6 +903,12 @@ const CustodyReconciliation = z
     // that keeps moving, so they answer "what is different now"; this answers "what did the count
     // find". The two disagreeing is not a fault — it is the register having been put right since.
     frozenCounts: CustodyStocktakeCounts.nullable(),
+    truncated: z
+      .boolean()
+      .describe(
+        "TRUE when this register is larger than the reconciliation reads in one pass. A truncated report is a PARTIAL answer: packets past the cut were never expected, so they were never reported missing, and every count here is a floor rather than a finding. A count in this state cannot be closed with its numbers frozen; narrow its scope or abandon it.",
+      ),
+    rowLimit: z.number().int().describe("The per-read cap that produced `truncated`."),
   })
   .openapi("CustodyReconciliation");
 
@@ -911,6 +929,11 @@ const ClosedCustodyStocktakeResponse = z
     id: z.string(),
     status: z.enum(["closed", "abandoned"]),
     counts: CustodyStocktakeCounts.nullable(),
+    truncated: z
+      .boolean()
+      .describe(
+        "TRUE when the walk was larger than the reconciliation reads in one pass. Only ever true on an abandoned close: a close that freezes counts refuses a truncated reconciliation rather than freezing a partial answer.",
+      ),
   })
   .openapi("ClosedCustodyStocktakeResponse");
 
@@ -1032,10 +1055,16 @@ const CustodyWillDuty = z
   })
   .openapi("CustodyWillDuty");
 
+// The question and the ANSWER, as two fields. A single description of the procedure would read as an
+// offer wherever it is rendered in a list, with the negation living only in the boolean beside it —
+// which is how never-enacted uniform-act deposit language gets believed to be a state's law.
 const CustodyWillCapability = z
   .object({
     key: z.string(),
-    summary: z.string(),
+    question: z.string().describe("What was asked, phrased as a question."),
+    answer: z
+      .string()
+      .describe("The verified answer, phrased to stand alone with no other field beside it."),
     available: z.boolean(),
     basis: z.string(),
     verifiedOn: z.string(),
@@ -1794,7 +1823,8 @@ const closeStocktakeRoute = defineOpenAPIRoute(writeMeta("closeStocktake", "requ
     "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no " +
     "movement is recorded, no packet is moved, and no status anywhere in the register changes " +
     "because a count finished. A count that was never finished closes as abandoned instead, " +
-    "freezing no findings.",
+    "freezing no findings. A count whose reconciliation is truncated is REFUSED rather than frozen: " +
+    "a partial answer under-reports missing originals, so narrow the count's scope or abandon it.",
   request: {
     headers: idempotencyKeyHeader,
     params: stocktakeIdParam,
@@ -1858,11 +1888,15 @@ const listDestructionRequestsRoute = defineOpenAPIRoute(readMeta("listDestructio
   description:
     "Lists destruction requests, newest first, optionally narrowed to one packet or to a single " +
     "state. `outcome=pending` is the queue of requests waiting for a second person to approve or " +
-    "refuse them. Cursor-paginated.",
+    "refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a " +
+    "destruction was already recorded in the ledger but whose own row never reached `executed`, " +
+    "which is what a failure between the two commits leaves behind. The ledger commits first on " +
+    "purpose — a destruction with no ledger entry is one nobody can prove — so this list is how " +
+    "the cost of that ordering gets found and put right. Cursor-paginated.",
   request: {
     query: cursorQuery.extend({
       packetId: identifierField("custodyPacket").optional(),
-      outcome: z.enum(["pending", ...CUSTODY_DESTRUCTION_OUTCOMES]).optional(),
+      outcome: z.enum(["pending", "interrupted", ...CUSTODY_DESTRUCTION_OUTCOMES]).optional(),
     }),
   },
   responses: {
@@ -2758,7 +2792,12 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
           now: () => new Date().toISOString(),
         });
         return c.json(
-          { id: closed.stocktakeId, status: closed.status, counts: closed.counts } as never,
+          {
+            id: closed.stocktakeId,
+            status: closed.status,
+            counts: closed.counts,
+            truncated: closed.truncated,
+          } as never,
           200,
         );
       } catch (caught) {

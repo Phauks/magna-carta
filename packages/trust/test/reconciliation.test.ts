@@ -1,3 +1,4 @@
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { LedgerEntryId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
@@ -20,6 +21,7 @@ import {
   readTrustReconciliation,
   readTrustThreeWayProof,
 } from "../src/reconciliation.ts";
+import { MAX_TRUST_RECONCILIATION_ROWS } from "../src/statements.ts";
 import { readOutstandingTrustBankItems } from "../src/three-way-proof.ts";
 import { TrustValidationError } from "../src/trust-validation.ts";
 import { clock, commit, expectRefusal, options, seedMatter, trustFixture } from "./support.ts";
@@ -32,8 +34,8 @@ const fixtureWithJurisdiction = () => trustFixture({ jurisdiction: "US-NV" });
 
 type Fixture = Awaited<ReturnType<typeof trustFixture>>;
 
-const leafReference = (clientEntityId: string, matterId: MatterId, label: string) => ({
-  clientEntityId,
+// The destination names only the matter — the client is derived from that matter's own client party.
+const leafReference = (matterId: MatterId, label: string) => ({
   matterId,
   clientNodeName: `Trust — ${label}`,
   matterLeafName: `Trust — ${label} — ${matterId}`,
@@ -48,12 +50,12 @@ async function depositInto(
   effectiveDate: string,
   reference: string | null = null,
 ): Promise<{ entryId: LedgerEntryId; matterId: MatterId }> {
-  const matterId = await seedMatter(fixture, label);
+  const matterId = await seedMatter(fixture, label, `entity_${label.toLowerCase()}`);
   const deposit = await composeTrustDeposit(
     fixture.database,
     {
       trustAccountId: fixture.trustAccountId,
-      to: leafReference(`entity_${label.toLowerCase()}`, matterId, label),
+      to: leafReference(matterId, label),
       amount: usd(amountMinor),
       effectiveDate,
       description: `${label} retainer received`,
@@ -271,6 +273,59 @@ describe("the three-way proof", () => {
     await assertTrustFitness(fixture.database);
   });
 
+  // The proof must never be computed from a truncated outstanding list. The read is capped so a
+  // runaway period cannot pull an unbounded result set into a request handler, and the cap used to
+  // be SILENT: the totals, the adjusted bank figure, and the balanced verdict were all derived from
+  // whatever rows came back, internally consistent and short by everything past the ceiling — and
+  // closing froze exactly those numbers as the firm's attestation.
+  it("refuses the proof rather than computing it from a truncated outstanding list", async () => {
+    const fixture = await fixtureWithJurisdiction();
+    const webb = await depositInto(fixture, "Webb", 500000, "2026-08-02", "1041");
+    expect(webb.entryId).toBeDefined();
+    const statement = await recordStatement(fixture, 500000, [
+      {
+        postedOn: "2026-08-02",
+        direction: "deposit",
+        amountMinor: 500000,
+        description: "DEPOSIT CHECK 1041",
+        reference: "1041",
+      },
+    ]);
+    const reconciliationId = await openedReconciliation(fixture, statement.statementId);
+
+    // One past the ceiling, written straight to the ledger: the read counts entries touching the
+    // trust bank account that no binding match clears, and the composers are far too slow to build
+    // five thousand of them in a test. What matters is the row count the read sees.
+    const filler = MAX_TRUST_RECONCILIATION_ROWS;
+    for (let start = 0; start < filler; start += 500) {
+      const statements = [];
+      for (let index = start; index < Math.min(start + 500, filler); index += 1) {
+        const entryId = newIdentifier("ledgerEntry");
+        statements.push(
+          fixture.database
+            .prepare(
+              "INSERT INTO ledger_entry (id, description, effective_date, recorded_at) VALUES (?1, ?2, ?3, ?4)",
+            )
+            .bind(entryId, `Uncleared item ${index}`, "2026-08-02", clock.now()),
+          fixture.database
+            .prepare(
+              "INSERT INTO ledger_line (id, entry_id, account_id, line_index, direction, amount_minor) VALUES (?1, ?2, ?3, 0, 'debit', 1)",
+            )
+            .bind(newIdentifier("ledgerLine"), entryId, fixture.bankLedgerAccountId),
+        );
+      }
+      await fixture.database.batch(statements);
+    }
+
+    await expect(readTrustThreeWayProof(fixture.database, reconciliationId)).rejects.toMatchObject({
+      code: "reconciliation-outstanding-items-truncated",
+    });
+    // And the close refuses with it, rather than freezing a total it could not see all of.
+    await expect(
+      closeTrustReconciliation(fixture.database, reconciliationId, RECONCILER, options),
+    ).rejects.toMatchObject({ code: "reconciliation-outstanding-items-truncated" });
+  });
+
   // The classic deposit in transit: recorded before the period ended, credited by the bank after it.
   // The adjustment is what makes the two sides agree, and the item is named rather than absorbed.
   it("adjusts for a deposit in transit and still balances", async () => {
@@ -437,6 +492,69 @@ describe("matching", () => {
     expect(suggested.suggestions).toEqual([]);
   });
 
+  // The URL asserts a containment, so the handler has to check it. Without this the first path
+  // segment is decoration: any reconciliation identifier at all withdraws the named match and
+  // answers 201, so a client-side mix-up silently moves a withdrawal to the wrong period.
+  it("refuses to withdraw a match through a reconciliation it does not belong to", async () => {
+    const fixture = await fixtureWithJurisdiction();
+    const webb = await depositInto(fixture, "Webb", 500000, "2026-08-02");
+    const statement = await recordStatement(fixture, 500000, [
+      { postedOn: "2026-08-02", direction: "deposit", amountMinor: 500000, description: "DEPOSIT" },
+    ]);
+    const reconciliationId = await openedReconciliation(fixture, statement.statementId);
+    const lines = await readTrustBankStatementLines(fixture.database, statement.statementId);
+    const match = await composeTrustReconciliationMatch(
+      fixture.database,
+      {
+        reconciliationId,
+        statementLineId: lines[0]?.id as never,
+        entryId: webb.entryId,
+        matchedBy: RECONCILER,
+      },
+      options,
+    );
+    await commit(fixture.database, match.effect);
+
+    const otherStatement = await recordStatement(
+      fixture,
+      500000,
+      [
+        {
+          postedOn: "2026-09-02",
+          direction: "deposit",
+          amountMinor: 500000,
+          description: "DEPOSIT",
+        },
+      ],
+      "2026-09-01",
+      "2026-09-30",
+    );
+    const otherReconciliationId = await openedReconciliation(fixture, otherStatement.statementId);
+
+    await expect(
+      composeTrustReconciliationUnmatch(
+        fixture.database,
+        {
+          matchId: match.matchId,
+          reconciliationId: otherReconciliationId,
+          withdrawnBy: RECONCILER,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "match-belongs-to-another-reconciliation" });
+
+    // Naming the right one still works.
+    const withdrawal = await composeTrustReconciliationUnmatch(
+      fixture.database,
+      { matchId: match.matchId, reconciliationId, withdrawnBy: RECONCILER },
+      options,
+    );
+    await commit(fixture.database, withdrawal.effect);
+    expect(await readActiveTrustReconciliationMatches(fixture.database, reconciliationId)).toEqual(
+      [],
+    );
+  });
+
   it("withdraws a wrong match by appending, never by deleting", async () => {
     const fixture = await fixtureWithJurisdiction();
     const webb = await depositInto(fixture, "Webb", 500000, "2026-08-02");
@@ -462,7 +580,7 @@ describe("matching", () => {
 
     const withdrawal = await composeTrustReconciliationUnmatch(
       fixture.database,
-      { matchId: match.matchId, withdrawnBy: RECONCILER },
+      { matchId: match.matchId, reconciliationId, withdrawnBy: RECONCILER },
       options,
     );
     await commit(fixture.database, withdrawal.effect);

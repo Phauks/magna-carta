@@ -102,6 +102,13 @@ export const PROBLEM_TYPES = {
   // row at a time. DISTINCT from `validation` (request-shape): the request is well formed and the
   // caller is entitled to make it — the count it names is over, so a client offers to open a new one.
   "custody-stocktake-closed": "custody-stocktake-closed",
+  // A close that would freeze counts drawn from a reconciliation that hit its read cap (HTTP 409).
+  // The frozen counts are the numbers a firm reports and nothing may drift under them afterwards, so
+  // a partial answer is refused rather than recorded as a finding: packets past the cut were never
+  // expected and so were never reported missing, which would understate missing originals silently
+  // and permanently. Fixed by narrowing the count's scope or by abandoning it, which freezes nothing.
+  // DISTINCT from `validation` — the request is well formed and the caller is entitled to make it.
+  "custody-stocktake-truncated": "custody-stocktake-truncated",
   // A calendar window or deadline horizon wider than one read is allowed to be (HTTP 422). A
   // REFUSAL and deliberately not a silent clamp: a caller that asked for three years and quietly
   // received one cannot tell that from a firm with nothing recorded in years two and three, so the
@@ -122,6 +129,40 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // An asset given a type declared under a different class (HTTP 422). A firm filing a retirement
+  // account under `vehicle` has made a data-entry error, not expressed a preference — the class
+  // decides which structured columns exist, so the pairing has to hold. Also raised when a class's
+  // attributes are supplied on an asset of another class, which is the same mistake from the other
+  // end and is refused rather than silently dropped: attributes quietly discarded are facts a person
+  // believes they recorded.
+  "matter-asset-type-class-mismatch": "matter-asset-type-class-mismatch",
+  // An attempt to change an asset's class after it was recorded (HTTP 409). A class change orphans
+  // the attribute row and moves the asset to a different merge subject, so it is a delete-and-record
+  // -again wearing an update. DISTINCT from `validation`: the request is well-formed and the class is
+  // real; the change is one the register does not make.
+  "matter-asset-class-frozen": "matter-asset-class-frozen",
+  // Any attempt to edit or remove a recorded value (HTTP 409). No route offers one and the database
+  // refuses it, so this exists so that a path written later fails by name rather than as an
+  // unexplained abort. A wrong figure is fixed by recording a correction that names it.
+  "matter-asset-valuation-append-only": "matter-asset-valuation-append-only",
+  // An amount with no currency, a currency with no amount, or a correction restating a figure in a
+  // different currency (HTTP 422). Money is minor units plus a currency and never a float, and no
+  // total is computed across two currencies.
+  "matter-asset-currency-mismatch": "matter-asset-currency-mismatch",
+  // A request asking the register to hold a password, passphrase, seed or recovery phrase, private
+  // key, personal identification number, or safe combination (HTTP 422). Its OWN type rather than
+  // `validation` because the refusal is explainable and the explanation is the point: an encrypted
+  // column is readable by anyone holding the decrypt permission, and for a self-custodied asset the
+  // phrase IS the asset. The correct home is a sealed envelope in the safekeeping register.
+  "matter-asset-credential-storage-refused": "matter-asset-credential-storage-refused",
+  // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
+  // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
+  // fifty rows it never sent.
+  "matter-asset-batch-too-large": "matter-asset-batch-too-large",
+  // A document link naming a file filed under a different matter, or a document kind the register
+  // does not carry (HTTP 422). A cross-matter link would put a deed in a case nobody could find it
+  // from, and would show one matter's file in another matter's asset detail.
+  "matter-asset-document-matter-mismatch": "matter-asset-document-matter-mismatch",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
@@ -177,6 +218,14 @@ export const PROBLEM_TYPES = {
   // jurisdiction forbids. DISTINCT from `validation` (request-shape) — the request is well-formed;
   // the trust rules refuse what it asks for.
   "trust-movement-refused": "trust-movement-refused",
+  // Something the LEDGER itself refuses about the entry a money route composed (HTTP 422): an
+  // effective date that is not a calendar date or is in the future, a line amount that is not
+  // positive, a currency that is not the account's, or an entry that does not balance. Shared by
+  // every money route because the ledger's rules are the same underneath all of them, and DISTINCT
+  // from the domain refusals beside it (`trust-movement-refused`, `billing-refused`): those are a
+  // subsystem's own rules about what the movement means, this is the double-entry record refusing
+  // to hold the entry at all.
+  "ledger-entry-refused": "ledger-entry-refused",
   // A trust account whose office recorded no jurisdiction, or whose jurisdiction has no reviewed
   // rules encoded (HTTP 422). Deliberately one problem type carrying two distinct details, because
   // they are fixed differently: the first by recording the office's state, the second by researching
@@ -252,6 +301,28 @@ export const PROBLEM_TYPES = {
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.
   "service-unavailable": "service-unavailable",
+  // The firm has not consented to sending its content to a third-party model provider at all (HTTP
+  // 403). DISTINCT from `permission-denied`: the member's role is irrelevant — nobody in the firm can
+  // use the assistant until an administrator opens the general AI-processing gate, and telling them
+  // to ask for a role would send them looking in the wrong place.
+  "magnus-firm-not-eligible": "magnus-firm-not-eligible",
+  // The firm consents to model processing generally but has not turned the assistant on (HTTP 403).
+  // A SECOND type rather than a shared one, because it is a different setting in a different place:
+  // enabling inference for document drafting is not consenting to a free-form assistant, and a firm
+  // switching the assistant off must not thereby disable every other AI feature.
+  "magnus-not-enabled": "magnus-not-enabled",
+  // The member has not accepted the current disclosure (HTTP 409). Not a 403: the member can clear it
+  // themselves, and it also fires when the disclosure VERSION moved because what the assistant can
+  // see or do changed — which re-prompts everybody by design.
+  "magnus-acknowledgement-required": "magnus-acknowledgement-required",
+  // A message over the per-turn size cap (HTTP 422). DISTINCT from `validation` (request-shape) — the
+  // request is well-formed; the cap is what keeps a turn from being bulk content, and refusing names
+  // the limit rather than silently truncating or shipping a deposition to a model provider.
+  "magnus-turn-too-large": "magnus-turn-too-large",
+  // The firm's daily message allowance is spent (HTTP 429). DISTINCT from `rate-limited` (a per-route
+  // request limit that says nothing about cost): this is the firm's own spend ceiling, and it is
+  // named so the firm knows which limit it reached and that it resets.
+  "magnus-daily-ceiling-reached": "magnus-daily-ceiling-reached",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

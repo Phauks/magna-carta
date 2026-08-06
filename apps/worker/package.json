@@ -42,6 +42,8 @@
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/locations": "workspace:*",
+    "@magna-carta/magnus": "workspace:*",
+    "@magna-carta/matter-assets": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/money": "workspace:*",

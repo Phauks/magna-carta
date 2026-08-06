@@ -126,20 +126,29 @@ function get(path: string, cookie = ownerCookie): Promise<Response> {
   });
 }
 
-async function openMatter(title: string): Promise<string> {
+// The matter's client party, recorded straight into the firm database because there is no HTTP
+// surface for it yet. A trust ledger's client attribution is derived from this link, so a matter
+// without one holds no client money at all.
+async function openMatter(title: string, clientEntityId: string): Promise<string> {
   const created = await post("/api/v1/matters", {
     title,
     status: "open",
     responsibleMemberId: ownerUserId,
   });
-  return (await created.json()).matterId;
+  const matterId = (await created.json()).matterId as string;
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+    )
+    .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
+    .run();
+  return matterId;
 }
 
-async function depositInto(matterId: string, amountMinor: number, clientEntityId: string) {
+async function depositInto(matterId: string, amountMinor: number) {
   const response = await post("/api/v1/trust/deposits", {
     trustAccountId,
     matterId,
-    clientEntityId,
     amountMinor,
     currency: "USD" as const,
     effectiveDate: todayInUtc(),
@@ -155,8 +164,8 @@ async function depositInto(matterId: string, amountMinor: number, clientEntityId
 
 describe("trust reconciliation routes", () => {
   it("records a statement, matches a line by hand, and freezes a balanced proof", async () => {
-    const matterId = await openMatter("Reconciliation Matter");
-    const deposit = await depositInto(matterId, 500000, "entity_webb");
+    const matterId = await openMatter("Reconciliation Matter", "entity_webb");
+    const deposit = await depositInto(matterId, 500000);
 
     const recorded = await post("/api/v1/trust/bank-statements", {
       trustAccountId,
@@ -228,9 +237,65 @@ describe("trust reconciliation routes", () => {
     expect(late.status).toBe(409);
   });
 
+  // The URL asserts a containment, so the handler checks it. Without that the first path segment is
+  // decoration: any reconciliation identifier withdraws the named match and answers 201, which is
+  // how a client-side mix-up becomes a withdrawal against the wrong period.
+  it("refuses a match withdrawal routed through a reconciliation the match does not belong to", async () => {
+    const matterId = await openMatter("Withdrawal Path Matter", "entity_path");
+    const deposit = await depositInto(matterId, 200000);
+    const recorded = await post("/api/v1/trust/bank-statements", {
+      trustAccountId,
+      ...PERIOD(),
+      openingBalanceMinor: 0,
+      closingBalanceMinor: 200000,
+      currency: "USD",
+      statementReference: "STMT-PATH",
+      lines: [
+        {
+          postedOn: todayInUtc(),
+          direction: "deposit",
+          amountMinor: 200000,
+          description: "DEPOSIT CHECK 9001",
+          reference: "9001",
+        },
+      ],
+    });
+    const { trustBankStatementId } = (await recorded.json()) as { trustBankStatementId: string };
+    const opened = await post("/api/v1/trust/reconciliations", {
+      statementId: trustBankStatementId,
+    });
+    const { trustReconciliationId } = (await opened.json()) as { trustReconciliationId: string };
+    const lines = await get(`/api/v1/trust/bank-statements/${trustBankStatementId}/lines`);
+    const { lines: statementLines } = (await lines.json()) as { lines: readonly { id: string }[] };
+    const matched = await post(`/api/v1/trust/reconciliations/${trustReconciliationId}/matches`, {
+      statementLineId: statementLines[0]?.id,
+      ledgerEntryId: deposit.ledgerEntryId,
+    });
+    expect(matched.status).toBe(201);
+    const { trustReconciliationMatchId } = (await matched.json()) as {
+      trustReconciliationMatchId: string;
+    };
+
+    const wrongPath = await post(
+      `/api/v1/trust/reconciliations/${newIdentifier("trustReconciliation")}/matches/${trustReconciliationMatchId}/withdrawal`,
+      undefined,
+    );
+    expect(wrongPath.status).toBe(422);
+    expect((await wrongPath.json()).type).toBe(
+      "https://api.magnacarta.esq/problems/trust-reconciliation-refused",
+    );
+
+    // The right path still works, so the check is a containment test and not a new obstacle.
+    const rightPath = await post(
+      `/api/v1/trust/reconciliations/${trustReconciliationId}/matches/${trustReconciliationMatchId}/withdrawal`,
+      undefined,
+    );
+    expect(rightPath.status).toBe(201);
+  });
+
   it("closes an unbalanced period, naming the leg that disagrees", async () => {
-    const matterId = await openMatter("Unbalanced Matter");
-    await depositInto(matterId, 300000, "entity_shaw");
+    const matterId = await openMatter("Unbalanced Matter", "entity_shaw");
+    await depositInto(matterId, 300000);
 
     const recorded = await post("/api/v1/trust/bank-statements", {
       trustAccountId,

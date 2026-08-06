@@ -14,7 +14,10 @@ export type BillingValidationCode =
   | "work-in-progress-wrong-matter"
   | "claim-limit-exceeded"
   | "account-role-unmapped"
-  | "invoice-total-not-positive";
+  | "invoice-total-not-positive"
+  | "invoice-matter-total-negative"
+  | "invoice-line-currency-mismatch"
+  | "unknown-number-scope";
 
 export class BillingValidationError extends Error {
   constructor(
