@@ -118,6 +118,11 @@
       // consumer resolves the merge context, merges the template, and files the output through the same
       // upload/scan chokepoint every other byte crosses.
       { "binding": "DOCUMENT_ASSEMBLY", "queue": "magna-carta-production-document-assembly" },
+      // The conversational assistant's queue: the per-firm outbox relay hands a submitted turn here
+      // (the outbox row rides the same atomic batch as the turn rows it names); the consumer re-reads
+      // the firm's consent gates, builds the bounded window, calls the one inference chokepoint, and
+      // settles the turn. Model work never runs on the request path.
+      { "binding": "MAGNUS", "queue": "magna-carta-production-magnus" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -215,6 +220,19 @@
         "max_concurrency": 4,
         "dead_letter_queue": "magna-carta-production-document-assembly-deadletter",
       },
+      // The conversational assistant's consumer (the queue() handler routes this queue to the
+      // assistant consumer): one pending turn per message → re-read the gates → build the bounded
+      // window → one call through the inference chokepoint → settle the turn, meter it, and push the
+      // transition. Its own lane rather than the shared per-firm bus so a slow generation cannot
+      // delay an unrelated per-firm effect, and its own dead-letter queue so a message that keeps
+      // failing transport is visible instead of silently retried forever. A turn that failed for a
+      // business reason never reaches the dead-letter queue: it is settled with a closed label and
+      // acked, because retrying cannot fix a closed consent gate.
+      {
+        "queue": "magna-carta-production-magnus",
+        "max_concurrency": 4,
+        "dead_letter_queue": "magna-carta-production-magnus-deadletter",
+      },
     ],
   },
   // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
@@ -274,6 +292,10 @@
       // The document-assembly job coordinator: keyed firmId:assemblyId, single-flights one assembly per
       // job so a retried submit can never file two documents onto a matter.
       { "name": "DOCUMENT_ASSEMBLY_JOB", "class_name": "DocumentAssemblyJob" },
+      // The conversational assistant's per-conversation push object: keyed firmId:conversationId. It
+      // stores NOTHING — it reads a turn's state back from the firm's own database and pushes it, so
+      // exactly one copy of a transcript exists and it is in the firm's database.
+      { "name": "MAGNUS_CONVERSATION", "class_name": "MagnusConversation" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -293,6 +315,7 @@
     { "tag": "v3-recovery-job", "new_sqlite_classes": ["RecoveryJobCoordinator"] },
     { "tag": "v4-search-index-job", "new_sqlite_classes": ["SearchIndexJob"] },
     { "tag": "v5-document-assembly-job", "new_sqlite_classes": ["DocumentAssemblyJob"] },
+    { "tag": "v6-magnus-conversation", "new_sqlite_classes": ["MagnusConversation"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

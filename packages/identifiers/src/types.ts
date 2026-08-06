@@ -146,3 +146,5 @@ export type MatterAssetValuationId = Identifier<"matterAssetValuation">;
 export type MatterAssetEncumbranceId = Identifier<"matterAssetEncumbrance">;
 export type MatterAssetDocumentId = Identifier<"matterAssetDocument">;
 export type MatterAssetIdentifierId = Identifier<"matterAssetIdentifier">;
+export type MagnusConversationId = Identifier<"magnusConversation">;
+export type MagnusTurnId = Identifier<"magnusTurn">;

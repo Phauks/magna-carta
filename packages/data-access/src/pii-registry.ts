@@ -86,6 +86,26 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
   { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
+  // Magnus conversations — the firm's own work product, protected and deletable. The fact that a
+  // member held a conversation is firm activity worth keeping — the ai_detection_usage.requested_by
+  // precedent — so the person becomes a pseudonym and the row survives. The turns go with the
+  // conversation: a turn has no independent existence, and neither does a record of consent by
+  // somebody who has been erased.
+  //
+  // WHAT A MEMBER TYPED IS FREE TEXT AND IS OUT OF THIS REGISTRY'S STRUCTURED SCOPE. A member may
+  // name a client in a question; no column knows that. This is exactly the posture the registry
+  // already takes for audit_log's metadata JSON and for email bodies, and the instrument is the same
+  // one: CONVERSATION-LEVEL DELETION, which removes the content wholesale rather than column by
+  // column. The erasure report names Magnus conversations as a surface the operator reviews, rather
+  // than claiming a column-level guarantee no schema here can honour.
+  { table: "magnus_conversation", subjectKey: "created_by", action: "pseudonymize-keep" },
+  {
+    table: "magnus_turn",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
+  },
+  { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
   // Email filing — a captured message is correspondence on the matter file, so the retention basis is
   // the matter corpus and the subject-side scrub happens at the Directory entity, as with matter_party.
   // These rows resolve to a subject by frozen address VALUE as well as by resolved entity id, the only

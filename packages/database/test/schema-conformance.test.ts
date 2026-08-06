@@ -70,6 +70,10 @@ describe("schema conformance (fitness functions)", () => {
       // handle would add a unique lookup on every read that already arrives holding the asset.
       matter_asset_real_property: "asset_id",
       matter_asset_financial_account: "asset_id",
+      // One acknowledgement per member, and the member IS the row: a second handle would let two
+      // acceptances exist for one person, which is precisely the state the version comparison must
+      // never have to disambiguate.
+      magnus_member_acknowledgement: "user_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.
