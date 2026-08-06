@@ -61,13 +61,16 @@ import {
 // catalog/revision.ts, beside the catalogue whose version it names.
 export { DICTIONARY_VERSION, mergeFieldCatalogRevision } from "./catalog/revision.ts";
 
-// The time zone a document's dates render in. The design's rule is the MATTER'S OFFICE'S zone, never the
-// server's and never the acting member's, so a filing date is the date it was in the office that filed
-// it. The Locations model carries no time-zone column yet, so every office resolves to the platform's
-// normalized zone today; this function is the one place that column plugs in when Locations gains it,
-// rather than a default scattered through the formatters.
-export function timeZoneForLocation(_location: LocationMergeRow | undefined): string {
-  return "UTC";
+// The time zone a document's dates render in: the MATTER'S OFFICE'S zone, never the server's and
+// never the acting member's, so a filing date is the date it was in the office that filed it.
+//
+// This is the ONE place the office's zone enters the platform, rather than a default scattered
+// through the formatters. An office that carries no zone — one recorded before the column existed —
+// falls back to the platform's normalized zone, which is what every office resolved to before: a
+// document that rendered correctly yesterday renders identically today.
+export function timeZoneForLocation(location: LocationMergeRow | undefined): string {
+  const recorded = location?.timeZone;
+  return recorded === null || recorded === undefined || recorded.length === 0 ? "UTC" : recorded;
 }
 
 // How the caller fetches an asset's bytes. Injected rather than imported: the bytes live in the firm's

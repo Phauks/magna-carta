@@ -81,6 +81,10 @@ describe("problem-type URI registry", () => {
         "billing-account-role-unmapped",
         "billing-refused",
         "matter-close-refused",
+        "calendar-window-too-wide",
+        "calendar-deadline-catalog-unavailable",
+        "calendar-deadline-settled",
+        "calendar-platform-type-immutable",
       ].sort(),
     );
   });

@@ -1,0 +1,40 @@
+{
+  "name": "@magna-carta/calendar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./time-zone": "./src/time-zone.ts",
+    "./overdue": "./src/overdue.ts",
+    "./event-statements": "./src/event-statements.ts",
+    "./event-service": "./src/event-service.ts",
+    "./event-type-statements": "./src/event-type-statements.ts",
+    "./event-type-service": "./src/event-type-service.ts",
+    "./deadline-statements": "./src/deadline-statements.ts",
+    "./deadline-service": "./src/deadline-service.ts",
+    "./visibility": "./src/visibility.ts",
+    "./merge": "./src/merge.ts",
+    "./timeline": "./src/timeline.ts",
+    "./notifications": "./src/notifications.ts",
+    "./sources/registry": "./src/sources/registry.ts",
+    "./sources/all": "./src/sources/all.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

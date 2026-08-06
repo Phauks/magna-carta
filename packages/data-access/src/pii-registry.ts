@@ -283,6 +283,36 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "what the client was told the firm did, held as free text with no structured subject, frozen once the invoice is finalized",
   },
+  // The case calendar. Only one of its four tables carries a structured reference to a person: who
+  // was, or will be, at a hearing. It resolves to a subject three ways because all three shapes
+  // really occur, and the third is why one key would not be enough — an EXTERNAL participant (the
+  // court reporter, an interpreter, a witness nobody in the firm has a Directory record for) has no
+  // entity id by construction, so keying only on that column would leave exactly those people
+  // unreachable by erasure. The frozen-name key follows the precedent email_participant.address and
+  // custody_movement.borrower_name already set.
+  //
+  // Retention is the matter's: who appeared on a case, and in what role, is part of that matter's
+  // record for the same reason matter_party is, and the subject-side scrub happens at the Directory
+  // entity. The member key is the firm member's own attendance — activity, the line
+  // time_entry.timekeeper_user_id sits on, rather than the current-state line member_role sits on.
+  {
+    table: "matter_event_participant",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "who attended a proceeding on a matter is part of that matter's record",
+  },
+  {
+    table: "matter_event_participant",
+    subjectKey: "participant_name",
+    action: "retain-under-matter",
+    note: "an external participant with no Directory record — the only handle erasure has on them",
+  },
+  {
+    table: "matter_event_participant",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "which firm member appeared, and when, is that matter's record of the appearance",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -487,4 +517,21 @@ export const NO_PII_TABLES: readonly string[] = [
   // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
   // by another name, and configuration rather than personal data (the line `rate_card` sits on).
   "firm_account_role",
+  // The case calendar. The one table that references a person (matter_event_participant) is
+  // registered in PII_TABLES above; these three carry no structured personal-data column.
+  // The event-type catalog is a classification vocabulary (hearing, deposition, filing), the line
+  // matter_type, document_type, and custody_item_type sit on.
+  "matter_event_type",
+  // An event describes a PROCEEDING: its type, when and where it is, the court's own case number,
+  // and firm-member provenance (recorded_by). Its title and description are free text and can name
+  // the people a hearing concerns ("Smith custody hearing"), but that is content with no structured
+  // subject column to resolve — the residue class matter.description and custody_item.description
+  // established, handled by the residue report rather than by a key here. Who attended IS keyed, on
+  // matter_event_participant above.
+  "matter_event",
+  // A deadline is a DATE the firm must act by, plus the firm's own note of the authority it comes
+  // from and, where one was recorded, why it is no longer in force. Its title, authority note, state
+  // reason, and satisfaction note are the same free-text residue class the event's title sits in;
+  // recorded_by / satisfied_by are firm-member provenance on a control row about a date.
+  "matter_deadline",
 ];

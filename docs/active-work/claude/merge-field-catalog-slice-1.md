@@ -32,6 +32,11 @@ builds to.
   `docs/user/`
 
 **Known overlaps.** `apps/worker/openapi/openapi.json` and `packages/api-client/src/` are regenerated
-artefacts several streams move; second-to-merge regenerates. A calendar branch is in flight taking
-per-firm migration tag `20260806T000000`, so this stream takes `20260806T010000`; second-to-merge
-retags to keep the journal idx dense.
+artefacts several streams move; second-to-merge regenerates. A calendar branch was in flight taking
+per-firm migration tag `20260806T000000`, so this stream takes `20260806T010000`.
+
+**Second-to-merge reconciliation done.** Case calendar (#144) landed first at journal idx 36; this
+stream merged `main` and moved to **idx 37**, keeping its tag (`20260806T010000` already sorts after
+the calendar's). The snapshot was re-derived as `meta/0037_snapshot.json` rather than renamed, and the
+contract was re-emitted from the merged tree (`emit-openapi` then `generate-client`) rather than
+hand-merged — the only diff against `main` in either generated file is this stream's own.

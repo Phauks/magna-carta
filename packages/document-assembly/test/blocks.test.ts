@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assemble } from "../src/assemble.ts";
+import { lookupDictionaryEntry } from "../src/dictionary.ts";
 import { normalizeTemplate } from "../src/normalize.ts";
 import { readPackage, readPartText, writePackage } from "../src/ooxml/package.ts";
 import type { MergeContext, MergeValue } from "../src/types.ts";
@@ -511,17 +512,10 @@ describe("dictionary drift", () => {
     // Re-checking at assembly time against the dictionary the firm has TODAY is the only thing that
     // catches a template bound in March to a field archived in June.
     const outcome = assemble(bytes, contextOf(BASE_VALUES), {
-      dictionary: [
-        {
-          key: "matter.number",
-          source: "matter",
-          valueType: "text",
-          defaultFormat: "plain",
-          sensitivity: "ordinary",
-          absence: "fail",
-          description: "The matter's file number.",
-        },
-      ],
+      // A firm catalogue carrying ONE key, taken from the real dictionary rather than restated: the
+      // point of the case is which keys the catalogue has, and a hand-written copy of an entry would
+      // go stale the next time the entry gains a property.
+      dictionary: [lookupDictionaryEntry("matter.number")!],
     });
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;

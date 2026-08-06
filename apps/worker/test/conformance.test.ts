@@ -230,6 +230,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // firm's chart of accounts. Every line names a matter, but the matter is what is billed, not the
   // resource the capability governs.
   billing: "firm",
+  // calendar:* governs litigation events, deadlines, and the matter timeline that federates them
+  // with everything else the firm recorded. It binds BOTH resources, on the emails:* reasoning: an
+  // event and a deadline always name a matter, so those routes carry the matter resource, while the
+  // firm-wide calendar, the deadline list across every matter, and the event-type catalog have no
+  // single matter by construction — each is a matter-scoped read repeated under one visibility
+  // predicate, and the catalog is firm configuration with no matter at all.
+  calendar: ["matter", "firm"],
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -690,6 +697,23 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "billing.setAccountRoles",
       "billing.updateLine",
       "billing.voidDraft",
+      "calendar.cancelEvent",
+      "calendar.createDeadline",
+      "calendar.createEvent",
+      "calendar.createEventType",
+      "calendar.deactivateEventType",
+      "calendar.firmCalendar",
+      "calendar.getEvent",
+      "calendar.listDeadlines",
+      "calendar.listEventTypes",
+      "calendar.listEvents",
+      "calendar.matterTimeline",
+      "calendar.satisfyDeadline",
+      "calendar.supersedeDeadline",
+      "calendar.updateDeadline",
+      "calendar.updateEvent",
+      "calendar.updateEventType",
+      "calendar.vacateDeadline",
       "conflicts.getCheck",
       "conflicts.recordDisposition",
       "conflicts.runCheck",

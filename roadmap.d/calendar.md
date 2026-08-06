@@ -5,15 +5,31 @@
 - id: calendar
   name: Calendar and docketing
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
-  status: not-started
-  adrs: ADR-0018
-  evidence: No calendar code, schema, or spec; matter detail skeleton reserves a Calendar section naming docketing deadlines (apps/web/src/lib/matters/sections.ts).
+  status: partial
+  adrs: ADR-0018, ADR-0055
+  evidence: The event and deadline model, the federated matter timeline, and seventeen routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
+
+- id: calendar.events
+  name: Litigation events and deadlines
+  scope: Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail.
+  status: shipped
+  adrs: ADR-0055
+  notes: Backend only — the calendar screens are their own slice.
+  evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar.
+
+- id: calendar.timeline
+  name: Matter timeline (federated)
+  scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility predicate.
+  status: shipped
+  adrs: ADR-0051, ADR-0068
+  notes: Backend only — the calendar screens are their own slice.
+  evidence: Thirteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; the visible-matter predicate is a required argument of every statement builder and is proven by a table-driven fitness test.
 
 - id: calendar.surface
   name: Calendar surface
   scope: Calendar of matters, deadlines, and appointments.
   status: not-started
-  evidence: Placeholder section in the matter detail skeleton only; no events model or UI.
+  evidence: The two reads a month grid, a week view, an agenda list, and a matter timeline all consume are built and contract-emitted; no Svelte surface exists yet.
 
 - id: calendar.sync
   name: Two-way Google/Outlook sync

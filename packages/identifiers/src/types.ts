@@ -135,3 +135,7 @@ export type ClientCreditId = Identifier<"clientCredit">;
 export type InvoiceDeliveryId = Identifier<"invoiceDelivery">;
 export type BillingArrangementId = Identifier<"billingArrangement">;
 export type TaxRateId = Identifier<"taxRate">;
+export type MatterEventId = Identifier<"matterEvent">;
+export type MatterEventTypeId = Identifier<"matterEventType">;
+export type MatterEventParticipantId = Identifier<"matterEventParticipant">;
+export type MatterDeadlineId = Identifier<"matterDeadline">;
