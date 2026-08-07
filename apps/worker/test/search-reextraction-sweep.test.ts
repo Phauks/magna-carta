@@ -3,7 +3,7 @@ import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-stat
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { searchIndexingEnabledDefinition } from "@magna-carta/search/settings";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { SearchIndexJob } from "../src/search/index-coordinator.ts";
 import {
   SEARCH_INDEX_MAXIMUM_ATTEMPTS_PER_GENERATION,
@@ -79,6 +79,26 @@ async function wasEnqueued(firm: TestFirm, documentId: string): Promise<boolean>
   return (await jobStateFor(firm, documentId)).reason !== "unknown job";
 }
 
+// THE SEARCH-INDEX QUEUE CONSUMER IS LIVE UNDER THE TEST POOL. Every message a sweep enqueues is
+// delivered to the real consumer about a second later (immediately once five stack up), which finds
+// no bytes at the message's sourceKey — these fixtures store none in R2 — and honestly records
+// `failed` ("source bytes not found"). That write is concurrent with the test body, so two rules
+// hold everywhere below: never assert `queued` after a sweep (assert `wasEnqueued`, which no verdict
+// can un-set), and never write a simulated verdict until the in-flight message's real one has
+// landed. The coordinator itself is behaving exactly as designed — a consumer verdict may overwrite
+// a prior failed/deferred because queue redelivery legitimately re-verdicts a job the consumer's
+// catch path markFailed-ed before retrying — so the sequencing burden is this file's, not the
+// state machine's.
+async function verdictLanded(firm: TestFirm, documentId: string): Promise<void> {
+  await vi.waitFor(
+    async () => {
+      const { status } = await jobStateFor(firm, documentId);
+      expect(status === "failed" || status === "deferred" || status === "indexed").toBe(true);
+    },
+    { timeout: 20_000, interval: 50 },
+  );
+}
+
 async function seedCommittedDocument(
   firm: TestFirm,
   name: string,
@@ -139,7 +159,7 @@ describe("runReextractionSweep", () => {
     const report = await runReextractionSweep(env);
 
     expect(report).toEqual({ firmsProcessed: 1, enqueued: 1, examined: 1 });
-    expect((await jobStateFor(firm, missing)).status).toBe("queued");
+    expect(await wasEnqueued(firm, missing)).toBe(true);
     expect(await wasEnqueued(firm, alreadyIndexed)).toBe(false);
   });
 
@@ -190,7 +210,7 @@ describe("runReextractionSweep", () => {
     // re-enqueuing the same two — the cap bounds new work, not the distance the walk travels.
     expect((await runReextractionSweep(env, { perFirmCap: 2 })).enqueued).toBe(1);
     for (const documentId of documents) {
-      expect((await jobStateFor(firm, documentId)).status).toBe("queued");
+      expect(await wasEnqueued(firm, documentId)).toBe(true);
     }
   });
 });
@@ -207,12 +227,15 @@ describe("runReextractionSweep", () => {
 
 describe("runReextractionSweep over a catalogue whose head cannot be repaired", () => {
   // Drive each of the head documents to a terminal state that leaves no split behind, exactly as the
-  // consumer's `unextractable` and `engine-not-implemented` branches do.
+  // consumer's `unextractable` and `engine-not-implemented` branches do. The live consumer holds the
+  // in-flight message and will record its own verdict for it; wait that verdict out first, so the
+  // write below is the LAST write for this attempt rather than a competitor racing the delivery.
   async function markTerminal(
     firm: TestFirm,
     documentId: string,
     outcome: "failed" | "deferred",
   ): Promise<void> {
+    await verdictLanded(firm, documentId);
     const stub = env.SEARCH_INDEX_JOB.get(
       env.SEARCH_INDEX_JOB.idFromName(searchIndexJobName(firm.firmId, documentId, 1)),
     );
@@ -249,11 +272,11 @@ describe("runReextractionSweep over a catalogue whose head cannot be repaired", 
     // starvation being fixed. With a cap of exactly the head's size, the old walk could never get past it.
     const report = await runReextractionSweep(env, { perFirmCap: head.length });
 
-    expect((await jobStateFor(firm, tail)).status).toBe("queued");
+    expect(await wasEnqueued(firm, tail)).toBe(true);
     expect(report.enqueued).toBe(1);
     // Every head document was still looked at — the walk goes through them, it does not skip the query.
     expect(report.examined).toBe(head.length + 1);
-  });
+  }, 30_000);
 
   it("stops paying for a document that cannot be read, once its attempts are spent", async () => {
     const firm = await freshFirm("Permanent Failure Firm");
@@ -269,7 +292,7 @@ describe("runReextractionSweep over a catalogue whose head cannot be repaired", 
     expect(report.examined).toBe(1);
     expect(report.enqueued).toBe(0);
     expect((await jobStateFor(firm, unreadable)).status).toBe("failed");
-  });
+  }, 30_000);
 
   it("picks a deferred backlog back up when an engine deploy changes the generation", async () => {
     // The bound must not strand work the platform can now do: a document deferred because no
@@ -312,5 +335,5 @@ describe("runReextractionSweep over a catalogue whose head cannot be repaired", 
     expect(afterDeploy.started).toBe(true);
     expect(afterDeploy.state.status).toBe("queued");
     expect(afterDeploy.state.attempts).toBe(1);
-  });
+  }, 30_000);
 });
