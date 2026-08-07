@@ -103,6 +103,12 @@ export interface AutoFileEvidence {
   readonly dkimVerdict: DkimVerdict;
   readonly capturedVia: CapturedVia;
   readonly dkimVerifiedDomain: string | null;
+  // Did the verifying signature cover the WHOLE canonical body? A DKIM signature carrying `l=` signs
+  // only a prefix, so anyone holding one legitimately signed message from a domain can append
+  // arbitrary content and the signature still verifies — and the appended part is precisely the part
+  // an attacker wrote. The verdict stays an honest `pass` because the cryptography did pass; this is
+  // the field that keeps a partially-covered pass from being enough to file unattended.
+  readonly dkimBodyFullyCovered: boolean;
   readonly targetMatters: readonly AutoFileTargetMatter[];
   // The filing-time conflict/ethical-wall hook's answer for this message and matter.
   readonly conflictHold: boolean;
@@ -133,7 +139,22 @@ export interface AutoFileDecision {
 // A rule firing this often in a rolling hour is not a person's correspondence — it is a mailing
 // list, a bounce loop, or an autoresponder, and it shows up as a rate long before it shows up as a
 // hundred wrongly-filed messages.
+//
+// THE BOUND IS "THE WINDOW PLUS ONE QUEUE BATCH", NOT A HARD CEILING, and saying so is the honest
+// description. `firesInWindow` is derived from a bounded index walk BEFORE the decision and the
+// decision row is written after, so concurrent captures of one rule all read the same pre-increment
+// count: N messages arriving together at count 24 each decide `file` and the window ends at 24 + N.
+// A maintained counter would close that at the price of two contended hot-path writes on every
+// capture, which is a worse trade for a guardrail whose job is to catch a rule firing hundreds of
+// times — an overshoot of one batch does not change that answer.
 export const AUTO_FILE_MAX_FIRES_PER_WINDOW = 25;
+
+// The limit a caller MUST pass when deriving `firesInWindow`. The activity read caps its walk at the
+// limit it is given, so a limit at or below the breaker's threshold would report a count that can
+// never reach it — silently disabling the breaker rather than failing. Strictly greater, so a rule
+// sitting exactly at the threshold is still distinguishable from one past it. Exported as the value
+// to pass rather than left to each call site to get right, because a wrong one is invisible.
+export const AUTO_FILE_ACTIVITY_WINDOW_LIMIT = AUTO_FILE_MAX_FIRES_PER_WINDOW + 1;
 
 // Undos are the honest feedback: the firm telling the platform the rule is wrong. Three of the last
 // ten is enough to stop filing and ask.
@@ -198,6 +219,7 @@ const REQUIRED_EVIDENCE_FIELDS: readonly (keyof AutoFileEvidence)[] = [
   "existingLinks",
   "dkimVerdict",
   "dkimVerifiedDomain",
+  "dkimBodyFullyCovered",
   "capturedVia",
   "targetMatters",
   "conflictHold",
@@ -280,10 +302,17 @@ function dkimSuppression(
   verdict: DkimVerdict,
   verifiedDomain: string | null,
   capturedVia: CapturedVia,
+  bodyFullyCovered: boolean,
 ): AutoFileSuppressionReason | null {
   const intactOriginal = carriesIntactOriginal(capturedVia);
   if (rule.kind === "correspondentMatter") {
     if (!intactOriginal || verdict !== "pass") return "senderNotAuthenticated";
+    // A PASS OVER PART OF THE BODY IS NOT AUTHENTICATION OF THE MESSAGE. With `l=` the signature
+    // covers a prefix and the rest is unsigned, so a genuinely signed message can be replayed with
+    // arbitrary content appended and still verify. That is exactly the shape this rule kind must not
+    // file on — the appended part is the attacker's — so a partial pass is treated as no answer about
+    // the sender rather than as one.
+    if (!bodyFullyCovered) return "senderNotAuthenticated";
     const ruleDomain = domainOf(rule.matchValue);
     if (ruleDomain === null) return "incompleteEvidence";
     if (verifiedDomain === null || verifiedDomain.toLowerCase() !== ruleDomain) {
@@ -350,6 +379,7 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
     existingLinks === null ||
     targetMatters === null ||
     typeof evidence.conflictHold !== "boolean" ||
+    typeof evidence.dkimBodyFullyCovered !== "boolean" ||
     typeof evidence.firmDirectFilingPermitted !== "boolean" ||
     !isNonEmptyString(evidence.capturedVia) ||
     !isNonEmptyString(evidence.dkimVerdict)
@@ -373,10 +403,16 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
   // suggestions are ordered silently changes which messages file themselves.
   const decidingMatterIds = new Set<string>();
   for (const rule of activeRules) decidingMatterIds.add(rule.matterId);
-  for (const matterId of threadMatterIds)
-    if (isNonEmptyString(matterId)) decidingMatterIds.add(matterId);
-  for (const matterId of subjectMatterIds)
-    if (isNonEmptyString(matterId)) decidingMatterIds.add(matterId);
+  // A MALFORMED ENTRY IS UNEVALUABLE, NOT ABSENT. Skipping it would shrink the deciding set, and a
+  // deciding set of one is what permits a firing — so a thread that genuinely resolves to two matters,
+  // one of them arriving malformed, would fire on the survivor. That is precisely the case guardrail 1
+  // exists to refuse, and it is the same reading a malformed RULE already gets above.
+  for (const matterId of [...threadMatterIds, ...subjectMatterIds]) {
+    if (!isNonEmptyString(matterId)) {
+      return nothingLinked("incompleteEvidence", { ruleId: activeRules[0]?.ruleId });
+    }
+    decidingMatterIds.add(matterId);
+  }
   if (decidingMatterIds.size > 1) {
     return nothingLinked("ambiguousEvidence", { ruleId: activeRules[0]?.ruleId });
   }
@@ -433,6 +469,7 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
     evidence.dkimVerdict,
     evidence.dkimVerifiedDomain,
     evidence.capturedVia,
+    evidence.dkimBodyFullyCovered,
   );
   if (dkimReason !== null) {
     return nothingLinked(dkimReason, {
@@ -503,6 +540,14 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
             : null;
   const reasons = [FIRED_PHRASING[firingRule.kind]];
   if (demotionReason !== null) reasons.push(DEMOTION_PHRASING[demotionReason]);
+  // A CONFLICT HOLD IS ALWAYS STATED, even when it did not win the ladder. `demotionReason` is the
+  // single machine-readable answer to "what stopped this filing" and stays strongest-first; but a
+  // message held by the conflict hook on a rule that only ever wanted to stage would otherwise be
+  // explained as a posture choice and never mention the conflict at all. The explanation is the whole
+  // product of this function, and "a conflict check held this" is not a detail a reader may lose.
+  if (conflictHold && demotionReason !== "conflictHold") {
+    reasons.push(DEMOTION_PHRASING.conflictHold);
+  }
 
   return {
     outcome: demotionReason === null ? "file" : "stage",

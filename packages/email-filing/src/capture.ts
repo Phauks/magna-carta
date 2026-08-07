@@ -233,7 +233,14 @@ async function adjudicateDkim(
 ): Promise<DkimVerification | undefined> {
   if (ports.verifyDkim === undefined) return undefined;
   if (parsed.sourceFormat === "msg") {
-    return { verdict: "unverified", reason: "noRawMessage", signingDomain: null, selector: null };
+    return {
+      verdict: "unverified",
+      reason: "noRawMessage",
+      signingDomain: null,
+      selector: null,
+      bodyFullyCovered: false,
+      signedHeaderNames: [],
+    };
   }
   try {
     return await ports.verifyDkim(bytes);
@@ -243,6 +250,8 @@ async function adjudicateDkim(
       reason: "dnsTemporaryFailure",
       signingDomain: null,
       selector: null,
+      bodyFullyCovered: false,
+      signedHeaderNames: [],
     };
   }
 }

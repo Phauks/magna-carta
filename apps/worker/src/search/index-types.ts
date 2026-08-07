@@ -17,7 +17,24 @@ export interface SearchIndexJobState {
   readonly objectKey: string | null;
   // Why the job is deferred or failed; null otherwise.
   readonly reason: string | null;
+  // How many times this version has been started against the CURRENT engine generation. A document
+  // nothing can read is a permanent candidate for the repair sweep — the catalog has no way to know it
+  // was already tried — so without a bound it would be re-extracted every pass forever. Counted here
+  // rather than in the catalog because the job's Durable Object already owns the outcome, and because
+  // recording it in the catalog would cost a per-firm schema change for a fact that is only ever read
+  // by the thing that wrote it.
+  readonly attempts: number;
+  // Which engines were bound when those attempts were spent. A deploy that binds an engine that was
+  // missing makes every previous refusal stale — the document was never really tried against THIS
+  // pipeline — so the count resets rather than holding a backlog down permanently.
+  readonly engineGeneration: string;
 }
+
+// How many times one version is re-attempted against an unchanged set of engines before the sweep stops
+// paying for it. Three is enough to ride out a transient failure that the queue's own retries did not
+// absorb, and small enough that a firm's permanently-unreadable documents stop costing anything within a
+// few passes. A newly bound engine resets the count, so this never strands work the platform could now do.
+export const SEARCH_INDEX_MAXIMUM_ATTEMPTS_PER_GENERATION = 3;
 
 export interface SearchIndexMessage {
   readonly firmId: string;
@@ -33,10 +50,27 @@ export interface SearchIndexMessage {
   // gained a newer current version (which enqueues its own job).
   readonly sourceKey: string;
   readonly contentType: string | null;
+  // Which extraction/index engines were bound when this message was made. Carried on the message so the
+  // coordinator can tell "this document has already been tried against exactly this pipeline" from
+  // "the pipeline has changed since it was tried", which is the difference between a wasted re-attempt
+  // and a backlog draining after a deploy.
+  readonly engineGeneration: string;
+}
+
+// What `start` did, as distinct from what the job now holds. A caller that wants to count the work it
+// caused — the repair sweep, which reports "enqueued" — cannot read that off the state alone: a job
+// already `queued` from an earlier pass and a job queued by THIS call look identical afterwards.
+export interface SearchIndexStartOutcome {
+  readonly state: SearchIndexJobState;
+  /**
+   * True only when this call put a message on the queue. False when the job was already indexed,
+   * already in flight, or has spent its attempts against the current engine generation.
+   */
+  readonly started: boolean;
 }
 
 export interface SearchIndexCoordinator {
-  start(message: SearchIndexMessage): Promise<SearchIndexJobState>;
+  start(message: SearchIndexMessage): Promise<SearchIndexStartOutcome>;
   markRunning(): Promise<void>;
   markIndexed(objectKey: string): Promise<void>;
   markDeferred(reason: string): Promise<void>;

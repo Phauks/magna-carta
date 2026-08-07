@@ -129,8 +129,8 @@ reconciliation (task 79 — four append-only tables, entry-keyed matching
 because earned-fee transfers write NO movement row [the load-bearing
 deviation], honest reds naming the leg, frozen closes, superseded-recon
 matches ignored by the outstanding read, T9/T10/T11 recommended defaults,
-profile v10; second-to-merge instruction SENT: retag idx 33 + regen contract
-+ re-run affected). MERGE-QUEUE DISCIPLINE proven twice today: tag order
+profile v10; second-to-merge instruction SENT: retag idx 33 + regen contract +
+re-run affected). MERGE-QUEUE DISCIPLINE proven twice today: tag order
 decides merge order (custodian 180000 before recon 200000); contention flakes
 on shared 4 cores are adjudicated by disjoint-sets + isolation-pass evidence
 (accepted #138, #140 on that standard — import time 3.5x wall documents the

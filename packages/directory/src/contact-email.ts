@@ -302,6 +302,95 @@ export async function findEntitiesByEmailAddress(
   return [...byEntity.values()];
 }
 
+// The most addresses one batched lookup will resolve. The address set comes from a captured message's
+// from/to/cc/bcc, which is bounded by the message and not by anything this platform chose — a message
+// with two hundred recipients is a legitimate input, and an unbounded IN list is not.
+export const MAXIMUM_BATCHED_EMAIL_LOOKUPS = 100;
+
+/**
+ * Resolve MANY email addresses to their directory entities in one query, keyed by the normalized
+ * address each caller passed.
+ *
+ * The batched twin of `findEntitiesByEmailAddress`, and the shape the email-capture path needs: that
+ * path resolves every participant on a message, and doing it one address at a time is one serial round
+ * trip per recipient inside a queue consumer — the N+1 the read paths in this codebase are careful to
+ * avoid. The email-address index is already the thing being seeked; this asks it once.
+ *
+ * Same semantics as the single-address form in every other respect: case-insensitive on the normalized
+ * key, soft-deleted email rows excluded, a merged-away owner resolved to its surviving master, and one
+ * entry per resolved entity with a primary match winning the flag. Addresses with no match are simply
+ * absent from the returned map rather than present with an empty list, so a caller reads "resolved" as
+ * membership.
+ */
+export async function findEntitiesByEmailAddresses(
+  database: BatchDatabase,
+  addresses: readonly string[],
+): Promise<Map<string, DirectoryEmailMatch[]>> {
+  const normalizedByOriginal = new Map<string, string>();
+  const distinct: string[] = [];
+  for (const address of addresses) {
+    const normalized = normalizeEmailAddress(address);
+    if (normalized.length === 0) continue;
+    normalizedByOriginal.set(address, normalized);
+    if (!distinct.includes(normalized)) distinct.push(normalized);
+    if (distinct.length >= MAXIMUM_BATCHED_EMAIL_LOOKUPS) break;
+  }
+  if (distinct.length === 0) return new Map();
+
+  const placeholders = distinct.map((_unused, index) => `?${index + 1}`).join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT id, entity_id, address, normalized_address, is_primary FROM directory_email ` +
+        `WHERE normalized_address IN (${placeholders}) AND deleted_at IS NULL`,
+    )
+    .bind(...distinct)
+    .all<{
+      id: DirectoryEmailId;
+      entity_id: string;
+      address: string;
+      normalized_address: string;
+      is_primary: number;
+    }>();
+
+  // The merge/soft-delete resolution is memoized across the whole batch: a firm's messages routinely
+  // carry several addresses belonging to one entity, and each would otherwise re-ask the same question.
+  const resolvedEntityCache = new Map<string, string | null>();
+  const byNormalized = new Map<string, Map<string, DirectoryEmailMatch>>();
+  for (const row of results) {
+    let resolvedEntityId = resolvedEntityCache.get(row.entity_id);
+    if (resolvedEntityId === undefined) {
+      resolvedEntityId = await resolveLiveEntity(database, row.entity_id);
+      resolvedEntityCache.set(row.entity_id, resolvedEntityId);
+    }
+    if (resolvedEntityId === null) continue; // owner (or its master) is soft-deleted — drop it
+    const isPrimary = row.is_primary === 1;
+    let byEntity = byNormalized.get(row.normalized_address);
+    if (byEntity === undefined) {
+      byEntity = new Map<string, DirectoryEmailMatch>();
+      byNormalized.set(row.normalized_address, byEntity);
+    }
+    const existing = byEntity.get(resolvedEntityId);
+    if (existing === undefined || (isPrimary && !existing.isPrimary)) {
+      byEntity.set(resolvedEntityId, {
+        entityId: resolvedEntityId,
+        emailId: row.id,
+        address: row.address,
+        isPrimary,
+      });
+    }
+  }
+
+  // Keyed back by the address the CALLER passed, so a caller need not re-normalize to read the answer.
+  const matchesByAddress = new Map<string, DirectoryEmailMatch[]>();
+  for (const [original, normalized] of normalizedByOriginal) {
+    const byEntity = byNormalized.get(normalized);
+    if (byEntity !== undefined && byEntity.size > 0) {
+      matchesByAddress.set(original, [...byEntity.values()]);
+    }
+  }
+  return matchesByAddress;
+}
+
 // Resolve an entity id to the live entity it stands for: follow merged_into_id to the master, and
 // return null when the entity (or its master) is soft-deleted or missing. The in-code twin of the
 // name channels' COALESCE(merged_into_id, id) + deleted_at predicate.
