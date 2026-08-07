@@ -713,6 +713,13 @@ Accepted and ADR-0110's procurement artifacts are in hand, and it would be a sep
 
 Answered by slice 0 where marked; the rest are named so they are not assumed.
 
+> **Slice 0 status (2026-08-07):** the local half is done — the E1/E2 protocol is built, sensitivity-
+> proven, and runnable (`packages/search/test/natural-language-filter-wall/`), and our side's filter
+> construction and delete/re-index discipline are pinned. **E1 and E2 themselves remain open**: the
+> live run against a fenced account has not been executed (no Cloudflare access in the executing
+> environment), and the retrieval route stays gated. Record, verdict line, and the live-run checklist:
+> [`../research/2026-08-07-ai-search-filter-wall-experiment.md`](../research/2026-08-07-ai-search-filter-wall-experiment.md).
+
 1. **Filter disjunction semantics** — E3. Gates firm-wide scope.
 2. **Whether filters fail open** — E2. Gates the feature.
 3. **Similarity cache isolation** — E4. Recommended default is off regardless.
