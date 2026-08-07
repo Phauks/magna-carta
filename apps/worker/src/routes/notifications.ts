@@ -187,9 +187,11 @@ const listRoute = defineOpenAPIRoute(listMeta, {
       description: "One page of the member's notifications",
       content: { "application/json": { schema: NotificationPage } },
     },
-    400: notificationErrorResponses[400],
     401: notificationErrorResponses[401],
     403: notificationErrorResponses[403],
+    // The category refusal. A cursor this API did not mint is NOT an error here — it is treated as
+    // the first page, which is the platform's cursor contract and is harmless for a read. The
+    // read-all route is the one place that reading would be wrong, and it declares a 400.
     422: notificationErrorResponses[422],
     429: notificationErrorResponses[429],
   },

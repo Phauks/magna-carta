@@ -53282,16 +53282,6 @@
               }
             }
           },
-          "400": {
-            "description": "The cursor is not one this API minted",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
           "401": {
             "description": "No valid session",
             "content": {

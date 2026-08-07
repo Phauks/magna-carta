@@ -19152,10 +19152,6 @@ export type NotificationsListData = {
 
 export type NotificationsListErrors = {
     /**
-     * The cursor is not one this API minted
-     */
-    400: Problem;
-    /**
      * No valid session
      */
     401: Problem;
