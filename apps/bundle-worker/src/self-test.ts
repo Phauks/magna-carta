@@ -145,6 +145,8 @@ export async function runSelfTest(
 
     // 2. Seed an input object in R2 (the container reaches it through the outbound handler).
     const inputKey = `${prefix}inputs/a`;
+    // fitness:allow-no-dimensions — a self-test fixture under its own run-scoped prefix, holding no
+    // firm content and deleted by the cleanup at the end of this run.
     await r2.put(inputKey, markerBytes);
     const baseEntries = [
       { archivePath: "a.txt", mtimeEpochSecs: null, source: "r2", r2Key: inputKey },
@@ -278,6 +280,7 @@ export async function runSelfTest(
     // spans multiple volumes (keep this ratio if either constant changes).
     const big = new Uint8Array(8000);
     crypto.getRandomValues(big);
+    // fitness:allow-no-dimensions — the second self-test fixture, same run-scoped prefix and cleanup.
     await r2.put(bigKey, big);
     const splitPrefix = `${prefix}out/bundle.7z`;
     const splitResponse = await container.fetch(

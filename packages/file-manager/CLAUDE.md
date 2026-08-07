@@ -68,6 +68,13 @@ runs logic mid-transaction.
   (content-type-equivalence.ts) normalizes case/parameters and consults an explicit table of container
   relationships; pairs outside the table still quarantine as `type-mismatch`. The gate re-checks the
   upload policy against the SNIFFED type, so agreeing here never widens what a firm accepts.
+- **A version's object carries its matter in its metadata, not in its key.** `initiateUpload` and
+  `initiateCheckin` return the `dimensions` the bytes must be written with (built by
+  `@magna-carta/object-dimensions`), and every caller — the presigned PUT, the multipart create, and the
+  paths that write the bytes themselves — passes that value through unchanged. It is minted once, where
+  the matter is known, so an object's scope cannot differ by upload route. A new path that reserves a
+  version and then writes bytes takes the same value; one that re-derives the matter has invented a
+  second source for a fact that has one.
 - **R2 keys are opaque and server-minted** — `files/{fileId}/{versionId}` (interactive lane) or
   `bulk/{fileId}/{versionId}` (bulk lane) — never derived from a client-supplied path. Both key prefixes
   meter under the `files/` logical dimension. The bytes bypass the Worker (direct-to-R2 via presigned URLs).

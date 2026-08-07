@@ -16,6 +16,7 @@ import {
 import { firmDefaultLocationDefinition } from "@magna-carta/locations/settings";
 import { LocationValidationError } from "@magna-carta/locations/validation";
 import type { LocationId } from "@magna-carta/identifiers/types";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -818,7 +819,12 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
       const objectKey = `${LETTERHEAD_OBJECT_PREFIX}${id}/${digest}.${facts.value.extension}`;
       // Written before the row that points at it: an object nothing references is a cost, whereas a row
       // pointing at an object that is not there is a letterhead that fails at assembly time.
-      await bucket.put(objectKey, bytes as unknown as ArrayBuffer, { sha256: digest });
+      // A letterhead belongs to an office, and every matter's documents draw on it — so it is a firm
+      // asset with no matter of its own.
+      await bucket.put(objectKey, bytes as unknown as ArrayBuffer, {
+        sha256: digest,
+        customMetadata: firmScopedObjectDimensions("letterhead-image"),
+      });
 
       let replaced: string | null = null;
       const outcome = await commitLocationEffect(

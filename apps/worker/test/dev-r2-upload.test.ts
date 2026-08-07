@@ -123,8 +123,18 @@ describe("guard 3 — object-key validation", () => {
       }),
     });
     expect(initiate.status).toBe(201);
-    const initiated = (await initiate.json()) as { mode: string; key: string; url: string };
+    const initiated = (await initiate.json()) as {
+      mode: string;
+      key: string;
+      url: string;
+      headers: Record<string, string>;
+    };
     expect(initiated.mode).toBe("put");
+    // The response tells the client which headers the upload must carry, and the object's scope is
+    // among them: in production those headers are covered by the URL's signature, so an upload that
+    // leaves one off is refused rather than landing an object nothing can place.
+    expect(initiated.headers["x-amz-meta-matter"]).toBe(matterId);
+    expect(initiated.headers["x-amz-meta-object_class"]).toBe("working-document");
     // The presigner rerouted the upload to the same-origin dev route.
     expect(initiated.url).toContain("/api/__dev/r2/object");
 
@@ -142,12 +152,17 @@ describe("guard 3 — object-key validation", () => {
     // The minted key is accepted, and the bytes land in R2 (the exact handle ingest reads).
     const accepted = await SELF.fetch(`https://example.com${initiated.url}`, {
       method: "PUT",
-      headers: { origin: "https://example.com", cookie: ownerCookie },
+      headers: { origin: "https://example.com", cookie: ownerCookie, ...initiated.headers },
       body: new Uint8Array([1, 2, 3, 4, 5]),
     });
     expect(accepted.status).toBe(200);
     const stored = await env.R2.get(initiated.key);
     expect(stored).not.toBeNull();
+    // End to end: what the client sent as headers is what the stored object carries as its dimensions.
+    expect(stored?.customMetadata).toEqual({
+      matter: matterId,
+      object_class: "working-document",
+    });
   });
 });
 
@@ -262,6 +277,14 @@ describe("development upload path end to end — pending -> clean", () => {
       },
     );
     expect(complete.status).toBe(200);
+
+    // A multipart object's metadata is fixed when the upload is created, not when it completes, so the
+    // assembled object must carry what the create was given — the same scope a single-shot PUT lands.
+    const assembled = await env.R2.head(initiated.key);
+    expect(assembled?.customMetadata).toEqual({
+      matter: matterId,
+      object_class: "working-document",
+    });
 
     await driveIngest(initiated.key);
     expect(await versionStatus(initiated.versionId)).toBe("clean");

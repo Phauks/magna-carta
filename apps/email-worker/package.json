@@ -11,7 +11,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@magna-carta/email-filing": "workspace:*"
+    "@magna-carta/email-filing": "workspace:*",
+    "@magna-carta/object-dimensions": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

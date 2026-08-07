@@ -990,3 +990,33 @@ export async function listVersionsMissingFromSearchIndex(
   }>();
   return results.map((row) => row.id);
 }
+
+// The matter each of a set of files belongs to. The repair pass that stamps object metadata after the
+// fact starts from R2 keys — which carry a file id and deliberately no matter — so it needs exactly
+// this mapping, for a page of keys at a time rather than one query per object.
+//
+// SOFT-DELETED FILES ARE INCLUDED, and that is the point: a deleted file's objects are still in the
+// bucket, still cost storage, and still belong to the matter they were filed under. Excluding them
+// would leave precisely the objects nobody looks at as the ones nothing can scope.
+//
+// The ids are asked for in bounded groups because a bound-parameter list is not unbounded and a listing
+// page can carry a thousand keys — a single IN over the whole page would work locally and fail against
+// a real database on the size of firm that most needs the repair.
+const MATTER_LOOKUP_GROUP_SIZE = 90;
+
+export async function listMatterIdsByFileIds(
+  database: SqlDatabase,
+  fileIds: readonly FileId[],
+): Promise<Map<FileId, MatterId>> {
+  const found = new Map<FileId, MatterId>();
+  for (let start = 0; start < fileIds.length; start += MATTER_LOOKUP_GROUP_SIZE) {
+    const group = fileIds.slice(start, start + MATTER_LOOKUP_GROUP_SIZE);
+    const placeholders = group.map(() => "?").join(", ");
+    const { results } = await database
+      .prepare(`SELECT id, matter_id FROM ${FILE_TABLE} WHERE id IN (${placeholders})`)
+      .bind(...group)
+      .all<{ id: FileId; matter_id: MatterId }>();
+    for (const row of results) found.set(row.id, row.matter_id);
+  }
+  return found;
+}

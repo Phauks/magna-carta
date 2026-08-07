@@ -32,6 +32,7 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
@@ -103,7 +104,13 @@ export async function handleCaptureMessage(
       // Content-addressed key: re-capturing the same bytes overwrites the identical object, so the
       // verbatim-original write is idempotent at the blob layer.
       const originalR2Key = `emails/${contentSha256}/original`;
-      await env.R2.put(originalR2Key, input);
+      // The verbatim original is keyed by its own hash, so ONE object can be the original behind
+      // filings on several matters — the same message forwarded into two matters writes here once.
+      // It therefore carries no matter, because there is no single true answer, and the matters it
+      // was filed onto are recorded as links in the firm's database where several of them fit.
+      await env.R2.put(originalR2Key, input, {
+        customMetadata: firmScopedObjectDimensions("email-original"),
+      });
       return { originalR2Key, contentSha256 };
     },
     findByDedupKey: (key) => findByDedupKey(firmDatabase, key),

@@ -6,10 +6,11 @@
 
 import { currentObjectKey, fileVersionKey } from "@magna-carta/file-manager/file-statements";
 import { getFileWithNamedVersion, type CleanVersion } from "@magna-carta/file-manager/queries";
-import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
+import type { FileId, FileVersionId, MatterId } from "@magna-carta/identifiers/types";
 import { operationFailed } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
+import { workingCopyDimensions } from "../files/object-stamping.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import type { CurrentObjectMeta } from "./document-session.ts";
 import { assertEditCapability, WopiGuardError } from "./wopi-guard.ts";
@@ -231,7 +232,13 @@ export async function putFile(
     },
   });
   const [toStore, toHash] = body.tee();
-  const putPromise = deps.bucket.put(currentObjectKey(fileId), toStore);
+  // The working copy carries its own class, distinct from a committed version's: these are the bytes
+  // somebody is part-way through typing, and a reader that cannot tell the two apart would serve an
+  // unsaved draft as the firm's document. The matter comes from the signed token, which this host
+  // minted — never from the request line.
+  const putPromise = deps.bucket.put(currentObjectKey(fileId), toStore, {
+    customMetadata: workingCopyDimensions(claims.matterId as MatterId),
+  });
   const digestStream = new DigestStream("SHA-256");
   await toHash.pipeThrough(counter).pipeTo(digestStream);
   await putPromise;
