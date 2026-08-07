@@ -97,8 +97,20 @@ export function selectMatterStaffingForMergeStatement(
         `JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = assignment.member_user_id ` +
         `${STAFFING_MEMBER_JOINS} ` +
         `WHERE assignment.matter_id = ?1 ` +
+        // The window's two recorded forms, told apart by length. A bound written at creation is a
+        // CIVIL DATE (YYYY-MM-DD, enforced by packages/matters/src/matter-assignment.ts) and is
+        // inclusive of its whole day — an assignment "through 2026-08-07" still staffs the matter
+        // at 23:59 that day, so a civil valid_to compares against the instant's own calendar date.
+        // A valid_to stamped by the end-assignment path is the ending INSTANT, exclusive from that
+        // moment. Both comparisons are lexicographic, which is chronological for both forms; a
+        // civil valid_from needs no case split because the date sorts before every instant within
+        // its day. The assembly instant is UTC, so a civil bound's day boundary is its UTC day —
+        // evaluating it in the office's zone would make this read depend on the location read it
+        // is batched beside, for at most an offset's width at the window's edges.
         `AND (assignment.valid_from IS NULL OR assignment.valid_from <= ?2) ` +
-        `AND (assignment.valid_to IS NULL OR assignment.valid_to > ?2) ` +
+        `AND (assignment.valid_to IS NULL ` +
+        `OR (length(assignment.valid_to) = 10 AND assignment.valid_to >= substr(?2, 1, 10)) ` +
+        `OR (length(assignment.valid_to) > 10 AND assignment.valid_to > ?2)) ` +
         `ORDER BY role ASC, member_user_id ASC`,
     )
     .bind(matterId, asOfInstant);
@@ -266,6 +278,22 @@ export function toMatterEstateMergeRow(row: MatterEstateMergeColumns): MatterEst
     decedentNameFamily: row.decedent_name_family ?? null,
     decedentNameSuffix: row.decedent_name_suffix ?? null,
   };
+}
+
+// The one estate fact a caller needs BEFORE resolution runs: the asset register's as-of date is
+// the estate's date of death, and the asset read takes that date as an input rather than reading
+// it itself. The assembly consumer issues this ahead of resolveMergeContext; it lives here so the
+// estate table's name stays inside this module's schema-name-synced statements instead of being
+// restated inline at the composition root.
+export function selectMatterEstateDateOfDeathStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT date_of_death FROM ${MATTER_ESTATE_TABLE} WHERE matter_id = ?1 AND deleted_at IS NULL`,
+    )
+    .bind(matterId);
 }
 
 // The matter's asset register, in ONE statement — the whole of the `asset` source.

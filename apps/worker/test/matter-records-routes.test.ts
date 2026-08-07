@@ -307,6 +307,41 @@ describe("matter staffing", () => {
     expect(problem.detail).toContain("responsible attorney");
   });
 
+  it("refuses a validity bound that is not a civil date — a free string would silently mis-window", async () => {
+    for (const garbage of ["next Tuesday", "2026-08-07T12:00:00.000Z", "08/07/2026"]) {
+      const refused = await post(`/api/v1/matters/${matterId}/assignments`, {
+        memberUserId: supervisorUserId,
+        assignmentRole: "originating_attorney",
+        validTo: garbage,
+      });
+      expect(refused.status, garbage).toBe(422);
+    }
+  });
+
+  it("refuses a window that ends before it starts, and accepts an ordered civil-date window", async () => {
+    const refused = await post(`/api/v1/matters/${matterId}/assignments`, {
+      memberUserId: supervisorUserId,
+      assignmentRole: "originating_attorney",
+      validFrom: "2026-08-08",
+      validTo: "2026-08-07",
+    });
+    expect(refused.status).toBe(422);
+
+    const created = await post(`/api/v1/matters/${matterId}/assignments`, {
+      memberUserId: supervisorUserId,
+      assignmentRole: "originating_attorney",
+      validFrom: "2026-01-15",
+      validTo: "2026-08-07",
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: assignmentId } = await jsonOf<{ id: string }>(created);
+    const row = await queryFirstRow<{ valid_from: string | null; valid_to: string | null }>(
+      "SELECT valid_from, valid_to FROM matter_assignment WHERE id = ?1",
+      [assignmentId],
+    );
+    expect(row).toEqual({ valid_from: "2026-01-15", valid_to: "2026-08-07" });
+  });
+
   it("ends an assignment by stamping its window closed, keeping the row", async () => {
     const created = await post(`/api/v1/matters/${matterId}/assignments`, {
       memberUserId: paralegalUserId,

@@ -2892,13 +2892,17 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The first day the assignment holds, as a civil date (YYYY-MM-DD), inclusive. Omit for an assignment that starts open-ended."
           },
           "validTo": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The last day the assignment holds, as a civil date (YYYY-MM-DD), inclusive — an assignment through 2026-08-07 still staffs the matter for the whole of that day. Omit for a current assignment; ending one later stamps the exact ending moment instead."
           }
         },
         "required": [

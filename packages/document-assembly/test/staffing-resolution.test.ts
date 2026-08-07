@@ -221,6 +221,53 @@ describe("member subjects resolve from the one staffing read", () => {
     expect(collection.items).toHaveLength(2);
   });
 
+  it("names a duplicate assignment of ONE member as what it is, never as two members", async () => {
+    const duplicated: StaffingRow[] = [
+      {
+        role: "supervising_attorney",
+        member_user_id: "user_SUPERVISINGA0000000",
+        display_name: "Devon Marchetti",
+      },
+      {
+        role: "supervisingAttorney",
+        member_user_id: "user_SUPERVISINGA0000000",
+        display_name: "Devon Marchetti",
+      },
+    ];
+    const { context } = await resolve(duplicated, ["supervisingAttorney.displayName"]);
+    expect(context.values.has("supervisingAttorney.displayName")).toBe(false);
+    const reason = context.absenceReasons.get("supervisingAttorney.displayName");
+    // "2 members" would send the reader hunting for a second person who does not exist — the
+    // repair here is ending the duplicate assignment, and the reason says so.
+    expect(reason).not.toContain("2 members");
+    expect(reason).toContain("2 assignments of the same member");
+    expect(reason).not.toContain("Marchetti");
+  });
+
+  it("counts an ambiguity by MEMBERS, not by assignment rows", async () => {
+    const threeRowsTwoMembers: StaffingRow[] = [
+      {
+        role: "supervising_attorney",
+        member_user_id: "user_SUPERVISINGA0000000",
+        display_name: "Devon Marchetti",
+      },
+      {
+        role: "supervisingAttorney",
+        member_user_id: "user_SUPERVISINGA0000000",
+        display_name: "Devon Marchetti",
+      },
+      {
+        role: "supervising-attorney",
+        member_user_id: "user_SUPERVISINGB0000000",
+        display_name: "Priya Vale",
+      },
+    ];
+    const { context } = await resolve(threeRowsTwoMembers, ["supervisingAttorney.displayName"]);
+    const reason = context.absenceReasons.get("supervisingAttorney.displayName");
+    expect(reason).toContain("2 members");
+    expect(reason).not.toContain("3 members");
+  });
+
   it("answers an unstaffed role with an ordinary absence naming the role", async () => {
     const { context } = await resolve([RESPONSIBLE], ["assignedParalegal.displayName"]);
     expect(context.absenceReasons.get("assignedParalegal.displayName")).toContain(
