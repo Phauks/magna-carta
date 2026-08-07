@@ -50,12 +50,8 @@
           "name": "account_balance_account_id_ledger_account_id_fk",
           "tableFrom": "account_balance",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -146,9 +142,7 @@
       "indexes": {
         "ai_detection_usage_created_at_index": {
           "name": "ai_detection_usage_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -206,25 +200,17 @@
       "indexes": {
         "audit_log_created_at_index": {
           "name": "audit_log_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "audit_log_event_index": {
           "name": "audit_log_event_index",
-          "columns": [
-            "event"
-          ],
+          "columns": ["event"],
           "isUnique": false
         },
         "audit_log_subject_created_id_index": {
           "name": "audit_log_subject_created_id_index",
-          "columns": [
-            "subject_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["subject_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -318,11 +304,7 @@
       "indexes": {
         "conflicts_check_subject_matter_created_id_index": {
           "name": "conflicts_check_subject_matter_created_id_index",
-          "columns": [
-            "subject_matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["subject_matter_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -393,10 +375,7 @@
       "indexes": {
         "conflicts_disposition_hit_id_created_at_index": {
           "name": "conflicts_disposition_hit_id_created_at_index",
-          "columns": [
-            "hit_id",
-            "created_at"
-          ],
+          "columns": ["hit_id", "created_at"],
           "isUnique": false
         }
       },
@@ -405,12 +384,8 @@
           "name": "conflicts_disposition_hit_id_conflicts_hit_id_fk",
           "tableFrom": "conflicts_disposition",
           "tableTo": "conflicts_hit",
-          "columnsFrom": [
-            "hit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["hit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -495,9 +470,7 @@
       "indexes": {
         "conflicts_hit_check_id_index": {
           "name": "conflicts_hit_check_id_index",
-          "columns": [
-            "check_id"
-          ],
+          "columns": ["check_id"],
           "isUnique": false
         }
       },
@@ -506,12 +479,8 @@
           "name": "conflicts_hit_check_id_conflicts_check_id_fk",
           "tableFrom": "conflicts_hit",
           "tableTo": "conflicts_check",
-          "columnsFrom": [
-            "check_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["check_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -677,25 +646,17 @@
       "indexes": {
         "cost_entry_matter_status_index": {
           "name": "cost_entry_matter_status_index",
-          "columns": [
-            "matter_id",
-            "status"
-          ],
+          "columns": ["matter_id", "status"],
           "isUnique": false
         },
         "cost_entry_status_incurred_date_index": {
           "name": "cost_entry_status_incurred_date_index",
-          "columns": [
-            "status",
-            "incurred_date"
-          ],
+          "columns": ["status", "incurred_date"],
           "isUnique": false
         },
         "cost_entry_recovery_ref_unique": {
           "name": "cost_entry_recovery_ref_unique",
-          "columns": [
-            "recovery_ref"
-          ],
+          "columns": ["recovery_ref"],
           "isUnique": true,
           "where": "\"cost_entry\".\"recovery_ref\" IS NOT NULL"
         }
@@ -705,12 +666,8 @@
           "name": "cost_entry_matter_id_matter_id_fk",
           "tableFrom": "cost_entry",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -718,12 +675,8 @@
           "name": "cost_entry_utbms_expense_code_id_utbms_code_id_fk",
           "tableFrom": "cost_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_expense_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_expense_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -879,17 +832,12 @@
       "indexes": {
         "custody_destruction_request_packet_index": {
           "name": "custody_destruction_request_packet_index",
-          "columns": [
-            "packet_id"
-          ],
+          "columns": ["packet_id"],
           "isUnique": false
         },
         "custody_destruction_request_outcome_index": {
           "name": "custody_destruction_request_outcome_index",
-          "columns": [
-            "outcome",
-            "requested_at"
-          ],
+          "columns": ["outcome", "requested_at"],
           "isUnique": false
         }
       },
@@ -898,12 +846,8 @@
           "name": "custody_destruction_request_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_destruction_request",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -911,12 +855,8 @@
           "name": "custody_destruction_request_item_id_custody_item_id_fk",
           "tableFrom": "custody_destruction_request",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1022,17 +962,12 @@
       "indexes": {
         "custody_hold_packet_released_index": {
           "name": "custody_hold_packet_released_index",
-          "columns": [
-            "packet_id",
-            "released_at"
-          ],
+          "columns": ["packet_id", "released_at"],
           "isUnique": false
         },
         "custody_hold_item_index": {
           "name": "custody_hold_item_index",
-          "columns": [
-            "item_id"
-          ],
+          "columns": ["item_id"],
           "isUnique": false
         }
       },
@@ -1041,12 +976,8 @@
           "name": "custody_hold_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_hold",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1054,12 +985,8 @@
           "name": "custody_hold_item_id_custody_item_id_fk",
           "tableFrom": "custody_hold",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1180,17 +1107,12 @@
       "indexes": {
         "custody_item_packet_ordinal_unique_index": {
           "name": "custody_item_packet_ordinal_unique_index",
-          "columns": [
-            "packet_id",
-            "ordinal"
-          ],
+          "columns": ["packet_id", "ordinal"],
           "isUnique": true
         },
         "custody_item_item_type_index": {
           "name": "custody_item_item_type_index",
-          "columns": [
-            "item_type_id"
-          ],
+          "columns": ["item_type_id"],
           "isUnique": false
         }
       },
@@ -1199,12 +1121,8 @@
           "name": "custody_item_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_item",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1212,12 +1130,8 @@
           "name": "custody_item_item_type_id_custody_item_type_id_fk",
           "tableFrom": "custody_item",
           "tableTo": "custody_item_type",
-          "columnsFrom": [
-            "item_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1305,16 +1219,12 @@
       "indexes": {
         "custody_item_type_name_unique_index": {
           "name": "custody_item_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "custody_item_type_code_unique_index": {
           "name": "custody_item_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -1406,16 +1316,12 @@
       "indexes": {
         "custody_location_parent_index": {
           "name": "custody_location_parent_index",
-          "columns": [
-            "parent_location_id"
-          ],
+          "columns": ["parent_location_id"],
           "isUnique": false
         },
         "custody_location_firm_location_index": {
           "name": "custody_location_firm_location_index",
-          "columns": [
-            "firm_location_id"
-          ],
+          "columns": ["firm_location_id"],
           "isUnique": false
         }
       },
@@ -1424,12 +1330,8 @@
           "name": "custody_location_firm_location_id_location_id_fk",
           "tableFrom": "custody_location",
           "tableTo": "location",
-          "columnsFrom": [
-            "firm_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["firm_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1616,25 +1518,17 @@
       "indexes": {
         "custody_movement_packet_occurred_index": {
           "name": "custody_movement_packet_occurred_index",
-          "columns": [
-            "packet_id",
-            "occurred_at",
-            "id"
-          ],
+          "columns": ["packet_id", "occurred_at", "id"],
           "isUnique": false
         },
         "custody_movement_item_index": {
           "name": "custody_movement_item_index",
-          "columns": [
-            "item_id"
-          ],
+          "columns": ["item_id"],
           "isUnique": false
         },
         "custody_movement_borrower_entity_index": {
           "name": "custody_movement_borrower_entity_index",
-          "columns": [
-            "borrower_entity_id"
-          ],
+          "columns": ["borrower_entity_id"],
           "isUnique": false
         }
       },
@@ -1643,12 +1537,8 @@
           "name": "custody_movement_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_movement",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1656,12 +1546,8 @@
           "name": "custody_movement_item_id_custody_item_id_fk",
           "tableFrom": "custody_movement",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1669,12 +1555,8 @@
           "name": "custody_movement_from_location_id_custody_location_id_fk",
           "tableFrom": "custody_movement",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "from_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["from_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1682,12 +1564,8 @@
           "name": "custody_movement_to_location_id_custody_location_id_fk",
           "tableFrom": "custody_movement",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "to_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["to_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1695,12 +1573,8 @@
           "name": "custody_movement_shipment_id_shipment_id_fk",
           "tableFrom": "custody_movement",
           "tableTo": "shipment",
-          "columnsFrom": [
-            "shipment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shipment_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1761,9 +1635,7 @@
       "indexes": {
         "custody_number_allocation_packet_index": {
           "name": "custody_number_allocation_packet_index",
-          "columns": [
-            "packet_id"
-          ],
+          "columns": ["packet_id"],
           "isUnique": false
         }
       },
@@ -1772,22 +1644,15 @@
           "name": "custody_number_allocation_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_number_allocation",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "custody_number_allocation_scope_key_drawn_value_pk": {
-          "columns": [
-            "scope_key",
-            "drawn_value"
-          ],
+          "columns": ["scope_key", "drawn_value"],
           "name": "custody_number_allocation_scope_key_drawn_value_pk"
         }
       },
@@ -1881,17 +1746,12 @@
       "indexes": {
         "custody_owner_packet_index": {
           "name": "custody_owner_packet_index",
-          "columns": [
-            "packet_id"
-          ],
+          "columns": ["packet_id"],
           "isUnique": false
         },
         "custody_owner_entity_index": {
           "name": "custody_owner_entity_index",
-          "columns": [
-            "entity_id",
-            "effective_to"
-          ],
+          "columns": ["entity_id", "effective_to"],
           "isUnique": false
         }
       },
@@ -1900,12 +1760,8 @@
           "name": "custody_owner_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_owner",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2020,38 +1876,27 @@
       "indexes": {
         "custody_packet_custody_number_unique_index": {
           "name": "custody_packet_custody_number_unique_index",
-          "columns": [
-            "custody_number"
-          ],
+          "columns": ["custody_number"],
           "isUnique": true
         },
         "custody_packet_status_number_index": {
           "name": "custody_packet_status_number_index",
-          "columns": [
-            "status",
-            "custody_number"
-          ],
+          "columns": ["status", "custody_number"],
           "isUnique": false
         },
         "custody_packet_current_location_index": {
           "name": "custody_packet_current_location_index",
-          "columns": [
-            "current_location_id"
-          ],
+          "columns": ["current_location_id"],
           "isUnique": false
         },
         "custody_packet_matter_index": {
           "name": "custody_packet_matter_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         },
         "custody_packet_depositor_index": {
           "name": "custody_packet_depositor_index",
-          "columns": [
-            "depositor_entity_id"
-          ],
+          "columns": ["depositor_entity_id"],
           "isUnique": false
         }
       },
@@ -2060,12 +1905,8 @@
           "name": "custody_packet_current_location_id_custody_location_id_fk",
           "tableFrom": "custody_packet",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "current_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2073,12 +1914,8 @@
           "name": "custody_packet_matter_id_matter_id_fk",
           "tableFrom": "custody_packet",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2178,23 +2015,17 @@
       "indexes": {
         "custody_scan_file_unique_index": {
           "name": "custody_scan_file_unique_index",
-          "columns": [
-            "file_id"
-          ],
+          "columns": ["file_id"],
           "isUnique": true
         },
         "custody_scan_packet_index": {
           "name": "custody_scan_packet_index",
-          "columns": [
-            "packet_id"
-          ],
+          "columns": ["packet_id"],
           "isUnique": false
         },
         "custody_scan_item_index": {
           "name": "custody_scan_item_index",
-          "columns": [
-            "item_id"
-          ],
+          "columns": ["item_id"],
           "isUnique": false
         }
       },
@@ -2203,12 +2034,8 @@
           "name": "custody_scan_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_scan",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2216,12 +2043,8 @@
           "name": "custody_scan_item_id_custody_item_id_fk",
           "tableFrom": "custody_scan",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2229,12 +2052,8 @@
           "name": "custody_scan_file_id_file_id_fk",
           "tableFrom": "custody_scan",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2367,17 +2186,12 @@
       "indexes": {
         "custody_stocktake_status_opened_index": {
           "name": "custody_stocktake_status_opened_index",
-          "columns": [
-            "status",
-            "opened_at"
-          ],
+          "columns": ["status", "opened_at"],
           "isUnique": false
         },
         "custody_stocktake_scope_index": {
           "name": "custody_stocktake_scope_index",
-          "columns": [
-            "scope_location_id"
-          ],
+          "columns": ["scope_location_id"],
           "isUnique": false
         }
       },
@@ -2386,12 +2200,8 @@
           "name": "custody_stocktake_scope_location_id_custody_location_id_fk",
           "tableFrom": "custody_stocktake",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "scope_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scope_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2504,24 +2314,17 @@
       "indexes": {
         "custody_stocktake_sighting_stocktake_index": {
           "name": "custody_stocktake_sighting_stocktake_index",
-          "columns": [
-            "stocktake_id",
-            "observed_at"
-          ],
+          "columns": ["stocktake_id", "observed_at"],
           "isUnique": false
         },
         "custody_stocktake_sighting_packet_index": {
           "name": "custody_stocktake_sighting_packet_index",
-          "columns": [
-            "packet_id"
-          ],
+          "columns": ["packet_id"],
           "isUnique": false
         },
         "custody_stocktake_sighting_location_index": {
           "name": "custody_stocktake_sighting_location_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         }
       },
@@ -2530,12 +2333,8 @@
           "name": "custody_stocktake_sighting_stocktake_id_custody_stocktake_id_fk",
           "tableFrom": "custody_stocktake_sighting",
           "tableTo": "custody_stocktake",
-          "columnsFrom": [
-            "stocktake_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stocktake_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2543,12 +2342,8 @@
           "name": "custody_stocktake_sighting_packet_id_custody_packet_id_fk",
           "tableFrom": "custody_stocktake_sighting",
           "tableTo": "custody_packet",
-          "columnsFrom": [
-            "packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["packet_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2556,12 +2351,8 @@
           "name": "custody_stocktake_sighting_item_id_custody_item_id_fk",
           "tableFrom": "custody_stocktake_sighting",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2569,12 +2360,8 @@
           "name": "custody_stocktake_sighting_location_id_custody_location_id_fk",
           "tableFrom": "custody_stocktake_sighting",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2582,12 +2369,8 @@
           "name": "custody_stocktake_sighting_expected_location_id_custody_location_id_fk",
           "tableFrom": "custody_stocktake_sighting",
           "tableTo": "custody_location",
-          "columnsFrom": [
-            "expected_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["expected_location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2707,10 +2490,7 @@
       "indexes": {
         "custom_field_scope_index": {
           "name": "custom_field_scope_index",
-          "columns": [
-            "target",
-            "attachment_id"
-          ],
+          "columns": ["target", "attachment_id"],
           "isUnique": false
         }
       },
@@ -2818,33 +2598,23 @@
       "indexes": {
         "custom_field_value_current_unique_index": {
           "name": "custom_field_value_current_unique_index",
-          "columns": [
-            "target_row_id",
-            "field_id"
-          ],
+          "columns": ["target_row_id", "field_id"],
           "isUnique": true,
           "where": "\"custom_field_value\".\"is_current\" = 1"
         },
         "custom_field_value_record_index": {
           "name": "custom_field_value_record_index",
-          "columns": [
-            "target_row_id",
-            "is_current"
-          ],
+          "columns": ["target_row_id", "is_current"],
           "isUnique": false
         },
         "custom_field_value_field_index": {
           "name": "custom_field_value_field_index",
-          "columns": [
-            "field_id"
-          ],
+          "columns": ["field_id"],
           "isUnique": false
         },
         "custom_field_value_reference_index": {
           "name": "custom_field_value_reference_index",
-          "columns": [
-            "value_reference_id"
-          ],
+          "columns": ["value_reference_id"],
           "isUnique": false
         }
       },
@@ -2902,9 +2672,7 @@
       "indexes": {
         "direct_grant_member_user_id_index": {
           "name": "direct_grant_member_user_id_index",
-          "columns": [
-            "member_user_id"
-          ],
+          "columns": ["member_user_id"],
           "isUnique": false
         }
       },
@@ -2913,12 +2681,8 @@
           "name": "direct_grant_member_user_id_member_user_id_fk",
           "tableFrom": "direct_grant",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3033,9 +2797,7 @@
       "indexes": {
         "directory_address_entity_id_index": {
           "name": "directory_address_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -3208,16 +2970,12 @@
       "indexes": {
         "directory_edge_from_entity_id_index": {
           "name": "directory_edge_from_entity_id_index",
-          "columns": [
-            "from_entity_id"
-          ],
+          "columns": ["from_entity_id"],
           "isUnique": false
         },
         "directory_edge_to_entity_id_index": {
           "name": "directory_edge_to_entity_id_index",
-          "columns": [
-            "to_entity_id"
-          ],
+          "columns": ["to_entity_id"],
           "isUnique": false
         }
       },
@@ -3316,16 +3074,12 @@
       "indexes": {
         "directory_email_entity_id_index": {
           "name": "directory_email_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         },
         "directory_email_normalized_address_index": {
           "name": "directory_email_normalized_address_index",
-          "columns": [
-            "normalized_address"
-          ],
+          "columns": ["normalized_address"],
           "isUnique": false
         }
       },
@@ -3367,22 +3121,15 @@
           "name": "directory_entity_category_category_id_directory_category_id_fk",
           "tableFrom": "directory_entity_category",
           "tableTo": "directory_category",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "directory_entity_category_entity_id_category_id_pk": {
-          "columns": [
-            "entity_id",
-            "category_id"
-          ],
+          "columns": ["entity_id", "category_id"],
           "name": "directory_entity_category_entity_id_category_id_pk"
         }
       },
@@ -3466,17 +3213,12 @@
       "indexes": {
         "directory_identifier_entity_id_index": {
           "name": "directory_identifier_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         },
         "directory_identifier_type_blind_index_index": {
           "name": "directory_identifier_type_blind_index_index",
-          "columns": [
-            "identifier_type",
-            "value_blind_index"
-          ],
+          "columns": ["identifier_type", "value_blind_index"],
           "isUnique": false
         }
       },
@@ -3610,16 +3352,12 @@
       "indexes": {
         "directory_name_entity_id_index": {
           "name": "directory_name_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         },
         "directory_name_normalized_display_index": {
           "name": "directory_name_normalized_display_index",
-          "columns": [
-            "normalized_display"
-          ],
+          "columns": ["normalized_display"],
           "isUnique": false
         }
       },
@@ -3669,17 +3407,12 @@
       "indexes": {
         "directory_name_phonetic_code_scheme_code_index": {
           "name": "directory_name_phonetic_code_scheme_code_index",
-          "columns": [
-            "scheme",
-            "code"
-          ],
+          "columns": ["scheme", "code"],
           "isUnique": false
         },
         "directory_name_phonetic_code_code_index": {
           "name": "directory_name_phonetic_code_code_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": false
         }
       },
@@ -3688,22 +3421,15 @@
           "name": "directory_name_phonetic_code_name_id_directory_name_id_fk",
           "tableFrom": "directory_name_phonetic_code",
           "tableTo": "directory_name",
-          "columnsFrom": [
-            "name_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["name_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "directory_name_phonetic_code_name_id_scheme_pk": {
-          "columns": [
-            "name_id",
-            "scheme"
-          ],
+          "columns": ["name_id", "scheme"],
           "name": "directory_name_phonetic_code_name_id_scheme_pk"
         }
       },
@@ -3836,9 +3562,7 @@
       "indexes": {
         "directory_party_role_name_unique_index": {
           "name": "directory_party_role_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -4053,9 +3777,7 @@
       "indexes": {
         "directory_phone_entity_id_index": {
           "name": "directory_phone_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -4220,18 +3942,12 @@
       "indexes": {
         "document_assembly_matter_id_created_at_id_index": {
           "name": "document_assembly_matter_id_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "document_assembly_template_version_id_index": {
           "name": "document_assembly_template_version_id_index",
-          "columns": [
-            "template_version_id"
-          ],
+          "columns": ["template_version_id"],
           "isUnique": false
         }
       },
@@ -4240,12 +3956,8 @@
           "name": "document_assembly_matter_id_matter_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4253,12 +3965,8 @@
           "name": "document_assembly_template_id_document_template_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "document_template",
-          "columnsFrom": [
-            "template_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4266,12 +3974,8 @@
           "name": "document_assembly_template_version_id_document_template_version_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "document_template_version",
-          "columnsFrom": [
-            "template_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4279,12 +3983,8 @@
           "name": "document_assembly_folder_id_folder_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "folder",
-          "columnsFrom": [
-            "folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4292,12 +3992,8 @@
           "name": "document_assembly_file_id_file_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4305,12 +4001,8 @@
           "name": "document_assembly_file_version_id_file_version_id_fk",
           "tableFrom": "document_assembly",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4399,32 +4091,22 @@
       "indexes": {
         "document_checkout_file_id_index": {
           "name": "document_checkout_file_id_index",
-          "columns": [
-            "file_id"
-          ],
+          "columns": ["file_id"],
           "isUnique": false
         },
         "document_checkout_holder_member_id_index": {
           "name": "document_checkout_holder_member_id_index",
-          "columns": [
-            "holder_member_id"
-          ],
+          "columns": ["holder_member_id"],
           "isUnique": false
         },
         "document_checkout_status_last_activity_index": {
           "name": "document_checkout_status_last_activity_index",
-          "columns": [
-            "status",
-            "last_activity_at"
-          ],
+          "columns": ["status", "last_activity_at"],
           "isUnique": false
         },
         "document_checkout_status_idle_release_index": {
           "name": "document_checkout_status_idle_release_index",
-          "columns": [
-            "status",
-            "idle_release_at"
-          ],
+          "columns": ["status", "idle_release_at"],
           "isUnique": false
         }
       },
@@ -4433,12 +4115,8 @@
           "name": "document_checkout_file_id_file_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4446,12 +4124,8 @@
           "name": "document_checkout_holder_member_id_member_user_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "member",
-          "columnsFrom": [
-            "holder_member_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["holder_member_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4459,12 +4133,8 @@
           "name": "document_checkout_base_version_id_file_version_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "base_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["base_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4567,17 +4237,12 @@
       "indexes": {
         "document_template_status_name_index": {
           "name": "document_template_status_name_index",
-          "columns": [
-            "status",
-            "name"
-          ],
+          "columns": ["status", "name"],
           "isUnique": false
         },
         "document_template_matter_type_id_index": {
           "name": "document_template_matter_type_id_index",
-          "columns": [
-            "matter_type_id"
-          ],
+          "columns": ["matter_type_id"],
           "isUnique": false
         }
       },
@@ -4586,12 +4251,8 @@
           "name": "document_template_matter_type_id_matter_type_id_fk",
           "tableFrom": "document_template",
           "tableTo": "matter_type",
-          "columnsFrom": [
-            "matter_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4599,12 +4260,8 @@
           "name": "document_template_location_id_location_id_fk",
           "tableFrom": "document_template",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4612,12 +4269,8 @@
           "name": "document_template_current_version_id_document_template_version_id_fk",
           "tableFrom": "document_template",
           "tableTo": "document_template_version",
-          "columnsFrom": [
-            "current_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4656,10 +4309,7 @@
       "indexes": {
         "document_template_field_binding_merge_key_index": {
           "name": "document_template_field_binding_merge_key_index",
-          "columns": [
-            "merge_key",
-            "template_version_id"
-          ],
+          "columns": ["merge_key", "template_version_id"],
           "isUnique": false
         }
       },
@@ -4668,22 +4318,15 @@
           "name": "document_template_field_binding_template_version_id_document_template_version_id_fk",
           "tableFrom": "document_template_field_binding",
           "tableTo": "document_template_version",
-          "columnsFrom": [
-            "template_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "document_template_field_binding_template_version_id_merge_key_pk": {
-          "columns": [
-            "template_version_id",
-            "merge_key"
-          ],
+          "columns": ["template_version_id", "merge_key"],
           "name": "document_template_field_binding_template_version_id_merge_key_pk"
         }
       },
@@ -4752,9 +4395,7 @@
       "indexes": {
         "document_template_field_mapping_field_name_unique_index": {
           "name": "document_template_field_mapping_field_name_unique_index",
-          "columns": [
-            "field_name"
-          ],
+          "columns": ["field_name"],
           "isUnique": true
         }
       },
@@ -4919,26 +4560,17 @@
       "indexes": {
         "document_template_version_r2_key_unique_index": {
           "name": "document_template_version_r2_key_unique_index",
-          "columns": [
-            "r2_key"
-          ],
+          "columns": ["r2_key"],
           "isUnique": true
         },
         "document_template_version_template_version_number_unique_index": {
           "name": "document_template_version_template_version_number_unique_index",
-          "columns": [
-            "template_id",
-            "version_number"
-          ],
+          "columns": ["template_id", "version_number"],
           "isUnique": true
         },
         "document_template_version_template_id_created_at_id_index": {
           "name": "document_template_version_template_id_created_at_id_index",
-          "columns": [
-            "template_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["template_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -4947,12 +4579,8 @@
           "name": "document_template_version_template_id_document_template_id_fk",
           "tableFrom": "document_template_version",
           "tableTo": "document_template",
-          "columnsFrom": [
-            "template_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5024,16 +4652,12 @@
       "indexes": {
         "document_type_name_unique_index": {
           "name": "document_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "document_type_code_unique_index": {
           "name": "document_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -5126,16 +4750,12 @@
       "indexes": {
         "email_attachment_email_message_id_index": {
           "name": "email_attachment_email_message_id_index",
-          "columns": [
-            "email_message_id"
-          ],
+          "columns": ["email_message_id"],
           "isUnique": false
         },
         "email_attachment_file_id_index": {
           "name": "email_attachment_file_id_index",
-          "columns": [
-            "file_id"
-          ],
+          "columns": ["file_id"],
           "isUnique": false
         }
       },
@@ -5144,12 +4764,8 @@
           "name": "email_attachment_email_message_id_email_message_id_fk",
           "tableFrom": "email_attachment",
           "tableTo": "email_message",
-          "columnsFrom": [
-            "email_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5157,12 +4773,8 @@
           "name": "email_attachment_file_id_file_id_fk",
           "tableFrom": "email_attachment",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5243,17 +4855,12 @@
       "indexes": {
         "email_auto_file_decision_rule_created_index": {
           "name": "email_auto_file_decision_rule_created_index",
-          "columns": [
-            "auto_file_rule_id",
-            "created_at"
-          ],
+          "columns": ["auto_file_rule_id", "created_at"],
           "isUnique": false
         },
         "email_auto_file_decision_email_message_id_index": {
           "name": "email_auto_file_decision_email_message_id_index",
-          "columns": [
-            "email_message_id"
-          ],
+          "columns": ["email_message_id"],
           "isUnique": false
         }
       },
@@ -5262,12 +4869,8 @@
           "name": "email_auto_file_decision_email_message_id_email_message_id_fk",
           "tableFrom": "email_auto_file_decision",
           "tableTo": "email_message",
-          "columnsFrom": [
-            "email_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5275,12 +4878,8 @@
           "name": "email_auto_file_decision_auto_file_rule_id_email_auto_file_rule_id_fk",
           "tableFrom": "email_auto_file_decision",
           "tableTo": "email_auto_file_rule",
-          "columnsFrom": [
-            "auto_file_rule_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["auto_file_rule_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5288,12 +4887,8 @@
           "name": "email_auto_file_decision_matter_id_matter_id_fk",
           "tableFrom": "email_auto_file_decision",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5401,33 +4996,22 @@
       "indexes": {
         "email_auto_file_rule_kind_match_matter_unique_index": {
           "name": "email_auto_file_rule_kind_match_matter_unique_index",
-          "columns": [
-            "kind",
-            "match_value",
-            "matter_id"
-          ],
+          "columns": ["kind", "match_value", "matter_id"],
           "isUnique": true
         },
         "email_auto_file_rule_kind_match_index": {
           "name": "email_auto_file_rule_kind_match_index",
-          "columns": [
-            "kind",
-            "match_value"
-          ],
+          "columns": ["kind", "match_value"],
           "isUnique": false
         },
         "email_auto_file_rule_matter_id_index": {
           "name": "email_auto_file_rule_matter_id_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         },
         "email_auto_file_rule_state_index": {
           "name": "email_auto_file_rule_state_index",
-          "columns": [
-            "state"
-          ],
+          "columns": ["state"],
           "isUnique": false,
           "where": "\"email_auto_file_rule\".\"state\" != 'active'"
         }
@@ -5437,12 +5021,8 @@
           "name": "email_auto_file_rule_matter_id_matter_id_fk",
           "tableFrom": "email_auto_file_rule",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5450,12 +5030,8 @@
           "name": "email_auto_file_rule_created_from_email_message_id_email_message_id_fk",
           "tableFrom": "email_auto_file_rule",
           "tableTo": "email_message",
-          "columnsFrom": [
-            "created_from_email_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_from_email_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5556,16 +5132,12 @@
       "indexes": {
         "email_capture_address_token_unique_index": {
           "name": "email_capture_address_token_unique_index",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "email_capture_address_matter_id_index": {
           "name": "email_capture_address_matter_id_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         }
       },
@@ -5574,12 +5146,8 @@
           "name": "email_capture_address_matter_id_matter_id_fk",
           "tableFrom": "email_capture_address",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5678,35 +5246,22 @@
       "indexes": {
         "email_matter_link_message_matter_unique_index": {
           "name": "email_matter_link_message_matter_unique_index",
-          "columns": [
-            "email_message_id",
-            "matter_id"
-          ],
+          "columns": ["email_message_id", "matter_id"],
           "isUnique": true
         },
         "email_matter_link_matter_created_id_index": {
           "name": "email_matter_link_matter_created_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "email_matter_link_email_message_id_index": {
           "name": "email_matter_link_email_message_id_index",
-          "columns": [
-            "email_message_id"
-          ],
+          "columns": ["email_message_id"],
           "isUnique": false
         },
         "email_matter_link_linked_by_created_index": {
           "name": "email_matter_link_linked_by_created_index",
-          "columns": [
-            "linked_by",
-            "created_at",
-            "id"
-          ],
+          "columns": ["linked_by", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -5715,12 +5270,8 @@
           "name": "email_matter_link_email_message_id_email_message_id_fk",
           "tableFrom": "email_matter_link",
           "tableTo": "email_message",
-          "columnsFrom": [
-            "email_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5728,12 +5279,8 @@
           "name": "email_matter_link_matter_id_matter_id_fk",
           "tableFrom": "email_matter_link",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5741,12 +5288,8 @@
           "name": "email_matter_link_auto_file_rule_id_email_auto_file_rule_id_fk",
           "tableFrom": "email_matter_link",
           "tableTo": "email_auto_file_rule",
-          "columnsFrom": [
-            "auto_file_rule_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["auto_file_rule_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5927,30 +5470,22 @@
       "indexes": {
         "email_message_dedup_key_unique_index": {
           "name": "email_message_dedup_key_unique_index",
-          "columns": [
-            "dedup_key"
-          ],
+          "columns": ["dedup_key"],
           "isUnique": true
         },
         "email_message_thread_id_index": {
           "name": "email_message_thread_id_index",
-          "columns": [
-            "thread_id"
-          ],
+          "columns": ["thread_id"],
           "isUnique": false
         },
         "email_message_message_id_value_index": {
           "name": "email_message_message_id_value_index",
-          "columns": [
-            "message_id_value"
-          ],
+          "columns": ["message_id_value"],
           "isUnique": false
         },
         "email_message_content_sha256_index": {
           "name": "email_message_content_sha256_index",
-          "columns": [
-            "content_sha256"
-          ],
+          "columns": ["content_sha256"],
           "isUnique": false
         }
       },
@@ -5959,12 +5494,8 @@
           "name": "email_message_thread_id_email_thread_id_fk",
           "tableFrom": "email_message",
           "tableTo": "email_thread",
-          "columnsFrom": [
-            "thread_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["thread_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6053,16 +5584,12 @@
       "indexes": {
         "email_participant_email_message_id_index": {
           "name": "email_participant_email_message_id_index",
-          "columns": [
-            "email_message_id"
-          ],
+          "columns": ["email_message_id"],
           "isUnique": false
         },
         "email_participant_directory_entity_id_index": {
           "name": "email_participant_directory_entity_id_index",
-          "columns": [
-            "directory_entity_id"
-          ],
+          "columns": ["directory_entity_id"],
           "isUnique": false
         }
       },
@@ -6071,12 +5598,8 @@
           "name": "email_participant_email_message_id_email_message_id_fk",
           "tableFrom": "email_participant",
           "tableTo": "email_message",
-          "columnsFrom": [
-            "email_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6132,9 +5655,7 @@
       "indexes": {
         "email_thread_subject_normalized_index": {
           "name": "email_thread_subject_normalized_index",
-          "columns": [
-            "subject_normalized"
-          ],
+          "columns": ["subject_normalized"],
           "isUnique": false
         }
       },
@@ -6308,20 +5829,12 @@
       "indexes": {
         "file_matter_id_created_at_id_index": {
           "name": "file_matter_id_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "file_folder_id_created_at_id_index": {
           "name": "file_folder_id_created_at_id_index",
-          "columns": [
-            "folder_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["folder_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -6330,12 +5843,8 @@
           "name": "file_matter_id_matter_id_fk",
           "tableFrom": "file",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6343,12 +5852,8 @@
           "name": "file_folder_id_folder_id_fk",
           "tableFrom": "file",
           "tableTo": "folder",
-          "columnsFrom": [
-            "folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6356,12 +5861,8 @@
           "name": "file_document_type_id_document_type_id_fk",
           "tableFrom": "file",
           "tableTo": "document_type",
-          "columnsFrom": [
-            "document_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6369,12 +5870,8 @@
           "name": "file_current_version_id_file_version_id_fk",
           "tableFrom": "file",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "current_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6448,9 +5945,7 @@
       "indexes": {
         "file_repair_provenance_version_index": {
           "name": "file_repair_provenance_version_index",
-          "columns": [
-            "file_version_id"
-          ],
+          "columns": ["file_version_id"],
           "isUnique": false
         }
       },
@@ -6633,33 +6128,22 @@
       "indexes": {
         "file_version_r2_key_unique_index": {
           "name": "file_version_r2_key_unique_index",
-          "columns": [
-            "r2_key"
-          ],
+          "columns": ["r2_key"],
           "isUnique": true
         },
         "file_version_file_id_version_number_unique_index": {
           "name": "file_version_file_id_version_number_unique_index",
-          "columns": [
-            "file_id",
-            "version_number"
-          ],
+          "columns": ["file_id", "version_number"],
           "isUnique": true
         },
         "file_version_status_index": {
           "name": "file_version_status_index",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "file_version_tiering_index": {
           "name": "file_version_tiering_index",
-          "columns": [
-            "storage_class",
-            "status",
-            "committed_at"
-          ],
+          "columns": ["storage_class", "status", "committed_at"],
           "isUnique": false
         }
       },
@@ -6668,12 +6152,8 @@
           "name": "file_version_file_id_file_id_fk",
           "tableFrom": "file_version",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6681,12 +6161,8 @@
           "name": "file_version_diverged_from_version_id_file_version_id_fk",
           "tableFrom": "file_version",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "diverged_from_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["diverged_from_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6694,12 +6170,8 @@
           "name": "file_version_checkout_id_document_checkout_id_fk",
           "tableFrom": "file_version",
           "tableTo": "document_checkout",
-          "columnsFrom": [
-            "checkout_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["checkout_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6775,12 +6247,8 @@
           "name": "firm_account_role_ledger_account_id_ledger_account_id_fk",
           "tableFrom": "firm_account_role",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "ledger_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ledger_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6836,9 +6304,7 @@
       "indexes": {
         "firm_secret_name_unique": {
           "name": "firm_secret_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -6896,20 +6362,12 @@
       "indexes": {
         "folder_matter_id_created_at_id_index": {
           "name": "folder_matter_id_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "folder_matter_id_parent_folder_id_name_unique": {
           "name": "folder_matter_id_parent_folder_id_name_unique",
-          "columns": [
-            "matter_id",
-            "parent_folder_id",
-            "name"
-          ],
+          "columns": ["matter_id", "parent_folder_id", "name"],
           "isUnique": true
         }
       },
@@ -6918,12 +6376,8 @@
           "name": "folder_matter_id_matter_id_fk",
           "tableFrom": "folder",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6931,12 +6385,8 @@
           "name": "folder_parent_folder_id_folder_id_fk",
           "tableFrom": "folder",
           "tableTo": "folder",
-          "columnsFrom": [
-            "parent_folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7006,16 +6456,12 @@
       "indexes": {
         "idempotency_key_key_unique_index": {
           "name": "idempotency_key_key_unique_index",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": true
         },
         "idempotency_key_created_at_index": {
           "name": "idempotency_key_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -7182,25 +6628,17 @@
       "indexes": {
         "index_split_matter_superseded_index": {
           "name": "index_split_matter_superseded_index",
-          "columns": [
-            "matter_id",
-            "superseded_at"
-          ],
+          "columns": ["matter_id", "superseded_at"],
           "isUnique": false
         },
         "index_split_document_index": {
           "name": "index_split_document_index",
-          "columns": [
-            "document_id"
-          ],
+          "columns": ["document_id"],
           "isUnique": false
         },
         "index_split_document_version_unique": {
           "name": "index_split_document_version_unique",
-          "columns": [
-            "document_id",
-            "version"
-          ],
+          "columns": ["document_id", "version"],
           "isUnique": true,
           "where": "\"index_split\".\"document_id\" IS NOT NULL AND \"index_split\".\"superseded_at\" IS NULL"
         }
@@ -7288,10 +6726,7 @@
       "indexes": {
         "integration_connection_principal_category_unique_index": {
           "name": "integration_connection_principal_category_unique_index",
-          "columns": [
-            "category",
-            "principal_ref"
-          ],
+          "columns": ["category", "principal_ref"],
           "isUnique": true
         }
       },
@@ -7483,33 +6918,22 @@
       "indexes": {
         "invoice_client_status_index": {
           "name": "invoice_client_status_index",
-          "columns": [
-            "client_entity_id",
-            "status"
-          ],
+          "columns": ["client_entity_id", "status"],
           "isUnique": false
         },
         "invoice_status_due_date_index": {
           "name": "invoice_status_due_date_index",
-          "columns": [
-            "status",
-            "due_date"
-          ],
+          "columns": ["status", "due_date"],
           "isUnique": false
         },
         "invoice_created_at_id_index": {
           "name": "invoice_created_at_id_index",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false
         },
         "invoice_number_unique_index": {
           "name": "invoice_number_unique_index",
-          "columns": [
-            "invoice_number"
-          ],
+          "columns": ["invoice_number"],
           "isUnique": true,
           "where": "\"invoice\".\"invoice_number\" IS NOT NULL"
         }
@@ -7519,12 +6943,8 @@
           "name": "invoice_location_id_location_id_fk",
           "tableFrom": "invoice",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7675,18 +7095,12 @@
       "indexes": {
         "invoice_line_position_unique_index": {
           "name": "invoice_line_position_unique_index",
-          "columns": [
-            "invoice_id",
-            "line_index"
-          ],
+          "columns": ["invoice_id", "line_index"],
           "isUnique": true
         },
         "invoice_line_matter_index": {
           "name": "invoice_line_matter_index",
-          "columns": [
-            "matter_id",
-            "invoice_id"
-          ],
+          "columns": ["matter_id", "invoice_id"],
           "isUnique": false
         }
       },
@@ -7695,12 +7109,8 @@
           "name": "invoice_line_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_line",
           "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7708,12 +7118,8 @@
           "name": "invoice_line_matter_id_matter_id_fk",
           "tableFrom": "invoice_line",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7800,9 +7206,7 @@
       "indexes": {
         "invoice_matter_balance_matter_index": {
           "name": "invoice_matter_balance_matter_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         }
       },
@@ -7811,12 +7215,8 @@
           "name": "invoice_matter_balance_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_matter_balance",
           "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7824,22 +7224,15 @@
           "name": "invoice_matter_balance_matter_id_matter_id_fk",
           "tableFrom": "invoice_matter_balance",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "invoice_matter_balance_invoice_id_matter_id_pk": {
-          "columns": [
-            "invoice_id",
-            "matter_id"
-          ],
+          "columns": ["invoice_id", "matter_id"],
           "name": "invoice_matter_balance_invoice_id_matter_id_pk"
         }
       },
@@ -7890,9 +7283,7 @@
       "indexes": {
         "invoice_number_allocation_invoice_unique_index": {
           "name": "invoice_number_allocation_invoice_unique_index",
-          "columns": [
-            "invoice_id"
-          ],
+          "columns": ["invoice_id"],
           "isUnique": true
         }
       },
@@ -7901,22 +7292,15 @@
           "name": "invoice_number_allocation_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_number_allocation",
           "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "invoice_number_allocation_scope_key_drawn_value_pk": {
-          "columns": [
-            "scope_key",
-            "drawn_value"
-          ],
+          "columns": ["scope_key", "drawn_value"],
           "name": "invoice_number_allocation_scope_key_drawn_value_pk"
         }
       },
@@ -8020,25 +7404,18 @@
       "indexes": {
         "invoice_wip_claim_active_source_unique_index": {
           "name": "invoice_wip_claim_active_source_unique_index",
-          "columns": [
-            "source_kind",
-            "source_id"
-          ],
+          "columns": ["source_kind", "source_id"],
           "isUnique": true,
           "where": "\"invoice_wip_claim\".\"released_at\" IS NULL"
         },
         "invoice_wip_claim_invoice_index": {
           "name": "invoice_wip_claim_invoice_index",
-          "columns": [
-            "invoice_id"
-          ],
+          "columns": ["invoice_id"],
           "isUnique": false
         },
         "invoice_wip_claim_line_index": {
           "name": "invoice_wip_claim_line_index",
-          "columns": [
-            "invoice_line_id"
-          ],
+          "columns": ["invoice_line_id"],
           "isUnique": false
         }
       },
@@ -8047,12 +7424,8 @@
           "name": "invoice_wip_claim_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_wip_claim",
           "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8060,12 +7433,8 @@
           "name": "invoice_wip_claim_invoice_line_id_invoice_line_id_fk",
           "tableFrom": "invoice_wip_claim",
           "tableTo": "invoice_line",
-          "columnsFrom": [
-            "invoice_line_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_line_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8136,9 +7505,7 @@
       "indexes": {
         "ledger_account_parent_account_id_index": {
           "name": "ledger_account_parent_account_id_index",
-          "columns": [
-            "parent_account_id"
-          ],
+          "columns": ["parent_account_id"],
           "isUnique": false
         }
       },
@@ -8147,12 +7514,8 @@
           "name": "ledger_account_parent_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_account",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "parent_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8212,16 +7575,12 @@
       "indexes": {
         "ledger_entry_reverses_entry_id_unique_index": {
           "name": "ledger_entry_reverses_entry_id_unique_index",
-          "columns": [
-            "reverses_entry_id"
-          ],
+          "columns": ["reverses_entry_id"],
           "isUnique": true
         },
         "ledger_entry_effective_date_index": {
           "name": "ledger_entry_effective_date_index",
-          "columns": [
-            "effective_date"
-          ],
+          "columns": ["effective_date"],
           "isUnique": false
         }
       },
@@ -8230,12 +7589,8 @@
           "name": "ledger_entry_reverses_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_entry",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "reverses_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reverses_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8298,17 +7653,12 @@
       "indexes": {
         "ledger_line_entry_id_line_index_unique_index": {
           "name": "ledger_line_entry_id_line_index_unique_index",
-          "columns": [
-            "entry_id",
-            "line_index"
-          ],
+          "columns": ["entry_id", "line_index"],
           "isUnique": true
         },
         "ledger_line_account_id_index": {
           "name": "ledger_line_account_id_index",
-          "columns": [
-            "account_id"
-          ],
+          "columns": ["account_id"],
           "isUnique": false
         }
       },
@@ -8317,12 +7667,8 @@
           "name": "ledger_line_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_line",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8330,12 +7676,8 @@
           "name": "ledger_line_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_line",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8494,9 +7836,7 @@
       "indexes": {
         "location_number_code_unique_index": {
           "name": "location_number_code_unique_index",
-          "columns": [
-            "number_code"
-          ],
+          "columns": ["number_code"],
           "isUnique": true
         }
       },
@@ -8591,9 +7931,7 @@
       "indexes": {
         "location_address_location_id_index": {
           "name": "location_address_location_id_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         }
       },
@@ -8602,12 +7940,8 @@
           "name": "location_address_location_id_location_id_fk",
           "tableFrom": "location_address",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8748,42 +8082,29 @@
       "indexes": {
         "matter_matter_number_unique_index": {
           "name": "matter_matter_number_unique_index",
-          "columns": [
-            "matter_number"
-          ],
+          "columns": ["matter_number"],
           "isUnique": true,
           "where": "\"matter\".\"matter_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
-          "columns": [
-            "system_key"
-          ],
+          "columns": ["system_key"],
           "isUnique": true,
           "where": "\"matter\".\"system_key\" IS NOT NULL"
         },
         "matter_status_index": {
           "name": "matter_status_index",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "matter_responsible_member_id_created_at_id_index": {
           "name": "matter_responsible_member_id_created_at_id_index",
-          "columns": [
-            "responsible_member_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["responsible_member_id", "created_at", "id"],
           "isUnique": false
         },
         "matter_created_at_id_index": {
           "name": "matter_created_at_id_index",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false
         }
       },
@@ -8792,12 +8113,8 @@
           "name": "matter_matter_type_id_matter_type_id_fk",
           "tableFrom": "matter",
           "tableTo": "matter_type",
-          "columnsFrom": [
-            "matter_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8805,12 +8122,8 @@
           "name": "matter_location_id_location_id_fk",
           "tableFrom": "matter",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8818,12 +8131,8 @@
           "name": "matter_responsible_member_id_member_user_id_fk",
           "tableFrom": "matter",
           "tableTo": "member",
-          "columnsFrom": [
-            "responsible_member_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["responsible_member_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8959,19 +8268,12 @@
       "indexes": {
         "matter_asset_matter_class_created_id_index": {
           "name": "matter_asset_matter_class_created_id_index",
-          "columns": [
-            "matter_id",
-            "class",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "class", "created_at", "id"],
           "isUnique": false
         },
         "matter_asset_type_index": {
           "name": "matter_asset_type_index",
-          "columns": [
-            "asset_type_id"
-          ],
+          "columns": ["asset_type_id"],
           "isUnique": false
         }
       },
@@ -8980,12 +8282,8 @@
           "name": "matter_asset_matter_id_matter_id_fk",
           "tableFrom": "matter_asset",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8993,12 +8291,8 @@
           "name": "matter_asset_asset_type_id_matter_asset_type_id_fk",
           "tableFrom": "matter_asset",
           "tableTo": "matter_asset_type",
-          "columnsFrom": [
-            "asset_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9006,12 +8300,8 @@
           "name": "matter_asset_custody_item_id_custody_item_id_fk",
           "tableFrom": "matter_asset",
           "tableTo": "custody_item",
-          "columnsFrom": [
-            "custody_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["custody_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9093,16 +8383,12 @@
       "indexes": {
         "matter_asset_document_asset_index": {
           "name": "matter_asset_document_asset_index",
-          "columns": [
-            "asset_id"
-          ],
+          "columns": ["asset_id"],
           "isUnique": false
         },
         "matter_asset_document_file_index": {
           "name": "matter_asset_document_file_index",
-          "columns": [
-            "file_id"
-          ],
+          "columns": ["file_id"],
           "isUnique": false
         }
       },
@@ -9111,12 +8397,8 @@
           "name": "matter_asset_document_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_document",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9124,12 +8406,8 @@
           "name": "matter_asset_document_file_id_file_id_fk",
           "tableFrom": "matter_asset_document",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9171,9 +8449,7 @@
       "indexes": {
         "matter_asset_financial_account_institution_index": {
           "name": "matter_asset_financial_account_institution_index",
-          "columns": [
-            "institution_organization_id"
-          ],
+          "columns": ["institution_organization_id"],
           "isUnique": false
         }
       },
@@ -9182,12 +8458,8 @@
           "name": "matter_asset_financial_account_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_financial_account",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9252,9 +8524,7 @@
       "indexes": {
         "matter_asset_identifier_asset_index": {
           "name": "matter_asset_identifier_asset_index",
-          "columns": [
-            "asset_id"
-          ],
+          "columns": ["asset_id"],
           "isUnique": false
         }
       },
@@ -9263,12 +8533,8 @@
           "name": "matter_asset_identifier_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_identifier",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9367,17 +8633,12 @@
       "indexes": {
         "matter_asset_interest_asset_index": {
           "name": "matter_asset_interest_asset_index",
-          "columns": [
-            "asset_id"
-          ],
+          "columns": ["asset_id"],
           "isUnique": false
         },
         "matter_asset_interest_entity_index": {
           "name": "matter_asset_interest_entity_index",
-          "columns": [
-            "entity_id",
-            "effective_to"
-          ],
+          "columns": ["entity_id", "effective_to"],
           "isUnique": false
         }
       },
@@ -9386,12 +8647,8 @@
           "name": "matter_asset_interest_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_interest",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9479,17 +8736,12 @@
       "indexes": {
         "matter_asset_real_property_parcel_index": {
           "name": "matter_asset_real_property_parcel_index",
-          "columns": [
-            "parcel_number"
-          ],
+          "columns": ["parcel_number"],
           "isUnique": false
         },
         "matter_asset_real_property_region_city_index": {
           "name": "matter_asset_real_property_region_city_index",
-          "columns": [
-            "region",
-            "city"
-          ],
+          "columns": ["region", "city"],
           "isUnique": false
         }
       },
@@ -9498,12 +8750,8 @@
           "name": "matter_asset_real_property_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_real_property",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9577,24 +8825,17 @@
       "indexes": {
         "matter_asset_type_name_unique_index": {
           "name": "matter_asset_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "matter_asset_type_code_unique_index": {
           "name": "matter_asset_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         },
         "matter_asset_type_class_position_index": {
           "name": "matter_asset_type_class_position_index",
-          "columns": [
-            "class",
-            "position"
-          ],
+          "columns": ["class", "position"],
           "isUnique": false
         }
       },
@@ -9703,18 +8944,12 @@
       "indexes": {
         "matter_asset_valuation_asset_as_of_index": {
           "name": "matter_asset_valuation_asset_as_of_index",
-          "columns": [
-            "asset_id",
-            "as_of_date",
-            "recorded_at"
-          ],
+          "columns": ["asset_id", "as_of_date", "recorded_at"],
           "isUnique": false
         },
         "matter_asset_valuation_corrects_index": {
           "name": "matter_asset_valuation_corrects_index",
-          "columns": [
-            "corrects_valuation_id"
-          ],
+          "columns": ["corrects_valuation_id"],
           "isUnique": false
         }
       },
@@ -9723,12 +8958,8 @@
           "name": "matter_asset_valuation_asset_id_matter_asset_id_fk",
           "tableFrom": "matter_asset_valuation",
           "tableTo": "matter_asset",
-          "columnsFrom": [
-            "asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9736,12 +8967,8 @@
           "name": "matter_asset_valuation_supporting_file_id_file_id_fk",
           "tableFrom": "matter_asset_valuation",
           "tableTo": "file",
-          "columnsFrom": [
-            "supporting_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supporting_file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9933,27 +9160,17 @@
       "indexes": {
         "matter_deadline_state_due_on_id_index": {
           "name": "matter_deadline_state_due_on_id_index",
-          "columns": [
-            "state",
-            "due_on",
-            "id"
-          ],
+          "columns": ["state", "due_on", "id"],
           "isUnique": false
         },
         "matter_deadline_matter_due_on_id_index": {
           "name": "matter_deadline_matter_due_on_id_index",
-          "columns": [
-            "matter_id",
-            "due_on",
-            "id"
-          ],
+          "columns": ["matter_id", "due_on", "id"],
           "isUnique": false
         },
         "matter_deadline_trigger_event_index": {
           "name": "matter_deadline_trigger_event_index",
-          "columns": [
-            "trigger_event_id"
-          ],
+          "columns": ["trigger_event_id"],
           "isUnique": false
         }
       },
@@ -9962,12 +9179,8 @@
           "name": "matter_deadline_matter_id_matter_id_fk",
           "tableFrom": "matter_deadline",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9975,12 +9188,8 @@
           "name": "matter_deadline_trigger_event_id_matter_event_id_fk",
           "tableFrom": "matter_deadline",
           "tableTo": "matter_event",
-          "columnsFrom": [
-            "trigger_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trigger_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9988,12 +9197,8 @@
           "name": "matter_deadline_satisfying_event_id_matter_event_id_fk",
           "tableFrom": "matter_deadline",
           "tableTo": "matter_event",
-          "columnsFrom": [
-            "satisfying_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["satisfying_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10174,34 +9379,22 @@
       "indexes": {
         "matter_event_matter_starts_on_id_index": {
           "name": "matter_event_matter_starts_on_id_index",
-          "columns": [
-            "matter_id",
-            "starts_on",
-            "id"
-          ],
+          "columns": ["matter_id", "starts_on", "id"],
           "isUnique": false
         },
         "matter_event_starts_on_id_index": {
           "name": "matter_event_starts_on_id_index",
-          "columns": [
-            "starts_on",
-            "id"
-          ],
+          "columns": ["starts_on", "id"],
           "isUnique": false
         },
         "matter_event_status_starts_on_index": {
           "name": "matter_event_status_starts_on_index",
-          "columns": [
-            "status",
-            "starts_on"
-          ],
+          "columns": ["status", "starts_on"],
           "isUnique": false
         },
         "matter_event_type_index": {
           "name": "matter_event_type_index",
-          "columns": [
-            "event_type_id"
-          ],
+          "columns": ["event_type_id"],
           "isUnique": false
         }
       },
@@ -10210,12 +9403,8 @@
           "name": "matter_event_matter_id_matter_id_fk",
           "tableFrom": "matter_event",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10223,12 +9412,8 @@
           "name": "matter_event_event_type_id_matter_event_type_id_fk",
           "tableFrom": "matter_event",
           "tableTo": "matter_event_type",
-          "columnsFrom": [
-            "event_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10344,23 +9529,17 @@
       "indexes": {
         "matter_event_participant_event_index": {
           "name": "matter_event_participant_event_index",
-          "columns": [
-            "event_id"
-          ],
+          "columns": ["event_id"],
           "isUnique": false
         },
         "matter_event_participant_member_index": {
           "name": "matter_event_participant_member_index",
-          "columns": [
-            "member_user_id"
-          ],
+          "columns": ["member_user_id"],
           "isUnique": false
         },
         "matter_event_participant_entity_index": {
           "name": "matter_event_participant_entity_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -10369,12 +9548,8 @@
           "name": "matter_event_participant_event_id_matter_event_id_fk",
           "tableFrom": "matter_event_participant",
           "tableTo": "matter_event",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10382,12 +9557,8 @@
           "name": "matter_event_participant_member_user_id_member_user_id_fk",
           "tableFrom": "matter_event_participant",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10471,16 +9642,12 @@
       "indexes": {
         "matter_event_type_name_unique_index": {
           "name": "matter_event_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "matter_event_type_code_unique_index": {
           "name": "matter_event_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -10537,9 +9704,7 @@
       "indexes": {
         "matter_number_allocation_matter_id_index": {
           "name": "matter_number_allocation_matter_id_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         }
       },
@@ -10548,22 +9713,15 @@
           "name": "matter_number_allocation_matter_id_matter_id_fk",
           "tableFrom": "matter_number_allocation",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "matter_number_allocation_scope_key_drawn_value_pk": {
-          "columns": [
-            "scope_key",
-            "drawn_value"
-          ],
+          "columns": ["scope_key", "drawn_value"],
           "name": "matter_number_allocation_scope_key_drawn_value_pk"
         }
       },
@@ -10664,16 +9822,12 @@
       "indexes": {
         "matter_party_matter_id_index": {
           "name": "matter_party_matter_id_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         },
         "matter_party_entity_id_index": {
           "name": "matter_party_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -10682,12 +9836,8 @@
           "name": "matter_party_matter_id_matter_id_fk",
           "tableFrom": "matter_party",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10751,16 +9901,12 @@
       "indexes": {
         "matter_type_name_unique_index": {
           "name": "matter_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "matter_type_code_unique_index": {
           "name": "matter_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -10864,17 +10010,12 @@
       "indexes": {
         "member_location_location_id_index": {
           "name": "member_location_location_id_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         },
         "member_location_member_user_id_location_id_unique": {
           "name": "member_location_member_user_id_location_id_unique",
-          "columns": [
-            "member_user_id",
-            "location_id"
-          ],
+          "columns": ["member_user_id", "location_id"],
           "isUnique": true
         }
       },
@@ -10883,12 +10024,8 @@
           "name": "member_location_member_user_id_member_user_id_fk",
           "tableFrom": "member_location",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10896,12 +10033,8 @@
           "name": "member_location_location_id_location_id_fk",
           "tableFrom": "member_location",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10938,10 +10071,7 @@
       "indexes": {
         "member_role_member_user_id_role_id_unique": {
           "name": "member_role_member_user_id_role_id_unique",
-          "columns": [
-            "member_user_id",
-            "role_id"
-          ],
+          "columns": ["member_user_id", "role_id"],
           "isUnique": true
         }
       },
@@ -10950,12 +10080,8 @@
           "name": "member_role_member_user_id_member_user_id_fk",
           "tableFrom": "member_role",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10963,12 +10089,8 @@
           "name": "member_role_role_id_role_id_fk",
           "tableFrom": "member_role",
           "tableTo": "role",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11033,9 +10155,7 @@
       "indexes": {
         "narrative_template_utbms_task_code_index": {
           "name": "narrative_template_utbms_task_code_index",
-          "columns": [
-            "utbms_task_code_id"
-          ],
+          "columns": ["utbms_task_code_id"],
           "isUnique": false
         }
       },
@@ -11044,12 +10164,8 @@
           "name": "narrative_template_utbms_task_code_id_utbms_code_id_fk",
           "tableFrom": "narrative_template",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_task_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_task_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11225,10 +10341,7 @@
       "indexes": {
         "outbox_status_created_at_index": {
           "name": "outbox_status_created_at_index",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -11281,9 +10394,7 @@
       "indexes": {
         "picklist_option_field_id_index": {
           "name": "picklist_option_field_id_index",
-          "columns": [
-            "field_id"
-          ],
+          "columns": ["field_id"],
           "isUnique": false
         }
       },
@@ -11362,22 +10473,13 @@
       "indexes": {
         "rate_open_row_unique_index": {
           "name": "rate_open_row_unique_index",
-          "columns": [
-            "rate_card_id",
-            "tier",
-            "scoped_id"
-          ],
+          "columns": ["rate_card_id", "tier", "scoped_id"],
           "isUnique": true,
           "where": "\"rate\".\"valid_to\" IS NULL"
         },
         "rate_resolution_index": {
           "name": "rate_resolution_index",
-          "columns": [
-            "rate_card_id",
-            "tier",
-            "scoped_id",
-            "valid_from"
-          ],
+          "columns": ["rate_card_id", "tier", "scoped_id", "valid_from"],
           "isUnique": false
         }
       },
@@ -11386,12 +10488,8 @@
           "name": "rate_rate_card_id_rate_card_id_fk",
           "tableFrom": "rate",
           "tableTo": "rate_card",
-          "columnsFrom": [
-            "rate_card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rate_card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11487,9 +10585,7 @@
       "indexes": {
         "role_name_unique": {
           "name": "role_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -11526,10 +10622,7 @@
       "indexes": {
         "role_permission_role_id_permission_unique": {
           "name": "role_permission_role_id_permission_unique",
-          "columns": [
-            "role_id",
-            "permission"
-          ],
+          "columns": ["role_id", "permission"],
           "isUnique": true
         }
       },
@@ -11538,12 +10631,8 @@
           "name": "role_permission_role_id_role_id_fk",
           "tableFrom": "role_permission",
           "tableTo": "role",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11588,10 +10677,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scan_cache_content_sha256_engine_version_pk": {
-          "columns": [
-            "content_sha256",
-            "engine_version"
-          ],
+          "columns": ["content_sha256", "engine_version"],
           "name": "scan_cache_content_sha256_engine_version_pk"
         }
       },
@@ -11641,11 +10727,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scoped_setting_key_scope_tier_scoped_id_pk": {
-          "columns": [
-            "key",
-            "scope_tier",
-            "scoped_id"
-          ],
+          "columns": ["key", "scope_tier", "scoped_id"],
           "name": "scoped_setting_key_scope_tier_scoped_id_pk"
         }
       },
@@ -11823,16 +10905,12 @@
       "indexes": {
         "shipment_matter_ref_index": {
           "name": "shipment_matter_ref_index",
-          "columns": [
-            "matter_ref"
-          ],
+          "columns": ["matter_ref"],
           "isUnique": false
         },
         "shipment_tracking_code_index": {
           "name": "shipment_tracking_code_index",
-          "columns": [
-            "tracking_code"
-          ],
+          "columns": ["tracking_code"],
           "isUnique": false
         }
       },
@@ -11841,12 +10919,8 @@
           "name": "shipment_matter_ref_matter_id_fk",
           "tableFrom": "shipment",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11929,12 +11003,8 @@
           "name": "shipment_label_shipment_ref_shipment_id_fk",
           "tableFrom": "shipment_label",
           "tableTo": "shipment",
-          "columnsFrom": [
-            "shipment_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shipment_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11986,11 +11056,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "storage_meter_storage_class_artifact_role_prefix_pk": {
-          "columns": [
-            "storage_class",
-            "artifact_role",
-            "prefix"
-          ],
+          "columns": ["storage_class", "artifact_role", "prefix"],
           "name": "storage_meter_storage_class_artifact_role_prefix_pk"
         }
       },
@@ -12172,33 +11238,22 @@
       "indexes": {
         "time_entry_timekeeper_work_date_index": {
           "name": "time_entry_timekeeper_work_date_index",
-          "columns": [
-            "timekeeper_user_id",
-            "work_date"
-          ],
+          "columns": ["timekeeper_user_id", "work_date"],
           "isUnique": false
         },
         "time_entry_matter_status_index": {
           "name": "time_entry_matter_status_index",
-          "columns": [
-            "matter_id",
-            "status"
-          ],
+          "columns": ["matter_id", "status"],
           "isUnique": false
         },
         "time_entry_status_work_date_index": {
           "name": "time_entry_status_work_date_index",
-          "columns": [
-            "status",
-            "work_date"
-          ],
+          "columns": ["status", "work_date"],
           "isUnique": false
         },
         "time_entry_live_run_id_unique_index": {
           "name": "time_entry_live_run_id_unique_index",
-          "columns": [
-            "live_run_id"
-          ],
+          "columns": ["live_run_id"],
           "isUnique": true,
           "where": "\"time_entry\".\"live_run_id\" IS NOT NULL"
         }
@@ -12208,12 +11263,8 @@
           "name": "time_entry_matter_id_matter_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12221,12 +11272,8 @@
           "name": "time_entry_timekeeper_user_id_member_user_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "member",
-          "columnsFrom": [
-            "timekeeper_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["timekeeper_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12234,12 +11281,8 @@
           "name": "time_entry_non_billable_category_id_non_billable_category_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "non_billable_category",
-          "columnsFrom": [
-            "non_billable_category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["non_billable_category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12247,12 +11290,8 @@
           "name": "time_entry_rate_card_id_rate_card_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "rate_card",
-          "columnsFrom": [
-            "rate_card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rate_card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12260,12 +11299,8 @@
           "name": "time_entry_utbms_task_code_id_utbms_code_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_task_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_task_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12273,12 +11308,8 @@
           "name": "time_entry_utbms_activity_code_id_utbms_code_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_activity_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_activity_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12362,11 +11393,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "token_usage_meter_day_slot_model_id_pk": {
-          "columns": [
-            "day",
-            "slot",
-            "model_id"
-          ],
+          "columns": ["day", "slot", "model_id"],
           "name": "token_usage_meter_day_slot_model_id_pk"
         }
       },
@@ -12436,10 +11463,7 @@
       "indexes": {
         "tracking_event_shipment_remote_unique_index": {
           "name": "tracking_event_shipment_remote_unique_index",
-          "columns": [
-            "shipment_ref",
-            "remote_id"
-          ],
+          "columns": ["shipment_ref", "remote_id"],
           "isUnique": true
         }
       },
@@ -12448,12 +11472,8 @@
           "name": "tracking_event_shipment_ref_shipment_id_fk",
           "tableFrom": "tracking_event",
           "tableTo": "shipment",
-          "columnsFrom": [
-            "shipment_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shipment_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12576,30 +11596,22 @@
       "indexes": {
         "trust_account_bank_ledger_account_unique_index": {
           "name": "trust_account_bank_ledger_account_unique_index",
-          "columns": [
-            "bank_ledger_account_id"
-          ],
+          "columns": ["bank_ledger_account_id"],
           "isUnique": true
         },
         "trust_account_client_liability_account_unique_index": {
           "name": "trust_account_client_liability_account_unique_index",
-          "columns": [
-            "client_liability_account_id"
-          ],
+          "columns": ["client_liability_account_id"],
           "isUnique": true
         },
         "trust_account_location_index": {
           "name": "trust_account_location_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         },
         "trust_account_status_index": {
           "name": "trust_account_status_index",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -12608,12 +11620,8 @@
           "name": "trust_account_location_id_location_id_fk",
           "tableFrom": "trust_account",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12621,12 +11629,8 @@
           "name": "trust_account_bank_ledger_account_id_ledger_account_id_fk",
           "tableFrom": "trust_account",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "bank_ledger_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bank_ledger_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12634,12 +11638,8 @@
           "name": "trust_account_client_liability_account_id_ledger_account_id_fk",
           "tableFrom": "trust_account",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "client_liability_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_liability_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12764,17 +11764,12 @@
       "indexes": {
         "trust_bank_statement_supersedes_unique_index": {
           "name": "trust_bank_statement_supersedes_unique_index",
-          "columns": [
-            "supersedes_statement_id"
-          ],
+          "columns": ["supersedes_statement_id"],
           "isUnique": true
         },
         "trust_bank_statement_account_period_index": {
           "name": "trust_bank_statement_account_period_index",
-          "columns": [
-            "trust_account_id",
-            "period_end"
-          ],
+          "columns": ["trust_account_id", "period_end"],
           "isUnique": false
         }
       },
@@ -12783,12 +11778,8 @@
           "name": "trust_bank_statement_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_bank_statement",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -12796,12 +11787,8 @@
           "name": "trust_bank_statement_supersedes_statement_id_trust_bank_statement_id_fk",
           "tableFrom": "trust_bank_statement",
           "tableTo": "trust_bank_statement",
-          "columnsFrom": [
-            "supersedes_statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supersedes_statement_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12900,18 +11887,12 @@
       "indexes": {
         "trust_bank_statement_line_statement_posted_index": {
           "name": "trust_bank_statement_line_statement_posted_index",
-          "columns": [
-            "statement_id",
-            "posted_on"
-          ],
+          "columns": ["statement_id", "posted_on"],
           "isUnique": false
         },
         "trust_bank_statement_line_amount_index": {
           "name": "trust_bank_statement_line_amount_index",
-          "columns": [
-            "amount_minor",
-            "statement_id"
-          ],
+          "columns": ["amount_minor", "statement_id"],
           "isUnique": false
         }
       },
@@ -12920,12 +11901,8 @@
           "name": "trust_bank_statement_line_statement_id_trust_bank_statement_id_fk",
           "tableFrom": "trust_bank_statement_line",
           "tableTo": "trust_bank_statement",
-          "columnsFrom": [
-            "statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["statement_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13014,16 +11991,12 @@
       "indexes": {
         "trust_disbursement_decision_request_unique_index": {
           "name": "trust_disbursement_decision_request_unique_index",
-          "columns": [
-            "request_id"
-          ],
+          "columns": ["request_id"],
           "isUnique": true
         },
         "trust_disbursement_decision_movement_unique_index": {
           "name": "trust_disbursement_decision_movement_unique_index",
-          "columns": [
-            "movement_id"
-          ],
+          "columns": ["movement_id"],
           "isUnique": true
         }
       },
@@ -13032,12 +12005,8 @@
           "name": "trust_disbursement_decision_request_id_trust_disbursement_request_id_fk",
           "tableFrom": "trust_disbursement_decision",
           "tableTo": "trust_disbursement_request",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["request_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13045,12 +12014,8 @@
           "name": "trust_disbursement_decision_movement_id_trust_movement_id_fk",
           "tableFrom": "trust_disbursement_decision",
           "tableTo": "trust_movement",
-          "columnsFrom": [
-            "movement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["movement_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13166,17 +12131,12 @@
       "indexes": {
         "trust_disbursement_request_account_requested_at_index": {
           "name": "trust_disbursement_request_account_requested_at_index",
-          "columns": [
-            "trust_account_id",
-            "requested_at"
-          ],
+          "columns": ["trust_account_id", "requested_at"],
           "isUnique": false
         },
         "trust_disbursement_request_node_index": {
           "name": "trust_disbursement_request_node_index",
-          "columns": [
-            "node_id"
-          ],
+          "columns": ["node_id"],
           "isUnique": false
         }
       },
@@ -13185,12 +12145,8 @@
           "name": "trust_disbursement_request_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_disbursement_request",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13198,12 +12154,8 @@
           "name": "trust_disbursement_request_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_disbursement_request",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13300,16 +12252,12 @@
       "indexes": {
         "trust_hold_releases_hold_unique_index": {
           "name": "trust_hold_releases_hold_unique_index",
-          "columns": [
-            "releases_hold_id"
-          ],
+          "columns": ["releases_hold_id"],
           "isUnique": true
         },
         "trust_hold_node_active_index": {
           "name": "trust_hold_node_active_index",
-          "columns": [
-            "node_id"
-          ],
+          "columns": ["node_id"],
           "isUnique": false,
           "where": "\"trust_hold\".\"releases_hold_id\" IS NULL"
         }
@@ -13319,12 +12267,8 @@
           "name": "trust_hold_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_hold",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13332,12 +12276,8 @@
           "name": "trust_hold_releases_hold_id_trust_hold_id_fk",
           "tableFrom": "trust_hold",
           "tableTo": "trust_hold",
-          "columnsFrom": [
-            "releases_hold_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["releases_hold_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13422,57 +12362,40 @@
       "indexes": {
         "trust_ledger_node_ledger_account_unique_index": {
           "name": "trust_ledger_node_ledger_account_unique_index",
-          "columns": [
-            "ledger_account_id"
-          ],
+          "columns": ["ledger_account_id"],
           "isUnique": true
         },
         "trust_ledger_node_client_unique_index": {
           "name": "trust_ledger_node_client_unique_index",
-          "columns": [
-            "trust_account_id",
-            "client_entity_id"
-          ],
+          "columns": ["trust_account_id", "client_entity_id"],
           "isUnique": true,
           "where": "\"trust_ledger_node\".\"kind\" = 'client'"
         },
         "trust_ledger_node_matter_unique_index": {
           "name": "trust_ledger_node_matter_unique_index",
-          "columns": [
-            "trust_account_id",
-            "matter_id"
-          ],
+          "columns": ["trust_account_id", "matter_id"],
           "isUnique": true,
           "where": "\"trust_ledger_node\".\"kind\" = 'matter'"
         },
         "trust_ledger_node_firm_funds_unique_index": {
           "name": "trust_ledger_node_firm_funds_unique_index",
-          "columns": [
-            "trust_account_id"
-          ],
+          "columns": ["trust_account_id"],
           "isUnique": true,
           "where": "\"trust_ledger_node\".\"kind\" = 'firm_funds'"
         },
         "trust_ledger_node_account_kind_index": {
           "name": "trust_ledger_node_account_kind_index",
-          "columns": [
-            "trust_account_id",
-            "kind"
-          ],
+          "columns": ["trust_account_id", "kind"],
           "isUnique": false
         },
         "trust_ledger_node_matter_index": {
           "name": "trust_ledger_node_matter_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         },
         "trust_ledger_node_parent_index": {
           "name": "trust_ledger_node_parent_index",
-          "columns": [
-            "parent_node_id"
-          ],
+          "columns": ["parent_node_id"],
           "isUnique": false
         }
       },
@@ -13481,12 +12404,8 @@
           "name": "trust_ledger_node_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_ledger_node",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13494,12 +12413,8 @@
           "name": "trust_ledger_node_ledger_account_id_ledger_account_id_fk",
           "tableFrom": "trust_ledger_node",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "ledger_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ledger_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13507,12 +12422,8 @@
           "name": "trust_ledger_node_matter_id_matter_id_fk",
           "tableFrom": "trust_ledger_node",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13520,12 +12431,8 @@
           "name": "trust_ledger_node_parent_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_ledger_node",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "parent_node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13662,32 +12569,22 @@
       "indexes": {
         "trust_movement_entry_unique_index": {
           "name": "trust_movement_entry_unique_index",
-          "columns": [
-            "entry_id"
-          ],
+          "columns": ["entry_id"],
           "isUnique": true
         },
         "trust_movement_node_effective_date_index": {
           "name": "trust_movement_node_effective_date_index",
-          "columns": [
-            "node_id",
-            "effective_date"
-          ],
+          "columns": ["node_id", "effective_date"],
           "isUnique": false
         },
         "trust_movement_counterparty_node_index": {
           "name": "trust_movement_counterparty_node_index",
-          "columns": [
-            "counterparty_node_id"
-          ],
+          "columns": ["counterparty_node_id"],
           "isUnique": false
         },
         "trust_movement_account_effective_date_index": {
           "name": "trust_movement_account_effective_date_index",
-          "columns": [
-            "trust_account_id",
-            "effective_date"
-          ],
+          "columns": ["trust_account_id", "effective_date"],
           "isUnique": false
         }
       },
@@ -13696,12 +12593,8 @@
           "name": "trust_movement_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_movement",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13709,12 +12602,8 @@
           "name": "trust_movement_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_movement",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13722,12 +12611,8 @@
           "name": "trust_movement_counterparty_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_movement",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "counterparty_node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["counterparty_node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13735,12 +12620,8 @@
           "name": "trust_movement_entry_id_ledger_entry_id_fk",
           "tableFrom": "trust_movement",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -13906,24 +12787,17 @@
       "indexes": {
         "trust_reconciliation_supersedes_unique_index": {
           "name": "trust_reconciliation_supersedes_unique_index",
-          "columns": [
-            "supersedes_reconciliation_id"
-          ],
+          "columns": ["supersedes_reconciliation_id"],
           "isUnique": true
         },
         "trust_reconciliation_account_opened_index": {
           "name": "trust_reconciliation_account_opened_index",
-          "columns": [
-            "trust_account_id",
-            "opened_at"
-          ],
+          "columns": ["trust_account_id", "opened_at"],
           "isUnique": false
         },
         "trust_reconciliation_statement_index": {
           "name": "trust_reconciliation_statement_index",
-          "columns": [
-            "statement_id"
-          ],
+          "columns": ["statement_id"],
           "isUnique": false
         }
       },
@@ -13932,12 +12806,8 @@
           "name": "trust_reconciliation_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_reconciliation",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13945,12 +12815,8 @@
           "name": "trust_reconciliation_statement_id_trust_bank_statement_id_fk",
           "tableFrom": "trust_reconciliation",
           "tableTo": "trust_bank_statement",
-          "columnsFrom": [
-            "statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["statement_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -13958,12 +12824,8 @@
           "name": "trust_reconciliation_supersedes_reconciliation_id_trust_reconciliation_id_fk",
           "tableFrom": "trust_reconciliation",
           "tableTo": "trust_reconciliation",
-          "columnsFrom": [
-            "supersedes_reconciliation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["supersedes_reconciliation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -14041,30 +12903,22 @@
       "indexes": {
         "trust_reconciliation_match_unmatches_unique_index": {
           "name": "trust_reconciliation_match_unmatches_unique_index",
-          "columns": [
-            "unmatches_match_id"
-          ],
+          "columns": ["unmatches_match_id"],
           "isUnique": true
         },
         "trust_reconciliation_match_reconciliation_index": {
           "name": "trust_reconciliation_match_reconciliation_index",
-          "columns": [
-            "reconciliation_id"
-          ],
+          "columns": ["reconciliation_id"],
           "isUnique": false
         },
         "trust_reconciliation_match_line_index": {
           "name": "trust_reconciliation_match_line_index",
-          "columns": [
-            "statement_line_id"
-          ],
+          "columns": ["statement_line_id"],
           "isUnique": false
         },
         "trust_reconciliation_match_entry_index": {
           "name": "trust_reconciliation_match_entry_index",
-          "columns": [
-            "entry_id"
-          ],
+          "columns": ["entry_id"],
           "isUnique": false
         }
       },
@@ -14073,12 +12927,8 @@
           "name": "trust_reconciliation_match_reconciliation_id_trust_reconciliation_id_fk",
           "tableFrom": "trust_reconciliation_match",
           "tableTo": "trust_reconciliation",
-          "columnsFrom": [
-            "reconciliation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reconciliation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14086,12 +12936,8 @@
           "name": "trust_reconciliation_match_statement_line_id_trust_bank_statement_line_id_fk",
           "tableFrom": "trust_reconciliation_match",
           "tableTo": "trust_bank_statement_line",
-          "columnsFrom": [
-            "statement_line_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["statement_line_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14099,12 +12945,8 @@
           "name": "trust_reconciliation_match_entry_id_ledger_entry_id_fk",
           "tableFrom": "trust_reconciliation_match",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14112,12 +12954,8 @@
           "name": "trust_reconciliation_match_unmatches_match_id_trust_reconciliation_match_id_fk",
           "tableFrom": "trust_reconciliation_match",
           "tableTo": "trust_reconciliation_match",
-          "columnsFrom": [
-            "unmatches_match_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["unmatches_match_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -14203,31 +13041,22 @@
       "indexes": {
         "trust_transfer_trust_entry_unique_index": {
           "name": "trust_transfer_trust_entry_unique_index",
-          "columns": [
-            "trust_entry_id"
-          ],
+          "columns": ["trust_entry_id"],
           "isUnique": true
         },
         "trust_transfer_operating_entry_unique_index": {
           "name": "trust_transfer_operating_entry_unique_index",
-          "columns": [
-            "operating_entry_id"
-          ],
+          "columns": ["operating_entry_id"],
           "isUnique": true
         },
         "trust_transfer_from_node_index": {
           "name": "trust_transfer_from_node_index",
-          "columns": [
-            "from_node_id"
-          ],
+          "columns": ["from_node_id"],
           "isUnique": false
         },
         "trust_transfer_account_effective_date_index": {
           "name": "trust_transfer_account_effective_date_index",
-          "columns": [
-            "trust_account_id",
-            "effective_date"
-          ],
+          "columns": ["trust_account_id", "effective_date"],
           "isUnique": false
         }
       },
@@ -14236,12 +13065,8 @@
           "name": "trust_transfer_trust_account_id_trust_account_id_fk",
           "tableFrom": "trust_transfer",
           "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14249,12 +13074,8 @@
           "name": "trust_transfer_from_node_id_trust_ledger_node_id_fk",
           "tableFrom": "trust_transfer",
           "tableTo": "trust_ledger_node",
-          "columnsFrom": [
-            "from_node_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["from_node_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14262,12 +13083,8 @@
           "name": "trust_transfer_trust_entry_id_ledger_entry_id_fk",
           "tableFrom": "trust_transfer",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "trust_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trust_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -14275,12 +13092,8 @@
           "name": "trust_transfer_operating_entry_id_ledger_entry_id_fk",
           "tableFrom": "trust_transfer",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "operating_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operating_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -14372,10 +13185,7 @@
       "indexes": {
         "upload_session_status_expires_at_index": {
           "name": "upload_session_status_expires_at_index",
-          "columns": [
-            "status",
-            "expires_at"
-          ],
+          "columns": ["status", "expires_at"],
           "isUnique": false
         }
       },
@@ -14384,12 +13194,8 @@
           "name": "upload_session_file_version_id_file_version_id_fk",
           "tableFrom": "upload_session",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -14457,10 +13263,7 @@
       "indexes": {
         "utbms_code_code_set_code_unique": {
           "name": "utbms_code_code_set_code_unique",
-          "columns": [
-            "code_set",
-            "code"
-          ],
+          "columns": ["code_set", "code"],
           "isUnique": true
         }
       },
