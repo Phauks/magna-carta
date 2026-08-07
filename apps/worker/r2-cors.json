@@ -2,7 +2,7 @@
   {
     "AllowedOrigins": ["https://magnacarta.esq", "https://app.magnacarta.esq"],
     "AllowedMethods": ["GET", "PUT"],
-    "AllowedHeaders": ["content-type"],
+    "AllowedHeaders": ["content-type", "x-amz-meta-matter", "x-amz-meta-object_class"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }

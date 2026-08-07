@@ -1,0 +1,56 @@
+@layer components {
+  /*
+   * VerificationCodeInput (Tier 2, Bits UI). A row of square cells at the large control size, each
+   * dressed like the Input's field box so a code reads as one control cut into segments. The digits
+   * are set in the display serif at the 2xl step: a verification code is a short, ceremonial
+   * transcription — the reading face's tight sans makes 0/O and 1/l work harder than they should at
+   * this size, and tabular numerals keep the six cells optically even.
+   *
+   * Bits keeps a single hidden input stretched over the row and marks the cell under the caret with
+   * `data-active`, so the active cell takes the field's merged focus edge (border + flush outline in
+   * focus-ring, exactly as .mc-input:focus-visible) — the caret position IS the focus indicator.
+   * Disabled is read off that hidden input with :has(), since the disabled state lives on the input
+   * while the muting has to land on the cells.
+   */
+  .mc-verification-code-input {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  .mc-verification-code-input-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-density-control-lg);
+    block-size: var(--mc-density-control-lg);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-display);
+    font-size: var(--mc-font-size-2xl);
+    line-height: var(--mc-leading-tight);
+    font-variant-numeric: tabular-nums;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-verification-code-input-cell[data-active] {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-verification-code-input:has(input:disabled) .mc-verification-code-input-cell {
+    background-color: var(--mc-action-disabled);
+    border-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+}

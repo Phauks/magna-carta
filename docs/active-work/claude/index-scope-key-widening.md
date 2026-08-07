@@ -33,5 +33,5 @@ both cheap to widen when a second corpus kind actually exists):
 
 The R2 key stays byte-identical: `search/<corpusId>/splits/<splitId>.split`. A corpus
 identifier is a self-describing prefixed handle (`matter_…` today), so a separate
-corpus-kind path segment would be redundant *and* would change every key that exists —
+corpus-kind path segment would be redundant _and_ would change every key that exists —
 the one outcome this change exists to avoid. Pinned in `packages/search/test/split.test.ts`.

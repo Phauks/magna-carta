@@ -1,3 +1,5 @@
+import type { MatterId } from "@magna-carta/identifiers/types";
+import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { describe, expect, it } from "vitest";
 import { createR2Presigner } from "../../src/files/presign.ts";
 
@@ -15,12 +17,17 @@ const CREDENTIALS = {
 const BUCKET = "magna-carta-production-firm-files";
 const KEY = "files/fil_abc/fvr_def";
 const ENDPOINT_HOST = `${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+const MATTER = "matter_01hzz0000000000000000000" as MatterId;
+const DIMENSIONS = matterScopedObjectDimensions({
+  objectClass: "working-document",
+  matterId: MATTER,
+});
 
 describe("createR2Presigner.presignPut", () => {
   it("produces a query-signed SigV4 PUT URL against the R2 S3 endpoint", async () => {
     const presigner = createR2Presigner(CREDENTIALS);
-    const urlString = await presigner.presignPut(BUCKET, KEY, "application/pdf", 900);
-    const url = new URL(urlString);
+    const presigned = await presigner.presignPut(BUCKET, KEY, "application/pdf", 900, DIMENSIONS);
+    const url = new URL(presigned.url);
 
     expect(url.host).toBe(ENDPOINT_HOST);
     expect(url.pathname).toBe(`/${BUCKET}/${KEY}`);
@@ -31,6 +38,15 @@ describe("createR2Presigner.presignPut", () => {
     // Content-Type is bound into the signature so the uploaded object carries the declared type and
     // a client cannot substitute another (the gate also re-sniffs).
     expect(url.searchParams.get("X-Amz-SignedHeaders")).toContain("content-type");
+    // The object's scope is signed alongside it, and returned for the client to send: an upload that
+    // omits either header fails the signature check rather than landing an object nothing can place.
+    const signedHeaders = url.searchParams.get("X-Amz-SignedHeaders") ?? "";
+    expect(signedHeaders).toContain("x-amz-meta-matter");
+    expect(signedHeaders).toContain("x-amz-meta-object_class");
+    expect(presigned.headers).toMatchObject({
+      "x-amz-meta-matter": MATTER,
+      "x-amz-meta-object_class": "working-document",
+    });
   });
 });
 
@@ -82,7 +98,12 @@ describe("createR2Presigner.createMultipartUpload", () => {
       },
     });
 
-    const result = await presigner.createMultipartUpload(BUCKET, KEY, "application/pdf");
+    const result = await presigner.createMultipartUpload(
+      BUCKET,
+      KEY,
+      "application/pdf",
+      DIMENSIONS,
+    );
 
     expect(result).toEqual({ uploadId: "multipart-upload-id-123" });
     expect(seen?.method).toBe("POST");
@@ -92,6 +113,10 @@ describe("createR2Presigner.createMultipartUpload", () => {
     expect(seenUrl.searchParams.has("uploads")).toBe(true);
     // A server-side signed request authenticates with the Authorization header, not query params.
     expect(seen?.headers.get("authorization")).toContain("AWS4-HMAC-SHA256");
+    // Metadata is fixed at create for a multipart object — the parts carry none and the completion
+    // carries none — so the stamp has to ride this call.
+    expect(seen?.headers.get("x-amz-meta-matter")).toBe(MATTER);
+    expect(seen?.headers.get("x-amz-meta-object_class")).toBe("working-document");
   });
 
   it("throws when R2 answers the create with a non-2xx status", async () => {
@@ -99,7 +124,9 @@ describe("createR2Presigner.createMultipartUpload", () => {
       ...CREDENTIALS,
       fetchImpl: () => Promise.resolve(new Response("AccessDenied", { status: 403 })),
     });
-    await expect(presigner.createMultipartUpload(BUCKET, KEY, "application/pdf")).rejects.toThrow();
+    await expect(
+      presigner.createMultipartUpload(BUCKET, KEY, "application/pdf", DIMENSIONS),
+    ).rejects.toThrow();
   });
 });
 

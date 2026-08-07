@@ -243,6 +243,21 @@ export const ENTITY_PREFIXES = {
   // handle of its own.
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
+  // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
+  // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records
+  // the material was (two words, always — the physical safekeeping register keeps `custody*`, and
+  // tooling/lint-custodian-vocabulary.mjs enforces both directions). A `discoveryLoad` is one
+  // recorded act of putting material into a review set — the unit of provenance and of resumability.
+  // A `reviewDocument` is the reviewable unit: a pointer to a file version or an email message plus
+  // the discovery facts about it, never a copy of content. A `reviewDocumentException` is one named
+  // reason a document did not process, and a `reviewDocumentOccurrence` is one further copy of a
+  // deduplicated document, kept rather than deleted so the attribution survives.
+  reviewSet: "reviewSet",
+  recordCustodian: "recordCustodian",
+  discoveryLoad: "discoveryLoad",
+  reviewDocument: "reviewDocument",
+  reviewDocumentException: "reviewDocumentException",
+  reviewDocumentOccurrence: "reviewDocumentOccurrence",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

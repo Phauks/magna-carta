@@ -85,6 +85,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Attorney")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Paralegal")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Attorney")).toContain("magnus:converse");
+    // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
+    // a matter reaches no review set on it. Billing and Read-only carry none of the three keys —
+    // material produced by another party may be attorney's-eyes-only under a protective order.
+    expect(grantsFor("Attorney")).toContain("discovery:load");
+    expect(grantsFor("Billing")).not.toContain("discovery:read");
+    expect(grantsFor("Read-only")).not.toContain("discovery:read");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -111,6 +117,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // both custody keys; Billing and Read-only get custody:read alone.
         "custody:manage",
         "custody:read",
+        // All three discovery keys reach the seats that do case work, and none of them reaches
+        // Billing or Read-only. They are three keys rather than one so a firm can take two away —
+        // a contract reviewer under a protective order holds discovery:read alone — and the
+        // namespace is what carries the access rule: a review set is reachable from a discovery
+        // grant and from nothing else, never from matters:* or files:*.
+        "discovery:load",
+        "discovery:manageReviewSets",
+        "discovery:read",
         "documents:assemble",
         "emails:file",
         "emails:manageLinks",

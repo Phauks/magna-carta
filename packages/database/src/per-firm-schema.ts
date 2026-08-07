@@ -40,6 +40,7 @@ import type {
   DirectoryPartyRoleId,
   DirectoryPersonId,
   DirectoryPhoneId,
+  DiscoveryLoadId,
   DocumentAssemblyId,
   DocumentTemplateFieldMappingId,
   DocumentTemplateId,
@@ -98,7 +99,12 @@ import type {
   PicklistOptionId,
   RateCardId,
   RateId,
+  RecordCustodianId,
   RepairProvenanceId,
+  ReviewDocumentExceptionId,
+  ReviewDocumentId,
+  ReviewDocumentOccurrenceId,
+  ReviewSetId,
   RoleId,
   RolePermissionId,
   ShipmentId,
@@ -5525,3 +5531,427 @@ export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledg
   disclosureVersion: integer("disclosure_version").notNull(),
   acknowledgedAt: text("acknowledged_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// Discovery — the corpus of documents under review on a matter.
+//
+// Six tables, and the shape of them is the defensibility posture. Nothing enters without a record
+// (every review document names its load; every load names its source, its operator, and its time).
+// Nothing is dropped silently (two terminal processing states, a named code for every non-success,
+// and counts that must reconcile before a load may complete). Nothing is altered (a review document
+// is a POINTER — it holds no bytes and copies none). Attribution survives deduplication (a duplicate
+// keeps its row and gains an occurrence naming its record custodian and its load).
+//
+// `review_set_id` leads the index on every one of them, because every read is "within this review
+// set" and the review-document table is about to be the largest in the firm's database by an order of
+// magnitude — the only table in the platform whose size is set by an outside party.
+//
+// The word "custodian" is never alone here. The physical safekeeping register keeps `custody*`; this
+// is the RECORD CUSTODIAN — whose electronic records these were — and the two appear in the same
+// matter. Two words, always.
+
+// One named corpus under review, belonging to one matter. A matter may have several: the firm's own
+// collection, a production received in March, a second request.
+export const reviewSet = sqliteTable(
+  "review_set",
+  {
+    id: text("id").primaryKey().$type<ReviewSetId>(), // reviewSet_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    name: text("name").notNull(),
+    // Forward-only, enforced by trigger as well as by this CHECK: `locked` refuses new loads and
+    // serves every read, `closed` additionally releases the derived artifacts for collection. There
+    // is no reopen. Closing destroys a derived cache and never a record.
+    state: text("state", { enum: ["open", "locked", "closed"] })
+      .notNull()
+      .default("open"),
+    // Snapshotted from the firm's setting at creation rather than read live, so a firm that lowers
+    // its ceiling does not retroactively make an existing review set invalid.
+    documentCeiling: integer("document_ceiling").notNull(),
+    // The maintained count the ceiling is checked against. A COUNT(*) over a quarter-million review
+    // documents on the hot path of every load declaration is not a read; this is written in the same
+    // batch as the rows it counts.
+    documentCount: integer("document_count").notNull().default(0),
+    // Embedding a large corpus is a real metered cost incurred whether or not anyone ever runs a
+    // semantic query, so it is OFF until a firm chooses it for this corpus. The keyword half is
+    // always on — exact terms, phrases, proximity and boolean are what e-discovery actually runs on.
+    semanticIndexEnabled: integer("semantic_index_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    createdBy: text("created_by").notNull().$type<UserId>(), // not an FK — the record outlives the member row
+    lockedAt: text("locked_at"),
+    closedAt: text("closed_at"),
+    // When the derived artifacts were released for collection. Distinct from closed_at because the
+    // sweep is asynchronous, and "closed but not yet swept" is a real state a firm can be in.
+    derivedArtifactsReleasedAt: text("derived_artifacts_released_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("review_set_matter_name_unique_index").on(table.matterId, table.name),
+    index("review_set_matter_created_index").on(table.matterId, table.createdAt, table.id),
+    check("review_set_state_check", sql`${table.state} IN ('open', 'locked', 'closed')`),
+    check("review_set_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("review_set_ceiling_positive_check", sql`${table.documentCeiling} > 0`),
+    check("review_set_document_count_nonnegative_check", sql`${table.documentCount} >= 0`),
+  ],
+);
+
+// Whose records these were. Review-set-scoped rather than firm-scoped on purpose: "John Smith,
+// custodian" in one matter is not assertably the same person as in another, and asserting it wrongly
+// is a defensibility problem rather than a data-modelling inconvenience.
+export const recordCustodian = sqliteTable(
+  "record_custodian",
+  {
+    id: text("id").primaryKey().$type<RecordCustodianId>(), // recordCustodian_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    displayName: text("display_name").notNull(),
+    // Usually a Directory entity — but a production may name a person the firm has never met, so the
+    // link is nullable and FK-free (the matter_party precedent: it points into the Directory graph by
+    // value, with no cross-domain foreign key).
+    directoryEntityId: text("directory_entity_id"),
+    // `unattributed` is a first-class kind rather than a null: a production that arrives with no
+    // custodial attribution is a fact about the production, and recording it is a different statement
+    // from leaving a column empty.
+    kind: text("kind", { enum: ["person", "organization", "unattributed"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("record_custodian_review_set_name_unique_index").on(
+      table.reviewSetId,
+      table.displayName,
+    ),
+    index("record_custodian_directory_entity_index").on(table.directoryEntityId),
+    check(
+      "record_custodian_kind_check",
+      sql`${table.kind} IN ('person', 'organization', 'unattributed')`,
+    ),
+    check("record_custodian_name_nonempty_check", sql`length(${table.displayName}) > 0`),
+  ],
+);
+
+// One recorded act of putting material into a review set — the unit of provenance, the unit of
+// resumability, and what the manifest describes. Loads are append-only: a load is never edited, only
+// superseded or reversed by an explicit removal that is itself recorded.
+export const discoveryLoad = sqliteTable(
+  "discovery_load",
+  {
+    id: text("id").primaryKey().$type<DiscoveryLoadId>(), // discoveryLoad_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    lane: text("lane", {
+      enum: ["internal-files", "internal-email", "received-production", "direct-collection"],
+    }).notNull(),
+    state: text("state", {
+      enum: ["declared", "loading", "processing", "complete", "failed", "reversed"],
+    })
+      .notNull()
+      .default("declared"),
+    // WHETHER ASSISTANT TRANSCRIPTS WERE IN SCOPE, stated by a person at declaration. Required, with
+    // no default in the column and none in the contract above it: a transcript is the firm's own work
+    // product, and whether the firm's own reasoning about a matter belongs in a corpus is a decision
+    // somebody makes visibly. It is recorded here rather than inferred from what arrived, so the
+    // manifest can state what the corpus was DRAWN FROM and not only what landed in it.
+    transcriptScope: text("transcript_scope", { enum: ["exclude", "include"] }).notNull(),
+    // The reconciliation. `loaded_document_count` must equal `processed_count + exception_count`
+    // before a load may reach `complete`, and the CHECK below is what makes that structural rather
+    // than a convention a second write path could miss.
+    declaredDocumentCount: integer("declared_document_count").notNull().default(0),
+    loadedDocumentCount: integer("loaded_document_count").notNull().default(0),
+    processedCount: integer("processed_count").notNull().default(0),
+    exceptionCount: integer("exception_count").notNull().default(0),
+    // Set when one load carries one custodian's material. Null means attribution is per document,
+    // which is the ordinary case for a production carrying several custodians' records.
+    defaultRecordCustodianId: text("default_record_custodian_id")
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    sourceDescription: text("source_description"),
+    initiatedBy: text("initiated_by").notNull().$type<UserId>(), // not an FK — provenance outlives the member row
+    initiatedAt: text("initiated_at").notNull(),
+    completedAt: text("completed_at"),
+    // Written at completion and never regenerated: a re-processing writes a new processing record,
+    // while the manifest describes what arrived, which does not change.
+    manifestR2Key: text("manifest_r2_key"),
+    exceptionReportR2Key: text("exception_report_r2_key"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("discovery_load_review_set_initiated_index").on(
+      table.reviewSetId,
+      table.initiatedAt,
+      table.id,
+    ),
+    index("discovery_load_review_set_state_index").on(table.reviewSetId, table.state),
+    check(
+      "discovery_load_lane_check",
+      sql`${table.lane} IN ('internal-files', 'internal-email', 'received-production', 'direct-collection')`,
+    ),
+    check(
+      "discovery_load_state_check",
+      sql`${table.state} IN ('declared', 'loading', 'processing', 'complete', 'failed', 'reversed')`,
+    ),
+    check(
+      "discovery_load_transcript_scope_check",
+      sql`${table.transcriptScope} IN ('exclude', 'include')`,
+    ),
+    check(
+      "discovery_load_counts_nonnegative_check",
+      sql`${table.declaredDocumentCount} >= 0 AND ${table.loadedDocumentCount} >= 0 AND ${table.processedCount} >= 0 AND ${table.exceptionCount} >= 0`,
+    ),
+    // The reconciliation invariant, as a row constraint. A load cannot reach `complete` while its
+    // counts do not add up — which is the difference between a report that reconciles and a report
+    // that says it does.
+    check(
+      "discovery_load_reconciliation_check",
+      sql`${table.state} <> 'complete' OR ${table.loadedDocumentCount} = ${table.processedCount} + ${table.exceptionCount}`,
+    ),
+  ],
+);
+
+// The reviewable unit, and the row whose size the scale arithmetic budgets. A POINTER plus discovery
+// facts — never a copy of content, never bulk text. Every deferred discovery feature (filters,
+// tagging, threading, near-duplicates, the privilege log, production) is a function over this table.
+export const reviewDocument = sqliteTable(
+  "review_document",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentId>(), // reviewDocument_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    discoveryLoadId: text("discovery_load_id")
+      .notNull()
+      .$type<DiscoveryLoadId>()
+      .references(() => discoveryLoad.id),
+    recordCustodianId: text("record_custodian_id")
+      .notNull()
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    sourceKind: text("source_kind", {
+      enum: ["file_version", "email_message", "email_attachment"],
+    }).notNull(),
+    // LOADING IS A SNAPSHOT OF A VERSION, NOT A SUBSCRIPTION TO A FILE. The version is pinned here; a
+    // new version of the underlying file does not change the review set, because the corpus under
+    // review is what was reviewed. A newer version enters only through a new load, which is a
+    // recorded act.
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    emailMessageId: text("email_message_id")
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    // The family: a self-reference plus a role, not a junction table. A standalone document is its own
+    // family, so every document has one and no read has a special case. An email and its attachments
+    // must stay together — a responsive attachment makes its parent responsive, a privileged parent
+    // taints its attachments, and a production that breaks a family will be challenged.
+    familyId: text("family_id").notNull().$type<ReviewDocumentId>(),
+    familyRole: text("family_role", {
+      enum: ["standalone", "parent", "attachment", "container-child"],
+    })
+      .notNull()
+      .default("standalone"),
+    familySequence: integer("family_sequence").notNull().default(0),
+    // The name and path AS RECEIVED, for the manifest. Evidence, never authority: identification reads
+    // bytes, and a production's file names are wrong often enough that routing on one is how a
+    // spreadsheet gets read as a picture.
+    sourceName: text("source_name"),
+    sourcePath: text("source_path"),
+    sizeBytes: integer("size_bytes"),
+    // Three of the five digests e-discovery load files ask for, promoted to columns because they are
+    // filtered and grouped on; the full five-algorithm set rides the manifest. MD5 and SHA-1 are
+    // carried as legacy interop exactly as @magna-carta/file-integrity already labels them — opposing
+    // tooling and load-file specifications still ask for them.
+    contentSha256: text("content_sha256"),
+    contentMd5: text("content_md5"),
+    contentSha1: text("content_sha1"),
+    // Derived artifacts by reference. A 50,000-document review set averaging 30 KB of text is 1.5 GB;
+    // that number alone settles where extracted text lives.
+    textR2Key: text("text_r2_key"),
+    metadataR2Key: text("metadata_r2_key"),
+    // Recorded at extraction because Bates numbering will need it and it cannot be recovered later
+    // without re-reading every byte of the corpus.
+    pageCount: integer("page_count"),
+    // The deterministic near-duplicate fingerprint, computed where the text is already in memory.
+    // Clustering over it is a later slice; retrofitting the fingerprint would be a second full
+    // processing run rather than a migration.
+    textFingerprint: text("text_fingerprint"),
+    // Deduplication KEEPS the duplicate: the row survives, marked non-primary, and its occurrence row
+    // names the record custodian and the load it came from. "Which custodians held this document" is
+    // asked under oath, and "we deleted that" is not an answer. What dedup buys is that only the
+    // primary is extracted, indexed, and embedded.
+    dedupGroupId: text("dedup_group_id"),
+    isDedupPrimary: integer("is_dedup_primary", { mode: "boolean" }).notNull().default(true),
+    // EXACTLY TWO TERMINAL STATES, and no third. A document that ends in neither has fallen out of the
+    // corpus with nobody able to tell.
+    processingState: text("processing_state", {
+      enum: ["pending", "processing", "processed", "excepted"],
+    })
+      .notNull()
+      .default("pending"),
+    // What the bytes actually were, recorded even when they could not be read: "we could not read
+    // this, and it was a legacy WordPerfect document" is a defensible sentence and "extraction
+    // failed" is not.
+    formatIdentified: text("format_identified"),
+    // The date the corpus sorts and filters on, with the source of the choice recorded beside it —
+    // for email the sent time, for a document the best available internal date, with the file-system
+    // date as the last resort. A privilege log is a function over exactly these fields.
+    sortDate: text("sort_date"),
+    sortDateSource: text("sort_date_source"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The read every future review surface sits on: one review set's documents, newest first, with
+    // the filters the reviewer actually uses. review_set_id leads every one of these.
+    index("review_document_review_set_sort_index").on(table.reviewSetId, table.sortDate, table.id),
+    index("review_document_review_set_load_index").on(table.reviewSetId, table.discoveryLoadId),
+    index("review_document_review_set_record_custodian_index").on(
+      table.reviewSetId,
+      table.recordCustodianId,
+    ),
+    index("review_document_review_set_state_index").on(table.reviewSetId, table.processingState),
+    // A family is ONE indexed read.
+    index("review_document_family_index").on(
+      table.reviewSetId,
+      table.familyId,
+      table.familySequence,
+    ),
+    // Exact-duplicate grouping, and the "which custodians held this" answer behind it.
+    index("review_document_review_set_dedup_index").on(table.reviewSetId, table.dedupGroupId),
+    index("review_document_review_set_sha256_index").on(table.reviewSetId, table.contentSha256),
+    // Two PARTIAL unique indexes — one per source column — live only in the migration, because
+    // drizzle cannot express a WHERE on a unique index. They are what makes a load structurally
+    // idempotent: a version and a message each appear in a review set exactly once, so a redelivered
+    // or retried fan-out converges on the rows it already wrote instead of allocating a second set.
+    check(
+      "review_document_source_kind_check",
+      sql`${table.sourceKind} IN ('file_version', 'email_message', 'email_attachment')`,
+    ),
+    // A review document points at exactly one thing. Both null is a row about nothing; both set is a
+    // row about two things, and a reader would have to guess which.
+    check(
+      "review_document_exactly_one_source_check",
+      sql`(${table.fileVersionId} IS NOT NULL) + (${table.emailMessageId} IS NOT NULL) = 1`,
+    ),
+    check(
+      "review_document_processing_state_check",
+      sql`${table.processingState} IN ('pending', 'processing', 'processed', 'excepted')`,
+    ),
+    // A success nobody can describe is not a success: a processed document names the format it was
+    // read as.
+    check(
+      "review_document_processed_names_format_check",
+      sql`${table.processingState} <> 'processed' OR ${table.formatIdentified} IS NOT NULL`,
+    ),
+    check(
+      "review_document_family_role_check",
+      sql`${table.familyRole} IN ('standalone', 'parent', 'attachment', 'container-child')`,
+    ),
+    // A standalone document IS its own family. Without this a standalone row could point its family
+    // at somebody else's and quietly join a family it does not belong to.
+    check(
+      "review_document_standalone_family_check",
+      sql`${table.familyRole} <> 'standalone' OR ${table.familyId} = ${table.id}`,
+    ),
+  ],
+);
+
+// One named reason a document did not process. Several per document is normal — a container can be
+// both encrypted and oversize — and the presence of a row is what makes the document `excepted`.
+export const reviewDocumentException = sqliteTable(
+  "review_document_exception",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentExceptionId>(), // reviewDocumentException_ handle
+    // Carried on the row rather than reached through the document, because the exception report is a
+    // read across the whole review set and joining a quarter-million rows to get there is the read
+    // this column exists to avoid.
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    reviewDocumentId: text("review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    stage: text("stage", {
+      enum: ["load", "identify", "extract", "deduplicate", "family", "index"],
+    }).notNull(),
+    code: text("code").notNull(),
+    // A human-readable amplification, and NEVER file content: the whole pipeline handles privileged
+    // material, so a detail that could carry a fragment of a document is a redaction failure wearing
+    // an error message.
+    detail: text("detail"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("review_document_exception_review_set_code_index").on(table.reviewSetId, table.code),
+    index("review_document_exception_document_index").on(table.reviewDocumentId),
+    check(
+      "review_document_exception_stage_check",
+      sql`${table.stage} IN ('load', 'identify', 'extract', 'deduplicate', 'family', 'index')`,
+    ),
+    check(
+      "review_document_exception_code_check",
+      sql`${table.code} IN ('unsupported-format', 'corrupt', 'encrypted', 'password-protected', 'encrypted-container-entry', 'container-not-expanded', 'container-guard-tripped', 'oversize', 'extraction-timeout', 'no-text-extracted', 'malware-flagged', 'conversion-failed', 'recognition-failed', 'load-file-metadata-mismatch', 'source-bytes-missing')`,
+    ),
+  ],
+);
+
+// One further copy of a deduplicated document, kept rather than deleted. The two columns are named
+// for what they hold rather than for the relation, because "duplicate_of" on the row that IS the
+// duplicate reads backwards to half of everyone: `primary_review_document_id` is the group's primary,
+// `duplicate_review_document_id` is the copy this row accounts for.
+export const reviewDocumentOccurrence = sqliteTable(
+  "review_document_occurrence",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentOccurrenceId>(), // reviewDocumentOccurrence_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    primaryReviewDocumentId: text("primary_review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    duplicateReviewDocumentId: text("duplicate_review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    // The attribution deduplication must not destroy: whose records this copy was, and which load
+    // brought it in.
+    recordCustodianId: text("record_custodian_id")
+      .notNull()
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    discoveryLoadId: text("discovery_load_id")
+      .notNull()
+      .$type<DiscoveryLoadId>()
+      .references(() => discoveryLoad.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // "Which custodians held this document" is ONE indexed query, which is the entire reason the row
+    // exists rather than a deletion.
+    index("review_document_occurrence_primary_index").on(
+      table.reviewSetId,
+      table.primaryReviewDocumentId,
+    ),
+    uniqueIndex("review_document_occurrence_duplicate_unique_index").on(
+      table.duplicateReviewDocumentId,
+    ),
+    // A document is not a duplicate of itself; a row saying so would inflate every custodian count.
+    check(
+      "review_document_occurrence_distinct_check",
+      sql`${table.primaryReviewDocumentId} <> ${table.duplicateReviewDocumentId}`,
+    ),
+  ],
+);

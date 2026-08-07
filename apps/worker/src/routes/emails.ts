@@ -28,6 +28,7 @@ import {
 } from "@magna-carta/email-filing/message-format";
 import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
 import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -597,7 +598,11 @@ export function registerEmailsRoutes(
       // first attempt that committed its audit and then died before enqueueing would otherwise leave a
       // capture the firm never receives and a retry that cheerfully reports success.
       const stagedR2Key = `emails/staging/${jobId}`;
-      await c.env.R2.put(stagedR2Key, bytes);
+      // Staged mail carries no matter even when the caller named one: what is filed onto a matter is
+      // the captured message record, and the staged bytes are consumed and dropped by the capture.
+      await c.env.R2.put(stagedR2Key, bytes, {
+        customMetadata: firmScopedObjectDimensions("email-staging"),
+      });
       const message: EmailsCaptureMessage = {
         firmId,
         bucketName: firm.bucketName,

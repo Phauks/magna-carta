@@ -14,6 +14,7 @@ import { getUploadSessionStatus } from "@magna-carta/file-manager/queries";
 import { modeThresholdDefinition } from "@magna-carta/file-manager/upload-policy";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { UploadSessionId } from "@magna-carta/identifiers/types";
+import type { ObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -413,7 +414,9 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
       // idempotency record. The multipart initiate response carries no upload id (sign-part/complete
       // load it from the session), so deferring it is safe; the put branch presigns a URL, which is a
       // pure credential mint with no server-side R2 state to leak.
-      let multipartToCreate: { sessionId: UploadSessionId; r2Key: string } | undefined;
+      let multipartToCreate:
+        | { sessionId: UploadSessionId; r2Key: string; dimensions: ObjectDimensions }
+        | undefined;
       let result;
       try {
         result = await runIdempotentEffect({
@@ -440,11 +443,15 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
             );
             let responseBody: Record<string, unknown>;
             if (mode === "put") {
-              const url = await presigner.presignPut(
+              // The presigned URL carries the object's scope as signed metadata headers, returned
+              // here for the client to send back verbatim. They are part of the signature, so an
+              // upload that drops one is rejected by R2 rather than landing an unscoped object.
+              const presigned = await presigner.presignPut(
                 bucket,
                 initiated.r2Key,
                 contentType,
                 PRESIGN_TTL_SECONDS,
+                initiated.dimensions,
               );
               responseBody = {
                 mode: "put",
@@ -453,14 +460,15 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
                 versionId: initiated.versionId,
                 key: initiated.r2Key,
                 method: "PUT",
-                url,
-                headers: { "Content-Type": contentType },
+                url: presigned.url,
+                headers: { "Content-Type": contentType, ...presigned.headers },
               };
             } else {
               // Defer the R2 multipart create until the batch commits (see above).
               multipartToCreate = {
                 sessionId: initiated.uploadSessionId as UploadSessionId,
                 r2Key: initiated.r2Key,
+                dimensions: initiated.dimensions,
               };
               responseBody = {
                 mode: "multipart",
@@ -521,6 +529,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
           bucket,
           multipartToCreate.r2Key,
           contentType,
+          multipartToCreate.dimensions,
         );
         await commitEffectBatch(
           firm.firmDatabase,

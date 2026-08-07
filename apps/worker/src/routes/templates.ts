@@ -47,6 +47,7 @@ import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settin
 import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type {
   DocumentTemplateFieldMappingId,
   DocumentTemplateId,
@@ -111,7 +112,13 @@ const versionFieldsParam = z.object({
 // ---------------------------------------------------------------------------------------------
 
 const TemplateUploadResponse = z
-  .object({ uploadKey: z.string(), uploadUrl: z.string() })
+  .object({
+    uploadKey: z.string(),
+    uploadUrl: z.string(),
+    // The headers the staged upload must carry. They are covered by the URL's signature, so an upload
+    // that sends anything less is rejected by storage rather than landing an unclassified object.
+    uploadHeaders: z.record(z.string(), z.string()),
+  })
   .openapi("TemplateUploadResponse");
 
 // The two opt-in flags, described once and shared by both registration operations. Each one authorizes
@@ -1116,13 +1123,15 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       // The staging key is server-minted from the SESSION firm id, never from client input.
       const uploadKey = `${TEMPLATE_STAGING_PREFIX}${firmId}/${newIdentifier("documentTemplateVersion")}`;
-      const uploadUrl = await presignerForEnv(c.env).presignPut(
+      // A template belongs to the firm, not to a matter — it is the thing matters are filled from.
+      const presigned = await presignerForEnv(c.env).presignPut(
         bucketName,
         uploadKey,
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         PRESIGN_TTL_SECONDS,
+        firmScopedObjectDimensions("document-template"),
       );
-      return c.json({ uploadKey, uploadUrl }, 200);
+      return c.json({ uploadKey, uploadUrl: presigned.url, uploadHeaders: presigned.headers }, 200);
     },
   );
 
@@ -1165,7 +1174,9 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           // The bytes are written before the rows commit: a written object with no row is a stray
           // object the metering sweep reconciles, while a committed row pointing at bytes that were
           // never written is a template that fails at 4:55pm on a filing deadline.
-          await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer);
+          await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer, {
+            customMetadata: firmScopedObjectDimensions("document-template"),
+          });
           const gate = await scanAndGateStatements(
             c,
             registration.versionId,
@@ -1259,7 +1270,9 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             },
             { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
           );
-          await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer);
+          await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer, {
+            customMetadata: firmScopedObjectDimensions("document-template"),
+          });
           const gate = await scanAndGateStatements(
             c,
             registration.versionId,

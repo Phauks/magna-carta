@@ -17,6 +17,7 @@ import { insertFolderStatement } from "@magna-carta/file-manager/folder-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, FolderId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { createAuth } from "../auth.ts";
@@ -233,7 +234,14 @@ async function seedCleanFile(
     committedAt: input.now,
   }).run();
   await setFileCurrentVersionStatement(firmDatabase, fileId, versionId, input.now).run();
-  await env.R2.put(r2Key, bytes);
+  // Seeded bytes are stamped exactly as an uploaded version would be, so a local environment is a
+  // faithful rehearsal of the production one rather than a corpus of unscoped objects.
+  await env.R2.put(r2Key, bytes, {
+    customMetadata: matterScopedObjectDimensions({
+      objectClass: "working-document",
+      matterId: input.matterId,
+    }),
+  });
 }
 
 // One quarantined file: a first upload whose version the scan rejected. It has a pending-then-

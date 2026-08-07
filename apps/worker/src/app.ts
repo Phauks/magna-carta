@@ -37,6 +37,7 @@ import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
 import { registerMagnusRoutes } from "./routes/magnus.ts";
+import { registerDiscoveryRoutes } from "./routes/discovery.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -164,6 +165,13 @@ export type Bindings = {
   // selects the real gateway port. The firm-level consent settings still gate every request on top of
   // this — turning the assistant on is two deliberate acts, not one.
   MAGNUS_INFERENCE_ADAPTER?: string;
+  // One discovery load's fan-out coordinator, keyed firmId:loadId. It holds the load's CURSOR in
+  // durable storage and nothing on the instance, so eviction, deploy, and hibernation are lossless —
+  // a load at the ceiling is a quarter of a million documents, and one that had to start over would
+  // be hours of repeated work.
+  DISCOVERY_LOAD_JOB: DurableObjectNamespace<
+    import("./discovery/discovery-load-coordinator.ts").DiscoveryLoadCoordinator
+  >;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
@@ -588,6 +596,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // consent gates, the submit-and-watch path, and the transcript reads. Every route here refuses
   // unless the firm has opened both gates, and the default adapter reaches no provider.
   registerMagnusRoutes(app, chokepoint);
+  // Discovery — the corpus of documents under review on a matter: the review set, whose records are
+  // in it, what was loaded and when, and the internal load lanes that resolve the firm's own files
+  // and filed email into review documents without moving a byte. Its own permission namespace, so
+  // matter access alone reaches nothing here.
+  registerDiscoveryRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
