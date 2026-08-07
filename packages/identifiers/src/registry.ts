@@ -220,6 +220,13 @@ export const ENTITY_PREFIXES = {
   invoiceDelivery: "invoiceDelivery",
   billingArrangement: "billingArrangement",
   taxRate: "taxRate",
+  // A `matterRecovery` is one recorded recovery on a matter — a settlement, judgment, or award — the
+  // amount a contingency fee is computed FROM at invoice time; the fee itself is always derived,
+  // never stored on the recovery. A `retainerReplenishmentRequest` records that a matter's trust
+  // balance fell below the retainer arrangement's floor and by how much, so the ask is a record the
+  // firm can act on rather than a number somebody once noticed.
+  matterRecovery: "matterRecovery",
+  retainerReplenishmentRequest: "retainerReplenishmentRequest",
   // The case calendar. A `matterEvent` is one thing that happened or will happen in the case that no
   // other subsystem records — a hearing, a filing, service, an order, a deposition; a
   // `matterEventType` is the per-firm classification catalog behind it; a `matterEventParticipant`

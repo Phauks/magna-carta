@@ -38,7 +38,14 @@ import {
   refuseFinalizeOnFrozenWorkInProgressStatements,
 } from "./statements.ts";
 import { BILLING_AGGREGATE_KEY } from "./draft.ts";
-import type { BillingServiceOptions, InvoiceLineSnapshot, WorkInProgressKind } from "./types.ts";
+import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
+import { multiMatterRenderShapeDefinition } from "./render-shape.ts";
+import type {
+  BillingServiceOptions,
+  InvoiceLineSnapshot,
+  InvoiceRenderShape,
+  WorkInProgressKind,
+} from "./types.ts";
 
 export const INVOICE_FINALIZED_TOPIC = "billing.invoice.finalized";
 
@@ -73,6 +80,10 @@ export interface FinalizeInvoiceInput {
   readonly letterheadFooter?: string | null;
   readonly remitTo?: string | null;
   readonly clientBillingName?: string | null;
+  // How a bill spanning several matters is presented. Absent means the firm's configured default;
+  // either way the answer is SNAPSHOT onto the invoice here, with the letterhead, for the same
+  // reason: a later change to the default must not re-shape a document already given to a client.
+  readonly renderShape?: InvoiceRenderShape;
 }
 
 export interface FinalizedInvoice {
@@ -388,6 +399,10 @@ export async function finalizeInvoice(
   const observedValue = counterValue ?? INVOICE_NUMBER_START_VALUE;
   const invoiceNumber = renderInvoiceNumber(scopeKey, observedValue);
   const now = options.clock.now();
+  // The render shape: an explicit choice for THIS bill wins, otherwise the firm's default. Resolved
+  // and snapshot here — the derivation reads the stored answer, never the live setting.
+  const renderShape =
+    input.renderShape ?? (await readFirmSetting(database, multiMatterRenderShapeDefinition));
 
   const statements: SqlStatement[] = [
     ensureCounterRowStatement(
@@ -409,6 +424,7 @@ export async function finalizeInvoice(
       letterheadFooter: input.letterheadFooter ?? null,
       remitTo: input.remitTo ?? null,
       clientBillingName: input.clientBillingName ?? null,
+      renderShape,
       finalizedBy: input.finalizedBy,
       now,
     }),

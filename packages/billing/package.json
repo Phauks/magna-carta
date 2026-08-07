@@ -18,7 +18,12 @@
     "./apply-authorization": "./src/apply-authorization.ts",
     "./apply-trust-funds": "./src/apply-trust-funds.ts",
     "./queries": "./src/queries.ts",
-    "./fitness": "./src/fitness.ts"
+    "./fitness": "./src/fitness.ts",
+    "./arrangements": "./src/arrangements.ts",
+    "./flat-fee": "./src/flat-fee.ts",
+    "./contingency": "./src/contingency.ts",
+    "./retainer": "./src/retainer.ts",
+    "./render-shape": "./src/render-shape.ts"
   },
   "scripts": {
     "test": "vp test run"

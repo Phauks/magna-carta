@@ -26,6 +26,29 @@ import {
   readMatterReceivable,
   readUnbilledWorkInProgress,
 } from "@magna-carta/billing/queries";
+import {
+  readBillingArrangementHistory,
+  readBillingArrangementInForce,
+  setBillingArrangement,
+  type BillingArrangementSnapshot,
+} from "@magna-carta/billing/arrangements";
+import {
+  addContingencyFeeToDraft,
+  readMatterRecoveries,
+  recordMatterRecovery,
+  voidMatterRecovery,
+} from "@magna-carta/billing/contingency";
+import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
+import {
+  readRetainerStatus,
+  requestRetainerReplenishment,
+  resolveRetainerReplenishmentRequest,
+} from "@magna-carta/billing/retainer";
+import {
+  multiMatterRenderShapeDefinition,
+  readInvoiceRenderModel,
+} from "@magna-carta/billing/render-shape";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { ACCOUNT_ROLES } from "@magna-carta/billing/types";
 import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
@@ -144,6 +167,10 @@ const FinalizeRequest = z
     letterheadFooter: z.string().nullable().optional(),
     remitTo: z.string().nullable().optional(),
     clientBillingName: z.string().nullable().optional(),
+    // How a bill spanning several matters is presented — per-matter pages plus a summary, or one
+    // flowing document. Absent means the firm's configured default; either way the answer is
+    // snapshot onto the invoice with the letterhead.
+    renderShape: z.enum(["combined", "per_matter_pages"]).optional(),
   })
   .openapi("BillingFinalizeRequest");
 
@@ -337,6 +364,182 @@ const AgingResponse = z
   })
   .openapi("BillingAgingResponse");
 
+// The fee agreement. One in-force arrangement per matter; an amendment is a new version and the old
+// one stays, because invoice lines record the version that composed them.
+const ArrangementRequest = z
+  .object({
+    kind: z.enum(["hourly", "flat_fee", "contingency", "retainer"]),
+    flatFeeAmountMinor: z.number().int().positive().optional(),
+    // The share as a fraction of the recovery at the rate scale: 3333 is 33.33%.
+    contingencyShareE4: z.number().int().min(1).max(10_000).optional(),
+    contingencyBasis: z.enum(["gross_recovery", "net_after_costs"]).optional(),
+    retainerTargetMinor: z.number().int().positive().optional(),
+    retainerThresholdMinor: z.number().int().min(0).optional(),
+    // Where an advance fee sits until earned. Recorded, never defaulted: jurisdictions genuinely
+    // differ, and the platform does not answer this for a firm.
+    advanceDepositDestination: z.enum(["trust", "operating"]).nullable().optional(),
+    currency: z.literal("USD"),
+    validFrom: civilDate,
+  })
+  .openapi("BillingArrangementRequest");
+
+const ArrangementVersion = z
+  .object({
+    id: z.string(),
+    matterId: z.string(),
+    version: z.number().int(),
+    kind: z.enum(["hourly", "flat_fee", "contingency", "retainer"]),
+    flatFeeAmountMinor: z.number().int().nullable(),
+    contingencyShareE4: z.number().int().nullable(),
+    contingencyBasis: z.enum(["gross_recovery", "net_after_costs"]).nullable(),
+    retainerTargetMinor: z.number().int().nullable(),
+    retainerThresholdMinor: z.number().int().nullable(),
+    advanceDepositDestination: z.enum(["trust", "operating"]).nullable(),
+    currency: z.string(),
+    validFrom: z.string(),
+    validTo: z.string().nullable(),
+  })
+  .openapi("BillingArrangementVersion");
+
+const ArrangementResponse = z
+  .object({
+    // Null means the matter is billed hourly by absence — no agreement was ever recorded.
+    inForce: ArrangementVersion.nullable(),
+    history: z.array(ArrangementVersion),
+  })
+  .openapi("BillingArrangementResponse");
+
+const RecoveryRequest = z
+  .object({
+    amountMinor: z.number().int().positive(),
+    currency: z.literal("USD"),
+    recoveredDate: civilDate,
+    description: z.string().min(1),
+  })
+  .openapi("BillingRecoveryRequest");
+
+const RecoveryAck = z
+  .object({ recoveryId: z.string(), matterId: z.string() })
+  .openapi("BillingRecoveryAck");
+
+const RecoveryListResponse = z
+  .object({
+    data: z.array(
+      z.object({
+        id: z.string(),
+        amountMinor: z.number().int(),
+        currency: z.string(),
+        recoveredDate: z.string(),
+        description: z.string(),
+        voidedAt: z.string().nullable(),
+        voidReason: z.string().nullable(),
+      }),
+    ),
+  })
+  .openapi("BillingRecoveryListResponse");
+
+const VoidRecoveryRequest = z
+  .object({ reason: z.string().min(1) })
+  .openapi("BillingVoidRecoveryRequest");
+
+const FlatFeeRequest = z
+  .object({
+    matterId: identifierField("matter"),
+    // An instalment of the agreed fee; absent means the whole agreed amount.
+    amountMinor: z.number().int().positive().optional(),
+    description: z.string().min(1).optional(),
+    contributingTimeEntryIds: z.array(identifierField("timeEntry")).optional(),
+  })
+  .openapi("BillingFlatFeeRequest");
+
+const FlatFeeAck = z
+  .object({ invoiceId: z.string(), lineId: z.string(), claimIds: z.array(z.string()) })
+  .openapi("BillingFlatFeeAck");
+
+const ContingencyFeeRequest = z
+  .object({ matterId: identifierField("matter") })
+  .openapi("BillingContingencyFeeRequest");
+
+// The whole derivation is echoed back so the biller sees the arithmetic that produced the line —
+// the number is computed at composition, never stored anywhere but the reviewable line.
+const ContingencyFeeAck = z
+  .object({
+    invoiceId: z.string(),
+    lineId: z.string(),
+    feeMinor: z.number().int(),
+    baseMinor: z.number().int(),
+    shareE4: z.number().int(),
+    basis: z.enum(["gross_recovery", "net_after_costs"]),
+    recoveriesMinor: z.number().int(),
+    advancedCostsMinor: z.number().int(),
+  })
+  .openapi("BillingContingencyFeeAck");
+
+const RetainerStatusResponse = z
+  .object({
+    matterId: z.string(),
+    targetMinor: z.number().int(),
+    thresholdMinor: z.number().int(),
+    availableMinor: z.number().int(),
+    belowFloor: z.boolean(),
+    shortfallMinor: z.number().int(),
+    openRequestId: z.string().nullable(),
+  })
+  .openapi("BillingRetainerStatusResponse");
+
+const ReplenishmentRequestBody = z
+  .object({ trustAccountId: identifierField("trustAccount") })
+  .openapi("BillingReplenishmentRequestBody");
+
+const ReplenishmentAck = z
+  .object({
+    requestId: z.string(),
+    matterId: z.string(),
+    observedBalanceMinor: z.number().int(),
+    requestedAmountMinor: z.number().int(),
+  })
+  .openapi("BillingReplenishmentAck");
+
+const RenderShapeSetting = z
+  .object({ renderShape: z.enum(["combined", "per_matter_pages"]) })
+  .openapi("BillingRenderShapeSetting");
+
+const RenderModelResponse = z
+  .object({
+    invoiceId: z.string(),
+    status: z.enum(["draft", "final", "void"]),
+    invoiceNumber: z.string().nullable(),
+    currency: z.string(),
+    renderShape: z.enum(["combined", "per_matter_pages"]),
+    totalMinor: z.number().int(),
+    pages: z.array(
+      z.object({
+        matterId: z.string().nullable(),
+        matterTitle: z.string().nullable(),
+        subtotalMinor: z.number().int(),
+        lines: z.array(
+          z.object({
+            id: z.string(),
+            lineIndex: z.number().int(),
+            matterId: z.string(),
+            kind: z.string(),
+            description: z.string(),
+            quantityE4: z.number().int().nullable(),
+            rateE4: z.number().int().nullable(),
+            amountMinor: z.number().int(),
+          }),
+        ),
+      }),
+    ),
+    summary: z
+      .object({
+        matters: z.array(z.object({ matterId: z.string(), totalMinor: z.number().int() })),
+        totalMinor: z.number().int(),
+      })
+      .nullable(),
+  })
+  .openapi("BillingRenderModelResponse");
+
 const invoiceParam = z.object({ invoiceId: identifierPathParam("invoice", "invoiceId") });
 const lineParam = z.object({
   invoiceId: identifierPathParam("invoice", "invoiceId"),
@@ -347,6 +550,14 @@ const claimParam = z.object({
   claimId: identifierPathParam("invoiceWipClaim", "claimId"),
 });
 const matterParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
+const recoveryParam = z.object({
+  matterId: identifierPathParam("matter", "matterId"),
+  recoveryId: identifierPathParam("matterRecovery", "recoveryId"),
+});
+const replenishmentParam = z.object({
+  requestId: identifierPathParam("retainerReplenishmentRequest", "requestId"),
+});
+const retainerStatusQuery = z.object({ trustAccountId: identifierField("trustAccount") });
 const listQuery = z.object({
   clientEntityId: z.string().min(1).optional(),
   status: z.enum(["draft", "final", "void"]).optional(),
@@ -393,8 +604,11 @@ const readErrorResponses = {
   404: errorResponses[404],
   422: errorResponses[422],
   429: errorResponses[429],
-} as const;
+};
 
+// Plain objects, deliberately NOT `as const`: a const-asserted spread deep-freezes the
+// content-schema literal in a way that breaks zod-openapi's match of the handler's typed problem
+// responses to these status codes — the same note custom-fields.ts carries.
 const mutationResponses = {
   400: errorResponses[400],
   401: errorResponses[401],
@@ -403,7 +617,7 @@ const mutationResponses = {
   409: errorResponses[409],
   422: errorResponses[422],
   429: errorResponses[429],
-} as const;
+};
 
 type BillingPermission =
   | typeof READ
@@ -789,6 +1003,251 @@ const agingRoute = defineOpenAPIRoute(readMeta("billing.receivablesAging"), {
   },
 });
 
+const setArrangementRoute = defineOpenAPIRoute(writeMeta("billing.setArrangement", CONFIGURE), {
+  method: "put",
+  path: "/api/v1/billing/matters/{matterId}/arrangement",
+  description:
+    "Records or amends how a matter is billed — hourly, a flat fee, a contingency share of any recovery, or an evergreen retainer with a target and a replenishment floor. An amendment is a NEW version of the agreement: the old version stays on the record with the dates it governed, because every bill composed under it says so. A matter with no recorded arrangement is billed hourly.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterParam,
+    body: { content: { "application/json": { schema: ArrangementRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The agreement was recorded as the version now in force",
+      content: { "application/json": { schema: ArrangementResponse } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const arrangementRoute = defineOpenAPIRoute(readMeta("billing.arrangement"), {
+  method: "get",
+  path: "/api/v1/billing/matters/{matterId}/arrangement",
+  description:
+    "Returns the fee agreement in force on a matter and its whole amendment history. An empty answer means the matter is billed hourly because nothing else was ever agreed.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "The agreement in force and its history",
+      content: { "application/json": { schema: ArrangementResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
+const recordRecoveryRoute = defineOpenAPIRoute(writeMeta("billing.recordRecovery", DRAFT), {
+  method: "post",
+  path: "/api/v1/billing/matters/{matterId}/recoveries",
+  description:
+    "Records a recovery on a matter — a settlement, a judgment, an award. The contingency fee is never stored anywhere: it is computed from these records at the moment a bill is composed, so recording a recovery is recording a fact, not deciding a fee.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterParam,
+    body: { content: { "application/json": { schema: RecoveryRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The recovery was recorded",
+      content: { "application/json": { schema: RecoveryAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const listRecoveriesRoute = defineOpenAPIRoute(readMeta("billing.listRecoveries"), {
+  method: "get",
+  path: "/api/v1/billing/matters/{matterId}/recoveries",
+  description:
+    "The recoveries recorded on a matter, voided ones included — a voided recovery stays readable with the reason it was wrong.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "The matter's recoveries",
+      content: { "application/json": { schema: RecoveryListResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
+const voidRecoveryRoute = defineOpenAPIRoute(writeMeta("billing.voidRecovery", DRAFT), {
+  method: "post",
+  path: "/api/v1/billing/matters/{matterId}/recoveries/{recoveryId}/void",
+  description:
+    "Voids a recovery recorded in error, with the reason. The record is never edited or erased — the wrong entry and its correction both stay readable, and a voided recovery leaves the fee computation.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: recoveryParam,
+    body: { content: { "application/json": { schema: VoidRecoveryRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The recovery was voided",
+      content: { "application/json": { schema: RecoveryAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const addFlatFeeRoute = defineOpenAPIRoute(writeMeta("billing.addFlatFee", DRAFT), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/flat-fee",
+  description:
+    "Puts the matter's flat fee on a draft as ONE line carrying the agreed amount (or a stated instalment of it), and claims the contributing time entries at zero — the work is attributed for profitability reporting without being what the client is charged. The entries lock as billed when the invoice finalizes, exactly as hourly work does.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: FlatFeeRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The flat fee was composed and the contributing work claimed",
+      content: { "application/json": { schema: FlatFeeAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const addContingencyFeeRoute = defineOpenAPIRoute(writeMeta("billing.addContingencyFee", DRAFT), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/contingency-fee",
+  description:
+    "Computes the contingency fee from the recoveries recorded on the matter — the agreed share, applied to the gross recovery or to the recovery net of advanced costs as the agreement elects — and puts it on the draft as one line. The arithmetic is echoed back in full; the fee is derived at this moment from the records as they stand, never read from anywhere it was stored.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: ContingencyFeeRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The contingency fee was computed and composed",
+      content: { "application/json": { schema: ContingencyFeeAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const retainerStatusRoute = defineOpenAPIRoute(readMeta("billing.retainerStatus"), {
+  method: "get",
+  path: "/api/v1/billing/matters/{matterId}/retainer",
+  description:
+    "Where a retainer matter's trust balance stands against its agreement — the target, the replenishment floor, what is actually available (money under a hold does not count), and whether an ask to top up is already open.",
+  request: { params: matterParam, query: retainerStatusQuery },
+  responses: {
+    200: {
+      description: "The retainer position",
+      content: { "application/json": { schema: RetainerStatusResponse } },
+    },
+    ...readErrorResponses,
+    // The refusal maps this read shares with the write paths can answer 409 (trust's own refusals
+    // arrive through the shared trust mapping), so the read declares it too.
+    409: errorResponses[409],
+  },
+});
+
+const requestReplenishmentRoute = defineOpenAPIRoute(
+  writeMeta("billing.requestReplenishment", DRAFT),
+  {
+    method: "post",
+    path: "/api/v1/billing/matters/{matterId}/retainer/replenishment-requests",
+    description:
+      "Records that the retainer has fallen below its floor and by how much — the observed balance and the shortfall against the target, stamped as the evidence of why. The request moves no money and sends nothing: the client's deposit arrives through the ordinary trust deposit, and one ask is open per matter at a time.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: matterParam,
+      body: {
+        content: { "application/json": { schema: ReplenishmentRequestBody } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        description: "The replenishment request was recorded",
+        content: { "application/json": { schema: ReplenishmentAck } },
+      },
+      ...mutationResponses,
+    },
+  },
+);
+
+const resolveReplenishmentRoute = defineOpenAPIRoute(
+  writeMeta("billing.resolveReplenishment", DRAFT),
+  {
+    method: "post",
+    path: "/api/v1/billing/replenishment-requests/{requestId}/resolution",
+    description:
+      "Closes an open replenishment request — the deposit arrived, or the ask was withdrawn. The request's observed figures never change; resolution is the one edit it ever takes.",
+    request: { headers: idempotencyKeyHeader, params: replenishmentParam },
+    responses: {
+      201: {
+        description: "The request was resolved",
+        content: {
+          "application/json": {
+            schema: z
+              .object({ requestId: z.string() })
+              .openapi("BillingReplenishmentResolutionAck"),
+          },
+        },
+      },
+      ...mutationResponses,
+    },
+  },
+);
+
+const renderModelRoute = defineOpenAPIRoute(readMeta("billing.invoiceRenderModel"), {
+  method: "get",
+  path: "/api/v1/billing/invoices/{invoiceId}/render-model",
+  description:
+    "The invoice as it is presented: its pages and their subtotals under the shape the bill was finalized with — one page per matter plus a summary, or one flowing document. This is the model a renderer consumes; a finalized invoice derives it entirely from its own rows.",
+  request: { params: invoiceParam },
+  responses: {
+    200: {
+      description: "The render model",
+      content: { "application/json": { schema: RenderModelResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
+const renderShapeRoute = defineOpenAPIRoute(
+  { ...readMeta("billing.renderShapeDefault"), permission: CONFIGURE },
+  {
+    method: "get",
+    path: "/api/v1/billing/render-shape",
+    description:
+      "The firm's default presentation for a bill spanning several matters. A finalize may override it per bill; the choice in force at finalization is snapshot onto the invoice.",
+    responses: {
+      200: {
+        description: "The firm default",
+        content: { "application/json": { schema: RenderShapeSetting } },
+      },
+      ...readErrorResponses,
+    },
+  },
+);
+
+const setRenderShapeRoute = defineOpenAPIRoute(
+  writeMeta("billing.setRenderShapeDefault", CONFIGURE),
+  {
+    method: "put",
+    path: "/api/v1/billing/render-shape",
+    description:
+      "Sets the firm's default presentation for multi-matter bills. Changing it governs future finalizations only — a bill already finalized keeps the shape it went out with.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: { content: { "application/json": { schema: RenderShapeSetting } }, required: true },
+    },
+    responses: {
+      200: {
+        description: "The firm default was set",
+        content: { "application/json": { schema: RenderShapeSetting } },
+      },
+      ...mutationResponses,
+    },
+  },
+);
+
 // A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in one place
 // rather than at nine call sites that would drift.
 function billingErrorResponse(
@@ -811,6 +1270,16 @@ function billingErrorResponse(
     return problemJson(c, {
       type: "billing-invoice-not-editable",
       title: "This invoice is no longer a working document",
+      status: 409,
+      detail: error.message,
+    });
+  }
+  // Retryable once the open ask is resolved, which is what makes it a conflict rather than a
+  // request the rules refuse outright.
+  if (error.code === "retainer-replenishment-already-open") {
+    return problemJson(c, {
+      type: "billing-replenishment-already-open",
+      title: "An ask to replenish this retainer is already open",
       status: 409,
       detail: error.message,
     });
@@ -1352,6 +1821,370 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       const resolvedAsOfDate = asOfDate ?? new Date().toISOString().slice(0, 10);
       const buckets = await readAccountsReceivableAging(firm.firmDatabase, resolvedAsOfDate);
       return c.json({ asOfDate: resolvedAsOfDate, buckets } as never, 200);
+    },
+  );
+
+  const arrangementToResponse = (arrangement: BillingArrangementSnapshot) => ({
+    id: arrangement.id,
+    matterId: arrangement.matterId,
+    version: arrangement.version,
+    kind: arrangement.kind,
+    flatFeeAmountMinor: arrangement.flatFeeAmountMinor,
+    contingencyShareE4: arrangement.contingencyShareE4,
+    contingencyBasis: arrangement.contingencyBasis,
+    retainerTargetMinor: arrangement.retainerTargetMinor,
+    retainerThresholdMinor: arrangement.retainerThresholdMinor,
+    advanceDepositDestination: arrangement.advanceDepositDestination,
+    currency: arrangement.currency,
+    validFrom: arrangement.validFrom,
+    validTo: arrangement.validTo,
+  });
+
+  // PUT /api/v1/billing/matters/{matterId}/arrangement — the fee agreement, versioned append-only
+  app.openapi(
+    { ...setArrangementRoute, middleware: chokepointMiddleware(chokepoint, setArrangementRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<{ version: number }>(c, 200, async (createdBy) => {
+        const set = await setBillingArrangement(
+          firm.firmDatabase,
+          {
+            matterId,
+            kind: request.kind,
+            flatFeeAmountMinor: request.flatFeeAmountMinor ?? null,
+            contingencyShareE4: request.contingencyShareE4 ?? null,
+            contingencyBasis: request.contingencyBasis ?? null,
+            retainerTargetMinor: request.retainerTargetMinor ?? null,
+            retainerThresholdMinor: request.retainerThresholdMinor ?? null,
+            advanceDepositDestination: request.advanceDepositDestination ?? null,
+            currency: request.currency,
+            validFrom: request.validFrom,
+            createdBy,
+          },
+          clockOptions(),
+        );
+        return { write: set.effect, body: { version: set.version } };
+      });
+      if (outcome.kind === "refused") return outcome.response;
+      const inForce = await readBillingArrangementInForce(firm.firmDatabase, matterId);
+      const history = await readBillingArrangementHistory(firm.firmDatabase, matterId);
+      return c.json(
+        {
+          inForce: inForce ? arrangementToResponse(inForce) : null,
+          history: history.map(arrangementToResponse),
+        } as never,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...arrangementRoute, middleware: chokepointMiddleware(chokepoint, arrangementRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const inForce = await readBillingArrangementInForce(firm.firmDatabase, matterId);
+      const history = await readBillingArrangementHistory(firm.firmDatabase, matterId);
+      return c.json(
+        {
+          inForce: inForce ? arrangementToResponse(inForce) : null,
+          history: history.map(arrangementToResponse),
+        } as never,
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/billing/matters/{matterId}/recoveries — the fact a contingency fee derives from
+  app.openapi(
+    { ...recordRecoveryRoute, middleware: chokepointMiddleware(chokepoint, recordRecoveryRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof RecoveryAck>>(c, 201, (recordedBy) => {
+        const composed = recordMatterRecovery(
+          firm.firmDatabase,
+          {
+            matterId,
+            amountMinor: request.amountMinor,
+            currency: request.currency,
+            recoveredDate: request.recoveredDate,
+            description: request.description,
+            recordedBy,
+          },
+          clockOptions(),
+        );
+        return Promise.resolve({
+          write: composed.effect,
+          body: { recoveryId: composed.recoveryId, matterId },
+        });
+      });
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...listRecoveriesRoute, middleware: chokepointMiddleware(chokepoint, listRecoveriesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const recoveries = await readMatterRecoveries(firm.firmDatabase, matterId);
+      return c.json(
+        {
+          data: recoveries.map((recovery) => ({
+            id: recovery.id,
+            amountMinor: recovery.amountMinor,
+            currency: recovery.currency,
+            recoveredDate: recovery.recoveredDate,
+            description: recovery.description,
+            voidedAt: recovery.voidedAt,
+            voidReason: recovery.voidReason,
+          })),
+        } as never,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...voidRecoveryRoute, middleware: chokepointMiddleware(chokepoint, voidRecoveryRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId, recoveryId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof RecoveryAck>>(
+        c,
+        201,
+        async (voidedBy) => ({
+          write: await voidMatterRecovery(
+            firm.firmDatabase,
+            recoveryId,
+            request.reason,
+            voidedBy,
+            clockOptions(),
+          ),
+          body: { recoveryId, matterId },
+        }),
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // POST /api/v1/billing/invoices/{invoiceId}/flat-fee — one line, the work claimed at zero
+  app.openapi(
+    { ...addFlatFeeRoute, middleware: chokepointMiddleware(chokepoint, addFlatFeeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof FlatFeeAck>>(c, 201, async () => {
+        const composed = await addFlatFeeToDraft(
+          firm.firmDatabase,
+          {
+            invoiceId,
+            matterId: request.matterId,
+            amountMinor: request.amountMinor,
+            description: request.description,
+            contributingTimeEntryIds: request.contributingTimeEntryIds,
+          },
+          clockOptions(),
+        );
+        return {
+          write: composed.effect,
+          body: { invoiceId, lineId: composed.lineId, claimIds: [...composed.claimIds] },
+        };
+      });
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // POST /api/v1/billing/invoices/{invoiceId}/contingency-fee — derived at this moment, echoed back
+  app.openapi(
+    {
+      ...addContingencyFeeRoute,
+      middleware: chokepointMiddleware(chokepoint, addContingencyFeeRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ContingencyFeeAck>>(
+        c,
+        201,
+        async () => {
+          const composed = await addContingencyFeeToDraft(
+            firm.firmDatabase,
+            invoiceId,
+            request.matterId,
+            clockOptions(),
+          );
+          return {
+            write: composed.effect,
+            body: {
+              invoiceId,
+              lineId: composed.lineId,
+              feeMinor: composed.derivation.feeMinor,
+              baseMinor: composed.derivation.baseMinor,
+              shareE4: composed.derivation.shareE4,
+              basis: composed.derivation.basis,
+              recoveriesMinor: composed.derivation.recoveriesMinor,
+              advancedCostsMinor: composed.derivation.advancedCostsMinor,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // GET /api/v1/billing/matters/{matterId}/retainer — the floor status, on trust's available figure
+  app.openapi(
+    { ...retainerStatusRoute, middleware: chokepointMiddleware(chokepoint, retainerStatusRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const { trustAccountId } = c.req.valid("query");
+      try {
+        const status = await readRetainerStatus(firm.firmDatabase, trustAccountId, matterId);
+        return c.json(
+          {
+            matterId: status.matterId,
+            targetMinor: status.targetMinor,
+            thresholdMinor: status.thresholdMinor,
+            availableMinor: status.availableMinor,
+            belowFloor: status.belowFloor,
+            shortfallMinor: status.shortfallMinor,
+            openRequestId: status.openRequestId,
+          } as never,
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof BillingValidationError) return billingErrorResponse(c, caught);
+        if (caught instanceof TrustValidationError) {
+          return problemResponseForTrustRefusal(c, caught);
+        }
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...requestReplenishmentRoute,
+      middleware: chokepointMiddleware(chokepoint, requestReplenishmentRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ReplenishmentAck>>(
+        c,
+        201,
+        async (requestedBy) => {
+          const composed = await requestRetainerReplenishment(
+            firm.firmDatabase,
+            { trustAccountId: request.trustAccountId, matterId, requestedBy },
+            clockOptions(),
+          );
+          return {
+            write: composed.effect,
+            body: {
+              requestId: composed.requestId,
+              matterId,
+              observedBalanceMinor: composed.observedBalanceMinor,
+              requestedAmountMinor: composed.requestedAmountMinor,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    {
+      ...resolveReplenishmentRoute,
+      middleware: chokepointMiddleware(chokepoint, resolveReplenishmentRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { requestId } = c.req.valid("param");
+      const outcome = await runBillingEffect<{ requestId: string }>(c, 201, async (resolvedBy) => ({
+        write: await resolveRetainerReplenishmentRequest(
+          firm.firmDatabase,
+          requestId,
+          resolvedBy,
+          clockOptions(),
+        ),
+        body: { requestId },
+      }));
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // GET /api/v1/billing/invoices/{invoiceId}/render-model — what a renderer consumes
+  app.openapi(
+    { ...renderModelRoute, middleware: chokepointMiddleware(chokepoint, renderModelRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const model = await readInvoiceRenderModel(firm.firmDatabase, invoiceId);
+      if (!model) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: `no such invoice: ${invoiceId}`,
+        });
+      }
+      return c.json(model as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...renderShapeRoute, middleware: chokepointMiddleware(chokepoint, renderShapeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const renderShape = await readFirmSetting(
+        firm.firmDatabase,
+        multiMatterRenderShapeDefinition,
+      );
+      return c.json({ renderShape } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...setRenderShapeRoute, middleware: chokepointMiddleware(chokepoint, setRenderShapeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof RenderShapeSetting>>(c, 200, () =>
+        Promise.resolve({
+          write: {
+            statements: [
+              writeFirmSettingStatement(
+                firm.firmDatabase,
+                multiMatterRenderShapeDefinition,
+                request.renderShape,
+                new Date().toISOString(),
+              ),
+            ],
+            outboxMessages: [],
+          },
+          body: { renderShape: request.renderShape },
+        }),
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 200);
     },
   );
 }

@@ -183,3 +183,42 @@ export function finalizedInvoicesWithoutBalanceRowsStatement(database: SqlDataba
     )
     .bind();
 }
+
+// A FLAT FEE IS NOT BILLED PAST ITS AGREEMENT. Instalments are ordinary — several flat-fee lines
+// across several finalized invoices against one agreement — and no scheduler polices them, so this
+// is the report that says when the finalized lines under one arrangement version sum past the
+// amount that version agreed. Drafts are excluded: a draft asserts nothing yet and bill review is
+// where it gets fixed.
+export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS arrangement_id,
+              a.matter_id AS matter_id,
+              a.flat_fee_amount_minor AS agreed_minor,
+              SUM(l.amount_minor) AS billed_minor
+         FROM matter_billing_arrangement a
+         JOIN invoice_line l ON l.billing_arrangement_id = a.id AND l.kind = 'flat_fee'
+         JOIN invoice i ON i.id = l.invoice_id
+        WHERE a.kind = 'flat_fee' AND i.status = 'final'
+        GROUP BY a.id, a.matter_id, a.flat_fee_amount_minor
+       HAVING SUM(l.amount_minor) > a.flat_fee_amount_minor`,
+    )
+    .bind();
+}
+
+// FEE-AGREEMENT VERSIONS DO NOT OVERLAP. The service closes the superseded version's valid_to at the
+// new version's valid_from and refuses a back-dated amendment, but SQLite has no range-exclusion
+// constraint (the same gap the rate engine documents), so which agreement governed a date must be
+// re-provable to have exactly one answer: a row here is two versions of one matter's agreement both
+// claiming the same day.
+export function billingArrangementOverlapsStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS arrangement_id, b.id AS overlapping_arrangement_id, a.matter_id AS matter_id
+         FROM matter_billing_arrangement a
+         JOIN matter_billing_arrangement b
+           ON b.matter_id = a.matter_id AND b.version > a.version
+        WHERE a.valid_to IS NULL OR b.valid_from < a.valid_to`,
+    )
+    .bind();
+}
