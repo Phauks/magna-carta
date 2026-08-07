@@ -104,6 +104,13 @@ describe("problem-type URI registry", () => {
         "magnus-acknowledgement-required",
         "magnus-turn-too-large",
         "magnus-daily-ceiling-reached",
+        "discovery-ceiling-exceeded",
+        "discovery-review-set-closed",
+        "discovery-review-set-reopen-refused",
+        "discovery-load-source-not-built",
+        "discovery-transcript-scope-unstated",
+        "discovery-selection-refused",
+        "discovery-load-not-reconciled",
       ].sort(),
     );
   });

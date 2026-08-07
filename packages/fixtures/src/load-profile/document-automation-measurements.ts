@@ -62,6 +62,9 @@ export interface DocumentAutomationMeasurementHandle {
   // The probe manifest as the version stores it, parsed once: the measurement resolves the SAME
   // manifest the row carries rather than a rebuilt one that could drift from it.
   readonly probeManifest: FieldManifest;
+  // The manifest carrying the expression constructs and the protected keys, so the read plan and the
+  // decrypt count are measured rather than assumed.
+  readonly expressionProbeManifest: FieldManifest;
   // The firm's dictionary — the shipped entries plus its own `custom.<handle>` bindings, derived from
   // the catalogue read exactly as the production path derives it.
   readonly firmDictionary: Awaited<ReturnType<typeof dictionaryForFirm>>;
@@ -89,10 +92,14 @@ export async function documentAutomationMeasurementHandle(
         .filter((handle): handle is string => handle !== undefined),
     ),
   ].sort();
+  const expressionProbeManifest = JSON.parse(
+    documentAutomationProbes.expressionProbeFieldManifestJson,
+  ) as FieldManifest;
   return {
     database: snapshot.database,
     snapshot,
     probeManifest,
+    expressionProbeManifest,
     firmDictionary,
     probeCustomHandles,
   };
@@ -143,6 +150,36 @@ export const documentAutomationMeasurements: readonly Measurement<
       });
       if (!result.ok) {
         throw new Error(`load-profile: merge context did not resolve: ${result.detail}`);
+      }
+    },
+  },
+  {
+    name: "assembly.merge-context-expressions",
+    operation: async (handle) => {
+      // The same resolution, over a manifest that carries a repeating block, an aggregate over the
+      // collection's items, and every protected key the dictionary offers.
+      //
+      // Two claims are under measurement here that the plain merge-context probe cannot reach. The
+      // first is that expression keys join the read plan — a block's or a computed field's keys are
+      // supposed to be planned with everything else, so an expression is never the reason a read
+      // happens late. The second is the protected read loop, which is deliberately NOT batched: one
+      // permission check, one audit row, and one decrypt per protected key, serial so a refused member
+      // commits one audit row rather than one per key. Its cost should be visible at a real firm's key
+      // count rather than argued about.
+      const result = await resolveMergeContext(handle.database, {
+        matterId: handle.snapshot.manifest.documentAutomationProbes.probeMatterId,
+        manifest: handle.expressionProbeManifest,
+        firmName: "Load Profile LLP",
+        assembledAt: "2026-01-01T00:00:00.000Z",
+        currencyCode: "USD",
+        dictionary: handle.firmDictionary,
+        // A stub reader, because the measurement is of the LOOP and the reads around it, not of AES.
+        // It answers every key, so the serial path is walked to its full length rather than
+        // short-circuiting on the first refusal.
+        readProtectedIdentifier: async () => "000-00-0000",
+      });
+      if (!result.ok) {
+        throw new Error(`load-profile: expression merge context did not resolve: ${result.detail}`);
       }
     },
   },

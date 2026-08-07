@@ -268,8 +268,22 @@ export function mergeValueForCustomField(
   }
 }
 
+// The calendar-date shape every consumer of a `date` merge value is built on. The per-firm column that
+// backs a `date` custom field is a bare `text` with no CHECK, so what is stored is whatever a writer
+// once put there — this is the boundary that constructs the merge value, and therefore the one place
+// the shape can be established once instead of re-asserted at each consumer.
+const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 // A `date` field stores a calendar date and renders in the matter's office time zone like every other
 // date; a `time` field stores a time of day, which has no calendar rendering, so it is text.
+//
+// A STORED STRING THAT IS NOT A CALENDAR DATE BECOMES TEXT, not a date-shaped lie. Carried as a date it
+// would reach the expression language's comparison arm, where dates order as raw strings: "03/14/2026"
+// sorts below "2026-01-01" and a condition silently takes the wrong branch. As text the key has a type
+// the checker can see, so comparing it against a date is refused at registration — an author reads the
+// error instead of a document reading the wrong way.
 function dateOrTextValue(kind: CustomFieldKind, stored: string): MergeValue {
-  return kind === "date" ? { kind: "date", isoDate: stored } : { kind: "text", text: stored };
+  return kind === "date" && ISO_CALENDAR_DATE.test(stored)
+    ? { kind: "date", isoDate: stored }
+    : { kind: "text", text: stored };
 }

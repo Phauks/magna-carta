@@ -32,8 +32,8 @@ than assumed:
 
 - **The ethical wall is an identity filter today.** `filterAccessibleMatters`
   (`apps/worker/src/emails/matter-access.ts:9-15`) returns its input unchanged; the comment says
-  enforcement is a later phase. Every wall finding here is therefore a defect in the *shape of the
-  seam* — invisible now, live the day the filter starts narrowing.
+  enforcement is a later phase. Every wall finding here is therefore a defect in the _shape of the
+  seam_ — invisible now, live the day the filter starts narrowing.
 - **The auto-file rule engine is unwired.** `resolveAutoFileDecision` is exported from
   `packages/email-filing/src/index.ts:40` and called from nothing outside its own test. No route
   creates a rule, the capture consumer (`apps/worker/src/emails/capture-consumer.ts`) never consults
@@ -47,6 +47,8 @@ than assumed:
 ## High
 
 ### H1 — `addDays` has no calendar-range guard; the result renders blank and compares backwards
+
+**Fixed in #PR.** `addDays` shares the calendar-range guard its siblings apply; an out-of-range result is a `magnitude` refusal. `renderExpressionValue` returns undefined rather than `""`, and both call sites record an absence instead of tallying a clean substitution. `orderOf`'s date arm refuses an operand that is not a calendar date, closing the comparison path. Boundary asserted exactly on both ends and property-tested over generated offsets (`packages/document-assembly/test/expression-evaluate.test.ts`).
 
 **`packages/document-assembly/src/expression/evaluate.ts:737-745`**
 
@@ -104,6 +106,8 @@ should record an absence with a reason, not an empty string.
 
 ### H2 — the re-extraction sweep starves behind its own permanent candidates
 
+**Fixed in #PR.** The candidate query takes a `(committed_at, id)` keyset cursor, and the sweep advances it past every candidate examined rather than only the repaired ones; the per-firm cap counts messages produced, with a separate scan ceiling bounding one pass. Beside it the coordinator bounds re-attempts per document per engine generation (`SEARCH_INDEX_MAXIMUM_ATTEMPTS_PER_GENERATION`), resetting when a deploy changes which engines are bound so a deferred backlog drains rather than being written off. No migration — the counter lives in Durable Object storage. Convergence proven by fixture: a catalogue whose entire head is permanently failed still reaches its tail.
+
 **`apps/worker/src/search/reextraction-sweep.ts:64`, `packages/file-manager/src/queries.ts`
 (`listVersionsMissingFromSearchIndexStatement`), `apps/worker/src/search/index-coordinator.ts:27-39`**
 
@@ -117,7 +121,7 @@ LIMIT ?1`. Two terminal outcomes leave no split row:
 - `markFailed` — the consumer's `unextractable` branch (`index-consumer.ts:98-101`) and its
   "source bytes not found" branch (`index-consumer.ts:82-85`).
 - `markDeferred` — the `engine-not-implemented` branch (`index-consumer.ts:93-96`), which is the
-  *ordinary* state wherever `OCR_SERVICE` or the index engine is unbound. `resolveTextExtractionPort`
+  _ordinary_ state wherever `OCR_SERVICE` or the index engine is unbound. `resolveTextExtractionPort`
   (`text-extraction.ts:214-216`) returns the deferred port whenever `OCR_SERVICE` is absent, and that
   port defers every PDF with a scanned page.
 
@@ -142,6 +146,8 @@ head cannot monopolise the cap — but that is a mitigation, not the fix, since 
 remains.
 
 ### H3 — a DKIM `pass` is accepted without requiring `From` in the signed header set
+
+**Fixed in #PR.** Verified against RFC 6376 section 5.4 ("The From header field MUST be signed (that is, included in the 'h=' tag of the resulting DKIM-Signature header field)") before changing verdict semantics. A signature whose `h=` omits `from` is now `fromNotSigned` / `fail`, refused before a DNS lookup is spent on it, and the result records `signedHeaderNames` so a downstream gate need not re-parse. **The named follow-up resolves as aligned rather than as a further gap:** the capture record stores the LAST `From` instance (pinned in `crates/email-core/src/eml.rs`) and `buildSignedHeaderInput` validates the last instance per section 5.4.2, so a pass vouches for the same sender a person is shown. Both sides are now pinned by test.
 
 **`packages/email-filing/src/dkim.ts:263-269`**
 
@@ -185,6 +191,8 @@ which headers were covered, so a downstream gate can require more than `From` wi
 
 ### M1 — the number of DKIM signatures verified is unbounded, and each costs a DNS lookup
 
+**Fixed in #PR.** At most three signatures are examined per message and at most three DNS lookups are spent, budgeted across the message rather than per signature; the body-hash digest is memoized per `(canonicalization, l=)`, so two signatures agreeing on both hash the body once.
+
 **`packages/email-filing/src/dkim.ts:97-108`, `:169`, `:184`**
 
 `verifyDkim` iterates every `dkim-signature` header and calls `verifyOneSignature` on each. The body
@@ -204,6 +212,8 @@ message independently, since a message can also repeat one selector. Hoisting th
 out of the per-signature loop when `c=`/`l=` match is a cheap secondary win.
 
 ### M2 — the `l=` body-length tag is honoured with no cap and no "partially signed" marker
+
+**Fixed in #PR.** `bodyFullyCovered` is recorded on the verification result, and `dkimSuppression`'s `correspondentMatter` arm treats a partially-covered pass as `senderNotAuthenticated` — the report's preferred option, which keeps the informational verdict honest while closing the gate.
 
 **`packages/email-filing/src/dkim.ts:166-167`, `:297-307`, `:380-384`**
 
@@ -225,6 +235,8 @@ gate.
 
 ### M3 — the wall filter runs after database-side truncation for two of the four signals
 
+**Fixed in #PR.** Both database-truncating paths over-fetch a bounded multiple and then filter: the typed-query signal requests `limit * WALL_FILTER_OVERFETCH_MULTIPLE` before the wall filter, and `readRecentFilingTargets` does the same before slicing back to `targetLimit`.
+
 **`apps/worker/src/routes/email-add-in.ts:393`, `:459`**
 
 The route states its invariant plainly at `:47-52` and again at `:399-400`: "a matter the member
@@ -233,7 +245,7 @@ ranking, not after it". That holds for signals 1 to 3, whose gathers return ever
 It does not hold for two paths:
 
 - **Signal 4, the typed query.** `listMatters(firm.firmDatabase, { search: query, pageSize: limit })`
-  returns the firm's top `limit` matches *before* the filter at `:401-407` is applied. A walled
+  returns the firm's top `limit` matches _before_ the filter at `:401-407` is applied. A walled
   matter that matches the query occupies one of those slots. With `limit` at its default of 5, five
   walled matches silently reduce the member's own search-term suggestions to zero.
 - **`GET /emails/filing-context`.** `readRecentFilingTargets(..., targetLimit)` at `:459` truncates
@@ -245,11 +257,13 @@ The day it narrows, a walled matter consumes a slot and a count, which is the pr
 committed to not having.
 
 **Fix shape.** Over-fetch and then filter, or push the accessible-matter predicate into the query.
-For the search signal specifically, request `limit` matches *after* filtering — fetch a bounded
+For the search signal specifically, request `limit` matches _after_ filtering — fetch a bounded
 multiple, filter, then take `limit` — and assert the property in a test that stubs
 `filterAccessibleMatters` to drop a matter.
 
 ### M4 — `resolveDirectoryEntities` issues one query per participant address
+
+**Fixed in #PR.** `findEntitiesByEmailAddresses` resolves the whole participant set in one `IN` query, capped at `MAXIMUM_BATCHED_EMAIL_LOOKUPS`, with the merge/soft-delete resolution memoized across the batch. Tested to agree with the single-address form on merges, removals, and soft-deleted owners.
 
 **`apps/worker/src/emails/capture-consumer.ts:111-119`**
 
@@ -278,6 +292,8 @@ with the address list bound and capped the way `normalizedParticipants`
 
 ### M5 — engine-reported page indexes are not deduplicated, so one page can become two passages
 
+**Fixed in #PR.** `extractedFromPages` keeps exactly one page per index — preferring the reading that has lines, then `native` over `ocr` on a tie — and drops a negative index rather than turning it into page 0. `RecognitionSchema`'s `pageIndex` is now `nonnegative()`.
+
 **`apps/worker/src/search/text-extraction.ts:129-136`, `packages/search/src/extraction.ts:102`,
 `:111-123`**
 
@@ -300,6 +316,8 @@ while you are there.
 
 ### M6 — an unvalidated ISO string from a `date` custom field enters the expression scope
 
+**Fixed in #PR.** `dateOrTextValue` returns a text merge value for a stored string that is not a calendar date, so the key's type is what the checker sees and a comparison against a date is refused at registration; `orderOf`'s date arm additionally refuses rather than comparing when either operand does not parse.
+
 **`packages/document-assembly/src/custom-field-bindings.ts:250-254`, `:273-275`;
 `packages/document-assembly/src/expression/evaluate.ts:463-468`**
 
@@ -314,7 +332,10 @@ ordering is a raw string comparison:
 
 ```ts
 if (left.kind === "date" && right.kind === "date") {
-  return { kind: "ordered", comparison: left.isoDate === right.isoDate ? 0 : left.isoDate < right.isoDate ? -1 : 1 };
+  return {
+    kind: "ordered",
+    comparison: left.isoDate === right.isoDate ? 0 : left.isoDate < right.isoDate ? -1 : 1,
+  };
 }
 ```
 
@@ -331,6 +352,8 @@ refuse rather than compare when either operand does not parse — that is the sa
 belt-and-braces the currency arm already applies.
 
 ### M7 — the index consumer buffers whole documents into Worker memory
+
+**Fixed in #PR.** `enqueueVersionForIndexing` gates on the version's `size_bytes` and records anything past an explicit extraction ceiling as `deferred` naming that ceiling, so the decision is a recorded state rather than an out-of-memory that reads like an unreadable document.
 
 **`apps/worker/src/search/index-consumer.ts:87`, `apps/worker/src/search/text-extraction.ts:108`**
 
@@ -361,6 +384,8 @@ anticipates moving extraction into a Container; the size gate is the cheap thing
 
 ### L1 — DKIM key-record and expiry checks are incomplete
 
+**Fixed in #PR.** A record carrying `t=y` yields `keyTesting` / `unverified` (RFC 6376 section 3.6.1); the RSA modulus length is read back off the imported key and refused below 1024 bits as `keyTooWeak` (RFC 8301); a non-numeric `x=` is `malformedSignature` rather than a silently unapplied expiry.
+
 **`packages/email-filing/src/dkim.ts:406-417`, `:151-160`**
 
 `selectKeyRecord` reads `p=` and `k=` and ignores everything else in the record. Three omissions:
@@ -381,6 +406,8 @@ non-numeric `x=` as `malformedSignature` rather than as absent.
 
 ### L2 — a conflict hold is reported last, so a staged filing may never say a conflict held it
 
+**Fixed in #PR.** `demotionReason` still reports strongest-first for the machine-readable field, and the conflict-hold sentence is appended to `reasons` whenever `conflictHold` is true, regardless of which demotion won the ladder — without repeating it when the hold is itself the demotion.
+
 **`packages/email-filing/src/auto-file-rules.ts:494-505`**
 
 The demotion ladder is `rulePosture` → `firmPolicyDirectFilingOff` → breaker → `conflictHold`. The
@@ -395,6 +422,8 @@ conflict-hold sentence to `reasons` whenever `conflictHold` is true, regardless 
 won the ladder.
 
 ### L3 — the circuit breaker is read-then-act with no atomicity
+
+**Fixed in #PR.** `AUTO_FILE_ACTIVITY_WINDOW_LIMIT` is exported as the value a caller must pass, derived from the threshold so a limit that would disable the breaker cannot be chosen by accident, and the read's contract is documented where the limit is consumed. The overshoot is now stated explicitly as "the window plus one queue batch" rather than as a hard ceiling.
 
 **`packages/data-access/src/email-auto-file-statements.ts:416-434`,
 `packages/email-filing/src/auto-file-rules.ts:480-486`**
@@ -412,6 +441,8 @@ call site, and accept the overshoot explicitly by documenting the bound as "the 
 queue batch" rather than as a hard ceiling.
 
 ### L4 — malformed matter ids in the deciding evidence are dropped rather than refused
+
+**Fixed in #PR.** A non-string or empty entry in either the thread or subject matter-id list is `incompleteEvidence`, matching how a malformed rule is handled. Tested against the case the guardrail exists for: the same evidence with both ids well-formed is `ambiguousEvidence`, which dropping the malformed one would have collapsed into a firing.
 
 **`packages/email-filing/src/auto-file-rules.ts:376-379`**
 
@@ -431,6 +462,8 @@ a malformed rule is handled.
 
 ### L5 — per-page provenance is computed and discarded
 
+**Fixed in #PR** as the report's second option — documented, not persisted. The `pages` field is stated in the module as a forward seam with no store and no reader, so a reader does not assume the corpus report is already possible. Persisting a per-page provenance summary needs a column on the split row and belongs with the change that adds it.
+
 **`apps/worker/src/search/index-consumer.ts:120-126`**
 
 `extraction.pages` is produced by `extractedFromPages` and never read: `ports.index.index` receives
@@ -444,6 +477,8 @@ are enough for the exception report and cost one column), or state in the module
 forward seam so a reader does not assume the report is already possible.
 
 ### L6 — the campaign's new document-assembly paths are absent from the load-profile harness
+
+**Fixed in #PR.** A second probe manifest carries a repeating block over a collection, an aggregate over its items, and every protected key the dictionary offers; the new `assembly.merge-context-expressions` measurement resolves it with a stub protected reader, so the read plan and the serial decrypt count appear in the harness at a real firm's size.
 
 **`packages/fixtures/src/load-profile/document-automation-generate.ts:152-154`,
 `packages/fixtures/src/load-profile/document-automation-measurements.ts:129-146`**
@@ -476,7 +511,7 @@ Recorded so the negative results are as legible as the findings.
   lookup can reach a prototype; a merge key is one lexical atom (`lex.ts:60-77`), which is what makes
   `__proto__.constructor` uninteresting. Arity is enforced at parse (`parse.ts:555-563`, both
   minimum and maximum) as well as minimum-only at check, so the unguarded `argumentNodes[n] as
-  ExpressionNode` casts in `evaluateCall` (`evaluate.ts:623-637`) are in fact unreachable.
+ExpressionNode` casts in `evaluateCall` (`evaluate.ts:623-637`) are in fact unreachable.
 - **Termination and the budgets.** Every recursive walk is bounded: parser recursion by
   `PARSER_RECURSION_LIMIT` and separately by the node-counted tree depth; `treeDepthOf` recursion is
   bounded by the same; evaluation charges a step per node and per list element against a budget
@@ -490,7 +525,7 @@ Recorded so the negative results are as legible as the findings.
   `addOrSubtract` the `+` operator uses; there is no money literal and no cross-currency arithmetic.
   The `divideRounded` sticky adjustment (`evaluate.ts:915-923`) is correct for both signs — I walked
   the tie and near-tie cases by hand.
-- **Assembly re-checks expressions from the document's source** against the firm's *current*
+- **Assembly re-checks expressions from the document's source** against the firm's _current_
   dictionary (`assemble.ts:406`, `:451`, `:625`), which is what makes archived-custom-field drift a
   named failure. I looked specifically for a registration check the assembly path skips and found one
   candidate — the `:format` legality of a loop-scoped placeholder, which registration validates at
@@ -505,8 +540,8 @@ Recorded so the negative results are as legible as the findings.
   identity (`ProtectedReadForbiddenError`) and anything else propagates (`:273`), so a broken decrypt
   is not silently an absence. Reasons name the field and the permission and never the value
   (`:214-216`), the subject rides the party read already happening (`resolve.ts:283-286`), an
-  ambiguous client decrypts nothing (`:197-209`), and the refusal short-circuit is serial *by
-  design* so a refused member commits one audit row rather than one per key (`:256-263`) — I checked
+  ambiguous client decrypts nothing (`:197-209`), and the refusal short-circuit is serial _by
+  design_ so a refused member commits one audit row rather than one per key (`:256-263`) — I checked
   that the short-circuit cannot skip an audit row for a decrypt that did happen, because the
   chokepoint owns the audit and this module only stops asking. `absenceReasons` are pruned for keys
   that resolved (`resolve.ts:387-389`), so a reason never describes an absence that did not happen. I

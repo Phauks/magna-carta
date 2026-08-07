@@ -1,0 +1,39 @@
+{
+  "name": "@magna-carta/discovery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./limits": "./src/limits.ts",
+    "./validation": "./src/validation.ts",
+    "./r2-keys": "./src/r2-keys.ts",
+    "./load-source": "./src/load-source.ts",
+    "./review-set-statements": "./src/review-set-statements.ts",
+    "./review-set-service": "./src/review-set-service.ts",
+    "./record-custodian-statements": "./src/record-custodian-statements.ts",
+    "./record-custodian-service": "./src/record-custodian-service.ts",
+    "./load-statements": "./src/load-statements.ts",
+    "./load-service": "./src/load-service.ts",
+    "./review-document-statements": "./src/review-document-statements.ts",
+    "./internal-lane": "./src/internal-lane.ts",
+    "./external-lane": "./src/external-lane.ts",
+    "./allocation": "./src/allocation.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

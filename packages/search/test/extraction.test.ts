@@ -106,4 +106,64 @@ describe("extractedFromPages", () => {
       { pageIndex: 1, provenance: "ocr", hasText: false },
     ]);
   });
+
+  // A `chunkId` is `page-<index>`, so a repeated index would hand the index two passages sharing one
+  // chunk id and leave the provenance list with two answers for one page. A container retry, a page
+  // split across two result records, or an engine bug is enough to produce it.
+  describe("a page index reported more than once", () => {
+    it("keeps exactly one page per index", () => {
+      const result = extractedFromPages([
+        { pageIndex: 7, provenance: "ocr", lines: [{ text: "first reading" }] },
+        { pageIndex: 7, provenance: "ocr", lines: [{ text: "second reading" }] },
+      ]);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.passages).toHaveLength(1);
+      expect(result.pages).toHaveLength(1);
+      expect(new Set(result.passages.map((passage) => passage.chunkId)).size).toBe(1);
+    });
+
+    it("prefers the reading that has text, so one page cannot be both hasText true and false", () => {
+      const result = extractedFromPages([
+        { pageIndex: 7, provenance: "ocr", lines: [] },
+        { pageIndex: 7, provenance: "ocr", lines: [{ text: "the page does have text" }] },
+      ]);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.pages).toEqual([{ pageIndex: 7, provenance: "ocr", hasText: true }]);
+      expect(result.passages[0]?.text).toBe("the page does have text");
+    });
+
+    it("prefers native over ocr on a tie, since the text layer is the exact characters", () => {
+      const result = extractedFromPages([
+        { pageIndex: 3, provenance: "ocr", lines: [{ text: "recognized reading" }] },
+        { pageIndex: 3, provenance: "native", lines: [{ text: "the exact text" }] },
+      ]);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.pages).toEqual([{ pageIndex: 3, provenance: "native", hasText: true }]);
+      expect(result.passages[0]?.text).toBe("the exact text");
+    });
+
+    it("is order-independent, so the two halves may finish in either order", () => {
+      const pages = [
+        { pageIndex: 3, provenance: "native" as const, lines: [{ text: "the exact text" }] },
+        { pageIndex: 3, provenance: "ocr" as const, lines: [{ text: "recognized reading" }] },
+      ];
+      const forward = extractedFromPages(pages);
+      const reversed = extractedFromPages([...pages].toReversed());
+      expect(forward).toEqual(reversed);
+    });
+  });
+
+  it("drops a negative page index rather than turning it into page 0", () => {
+    const result = extractedFromPages([
+      { pageIndex: -1, provenance: "ocr", lines: [{ text: "nowhere" }] },
+      { pageIndex: 0, provenance: "native", lines: [{ text: "page one" }] },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.pages).toEqual([{ pageIndex: 0, provenance: "native", hasText: true }]);
+    expect(result.passages.map((passage) => passage.page)).toEqual([1]);
+  });
 });

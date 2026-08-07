@@ -58,6 +58,21 @@ const MAX_ANCESTOR_MESSAGE_IDS = 25;
 const MAX_PARTICIPANT_ADDRESSES = 50;
 const MAX_SUGGESTIONS = 25;
 const DEFAULT_SUGGESTIONS = 5;
+
+// HOW FAR TO OVER-FETCH BEFORE THE WALL FILTER NARROWS A RESULT SET.
+//
+// Signals 1 to 3 gather everything that matched, so filtering them loses nothing. The typed-query
+// signal and the recent-filing-targets read are different: both ask the database for the top N, so a
+// matter the member cannot see occupies one of those slots BEFORE the filter is applied — and with the
+// default of five, five walled matches would silently reduce a member's own suggestions to none. That
+// is exactly the property this module states it does not have: a matter the member cannot see must
+// contribute no suggestion, no reason, and no count.
+//
+// Over-fetching a bounded multiple and then taking the limit restores it for every realistic case,
+// without pushing an access predicate into a query that has no way to express one yet. The multiple is
+// bounded rather than unbounded because the filter is not free either, and a firm where four in five
+// matters are walled from a given member is a different problem from this one.
+const WALL_FILTER_OVERFETCH_MULTIPLE = 5;
 const MAX_RECENT_FILING_TARGETS = 20;
 const DEFAULT_RECENT_FILING_TARGETS = 8;
 
@@ -390,7 +405,13 @@ export function registerEmailAddInRoutes(
       // uses, so "search" means one thing across the product.
       const query = body.query?.trim() ?? "";
       if (query.length > 0) {
-        const page = await listMatters(firm.firmDatabase, { search: query, pageSize: limit });
+        // Over-fetched, because this gather truncates in the database: asking for exactly `limit`
+        // would let walled matters consume the member's own slots before the filter below runs. The
+        // ranking still takes `limit` from what survives.
+        const page = await listMatters(firm.firmDatabase, {
+          search: query,
+          pageSize: limit * WALL_FILTER_OVERFETCH_MULTIPLE,
+        });
         for (const matter of page.data) {
           evidence.push({ matterId: matter.id, signal: "searchTerm", detail: query });
         }
@@ -456,7 +477,14 @@ export function registerEmailAddInRoutes(
       const { limit } = c.req.valid("query");
       const targetLimit = limit ?? DEFAULT_RECENT_FILING_TARGETS;
 
-      const recent = await readRecentFilingTargets(firm.firmDatabase, userId, targetLimit);
+      // Over-fetched for the same reason the typed-query signal is: this read truncates in the
+      // database, so filtering afterwards would return a list short by however many of the member's
+      // most recent targets they can no longer see.
+      const recent = await readRecentFilingTargets(
+        firm.firmDatabase,
+        userId,
+        targetLimit * WALL_FILTER_OVERFETCH_MULTIPLE,
+      );
       // A member's own past filings still pass the wall filter: access can be withdrawn after the
       // fact, and a shortcut list is not an exemption from the current answer.
       const visible = await accessibleMatterIds(
@@ -464,7 +492,9 @@ export function registerEmailAddInRoutes(
         userId,
         recent.map((target) => target.matterId),
       );
-      const visibleTargets = recent.filter((target) => visible.has(target.matterId));
+      const visibleTargets = recent
+        .filter((target) => visible.has(target.matterId))
+        .slice(0, targetLimit);
       const visibleMatterIds = visibleTargets.map((target) => target.matterId);
 
       // Three bounded reads over the SAME small set of matters — never one read per matter.

@@ -130,8 +130,8 @@ green.
       `estate_treatment` (`probateEstate` / `nonProbateTransfer` / `undetermined`, default
       `undetermined`), `disposition` (default `retained`), `disposition_on`, `custody_item_id`
       (nullable, no index requirement yet), `notes`, `created_at` / `created_by`, `updated_at`,
-      `deleted_at`. Checks on the class and the two enums; index on `(matter_id, class, created_at,
-    id)` for the filtered keyset list.
+      `deleted_at`. Checks on the class and the two enums; index on
+      `(matter_id, class, created_at, id)` for the filtered keyset list.
 - [ ] `matter_asset_real_property` and `matter_asset_financial_account` — one-to-one on
       `asset_id` (primary key), columns per the design. Real-property field names mirror
       `PropertyReference` in `@magna-carta/property-links`; indexes on `parcel_number` and on

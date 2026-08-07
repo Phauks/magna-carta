@@ -70,8 +70,7 @@
       <Input
         id="whois-query"
         name="query"
-        size={28}
-        class="w-auto"
+        class="w-3xs"
         bind:value={query}
         placeholder="example.com or 8.8.8.8"
         autocomplete="off"

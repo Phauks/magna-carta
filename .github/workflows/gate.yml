@@ -674,6 +674,7 @@ jobs:
             -L pnpm-lock.yaml \
             -L crates/Cargo.lock \
             -L containers/bundle/Cargo.lock \
+            -L containers/discovery/Cargo.lock \
             -L containers/file-repair/Cargo.lock \
             -L containers/libreoffice/Cargo.lock \
             -L containers/ocr/Cargo.lock \
@@ -897,7 +898,7 @@ jobs:
               # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
               # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
               # them — and so anything NOT listed fails below instead of passing green untested.
-              collabora | file-repair | ocr | raster)
+              collabora | discovery | file-repair | ocr | raster)
                 echo "::warning::containers/$name changed but has no acceptance suite yet"
                 ;;
               *)

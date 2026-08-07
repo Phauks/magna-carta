@@ -20,7 +20,7 @@ import {
   type CaptureWritePlan,
 } from "@magna-carta/email-filing/capture";
 import { verifyDkim } from "@magna-carta/email-filing/dkim";
-import { findEntitiesByEmailAddress } from "@magna-carta/directory/contact-email";
+import { findEntitiesByEmailAddresses } from "@magna-carta/directory/contact-email";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   EmailMessageId,
@@ -115,10 +115,15 @@ export async function handleCaptureMessage(
     },
     findByDedupKey: (key) => findByDedupKey(firmDatabase, key),
     findThreadIdsByMessageIds: (values) => findThreadIdsByMessageIds(firmDatabase, values),
+    // ONE QUERY FOR EVERY PARTICIPANT, not one per address. The address set comes from the parsed
+    // message's from/to/cc/bcc, so it is bounded by the message rather than by anything this platform
+    // chose — a message with two hundred recipients would otherwise be two hundred sequential reads
+    // against the per-firm database inside a single queue-consumer invocation. The email-address index
+    // is already what is being seeked; asking it once is the same work without the round trips.
     resolveDirectoryEntities: async (addresses) => {
+      const matchesByAddress = await findEntitiesByEmailAddresses(firmDatabase, addresses);
       const resolved = new Map<string, string>();
-      for (const address of addresses) {
-        const matches = await findEntitiesByEmailAddress(firmDatabase, address);
+      for (const [address, matches] of matchesByAddress) {
         const first = matches[0];
         if (first !== undefined) resolved.set(address, first.entityId);
       }

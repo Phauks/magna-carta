@@ -28,11 +28,14 @@ export type DkimVerdictReason =
   | "unsigned" // the message carries no DKIM-Signature header
   | "noRawMessage" // the capture has no RFC 5322 bytes to canonicalize (a .msg export)
   | "malformedSignature" // the DKIM-Signature header could not be read
+  | "fromNotSigned" // h= omits From, so the signature says nothing about the sender
   | "unsupportedAlgorithm" // a signing or hash algorithm this verifier does not implement
   | "bodyHashMismatch" // the body changed after signing
   | "signatureMismatch" // the signature does not verify against the signed headers
   | "signatureExpired" // the signature's own x= expiry had passed at capture time
   | "keyRevoked" // the signer published an empty key (an explicit revocation)
+  | "keyTesting" // the signer published t=y: it is testing, and a verifier must not rely on it
+  | "keyTooWeak" // an RSA key below the size this platform will vouch for
   | "keyUnavailable" // no usable key record for the selector
   | "dnsTemporaryFailure"; // the key lookup failed in a way that may succeed later
 
@@ -43,6 +46,20 @@ export interface DkimVerification {
   readonly signingDomain: string | null;
   /** The `s=` selector of that signature. */
   readonly selector: string | null;
+  /**
+   * Whether the signature covered the WHOLE canonical body. A signature carrying `l=` signs only a
+   * prefix, and everything past it is unsigned — so anyone holding one legitimately signed message
+   * from a domain can append arbitrary content and the signature still verifies. The verdict stays
+   * `pass` because the cryptography did pass, which is the honest informational answer; recording the
+   * coverage beside it is what lets a gate that files mail unattended decline the partial case
+   * without having to re-parse the signature. False whenever the verdict is not `pass`.
+   */
+  readonly bodyFullyCovered: boolean;
+  /**
+   * The lowercased header names the signature actually covered, in `h=` order. A downstream gate that
+   * wants more than `From` reads this rather than re-parsing the header. Empty when nothing verified.
+   */
+  readonly signedHeaderNames: readonly string[];
 }
 
 /** The outcome of looking up a selector's key record. Distinguishing "no record" from "lookup broke"
@@ -67,10 +84,35 @@ export const UNVERIFIED: DkimVerification = {
   reason: "unsigned",
   signingDomain: null,
   selector: null,
+  bodyFullyCovered: false,
+  signedHeaderNames: [],
 };
 
 const CRLF = "\r\n";
 const HEADER_BODY_SEPARATOR = CRLF + CRLF;
+
+// HOW MANY SIGNATURES ONE MESSAGE IS ALLOWED TO COST. Real mail carries one signature, or two when a
+// list re-signs; three is already generous. The bound is not tidiness — `bh` is a plain SHA-256 of the
+// canonicalized body, so anyone holding the body can compute a correct one and attach it to a thousand
+// DKIM-Signature headers with distinct d=/s= values. Without a cap each of those is a digest over the
+// whole body plus an outbound DNS-over-HTTPS request whose queried name the sender chose, inside a
+// queue consumer: a CPU amplifier on this platform and a request amplifier pointed at the resolver.
+const MAXIMUM_SIGNATURES_EXAMINED = 3;
+
+// The DNS budget is separate from the signature budget because one message can also repeat a single
+// selector, and it is the lookups — not the signatures — that leave this platform.
+const MAXIMUM_KEY_LOOKUPS_PER_MESSAGE = 3;
+
+// RFC 8301 requires refusing RSA keys below 1024 bits. `crypto.subtle.importKey` imports a 512-bit SPKI
+// perfectly happily, so the size is read from the imported key rather than assumed from the record.
+const MINIMUM_RSA_KEY_BITS = 1024;
+
+// What one message may spend, shared across its signatures. The body-hash cache is the cheap secondary
+// win: two signatures agreeing on c= and l= hash the same bytes, and the body is the large input.
+interface MessageBudget {
+  lookupsRemaining: number;
+  readonly bodyHashes: Map<string, { readonly hash: string; readonly coversWholeBody: boolean }>;
+}
 
 /**
  * Verify the DKIM signatures on one raw RFC 5322 message.
@@ -88,7 +130,7 @@ export async function verifyDkim(
   // No header/body boundary at all means these bytes are not an RFC 5322 message; there is nothing
   // to canonicalize, which is a different statement from "the signature is bad".
   if (separator === -1) {
-    return { verdict: "unverified", reason: "noRawMessage", signingDomain: null, selector: null };
+    return { ...UNVERIFIED, reason: "noRawMessage" };
   }
   const headerBlock = text.slice(0, separator);
   const body = text.slice(separator + HEADER_BODY_SEPARATOR.length);
@@ -96,12 +138,19 @@ export async function verifyDkim(
 
   const signatureFields = fields.filter((field) => field.lowerName === "dkim-signature");
   if (signatureFields.length === 0) {
-    return { verdict: "unverified", reason: "unsigned", signingDomain: null, selector: null };
+    return UNVERIFIED;
   }
 
+  // Only the first few are examined; the rest are left unexamined rather than paid for. The reported
+  // outcome is the first signature's, which is the one nearest the message's own origin, so truncating
+  // the tail cannot change a `pass` into a `fail` — it can only decline to look further.
+  const budget: MessageBudget = {
+    lookupsRemaining: MAXIMUM_KEY_LOOKUPS_PER_MESSAGE,
+    bodyHashes: new Map(),
+  };
   let first: DkimVerification | null = null;
-  for (const field of signatureFields) {
-    const outcome = await verifyOneSignature(field, fields, body, options);
+  for (const field of signatureFields.slice(0, MAXIMUM_SIGNATURES_EXAMINED)) {
+    const outcome = await verifyOneSignature(field, fields, body, options, budget);
     if (outcome.verdict === "pass") return outcome;
     first ??= outcome;
   }
@@ -113,6 +162,7 @@ async function verifyOneSignature(
   fields: readonly HeaderField[],
   body: string,
   options: DkimVerifyOptions,
+  budget: MessageBudget,
 ): Promise<DkimVerification> {
   const parsed = parseTagList(signatureField.value);
   const tags = parsed.tags;
@@ -126,6 +176,8 @@ async function verifyOneSignature(
     reason,
     signingDomain: domain,
     selector,
+    bodyFullyCovered: false,
+    signedHeaderNames: [],
   });
 
   const signature = tags.get("b");
@@ -148,25 +200,50 @@ async function verifyOneSignature(
   const signing = parseAlgorithm(algorithm);
   if (signing === null) return at("unsupportedAlgorithm");
 
+  // THE SIGNED HEADER SET MUST INCLUDE `From`. RFC 6376 section 5.4: "The From header field MUST be
+  // signed (that is, included in the 'h=' tag of the resulting DKIM-Signature header field)." A
+  // signature whose h= is `subject:date` verifies perfectly and binds nothing about who sent the
+  // message — so an attacker holding any message a domain signed (a public list post is enough) can
+  // rewrite `From:` and re-send it, and the body hash, the signature, and `d=` all still agree. The
+  // refusal is checked before the body hash because it is a property of the signature alone and costs
+  // nothing, and it is a `fail` rather than an `unverified` because the question WAS answerable: this
+  // is a well-formed-looking signature that the RFC says is not one.
+  const signedHeaderNames = signedHeaderNamesOf(signedHeaders);
+  if (!signedHeaderNames.includes("from")) return at("fromNotSigned", "fail");
+
   const expiry = tags.get("x");
   if (expiry !== undefined) {
     const expirySeconds = Number(expiry);
     const nowSeconds = (options.nowSeconds ?? (() => Math.floor(Date.now() / 1000)))();
+    // A NON-NUMERIC x= IS A MALFORMED SIGNATURE, not an absent expiry. Reading `Number("abc")` as NaN
+    // and falling through would silently drop the shelf life the signer set, which is the one reading
+    // that favours whoever wrote the tag.
+    if (!Number.isFinite(expirySeconds)) return at("malformedSignature");
     // The signer set its own shelf life and it has passed. Reported as a definite failure because the
     // signer said so, not because the cryptography disagreed.
-    if (Number.isFinite(expirySeconds) && expirySeconds < nowSeconds) {
-      return at("signatureExpired", "fail");
-    }
+    if (expirySeconds < nowSeconds) return at("signatureExpired", "fail");
   }
 
   const { headerCanonicalization, bodyCanonicalization } = parseCanonicalization(tags.get("c"));
 
   // 1. The body hash. Checked first: it needs no DNS, and a body that changed after signing settles
-  // the question without spending a lookup on it.
+  // the question without spending a lookup on it. Memoized per (canonicalization, l=) across this
+  // message's signatures, because the body is the large input and a second signature agreeing on both
+  // hashes exactly the same bytes.
   const lengthLimit = parseLengthLimit(tags.get("l"));
-  const canonicalBody = canonicalizeBody(body, bodyCanonicalization, lengthLimit);
-  const computedBodyHash = await sha256Base64(binaryStringToBytes(canonicalBody));
-  if (computedBodyHash !== bodyHash) return at("bodyHashMismatch", "fail");
+  const cacheKey = `${bodyCanonicalization}|${lengthLimit ?? "whole"}`;
+  let digested = budget.bodyHashes.get(cacheKey);
+  if (digested === undefined) {
+    const wholeCanonicalBody = canonicalizeBody(body, bodyCanonicalization);
+    const canonicalBody =
+      lengthLimit === null ? wholeCanonicalBody : wholeCanonicalBody.slice(0, lengthLimit);
+    digested = {
+      hash: await sha256Base64(binaryStringToBytes(canonicalBody)),
+      coversWholeBody: canonicalBody.length === wholeCanonicalBody.length,
+    };
+    budget.bodyHashes.set(cacheKey, digested);
+  }
+  if (digested.hash !== bodyHash) return at("bodyHashMismatch", "fail");
 
   // 2. The signed header set, in the order the h= tag lists them. A name listed more than once refers
   // to successively earlier instances of that header (RFC 6376's bottom-up rule), and a name listed
@@ -180,7 +257,10 @@ async function verifyOneSignature(
     headerCanonicalization,
   );
 
-  // 3. The signer's public key.
+  // 3. The signer's public key. The lookup budget is shared across the message's signatures, so a
+  // message carrying many distinct selectors cannot turn one capture into many outbound requests.
+  if (budget.lookupsRemaining <= 0) return at("keyUnavailable");
+  budget.lookupsRemaining -= 1;
   const lookup = await options.lookupKeyRecords(`${selector}._domainkey.${domain}`);
   if (lookup.kind === "temporaryFailure") return at("dnsTemporaryFailure");
   if (lookup.kind === "notFound") return at("keyUnavailable");
@@ -190,6 +270,10 @@ async function verifyOneSignature(
   // longer validate anything. That is a statement about the signature, so it is a definite failure —
   // unlike a selector that has simply rotated away, which leaves no record at all.
   if (keyRecord.publicKey === "") return at("keyRevoked", "fail");
+  // t=y means the signer is still testing this selector. RFC 6376 section 3.6.1 says a verifier must
+  // not treat such a message differently from an unsigned one, so it resolves to `unverified` — the
+  // signer has explicitly asked not to be relied on, and a `pass` here would vouch past that.
+  if (keyRecord.testing) return at("keyTesting");
 
   const verified = await verifySignature(
     signing,
@@ -198,7 +282,25 @@ async function verifyOneSignature(
     binaryStringToBytes(signedInput),
   );
   if (verified === null) return at("unsupportedAlgorithm");
-  return verified ? at("passed", "pass") : at("signatureMismatch", "fail");
+  if (verified === "keyTooWeak") return at("keyTooWeak", "fail");
+  if (!verified) return at("signatureMismatch", "fail");
+  return {
+    verdict: "pass",
+    reason: "passed",
+    signingDomain: domain,
+    selector,
+    bodyFullyCovered: digested.coversWholeBody,
+    signedHeaderNames,
+  };
+}
+
+// The h= entries, lowercased, empty entries dropped, in the order the signer listed them. One home so
+// the From check and the recorded header set cannot drift from what buildSignedHeaderInput walks.
+function signedHeaderNamesOf(signedHeaders: string): string[] {
+  return signedHeaders
+    .split(":")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry !== "");
 }
 
 // ── Header fields
@@ -294,16 +396,14 @@ function canonicalizeHeader(field: HeaderField, canonicalization: Canonicalizati
 
 // ── Body canonicalization
 
-function canonicalizeBody(
-  body: string,
-  canonicalization: Canonicalization,
-  lengthLimit: number | null,
-): string {
-  const canonical =
-    canonicalization === "simple" ? canonicalizeBodySimple(body) : canonicalizeBodyRelaxed(body);
-  // The l= tag signs only a prefix of the body. Honouring it is what lets the signature verify at all
-  // on a message a list appended a footer to; the bytes past the limit are simply unsigned.
-  return lengthLimit === null ? canonical : canonical.slice(0, lengthLimit);
+// The WHOLE canonical body. The l= prefix is applied by the caller rather than here, because the caller
+// needs both lengths to answer "did this signature cover everything" — honouring l= is what lets a
+// signature verify at all on a message a list appended a footer to, and the bytes past the limit are
+// simply unsigned, which is a fact the verdict has to carry rather than discard.
+function canonicalizeBody(body: string, canonicalization: Canonicalization): string {
+  return canonicalization === "simple"
+    ? canonicalizeBodySimple(body)
+    : canonicalizeBodyRelaxed(body);
 }
 
 function canonicalizeBodySimple(body: string): string {
@@ -401,6 +501,8 @@ function parseAlgorithm(tag: string): SigningAlgorithm | null {
 interface KeyRecord {
   readonly publicKey: string;
   readonly keyType: "rsa" | "ed25519";
+  /** The record carries `t=y`: the signer is testing this selector and asks not to be relied on. */
+  readonly testing: boolean;
 }
 
 function selectKeyRecord(records: readonly string[], wanted: "rsa" | "ed25519"): KeyRecord | null {
@@ -411,22 +513,31 @@ function selectKeyRecord(records: readonly string[], wanted: "rsa" | "ed25519"):
     const keyType = tags.get("k") ?? "rsa"; // the k= tag defaults to rsa
     if (keyType !== "rsa" && keyType !== "ed25519") continue;
     if (keyType !== wanted) continue;
-    return { publicKey, keyType };
+    // t= is a colon-separated flag list; `y` is the testing flag and other flags (`s`) may sit beside
+    // it, so it is a membership test rather than a string equality.
+    const testing = (tags.get("t") ?? "")
+      .split(":")
+      .map((flag) => flag.trim().toLowerCase())
+      .includes("y");
+    return { publicKey, keyType, testing };
   }
   return null;
 }
 
 /**
- * Verify one signature. Returns null — not false — when the runtime cannot import the key at all, so
- * a runtime without Ed25519 records `unsupportedAlgorithm` rather than accusing the signer of a bad
- * signature.
+ * Verify one signature.
+ *
+ * Three outcomes rather than two, because they call for three different verdicts: `null` when the
+ * runtime cannot import the key at all (a runtime without Ed25519 records `unsupportedAlgorithm`
+ * rather than accusing the signer of a bad signature), `"keyTooWeak"` when the key imported but is
+ * below the size this platform will vouch for, and a boolean when the cryptography actually answered.
  */
 async function verifySignature(
   algorithm: SigningAlgorithm,
   publicKeyBase64: string,
   signatureBase64: string,
   signedInput: Uint8Array,
-): Promise<boolean | null> {
+): Promise<boolean | null | "keyTooWeak"> {
   let signature: Uint8Array;
   let publicKey: Uint8Array;
   try {
@@ -445,6 +556,11 @@ async function verifySignature(
         false,
         ["verify"],
       );
+      // RFC 8301 requires refusing RSA keys below 1024 bits, and `importKey` imports a 512-bit SPKI
+      // without complaint — so the modulus length is read back off the imported key rather than
+      // trusted from the record. A key too small to vouch for must not produce a pass, whatever the
+      // arithmetic says.
+      if (rsaModulusBitsOf(key) < MINIMUM_RSA_KEY_BITS) return "keyTooWeak";
       return await crypto.subtle.verify(
         "RSASSA-PKCS1-v1_5",
         key,
@@ -469,6 +585,17 @@ async function verifySignature(
   } catch {
     return null;
   }
+}
+
+// The modulus length WebCrypto reports for an imported RSA key. `algorithm` on a CryptoKey is typed as
+// the base KeyAlgorithm, so the RSA-specific field is read through a narrow structural check rather
+// than a cast that would also swallow a missing one. An unreadable length reads as 0, which refuses —
+// the safe direction when the question is "is this key big enough to vouch for".
+function rsaModulusBitsOf(key: CryptoKey): number {
+  const algorithm: unknown = key.algorithm;
+  if (typeof algorithm !== "object" || algorithm === null) return 0;
+  const modulusLength = (algorithm as { modulusLength?: unknown }).modulusLength;
+  return typeof modulusLength === "number" ? modulusLength : 0;
 }
 
 // ── Byte/text plumbing. DKIM canonicalizes octets, so every string here is a 1:1 byte string

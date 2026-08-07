@@ -276,6 +276,14 @@ describe("end-to-end", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        // The three discovery keys reach Owner/Admin, Attorney, and Paralegal, and none of them
+        // reaches Billing or Read-only (20260806T080000_discovery-5-1-2). Its OWN namespace is the
+        // access rule: a review set is reachable from a discovery grant and from nothing else, never
+        // from matters:* or files:*, because material produced by another party may be
+        // attorney's-eyes-only under a protective order.
+        "discovery:load",
+        "discovery:manageReviewSets",
+        "discovery:read",
         "documents:assemble",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to

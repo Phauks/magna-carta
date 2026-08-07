@@ -143,7 +143,7 @@ Every backend/headless capability that shipped ahead of its UI, in the order the
 **Stage 1 — the frame (slice 0·7b core; strictly ordered)**
 
 - **Real App Shell in `apps/web`** — routes, the assembled chrome (Sidebar/TopBar/BrandMark parts from the design system; nav registry + permission filtering in the app), route-level View Transitions. No backend dependency.
-- **Auth (slice 0·4 backend)** — login / 2FA / passkey-enrollment UI. Sequenced for plumbing, not ceremony: it gates real data on every later screen. Ships functional with a modest ceremonial edge; the written-live wordmark (anime.js's first consumer + its ADR) enriches it later without rework.
+- **Auth (slice 0·4 backend)** — **the sign-in screen has shipped**: identifier-first credentials (email → password) and the authenticator-code challenge, all at `/login` with the step held in state so the URL never reveals which factor is in play, over the two new auth input primitives (`PasswordInput`, `VerificationCodeInput`). What remains on this line: password reset and recovery-code entry (both linked, both holding pages today), the 2FA/passkey **enrollment** surfaces, and the alternative-method row — which stays absent until a second method exists behind it. Ships functional with a modest ceremonial edge; the written-live wordmark (anime.js's first consumer + its ADR) enriches it later without rework.
 - **Appearance settings** — theme/mode/density/motion pickers over the wired axes; proves the Settings archetype.
 
 **Stage 2 — archetype proofs on real data (slice 1·1; strictly ordered after stage 1)**
