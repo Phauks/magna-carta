@@ -313,9 +313,10 @@ describe("the approver must differ from the submitter", () => {
           reason: "Refusing my own request",
           authorizationBasis: null,
           movementId: null,
+          transferId: null,
         }).run(),
       ),
-    ).rejects.toThrow(/other than the one who requested it/);
+    ).rejects.toThrow(/only another member may reject a trust disbursement request/);
     expect(await countRows(fixture.database, "trust_disbursement_decision")).toBe(0);
   });
 
@@ -333,6 +334,7 @@ describe("the approver must differ from the submitter", () => {
           reason: null,
           authorizationBasis: null,
           movementId: null,
+          transferId: null,
         }).run(),
       ),
     ).rejects.toThrow(/may withdraw it/);
@@ -354,7 +356,9 @@ describe("the approver must differ from the submitter", () => {
 describe("a firm with a single trust manager", () => {
   it("records the submitter's own approval AS SUCH rather than as an ordinary one", async () => {
     const { fixture, node } = await fundedFixture(500000);
-    const soleManager = await seedTrustManager(fixture, "The Only Attorney");
+    // The fixture member IS the firm's one trust:manage holder — the exception belongs to the
+    // counted member, so only that member may act alone.
+    const soleManager = fixture.memberUserId;
     const composed = await composeTrustDisbursementRequest(
       fixture.database,
       {
@@ -399,7 +403,7 @@ describe("a firm with a single trust manager", () => {
   // whole posting with it.
   it("loses the exception at the DATABASE the moment a second trust manager exists", async () => {
     const { fixture, node } = await fundedFixture(500000);
-    const submitter = await seedTrustManager(fixture, "Submitting Attorney");
+    const submitter = fixture.memberUserId;
     const composed = await composeTrustDisbursementRequest(
       fixture.database,
       {
@@ -425,7 +429,7 @@ describe("a firm with a single trust manager", () => {
 
     await seedTrustManager(fixture, "A Second Attorney");
     await expect(expectRefusal(() => commit(fixture.database, approved.effect))).rejects.toThrow(
-      /more than one member/,
+      /sole-authorizer exception/,
     );
 
     expect(await countRows(fixture.database, "trust_disbursement_decision")).toBe(0);

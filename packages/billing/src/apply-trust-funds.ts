@@ -4,6 +4,8 @@ import type {
   InvoiceApplicationId,
   MatterId,
   TrustAccountId,
+  TrustAuthorizationPolicyId,
+  TrustDisbursementRequestId,
   TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -59,6 +61,18 @@ export interface ApplyTrustFundsInput {
   readonly trustDescription: string;
   readonly operatingDescription: string;
   readonly appliedBy: UserId;
+  // Who let the money go, when that is a different member than the one who assembled the
+  // application: the approver of a pending application request. Defaults to `appliedBy` — the
+  // direct, single-actor form — which the firm's authorization policy may refuse (trust raises the
+  // named refusal, and the trust_transfer triggers hold it at the database).
+  readonly authorizedBy?: UserId;
+  // Present when this application is the approval of a pending request: the transfer is then
+  // governed by the policy version stamped on that request rather than the current one — an
+  // in-flight application keeps the rules it was submitted against.
+  readonly approvedRequest?: {
+    readonly id: TrustDisbursementRequestId;
+    readonly policyId: TrustAuthorizationPolicyId | null;
+  };
 }
 
 export interface AppliedTrustFunds {
@@ -116,9 +130,12 @@ export async function applyTrustFundsToInvoices(
       operatingDescription: input.operatingDescription,
       operatingBankAccountId,
       accountsReceivableAccountId,
-      // The member who took the money, recorded on the transfer row. A movement of client money that
-      // does not say who let it go is a movement nobody can be asked about.
-      authorizedBy: input.appliedBy,
+      // Who assembled the application and who let the money go — distinct members when the firm's
+      // policy requires a second person, the same member when it does not. A movement of client
+      // money that does not say who let it go is a movement nobody can be asked about.
+      recordedBy: input.appliedBy,
+      authorizedBy: input.authorizedBy ?? input.appliedBy,
+      approvedRequest: input.approvedRequest,
     },
     {
       ...options,

@@ -70,6 +70,14 @@ export async function billingFixture(): Promise<BillingFixture> {
         "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, 'active', ?3)",
       )
       .bind(memberUserId, "Responsible Attorney", clock.now()),
+    // The fixture member is the firm's ONE genuine trust:manage holder: the earned-fee transfer's
+    // lone-holder exception belongs to the counted member, so a firm with zero holders could not
+    // apply trust funds single-handed at all.
+    database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:manage', NULL, ?2, ?3)",
+      )
+      .bind(newIdentifier("grant"), memberUserId, clock.now()),
   ]);
 
   const accountsReceivable = await createAccount(

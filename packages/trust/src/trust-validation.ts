@@ -30,6 +30,14 @@ export type TrustValidationCode =
   | "trust-disbursement-request-already-decided"
   | "trust-disbursement-decider-is-requester"
   | "trust-disbursement-withdrawal-not-by-requester"
+  | "trust-request-not-a-disbursement"
+  // The firm's authorization policy — the per-firm posture both money-out paths are decided under
+  | "unknown-trust-authorization-policy"
+  | "trust-authorization-policy-malformed"
+  | "trust-authorization-policy-threshold-required"
+  | "trust-authorization-policy-threshold-forbidden"
+  | "trust-authorization-policy-unchanged"
+  | "trust-authorization-authority-required"
   // Holds and available balance
   | "hold-exceeds-available"
   | "unknown-hold"
@@ -38,6 +46,7 @@ export type TrustValidationCode =
   | "hold-currency-mismatch"
   // Transfers out of trust
   | "transfer-exceeds-available"
+  | "transfer-requires-second-person"
   | "operating-side-is-trust-account"
   | "earned-fee-precondition-unavailable"
   // Jurisdiction — four distinct refusals, each fixed by a different person doing a different thing:

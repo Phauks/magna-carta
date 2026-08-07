@@ -15,6 +15,7 @@
     "./finalize": "./src/finalize.ts",
     "./application": "./src/application.ts",
     "./earned-fee": "./src/earned-fee.ts",
+    "./apply-authorization": "./src/apply-authorization.ts",
     "./apply-trust-funds": "./src/apply-trust-funds.ts",
     "./queries": "./src/queries.ts",
     "./fitness": "./src/fitness.ts"

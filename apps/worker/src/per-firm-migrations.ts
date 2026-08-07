@@ -48,6 +48,7 @@ import notificationsDeliverySql from "@magna-carta/database/drizzle/per-firm/202
 import matterStaffingSql from "@magna-carta/database/drizzle/per-firm/20260807T040000_matter-staffing.sql";
 import matterCourtCaseSql from "@magna-carta/database/drizzle/per-firm/20260807T041000_matter-court-case.sql";
 import matterEstateAndCapacitySql from "@magna-carta/database/drizzle/per-firm/20260807T042000_matter-estate-and-capacity.sql";
+import trustAuthorizationPolicySql from "@magna-carta/database/drizzle/per-firm/20260807T050000_trust-authorization-policy.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -106,6 +107,7 @@ export function perFirmMigrations(): Migration[] {
     "20260807T040000_matter-staffing": matterStaffingSql,
     "20260807T041000_matter-court-case": matterCourtCaseSql,
     "20260807T042000_matter-estate-and-capacity": matterEstateAndCapacitySql,
+    "20260807T050000_trust-authorization-policy": trustAuthorizationPolicySql,
   });
 }
 

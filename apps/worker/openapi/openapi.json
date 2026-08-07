@@ -13453,7 +13453,8 @@
             "type": "string",
             "enum": [
               "second_person",
-              "sole_trust_manager"
+              "sole_trust_manager",
+              "policy_exempt"
             ]
           },
           "trustMovementId": {
@@ -13537,6 +13538,13 @@
           "id": {
             "type": "string"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "disbursement",
+              "earned_fee_application"
+            ]
+          },
           "trustLedgerNodeId": {
             "type": "string"
           },
@@ -13583,6 +13591,7 @@
         },
         "required": [
           "id",
+          "kind",
           "trustLedgerNodeId",
           "amountMinor",
           "currency",
@@ -13594,6 +13603,103 @@
           "effectiveDate",
           "requestedBy",
           "requestedAt"
+        ]
+      },
+      "TrustAuthorizationPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/TrustAuthorizationPolicyVersion"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustAuthorizationPolicyVersion"
+            }
+          }
+        },
+        "required": [
+          "current",
+          "history"
+        ]
+      },
+      "TrustAuthorizationPolicyVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "off",
+              "threshold",
+              "always"
+            ]
+          },
+          "thresholdAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "requireAuthorizedApprover": {
+            "type": "boolean"
+          },
+          "setBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "setAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "policy",
+          "thresholdAmountMinor",
+          "requireAuthorizedApprover",
+          "setBy",
+          "setAt"
+        ]
+      },
+      "TrustAuthorizationPolicyChange": {
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "string",
+            "enum": [
+              "off",
+              "threshold",
+              "always"
+            ]
+          },
+          "thresholdAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "requireAuthorizedApprover": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy",
+          "requireAuthorizedApprover"
         ]
       },
       "TrustMatterTransferRequest": {
@@ -13756,6 +13862,7 @@
             "enum": [
               "second_person",
               "sole_trust_manager",
+              "policy_exempt",
               null
             ]
           },
@@ -15125,6 +15232,151 @@
         "required": [
           "invoiceId",
           "amountMinor"
+        ]
+      },
+      "BillingTrustApplicationRequestAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "totalMinor",
+          "status"
+        ]
+      },
+      "BillingTrustApplicationRequestSubmission": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingTrustApplicationTarget"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "trustDescription": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operatingDescription": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "check",
+              "cash",
+              "wire",
+              "electronic_transfer",
+              "card"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "payee": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "matterId",
+          "currency",
+          "effectiveDate",
+          "applications",
+          "trustDescription",
+          "operatingDescription",
+          "method",
+          "payee",
+          "purpose"
+        ]
+      },
+      "BillingTrustApplicationApprovalAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "authorizationBasis": {
+            "type": "string",
+            "enum": [
+              "second_person",
+              "sole_trust_manager",
+              "policy_exempt"
+            ]
+          },
+          "transferId": {
+            "type": "string"
+          },
+          "trustEntryId": {
+            "type": "string"
+          },
+          "operatingEntryId": {
+            "type": "string"
+          },
+          "applicationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "authorizationBasis",
+          "transferId",
+          "trustEntryId",
+          "operatingEntryId",
+          "applicationIds",
+          "totalMinor",
+          "currency"
         ]
       },
       "BillingAccountRoleMapResponse": {
@@ -48536,6 +48788,211 @@
         }
       }
     },
+    "/api/v1/trust/authorization-policy": {
+      "get": {
+        "description": "Returns the firm's disbursement-authorization posture — whether money leaving a client ledger takes a second person (off, above a threshold amount, or always) and whether whoever authorizes it must hold the authority capability — together with every version the firm has ever written. A firm that has never written one has the shipped default: always two-person, no authority requirement.",
+        "operationId": "trust.readAuthorizationPolicy",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.readAuthorizationPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's authorization policy, current and history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustAuthorizationPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Changes the firm's disbursement-authorization posture, as a new immutable version recording who changed it, when, and from what. The change governs NEW authorizations only: a request already pending keeps the policy version it was submitted under, in both directions. Requires the authority capability — relaxing how the firm's client money moves is itself an act of authority over it.",
+        "operationId": "trust.changeAuthorizationPolicy",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.changeAuthorizationPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:authorize",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustAuthorizationPolicyChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new policy version is in force for new authorizations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustAuthorizationPolicyVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trust/matter-transfers": {
       "post": {
         "description": "Moves trust funds between two matters of the SAME client. No bank movement happens, so no bank line is posted and no reconciliation item is created. A destination matter belonging to a different client is refused.",
@@ -51060,6 +51517,253 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BillingApplyTrustFundsAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/trust-application-requests": {
+      "post": {
+        "description": "Proposes taking earned fees out of a client's trust ledger against named finalized invoices, as a pending request for another member to approve. NO MONEY MOVES: the request and its invoice lines are a proposal, checked now so the submitter learns of a problem immediately, and re-checked in full at approval. This is the path a firm whose authorization policy requires a second person takes its fees by; the request is decided under the policy version in force when it is submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
+        "operationId": "billing.submitTrustApplication",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.submitTrustApplication",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingTrustApplicationRequestSubmission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The application request is recorded and awaiting approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingTrustApplicationRequestAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/trust-application-requests/{requestId}/approval": {
+      "post": {
+        "description": "Approves a pending earned-fee application and posts it, in ONE atomic write: the money leaves the client ledger as two linked entries, each named invoice's balance moves by exactly what the request proposed, and the decision that settles the request records who approved and on what footing. Every check the direct application runs is run again HERE, against the invoices and the ledger as they stand now — a request overtaken by a payment, a credit note, or another transfer is refused rather than posted. Under a policy requiring a second person the approving member must be somebody other than the submitter; the recorded exceptions (a sole trust manager, or a policy that exempts the amount) are named on the decision's face.",
+        "operationId": "billing.approveTrustApplication",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.approveTrustApplication",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The application was approved, transferred, and applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingTrustApplicationApprovalAck"
                 }
               }
             }

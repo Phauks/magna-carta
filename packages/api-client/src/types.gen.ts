@@ -3072,7 +3072,7 @@ export type TrustDisbursementRequestSubmission = {
 
 export type TrustDisbursementApprovalAck = {
     trustDisbursementRequestId: string;
-    authorizationBasis: 'second_person' | 'sole_trust_manager';
+    authorizationBasis: 'second_person' | 'sole_trust_manager' | 'policy_exempt';
     trustMovementId: string;
     ledgerEntryId: string;
     trustLedgerNodeId: string;
@@ -3097,6 +3097,7 @@ export type TrustPendingDisbursementRequestsResponse = {
 
 export type TrustPendingDisbursementRequest = {
     id: string;
+    kind: 'disbursement' | 'earned_fee_application';
     trustLedgerNodeId: string;
     amountMinor: number;
     currency: string;
@@ -3108,6 +3109,27 @@ export type TrustPendingDisbursementRequest = {
     effectiveDate: string;
     requestedBy: string;
     requestedAt: string;
+};
+
+export type TrustAuthorizationPolicyResponse = {
+    current: TrustAuthorizationPolicyVersion;
+    history: Array<TrustAuthorizationPolicyVersion>;
+};
+
+export type TrustAuthorizationPolicyVersion = {
+    id: string | null;
+    version: number;
+    policy: 'off' | 'threshold' | 'always';
+    thresholdAmountMinor: number | null;
+    requireAuthorizedApprover: boolean;
+    setBy: string | null;
+    setAt: string | null;
+};
+
+export type TrustAuthorizationPolicyChange = {
+    policy: 'off' | 'threshold' | 'always';
+    thresholdAmountMinor?: number | null;
+    requireAuthorizedApprover: boolean;
 };
 
 export type TrustMatterTransferRequest = {
@@ -3144,7 +3166,7 @@ export type TrustMovementRecord = {
     recordedBy: string;
     authorizedBy: string | null;
     disbursementRequestId: string | null;
-    authorizationBasis: 'second_person' | 'sole_trust_manager' | null;
+    authorizationBasis: 'second_person' | 'sole_trust_manager' | 'policy_exempt' | null;
     effectiveDate: string;
     recordedAt: string;
 };
@@ -3466,6 +3488,37 @@ export type BillingApplyTrustFundsRequest = {
 export type BillingTrustApplicationTarget = {
     invoiceId: string;
     amountMinor: number;
+};
+
+export type BillingTrustApplicationRequestAck = {
+    trustDisbursementRequestId: string;
+    totalMinor: number;
+    status: 'pending';
+};
+
+export type BillingTrustApplicationRequestSubmission = {
+    trustAccountId: string;
+    matterId: string;
+    currency: 'USD';
+    effectiveDate: string;
+    applications: Array<BillingTrustApplicationTarget>;
+    trustDescription: string;
+    operatingDescription: string;
+    method: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card';
+    reference?: string | null;
+    payee: string;
+    purpose: string;
+};
+
+export type BillingTrustApplicationApprovalAck = {
+    trustDisbursementRequestId: string;
+    authorizationBasis: 'second_person' | 'sole_trust_manager' | 'policy_exempt';
+    transferId: string;
+    trustEntryId: string;
+    operatingEntryId: string;
+    applicationIds: Array<string>;
+    totalMinor: number;
+    currency: string;
 };
 
 export type BillingAccountRoleMapResponse = {
@@ -17035,6 +17088,99 @@ export type TrustWithdrawDisbursementResponses = {
 
 export type TrustWithdrawDisbursementResponse = TrustWithdrawDisbursementResponses[keyof TrustWithdrawDisbursementResponses];
 
+export type TrustReadAuthorizationPolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/authorization-policy';
+};
+
+export type TrustReadAuthorizationPolicyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustReadAuthorizationPolicyError = TrustReadAuthorizationPolicyErrors[keyof TrustReadAuthorizationPolicyErrors];
+
+export type TrustReadAuthorizationPolicyResponses = {
+    /**
+     * The firm's authorization policy, current and history
+     */
+    200: TrustAuthorizationPolicyResponse;
+};
+
+export type TrustReadAuthorizationPolicyResponse = TrustReadAuthorizationPolicyResponses[keyof TrustReadAuthorizationPolicyResponses];
+
+export type TrustChangeAuthorizationPolicyData = {
+    body: TrustAuthorizationPolicyChange;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/authorization-policy';
+};
+
+export type TrustChangeAuthorizationPolicyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustChangeAuthorizationPolicyError = TrustChangeAuthorizationPolicyErrors[keyof TrustChangeAuthorizationPolicyErrors];
+
+export type TrustChangeAuthorizationPolicyResponses = {
+    /**
+     * The new policy version is in force for new authorizations
+     */
+    201: TrustAuthorizationPolicyVersion;
+};
+
+export type TrustChangeAuthorizationPolicyResponse = TrustChangeAuthorizationPolicyResponses[keyof TrustChangeAuthorizationPolicyResponses];
+
 export type TrustTransferBetweenMattersData = {
     body: TrustMatterTransferRequest;
     headers: {
@@ -18134,6 +18280,112 @@ export type BillingApplyTrustFundsResponses = {
 };
 
 export type BillingApplyTrustFundsResponse = BillingApplyTrustFundsResponses[keyof BillingApplyTrustFundsResponses];
+
+export type BillingSubmitTrustApplicationData = {
+    body: BillingTrustApplicationRequestSubmission;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/trust-application-requests';
+};
+
+export type BillingSubmitTrustApplicationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingSubmitTrustApplicationError = BillingSubmitTrustApplicationErrors[keyof BillingSubmitTrustApplicationErrors];
+
+export type BillingSubmitTrustApplicationResponses = {
+    /**
+     * The application request is recorded and awaiting approval
+     */
+    201: BillingTrustApplicationRequestAck;
+};
+
+export type BillingSubmitTrustApplicationResponse = BillingSubmitTrustApplicationResponses[keyof BillingSubmitTrustApplicationResponses];
+
+export type BillingApproveTrustApplicationData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/trust-application-requests/{requestId}/approval';
+};
+
+export type BillingApproveTrustApplicationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingApproveTrustApplicationError = BillingApproveTrustApplicationErrors[keyof BillingApproveTrustApplicationErrors];
+
+export type BillingApproveTrustApplicationResponses = {
+    /**
+     * The application was approved, transferred, and applied
+     */
+    201: BillingTrustApplicationApprovalAck;
+};
+
+export type BillingApproveTrustApplicationResponse = BillingApproveTrustApplicationResponses[keyof BillingApproveTrustApplicationResponses];
 
 export type BillingAccountRolesData = {
     body?: never;

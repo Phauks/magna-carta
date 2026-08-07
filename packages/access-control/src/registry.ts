@@ -127,6 +127,13 @@ export const PERMISSIONS = [
   // matter, and its sub-ledger spans every matter a client has.
   "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
   "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
+  // The authority to act on client money — the capability a firm's authorization policy can require
+  // of whoever lets a disbursement or an earned-fee application go (the approver, or the sole actor
+  // when the policy exempts the amount). A separate key from trust:manage because "may keep the
+  // trust books" and "may authorize money to leave" are the two capabilities the owner's policy
+  // exists to separate; changing the policy itself also takes this key, since relaxing the firm's
+  // money-movement posture IS an act of authority over client money.
+  "trust:authorize", // authorize money leaving a client ledger when policy requires authority; change the authorization policy
   // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
   // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
   // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and

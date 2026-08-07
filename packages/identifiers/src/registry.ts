@@ -187,6 +187,11 @@ export const ENTITY_PREFIXES = {
   trustMovement: "trustMovement",
   trustDisbursementRequest: "trustDisbursementRequest",
   trustDisbursementDecision: "trustDisbursementDecision",
+  // A `trustAuthorizationPolicy` is one immutable version of the firm's disbursement-authorization
+  // posture — off, threshold, or always, plus whether the deciding member must hold the authority
+  // capability. The current policy is the highest version; a pending request keeps the version it
+  // was created under.
+  trustAuthorizationPolicy: "trustAuthorizationPolicy",
   trustBankStatement: "trustBankStatement",
   trustBankStatementLine: "trustBankStatementLine",
   trustReconciliation: "trustReconciliation",
@@ -205,6 +210,10 @@ export const ENTITY_PREFIXES = {
   invoiceLine: "invoiceLine",
   invoiceWipClaim: "invoiceWipClaim",
   invoiceApplication: "invoiceApplication",
+  // An `invoiceTrustApplicationLine` is one invoice-and-amount a pending earned-fee application
+  // request proposes to settle — the particulars an approving member is approving, stored beside
+  // the shared trust_disbursement_request row the queue and its decision discipline live on.
+  invoiceTrustApplicationLine: "invoiceTrustApplicationLine",
   creditNote: "creditNote",
   creditNoteLine: "creditNoteLine",
   clientCredit: "clientCredit",

@@ -3,14 +3,25 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   TrustAccountId,
+  TrustAuthorizationPolicyId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
   TrustLedgerNodeId,
   TrustMovementId,
+  TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { currencyFromCode, money, type Money } from "@magna-carta/money/money";
+import { assertTrustAccountOpen, loadTrustAccount, loadTrustNode } from "./account-tree.ts";
 import {
+  assertActorHoldsTrustAuthority,
+  loadTrustAuthorizationPolicy,
+  readCurrentTrustAuthorizationPolicy,
+  trustAuthorizationRequiresSecondPerson,
+} from "./authorization-policy.ts";
+import { readTrustAvailableBalance } from "./holds.ts";
+import {
+  assertMovementCurrency,
   composeTrustDisbursement,
   mergeEffects,
   resolveTrustDisbursement,
@@ -29,26 +40,42 @@ import type {
   TrustDisbursementAuthorizationBasis,
   TrustDisbursementDecisionKind,
   TrustDisbursementMethod,
+  TrustDisbursementRequestKind,
   TrustDisbursementRequestSnapshot,
 } from "./types.ts";
 
-// Two-person authorization for money leaving a client ledger. A member PROPOSES a disbursement and a
-// second member APPROVES it; the trust movement is composed and posted at the moment of approval,
-// with the approver recorded as the authorizing member. The whole point of the control is that the
-// two acts are separate people, so the split it enforces is between who wrote the record
-// (`recorded_by`, the submitter) and who let the money go (`authorized_by`, the approver).
+// Authorization for money leaving a client ledger, under the FIRM'S OWN POLICY
+// (authorization-policy.ts): a member PROPOSES a payment and — when the policy stamped on the
+// request requires it — a second member APPROVES it; the posting is composed at the moment of
+// approval, with the approver recorded as the authorizing member. When the stamped policy does not
+// require a second person (off, or at-or-below the threshold), the submitter approves their own
+// request and the decision says so on its face (`policy_exempt`). Either way the split the record
+// enforces is between who wrote the record (`recorded_by`, the submitter) and who let the money go
+// (`authorized_by`, the approver).
+//
+// ONE QUEUE, TWO KINDS. A `disbursement` request is approved here and posts a trust movement; an
+// `earned_fee_application` request is submitted here (billing keeps its invoice lines beside it) and
+// approved through billing, posting a trust-to-operating transfer. The decision table and its
+// triggers govern both, which is what "the earned-fee application follows the same policy" means
+// structurally.
 //
 // WHAT IS ENFORCED WHERE, on the same principle movements.ts states for the posting itself:
 //
-//   the decision table's triggers   an approval or a rejection by the member who submitted the
-//                                   request, a withdrawal by anyone else, and a sole-manager
-//                                   approval in a firm that has more than one trust manager — each
-//                                   aborts the batch, including the ledger posting it carried
+//   the decision table's triggers   an approval by the submitter under a policy that requires a
+//                                   second person, a rejection by the submitter, a withdrawal by
+//                                   anyone else, an exception basis that misdescribes the stamped
+//                                   policy, a sole-manager approval in a firm with more than one
+//                                   trust manager, and a deciding member without authority where the
+//                                   policy requires it — each aborts the batch, including the ledger
+//                                   posting it carried
 //   the decision table's UNIQUE     a request is settled exactly once; two concurrent approvals both
-//                                   compose a movement and the loser's whole batch rolls back
+//                                   compose a posting and the loser's whole batch rolls back
 //   the account_balance floor       the ledger still cannot go negative, whatever this layer thinks
 //   this module                     the named refusals a person can act on, and the re-check of
 //                                   available balance AT APPROVAL TIME — never the guarantee itself
+//
+// THE POLICY IS READ FROM THE REQUEST'S STAMP, NEVER THE LATEST VERSION: an in-flight request keeps
+// the rules it was submitted against, in both directions.
 //
 // A PENDING REQUEST IS NOT A MOVEMENT. Until a decision row exists there is no ledger entry, no
 // balance change, and no trust_movement row: a request that is rejected, withdrawn, or simply never
@@ -84,6 +111,10 @@ export async function composeTrustDisbursementRequest(
   options: TrustMovementOptions,
 ): Promise<ComposedTrustDisbursementRequest> {
   const { node, account, amountMinor } = await resolveTrustDisbursement(database, input, options);
+  // The stamp: the policy in force NOW is the one this request will be decided under, however the
+  // firm's posture changes while it is pending. The stamp-is-current trigger holds this at the
+  // database.
+  const policy = await readCurrentTrustAuthorizationPolicy(database);
 
   const requestId = newIdentifier("trustDisbursementRequest", options.randomSource);
   return {
@@ -106,6 +137,79 @@ export async function composeTrustDisbursementRequest(
           effectiveDate: input.effectiveDate,
           requestedBy: input.requestedBy,
           requestedAt: options.clock.now(),
+          kind: "disbursement",
+          operatingDescription: null,
+          policyId: policy.id,
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export interface EarnedFeeApplicationAuthorizationRequestInput {
+  readonly fromNodeId: TrustLedgerNodeId;
+  readonly amount: Money;
+  readonly effectiveDate: string; // YYYY-MM-DD civil date
+  readonly description: string; // the trust leg's ledger-entry description on approval
+  readonly operatingDescription: string; // the operating leg's
+  readonly method: TrustDisbursementMethod; // how the money will physically move to the firm
+  readonly reference?: string | null;
+  readonly payee: string; // the firm, as it will appear on the client ledger
+  readonly purpose: string;
+  readonly requestedBy: UserId;
+}
+
+// Proposing an earned-fee application — the queue row for billing's "apply trust funds" when the
+// firm's policy requires a second person (and available to any firm that wants the review step).
+// Trust knows the money side only: the leaf, the amount, the descriptions both legs will carry.
+// WHICH INVOICES the amount settles is billing's fact, stored by billing beside this request and
+// re-resolved at approval; the lines-sum trigger holds the two sides equal at the database.
+export async function composeEarnedFeeApplicationAuthorizationRequest(
+  database: SqlDatabase,
+  input: EarnedFeeApplicationAuthorizationRequestInput,
+  options: TrustMovementOptions,
+): Promise<ComposedTrustDisbursementRequest> {
+  const node = await loadTrustNode(database, input.fromNodeId);
+  const account = await loadTrustAccount(database, node.trustAccountId);
+  assertTrustAccountOpen(account);
+  const amountMinor = assertMovementCurrency(account, input.amount);
+
+  // The same courtesy the disbursement proposal extends: tell the submitter NOW that the money is
+  // not there, rather than through an approver. The re-check at approval is the one that counts.
+  const available = await readTrustAvailableBalance(database, input.fromNodeId);
+  if (amountMinor > available.availableMinor) {
+    throw new TrustValidationError(
+      "transfer-exceeds-available",
+      `a transfer of ${amountMinor} exceeds the ${available.availableMinor} available on this client ledger`,
+    );
+  }
+
+  const policy = await readCurrentTrustAuthorizationPolicy(database);
+  const requestId = newIdentifier("trustDisbursementRequest", options.randomSource);
+  return {
+    requestId,
+    trustAccountId: account.id,
+    nodeId: node.id,
+    effect: {
+      statements: [
+        insertTrustDisbursementRequestStatement(database, {
+          id: requestId,
+          trustAccountId: account.id,
+          nodeId: node.id,
+          amountMinor,
+          currency: account.currency,
+          method: input.method,
+          reference: input.reference ?? null,
+          payee: input.payee,
+          purpose: input.purpose,
+          description: input.description,
+          effectiveDate: input.effectiveDate,
+          requestedBy: input.requestedBy,
+          requestedAt: options.clock.now(),
+          kind: "earned_fee_application",
+          operatingDescription: input.operatingDescription,
+          policyId: policy.id,
         }),
       ],
       outboxMessages: [],
@@ -127,6 +231,9 @@ interface TrustDisbursementRequestRow {
   effective_date: string;
   requested_by: string;
   requested_at: string;
+  kind: TrustDisbursementRequestKind;
+  operating_description: string | null;
+  policy_id: string | null;
   decision_id?: string | null;
   decision?: TrustDisbursementDecisionKind | null;
   decided_by?: string | null;
@@ -134,6 +241,7 @@ interface TrustDisbursementRequestRow {
   reason?: string | null;
   authorization_basis?: TrustDisbursementAuthorizationBasis | null;
   movement_id?: string | null;
+  transfer_id?: string | null;
 }
 
 function toRequestSnapshot(row: TrustDisbursementRequestRow): TrustDisbursementRequestSnapshot {
@@ -151,6 +259,9 @@ function toRequestSnapshot(row: TrustDisbursementRequestRow): TrustDisbursementR
     effectiveDate: row.effective_date,
     requestedBy: row.requested_by as UserId,
     requestedAt: row.requested_at,
+    kind: row.kind,
+    operatingDescription: row.operating_description,
+    policyId: (row.policy_id as TrustAuthorizationPolicyId | null) ?? null,
     // Pending is the ABSENCE of a decision row, never a stored state — the derivation the hold model
     // already uses for "still active".
     decision:
@@ -163,6 +274,7 @@ function toRequestSnapshot(row: TrustDisbursementRequestRow): TrustDisbursementR
             reason: row.reason ?? null,
             authorizationBasis: row.authorization_basis ?? null,
             movementId: (row.movement_id as TrustMovementId | null) ?? null,
+            transferId: (row.transfer_id as TrustTransferId | null) ?? null,
           }
         : null,
   };
@@ -199,7 +311,7 @@ export async function readPendingTrustDisbursementRequests(
   return results.map(toRequestSnapshot);
 }
 
-async function loadPendingRequest(
+export async function loadPendingTrustDisbursementRequest(
   database: SqlDatabase,
   requestId: TrustDisbursementRequestId,
 ): Promise<TrustDisbursementRequestSnapshot> {
@@ -231,6 +343,73 @@ export interface TrustDisbursementApprovalInput {
   readonly approvedBy: UserId;
 }
 
+// THE SHARED APPROVAL RESOLUTION — one answer, for both kinds of request, to "on what footing may
+// this member let this money go", with the named refusals in front of the triggers that guarantee
+// it. Reads the policy STAMPED on the request (the in-flight rule), decides the basis, and asserts
+// the authority option. The disbursement approval below and billing's application approval both run
+// through here, so the policy has exactly one interpretation.
+export async function resolveTrustAuthorizationApproval(
+  database: SqlDatabase,
+  request: TrustDisbursementRequestSnapshot,
+  decidedBy: UserId,
+): Promise<{
+  readonly authorizationBasis: TrustDisbursementAuthorizationBasis;
+  readonly policyId: TrustAuthorizationPolicyId | null;
+}> {
+  const policy = await loadTrustAuthorizationPolicy(database, request.policyId);
+  const requiresSecondPerson = trustAuthorizationRequiresSecondPerson(policy, request.amountMinor);
+
+  const deciderIsRequester = decidedBy === request.requestedBy;
+  if (deciderIsRequester && requiresSecondPerson) {
+    const managers = await readActiveTrustManagers(database);
+    if (managers.length > 1) {
+      // The refusal NAMES them. The trigger this mirrors counts a direct grant of `trust:manage`
+      // whether or not it has expired, deliberately, because over-counting authorizers refuses the
+      // sole-manager exception and that is the safe direction to be wrong in. A firm told only that
+      // it "has other members" cannot find the lapsed grant that is speaking for a person who no
+      // longer works there, and would be locked out of paying client money out at all.
+      const others = managers
+        .filter((manager) => manager.user_id !== decidedBy)
+        .map((manager) => `${manager.display_name} (${manager.user_id})`)
+        .join(", ");
+      throw new TrustValidationError(
+        "trust-disbursement-decider-is-requester",
+        `${decidedBy} submitted this request, and this firm has other members who can authorize money leaving a client ledger; one of them must approve it: ${others}`,
+      );
+    }
+    // The exception belongs to the one member the count found, not to whoever reached this line
+    // while a lone holder exists: a member who can submit but not authorize must route the request
+    // to the holder, or the recorded basis would assert a footing nobody had. The trigger holds the
+    // same membership test.
+    if (!managers.some((manager) => manager.user_id === decidedBy)) {
+      const holder = managers
+        .map((manager) => `${manager.display_name} (${manager.user_id})`)
+        .join(", ");
+      throw new TrustValidationError(
+        "trust-disbursement-decider-is-requester",
+        managers.length === 0
+          ? `no active member of this firm holds trust:manage, so nobody may authorize money leaving a client ledger; grant the capability first`
+          : `${decidedBy} does not hold trust:manage; the sole-authorizer exception belongs to the firm's only member who does, and this request must be approved by: ${holder}`,
+      );
+    }
+  }
+
+  // The authority option binds whoever lets money go, second person or sole actor alike. The
+  // trigger is the guarantee; this refusal names who can act instead.
+  await assertActorHoldsTrustAuthority(database, policy, decidedBy);
+
+  // The basis states the footing on its face: a second person; the sole manager of a firm with
+  // nobody else where one was required; or the stamped policy not requiring one at this amount.
+  return {
+    authorizationBasis: deciderIsRequester
+      ? requiresSecondPerson
+        ? "sole_trust_manager"
+        : "policy_exempt"
+      : "second_person",
+    policyId: policy.id,
+  };
+}
+
 export interface ApprovedTrustDisbursement {
   readonly requestId: TrustDisbursementRequestId;
   readonly decisionId: TrustDisbursementDecisionId;
@@ -255,30 +434,21 @@ export async function composeTrustDisbursementApproval(
   input: TrustDisbursementApprovalInput,
   options: TrustMovementOptions,
 ): Promise<ApprovedTrustDisbursement> {
-  const request = await loadPendingRequest(database, input.requestId);
-
-  const approverIsRequester = input.approvedBy === request.requestedBy;
-  if (approverIsRequester) {
-    const managers = await readActiveTrustManagers(database);
-    if (managers.length > 1) {
-      // The refusal NAMES them. The trigger this mirrors counts a direct grant of `trust:manage`
-      // whether or not it has expired, deliberately, because over-counting authorizers refuses the
-      // sole-manager exception and that is the safe direction to be wrong in. A firm told only that
-      // it "has other members" cannot find the lapsed grant that is speaking for a person who no
-      // longer works there, and would be locked out of paying client money out at all.
-      const others = managers
-        .filter((manager) => manager.user_id !== input.approvedBy)
-        .map((manager) => `${manager.display_name} (${manager.user_id})`)
-        .join(", ");
-      throw new TrustValidationError(
-        "trust-disbursement-decider-is-requester",
-        `${input.approvedBy} submitted this disbursement request, and this firm has other members who can authorize a trust disbursement; one of them must approve it: ${others}`,
-      );
-    }
+  const request = await loadPendingTrustDisbursementRequest(database, input.requestId);
+  if (request.kind !== "disbursement") {
+    // An application's approval must re-resolve its invoice lines and compose a transfer, which
+    // this composer knows nothing about — billing owns that approval and merges it into one batch.
+    throw new TrustValidationError(
+      "trust-request-not-a-disbursement",
+      `request ${request.id} is an earned-fee application; approve it through the billing application flow, which posts the transfer its invoices account for`,
+    );
   }
-  const authorizationBasis: TrustDisbursementAuthorizationBasis = approverIsRequester
-    ? "sole_trust_manager"
-    : "second_person";
+
+  const { authorizationBasis } = await resolveTrustAuthorizationApproval(
+    database,
+    request,
+    input.approvedBy,
+  );
 
   const movement = await composeTrustDisbursement(
     database,
@@ -318,10 +488,55 @@ export async function composeTrustDisbursementApproval(
           reason: null,
           authorizationBasis,
           movementId: movement.movementId,
+          transferId: null,
         }),
       ],
       outboxMessages: [],
     }),
+  };
+}
+
+export interface EarnedFeeApplicationApprovalDecisionInput {
+  readonly requestId: TrustDisbursementRequestId;
+  readonly decidedBy: UserId;
+  readonly authorizationBasis: TrustDisbursementAuthorizationBasis;
+  readonly transferId: TrustTransferId;
+}
+
+export interface EarnedFeeApplicationApprovalDecision {
+  readonly decisionId: TrustDisbursementDecisionId;
+  readonly effect: EffectWrite;
+}
+
+// The decision row an approved earned-fee application rides out on. Billing composes the transfer
+// (through trust's own transfer composer) and the invoice applications; trust composes the decision
+// that settles the queue row, because the decision table and its discipline are trust's. The caller
+// merges this into the ONE batch carrying the transfer — the triggers then hold the decision, the
+// transfer, and the request in agreement or abort all of it together.
+export function composeEarnedFeeApplicationApprovalDecision(
+  database: SqlDatabase,
+  input: EarnedFeeApplicationApprovalDecisionInput,
+  options: TrustMovementOptions,
+): EarnedFeeApplicationApprovalDecision {
+  const decisionId = newIdentifier("trustDisbursementDecision", options.randomSource);
+  return {
+    decisionId,
+    effect: {
+      statements: [
+        insertTrustDisbursementDecisionStatement(database, {
+          id: decisionId,
+          requestId: input.requestId,
+          decision: "approved",
+          decidedBy: input.decidedBy,
+          decidedAt: options.clock.now(),
+          reason: null,
+          authorizationBasis: input.authorizationBasis,
+          movementId: null,
+          transferId: input.transferId,
+        }),
+      ],
+      outboxMessages: [],
+    },
   };
 }
 
@@ -346,7 +561,7 @@ export async function composeTrustDisbursementRejection(
   input: TrustDisbursementRejectionInput,
   options: TrustMovementOptions,
 ): Promise<SettledTrustDisbursementRequest> {
-  const request = await loadPendingRequest(database, input.requestId);
+  const request = await loadPendingTrustDisbursementRequest(database, input.requestId);
   if (input.rejectedBy === request.requestedBy) {
     throw new TrustValidationError(
       "trust-disbursement-decider-is-requester",
@@ -370,7 +585,7 @@ export async function composeTrustDisbursementWithdrawal(
   input: TrustDisbursementWithdrawalInput,
   options: TrustMovementOptions,
 ): Promise<SettledTrustDisbursementRequest> {
-  const request = await loadPendingRequest(database, input.requestId);
+  const request = await loadPendingTrustDisbursementRequest(database, input.requestId);
   if (input.withdrawnBy !== request.requestedBy) {
     throw new TrustValidationError(
       "trust-disbursement-withdrawal-not-by-requester",
@@ -411,6 +626,7 @@ function settle(
           reason,
           authorizationBasis: null,
           movementId: null,
+          transferId: null,
         }),
       ],
       outboxMessages: [],

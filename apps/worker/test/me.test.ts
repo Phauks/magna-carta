@@ -192,7 +192,13 @@ describe("GET /api/v1/me", () => {
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Owner/Admin, Attorney, and Billing
-        // (20260805T120001_seed-trust-permissions). Read-only carries neither.
+        // (20260805T120001_seed-trust-permissions). Read-only carries neither. trust:authorize is
+        // the authority to act on client money — what the firm's authorization policy can require
+        // of whoever lets a disbursement or an earned-fee application go, and the key that changes
+        // that policy — and it reaches Owner/Admin and Attorney only
+        // (20260807T050000_trust-authorization-policy): deliberately narrower than trust:manage,
+        // which also reaches Billing.
+        "trust:authorize",
         "trust:manage",
         "trust:read",
       ],

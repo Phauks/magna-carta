@@ -31,7 +31,10 @@ export type BillingValidationCode =
   | "earned-fee-amount-mismatch"
   | "earned-fee-node-mismatch"
   | "earned-fee-no-applications"
-  | "earned-fee-too-many-invoices";
+  | "earned-fee-too-many-invoices"
+  // The pending earned-fee application — billing's side of the shared authorization queue
+  | "request-not-an-earned-fee-application"
+  | "application-request-malformed";
 
 export class BillingValidationError extends Error {
   constructor(
