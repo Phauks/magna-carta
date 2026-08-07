@@ -53,10 +53,15 @@ export interface ResolvedRequirement<T> {
 // jurisdiction requires none, which is a real and useful answer. Every DATA requirement is absent
 // from this map on purpose: "the rule does not say who receives the interest" is not "nobody does",
 // and a silence there would assert a fact about the world that nobody checked.
-const SILENCE_MEANS: Partial<Record<TrustJurisdictionRequirement, unknown>> = {
-  prohibitedDisbursementMethods: [],
-  reconciliation: { required: false },
-};
+//
+// Frozen, deeply: these singletons are handed out as resolved values, and a resolved value is
+// reference data shared by every caller. Without the freeze, one caller pushing a method into the
+// resolved empty array would quietly ban it for every later resolve — a mutation of the law itself,
+// from the caller least entitled to make it. Freezing fails that write loudly at the mutation site.
+const SILENCE_MEANS: Partial<Record<TrustJurisdictionRequirement, unknown>> = Object.freeze({
+  prohibitedDisbursementMethods: Object.freeze([]),
+  reconciliation: Object.freeze({ required: false }),
+});
 
 export interface JurisdictionDescription {
   readonly jurisdictionCode: string;
@@ -97,13 +102,58 @@ export function describeJurisdiction(jurisdictionCode: string): JurisdictionDesc
   };
 }
 
+// The revision string a review binds to, DERIVED from the profile's content rather than hand-set
+// beside it. The authored `revision` date names when the profile was last deliberately amended; the
+// fingerprint proves nothing in it has moved since. An amendment that forgets to bump the date still
+// changes the fingerprint, so the recorded attestation stops matching and the gate closes — the
+// hand-set string alone could silently inherit a review of text the reviewer never saw.
+//
+// The fingerprint covers everything a reviewing attorney attests to — every value, citation, quote,
+// note, and provenance field — and deliberately excludes `attorneyReview` itself, so recording the
+// review does not invalidate the review being recorded.
+export function deriveProfileRevision(profile: JurisdictionProfile): string {
+  const attested: Omit<JurisdictionProfile, "attorneyReview"> = {
+    jurisdictionCode: profile.jurisdictionCode,
+    name: profile.name,
+    revision: profile.revision,
+    typed: profile.typed,
+    cited: profile.cited,
+  };
+  return `${profile.revision}#${fingerprintOfContent(attested)}`;
+}
+
+// A stable serialization (object keys sorted at every depth, so key order in a source file is not
+// content) hashed with the 64-bit Fowler-Noll-Vo function. Not cryptographic and does not need to
+// be: the adversary is an honest editor forgetting a bump, not an attacker forging a collision.
+function fingerprintOfContent(content: unknown): string {
+  const serialized = JSON.stringify(sortObjectKeysDeeply(content));
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < serialized.length; index++) {
+    hash ^= BigInt(serialized.charCodeAt(index));
+    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+
+function sortObjectKeysDeeply(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((entry) => sortObjectKeysDeeply(entry));
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value)
+      .slice()
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+    return Object.fromEntries(entries.map(([key, entry]) => [key, sortObjectKeysDeeply(entry)]));
+  }
+  return value;
+}
+
 // A review covers the profile it was performed against. When a rule is amended and the profile is
-// re-authored, its revision moves and the old review no longer covers it — so the gate closes again
-// rather than silently inheriting an attestation about superseded text. That is the difference
-// between a review gate and a one-time checkbox.
+// re-authored, its derived revision moves — by the authored date when the editor remembered the
+// bump, by the content fingerprint regardless — and the old review no longer covers it, so the gate
+// closes again rather than silently inheriting an attestation about superseded text. That is the
+// difference between a review gate and a one-time checkbox.
 export function isReviewCurrent(profile: JurisdictionProfile): boolean {
   const review = profile.attorneyReview;
-  return review !== null && review.profileRevision === profile.revision;
+  return review !== null && review.profileRevision === deriveProfileRevision(profile);
 }
 
 export function resolveJurisdictionRequirement<T>(
@@ -135,7 +185,7 @@ export function resolveFromProfile<T>(
     const because =
       review === null
         ? "no attorney has reviewed it"
-        : `the recorded review covers revision ${review.profileRevision} and the profile is now revision ${profile.revision}`;
+        : `the recorded review covers revision ${review.profileRevision} and the profile is now revision ${deriveProfileRevision(profile)}`;
     throw new TrustValidationError(
       "jurisdiction-not-verified",
       `the rules encoded for ${profile.name} are not verified: ${because}, so ${requirement} does not resolve`,

@@ -1,10 +1,11 @@
 import { TRUST_JURISDICTION_REQUIREMENTS } from "@magna-carta/trust/jurisdiction";
 import { describe, expect, it } from "vitest";
 import { NEVADA_PROFILE } from "../src/data/nevada.ts";
-import { resolveFromProfile } from "../src/resolve.ts";
+import { deriveProfileRevision, resolveFromProfile } from "../src/resolve.ts";
 import {
   type AttorneyReview,
   type JurisdictionProfile,
+  type ProhibitedDisbursementMethod,
   type ReconciliationRequirement,
   type RecordsRetention,
   REQUIREMENT_BUCKETS,
@@ -16,7 +17,7 @@ const REVIEW: AttorneyReview = {
   reviewedBy: "Reviewing Attorney",
   barNumber: "00000",
   reviewedOn: "2026-08-07",
-  profileRevision: NEVADA_PROFILE.revision,
+  profileRevision: deriveProfileRevision(NEVADA_PROFILE),
 };
 const REVIEWED_NEVADA: JurisdictionProfile = { ...NEVADA_PROFILE, attorneyReview: REVIEW };
 
@@ -116,6 +117,39 @@ describe("the restriction bucket resolves off only on a recorded silence", () =>
     // see it and opt in — it is simply not a Nevada rule.
     expect(resolved.note).toContain("ATM access");
   });
+
+  // The silence-resolved values are shared reference data, one instance handed to every caller. A
+  // caller pushing a method into the resolved empty array would otherwise ban it for every later
+  // resolve, platform-wide; the freeze fails that write loudly at the mutation site instead.
+  it("hands out frozen silence values a caller cannot mutate for everyone else", () => {
+    const methods = resolveFromProfile<readonly ProhibitedDisbursementMethod[]>(
+      REVIEWED_NEVADA,
+      "prohibitedDisbursementMethods",
+    );
+    expect(() => {
+      (methods.value as ProhibitedDisbursementMethod[]).push("cashWithdrawal");
+    }).toThrowError(TypeError);
+
+    const reconciliation = resolveFromProfile<ReconciliationRequirement>(
+      REVIEWED_NEVADA,
+      "reconciliation",
+    );
+    expect(() => {
+      (reconciliation.value as { required: boolean }).required = true;
+    }).toThrowError(TypeError);
+
+    // And the shared instances really are unchanged for the next caller.
+    expect(
+      resolveFromProfile<readonly ProhibitedDisbursementMethod[]>(
+        REVIEWED_NEVADA,
+        "prohibitedDisbursementMethods",
+      ).value,
+    ).toEqual([]);
+    expect(
+      resolveFromProfile<ReconciliationRequirement>(REVIEWED_NEVADA, "reconciliation").value
+        .required,
+    ).toBe(false);
+  });
 });
 
 describe("a rule that assigns the decision to the lawyer is rendered, never gated on", () => {
@@ -146,10 +180,12 @@ describe("a data requirement never resolves from silence or from absence", () =>
     expect(dataRequirements.length).toBeGreaterThan(0);
 
     for (const requirement of dataRequirements) {
-      const silenced: JurisdictionProfile = {
-        ...REVIEWED_NEVADA,
+      // The review is derived from the SILENCED content, so the gate is open and the refusal under
+      // test is the field's own — not the review gate closing over the content change.
+      const silencedContent: JurisdictionProfile = {
+        ...NEVADA_PROFILE,
         typed: {
-          ...REVIEWED_NEVADA.typed,
+          ...NEVADA_PROFILE.typed,
           [requirement]: {
             confidence: "NOT_ADDRESSED",
             note: "the rule is silent",
@@ -160,6 +196,10 @@ describe("a data requirement never resolves from silence or from absence", () =>
             },
           },
         },
+      };
+      const silenced: JurisdictionProfile = {
+        ...silencedContent,
+        attorneyReview: { ...REVIEW, profileRevision: deriveProfileRevision(silencedContent) },
       };
       expect(
         refusalCode(() => resolveFromProfile(silenced, requirement)),

@@ -182,17 +182,21 @@ export interface AttorneyReview {
   readonly reviewedBy: string;
   readonly barNumber: string;
   readonly reviewedOn: string; // ISO 8601 date
-  // What the reviewer read. A review of a profile is a review of the values AND the sources they
-  // were taken from, and recording the corpus revision is what makes a later amendment detectable
-  // as invalidating the review rather than silently inheriting it.
+  // What the reviewer read: the DERIVED revision string from `deriveProfileRevision` in
+  // src/resolve.ts — the authored revision date plus a fingerprint of the profile's content — never
+  // the hand-set date alone. A review of a profile is a review of the values AND the sources they
+  // were taken from, and recording the content-derived revision is what makes a later amendment
+  // detectable as invalidating the review even when the editor forgot to bump the date.
   readonly profileRevision: string;
 }
 
 export interface JurisdictionProfile {
   readonly jurisdictionCode: string;
   readonly name: string;
-  // Bumped whenever any value or citation in this profile changes. An attorney review naming an
-  // earlier revision no longer covers the profile, and the review gate says so.
+  // Bumped whenever any value or citation in this profile changes. The review gate does not trust
+  // this date alone: `deriveProfileRevision` in src/resolve.ts folds a fingerprint of the profile's
+  // content into the string a review binds to, so an amendment that forgets the bump still closes
+  // the gate. An attorney review naming an earlier revision no longer covers the profile.
   readonly revision: string;
   readonly attorneyReview: AttorneyReview | null;
   readonly typed: TypedRequirements;

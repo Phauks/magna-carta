@@ -10,6 +10,18 @@
 > (AZ, AR, IN, CO, IL); (3) Group-3 low-confidence (NM, ND, SD, OK, RI); (4) Group-4 low-confidence
 > (WY + territories).
 
+> **RE-VERIFICATION NOTE (2026-08-07).** A primary-source sweep found that this catalog's home-jurisdiction
+> entry (Nevada, group 2) — compiled as "verified in full" in the pass this file extends — cited
+> **SCR 78.5, a rule repealed in 2019**; the corrections are recorded in
+> [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md).
+> Nevada is the only jurisdiction with a primary-source research record in this repository, so no entry in
+> THIS file could be swept the same way — a Playwright fetch log is not that record. **Every entry below is
+> therefore NOT VERIFIED, whatever its per-entry confidence tag**: "HIGH (rule text verified)" records the
+> compiler's claim from the 2026-05-31 pass, not a check against any primary source held in this repository.
+> Treat each entry as a research lead, not a finding, until it has its own dated primary-source research
+> record under `docs/research/`. The encoding gate in `@magna-carta/trust-jurisdictions` refuses every
+> jurisdiction in this file by construction.
+
 ---
 
 ## Kentucky — overall confidence: HIGH (rule text verified)
