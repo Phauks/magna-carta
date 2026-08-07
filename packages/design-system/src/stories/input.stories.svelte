@@ -43,6 +43,9 @@
           "datetime-local": "Date and time",
         },
       },
+      // The control-height axis is a closed set, so it is a dropdown — and a Control rather than a
+      // story: unlike `type`, a size carries no behaviour of its own, only geometry.
+      size: { control: "select", options: ["sm", "default", "lg"] },
     },
   });
 

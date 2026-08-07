@@ -12,6 +12,9 @@
 @import "../components/button/button.css";
 @import "../components/label/label.css";
 @import "../components/input/input.css";
+/* PasswordInput composes Input, so its recipe follows the field recipe it layers on. */
+@import "../components/password-input/password-input.css";
+@import "../components/verification-code-input/verification-code-input.css";
 @import "../components/textarea/textarea.css";
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";
