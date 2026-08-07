@@ -888,6 +888,1437 @@ regression guard** — `detect` now runs in a test on a deliberately 64 KiB thre
 implementation that recurses into a container or copies its input into a frame fails on every machine
 rather than as an occasional stack overflow on a loaded one.
 - **Trust accounting (slice 3·2) analysis for owner review (research).** [`docs/research/2026-08-04-trust-accounting-analysis.md`](docs/research/2026-08-04-trust-accounting-analysis.md) — the ledger-model options for trust (account-tree shape and sub-ledger granularity, the firm-funds-for-bank-charges carve-out, the three-way bank/book/client reconciliation), the invariants that must hold by construction (no negative client balance on the `account_balance` bounds CHECK, no commingling as a distinct structural guard, fees-never-touch-trust as a composition guard 3·4 and the payments phase inherit, trust-to-operating transfer rules, void-not-delete extended to the tables hung around the ledger, and holds for disputed funds), the jurisdiction variance that must never be defaulted, the integration points against the built 3·1 time and 3·3 costs subsystems plus 3·4 billing and the payments phase, what the pre-alpha per-firm schema baseline collapse means for sequencing, the audit and reporting obligations the state rules impose, and a five-part slice breakdown in which each sub-slice names the owner decisions that must be answered before it can start. Records two findings about the current state: the approved 2026-07-09 jurisdiction-profile design is unbuilt and its typed corpus has not been vendored from the research archive (what `docs/research/trust-rules/` holds today is the earlier narrative catalog), and the phase-3 slice map's chart-of-accounts coordination pin reaches 3·2 as well as 3·4 because trust creates the first real product ledger accounts. Seventeen owner-decision flags and an explicit owner-review checklist. **Analysis only — no code, no schema, no decision; nothing proceeds to spec, plan, or build without owner approval.**
+- The design for **natural-language document search** — asking a question in ordinary words and getting back
+the passages from the firm's own files that answer it, each with the document, version, and page it came
+from. Design and plan only; no product code, and nothing is enabled for any firm.
+
+**It finds; it does not answer.** What comes back is the firm's own words, ranked, with a citation on each
+one. Nothing is composed. If nothing matches, the result is empty and says so rather than assembling a
+paragraph out of whatever was nearest. The reason is not caution for its own sake: a composed answer moves
+the checking onto the reader, who cannot see the passage that was left out, and in a legal product the
+failure mode is not an embarrassing sentence but a confident wrong one about a client's matter, sourced to
+the client's own file. A search that hands over four passages and says where each one is has actually saved
+the work. Adding composed answers later would be a separate decision with its own consent, not a setting
+that gets switched on.
+
+**Turning it on is the firm's decision, and off by default.** Nothing is indexed and no index even exists
+for a firm until an administrator switches it on and accepts a disclosure. What the disclosure says is
+short and checkable: the text pulled out of the firm's documents is copied into storage Cloudflare manages,
+outside the firm's own; no outside model company is involved at any point and nothing is sent to one; the
+question a member types is turned into numbers by a model to be matched, and that happens on the same
+infrastructure everything else already runs on. Two things it deliberately does **not** promise, because
+they cannot be verified: where in the world that copy is held, and that switching the feature off erases
+every trace from Cloudflare's side. What the platform can prove it deletes, it deletes and can enumerate;
+what it cannot prove, it declines to claim. A firm whose obligations require either guarantee is told, in
+the disclosure, not to enable this.
+
+**The index is fed deliberately, never pointed at a bucket.** A firm's storage holds far more than its own
+working files — material received from the other side in litigation, half-finished edits nobody has saved,
+machine-readable index files. Handing all of that to a search index would put an opponent's production into
+a search of the firm's own work, which is precisely what the platform reorganized its index scoping to
+prevent. So only one thing produces material for this index, and it produces exactly one kind: the text of
+a committed document version. Everything else is missing because nothing can put it there, not because a
+rule excludes it. **Magnus transcripts cannot reach it at all** — they live in the firm's database, not in
+file storage, and there is no path from one to the other.
+
+**A filter is not a wall, so the wall is somewhere else.** The obvious way to keep one matter's documents
+out of another matter's search is to attach a condition to the query. That works right up until the day
+somebody's code builds the condition wrong, and then there is nothing behind it. So the condition is
+treated as a way to get better results rather than as the thing keeping matters apart: every result that
+comes back is looked up again in the firm's own records and checked against what the person asking is
+actually allowed to see, before a single word of it is shown. Anything that fails is dropped, and the drop
+is treated as a serious fault to be investigated rather than a normal occurrence. The firm's own records
+are the authority on who may see what, and the search index is never asked.
+
+**And the part that is unknown is being tested before it is trusted, not after.** Cloudflare's own
+documentation disagrees with itself about what these conditions can express. Rather than guess, a fenced
+experiment on entirely made-up data runs first: two invented matters, a thousand questions deliberately
+written to pull the wrong matter's documents to the top, and a hard rule written down in advance — one
+wrong result and the feature is not built. It also tests the thing nobody thinks to test, whether a
+condition the system does not understand is rejected or quietly ignored, because a condition that is
+ignored is worse than no condition at all.
+
+**The index runs behind, and every result says how far.** Material becomes searchable on a schedule
+measured in hours, not seconds, which is a real limitation and not a setting anyone can tune away. Because
+the platform knows exactly what it has handed over and when, every answer carries a plain sentence — how
+current the index is, and how many documents filed since then are not in it yet — stated even when the
+answer is none, so that a zero is reassurance rather than silence. A search that quietly omits this
+morning's filing is worse than one that admits it is an hour behind.
+
+Also settled: one firm gets one index of its own, because sharing one between firms is refused and the
+alternatives run out of room at a hundred firms; searches cover one matter at a time to begin with, with
+searching everything a person can see held back until the filtering can be shown to work well enough to be
+useful; a matter can be kept out entirely, and keeping it out deletes what was already handed over rather
+than merely stopping more; material received in litigation is never fed at any point; a result-caching
+feature stays off because it keys on the question text and could hand one matter's passages to a question
+asked about another; and no real firm is switched on until Cloudflare stops calling the product a beta and
+publishes final prices.
+- AI Search slice 0, local half: the filter-semantics wall experiment's runnable protocol harness
+(`packages/search/test/natural-language-filter-wall/` — 34 tests). The E1 exclusion probe and E2
+fail-open probe run as written against a reference model of the documented filter semantics and are
+sensitivity-proven against deliberately broken engines (filter ignored, unknown field dropped,
+malformed filter discarded, deletes never landing, query-text cache bleeding across matters); the
+matter-scoped two-key filter, the feed-object key layout, and the catalog-driven delete/reassign
+discipline are byte-pinned ahead of slice 1. **E1/E2 verdicts remain open** — the live run against a
+fenced Cloudflare account is specified as a pass/fail checklist in
+`docs/research/2026-08-07-ai-search-filter-wall-experiment.md`, and the retrieval route stays gated
+until it passes.
+- **The asset register now records every kind of thing an estate owns.** Vehicles carry make, model,
+year, identification number and plate; firearms carry make, model, calibre or gauge and serial;
+business interests carry the company, where it was organised and what form it takes, optionally
+pointing at the directory record the firm already has; insurance policies carry the carrier, the face
+amount and who is insured; money owed to the estate carries the debtor, the principal, the rate and
+when it falls due; digital assets carry the platform, the public handle, and whether the account is
+held by a platform or self-custodied. Each kind brings a starting type list the firm extends.
+Identifiers that appear on a public record — a vehicle identification number, a plate, a firearm
+serial — are ordinary searchable fields, because searching by them is the point; a full account number
+is not, and stays encrypted with only its last four characters readable. **The digital-asset record
+has no field a recovery phrase could go in**, and a request naming one is still refused by name.
+
+**What is secured against something is recorded, and equity falls out of it.** A mortgage, a deed of
+trust, a lien, a judgment, a security interest, a tax lien, a pledge — with who holds it and the
+reference it was recorded under. A balance is not a box on that form: it is a dated figure recorded
+against the charge exactly the way a value is recorded against the thing, so a mortgage that was one
+number at the date of death and a smaller one at the date of sale has both, dated, on the same
+permanent record. Ask what something is worth as of a date and the register subtracts every charge in
+force on that date. **It refuses to guess**: a charge whose balance nobody has recorded makes the
+equity unavailable rather than being treated as nil, and a dollar value charged by a pound mortgage
+nets to nothing at all rather than to an invented exchange rate. Negative equity is shown as
+negative. Releasing a charge writes a date and removes nothing, so a schedule read as of the date of
+death still shows a lien cleared the following spring.
+
+**The estate schedule.** Everything on a matter's register as of a date you pick, grouped by kind of
+thing, each row with what it was worth, the date that figure actually speaks to, what it rests on,
+the charges in force and the equity left over — with subtotals per kind and per currency, never
+across currencies, and the count of assets nobody has valued yet stated rather than hidden. **The
+date is required and has no default**, because the date of death and today give different answers
+over the same rows and a schedule with a date nobody chose is the mistake most worth preventing. It
+is not a court form, it is not a saved document, and it decides nothing about what is in the estate —
+it groups by what a person recorded and reports what is undetermined as its own group.
+
+**A scheduled asset can be linked to the safe-custody item that physically holds it.** The asset
+detail then shows where the object is, its status, and whether a hold is on it, read from the custody
+register at the moment you look. Neither side copies the other: the custody register's declared value
+is what the object costs to replace, the register's valuation is what the property is worth to the
+estate as of a date, and a signed first edition has both. The same held object can be scheduled on
+two matters, which the estate and its related trust routinely need.
+
+**Assets fill documents.** Eleven new merge subjects — one per kind of thing plus one for the whole
+register — arrive as **lists** rather than single fields, so a schedule of real property is a
+repeating block over the property list. That is deliberate: an estate with two houses is the ordinary
+case, so a single "the property's parcel number" field would have nothing to fill in on most matters.
+**A value always prints with the date it speaks to**, the two being provided together. Totals are
+worked out in the template and refuse visibly on mixed currencies rather than adding them up. A full
+account or policy number has no merge field at all; the last four characters do. All eleven subjects
+are filled by **one** read of the register, so adding a twelfth kind of thing costs no read.
+- Auto-file rules for captured email — design. A specification for filing mail to the right matter
+without a person present, built over the capture pipeline and the matter-suggestion machinery that
+already ship.
+
+The design starts from an observation about what is already there: **a matter's forward/CC capture
+address is already an auto-file rule.** Someone minted a credential naming a matter and handed it to a
+correspondent, and every message sent there routes to that matter with no further judgement — and the
+platform still lands the result staged for a person to confirm. That is not an oversight. It is the
+subsystem saying that even a perfect answer to _which matter_ does not by itself authorize an
+unattended filing, and every rule in this design inherits that split: a rule carries a routing
+condition and, separately, whether it may file or only stage.
+
+**Three rule kinds and nothing else.** Replies to a conversation already filed to a matter; mail from
+a named sender to a named matter; and the firm's own matter number written in the subject line, matched
+exactly. Rules are learned from real filing — the offer made after someone files a message by hand —
+rather than authored in an abstract editor, because a rule created that way inherits a real person's
+real decision as its justification.
+
+**What was asked for and refused:** keyword and regular-expression subject rules (a pattern cannot be
+explained to the person reviewing why a message filed itself, and a rule for "Smith" files the
+newsletter about locksmithing), and sender-domain rules — refused not as risky but as self-defeating,
+since the counterparties whose domains a firm would want a rule for, a bank or an insurer or a large
+opposing firm, are precisely the ones corresponding about many matters at once.
+
+**The guardrails are the feature.** A rule never fires when the precise evidence points at more than
+one matter. A rule never files past a conflict or ethical-wall hold — automatic filing goes through
+the same check a person's filing does, so the conflicts engine will cover both with no extra work. A
+rule fires only into a matter its creator could reach when they made it and can still reach now; a
+rule whose creator has been walled off is suspended and shown, never quietly deleted. A rule never
+contradicts a person: not on a message somebody already filed elsewhere, and not on one somebody
+removed. A rule never files into a closed matter. And a rule that suddenly starts firing far more
+often than usual — a mailing list, a bounce loop, an autoresponder — stops filing on its own and asks.
+
+**Signature checking becomes a condition on the machine, not on the mail.** A sender's authenticated
+signature is required before a rule that trusts sender identity may act unattended, because the "from"
+line on an email is trivially forged. Nothing about the message changes: it is still captured, still
+recorded, still suggested, still one click from filed. What is withheld is only the machine's
+permission to act unaccompanied. A practical consequence, stated rather than papered over: forwarding
+breaks signatures, so sender rules never fire on forwarded mail at all — on that path the platform can
+tell who forwarded a message but not who sent it.
+
+**Auto-filing lands staged by default.** A rule puts the message on the right matter with its reasons
+attached and leaves the confirming click to a person; filing outright is a per-rule choice, available
+only after an administrator turns it on for the firm, so no one member can opt a firm into unattended
+filing. That default is not a token: on the firm-wide catch-all address, where mail arrives today with
+no matter at all, a staging rule turns "someone has to go find the matter" into "it is already on the
+right matter, one click from filed."
+
+Every automatic filing records which rule fired and why, in plain language, so the question asked
+weeks later has an answer that does not depend on re-deriving anything. Near-misses are recorded too —
+what a rule would have done and why it was stopped — which is what lets a firm see how the rules have
+actually been behaving before granting them more freedom. Undoing an automatic filing is the ordinary
+unlink, unchanged, and it is also the feedback: a rule being undone repeatedly suspends itself.
+
+Two specs, one decision record, and eight owner decisions. No product code, no user interface, no
+notification delivery, and no machine-learned ranking in this cycle.
+- Auto-file rules for captured email — the rule model and the decision that guards it. A firm can now
+hold auto-file rules, and the guardrail function can be handed a captured message's evidence and
+asked what it would do with it. **Nothing evaluates during a capture yet:** no capture path, no
+route, and no screen changes, so every message is filed exactly as it was before.
+
+**What a rule is.** A typed, matter-bound, revocable delegation — a person who could have filed a
+narrow class of messages by hand telling the platform to do it for the ones that arrive later. Two
+kinds and no more: replies to a conversation already filed to a matter, and mail from a named sender
+to a named matter. There is no pattern language, no keyword rule, and no way to write one; a rule is
+a comparison whose meaning the guardrails can reason about, which is exactly what a pattern is not.
+Every rule carries two independent answers — which matter, and whether the resulting link may be
+filed rather than staged — because those are separable questions and the platform has always answered
+them separately.
+
+**The guardrails are the substance, and they fail closed.** A rule never fires when the precise
+evidence points at more than one matter — two rules disagreeing, a rule contradicted by a matter
+number in the subject line, a conversation that resolves to two matters. It never fires into a matter
+its creator can no longer open, and never into one that is closed, prospective, or platform-owned. It
+never files past a conflict hold; it stages instead, on the same check a person's filing already
+traverses. It never contradicts a person: not on a message somebody already filed elsewhere, and
+never — the sharpest edge of the rule — on one somebody deliberately removed from that matter. A
+sender rule requires an authenticated signature from the rule address's own domain, which means it
+structurally cannot fire on forwarded mail, where the platform can tell who forwarded a message but
+not who sent it. And a rule firing far more often than a person would, or whose recent filings keep
+being undone, stops filing on its own and asks. Anything that cannot be worked out at all counts as
+"no", never as "yes".
+
+**Staged by default stays true.** A rule's own posture, the firm's ceiling, a conflict hold, and the
+circuit breaker can each turn a filing into a staged link; none of them can turn a staged link into a
+filing. Direct filing needs two explicit acts by two different kinds of person — an administrator
+enabling it for the firm, and a member choosing it for one rule — and the firm ceiling is off until
+somebody turns it on.
+
+Also lands the evaluation ledger's tables and its bounded reads, so the platform can report what a
+rule did and what stopped it in plain language with no message content recorded anywhere, and a new
+`emails:manageAutoFileRules` capability held separately from "may file mail" — because configuring
+the machine that files mail is a different grant, and a firm should be able to hand out one without
+the other.
+
+Fixed alongside: the `@magna-carta/email-filing` package declared a subpath export for an
+`already-filed` module that never existed. The already-filed read lives in the worker's email routes
+over the email-filing statements, so the stale entry is removed.
+- Auto-file rules now act. The guardrail engine that shipped with the rule model was firing from
+nothing; it is wired into the email-capture path, so a message that arrives with no matter — the firm
+catch-all, an unrouted forward — has its rules evaluated and lands on the right matter with its
+reasons attached.
+
+**Where it runs, and why that is off the hot path.** Evaluation happens inside the capture consumer,
+the queue worker that already parses, hashes, deduplicates and thread-links every captured message.
+The capture route did not grow a rules pass: it still stages the raw bytes and enqueues, exactly as
+before. Reached through an optional port on the capture core, the decision is made at the point the
+matter and the link state are chosen, so the automatic link rides the capture's existing atomic write
+batch and its existing idempotency record — a redelivered job replays the decision it already made
+rather than deciding again, and the ledger row explaining a filing can never survive a batch that
+rolled back. The read budget is fixed and small, and none of it grows with the firm's rule count
+(rules are found by match value, never scanned), its mail volume, or a conversation's length.
+
+**Staged by default, and the ceiling is real.** A rule places the message on the matter and leaves the
+filing to a person unless two different kinds of principal have both asked otherwise: an administrator
+raising the firm's ceiling, and a member choosing direct filing for that one rule. The firm switch is
+new here — off until somebody turns it on, and a ceiling rather than a default, so a rule that asks to
+file still only stages while it is down, with the policy recorded as the reason. Turning it on changes
+the next capture and reaches back for nothing already captured.
+
+**What the guardrails do in the wired path.** Evidence naming more than one matter files nothing.
+A sender rule on forwarded mail never fires, because forwarding breaks the signature the rule's own
+condition rests on. A message somebody already filed elsewhere, or deliberately removed from the
+matter, is left alone. A closed matter is refused and the stale rule that named it is suspended. A
+rule whose delegating member can no longer open the matter stops. Nothing reaches `filed` without
+traversing the same filing-time conflict hook a person's accept does — a hold demotes an automatic
+filing to staged exactly as it demotes a manual one. And a rule firing far more often than a person
+would goes back to staging and takes itself out of service.
+
+**The visibility the opt-in depends on now populates.** Every evaluation where something happened —
+a rule matched, or a match was suppressed — writes a ledger row naming the rule, the matter, the
+outcome and the reason, so a firm can see what its rules have been proposing before deciding whether
+to let them act. A capture no rule looked at writes nothing, which is what keeps that record
+proportional to rule activity rather than to the firm's mail. Every automatic link names the rule that
+made it, and an automatic filing writes the same shape of audit row a manual one does. No subject, no
+address and no display name reaches any of it — identifiers and enums only, with the sentences a
+person reads rendered from them.
+- **A template can name the other people on a matter, not just the client.** The opposing party, opposing
+counsel, a guardian, and a witness are merge fields now — `{{opposingParty.displayName}}` reads the way
+`{{client.displayName}}` always has, each role also offering whether that party is a person or an
+organisation so a sentence can read differently for a company. The roles resolve through the matter's
+own party links in the Directory, and how a firm wrote the role down does not matter: "Opposing Party",
+`opposing_party`, and `opposing-party` are the same role, because spacing, capitals, hyphens, and
+underscores are ignored when a link is matched to a field.
+
+**A matter with two opposing parties gets an answer, not a guess.** A field naming _the_ opposing party
+fills in only when the matter links exactly one. When it links three, nothing is filled in, the document
+shows the usual visible marker, and the result says there were three — a document naming the wrong
+defendant is the one mistake nobody catches by reading it. That reason travels with the absence
+everywhere an absence already travelled, including into a condition that could not be worked out, so an
+author reading the failure is told what is ambiguous rather than only which field went unanswered. For
+the "list them all" case each role carries its own collection, walked with the repeating block that
+already exists: `{{#each opposingParty.all}}`.
+
+Every role is answered from the party read the merge context already issued. A template naming four
+roles costs exactly what a template naming one does, and what a template naming none did — no new query,
+no new index, and no change to the four measured operations' plans, all of which remain index walks.
+- **A template can now name a client's protected details, and reading one is still a permission and a
+record.** The client's Social Security number, Employer Identification Number, date of birth, driver's
+license number, account number, and Social Security last-four are merge fields —
+`{{client.socialSecurityNumber}}` reads the way `{{client.displayName}}` always has. These values live
+encrypted, and nothing about putting them in a document changes who may see them: the value is filled in
+only for a member permitted to decrypt it, and every one that is filled in writes the same record a
+direct read of that value writes, naming the same field and the same member.
+
+**A member who may not read the value still gets the document.** Where the value would have been, the
+draft carries the usual visible marker, and the result says why: the field that was withheld and the
+permission it needs. The assembly completes and is reported as needing review, exactly as any other
+gap is — one detail nobody may read is not a reason to refuse a letter, and a silent blank in its place
+would be a document that reads as finished and is not. Nothing that was withheld appears in the
+document, in the assembly's record of what it did, or in anything the product hands back.
+
+**A field that holds a protected value now says so before anyone assembles anything.** The merge-field
+list and a template's own field list both mark it, so an author choosing the field knows what it is, and
+a firm can see which of its templates ask for protected details. Binding one needs no special
+permission — naming a field is not reading it — and a matter whose client the Directory cannot pin down
+to exactly one record decrypts nothing at all.
+- Billing and invoicing — design. The specification for the slice where time, costs, and trust converge
+into a bill, and the answer to the question the trust subsystem shipped without: what evidence
+permits money to leave a client's trust account.
+
+**A draft bill is a working document; a finalized one is an evidentiary record.** Before finalization
+everything is editable — lines re-worded, entries added and removed, the whole thing thrown away.
+Finalization happens in a single all-or-nothing step: an invoice number is drawn, every time and cost
+entry on the bill locks, the receivable posts to the books, and the amount owed becomes a figure that
+cannot be exceeded. After that nothing about the invoice is ever edited. A bill issued in error is
+corrected by a credit note — a second permanent record rather than the erasure of the first — and
+"sent" is deliberately not a status, because a bill can be delivered several times by several
+channels and a re-send is not a change to a financial record.
+
+**Taking earned fees out of trust now requires a finalized invoice with enough unpaid balance on that
+matter, with no override.** The transfer names the invoice it is paying, and the amount is checked
+not by looking first but by a database constraint that rides the same transaction — so a payment or a
+credit note landing a moment earlier aborts the whole thing rather than letting the firm take money
+twice. Partial applications are the normal case: an evergreen retainer pays what it can and the rest
+stays owed. The transfer itself is still composed by the trust subsystem, which needed no change at
+all to accept the new rule — billing supplies the evidence and never touches a trust record.
+
+**The hard case is stated rather than solved.** When a firm credits a bill after the fee has already
+been transferred out of trust, the trust ledger is not rewound: the transfer was valid, the entries
+are permanent, and the client's money genuinely moved. What is left is money in the firm's operating
+account that the firm has conceded is not its own. The platform records that as an open credit the
+firm cannot lose track of, names the three real ways to discharge it — refund it, return it to the
+client's trust ledger, or apply it to a future bill — and moves no money on its own, because which of
+those is right is a decision about firm funds and not an invoicing question.
+
+**Taxes take the same refusing posture as everything jurisdiction-specific here.** The platform ships
+the machinery to charge tax and encodes no knowledge of when tax is owed: no rate table, no
+taxability catalog, no default. A firm that has configured nothing gets no tax line, which is the
+correct outcome for most law firms, and a firm that owes tax configures its own rates.
+
+Bills combine hourly fees, flat fees, advanced costs, discounts, and tax; one bill covers one client
+and may span several of that client's matters, with every line naming its own matter so trust money
+applies to the right one. Contingency and retainer arrangements are recorded now and compute nothing
+— settlement disbursement statements, with their lien priorities, wait for verified sources rather
+than being invented.
+
+Two specs, one decision record, four build sub-slices, and fourteen owner decisions each carrying a
+recommended default. No product code in this cycle.
+- Billing — the invoice spine. The first working bill: a firm can now assemble a draft from unbilled
+time and costs, review what the client will be told, and turn it into a financial record.
+
+**A draft is a working document; finalizing it is the only interesting moment.** While a bill is a
+draft, lines can be added, re-worded, trimmed, or thrown away, and the work on it is only claimed —
+still editable, still the timekeeper's to correct. Finalizing happens in a single all-or-nothing
+step: the next invoice number is drawn, the letterhead and client details are copied onto the bill,
+every claimed entry locks as billed, the amount each matter owes is created with a ceiling nothing
+can exceed, and the receivable posts to the firm's books. If any part of that fails, no number is
+used up, no work is locked, and nothing is posted — which is what makes the invoice sequence gapless
+rather than merely careful. After it, the bill cannot be edited at all: the database refuses, and a
+bill issued in error will be corrected by a credit note rather than erased.
+
+**Two drafts cannot bill the same hour.** Pulling an entry onto a draft claims it, and the claim is
+enforced by the database rather than by checking first — so when two people reach for the same work,
+one gets it and the other is told plainly, instead of both quietly composing a line over it.
+Removing a line, or throwing a draft away, hands every entry back to unbilled work and leaves the
+record that it was once on that draft.
+
+**Bill review edits the bill, not the timekeeper's record.** Trimming a line's hours or rewording it
+changes what the client is told and leaves the underlying time entry exactly as the timekeeper wrote
+it. Both are true, both are worth keeping, and it is what lets a finalized bill be re-rendered years
+later without reading a single row from anywhere else.
+
+**A bill will not post into an account the firm has not named.** Before a firm can finalize anything,
+it says which of its ledger accounts is the receivable, which is fee income, which holds costs
+advanced on a client's behalf. Until it does, finalizing refuses and says which one is missing and
+where to set it — rather than posting real money somewhere plausible. Advanced hard costs credit
+Client Costs Advanced and recognize no income, because the firm is being repaid rather than earning.
+
+One bill belongs to one client and may cover several of that client's matters, with every line naming
+its own matter and the amount owed tracked per matter — the shape an earned-fee transfer out of trust
+will need. What is owed, and how overdue it is, are worked out when you ask rather than stored, so a
+bill settled this morning is never reported as late.
+
+Also extracts the sequence-numbering machinery matter numbers already used into a package billing and
+matters now share, so the subtlety that makes a number draw race-proof lives in one place instead of
+two copies.
+- Billing — taking earned fees out of trust. The transfer that moves a client's money to the firm has
+been refused by the platform since trust accounting shipped, on the stated grounds that what evidence
+permits money to leave trust had not been settled. It is settled now, and this is the answer: **a
+finalized bill, with enough still owing on the specific matter the money sits against.**
+
+**Money leaves trust only against a bill the client has actually been charged, and there is no
+override.** A bill that is still a draft is refused. A bill for a different client is refused. A bill
+that does not charge the matter whose ledger the money is in is refused. An amount above what that
+matter still owes on that bill is refused. Each refusal says which of those it was, so a member can
+act on it rather than guess. This is the operation where real-world trust violations happen, and the
+friction is deliberate: the honest cost is that a firm billing out of band — in a spreadsheet, or
+through an insurer's portal — has to finalize the bill here before it can take its own fees, and
+finalizing one here is cheap and does not require the platform to have produced it.
+
+**The guarantee is structural, not a check that ran first.** Every condition above is read before the
+money moves so the refusal reads as a sentence, but what actually holds the line is the ceiling on
+what each matter owes, enforced by the database in the same all-or-nothing write as the money
+movement. If a payment or another transfer consumes the balance in the instant between looking and
+acting, the entire thing is abandoned — the money never leaves the client's ledger, no record of a
+transfer is written, and nothing is half-done. Both halves are needed: one produces an answer a
+person can use, the other is what makes it true.
+
+**Applying part of a bill is ordinary.** A retainer replenishment that covers two thousand of a
+six-and-a-half-thousand bill applies two thousand and leaves the rest owing, exactly, to the penny;
+the next replenishment applies more. Nothing about the bill itself changes — it was evidence the
+moment it was finalized, and what has been paid against it is a separate, permanent record of its
+own. One transfer can settle several of the same client's bills at once.
+
+**Trust's own rules still decide what trust permits.** Money under a disputed-funds hold cannot be
+taken even when the balance looks sufficient; a closed account, an office with no recorded
+jurisdiction, and a matter holding no client ledger each refuse in trust's own words. None of those
+rules were restated, relaxed, or routed around to make this work — no trust code changed at all,
+which is the test that the boundary was drawn in the right place.
+
+Correcting a bill after fees have already been taken out of trust is deliberately **not** built yet.
+When a firm concedes it did not earn part of what it has already moved, the money is sitting in the
+firm's own account and giving it back is a decision about firm funds — a refund, a return to the
+client's trust ledger, or a credit against a later bill — with real differences between them. The
+platform will record that obligation and let the firm choose; it will not choose on its own, and it
+will not pretend the trust ledger can be rewound.
+- Case calendar and matter timeline — design. A specification for the backend a calendar surface reads:
+what happened on a case, what is coming, and where each of those facts lives.
+
+The design's central call is **derived where the fact already lives, recorded where the fact is
+born**. Most of what "transpired in the case" is already recorded — mail filed to the matter,
+documents produced, assemblies run, originals moved in and out of the safe, money moved through
+trust, time and costs booked, conflicts run, the matter opened and closed — across eleven per-firm
+tables that each already carry a timestamp and, in most cases, an index built for exactly this filter
+and sort. Those are read **in place** through a source registry rather than copied into a calendar
+table: nothing is backfilled, nothing drifts, no privileged fact gets a second copy, and the timeline
+cannot disagree with the custody register because it _is_ the custody register. Only the facts that
+exist nowhere today — litigation events and deadlines — get tables of their own.
+
+Litigation events are member-entered and first-class: a hearing, a filing, service, an order, a
+deposition, with a type catalog a firm can extend, participants who may be a firm member, a Directory
+entity, or someone external to both (a judge does not have to be added to the Directory to appear on
+the record), a courtroom as free text, and a date that may be all-day, timed, or a range.
+
+Deadlines are modelled separately, because a deadline can be satisfied and an event cannot: a due
+date and optional time, who satisfied it and what filing discharged it, and a reason on the record
+when one is vacated. A deadline past its date and still open reads as **overdue** — computed when it
+is read, never written down. The platform reports what it can see; it never records that a firm
+missed anything, because the deadline may have been extended, satisfied elsewhere, or vacated that
+morning.
+
+**The platform does not calculate deadlines, and the design says so as a position rather than a
+to-do.** No business-day arithmetic, no court-holiday calendars, no "three days for mailing", no
+cascade when a trigger date moves. Missed deadlines are the largest single source of malpractice
+claims, and that argues for visibility rather than arithmetic: a computed deadline that is wrong is
+worse than none, because it will be trusted precisely because it was computed. Where a verified
+statutory catalog eventually exists, it **proposes** and a person **confirms**, with the catalog
+entry and its version frozen onto the row so an amended statute surfaces as something to review
+rather than as a date that moved while nobody was looking.
+
+Hearings finally get real time zones. A date is stored as a calendar date and a time separately, so
+an all-day filing is not an event at midnight, and the zone lives on the event rather than on the
+office — a Nevada firm appearing in a California court has a hearing in California's zone, and
+nothing about the firm says so. Offices gain a time-zone setting as part of this, which is also what
+lets assembled documents stop rendering every date in a normalized zone.
+
+Reads are bounded and keyset-paginated: one statement per source, all issued together, merged in
+order, with a single cursor that works across all of them. Nothing is filtered after a page is cut,
+and every read composes one visible-matter rule in the query itself — today it keeps the platform's
+internal holding matter off a firm's calendar, and it is the single place a future confidentiality
+screen attaches without touching a source.
+
+Two specs, one decision record, and seven owner decisions. No product code, no user interface, and no
+court integrations in this cycle.
+- The case calendar and matter timeline — the backend a firm's calendar reads. Two questions that sound
+like one and are not: what has happened in the litigation, and what the firm must do next.
+
+**What is recorded here.** Litigation events (hearings, filings, service, orders, depositions,
+mediations, trials, client meetings) and deadlines, neither of which the platform had any way to hold
+before. An event carries a **civil date** and a separate optional wall-clock time — because "all day"
+is what a filing is, and storing midnight-local-as-UTC is the daylight-saving off-by-one that moves a
+hearing by a day when the clocks change. Its **time zone is required and lives on the row**: a Nevada
+firm appearing in a California court has a hearing in Los Angeles, and no property of the firm, the
+matter, or the office says so. Participants can be a firm member, a Directory entity, or somebody
+external to both, so nobody is forced to create a Directory record for a judge in order to name one. A
+continued hearing is the **same hearing on a new date** — one row, edited, with the move on the audit
+trail, rather than two hearings on the calendar and a question about which one counts.
+
+**The timeline is federated, and nothing is projected, copied, or backfilled.** Everything the firm
+already recorded about a case — documents filed, mail captured, documents assembled, originals moved
+in and out of the safe, client money through trust, time and costs booked, conflicts checks run, and
+the matter's own opening and closing — is read **in place** through a registry of thirteen declared
+sources, merged under one comparable ISO-8601 sort key and the platform's existing cursor. A source
+is a read-side declaration: a statement builder, a projection, and a decision about whether it has a
+non-privileged label. It is never a write-side obligation on the subsystem that owns the rows. The
+property that buys is the one worth having — a federated timeline **cannot disagree** with the
+register it is built from, because it is that register; the bug where the calendar says one thing and
+the custody ledger says another cannot be written. It also means a custody movement back-dated to
+Friday and typed on Monday sorts on **Friday**, which a projection over write-time timestamps would
+have got wrong for every physical-world event in the system.
+
+**The platform does not calculate deadlines, and that is a position rather than a gap.** No
+business-day arithmetic, no court-holiday calendar, no service-method offsets, no cascade when a
+trigger date moves, no default deadline when a matter opens. Missed deadlines are the largest single
+source of malpractice claims, and that cuts toward visibility and against arithmetic: a computed
+deadline that is wrong is worse than none, because it is trusted precisely because it was computed and
+the firm that would have looked the rule up does not. A deadline records the date a person supplied,
+the authority **they** state, who recorded it, and — where there is one — a link to the event that
+started the clock, which is a record and never an input to a calculation. The columns a verified,
+jurisdiction-keyed catalog would one day write through a propose-and-confirm path are reserved and
+refused until such a catalog exists.
+
+**Overdue is derived and never written.** A deadline still open past its due instant — resolved in its
+own zone — is reported overdue every time a page is read. There is no column, no sweep, and no state
+transition, because a platform that writes "missed" onto a firm's record has asserted something about
+that firm's conduct it is not in a position to assert: the deadline may have been extended by a
+stipulation nobody has typed in, met under another matter, or vacated by an order that arrived this
+morning.
+
+**Every source composes the visible-matter predicate into SQL before its `LIMIT`**, as a required
+argument rather than an optional one, so a source that forgets is a type error before it is a test
+failure — and post-filtering, which under-fills a page and turns the page size into an existence
+oracle, is structurally impossible. Today the predicate excludes the platform-owned custody holding
+matter, which is a genuine filter doing genuine work; when an information-barrier overlay is built it
+is one more clause in that one predicate and every registered source inherits it untouched.
+
+Four per-firm tables, one `location.time_zone` column (which finally makes `timeZoneForLocation` in
+document assembly return the office's real zone instead of UTC), two composite indexes on shipped
+tables, two permissions, and seventeen routes.
+- **Research: can Cloudflare AI Search back our search, and what does natural-language search actually
+buy?** An assessment of AI Search (formerly AutoRAG) written from a full crawl of its current
+documentation and the recent Cloudflare blog posts, mapped onto the three things we have or have
+designed: the built keyword write pipeline, the unbuilt Vectorize semantic half, and the AI-consent
+posture. The recommendation is **adopt-partially, and not for the thing the question points at** —
+refuse it as the discovery keyword engine, keep it live as the leading candidate for the unbuilt
+semantic half, and prove it on a smaller surface we have no plan for: a retrieval-only
+natural-language search over a firm's own working documents.
+
+Three findings carry it. **The keyword half is not a contest** — AI Search documents BM25 over chunks
+with a tokenizer choice and an all-or-any match mode, and no phrase, proximity, wildcard,
+field-scoped, or grouped boolean query at all, which is exactly what e-discovery search is; it also
+returns a chunk and a score, never a highlight offset into the source document. **The decisive
+constraint is in our own code** — the R2 object key is `files/{fileId}/{versionId}`, flat, with no
+matter in the path, so AI Search's built-in `folder` attribute cannot express "this matter" against
+the bucket as laid out today; the only route is one of five custom metadata fields, set at put time,
+which we do not set. And **the confidentiality posture is better than expected**: retrieval-only AI
+Search (`search()` rather than `chatCompletions()`, query rewriting off) makes no third-party frontier
+model call at all, so it sits on the safe side of the ADR-0109 gate rather than behind it.
+
+Corrects one claim in the [Cloudflare Agents assessment](docs/research/2026-08-04-cloudflare-agents-assessment.md),
+which refused AI Search in a line partly on the grounds that it would "break the pin": AI Search
+supports `@cf/baai/bge-large-en-v1.5` at 1,024 dimensions and fixes the embedding model at instance
+creation, which is the same pin, enforced by the platform. Records the arithmetic the one-line refusal
+skipped — the 100-namespace and 5,000-instance account caps that leave instance-per-firm as the only
+allocation that scales, the 4 MB file limit, the 6-hour default sync that breaks index-on-commit, and
+preview pricing published the same day that puts AI Search storage at roughly 130x R2's rate. Research
+only — no decision, no code, nothing adopted; four owner flags with recommended defaults, and eleven
+things explicitly not to conclude without testing.
+- **Research: can the quality gate run on Cloudflare instead of GitHub Actions?** A per-job evaluation of
+`.github/workflows/gate.yml` against Cloudflare Workers Builds, written from the primary documentation
+tree and from measured gate-run data. The recommendation is to keep the gate on GitHub Actions and keep
+deploys on Workers Builds: the two platforms are each already running the half they are built for, and
+a migration would move about a tenth of the bill. Workers Builds' 20-minute build timeout and 8 GB
+memory ceiling each independently disqualify the type-aware lint job — 26 minutes measured at its cheap
+tier and 43% of a run's billable minutes — and there is no job graph, matrix, artefact passing,
+arbitrary caching, merge-commit trigger, or aggregate required status to build a gate out of. Records
+two findings worth keeping regardless: Workers Builds ships an **undocumented Docker daemon** that the
+deploy pipeline already depends on for the Rust-to-WASM builds and every Container image, and GitHub's
+own **$0.002/minute Linux 1-core runner** is a 3x rate cut on the gate's short jobs for a one-line
+change per job. Research only — no decision, no configuration changed.
+- Custodian — the destruction workflow, and the first jurisdiction in the will-deposit duty catalog.
+
+**Destroying a client's original now takes two people, and it takes them by construction.** A person
+raises a request naming the packet or one item inside it and writing down the reason and the authority
+they assert; a **different** person approves it; a third call records that it was carried out. The
+requester and the approver being two people is enforced at the database by triggers as well as by the
+service — including the case a column check cannot see, where a request records no requester at all
+and any approver would otherwise satisfy it. A request that has been refused, executed, or withdrawn
+is terminal: it is re-raised, never re-decided. Execution appends a `destroyed` entry through the
+register's one movement write path, so the destruction of a client's property carries a person's name
+on the same append-only ledger every other event does, and the request row records which ledger entry
+it produced.
+
+**Two refusals have no override anywhere on the surface.** A hold in force forbids both raising the
+request and carrying it out — asked twice, because a hold placed in the window between them is exactly
+what a hold is for. And an item recorded as an irreplaceable original is **never** destructible: there
+is no force flag, no override field, no privileged caller, and no second endpoint. That refusal now
+also binds the ordinary movement path and the database itself, so it holds for a write path nobody has
+built yet; the only way an original becomes destructible is for a person to change the record about
+that specific object, which is a deliberate, audited change to a fact rather than a way around a rule.
+Still deliberately absent: any retention period, default, derived date, or automatic sweep.
+
+**Closing a matter now surfaces the physical originals the firm still holds against it — and never
+blocks.** This is the deliberate opposite of the trust close rule: money left in a client ledger
+refuses a close outright, but a firm holds a client's will for decades after the last matter for that
+client closed, and that is the steady state of a safe-custody register rather than a loose end. The
+close response carries the notice; there is no arm of the contract on which it becomes a refusal, and
+the notice reports a count and nothing that names the property, its owner, or its number.
+
+**The will-deposit duty catalog ships with Nevada encoded, and refuses every jurisdiction that is
+not.** Asking for a jurisdiction with no verified entry raises a named refusal rather than falling
+back to a baseline, resolving to the most common answer, or returning an empty list somebody would
+read as "nothing applies" — and "nobody recorded a jurisdiction" stays a different refusal from
+"nobody has verified that jurisdiction", because they are fixed differently. Nevada carries **NRS
+136.050(1)**'s 30-day delivery duty with the statute quoted verbatim and cited, the clock starting at
+_knowledge_ of the death rather than the death, both delivery targets the statute offers, the civil
+liability under subsection 3, and the consequence that delivering to the clerk makes the will a public
+record. The named personal representative's own duty and the court-ordered production under NRS
+136.060 sit beside it — the latter carrying no interval at all, because the statute says the court
+names the time. The verified **absence** of any lifetime court deposit in Nevada is encoded as an
+explicit negative, because uniform-act deposit language that Nevada never enacted circulates as though
+it were Nevada law. The original-will lodging requirement is a **local court rule**, so it is keyed
+below the state — Clark County and Washoe County only — and Nevada's other nine judicial districts
+refuse on their own terms, since a local rule nobody checked is not the same as one that does not
+exist.
+
+The catalog carries what the statute says and never an interpretation of it: the open questions the
+research left open — whether "knowledge of the death" reaches constructive knowledge, what answers the
+"reasonable cause" defence — stay open, and a due date is computed only from a date a person recorded.
+The register records no date of death today, so that computation ships as a seam rather than as a
+number nobody supplied.
+
+Also: the location tree's depth cap of eight is proven at both sides of the boundary and on both write
+paths, and the ownership label on an owner link is validated against the firm's **own** catalog when
+the firm has configured one (and against nothing when it has not) — never against a platform list of
+tenancy forms.
+
+Six routes over the existing `custody:read` and `custody:manage` permissions (no new permission), five
+columns and nine triggers on the existing destruction-request table, and four problem types:
+`custody-approver-must-differ`, `custody-intrinsic-value-not-destructible`,
+`custody-destruction-not-actionable`, and `custody-jurisdiction-unavailable`.
+- Custodian — gated release. An original no longer leaves a firm's custody until the authority it
+leaves on and the identity check made on the person collecting it are both on the record. The gate is
+a precondition on the one movement write path that already records the borrower, so there is still no
+release route, no release service, and no second place the append-only invariant has to hold; a
+`released` movement now has to name who collected the property and carry the capture, and the capture
+is frozen on the ledger row itself, which can never be edited or deleted. Two-signatory release is a
+per-firm policy, off by default, and the two signatories must be two people. Three `BEFORE INSERT`
+triggers make all of that structural rather than a service convention — triggers rather than CHECK
+constraints deliberately, so releases recorded before the gate existed stay exactly as they were
+recorded instead of being made to pass a rule nobody applied at the time. The authority itself is
+free text a firm writes: what document suffices to release an original varies by jurisdiction, and
+the register encodes none of it. Adds the `custody-release-not-authorized` problem type and the
+`custody.releaseGated` counter. The daily check-out stays frictionless and is deliberately not gated.
+- Custodian — stocktake. A firm can now take a physical count of its custody register, or of one branch
+of its container tree and everything beneath it, and get back a reconciliation of what the register
+claims against what a person actually saw: originals expected and not found (missing), originals
+found somewhere other than where the register said (misplaced), originals found where the register
+did not expect them at all (unexpected), and objects on the shelf the register has no row for
+(unregistered). Observations are recorded in batches, the way a person walking a safe with a scanner
+produces them, and each one freezes the location the register expected at the moment it was made — so
+"sighted on the wrong shelf" stays true after somebody moves the packet to the right one.
+
+**A stocktake observes and reports. It does not dispose, relocate, or correct.** Nothing on this path
+writes the movement ledger, a packet, or an item: a count that wrote the register into agreement with
+itself would erase the difference the count exists to find, and would put a movement in an
+append-only ledger that no person asserted. The reconciliation names the corrective movement a person
+would record — a move to where it was actually seen, a `found` for an original the register believed
+was out — as a proposal on a report, and a person records it through the one movement write path or
+does not. A missing original proposes nothing at all: the honest answer to an empty shelf is an
+investigation, not a ledger entry closing the record on the exact failure that most needs one open.
+Destruction and retention are untouched and remain owner-gated.
+
+Sighting rows are evidentiary — a named person's assertion that they saw a specific original on a
+specific shelf on a specific day — so they carry the movement ledger's append-only discipline at the
+database: `RAISE(ABORT)` triggers on update and delete, the INSERT-OR-REPLACE bypass closed by a
+BEFORE INSERT guard, and a further trigger refusing an observation recorded against a count that has
+already closed. A mistake is corrected by recording the later, truer observation; both stay on the
+record, because both are what happened. Closing a count freezes what it found on the stocktake row,
+so the number a firm reports cannot drift as the register is subsequently put right; a count begun
+and never finished closes as abandoned instead, freezing nothing — the reconciliation of a half-done
+walk reads as a safe full of missing originals, which would be alarming and wrong.
+
+Seven routes over the existing `custody:read` and `custody:manage` permissions (no new permission),
+two per-firm tables, and the `custody-stocktake-closed` problem type.
+- The discovery engine — the pure-Rust core that reads a document a firm did not write. The first
+built piece of Discovery, and deliberately the piece with no Cloudflare, no database, and no worker
+in it: everything the rest of the subsystem does is a function over what this engine says about a
+document.
+
+**It reads the bytes, and it cannot read the name.** A production's file names are wrong often
+enough that routing on them is how a spreadsheet gets read as a picture — and a name is also the one
+part of a hostile file the other side controls most cheaply. So identification takes bytes and
+nothing else: there is no parameter a file name could arrive through. Comparing the two answers is a
+separate call whose result is **reported and never acted on**, so a spreadsheet renamed `.jpg` still
+identifies as a spreadsheet and the lie ends up in the record instead of in the routing. A ZIP is
+refined into the package it actually is — a Word document, a workbook, a presentation, an
+OpenDocument package, or a plain archive of loose files — and a compound file into a legacy Word,
+Excel, or PowerPoint document, an Outlook message, or an encrypted Office package, all from entry
+names, with nothing decompressed to learn it. A format the engine cannot read is named anyway,
+because "we could not read this, and it was a legacy WordPerfect document" is a defensible sentence
+and "extraction failed" is not.
+
+**A born-digital PDF now extracts its real text.** The platform's extraction port shipped backed
+only by recognition, which skips pages that already carry a text layer — so the single most common
+document in a law firm extracted to nothing and was recorded unextractable. This engine reads the
+page's own glyphs, and reports per page which pages have words only as pixels, so a document whose
+text is already there is never photographed and guessed at. A scan still goes to recognition; a
+contract with a scan appended sends only the scanned half. That is a platform-wide correctness fix
+that happens to have been forced by discovery.
+
+**Everything derived is derived from one canonical form.** Line endings, canonical composition,
+typographic and non-breaking spaces, invisible zero-width characters, and stray control bytes all
+settle in one place before anything is chunked, hashed, or fingerprinted — because two copies of one
+document that render identically must deduplicate, and a document with joiners smuggled between its
+letters must not be able to evade that. The passage chunker moved out of TypeScript into the shared
+engine **byte for byte**, carrying its own test corpus with it: the desktop client and the server run
+the same engine over the same document into one index, and an index that disagrees with itself about
+what a document says is not an index.
+
+**Archives open, under five guards, in exactly one place.** A production received from another party
+arrives as a zip, and a discovery subsystem that cannot open one cannot ingest an external production
+at all. So the opaque-archive rule narrows to the File Manager, and the discovery path expands —
+under nesting-depth, total-bytes, expansion-ratio, and entry-count ceilings, plus unconditional
+rejection of any entry whose path tries to escape, every one of them checked before a decompressed
+byte is kept. A zip bomb trips the ratio guard rather than memory. An encrypted entry is reported and
+its nine thousand siblings still load. An archive nested past the ceiling is described honestly
+rather than opened or dropped. An archive can also be listed without decompressing anything at all,
+which is what lets an unexpanded one still be accounted for rather than shrugged at.
+
+Also: the five digests e-discovery load files ask for (including MD5 and SHA-1, carried as
+legacy-interop exactly as the platform already labels them) in one pass over the bytes; a
+deterministic near-duplicate fingerprint computed where the text is already in memory, because
+retrofitting it across a production is not a migration but a second processing run; each format's
+best available document date, reported verbatim with the source named rather than converted; and a
+page count where the format actually has pages, because Bates numbering will need it and it cannot be
+recovered later without re-reading every byte.
+
+**Every parser in it is memory-safe, and that is enforced rather than intended.** Discovery ingests
+hostile files at scale — the worst case the rule exists for, not an edge case — so no C-backed codec
+feature is selected on any path, and a test that reads the engine's own manifest fails if one ever
+is. A malformed, truncated, encrypted, or absurd input is always a named error and never a panic, and
+a sweep runs every fixture through truncation, bit-flips, and inflated length fields against every
+entry point on every test run.
+
+The engine is hosted by its own container and worker rather than sharing the search container, whose
+whole premise is staying warm for sub-second queries: a bulk load that made review search slow is the
+one combination a discovery user would actually hit. It has no outbound network access.
+
+Nothing calls this engine yet. The review-set model it produces facts for, the queue lane that feeds
+it, and the wiring into the search pipeline are the sub-slices after it.
+- The review set — the object the whole of Discovery is a function over. Every deferred discovery
+feature (filters, tagging, threading, near-duplicates, the privilege log, production) is a question
+asked of one thing nobody had built: **these are the documents under review in this matter, this is
+where each one came from, this is whose records they were, and this is what happened when we
+processed them.** This builds that, fills it from the firm's own records, and stops before anyone
+reviews it.
+
+**A review document is a pointer, and it never becomes a copy.** It names a file version or an email
+message the firm already holds — with the hash already computed at ingest and the scan verdict
+already recorded — so pulling a thousand of a matter's documents into a corpus moves no bytes and
+re-reads none. One blob store, one scan gate, one version model, one hold mechanism, one destruction
+policy. And it pins the **version**, not the file: a document that gains a new version tomorrow does
+not quietly change what a firm has already certified as the corpus under review. A newer version
+enters only through a new load, which is a recorded act with its own record of who did it and when.
+
+**Whose records these were is a first-class fact, and it is two words.** The platform already ships a
+register of physical client originals a firm holds in safekeeping — and a lawyer calls the person on
+that register a custodian too. One word meaning two different things in the same matter, sometimes on
+the same screen, is a defect waiting to be written, so discovery says **record custodian** and never
+the bare word, in code, in schema, in comments, and in anything a person reads. A source scan enforces
+it both ways. Record custodians belong to their review set rather than to the firm, because the same
+name in two matters is not assertably the same person, and asserting it wrongly is not a duplication
+problem — it is something a firm gets asked about under oath.
+
+**Every load says whether the firm's own assistant transcripts are in scope, and there is no
+default.** A transcript is the firm's work product — its reasoning about the matter, not the client's
+records — and whether it belongs in a corpus the firm is about to certify the contents of is a
+decision a person makes on purpose. So the field is required, in both directions: a silent exclusion
+decides as much for somebody as a silent inclusion would, it just fails the other way, and a firm that
+believed transcripts were in scope would learn otherwise after producing. The answer is recorded on
+the load itself, so the record can state what the corpus was **drawn from** and not only what landed
+in it. Asking to include them is currently answered by name — the lane that reaches them arrives with
+the review surface — rather than by silently dropping the request or by claiming a sweep that did not
+happen.
+
+**Nothing is dropped quietly, and the counts have to add up.** A document ends in exactly one of two
+states: processed, or excepted with a named reason from a closed list of fifteen — because "we could
+not read this, and it was a legacy WordPerfect document" is a sentence a firm can stand behind and
+"extraction failed" is not. There is no third state and no path that reaches neither, and a load
+cannot be marked finished while what arrived does not equal what was processed plus what was
+excepted. The database refuses it, not just the code.
+
+**The limit is a refusal, not a slow failure.** A review set carries a document ceiling, and a load
+that would carry it past is refused when it is declared — with the count and the ceiling both in the
+message, so a firm knows how much to split off rather than guessing. The alternative is a firm
+finding out at four hundred thousand documents that its database is full, which is an outage with no
+good exit.
+
+**A closed review set gives back its working files and keeps its records.** Closing releases the
+extracted text, the metadata, and the search index for collection — all rebuildable from the
+originals at any time — while every row, every load manifest, and every exception report stays.
+There is no reopen, deliberately: a corpus that could be reopened is a corpus whose contents depend
+on when you looked at it.
+
+Also: a load fans out from a coordinator that keeps its place in durable storage rather than in
+memory, so a deploy or an eviction partway through a quarter-million-document load resumes where it
+actually got to instead of starting over or skipping the rest; an email and its attachments enter as
+one family and stay together, because a production that splits them is a production that gets
+challenged; a quarantined or unscanned file is refused **by name** rather than skipped, because a
+firm that selected fifty documents and silently received forty-eight has a corpus it cannot certify;
+and discovery is its own permission scope, so full access to a matter reaches no review set on it —
+material another party produced may be attorney's-eyes-only under a protective order, and matter
+access must not carry it.
+
+Nothing processes the corpus yet. Reading a document's text, deduplicating, indexing, and the
+exception report a litigator actually reads are the sub-slices after this one.
+- Discovery — ingest and processing — design. The specification for the first built slice of
+e-discovery, over a large amount of machinery that already shipped switched off: the search index
+format, the write pipeline, text recognition, email parsing, PDF reading, and evidence-grade hashing
+were all waiting for something that did not exist.
+
+**What was missing was not an engine — it was the corpus.** Nothing in the platform said "these are
+the documents under review in this matter, this is where each one came from, this is whose records
+they were, and this is what happened when we processed them." Every discovery feature still to come —
+filtering, tagging, threading, near-duplicate detection, the privilege log, producing documents to the
+other side — is a function over that one object. This design builds it: a **review set** that
+documents and email are **loaded** into, one recorded load at a time, each load carrying a manifest of
+what arrived, from whom, on whose authority, and with what hashes.
+
+**Whose files these were is recorded, and the word for it is chosen carefully.** The platform already
+has a Custodian register — the firm's safekeeping of physical originals — and discovery's "custodian"
+means something completely different. Rather than let one word mean two things in the same matter,
+discovery says **record custodian**, in two words, everywhere: it reads naturally to a litigator and
+cannot be mistaken for the safekeeping register on screen or in the code.
+
+**Nothing is dropped quietly, and nothing is deduplicated away.** Every document ends in one of
+exactly two states — processed, or excepted with a named reason — and a load only completes when the
+counts reconcile. Encrypted, corrupt, unsupported, and unreadable documents appear by name in an
+exception report the firm can hand to opposing counsel; "we produced everything we could read" becomes
+a document rather than an assertion. Duplicate copies are grouped so the expensive work happens once,
+but the duplicate is kept and stays attributed to the custodian it came from, because "which
+custodians held this document" is a question asked under oath and "we deleted that" is not an answer.
+
+**Files from the other side are treated as hostile, because they are.** Every externally loaded byte
+crosses the same gate the platform already uses — real-format checking, hashing, malware scanning,
+quarantine as a status rather than a deletion, because an infected file in discovery is evidence.
+Archives received in a production are opened, which they previously never were, under hard limits on
+nesting, size, expansion ratio, and entry count that are checked before anything is decompressed. A
+new document-reading engine is written entirely in Rust, compiled once for the server and once for the
+desktop so both produce identical results, and the design introduces no new memory-unsafe dependency.
+
+**Scale is stated in numbers instead of adjectives.** A small production is 10,000 documents; a
+moderate matter is several hundred thousand — orders of magnitude beyond everything else the platform
+stores, and the only data whose volume is set by an outside party. Document text never goes in the
+database, review sets have a document ceiling that is refused rather than silently exceeded, bulk
+loading runs in its own lane so it cannot slow ordinary file uploads, and a resumable coordinator
+survives restarts mid-load. Semantic search over a review set is opt-in, because embedding hundreds of
+thousands of documents costs real money whether or not anyone runs a semantic query.
+
+Two specs, one decision record, four build sub-slices, and ten owner decisions each carrying a
+recommended default. No product code in this cycle.
+- **The mail-client add-in's client API is complete: the firm's mail client can now ask where a message
+belongs, file it, and read back what happened.** Filing itself already worked — an add-in posts the
+open message to its matter and reads the wall-safe "already filed" indicator — but three things it
+needs were missing, and each is now a route.
+
+**Where should this go?** A new matter-suggestion read ranks the matters an open message probably
+belongs to, so the pane can pre-select one instead of making an attorney search mid-triage. Four
+signals combine, ordered by how hard each is to be wrong about: the conversation is already filed to a
+matter (the strongest — it is the thread itself, not a guess about who is on it), the subject line
+carries the firm's own matter number, a correspondent on the message is a party on a matter (live now
+that Directory resolves an address to an entity), and last and weakest, whatever the member typed —
+delegated to the same free-text matter search the caseload list uses, so "search" means one thing
+across the product. Each suggestion carries its confidence and the reasons behind it in plain language,
+and the response flags when the top candidates tie, so a client knows not to pre-select anything.
+
+**Every suggested matter is one the member can already see.** Suggestions are the one place in the
+subsystem where the server proposes matters nobody asked for by name, so the narrowing happens before
+the ranking, not after: a matter the member is walled from contributes no suggestion, no reason, and no
+count, and its absence is indistinguishable from having no evidence at all. The message facts ride the
+request body rather than a URL — a subject line and a client's correspondents are the firm's mail and
+do not belong in a log.
+
+**What happened to what I filed?** Filing a message returns a job identifier and finishes off the
+request path, and until now that identifier led nowhere. A capture-status read turns it back into the
+answer: which record the message became, whether it was filed outright or staged for a person to
+accept, and whether the firm already held it and the capture converged on the existing record rather
+than writing a second one. The capture worker records its outcome on the same atomic write as the
+capture itself, so a status can never describe a filing that rolled back. A job whose result sits on a
+matter the caller cannot access is reported as absent — never as somebody else's matter.
+
+**What do I show this member?** A filing-context read gives the pane everything it needs before the
+member chooses anything: the matters they have most recently filed mail to (their own filings — a
+shortcut list is a personal working set, not a window onto what colleagues are busy with), whether each
+has a live forward/CC capture address, whether the firm has a catch-all, the zone those addresses live
+under, and the size ceiling a message must fit under so a too-large message is refused on the desk
+rather than after the upload. Capture tokens stay write-once: the response says an address exists, never
+what it is.
+
+All three are reads bound to the existing `emails:read` capability — nothing new to grant, and a member
+who can read the firm's filed mail can be told where to put the next message. One index-only migration
+backs the recent-filings list so it walks one member's own filings instead of scanning the firm's.
+- **Captured email is now checked against its DKIM signature, and the filing API is hardened for the
+add-in.** A message filed to a matter carries a recorded verdict on whether its signature verifies,
+which domain signed it, and — when it does not verify — why: unsigned mail, a message file with no
+signable original, a signing key that has rotated away, and a resolver outage are each recorded
+distinctly rather than collapsed into one answer. The verdict is **informational**: nothing is
+dropped, quarantined, refused, or auto-filed on the strength of it, and a forwarded copy failing
+verification (forwarding rewrites headers, which breaks the original signature) says nothing against
+the sender. Verification is RFC 6376 over WebCrypto inside the platform, off the request path — no new
+dependency, and the mail parser keeps its parse-only, network-free boundary.
+
+The authenticated `file this email to a matter` endpoint — the one the native add-in's Save & File will
+post to — now honours an `Idempotency-Key`, so a retry from a mail client on a flaky network converges
+on the capture it already started instead of staging a second copy, and a key reused with different
+bytes is refused rather than answered with the first capture. It also refuses, at the door and
+with a reason the caller can act on, a payload that is not an email, a message past the capture size
+limit (measured from the bytes received, not a declared length), and a matter the caller cannot resolve
+— all previously accepted and left to fail out of sight in the background consumer. Both capture
+entrances now share one size ceiling, and a client can declare itself as the add-in so a capture that
+preserved the original message is distinguishable from a manual upload.
+- **A firm's own fields as merge fields.** Every custom field a firm has defined on matters is now a
+merge field a template can bind, written `{{custom.<field handle>}}`. Binding is by the field's
+**handle, never its name**, so renaming "Retainer cap" to "Engagement cap" changes nothing a
+registered template has to be re-registered for. The catalogue is derived per firm at read time, so
+the field list a template is authored against, the check that runs at registration, and the check that
+runs at assembly all see the same fields — which is what makes drift detectable: a template bound in
+March to a field archived in June fails in September naming the field, rather than quietly leaving a
+hole. An archived field resolves as a reported absence and shows a visible marker. Values render at
+the scale their own definition declared, reusing the custom-fields engine's value model rather than
+restating it: the same stored `500` prints as `500` on a number field and `$5.00` on a currency field,
+and a declared decimal scale renders by moving the point rather than by dividing. Picklist and
+reference values print the option's or the referenced record's **label**, never the handle they store.
+A whole template's custom fields cost **one** database read, however many it binds.
+
+A custom field a document template binds can no longer be hard-deleted: like a field that holds
+values, it is `field-in-use` and routes the administrator to Archive, where the binding stays
+resolvable as a reported absence instead of leaving templates naming a field nobody can look up.
+
+**The letterhead logo.** An office can now carry its firm's mark, and a template draws it with
+`{{location.letterheadLogo}}` — resolved from the **matter's own office**, so a document assembled by
+a member of one office on another office's matter carries the correct letterhead. The image must be a
+PNG or a JPEG, decided by reading the file rather than by what the upload calls it; SVG, EMF, WMF, GIF,
+BMP and TIFF are refused, and the reasoning is that a raster is all a printed mark needs while an image
+format that is itself a document or a replayed record stream would put a markup and parser surface
+inside every assembled document. The office sets only a printed **width**: the height follows from the
+image's own proportions, so no template can print a stretched logo, and replacing a wide mark with a
+tall one re-lays every letterhead out correctly without touching a single template. An office with no
+logo set, or whose asset has gone, assembles with a visible marker rather than silently losing its
+letterhead.
+
+This is the assembly engine's first image work, so the emitted package is checked structurally rather
+than textually: the image part, its declared content type, its relationship on the part that draws it,
+and the drawing's reference to that relationship are each asserted, because a document whose words are
+all correct and whose picture wiring is not is a document no reader will open — and nothing in a text
+assertion can see it.
+- The design for **Magnus**, the assistant a firm member can talk to — the conversation record, the
+consent gates, the path from a typed question to an answer, and the seams later work attaches to.
+Design and plan only; no product code, and nothing is enabled for any firm.
+
+**Magnus does not get an AI connection of its own.** The platform already has exactly one place a model
+can be reached, and everything that keeps that safe — no caching, no logging, the firm identity derived
+by the server rather than taken from the caller, and a check that refuses outright to send anything to
+a model that has not committed to retaining nothing — is a handful of settings in a single function.
+The strength of those settings comes entirely from there being one of them. So Magnus becomes the first
+real user of that one path rather than a second path beside it. The single change is one addition: the
+existing path could send a question, and now it can send a conversation, with the platform's own words
+for who said what and the platform's own instructions kept structurally apart from anything a member
+typed, so nobody can talk their way into the instruction seat.
+
+**A conversation is a record the firm keeps.** Transcripts live in the firm's own database, are kept
+the way correspondence is kept, are readable by the person who wrote them and by administrators holding
+a separate permission for exactly that, and are never shown to clients. A member can delete a
+conversation whenever they like and the deletion is on the audit trail. The cost of this is real and
+worth saying out loud: a question a member would once have thought and not written down is now written
+down. It is accepted because a firm that cannot see what its people asked cannot supervise the thing at
+all, because every neighbouring part of the platform already keeps its records, and because if somebody
+relies on an answer that turns out to be wrong, the transcript — with the exact model version recorded
+against it — is the only thing that helps. What was deliberately not built is an off-the-record mode,
+because the question "why was that one off the record" is worse than any answer to it.
+
+**Turning it on takes three separate yeses.** The firm must already permit AI processing at all; the
+firm must then enable Magnus specifically, which is a different question and is off by default; and the
+member must hold the permission and have read and accepted a disclosure. The disclosure is versioned,
+which sounds like bookkeeping and is not: the day Magnus can do something new, every member is asked
+again automatically, because the thing they agreed to has changed. Switching Magnus off stops questions
+that are already in flight rather than letting them finish quietly.
+
+**What the firm is told, it is told plainly.** That what members type is sent to a model provider
+outside the platform; which provider and model; that the provider keeps nothing and trains on nothing,
+along with the honest residual that a retention guarantee is not the same as nothing existing anywhere
+for any interval; that Magnus can see nothing but the conversation itself; that Magnus can do nothing
+at all; that transcripts are kept and who can read them; and that whether the firm's own client
+agreements permit any of this is the firm's judgement and not the platform's. Members are additionally
+told the thing an administrator does not need told — that Magnus can be wrong, that nothing it says is
+legal advice, and that checking it is their job.
+
+**Magnus starts able to see nothing and do nothing, on purpose.** It cannot read matter files, the
+calendar, or the directory, and it cannot create, edit, file, send, or delete anything. The narrow
+start is what lets the disclosure be a sentence a firm can actually weigh — "what you type is what is
+sent" — rather than a description of whatever a search layer happened to pick out of their files. The
+places retrieval and actions will attach are built and empty, so adding them later changes one piece
+and not the whole design.
+
+**Answers come back the way every other slow job's results already do.** A question is accepted
+immediately and answered in the background, so one firm's long question cannot occupy capacity everyone
+else is queuing for, and the live connection that pushes the answer to the screen carries no
+conversation content of its own — it reads the record and shows it, so there is exactly one copy of a
+transcript anywhere. There is a hard limit on how much can be sent in one message and how much of an
+older conversation is carried forward, and when older parts are dropped the member is told, because an
+answer confidently built on something the member believed was included is worse than a visible gap.
+
+Also settled: what the firm's spending record looks like when the model gateway is configured to log
+absolutely nothing (the platform's own per-firm token record is the only source, which is what it was
+already designed to be), and that the gateway's content-moderation feature must stay off permanently,
+because it works by logging the prompts and responses it inspects.
+- Magnus — the conversational assistant backend, build slice 1. The record a firm member's
+conversation with the assistant becomes, the consent gates that must be opened before a byte of it
+leaves the platform, the path from a submitted message to an answer, the transport that returns it,
+and the audit and cost record it leaves behind. **No user interface, and nothing reaches a model
+provider**: both firm-level consent settings default closed and the shipped adapter is a
+deterministic stub. This builds the thing that is later switched on; it does not switch it on.
+
+**The seam is reused, not rebuilt.** The assistant gets no model port of its own. It consumes the
+shipped `InferencePort`, whose confidentiality controls — caching off, logging off, firm metadata
+derived server-side, a fail-closed eligibility guard before dispatch — are four literal fields on one
+object in one function. Their strength comes entirely from there being exactly one place they are set,
+so the assistant adds one operation to that port (`generateConversation`) rather than a second port,
+and a source scan now enforces that no module outside the inference package can reach the model
+binding or construct a gateway options object at all.
+
+**A conversation is the firm's work product, not a session.** Protected, deletable, archivable:
+transcripts live in the firm's own database under the firm-scoped data-access layer, visible to their
+author and to administrators holding a named permission, never to a client, deletable by their author
+with the deletion audited — and registered in the erasure registry, with conversation-level deletion
+named as the instrument for the free text inside a message, which no column-level rule can reach. They
+are discoverable in the way email is, which is why a firm must be able to say whether transcripts are
+in scope when something searches across its records rather than having them swept in silently; that
+include-or-exclude control belongs to the discovery surface and lands with it. There is deliberately
+no per-conversation off-the-record mode: the question "why was that one off the record" is worse than
+any answer. The
+Durable Object behind the live-updating transport stores **nothing** — it reads a turn's state back
+from the firm's database and pushes it — so exactly one copy of a transcript exists.
+
+**A member cannot occupy the system role.** The platform-authored instruction travels on its own
+field, structurally separate from the conversation, and the role vocabulary is the platform's
+(`member` / `assistant`) with no system member to be mapped onto.
+
+**Nothing about a conversation is ever logged** — not into the diagnostics pipeline, not into audit
+metadata, not into a problem detail, not into a queue payload. The audit builders are structurally
+content-free: every input is identifiers, numbers, and closed labels, so logging what somebody typed
+would take changing a type signature. Gateway Guardrails are prohibited on this gateway (they log
+prompts and responses), and gateway log collection stays off — which means the gateway dashboard shows
+nothing for this traffic by design, and the authoritative spend record is the in-repo one.
+
+Also here: a per-firm daily message allowance with a real, finite default, checked before anything is
+enqueued; per-message size caps that are what keep a transcript a database row rather than an object
+store; a bounded request window (at most twenty messages and 128 KiB, always ending on the newest
+question) that tells the member when earlier messages did not fit; two new permissions seeded to the
+seats that do legal work, with reading every member's conversation kept as a separate grant; and a
+general-purpose deterministic `InferencePort` stub in the inference package that every future AI
+feature inherits.
+- **A matter can keep a register of what the client or the estate owns.** Two specs land: the design
+for a dedicated asset register on any matter, and the phased plan that builds it. Properties with an
+address, a parcel number, a legal description and a county; bank and brokerage accounts; vehicles
+with their identification number and plate; firearms with make, model, calibre and serial; business
+interests, insurance policies, money owed to the estate, digital assets, and ordinary personal
+property. Each one takes documents — the deed, the title, the statement, the appraisal, the bill of
+sale — and those stay ordinary matter documents at the same time, so nothing is filed twice and
+nothing leaves the matter's file list.
+
+**Every value carries the date it was true.** Instead of one number that gets overwritten, an asset
+keeps a history: a date-of-death appraisal, a bank statement, a broker's figure, the price it
+actually sold for — each with the date it speaks to, what it was based on, and the document behind
+it. A wrong figure is corrected by a new entry rather than by rewriting the old one, so a schedule
+filed in March and the register in September never quietly disagree. Mortgages and liens carry their
+own balances the same way, so an estate schedule as of any date shows value, what is owed against
+it, and the equity between them.
+
+**Logging is meant to be fast.** Two fields make a row — what kind of thing it is and a description
+— and a value can be typed in the same breath. Twenty items from a client questionnaire go in as one
+submission. Nothing is ever blocked for being incomplete; the schedule simply says how many assets
+have no value yet.
+
+**Types grow without waiting for us.** A small fixed set of asset kinds carries the structured facts
+that make search and merge fields work, and underneath each one a firm keeps its own list —
+condominium, timeshare, mineral interest under property; checking, brokerage, individual retirement
+account under accounts — plus its own custom fields on top. A firm is never stuck because we did not
+think of something.
+
+**Sensitive numbers are handled by what they are.** A parcel number, a vehicle identification number
+and a firearm serial appear on public records, so they are ordinary searchable fields. Full account,
+policy and tax numbers are encrypted, show only their last four digits everywhere, take a deliberate
+permissioned read to see in full, and never reach a generated document. Passwords, seed phrases and
+safe combinations are refused outright — for a self-custodied digital asset the phrase _is_ the
+asset, and the right home for that is a sealed envelope in the custody register.
+
+**Firearms are recorded, not adjudicated.** The register logs what an estate holds and says so
+plainly: transfers are governed by federal and state law, and it does not determine who may receive
+anything. No deadlines, no eligibility checks, no classifications — the same posture the platform
+takes everywhere a rule varies by jurisdiction, where nothing is encoded until it has been verified
+against the primary text.
+
+**It joins what the firm already has.** An item held in the safe can be linked to the asset it is,
+without either side copying the other's facts. Assets flow into document automation as lists a
+template can walk, so an inventory or schedule assembles from the register — and a value never
+prints without the date it belongs to.
+- **A matter can now keep a register of what the client or the estate owns.** Add a property with its
+address, county, parcel number, legal description and recording reference; add a bank or brokerage
+account with the institution that holds it; add anything else as ordinary personal property. Two
+fields make a row — what kind of thing it is and a description — so nothing is ever blocked for being
+incomplete, and a value can be typed in the same breath as the thing. Twenty items from a client
+questionnaire go in as one submission, and re-submitting the same list does not produce a second copy
+of everything.
+
+**Every value carries the date it was true.** Instead of one number that gets overwritten, an asset
+keeps a history: a date-of-death appraisal, a bank statement, a broker's figure, the price it
+actually sold for — each with the date it speaks to, what it was based on, and the document behind
+it. Ask what something was worth as of a date and the answer comes back with the date it actually
+speaks to, so you can see how current it is; ask for a date before the first figure and the answer is
+nothing at all, because something acquired after the date of death was not in the estate at the date
+of death. A wrong figure is fixed by recording a correction that names the entry it replaces, which
+supersedes it everywhere while both stay on the record — so an inventory filed in March and the
+register read in September can never quietly disagree. There is no route that edits or deletes a
+recorded value, and the database refuses one.
+
+**Documents attach without leaving the matter's file list.** Link the deed, the title, a statement,
+an appraisal, a bill of sale. The document is not copied or moved: it stays exactly where it was,
+previewable, searchable, and under any legal hold, and it has simply gained an association. One
+statement can evidence four accounts, so it is attached once and linked to each. Detaching leaves the
+document untouched.
+
+**Interests are recorded as fractions, and nothing is inferred from them.** Record who from the
+directory holds a stake, under a label from the firm's own list, with a share as a fraction so three
+siblings' shares add up to the whole rather than to 99.99 percent on a filing. Ending an interest
+writes a date and removes nothing. How an asset is held and whether it forms part of the probate
+estate stay two separate facts a person records — the register never derives one from the other.
+
+**Sensitive numbers are handled by what they are.** A parcel number is on the assessor's public roll,
+so it is an ordinary searchable field. Full account, policy, certificate and tax numbers are
+encrypted: every list, detail and report shows the last four characters only, seeing the whole number
+is a deliberate act needing the same permission as a contact's sensitive identifiers, and every such
+read is recorded. Recording only the last four is a complete record. Passwords, passphrases, seed and
+recovery phrases, private keys, personal identification numbers and safe combinations are refused
+outright, with a message saying where such a secret belongs — a sealed envelope in the safe custody
+register, where it has a location, a hold, and a record of every hand it has passed through.
+
+**Kinds of thing grow without waiting for us.** A fixed set of asset classes carries the structured
+fields that make search work, and under each one the firm keeps its own list — single-family
+residence, condominium, timeshare and mineral interest under property; checking, savings, brokerage,
+certificate of deposit and retirement accounts under financial accounts — extendable by the firm and
+deactivated rather than deleted, so every asset already filed under a type keeps its meaning.
+
+Two new permissions, `matterAssets:read` and `matterAssets:manage`, seeded to the seats that
+administer an estate. Reading the register and moving originals in the safe stay separate grants, and
+so do reading the register and opening a full account number.
+- **The merge-field catalogue is designed for the size a real document set needs.** Two specs land: how
+the catalogue grows from the twenty-nine fields shipped with document automation to the several
+hundred a firm's letters, pleadings, and probate filings actually name, and the phased plan that
+builds it. The design is a scaling-up of the shipped engine rather than a rework — one batched read
+per source, absence as a declared decision, ambiguity answered rather than guessed, and everything
+checked when a template is registered all stay exactly as they are.
+
+The catalogue stops being a written-out list and becomes a **cross product**: a small registry of
+subjects a document talks about (the matter, the client, the opposing party, opposing counsel,
+co-counsel, a guardian ad litem, a trustee, the responsible attorney, the court, the estate, this
+office) crossed with a small registry of facts about each (its name, its address, its email address,
+its capacity, its title). About forty declared rows produce about two hundred and sixty fields, and
+adding a role — or adding a fact that every role should carry — is one row either way.
+
+**Ways of formatting stay formats, not more fields.** A different fact gets its own field; the same
+fact written differently gets a suffix, so a name is one field that can be written "Rowan Ashcroft",
+"Ashcroft, Rowan", "Dr. Rowan T. Ashcroft Jr.", "R.T.A.", or in capitals for a caption — and an
+address is one field that can be a letterhead block or a single line. Dates keep the styles they
+have and gain a few; money gains the words-and-figures form a settlement statement and a promissory
+note use. A rendering the record cannot support — a surname-first form for a company, a courtesy
+title nobody recorded — produces the usual visible marker and a sentence saying why, never a
+plausible-looking wrong name.
+
+**Attorneys on both sides get an answer.** Our side becomes matter staffing — the responsible,
+originating, supervising, and billing attorney and the assigned paralegal, each with a name, title,
+signature block, and direct dial; the other side is the party mechanism that already exists, widened.
+Two attorneys in one role still resolves to nothing with the count named, and "list them all" is
+still the repeating block. **The estate becomes a first-class identity on a matter** — the decedent,
+the style a court fixed, the short style a letter's second reference uses — and a capacity phrase
+like "as Administrator of the Estate of Rowan Ashcroft, Deceased" is composed once, as one field with
+one marker when something is missing, rather than three placeholders that leave stray punctuation
+behind.
+
+Everything a template already binds keeps working: a shipped field is permanent, its default
+rendering is frozen, a withdrawn field is deprecated rather than deleted, and the number of database
+reads an assembly costs goes from six to twelve while the number of fields it can name goes up
+roughly ninefold.
+- **Trust: Nevada's trust-accounting rules are encoded, and they do not yet resolve.** The platform
+  now carries Nevada's records-retention period, IOLTA regime, overdraft-notification regime,
+  unclaimed-funds mechanism, annual-compliance duty, and advance-fee treatment, each with the citation
+  and the verbatim rule text it was taken from. Every one of them refuses to answer until a licensed
+  attorney has reviewed the profile and that review is recorded against the revision they read —
+  encoded is not verified, and a compliance answer nobody has stood behind is worse than no answer.
+  Nevada ships **not verified**. A firm can still see what the platform has, marked as unverified,
+  which is what makes getting it reviewed possible at all.
+- **Nevada is the only encoded jurisdiction, and there is no baseline behind it.** Every other
+  jurisdiction refuses exactly as before, with a refusal that says nobody has researched it rather
+  than one that implies an answer. There is deliberately no fallback profile and no "most states
+  require" default: a wrong jurisdiction fact is a wrong statement about a lawyer's obligations, and
+  a firm shown a confident wrong answer will act on it.
+- **Research: Nevada's statutory basis for the custodian will-on-death engine.** Primary-source findings —
+the official Nevada Revised Statutes, Nevada court rules, and the Nevada Rules of Professional Conduct as
+published by the Nevada Legislature — establishing what a will-holder owes on a testator's death, written
+to gate what the jurisdiction-keyed deadline catalog is allowed to encode. **The operative rule: NRS
+136.050(1) gives any person in possession of a will 30 days after knowledge of the testator's death to
+deliver it either to the clerk of the district court with jurisdiction or to the personal representative
+named in the will** — "any person," with no attorney carve-out — and NRS 136.050(3) makes a holder who
+neglects that duty without reasonable cause liable to every interested person for the resulting damages.
+Records four further verified findings: delivery to the clerk makes the will a permanent, publicly
+inspectable court record whether or not probate is ever petitioned; **Nevada has no lifetime will-deposit
+procedure at all**, established by a full-text search of every chapter of NRS Title 12 plus the clerk,
+recorder, and court-rule sources, and specifically distinguished from the uniform-act language
+that search engines return as though it were Nevada law; the requirement to lodge the _original_ will with
+a probate petition is a **county-level court rule** (Eighth and Second Judicial Districts), not a statute;
+and NRS 133.300-133.340 create an opt-in qualified-custodian role for electronic wills with real storage,
+notice, and destruction duties and a venue consequence. Each catalog-ready fact is mapped to the shape the
+catalog needs, with a maintenance note keyed to Nevada's biennial odd-year session and the published
+revision stamp, and an explicit list of what could not be verified. Research only — no decision, nothing
+built, nothing encoded.
+- Notifications — the delivery half — design. A specification for how a raised notification reaches a
+person: the record, the channels, preferences, the delivery mechanics, and who is allowed to read the
+result.
+
+The design starts from an inventory, and the inventory is the reason it is small. **Forty-four places
+in the platform already decide that something notification-worthy happened, and none of them was
+connected to anything.** Thirty-one of those already write a durable message in the same atomic commit
+as the change it describes — that is the transactional outbox, shipped, swept every five minutes, and
+already publishing onto a per-firm queue that resolves the firm's database and dispatches by topic.
+Six more are declared constants in the calendar. One is a query in the safe-custody register. One is a
+placed no-op in email filing. Five are background-job coordinators that already announce their own
+completion. So the work is not building a pipeline; it is **subscribing to the one that exists**, and
+deciding the policy questions nobody had answered.
+
+**Nothing that emits changes.** The notification consumer becomes a second, non-exclusive pass on the
+queue that is already there, so no write path in billing, trust, matters, documents, files, or the
+directory gains a line. The emission points that are comparisons rather than events — a deadline that
+is due, a deadline that is overdue, a custody review that has come round, a check-out that has not come
+back — are read by the existing nightly sweep calling the functions those subsystems already export,
+bucketed by civil date so a permanently-true comparison raises once a day instead of once every five
+minutes. The safe-custody register's promise that delivery would subscribe to its one collection point
+rather than grow a second definition of what is due is kept exactly.
+
+**A notification carries no sentence anybody typed.** Identifiers, counts, dates, and labels from
+declared lists — and no matter title, client name, filename, or email subject line, enforced by a
+value grammar rather than by review. The card a member reads is assembled when they read it, from the
+kind of thing that happened plus a matter lookup that is already filtered by what they may see. That
+is both the strongest privacy posture and the only one that cannot go stale: a stored title survives a
+rename and a renumber, and is wrong in a way that looks authoritative.
+
+**An email says how much is waiting, never what it is about.** A fixed subject, per-category counts,
+and one link back into the app — no matter numbers, no titles, no dates, no amounts. The reasoning is
+that email is the one channel that cannot be taken back: everything else the platform delivers is
+re-filtered every time it is read, so a person removed from a matter stops seeing it, while an email
+sent yesterday is simply out there, in a mailbox the firm may not administer, on a lock screen, in
+somebody's backup. Content that never depended on access is the only content safe against access
+changing, and a count is exactly that. Sign-in alerts, password resets, and invitations are about the
+person reading them rather than about a client, and keep their full content.
+
+Preferences reuse the settings machinery already in place, per category rather than per event type,
+with email as a daily or weekly digest and no per-event mail. Trust and security notifications cannot
+be silenced in the app. A firm can require that a category reaches its people in-app, and deliberately
+cannot force email on anyone — mandating email means pushing case-adjacent metadata into a mailbox
+beyond the firm's reach. A firm may name partners who receive every trust notification, and being
+named is not a grant of access: where the matter is screened from them, nothing is delivered and no
+placeholder appears, because "one item you cannot see" tells you it exists.
+
+Two specs, one decision record, and five owner decisions — the email content boundary being the one
+that is a matter of taste rather than of correctness. No product code, no user interface, and no push
+or SMS in this cycle.
+- **Push-based job progress for bulk downloads and file conversions.** A client can now subscribe to a
+job over a WebSocket and be told the moment it changes — `building`/`queued`, `running`, and the
+settled state with its freshly signed download URL — instead of polling until the answer moves. Built
+on the Durable Objects hibernation WebSocket API on the existing coordinator objects, so a subscriber
+waiting on a long build costs nothing while it waits and its keepalives never wake the object. The
+existing polling endpoints are unchanged and remain a complete fallback: both transports resolve a job
+through the same function, so they cannot report it differently. Subscribing traverses the same
+chokepoint as every other route, with the same session-derived firm scoping — `GET
+/api/v1/downloads/bundles/{manifestHash}/events` and `GET /api/v1/conversions/{jobId}/events`.
+- **Every file the platform stores now carries, on the file itself, which matter it belongs to and what
+kind of thing it is.** Until now that answer lived only in the firm's database: the storage key is
+deliberately meaningless (`files/<opaque>/<opaque>`), so that renaming a document or moving it to
+another matter moves no bytes and costs nothing. The price of that choice was that anything looking at
+the stored file alone — a search index reading the firm's storage, a storage report, someone answering
+"what of ours is in here" — could not tell whose matter it was.
+
+**Why now, when nothing yet reads it.** Because the cost of adding it runs the other way from almost
+everything else: writing it as each file is stored is free, and adding it later means rewriting the
+metadata of every file every firm has ever stored. It is the same reasoning that put the storage
+encoding on file versions before there was anything to encode. The natural-language document search
+design depends on it and copies it rather than working it out again, but it earns its place without
+that: a fact about a file that travels with the file is useful to everything that ever meets the file.
+
+**It cannot be quietly forgotten.** Uploads go straight from the browser to storage and never pass
+through the platform, so for those the stamp is part of what the upload's signature covers: an upload
+that leaves it off is refused outright rather than landing a file nobody can place. Everywhere the
+platform writes a file itself, an automated check over the source code fails the build if a new
+storage path is added without one. And a file that belongs to no single matter — a download bundle
+spanning several, a template the whole firm draws on, an email original that the same message may be
+filed from onto three different matters — records exactly that, so "no matter" is an answer rather
+than an omission.
+
+**What already exists is repaired in the background.** A nightly pass finds files stored before any of
+this and fills in what they were missing, a bounded number at a time so it never becomes a burst,
+picking up wherever it left off if anything fails. Nothing about the file itself changes — the bytes,
+the type, and the storage tier are carried across untouched — and the pass simply finds nothing to do
+once a firm is caught up. From then on it doubles as a standing check: a count that stops being zero
+means a new storage path forgot, on the day it shipped rather than months later.
+- Review — the second campaign's automation, email, and extraction work, read adversarially and
+recorded at [`docs/reviews/2026-08-06-campaign-2-automation.md`](docs/reviews/2026-08-06-campaign-2-automation.md).
+Documentation only: no source changed and no behaviour moved.
+
+Sixteen findings, three of them high. The template expression language's `addDays` is the one date
+helper that does not check its result against the calendar range its two siblings check, and an
+out-of-range date it produces is neither refused nor rendered — the computed field collapses to an
+empty string while the assembly reports a clean substitution, and a comparison against it answers
+backwards because date ordering is a string comparison on the ISO form. Both are the failure the
+absence model exists to prevent: a blank nobody notices, and a clause silently dropped. The
+re-extraction sweep's convergence argument holds only for documents that succeed — a version that
+ends `deferred` (the ordinary state wherever the recognition engine is unbound) or `failed` never
+gains a split, so it stays a candidate forever, and because candidates are drawn oldest-first under a
+per-firm cap, a firm whose oldest documents are scans re-enqueues the same set every day and never
+reaches the rest of its back catalogue. And the DKIM verifier accepts a signature whose `h=` omits
+`From`, which the RFC requires precisely so that a verdict is a statement about the sender; that
+verdict is informational today and becomes the precondition for unattended filing the moment the
+auto-file wiring lands.
+
+The report also records what held up. The expression sandbox's structural claims are accurate to the
+code — no traversal production, no dynamic dispatch, no prototype-reachable lookup, every walk
+bounded, every money intermediate checked before the operation. The protected-value path has no
+second read path, catches the chokepoint's refusal by identity rather than re-deriving the
+permission, and cannot record a decrypt that did not happen. The auto-file guardrails compose: no
+combination reaches an unattended file past ambiguity, a human decision, a withdrawn access, a closed
+matter, or the firm ceiling. Two standing facts frame all of it — the ethical-wall filter is still
+the identity function, and the auto-file engine is not yet wired to anything — so several findings
+describe defects that are invisible now and live on the day those seams are connected, which is the
+cheapest moment to have them written down.
+- The sign-in screen — the first real screen of the product, and the door everything else is behind.
+
+**It asks for one thing at a time.** The screen opens asking only who you are; the password comes
+next, on a card that shows the address you gave so a typo is visible before it costs an attempt.
+Where an account carries an authenticator, the code is asked for after that. All three steps happen
+at the same web address on purpose: a separate page for the code step would put "this account has
+two-factor turned on" — and which step just failed — into the address bar, the browser history, and
+anywhere that history is shared.
+
+**A rejected sign-in never says which half was wrong.** "That email and password combination doesn't
+match our records" is the whole answer, whether the address is unknown, the password is wrong, or the
+account is not yet activated. Distinguishing those turns the front door into a way to test whether a
+particular person works at the firm, one address at a time. An outage says something different —
+it never implies you typed something wrong — and hitting a rate limit says that plainly instead of
+claiming a valid code was bad.
+
+**Nobody can give themselves an account.** There is no sign-up link and no registration path; the
+card says so in as many words. Access is provisioned by the firm's administrator, and the only
+side doors on the screen — reset a password, use a recovery code — lead to holding pages until those
+flows are built, rather than to nothing.
+
+**Staying signed in and trusting a device are two different choices, asked separately.** "Keep me
+signed in on this device" is about this session; "Trust this device for 30 days" is about skipping
+the authenticator next time. Both are real settings sent to the server, and the number of days in
+that label is read from the configuration rather than written into the sentence, so the screen
+cannot promise a window the server does not honour.
+
+The code entry is a real one-time-code field: six cells that fill as you type, step back on
+backspace, take a pasted code whole, and let a phone or password manager fill it in one go. Every
+control on the screen is reachable and operable from the keyboard alone, announces its own state to a
+screen reader, and carries a visible focus ring; the screen is drawn entirely from the design system,
+so it is correct in both the light and dark settings without a second design.
+- **Totals across a repeating collection in a template.** `sum`, `minimum`, and `maximum` now work across
+the items of a list — `{{= sum(matter.parties.amount)}}` — so a settlement statement or a schedule of
+disbursements can carry its own total, earliest date, or largest amount. The calculation names the
+collection and the field it wants, and nothing else: it cannot filter, sort, or work anything out
+per item, and it costs the assembly exactly what a repeating block over the same collection costs.
+Money totals are integer-exact through `@magna-carta/money` and still refuse to cross currencies;
+a total of money is money, and the earliest of a column of dates is a date. Which fields can be
+totalled is settled when the template is registered, so a total of a name or of a yes-or-no is named
+then rather than at assembly time. **A collection with no items leaves the answer blank rather than
+printing zero** — as does an item with nothing on file for the field — because the smallest of nothing
+has no answer and a total of no amounts has no currency; ask `isEmpty(collection)` first, or supply a
+fallback with `default(…)`, when a template means "nothing on file means nothing owed".
+- **Template conditions, repeats, and calculations.** A Word template can now carry clauses that appear
+only sometimes (`{{#if}}` / `{{#unless}}`), sections that repeat once per item (`{{#each}}`), and
+worked-out values (`{{= expression}}`) — over a closed, total expression language that is checked at
+registration rather than at assembly time. Conditions and repeats operate on whole paragraphs and whole
+table rows, so list numbering and table banding survive a removed or repeated unit. Money arithmetic is
+integer-exact through `@magna-carta/money`: division is not an operator, and `divideExact`,
+`divideRounded`, `applyRate`, `percentOf`, and `allocate` each state their rounding, with banker's
+rounding the only mode a template author sees and `allocate`'s parts summing exactly to the input.
+Date math is over calendar dates in the matter's office time zone with end-of-month clamping. An
+unresolved **condition** fails the assembly naming the field, because a missing clause is invisible; an
+unresolved **calculation** renders a visible placeholder, the bias the absence model already takes. An
+expression is never executable template-supplied code: there is no production for property traversal,
+indexing, assignment, iteration, or a call to anything but a fixed helper allowlist, and the claim is
+held honest by a seeded fuzz harness, a committed denied-construct corpus, an independent arithmetic
+oracle, and one test per declared resource bound. First list-valued merge source, `matter.parties`,
+resolved by one batched read for the whole collection.
+- Trust accounting — the trust ledger schema and its by-construction invariants. A three-level
+sub-ledger tree over the existing double-entry ledger (trust-account liability root, a client node
+per trust client, a matter leaf under it), with `min_balance_minor = 0` written onto every matter
+leaf in the same batch that creates it, so an overdraw aborts the whole posting batch at the database
+rather than at a check a caller has to remember. The new `@magna-carta/trust` package owns the single
+composition guard every trust entry passes through: it refuses commingling and, with it, a processor
+fee netted out of a trust deposit; refuses postings to a roll-up tier; and refuses any entry touching
+more than one client, which makes a client-to-client movement unrepresentable. Disputed-funds holds
+reduce an available balance without moving money and are append-only (a release is a new linked row);
+the transfer out of trust posts two linked entries, is limited by available balance rather than by a
+positive one, and refuses outright until an earned-fee precondition is supplied. Jurisdiction fields
+refuse to resolve rather than falling back to any baseline. Adds `trust:read` and `trust:manage`.
+- Trust accounting — a matter whose client trust ledger still holds money no longer closes. The matter
+shell has carried a close hook since the lifecycle landed and nothing had ever registered against
+it; trust is its first rule, and it is a hard block rather than a warning, because a closed matter
+with somebody else's money in it is precisely how funds become unclaimed and the firm that closed it
+is the one that answers for them. The refusal is written to be acted on rather than merely obeyed: it
+names what the ledger holds, which trust account it sits in, how much of it is under an active
+disputed-funds hold, and the two movements that legitimately empty it — disburse the remaining funds
+to the client, or transfer earned fees to the operating account. A matter that never held client
+money closes exactly as before; the absence of a trust ledger is not a refusal, and the gate never
+creates one to find out.
+
+The rule is proven twice, because a read cannot be atomic with the write that follows it: the check
+produces the refusal a person can read, and a guard riding the close batch itself re-asks the same
+question where the answer is the committed one, so a deposit that lands between the two aborts the
+whole close — its audit row, its event, and its idempotency record with it — instead of closing a
+matter over money that arrived a moment earlier. Refused closes now answer with their own problem
+type rather than a generic validation failure, naming each rule that refused.
+- Trust accounting — the movement operations over the trust ledger: deposits, disbursements, and
+transfers between two matters of one client, each with an HTTP surface that requires an
+idempotency key, because a retried request that posted twice would be a second real movement of
+somebody else's money. Beside every trust entry the platform now writes a client-ledger record
+carrying what the ledger has no column for and the record-keeping rules require — the source or the
+payee, the purpose, the payment method as a value rather than as prose, the check or wire reference,
+who entered the record, and, for money leaving a client ledger, who authorized it. That record is
+append-only at the database, and its shape is a constraint: an internal reallocation cannot claim a
+bank method or an external payee, a bank movement cannot hide as internal, and a disbursement
+without a named authorizer will not store. A disbursement is measured against the ledger's
+_available_ balance rather than its stored balance, so a positive balance whose disputed portion is
+under hold is not money the firm can pay out. A matter-to-matter transfer posts no bank line at all,
+because no bank movement happened — the two matters' balances move against each other and the
+reconciliation gains nothing that could never clear. Movements refuse outright on a trust account
+whose office recorded no jurisdiction, distinctly from a jurisdiction whose rules are not encoded.
 
 ### Fixed
 
@@ -1389,6 +2820,260 @@ already governs the lane and by the size R2 reported for the object. The over-ca
 and still streams straight into the digest, so a multi-GB object never buffers.
 - Decision-register entries can no longer render blank. Four decision fragments were authored with a Markdown title where the frontmatter belongs; the assembler's reader looked for a `---` fence, did not find one, and returned a record whose status, date, and area were all empty with the whole fragment — title included — as the body, so the register rendered four bullets with two blank fields and the title standing in for the decision text. Nothing threw, so the degraded output merged. Reading a decision file is now a validating operation: a missing frontmatter fence, an unknown frontmatter key, an empty slug/status/area, a status outside the lifecycle, a date that is not `YYYY-MM-DD`, or register text that is empty or starts with `#` all stop the assembly with a message naming the file, and the whole pending set is validated before any fragment is numbered so a bad one is a clean no-op rather than a half-consumed assembly. The same validation runs as `pnpm run lint:decisions` in the gate's governance job, so an author sees the problem on their own pull request instead of after the merge that consumes the fragment. The four affected entries were repaired in place, keeping their assigned numbers, and a corpus test now asserts every decision file in the repository renders a complete register bullet.
 - **Four tooling and hygiene repairs.** **Bootstrap refuses instead of silently succeeding against the wrong checkout** — `pnpm exec vp run bootstrap` in a worktree without `node_modules` resolves `vp` from a parent checkout (worktrees live under `.claude/worktrees/`, so the binary lookup walks up into it), runs the parent's already-current bootstrap, and exits 0 while the worktree stays unbootstrapped. `tooling/bootstrap/invocation-environment.mjs` now compares the checkout the script belongs to against the one the caller's shell is standing in — nearest enclosing `pnpm-workspace.yaml`, not a path prefix, so a nested worktree is not read as part of its parent — and refuses with `run pnpm install first`; it also refuses when its own checkout has no dependencies installed. **The changelog assembler no longer doubles a leading bullet** — a fragment body written as `- **Entry.**` stacked with the `- ` the assembler prepends; `parseFragment` now strips one leading list marker (`-`, `*`, `+`), leaving nested lists and prose openers alone. **`search-core`'s selectivity test is deterministic** — `build_split` indexed on Tantivy's default thread-per-core writer, so a batch landed as two-to-eight segments depending on scheduling and both a split's size and a query's read cost varied run to run (the rare-term read ranged from 28% to 51% of the split). It now indexes on one thread, so a batch is exactly one segment, every time; extra segments were also per-query I/O the split model exists to avoid, since a searcher consults every segment's term dictionary. **Thirty-one stale `docs/active-work/` notes swept** for streams whose work is fully on `main`, with the five `status.d` fragments that pointed at them flipped to `branch: main`.
+- Search — text extraction is composite and per page, so a born-digital PDF is searchable. The shipped
+`TextExtractionPort` was backed only by the recognition engine, and that engine deliberately skips a
+page that already carries a text layer — recognizing a born-digital page is slower, worse, and returns
+a reading of a picture of the text rather than the text. Correct for a recognizer, and fatal for an
+extractor: routed through recognition alone, **a born-digital PDF came back with no lines on any page
+and the write pipeline recorded it `unextractable`** — no split, no catalog row, absent from every
+search. That is the most common document a law firm holds, and it was the whole of the platform's
+search-index write path.
+
+Extraction now reads the document's own text layer first, in pure Rust (`crates/pdf-core`), and sends
+only the pages that have no usable text layer on to recognition. **The routing is per page, not per
+document**, because a scan appended to a born-digital contract is one document with pages of both
+kinds: whichever way a whole-document router sent it, half of it would be lost. The result carries
+per-page provenance — `native` or `ocr` — so a consumer that has to account for its corpus can tell
+the characters the author typed from a recognizer's best reading of a picture of them.
+
+Which pages still need recognizing is decided by one function in `pdf-core`, and the recognition
+container now asks that same function rather than keeping its own copy. If the extractor and the
+recognizer ever disagreed about a page, it would be read twice or by neither — a duplicate in the
+index, or a page silently absent from the corpus. The rule itself is unchanged and still weighs text
+against what it sits on, so a Bates stamp on a scanned page does not make the page look like it has a
+text layer. Reading the layer, unlike measuring it, includes _invisible_ glyphs: what recognition
+writes back onto a scan is an invisible layer, so skipping those would have made this product's own
+searchable PDFs extract to nothing.
+
+Reconstructing text from glyphs is where the work is. A PDF stores positioned glyphs, not words —
+a space character has no outline, is never drawn, and is never observed — so every space is inferred
+from the distance between the glyphs on either side of where it was. Lines are grouped on baselines
+rather than box centres (a full stop shares a baseline with the capital beside it, but its centre sits
+most of an x-height lower), and the word gap is measured against each line's own spacing rather than a
+fixed fraction of the type size, because letters are not always set at their natural widths: the
+invisible layer this product writes onto a scan stretches each recognized run to the width of the box
+it was read in, and a fixed threshold reads that as one space per letter.
+
+A document whose pages all carry their own text now extracts with **no recognition call at all**,
+which for an ordinary firm's corpus is the difference between a parse and a rasterize-and-infer per
+page. Measuring a page and reading it are one observation pass instead of two, so the recognition
+container's own gate got cheaper as well.
+
+**Documents already recorded unreadable are repaired.** A re-extraction sweep on the existing daily
+reconciliation cron re-enqueues every committed, clean, current document version the per-firm catalog
+holds no live split for — which is exactly the set that fell out of the corpus, and also repairs an
+enqueue that lost its race after ingest, an engine outage that dead-lettered, and a firm that enabled
+indexing after loading its documents. Nothing is deleted and nothing is marked: the catalog already
+knew which documents were missing. The pass is convergent (a repaired document stops being a
+candidate), bounded per firm per run so a whole back catalogue drains over several days, and it reads
+the same per-firm indexing switch the ingest path does, so a firm that has not opted in is untouched.
+- **The per-firm migration generator diffs against the real schema head again.** The drizzle snapshot in
+`packages/database/drizzle/per-firm/meta/` had fallen eight migrations behind the journal, so
+`generate-per-firm-migrations` compared the schema against a state that predated the document-automation
+and custodian tables and re-emitted all of them — a migration that would have failed on every
+already-provisioned firm, and the reason recent migrations were written by hand. The snapshot is now
+re-derived from `per-firm-schema.ts` at the lineage head: generating against an unchanged schema emits
+nothing, and a one-column change emits only that column. The control-plane lineage was audited the same
+way and was already current. `refresh-snapshot.mjs` and its package scripts
+(`refresh-per-firm-snapshot`, `refresh-control-plane-snapshot`, `check-snapshots`) make the repair a
+single step next time a hand-written migration outruns the snapshot, and the new
+`packages/database/CLAUDE.md` documents when to run it.
+- Review campaign 2, the operational area — every finding applied (1 high, 6 medium, 7 low).
+
+**A two-signatory custody release can no longer be composed by one person.** The member who checked
+identity used to arrive in the request body alongside the witness, bound to nothing: one member
+holding `custody:manage` could record a release and type a colleague's handle — or any well-formed
+`user_…` string belonging to nobody — into the witness field, and the append-only ledger would
+permanently assert that two people signed off on a handover only one person witnessed. The verifying
+member is now the authenticated caller and is no longer a field on the wire at all; the witness must
+be a DIFFERENT, ACTIVE member of the firm, checked against the member roster at the write path and
+re-asserted by two new `BEFORE INSERT` triggers, the same footing the two-person destruction rules
+already stand on. Triggers rather than CHECK constraints, so the binding is future-only: every
+release recorded before it was recorded honestly under the rules that then applied, and rows already
+on the ledger stay exactly as they were written.
+
+**A closed stocktake is frozen at the database.** `custody_stocktake` — the row holding the frozen
+counts and the `open` status all four sighting guards key off — carried no triggers of its own, so
+the freeze rested entirely on one guarded UPDATE being the only UPDATE anybody had written. A
+`BEFORE UPDATE` guard and a REPLACE-bypass guard now refuse a re-open, a second close, and any edit
+to a closed count's findings.
+
+**A truncated stocktake reconciliation says so, and cannot be frozen as a finding.**
+`CustodyReconciliation` carries `truncated` and the cap that produced it, both reads request one row
+past the cap to learn whether there was one, and the sighting read now runs newest-first so the cap
+drops the OLDEST observations rather than the corrections the last-observation rule depends on.
+Closing a count whose reconciliation truncated is refused (`custody-stocktake-truncated`) rather than
+freezing a partial answer; an abandoned close records the truncation.
+
+**The case calendar no longer disagrees with the register it federates.** The three custody-derived
+timeline sources were missing status predicates their custodian equivalents carry, so a deed returned
+on Tuesday kept a "due back Friday" entry forever and a released or destroyed original kept showing
+"review due", named by its custody number. Each source now carries every predicate of the read it
+mirrors, and a fitness test pairs the two sides so the divergence cannot recur silently.
+
+**`overdue=true` is now the real predicate rather than a UTC-date approximation.** It was
+`due_on <= <today in UTC>`, which reported a Nevada firm's live same-day deadlines as already missed
+for most of the working day and let non-overdue rows consume the page. The narrowing is now composed
+per zone and is exact — the same comparison `isOverdue` makes row by row — and it stays entirely in
+SQL, because a post-filter under-fills the page and turns the page size into an existence oracle.
+
+**Daylight-saving arithmetic matches what it promises.** A wall clock in the hour after a fall-back
+resolved an hour early (02:14 PST became 01:14 PST), and one in a spring gap resolved BEFORE the time
+somebody wrote down rather than to the instant the clock reached. Resolution is now by round trip: a
+repeated hour takes its first occurrence, an unambiguous time after a transition takes itself, and a
+skipped time moves forward. End-of-day is now correct in zones whose transition falls at midnight.
+
+**Also fixed.** A deadline edit now carries the state guard its satisfy and close siblings carry,
+plus a precondition fence so a losing concurrent edit aborts rather than silently rewriting a
+discharged deadline. The two event reads that bypassed the visible-matter seam now compose it, and
+every direct read of `matter_event` or `matter_deadline` takes the predicate as a required argument
+with a fitness test over the set. The will-deposit catalog refuses an unreadable or impossible
+trigger date (`custody-invalid-trigger-date`) instead of returning the same null it uses for "this
+duty has no computable interval", normalizes a jurisdiction key before lookup and walks every
+hyphen segment upward to name the nearest encoded ancestor, and states its verified negative in prose
+rather than only in a boolean. The holdings-by-owner report replaces a correlated subquery that ran
+once per owner entity in the firm with a one-pass joined aggregate. An interrupted destruction —
+ledger row committed, request still `approved` — is now a list somebody can open
+(`outcome=interrupted`). The keyset cursor is minted through `encodeCursor` rather than hand-rolled
+at two route sites.
+
+Contract moves: `CustodyReleaseAuthorization` drops `identityVerifiedByUserId`;
+`CustodyWillCapability` replaces `summary` with `question` + `answer`; `CustodyReconciliation` gains
+`truncated` and `rowLimit`; `ClosedCustodyStocktakeResponse` gains `truncated`; the destruction list
+accepts `outcome=interrupted`. Adds the `custody-stocktake-truncated` problem type. Migration
+`20260806T040000_operational-fixes` adds the four triggers and rebuilds nothing.
+- The second review campaign's automation, email, and extraction findings, all sixteen of them, from
+[`docs/reviews/2026-08-06-campaign-2-automation.md`](docs/reviews/2026-08-06-campaign-2-automation.md).
+
+**The template expression language stops producing dates nothing can read.** `addDays` now shares the
+calendar-range guard its two siblings already applied, so a day offset that leaves the four-digit
+years is a `magnitude` refusal rather than a value: previously it produced a five-digit or negative
+year, which the formatter's calendar-date pattern does not match — the computed field collapsed to an
+empty string while the assembly counted a clean substitution — and which compared backwards against
+every in-range date, because date ordering is a string comparison on the ISO form. Both failures were
+silent, and both are the failure the absence model exists to prevent. Two related holes closed with
+it: a value the formatter refuses at rendering time is now recorded as an absence with a reason
+instead of collapsing to `""`, and the comparison arm refuses an operand that is not a calendar date
+rather than answering from a string comparison that is not an ordering. A `date` custom field whose
+stored text is not a calendar date now binds as text at the boundary that constructs it, so comparing
+it against a date is a registration-time type error rather than a runtime lie.
+
+**The re-extraction sweep converges over failures, not only successes.** Its candidate set is
+"documents the catalog holds no live split for", which a `deferred` document (the ordinary state
+wherever the recognition engine is unbound) or a `failed` one belongs to permanently — so a firm whose
+oldest documents were scans re-enqueued exactly those documents every day and never reached the rest
+of its catalogue. The walk now carries a cursor that advances past every candidate it examines rather
+than only the ones it repaired, and the per-firm budget counts messages actually produced rather than
+candidates looked at. Beside it, the index coordinator bounds re-attempts per document per engine
+generation, so a document nothing can read stops costing anything after a few passes — and a deploy
+that binds an engine changes the generation and resets the count, so a backlog drains rather than
+being written off. A firm's whole catalogue is now reached; the fixture proves a catalogue whose
+entire head is permanently failed still reaches its tail.
+
+**A DKIM `pass` now means something about the sender.** RFC 6376 section 5.4 requires `From` in the
+signed header set precisely so a verdict is a statement about who sent the message; the verifier
+accepted a signature whose `h=` omitted it, which let anyone holding a message a domain had signed
+rewrite `From:` and re-send it with everything still verifying. That is now a `fromNotSigned` failure,
+refused before a DNS lookup is spent on it. The verification result also records how much of the body
+the signature covered, and a partially-covered `pass` (the `l=` append attack) is no longer enough for
+a sender-identity rule to file unattended. The number of signatures examined and the DNS lookups one
+message may cause are both capped, since a correct body hash is computable by anyone holding the body
+and was otherwise an amplifier pointed at the resolver. Key records carrying `t=y` no longer produce a
+pass, RSA keys below 1024 bits are refused, and a non-numeric `x=` is a malformed signature rather
+than a silently dropped expiry. The duplicate-`From` question the review left open is answered: the
+capture record and the verifier both take the last instance, which is the one the RFC has signers
+sign, and that agreement is now pinned by test on both sides.
+
+**Extraction and filing.** One page per page index, so a repeated index from an engine can no longer
+become two passages sharing a chunk id or two provenance rows disagreeing about the same page. A size
+ceiling at the enqueue seam records an oversized document as `deferred` naming the ceiling, rather
+than discovering it as an out-of-memory inside the queue consumer. The email add-in over-fetches
+before the ethical-wall filter narrows a result set, so a walled matter can no longer consume a
+member's own suggestion slots. Participant addresses resolve to directory entities in one batched
+query instead of one round trip per recipient. An auto-file decision now always states a conflict
+hold, even when another demotion won the ladder, and a malformed matter id in the deciding evidence is
+refused rather than dropped — dropping it shrank the deciding set, which is what permits a firing. The
+load-profile harness gained a probe carrying a repeating block, an aggregate, and the protected keys,
+so the read plan and the serial decrypt count are measured rather than argued about.
+- **`pnpm fix:scoped` no longer applies the two autofixes that are wrong in this repo, and `pnpm test`
+refuses a second concurrent run instead of wedging.** Two inner-loop hazards, both recurring.
+
+The fixer applied every lint autofix the linter offered. Two of those rewrites are not safe here:
+`unicorn/no-array-sort` turns `.sort()` into `.toSorted()`, which is ES2023 and fails to compile in
+packages built against `lib: ES2022` (`TS2550`, plus `TS7006` on the callback parameters — hit
+repeatedly in `@magna-carta/fixtures`); and `typescript/no-unnecessary-boolean-literal-compare`
+rewrites the deliberate `meta.authenticated === false` in the worker's access-control route metadata
+to `!meta.authenticated`, changing what a reviewer of a security guard reads. Both are now excluded
+from the fix pass and listed with their reasons in `tooling/check-scoped/unsafe-autofix-rules.mjs`,
+which the fixer prints at the end of every run. The exclusion is fix-pass only: the lint ruleset in
+`vite.config.ts` is untouched, so `pnpm check:scoped`, `pnpm check` and the editor still report both.
+Mechanically the fixer now drives the formatter through `vp check --fix --no-lint` and the lint
+autofix through `vp lint --fix -A <rule>`, because `vp check` rejects the linter's `--allow` flag.
+
+Separately, two test runs started in one worktree contend for the same transform cache, Miniflare
+state and worker pool, and wedge each other at 0% CPU — a hang that reads as slowness. `pnpm test` is
+now the guarded entry point (`tooling/test-single-flight/`): the same `vp test` with every argument
+passed through, behind a per-worktree single-flight lock that refuses a second run in milliseconds and
+names the run already in flight. The lock is reclaimed when its holder is gone or after 90 minutes, so
+a killed run cannot leave a worktree unable to test; `MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1` overrides
+it. CI is unaffected — its shards each own their own container.
+- **The whole-repo gate was running 40% of the test suite while reporting green.** Its `test-node` job
+passed the relative paths `packages` and `tooling` to the test runner as positional filters. Those two
+directories are the _parents_ of project roots, not project roots, and the runner matches a positional
+filter per project against the candidate file's path relative to **that project's own root** — under
+`packages/ledger` a test file is `test/posting.test.ts`, in which neither `packages` nor its reduction
+`..` appears. So every package and every tooling suite dropped out of collection, the job ran the files
+it did match, and exited 0. Measured on the tree before the fix: `test-node` collected **41** of the
+**476** files it is named for; across the three test jobs, **435 of 719 registered test files ran
+nowhere** — every `packages/*` suite, every `tooling/*` suite, and `apps/sign-worker`, which had also
+never been added to the job's path list.
+
+The gate's test jobs now filter with absolute paths (`"$PWD/packages"`), which take the runner's other
+branch — a prefix test against the file's absolute path — and narrow the way the spelling implies.
+`apps/sign-worker` is in the list. The three jobs collect 476 + 192 + 51 = **719** files: the whole
+registry, exactly once each.
+
+Because a filter that matches nothing is indistinguishable from a fast suite, the coverage is now
+asserted rather than reviewed. A new `test-collection` gate job runs `pnpm run lint:test-collection`
+(`tooling/lint-test-collection.mjs`), which re-runs each of the gate's own test invocations in
+list-only mode — no test executes — and fails if the unfiltered whole-suite collection falls below a
+committed floor, if the union of the jobs is not the whole suite, or if two jobs collect the same file.
+It holds each invocation verbatim and checks it against `.github/workflows/gate.yml`, so editing the
+workflow without the lint fails loudly instead of drifting. The floor is a generous minimum (90% of the
+current count) with its update procedure recorded beside it.
+
+The mechanism, the absolute-path rule, and a second trap found alongside it — negated `--project`
+patterns are OR-ed, so two of them cancel and select everything — are written up in
+`docs/conventions/build-performance.md`.
+- The merge-field catalog contract declares the engine's `assets` group. The engine's group registry
+gained the heading when the asset classes landed; the contract's mirror of it did not. The two
+registries are pinned to each other member for member and in the same order precisely so that drift
+is a failing test rather than a picker that quietly files every asset field under a heading it does
+not recognize.
+- **Three Nevada trust-accounting facts previously recorded in this repository were wrong, and are
+  corrected against the state's published rule text.** The records-retention period is **five** years,
+  not seven — seven is the pre-2021 wording, and the State Bar's own published handbook still prints
+  it. The account-mechanics rule is **Supreme Court Rule 78**; Rule 78.5 was repealed in 2019, and
+  every earlier reference points at a rule that no longer exists. And **Nevada mandates no
+  reconciliation at all** — not monthly, not three-way; the word does not appear anywhere in the
+  Nevada Rules of Professional Conduct or the Nevada Supreme Court Rules, and the guidance that
+  attributes a monthly duty to a rule about interest remittance miscites it. The platform's
+  reconciliation feature is unaffected and still worth using; what changed is that it is no longer
+  described as something Nevada requires.
+- **Two endpoints that read a file from the request body now say so in the published API description.**
+The file-hashing endpoint and the one-off malware-scan diagnostic both take the file's raw bytes as the
+request body — that is the whole input — but the API description declared no request body for either, so
+anyone building a client from the published description got a method with nowhere to put the file. Both
+now declare the same raw-bytes body the other file tools declare, and the generated client accepts and
+sends the bytes unaltered. No behaviour changed on either endpoint: they still stream the body straight
+into the hasher or the scanner without buffering it, still refuse an empty body, and still refuse a file
+over the firm's inspectable-size limit before reading it.
+
+Both endpoints keep treating an idempotency key as optional, and that is deliberate rather than an
+oversight left in place. The platform's key-required gate identifies a repeat request by reading its body
+through a cache that decodes it as text, which does not preserve arbitrary bytes — so an endpoint whose
+body is a file cannot use that gate without risking hashing or scanning something the caller never sent.
+Neither endpoint stores anything, so a repeated request simply recomputes.
 
 ### Changed
 
@@ -1590,6 +3275,170 @@ bound.
 
 Design: `docs/specs/2026-08-04-template-expression-language-design.md`. Plan:
 `docs/specs/2026-08-04-document-automation-implementation-plan.md`.
+- **A raw-bytes request body can no longer be paired with the required-idempotency gate — the platform
+refuses the combination rather than trusting anyone to remember.** The gate fingerprints a request by
+reading its body through a cache that decodes it as text, so bytes that are not valid UTF-8 do not
+survive the round trip: an emailed `.msg`, an image, or any other binary upload would reach the handler
+with every invalid sequence replaced, and a route that stored it as the firm's verbatim original would
+store a corrupted copy that matches nothing. Every route on the API was audited for the pairing and
+none had it — all 105 operations that require an idempotency key carry a JSON body or no body at all,
+and all ten that take raw bytes already honour the key in their own handler, against the bytes they
+actually received. What is new is that the hazard is now unreachable: a route declaring both fails at
+startup with the reason and the supported alternative named, and two contract checks in the build back
+that up — one over the published API description, one over the route sources, so a route that reads a
+body raw without declaring one is covered too.
+
+**The document-automation volume profile.** The synthetic-data harness now models a firm's template
+catalogue — templates with their version history and archived tail, the confirmed field-name mapping
+library, the assembly records filed documents leave behind, and a matter carrying a full party list and
+a full set of the firm's own fields. Four operations are measured against it: listing the catalogue
+part-way through, resolving a template's current version, building a whole merge context for the widest
+template a firm's field set can produce, and reading the field catalogue the merge fields are derived
+from. Every one of them reads through an index at volume, and the merge context is the measurement that
+holds the line that matters: filling in a document costs the same number of database reads whether the
+template has two merge fields or a hundred.
+- Search — the index scope key widened from a matter to a **corpus**, while it is still free to do so.
+A search index is partitioned by something, one split belongs to that something, and a split's R2
+object key is **derived** from it rather than stored — so the scope key is the one part of the index
+that cannot be renamed later without rewriting every object in every firm's bucket and migrating the
+catalog that names them. The engine is dormant, no split has ever been published, and today the
+partition happens to be a matter; the moment a firm has a live index, changing what it is becomes a
+migration. So it changed now, at the cost of a type and a derivation.
+
+A **corpus** is a discriminated union with exactly one member today — a matter — and the mapping is the
+identity: a matter's corpus is that matter. `SearchIndexPort`'s `index`, `remove`, and `query` take a
+corpus instead of a matter identifier, the split key derivation takes a corpus, and the write pipeline
+resolves the corpus once and threads it. Nothing gained a review-set concept, a table, or a column.
+
+**Every key that exists today is byte-identical, and that is the deliverable.** The derived key stays
+`search/<corpusId>/splits/<splitId>.split`, because a corpus identifier is a self-describing handle
+(`matter_…`) and adding a separate kind segment would have bought nothing while changing every key
+that has ever been published — the exact outcome this change exists to prevent. The literal keys and
+prefix are now pinned in a fixture, so the compatibility contract with the objects in a firm's bucket
+is a test rather than an intention.
+
+Two things stayed matter-shaped on purpose, both cheap to widen whenever a second corpus kind arrives
+and neither of them derived from: the `index_split` catalog column, whose widening is a per-firm
+schema migration this change is defined not to need, and the queue message, so a message enqueued
+before a deploy is still readable after one. Where the catalog and a corpus meet, the compiler is the
+guard — the enumeration a query runs stops type-checking the moment a corpus can be something other
+than a matter, which names the one place that has to widen with it.
+- **The gate's type-aware lint now scopes by measured cost instead of by graph distance, cutting the
+single most expensive job out of the pull-request tier.** On a measured pull-request gate run
+(2026-08-05, 17 jobs) the `lint` job billed **26 minutes of roughly 60 for the whole run — 43% of the
+bill** — and it did so at the _cheap_ scoped tier, because the scope was correct and it contained
+`apps/worker`.
+
+The cause is the dependency shape. The type-aware linter builds its type program from the passed
+files' import closure, so a package's lint cost tracks the size of that program; `apps/worker`'s is
+**1,261 of the repository's 1,669 lintable files (75.6%)**, and the worker depends _directly_ on 39 of
+the 61 workspace packages, so almost any foundational change pulled it in. The old lever — capping the
+pull-request tier's dependent walk at one hop — could not help, because the expensive package sits one
+hop from nearly everything.
+
+`tooling/affected-lint` now measures that cost directly. A package is a **fan-out sink** when its
+type-program weight is at least half the workspace's lintable files; on a pull request the classifier
+drops the sinks from the scope **when they are in scope only as a dependent**, and every other trigger
+lints them. A sink the change itself touched is never deferred, so an author's own code is always
+linted on their own pull request. Every trigger now walks the full transitive dependent closure, so the
+pull-request tier also gained coverage everywhere linting is cheap: a change to `@magna-carta/trust`
+used to lint 2 packages one hop out, and now lints its whole closure.
+
+Because a scope that is too narrow reports a fast green rather than a failure, the union is proved
+rather than reviewed. A new `pnpm run lint:affected-scope`
+(`tooling/affected-lint/scope-fitness.mjs`, wired into the gate's `governance` job) simulates a change
+to **every** workspace package and fails if the changed package is not linted on its own pull request,
+if the pull-request and post-merge scopes together miss any package in the true dependent closure, or
+if anything but a declared sink is dropped. It derives that closure by an independent fixpoint over the
+same package graph the classifier reads, and it also fails if the sink rule ever stops selecting an
+outlier — no sink at all, more than two, or one weighing under 1.5x the heaviest non-sink — which is
+the signal to delete the deferral rather than widen it.
+
+Measured on a 4-core/15 GB box for a change to `@magna-carta/identifiers`: the new 28-package
+pull-request scope lints 883 files in **9 seconds**, where `apps/worker` alone lints 394 files in
+**2,755 seconds**. The cost model, the timings, and the two refinements measured and rejected on the
+way — file-granular scoping and content-hash caching — are in `docs/conventions/build-performance.md`.
+- **A trust jurisdiction can now fail in four distinguishable ways.** No state recorded on the
+  account's office; no rules encoded for that state; rules encoded but not attorney-reviewed; and a
+  reviewed state with one field nobody researched. Each is fixed by a different person doing a
+  different thing — recording an office's state, researching a jurisdiction, having a lawyer review
+  one, researching the field that was missed — so each says which it is rather than collapsing into a
+  single "unavailable".
+- **The gate's short jobs run on GitHub's 1-vCPU Linux runner.** `changes`, `format`, `governance`,
+`contracts`, both `test-node` shards and the `gate` roll-up moved from `ubuntu-latest` to
+`ubuntu-slim` — 1 vCPU / 5 GB at $0.002 a minute against the 2-core runner's $0.006, a third of the
+rate for identical work. Each of those jobs measured two minutes or less and none is meaningfully
+parallel; the per-job comments in `.github/workflows/gate.yml` record the measurement behind each
+choice. `lint`, `typecheck`, `test-worker`, `test-stories`, `rust`, `containers` and `wasm` stay on
+the 2-core runner: they either want the cores, exceed the slim runner's hard 15-minute job cap, need
+more than 5 GB, or need a Docker daemon the slim runner's unprivileged container does not provide.
+Nothing about what the gate checks changes.
+- Review campaign 2, operational area — an adversarial read-only pass over the custody register's
+operational half (stocktake, gated release, labels, reports, reviews and reminders, the destruction
+workflow, the Nevada will-deposit catalog), the case calendar's recorded model and thirteen-source
+federation, the matter-close advisory, and the worker routes and data-access statements over all of
+it. Findings are recorded in
+[`docs/reviews/2026-08-06-campaign-2-operational.md`](docs/reviews/2026-08-06-campaign-2-operational.md):
+one high, six medium, seven low. No code was changed.
+
+The one that matters most: **a two-signatory custody release is composable into one person.** Both
+signatory identifiers arrive in the request body, and the only checks — at the service and at the
+trigger — are that a witness is present when the firm's policy asks for one and that the two
+identifiers differ. Neither is tied to the authenticated actor and neither is validated against the
+firm's members, so one member can record a witnessed release of an original on an append-only ledger
+that then permanently asserts two people signed. The destruction workflow's requester/approver split
+is the contrast: it is genuinely two authenticated requests, and it is what the release gate should
+look like.
+
+The rest cluster into three themes. **Guards that live in one caller rather than at the database:**
+the deadline edit path is the only statement in its file without the `state = 'open'` guard riding
+the write, and a closed stocktake is frozen only by the absence of a re-open statement while its
+sighting table carries four triggers. **A federated read that quietly disagrees with the register it
+claims to be:** three custody-derived timeline sources drop the packet- and item-status predicates
+the custodian's own reminder reads carry and document, so the calendar shows due-backs for originals
+that came back and review dates for wills the firm has released or destroyed. **Approximations
+presented as answers:** the stocktake reconciliation truncates at ten thousand rows in the direction
+that drops the corrective sightings, then freezes those counts as the number a firm reports; the
+deadline list's `overdue=true` filter is a UTC-date comparison with no per-row zone check behind it.
+
+The review also records what was checked and holds — the stocktake's observe-only boundary, the
+intrinsic-value refusal's three independent enforcement points, the advisory's inability to block or
+leak, the visibility predicate's structural composition into every timeline source, the mixed
+civil-date/instant cursor's correctness in both directions, the audit-log allowlist, and redaction
+across both packages — so the next pass does not re-derive it.
+- **CI cadence temporarily reduced while the GitHub Actions budget is exhausted.** The gate's nightly
+whole-repo sweep, its push-to-`main` run, and its whole-repo lint tier are suspended; the pull-request
+tier still runs the full battery (format, type-check, rust, the whole test suite, governance, contracts,
+containers) with the type-aware lint scoped to the changed packages plus one hop, and the per-merge docs
+assembly keeps running. During the window the merge bar is full local verification by the agent
+(whole-repo `pnpm check` plus `vp test`, stated in the pull request) plus orchestrator review. Every
+suspended site carries the marker `TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes
+reset`, and the revert checklist is in `docs/conventions/build-performance.md`.
+- **Paying money out of a client's trust ledger now takes two people.** A disbursement is proposed
+first and paid second: one member writes down the payee, the amount, the method, and why, and a
+different member approves it before anything reaches the ledger. Until that approval, nothing has
+happened — no entry, no balance change, no client-ledger record — so a request that is refused,
+withdrawn, or simply never answered leaves the ledger exactly as it found it. The client ledger then
+shows both people: the member who wrote the record, and the member who authorized the payment.
+
+**The approval is measured against the money that is there when it is given, not when it was asked
+for.** A request written while the ledger held enough and approved after the funds went elsewhere —
+or after part of them came under a disputed-funds hold — is refused, naming the amount asked for,
+what is actually available, and the held portion that explains the difference. Two members approving
+the same request at the same moment produce one payment, never two.
+
+**A refusal is a record, not a disappearance.** Rejecting a request asks for a reason and keeps it,
+alongside who refused it and when. The member who submitted a request can withdraw it; anyone else
+records a rejection instead. None of it can be edited or deleted afterwards, exactly like the
+movements it sits beside.
+
+**A firm with only one person who can authorize trust payments can still pay.** In that case the
+submitter approves their own request and the record says so in as many words, so nobody later has to
+work it out by noticing that two names match. The moment the firm has a second member who can
+authorize trust payments, that path closes on its own — there is no setting to leave switched on.
+
+The disbursement endpoint is replaced by the request-and-approval pair, so any client calling it
+directly moves to the new pair.
 
 ### Security
 
@@ -1722,6 +3571,19 @@ guards decryption too. Every guard that already existed is kept.
 carry a password verifier and both are checked before any package byte is decrypted, so a wrong
 password costs one key derivation instead of a full decryption, and a genuinely corrupt document is
 reported as malformed rather than as a bad password.
+- Dependency audit — three new HIGH advisories are remediated by version, not accepted. `quick-xml`
+moves 0.38 to 0.41 in `crates/discovery-core`, the discovery engine's OOXML and OpenDocument text
+walk. 0.41.0 is the release that fixes both RUSTSEC-2026-0194, where the start-tag
+duplicate-attribute check cost `O(N²)` byte comparisons so a single crafted tag could pin a core for
+minutes, and RUSTSEC-2026-0195, where namespace resolution allocated one binding per `xmlns`
+declaration with no upper bound, inside the reader and before the consumer ever saw the event. The
+first is directly reachable here: the spreadsheet walk iterates a cell's attributes, and this
+engine's whole input is files an opposing party chose. `js-yaml` moves to the 3.15.1 and 4.3.1
+backports for GHSA-5p4m-2wfm-xmqj, whose `!!omap` key-uniqueness check is quadratic on the default
+schema, so a plain `load` of untrusted YAML blocks the event loop for the whole document. The
+earlier quick-xml acceptance is not re-opened — it left this repository when its carrier was
+replaced, and the carrier today is a different one that arrived with the discovery core. There is
+still no accepted Rust advisory.
 
 ### Added
 
