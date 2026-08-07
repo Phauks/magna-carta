@@ -5,6 +5,17 @@
 > **STATUS: DRAFT FOR ATTORNEY REVIEW.** This catalog was compiled from official/primary sources (state supreme court rules, state bar rules, and IOLTA program pages) accessed in May 2026. Items marked **"Unknown / needs verification"** or flagged **(LOW CONFIDENCE)** could not be confirmed against a primary source in this research pass and must be verified before any production use. Legal facts were not guessed; absences are noted explicitly.
 >
 > **Cross-cutting caveat on the five U.S. territories (Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern Mariana Islands):** Several territory bar/court websites were unreachable or access-blocked from the research environment. Territory entries are therefore substantially lower-confidence than the state/DC entries and rely on the identity of the governing court/bar plus general structural knowledge. Treat every territory field as requiring independent verification.
+>
+> **RE-VERIFICATION NOTE (2026-08-07).** A primary-source sweep found that this catalog's home-jurisdiction
+> entry (Nevada, group 2) — compiled as "verified in full" in the same research pass as this file — cited
+> **SCR 78.5, a rule repealed in 2019**; the corrections are recorded in
+> [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md).
+> Nevada is the only jurisdiction with a primary-source research record in this repository, so no entry in
+> THIS file could be swept the same way. **Every entry below is therefore NOT VERIFIED, whatever its
+> per-field confidence label** — the labels record the compiler's claims from the May 2026 pass, not a check
+> against any primary source held in this repository. Treat each entry as a research lead, not a finding,
+> until it has its own dated primary-source research record under `docs/research/`. The encoding gate in
+> `@magna-carta/trust-jurisdictions` refuses every jurisdiction in this file by construction.
 
 ---
 

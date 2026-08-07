@@ -7,6 +7,7 @@ import { NEVADA_PROFILE } from "../src/data/nevada.ts";
 import { encodedTrustJurisdictions } from "../src/port.ts";
 import { encodedJurisdictionCodes, findJurisdictionProfile } from "../src/registry.ts";
 import {
+  deriveProfileRevision,
   describeJurisdiction,
   isReviewCurrent,
   resolveJurisdictionRequirement,
@@ -53,11 +54,11 @@ describe("the review gate binds to the revision it was performed against", () =>
     reviewedBy: "Reviewing Attorney",
     barNumber: "00000",
     reviewedOn: "2026-08-07",
-    profileRevision: NEVADA_PROFILE.revision,
+    profileRevision: deriveProfileRevision(NEVADA_PROFILE),
   };
   const reviewed: JurisdictionProfile = { ...NEVADA_PROFILE, attorneyReview: review };
 
-  it("opens when the review names the current revision", () => {
+  it("opens when the review names the current derived revision", () => {
     expect(isReviewCurrent(reviewed)).toBe(true);
   });
 
@@ -65,6 +66,49 @@ describe("the review gate binds to the revision it was performed against", () =>
   // profile. Without this a single review would carry forward across every future amendment.
   it("closes again when the profile is amended past the reviewed revision", () => {
     expect(isReviewCurrent({ ...reviewed, revision: "2027-01-01" })).toBe(false);
+  });
+
+  // THE CASE THE DERIVATION EXISTS FOR. An editor amends a value and forgets to bump the authored
+  // revision date. The hand-set string is unchanged, so a string-equality gate would inherit the
+  // attestation; the content fingerprint moves, so the derived revision no longer matches and the
+  // gate closes anyway.
+  it("closes when a value is amended and the revision date is NOT bumped", () => {
+    const amended: JurisdictionProfile = {
+      ...reviewed,
+      typed: {
+        ...reviewed.typed,
+        recordsRetention: {
+          confidence: "HIGH",
+          value: { years: 7, clocks: [{ trigger: "amended", citation: "NRPC 1.15(a)" }] },
+          note: "an amendment nobody stamped",
+          provenance: {
+            citation: "NRPC 1.15(a)",
+            quote: "seven years",
+            sourceTier: "primaryOfficial",
+            retrievedOn: "2027-01-01",
+          },
+        },
+      },
+    };
+    expect(amended.revision).toBe(reviewed.revision);
+    expect(isReviewCurrent(amended)).toBe(false);
+  });
+
+  // A review recorded against the bare authored date is a review recorded wrong, and it opens
+  // nothing — the gate accepts only the derived form, which is what forces the recorder through
+  // deriveProfileRevision and gives the fingerprint its bite.
+  it("does not open for a review naming the authored date alone", () => {
+    const dateOnly: JurisdictionProfile = {
+      ...NEVADA_PROFILE,
+      attorneyReview: { ...review, profileRevision: NEVADA_PROFILE.revision },
+    };
+    expect(isReviewCurrent(dateOnly)).toBe(false);
+  });
+
+  // Recording the review must not invalidate the review being recorded: the fingerprint covers the
+  // attested content and excludes the attestation itself.
+  it("derives the same revision before and after the review is recorded", () => {
+    expect(deriveProfileRevision(reviewed)).toBe(deriveProfileRevision(NEVADA_PROFILE));
   });
 });
 
