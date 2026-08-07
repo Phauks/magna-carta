@@ -15,6 +15,7 @@ import { magnusQueue } from "./magnus/magnus-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
+import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
@@ -133,6 +134,10 @@ export default {
             run: async () => {
               await runStorageReconciliation(env);
               await runTieringSweep(env);
+              // After tiering, because both rewrite objects and this one carries across whatever
+              // storage class it finds — so it repairs what tiering has already settled rather than
+              // racing it, and the next day's reconciliation backstops both.
+              await runDimensionBackfillSweep(env);
               await runIdleCheckoutSweep(env);
               // Last: it only enqueues, so its cost lands on the search-index queue rather than on
               // this pass, and running it after the storage work means a firm whose bytes were just

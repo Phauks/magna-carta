@@ -34,6 +34,7 @@ import { identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { copyObjectPreservingDimensions } from "../files/object-stamping.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 
 // How long a checkout's download URL is valid. Short — the client fetches the working copy promptly;
@@ -462,19 +463,20 @@ export function registerDocumentCheckoutRoutes(
       }
       await commitEffectBatch(firm.firmDatabase, initiated.effect, { now });
 
-      const url = await presignerForEnv(c.env).presignPut(
+      const presigned = await presignerForEnv(c.env).presignPut(
         bucket,
         initiated.r2Key,
         CHECKIN_UPLOAD_CONTENT_TYPE,
         CHECKIN_UPLOAD_TTL_SECONDS,
+        initiated.dimensions,
       );
       return c.json(
         {
           versionId: initiated.versionId,
           key: initiated.r2Key,
           method: "PUT" as const,
-          url,
-          headers: { "Content-Type": CHECKIN_UPLOAD_CONTENT_TYPE },
+          url: presigned.url,
+          headers: { "Content-Type": CHECKIN_UPLOAD_CONTENT_TYPE, ...presigned.headers },
         },
         200,
       );
@@ -520,8 +522,7 @@ export function registerDocumentCheckoutRoutes(
           { clock: { now }, actorUserId: memberId },
           async (fromKey, toKey) => {
             const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
-            const object = await bucket.get(fromKey);
-            if (object !== null) await bucket.put(toKey, object.body);
+            await copyObjectPreservingDimensions(bucket, fromKey, toKey, "working-document");
           },
         );
         statements.push(...restored.effect.statements);

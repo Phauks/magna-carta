@@ -12,6 +12,10 @@ import type {
   UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import {
+  matterScopedObjectDimensions,
+  type ObjectDimensions,
+} from "@magna-carta/object-dimensions/dimensions";
 import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import {
   DOCUMENT_CHECKED_IN_TOPIC,
@@ -154,6 +158,11 @@ export interface InitiatedUpload {
   readonly versionNumber: number;
   readonly r2Key: string;
   readonly uploadSessionId: string;
+  // The object metadata the bytes must be written with, minted here because this is where the matter
+  // is known. Every caller — the presigned PUT, the multipart create, and the paths that write the
+  // bytes themselves — passes this through unchanged rather than rebuilding it, so an object's scope
+  // is decided once per version and cannot differ by upload route.
+  readonly dimensions: ObjectDimensions;
   readonly effect: EffectWrite;
 }
 
@@ -252,6 +261,10 @@ export async function initiateUpload(
     versionNumber,
     r2Key,
     uploadSessionId,
+    dimensions: matterScopedObjectDimensions({
+      objectClass: "working-document",
+      matterId: input.matterId,
+    }),
     effect: { statements, outboxMessages: [] },
   };
 }
@@ -270,6 +283,9 @@ export interface InitiatedCheckin {
   readonly versionNumber: number;
   readonly r2Key: string;
   readonly uploadSessionId: string;
+  // The returning bytes are a version of an existing file, so they carry that file's matter — read
+  // from the file row this function already loaded rather than taken from the caller.
+  readonly dimensions: ObjectDimensions;
   readonly effect: EffectWrite;
 }
 
@@ -286,7 +302,7 @@ export async function initiateCheckin(
   input: InitiateCheckinInput,
   options: FileServiceOptions,
 ): Promise<InitiatedCheckin> {
-  await requireLiveFile(database, input.fileId);
+  const file = await requireLiveFile(database, input.fileId);
   const { results } = await selectMaxVersionNumberStatement(database, input.fileId).all<{
     n: number;
   }>();
@@ -299,6 +315,10 @@ export async function initiateCheckin(
     versionNumber,
     r2Key,
     uploadSessionId,
+    dimensions: matterScopedObjectDimensions({
+      objectClass: "working-document",
+      matterId: file.matterId,
+    }),
     effect: {
       statements: [
         insertFileVersionStatement(database, {

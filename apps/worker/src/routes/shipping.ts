@@ -23,6 +23,10 @@ import {
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { IntegrationConnectionId, MatterId, ShipmentId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
+import {
+  firmScopedObjectDimensions,
+  matterScopedObjectDimensions,
+} from "@magna-carta/object-dimensions/dimensions";
 import { integrationProblem } from "@magna-carta/integrations/problem";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
 import type { ShippingPort } from "@magna-carta/shipping/port";
@@ -626,6 +630,7 @@ export function registerShippingRoutes(
       const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
         options: string;
         remote_shipment_id: string | null;
+        matter_ref: MatterId | null;
       }>();
       const draft = results[0];
       if (draft === undefined) return notFoundProblem(c);
@@ -703,8 +708,18 @@ export function registerShippingRoutes(
           // even where firms share one bucket, and the read path resolves the key from this firm's
           // own database rather than rebuilding it from a request parameter.
           const r2Key = `labels/${firmId}/${id}.pdf`;
+          // A shipment may or may not be filed against a matter, and the label follows the shipment:
+          // one that names a matter is that matter's, one that does not is the firm's own postage.
+          // Both are stamped, so "no matter" is an answer rather than a gap.
           await bucket.put(r2Key, await labelResponse.arrayBuffer(), {
             httpMetadata: { contentType: label.labelFormat },
+            customMetadata:
+              draft.matter_ref === null
+                ? firmScopedObjectDimensions("shipping-label")
+                : matterScopedObjectDimensions({
+                    objectClass: "shipping-label",
+                    matterId: draft.matter_ref,
+                  }),
           });
           const recorded = await recordPurchase(
             firm.firmDatabase,

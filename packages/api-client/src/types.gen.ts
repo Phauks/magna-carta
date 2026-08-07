@@ -3580,6 +3580,9 @@ export type NotificationMarkAllReadRequest = {
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
+    uploadHeaders: {
+        [key: string]: string;
+    };
     sourceKey: string;
 };
 
@@ -3605,6 +3608,9 @@ export type ConversionStatus = {
 export type TemplateUploadResponse = {
     uploadKey: string;
     uploadUrl: string;
+    uploadHeaders: {
+        [key: string]: string;
+    };
 };
 
 export type RegisteredTemplate = {

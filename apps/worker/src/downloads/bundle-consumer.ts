@@ -1,4 +1,5 @@
 import { zipEntriesFromR2 } from "@magna-carta/file-manager/zip-entries-from-r2";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
 import { bundleContainerAdapter } from "./bundle-container-adapter.ts";
@@ -35,7 +36,11 @@ async function putStreamMultipart(
   key: string,
   stream: ReadableStream<Uint8Array>,
 ): Promise<void> {
-  const upload = await bucket.createMultipartUpload(key);
+  // A bundle's selection may span matters, so it belongs to none of them and carries its class alone.
+  // Stamped at create, because a multipart object's metadata is fixed there and nowhere else.
+  const upload = await bucket.createMultipartUpload(key, {
+    customMetadata: firmScopedObjectDimensions("download-bundle"),
+  });
   try {
     const parts: R2UploadedPart[] = [];
     const reader = stream.getReader();

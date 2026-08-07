@@ -247,6 +247,9 @@ importers:
       '@cloudflare/containers':
         specifier: 'catalog:'
         version: 0.3.7
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -325,6 +328,9 @@ importers:
       '@magna-carta/email-filing':
         specifier: workspace:*
         version: link:../../packages/email-filing
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -691,6 +697,9 @@ importers:
       '@magna-carta/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -1482,6 +1491,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../object-dimensions
       client-zip:
         specifier: 'catalog:'
         version: 2.5.0
@@ -1918,6 +1930,22 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  packages/object-dimensions:
+    dependencies:
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/pdf:
     devDependencies:
       '@magna-carta/signing':
@@ -2174,6 +2202,22 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/trust-jurisdictions:
+    dependencies:
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../trust
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'

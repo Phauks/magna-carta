@@ -9,6 +9,7 @@ import {
 } from "@magna-carta/file-manager/file-statements";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
+import { copyObjectPreservingDimensions } from "../files/object-stamping.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { shouldCutVersion } from "./version-cut-trigger.ts";
 
@@ -201,8 +202,7 @@ export class DocumentSession extends DurableObject<Bindings> {
             },
             { clock: { now }, actorUserId: author },
             async (fromKey, toKey) => {
-              const object = await this.env.R2.get(fromKey);
-              if (object !== null) await this.env.R2.put(toKey, object.body);
+              await copyObjectPreservingDimensions(this.env.R2, fromKey, toKey, "working-document");
             },
           );
           statements.push(...committed.effect.statements);
