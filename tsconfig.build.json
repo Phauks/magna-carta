@@ -158,6 +158,9 @@
       "path": "packages/money/tsconfig.build.json"
     },
     {
+      "path": "packages/object-dimensions/tsconfig.build.json"
+    },
+    {
       "path": "packages/pdf/tsconfig.build.json"
     },
     {

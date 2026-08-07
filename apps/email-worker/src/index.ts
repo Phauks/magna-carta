@@ -1,5 +1,6 @@
 import { DEFAULT_CAPTURE_ROOT_DOMAIN } from "@magna-carta/email-filing/capture-address";
 import { MAX_CAPTURED_MESSAGE_BYTES } from "@magna-carta/email-filing/message-format";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 
 // The Cloudflare Email Worker forward/CC capture entrance. Cloudflare Email Routing delivers a forwarded
@@ -73,7 +74,11 @@ export default {
 
     const jobId = crypto.randomUUID();
     const stagedR2Key = `emails/staging/${jobId}`;
-    await env.R2.put(stagedR2Key, message.raw);
+    // Mail arriving on a forward address has not been parsed, let alone filed: it may end up on a
+    // matter, on several, or on none. Staged mail therefore carries its class and no matter.
+    await env.R2.put(stagedR2Key, message.raw, {
+      customMetadata: firmScopedObjectDimensions("email-staging"),
+    });
 
     const job: EmailsCaptureMessage = {
       firmId: routing.firmId,

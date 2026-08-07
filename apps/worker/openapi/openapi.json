@@ -15482,6 +15482,12 @@
           "uploadUrl": {
             "type": "string"
           },
+          "uploadHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "sourceKey": {
             "type": "string"
           }
@@ -15489,6 +15495,7 @@
         "required": [
           "jobId",
           "uploadUrl",
+          "uploadHeaders",
           "sourceKey"
         ]
       },
@@ -15565,11 +15572,18 @@
           },
           "uploadUrl": {
             "type": "string"
+          },
+          "uploadHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "uploadKey",
-          "uploadUrl"
+          "uploadUrl",
+          "uploadHeaders"
         ]
       },
       "RegisteredTemplate": {

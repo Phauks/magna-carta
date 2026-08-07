@@ -67,6 +67,15 @@ routes requests through the chokepoint into those packages.
   client in the same commit, and update the conformance not-vacuous operation list when adding a route.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
+- **Every object written into a firm's bucket carries its dimensions.** Build them with
+  `@magna-carta/object-dimensions` — `matterScopedObjectDimensions` when the object belongs to exactly
+  one matter, `firmScopedObjectDimensions` when it belongs to none — and pass them as `customMetadata`
+  (Workers binding) or through the presigner, which signs them as `x-amz-meta-*` headers so a browser
+  upload cannot drop one. The key is deliberately scope-free, so an unstamped object is one nothing can
+  place, and the repair is a metadata rewrite of the whole bucket. `r2-object-dimension-scan.test.ts`
+  fails any new write path that omits them; a genuine exception carries an inline
+  `fitness:allow-no-dimensions` marker with its reason. Objects that predate the stamp are repaired by
+  `files/dimension-backfill-sweep.ts` on the daily storage pass.
 - **Bulk bytes never buffer in the Worker.** Streaming only: R2 bodies flow straight through `client-zip`
   and out; an archive of unknown length is written to R2 as a **multipart** upload, never a single
   length-bound `put`.

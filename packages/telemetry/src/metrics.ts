@@ -77,6 +77,10 @@ export const storageReconciliationCorrected = defineMetric(
   [] as const,
 );
 export const statusSnapshotComponents = defineMetric("status.snapshot.components", [] as const);
+// Objects whose scope was written onto them after the fact. It falls to zero as a firm's existing
+// storage is repaired and should stay there — a count that starts rising again is a write path that
+// stopped stamping, which is the reason this is a counter and not a one-off backfill signal.
+export const storageDimensionStamped = defineMetric("storage.dimension.stamped", [] as const);
 
 // One-off idempotent backfill progress. The backfill NAME is a dimension rather than part of the
 // metric name: a name interpolated into the metric itself cannot be declared here, and it would make
@@ -238,6 +242,7 @@ const CATALOG: readonly MetricDefinition[] = [
   reconciliationUnprovisioned,
   storageReconciliationCorrected,
   statusSnapshotComponents,
+  storageDimensionStamped,
   backfillRowsAffected,
   costsRecoveryMalformedPayload,
   costsRecoveryShipmentMissing,

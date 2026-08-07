@@ -157,7 +157,7 @@ async function fileOneAttachment(
 
   // The write and the event that drives ingest name one bucket, resolved once.
   const { bucket, bucketName } = resolveFirmBucket(env, input.bucketName);
-  await bucket.put(initiated.r2Key, bytes);
+  await bucket.put(initiated.r2Key, bytes, { customMetadata: initiated.dimensions });
 
   const completed = await completeUploadSession(
     firmDatabase,

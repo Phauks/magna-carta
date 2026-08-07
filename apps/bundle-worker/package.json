@@ -11,7 +11,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@cloudflare/containers": "catalog:"
+    "@cloudflare/containers": "catalog:",
+    "@magna-carta/object-dimensions": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "catalog:",
