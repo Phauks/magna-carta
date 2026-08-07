@@ -18,7 +18,12 @@ import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
-import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
+import {
+  runNotificationRetentionSweep,
+  runScheduledSweep,
+  runStatusSnapshot,
+  runStorageReconciliation,
+} from "./scheduled.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
@@ -138,6 +143,9 @@ export default {
               // this pass, and running it after the storage work means a firm whose bytes were just
               // reconciled is swept against the corrected picture.
               await runReextractionSweep(env);
+              // Last on the daily pass, and cheap: a bounded delete per firm over pointers whose
+              // records are all still where their own subsystems keep them.
+              await runNotificationRetentionSweep(env);
             },
           }
         : controller.cron === STATUS_SNAPSHOT_CRON

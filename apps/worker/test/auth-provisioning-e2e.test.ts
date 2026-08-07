@@ -328,6 +328,10 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        // Seeded onto every default role, Read-only included — the deliberate contrast with
+        // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
+        // scoped to their own user id and filtered by matter visibility before it returns a row.
+        "notifications:read",
         "shipping:manage",
         "support:cosign",
         "support:manage",
@@ -532,6 +536,13 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
       // Nothing is stored; the separate, audited import route is what records anything.
       "trust.previewStatementImport",
+      // A member settling their OWN notification feed row. These write, on the aiDetection.detect
+      // reasoning rather than the pure-computation one: the write records nothing about the firm's
+      // conduct, only that one member cleared one badge, and auditing every clear would flood
+      // audit_log with rows that outlive the notifications they described.
+      "notifications.markRead",
+      "notifications.dismiss",
+      "notifications.markAllRead",
     ]);
 
     for (const { operation, label } of mutatingV1) {

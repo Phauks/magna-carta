@@ -267,6 +267,20 @@ export const ENTITY_PREFIXES = {
   reviewDocument: "reviewDocument",
   reviewDocumentException: "reviewDocumentException",
   reviewDocumentOccurrence: "reviewDocumentOccurrence",
+  // Notifications — how a thing the platform noticed reaches a person. A `notificationEvent` is the
+  // fact ONCE, however many people hear about it: a kind, the record it points at, the matter that
+  // anchors its visibility, and a closed set of non-privileged facts. A `notificationRecipient` is
+  // one person's copy of it and the only home of whether they have dealt with it, which is why read
+  // state lives here and not on a channel — "has this person seen it" must not depend on which
+  // channel you ask. A `notificationDelivery` is one attempt to push that copy OUT of the platform
+  // (email today; push, SMS and desktop are seeded values), with attempts, a failure state, and a
+  // closed suppression reason; the in-app feed deliberately gets none, because the recipient row's
+  // existence IS the delivery. A `notificationDigest` is one composed outbound summary and the
+  // watermark that says where the next one starts.
+  notificationEvent: "notificationEvent",
+  notificationRecipient: "notificationRecipient",
+  notificationDelivery: "notificationDelivery",
+  notificationDigest: "notificationDigest",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

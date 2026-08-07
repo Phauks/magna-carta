@@ -17,6 +17,13 @@ import {
   type ObjectDimensions,
 } from "@magna-carta/object-dimensions/dimensions";
 import { fileAuditStatement, type AuditContext } from "./audit.ts";
+import {
+  DOCUMENT_CHECKED_IN_TOPIC,
+  DOCUMENT_CHECKIN_CONFLICT_TOPIC,
+  FILE_QUARANTINED_TOPIC,
+  FILE_RESCAN_INFECTED_TOPIC,
+  FILE_VERSION_COMMITTED_TOPIC,
+} from "./topics.ts";
 import { getCheckoutById, setCheckoutStatusStatement } from "./checkout-statements.ts";
 import {
   abandonVersionStatement,
@@ -339,7 +346,7 @@ export async function initiateCheckin(
       // PUT → quarantine ingest, which then commits/reconciles the version). Subscribers: audit, notify.
       outboxMessages: [
         {
-          topic: "document.checked_in",
+          topic: DOCUMENT_CHECKED_IN_TOPIC,
           payload: { fileId: input.fileId, versionId, checkoutId: input.checkoutId },
         },
       ],
@@ -540,7 +547,7 @@ export async function commitVersion(
       ],
       outboxMessages: [
         {
-          topic: "file.version_committed",
+          topic: FILE_VERSION_COMMITTED_TOPIC,
           payload: { fileId: version.fileId, versionId: input.versionId },
         },
       ],
@@ -655,7 +662,7 @@ export async function commitCheckinVersion(
         ],
         outboxMessages: [
           {
-            topic: "file.version_committed",
+            topic: FILE_VERSION_COMMITTED_TOPIC,
             payload: { fileId: version.fileId, versionId: input.versionId },
           },
         ],
@@ -681,7 +688,7 @@ export async function commitCheckinVersion(
       ],
       outboxMessages: [
         {
-          topic: "document.checkin_conflict",
+          topic: DOCUMENT_CHECKIN_CONFLICT_TOPIC,
           payload: {
             fileId: version.fileId,
             versionId: input.versionId,
@@ -775,7 +782,7 @@ export async function commitEditedVersion(
         fileAuditStatement(database, options, "file.version_committed", versionId),
       ],
       outboxMessages: [
-        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
+        { topic: FILE_VERSION_COMMITTED_TOPIC, payload: { fileId: input.fileId, versionId } },
       ],
     },
   };
@@ -838,7 +845,7 @@ export function recordRescanVerdict(
         input.scanVerdict === "flagged"
           ? [
               {
-                topic: "file.rescan_infected",
+                topic: FILE_RESCAN_INFECTED_TOPIC,
                 payload: { fileId: input.fileId, versionId: input.versionId },
               },
             ]
@@ -874,7 +881,7 @@ export async function quarantineVersion(
       ],
       outboxMessages: [
         {
-          topic: "file.quarantined",
+          topic: FILE_QUARANTINED_TOPIC,
           payload: { versionId: input.versionId, reason: input.reason },
         },
       ],
@@ -922,7 +929,7 @@ export function quarantineCommittedVersion(
       ],
       outboxMessages: [
         {
-          topic: "file.quarantined",
+          topic: FILE_QUARANTINED_TOPIC,
           payload: { fileId: input.fileId, versionId: input.versionId, reason: input.reason },
         },
       ],
@@ -1140,7 +1147,7 @@ export async function restoreVersion(
         fileAuditStatement(database, options, "file.version_restored", versionId),
       ],
       outboxMessages: [
-        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
+        { topic: FILE_VERSION_COMMITTED_TOPIC, payload: { fileId: input.fileId, versionId } },
       ],
     },
   };

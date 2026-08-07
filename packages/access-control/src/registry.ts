@@ -195,6 +195,19 @@ export const PERMISSIONS = [
   "discovery:read", // read review sets, record custodians, loads, review documents, and exception reports
   "discovery:manageReviewSets", // create, rename, lock and close review sets; create and edit record custodians
   "discovery:load", // declare a load and put material into a review set
+  // Notifications — a member's own feed of things the platform noticed. ONE key, seeded to every
+  // default role including Read-only, which is the deliberate contrast with trust:read. A member
+  // reading their own feed is not a privilege: the read is scoped to the session's own user id and
+  // every row is filtered by matter visibility at read time, so holding the key grants sight of
+  // nothing the member could not already reach — and a firm whose staff cannot see their own
+  // deadlines is a firm this feature has failed. There is deliberately no notifications:manage
+  // beside it: marking one's own item read is the same capability as reading it, and preference
+  // writes ride the settings capability that already exists.
+  //
+  // Binds resource: "firm". A feed spans every matter a member touches and firm-scoped kinds that
+  // have no matter at all, so binding it to "matter" would name a resource half the rows do not
+  // have — the same reasoning custody:* and trust:* carry.
+  "notifications:read", // read one's own notification feed, unread counts, and mark items read or dismissed
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

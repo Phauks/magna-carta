@@ -50,6 +50,15 @@ const ReportIncidentResponse = z
   .object({ id: z.string(), status: z.string() })
   .openapi("ReportIncidentResponse");
 
+// The per-firm outbox topic a filed incident publishes. Named here rather than at the write site
+// because something now subscribes to it, and a subscriber that spells a topic itself is a
+// subscriber that can spell it differently — silently, because an unrecognized topic on the
+// per-firm bus is acked and ignored by design, so a typo does not throw, it just stops delivering.
+// Every other producer exports its topics from its own domain package; the incident write path has
+// no domain package to put this in, so it lives beside the route that emits it and the notification
+// registry's spelling is pinned against it by test.
+export const INCIDENT_CREATED_TOPIC = "incident.created";
+
 // idempotency: "optional" — the chokepoint applies no idempotency gate to optional routes (a
 // duplicate report is at worst a duplicate row; handler-managed replay on a supplied key is a named
 // seam). audited: true — the incident row IS the durable record (the per-firm audit_log table is a
@@ -159,7 +168,9 @@ export function registerIncidentsRoute(
                 now,
               ),
           ],
-          outboxMessages: [{ topic: "incident.created", payload: { incidentId, errorIdCount } }],
+          outboxMessages: [
+            { topic: INCIDENT_CREATED_TOPIC, payload: { incidentId, errorIdCount } },
+          ],
         },
         { now: () => now },
       );

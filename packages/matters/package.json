@@ -13,6 +13,7 @@
     "./matter-statements": "./src/matter-statements.ts",
     "./matter-party": "./src/matter-party.ts",
     "./matter-service": "./src/matter-service.ts",
+    "./topics": "./src/topics.ts",
     "./matter-type-statements": "./src/matter-type-statements.ts",
     "./system-matter-statements": "./src/system-matter-statements.ts",
     "./matter-type-service": "./src/matter-type-service.ts",
