@@ -496,18 +496,6 @@ const CreateEventLinkRequest = z
   })
   .openapi("CreateEventLinkRequest");
 
-const EventLinkDetail = z
-  .object({
-    id: z.string(),
-    fromMatterEventId: z.string().nullable(),
-    fromFirmEventId: z.string().nullable(),
-    toMatterEventId: z.string().nullable(),
-    toFirmEventId: z.string().nullable(),
-    kind: z.enum(["continuance_of", "related"]),
-    note: z.string().nullable(),
-  })
-  .openapi("CalendarEventLinkDetail");
-
 const ContinueEventRequest = z
   .object({
     // The new setting, as the court made it. Every date here is one a person supplied: nothing
