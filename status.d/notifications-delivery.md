@@ -1,7 +1,7 @@
 ---
 slice: Notifications — delivery
 group: cross-cutting
-order: 34
+order: 35
 research: n/a
 spec: done by="Opus 5"
 plan: done by="Opus 5"
