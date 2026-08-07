@@ -19,8 +19,20 @@ as tasks the same hour. The T3 carve-out question is deliberately held open: the
 against primary sources and the owner confirms with the rule text in front of them; until then the
 firm-funds leaf is not composed into any new behavior.
 
-**Consequence:** The flag ledger drops from 92 open items to the 8 clarifications plus T3/T16
-research returns. Notifications slice 1, AI Search slice 1, the trust authorization policy, the
+**Follow-up answers (same day):** The owner resolved five of the clarifications directly. T3 — the
+bank-charge carve-out stands: "Bank fees are allowed. Permits this." The firm-funds leaf remains,
+strictly for bank service charges, with the Nevada rule text still to be pulled verbatim by the
+Nevada-first corpus work. H3 — name formats ship as format variants on the one displayName key:
+"Prefer format variants to individuals." AF-F7 — the circuit-breaker thresholds become
+firm-settable, with the shipped numbers (twenty-five fires per rolling hour; three undos in the
+last ten) as the platform defaults. B7 — the interim posture is accepted only until 3·5 completes:
+the negative-running Client Costs Advanced position is tolerated as scaffolding, and 3·5 closes the
+loop. D1 — the discovery attribution label is "Custodian of Record" rather than "Record custodian":
+"I don't think the Court will get confused." The remaining explained items (D8, G2, G6, G8) were
+blessed as presented: "Your decisions seem valid."
+
+**Consequence:** The flag ledger drops from 92 open items to the T16 research return and the E1
+member-choice build already directed. Notifications slice 1, AI Search slice 1, the trust authorization policy, the
 calendar slice 2 design, billing fee models, PDF statement import, the pronoun helper, the Nevada
 form starter, and the evergreen model default all carry owner direction and proceed without further
 asks.
