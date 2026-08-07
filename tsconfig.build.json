@@ -191,6 +191,9 @@
       "path": "packages/tools/tsconfig.build.json"
     },
     {
+      "path": "packages/trust-jurisdictions/tsconfig.build.json"
+    },
+    {
       "path": "packages/trust/tsconfig.build.json"
     },
     {

@@ -40,9 +40,14 @@ export type TrustValidationCode =
   | "transfer-exceeds-available"
   | "operating-side-is-trust-account"
   | "earned-fee-precondition-unavailable"
-  // Jurisdiction
+  // Jurisdiction — four distinct refusals, each fixed by a different person doing a different thing:
+  // record the office's state; research a jurisdiction; have an attorney review one that IS
+  // researched; research the one field that was missed. Collapsing any two of them tells a firm
+  // something about its obligations that nobody has stood behind.
   | "jurisdiction-not-recorded"
   | "jurisdiction-not-encoded"
+  | "jurisdiction-not-verified"
+  | "jurisdiction-requirement-not-encoded"
   // Bank statements — the one external input
   | "unknown-trust-bank-statement"
   | "unknown-trust-bank-statement-line"
