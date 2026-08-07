@@ -468,6 +468,7 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "estate_entity_id",
     action: "retain-under-matter",
     note: "the estate's own Directory record, where the firm keeps one",
+  },
   // Notifications. Four of the five tables key to a member — not as provenance on somebody else's
   // record, but as the member's OWN feed: what they were told, whether they dealt with it, whether
   // a copy was mailed to them, and how much aged out unread while they were away. That is activity
