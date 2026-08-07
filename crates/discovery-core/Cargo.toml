@@ -37,7 +37,7 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 cfb = "0.14"
 # Pull-parser over the XML parts inside an OOXML or OpenDocument package. Pure Rust, and it does
 # not expand general entities at all, so the classic entity-expansion bomb has no decoder to reach.
-quick-xml = { version = "0.38", default-features = false }
+quick-xml = { version = "0.41", default-features = false }
 # Label-to-decoder mapping for every legacy encoding real discovery material arrives in.
 encoding_rs = "0.8"
 # Statistical charset detection for bytes that declare nothing. Pairs with encoding_rs by design.

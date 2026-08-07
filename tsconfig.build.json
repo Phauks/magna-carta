@@ -89,6 +89,9 @@
       "path": "packages/directory/tsconfig.build.json"
     },
     {
+      "path": "packages/discovery/tsconfig.build.json"
+    },
+    {
       "path": "packages/document-assembly/tsconfig.build.json"
     },
     {
@@ -153,6 +156,9 @@
     },
     {
       "path": "packages/money/tsconfig.build.json"
+    },
+    {
+      "path": "packages/object-dimensions/tsconfig.build.json"
     },
     {
       "path": "packages/pdf/tsconfig.build.json"

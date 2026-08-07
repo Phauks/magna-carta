@@ -373,6 +373,7 @@ async function assembleOne(
 
   await bucket.put(initiated.r2Key, merged.bytes as unknown as ArrayBuffer, {
     sha256: await sha256Hex(merged.bytes),
+    customMetadata: initiated.dimensions,
   });
 
   const completed = await completeUploadSession(

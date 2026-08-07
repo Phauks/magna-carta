@@ -1,4 +1,5 @@
 import { type EngineResolver, runConversion } from "@magna-carta/conversion/execute";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { resolveEnginePort } from "./conversion-engine.ts";
@@ -39,8 +40,12 @@ async function convertOne(
     await coordinator.markFailed(result.reason); // typed, terminal
     return;
   }
+  // A conversion runs from the firm-level converter tool, not from a matter's file: neither the source
+  // nor the result is filed anywhere, and both expire. Firm-level, and stamped as such so the absence
+  // of a matter is a recorded answer rather than a gap.
   await bucket.put(message.resultKey, result.bytes, {
     httpMetadata: { contentType: result.mediaType },
+    customMetadata: firmScopedObjectDimensions("conversion-artifact"),
   });
   await coordinator.markDone(message.resultKey, result.mediaType);
 }

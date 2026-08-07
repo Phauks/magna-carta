@@ -1,3 +1,5 @@
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
+
 // Outbound R2 handler for the bundle Container. When the container makes an HTTP request to
 // http://bundle-r2/<key>, the runtime intercepts it (because "bundle-r2" is listed in
 // BundleContainer.outboundByHost) and routes the call here. The container reads source files
@@ -14,7 +16,11 @@ export async function handleBundleR2(request: Request, r2: R2Bucket): Promise<Re
     return new Response(object.body, { status: 200 });
   }
   if (request.method === "PUT") {
-    await r2.put(key, request.body);
+    // Everything the container writes here is a piece of an assembled archive, whose selection may
+    // span matters — so it is a firm-level object and says so, rather than arriving unclassified.
+    await r2.put(key, request.body, {
+      customMetadata: firmScopedObjectDimensions("download-bundle"),
+    });
     return new Response(null, { status: 200 });
   }
   return new Response("Method Not Allowed", { status: 405 });

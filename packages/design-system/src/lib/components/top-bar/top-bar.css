@@ -114,4 +114,31 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /* Text navigation link on the ink — the same quiet chrome register as the icon affordance above,
+     set in the reading face at the small step. The focus ring is chrome-accent, not focus-ring:
+     the brand focus colour is tuned for the light canvas and disappears against the ink band. */
+  .mc-top-bar-link {
+    display: inline-flex;
+    align-items: center;
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-chrome-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    text-decoration-line: none;
+    cursor: pointer;
+    transition-property: color, background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-top-bar-link:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-top-bar-link:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
 }
