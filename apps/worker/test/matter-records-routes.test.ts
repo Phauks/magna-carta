@@ -8,6 +8,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { beforeAll, describe, expect, it } from "vitest";
+import { insertDocumentAssemblyStatement } from "@magna-carta/document-assembly/assembly-statements";
 import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -40,6 +41,7 @@ let supervisorEntityId: string;
 let identifierRowId: string;
 let matterId: string;
 let templateVersionId: string;
+let templateIdOfVersion: string;
 
 const DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const WORD_NAMESPACE = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
@@ -146,14 +148,25 @@ interface AssemblyState {
   absentFieldKeys: string[];
 }
 
+// Drive the consumer against an assembly row written with the engine's own insert statement, NOT
+// through the submit route: the route's job coordinator enqueues onto the real queue, whose pool
+// delivery consumes with the SUBMITTING member as the actor — a second consumption racing this
+// test's own, with a different identity. The audit assertions below are about who a decrypt was
+// performed FOR, so the one consumption must be the one this test issues.
 async function assembleAs(requestedBy: UserId): Promise<AssemblyState> {
-  const submitted = await post(
-    `/api/v1/matters/${matterId}/assemblies`,
-    { templateVersionId },
-    ownerCookie,
-  );
-  expect(submitted.status, await submitted.clone().text()).toBe(202);
-  const { assemblyId } = await jsonOf<{ assemblyId: string }>(submitted);
+  const assemblyId = newIdentifier("documentAssembly");
+  const row = {
+    id: assemblyId,
+    matterId,
+    templateId: templateIdOfVersion,
+    templateVersionId,
+    folderId: null,
+    engineVersion: 1,
+    dictionaryVersion: 1,
+    requestedBy,
+    createdAt: new Date().toISOString(),
+  } as Parameters<typeof insertDocumentAssemblyStatement>[1];
+  await insertDocumentAssemblyStatement(firmDatabaseFor(env.FIRM_DATABASE, firmId), row).run();
   const message: DocumentAssemblyMessage = {
     firmId,
     bucketName,
@@ -429,6 +442,14 @@ describe("the records as merge fields, end to end", () => {
     });
     expect(registered.status, await registered.clone().text()).toBe(201);
     templateVersionId = (await jsonOf<{ versionId: string }>(registered)).versionId;
+    templateIdOfVersion =
+      (
+        await queryFirstRow<{ template_id: string }>(
+          "SELECT template_id FROM document_template_version WHERE id = ?1",
+          [templateVersionId],
+        )
+      )?.template_id ?? "";
+    expect(templateIdOfVersion).not.toBe("");
   });
 
   it("fills every record's facts, decrypts the bar number, and commits the chokepoint's audit row", async () => {
