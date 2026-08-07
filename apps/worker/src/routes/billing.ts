@@ -12,6 +12,10 @@ import {
   updateDraftLine,
   voidDraft,
 } from "@magna-carta/billing/draft";
+import {
+  composeTrustApplicationApproval,
+  submitTrustApplicationRequest,
+} from "@magna-carta/billing/apply-authorization";
 import { applyTrustFundsToInvoices } from "@magna-carta/billing/apply-trust-funds";
 import { MAXIMUM_INVOICES_PER_TRUST_APPLICATION } from "@magna-carta/billing/earned-fee";
 import { finalizeInvoice } from "@magna-carta/billing/finalize";
@@ -184,6 +188,53 @@ const ApplyTrustFundsAck = z
     currency: z.string(),
   })
   .openapi("BillingApplyTrustFundsAck");
+
+const TrustApplicationRequestSubmission = z
+  .object({
+    trustAccountId: identifierField("trustAccount"),
+    matterId: identifierField("matter"),
+    currency: z.literal("USD"),
+    effectiveDate: civilDate,
+    applications: z
+      .array(TrustApplicationTarget)
+      .min(1)
+      .max(MAXIMUM_INVOICES_PER_TRUST_APPLICATION),
+    trustDescription: z.string().min(1),
+    operatingDescription: z.string().min(1),
+    // How the money will physically move to the firm, and how the client ledger will name it — the
+    // same particulars a disbursement request records, because the approving member is approving
+    // facts somebody wrote down, not an amount in the abstract.
+    method: z.enum(["check", "cash", "wire", "electronic_transfer", "card"]),
+    reference: z.string().min(1).nullable().optional(),
+    payee: z.string().min(1),
+    purpose: z.string().min(1),
+  })
+  .openapi("BillingTrustApplicationRequestSubmission");
+
+const TrustApplicationRequestAck = z
+  .object({
+    trustDisbursementRequestId: z.string(),
+    totalMinor: z.number().int(),
+    status: z.literal("pending"),
+  })
+  .openapi("BillingTrustApplicationRequestAck");
+
+const TrustApplicationApprovalAck = z
+  .object({
+    trustDisbursementRequestId: z.string(),
+    authorizationBasis: z.enum(["second_person", "sole_trust_manager", "policy_exempt"]),
+    transferId: z.string(),
+    trustEntryId: z.string(),
+    operatingEntryId: z.string(),
+    applicationIds: z.array(z.string()),
+    totalMinor: z.number().int(),
+    currency: z.string(),
+  })
+  .openapi("BillingTrustApplicationApprovalAck");
+
+const applicationRequestParam = z.object({
+  requestId: identifierPathParam("trustDisbursementRequest", "requestId"),
+});
 
 const AccountRoleAssignment = z
   .object({
@@ -559,6 +610,63 @@ const applyTrustFundsRoute = defineOpenAPIRoute(writeMeta("billing.applyTrustFun
     429: errorResponses[429],
   },
 });
+
+const submitTrustApplicationRoute = defineOpenAPIRoute(
+  writeMeta("billing.submitTrustApplication", APPLY),
+  {
+    method: "post",
+    path: "/api/v1/billing/trust-application-requests",
+    description:
+      "Proposes taking earned fees out of a client's trust ledger against named finalized invoices, as a pending request for another member to approve. NO MONEY MOVES: the request and its invoice lines are a proposal, checked now so the submitter learns of a problem immediately, and re-checked in full at approval. This is the path a firm whose authorization policy requires a second person takes its fees by; the request is decided under the policy version in force when it is submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: {
+        content: { "application/json": { schema: TrustApplicationRequestSubmission } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        description: "The application request is recorded and awaiting approval",
+        content: { "application/json": { schema: TrustApplicationRequestAck } },
+      },
+      400: errorResponses[400],
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+    },
+  },
+);
+
+const approveTrustApplicationRoute = defineOpenAPIRoute(
+  writeMeta("billing.approveTrustApplication", APPLY),
+  {
+    method: "post",
+    path: "/api/v1/billing/trust-application-requests/{requestId}/approval",
+    description:
+      "Approves a pending earned-fee application and posts it, in ONE atomic write: the money leaves the client ledger as two linked entries, each named invoice's balance moves by exactly what the request proposed, and the decision that settles the request records who approved and on what footing. Every check the direct application runs is run again HERE, against the invoices and the ledger as they stand now — a request overtaken by a payment, a credit note, or another transfer is refused rather than posted. Under a policy requiring a second person the approving member must be somebody other than the submitter; the recorded exceptions (a sole trust manager, or a policy that exempts the amount) are named on the decision's face.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: applicationRequestParam,
+    },
+    responses: {
+      201: {
+        description: "The application was approved, transferred, and applied",
+        content: { "application/json": { schema: TrustApplicationApprovalAck } },
+      },
+      400: errorResponses[400],
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+    },
+  },
+);
 
 const setAccountRolesRoute = defineOpenAPIRoute(writeMeta("billing.setAccountRoles", CONFIGURE), {
   method: "put",
@@ -1061,6 +1169,91 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
               applicationIds: [...applied.applicationIds],
               totalMinor: applied.totalMinor,
               currency: request.currency,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // POST /api/v1/billing/trust-application-requests — propose taking earned fees; NOTHING moves yet
+  app.openapi(
+    {
+      ...submitTrustApplicationRoute,
+      middleware: chokepointMiddleware(chokepoint, submitTrustApplicationRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof TrustApplicationRequestAck>>(
+        c,
+        201,
+        async (requestedBy) => {
+          const submitted = await submitTrustApplicationRequest(
+            firm.firmDatabase,
+            {
+              trustAccountId: request.trustAccountId,
+              matterId: request.matterId,
+              applications: request.applications,
+              currency: request.currency,
+              effectiveDate: request.effectiveDate,
+              trustDescription: request.trustDescription,
+              operatingDescription: request.operatingDescription,
+              method: request.method,
+              reference: request.reference ?? null,
+              payee: request.payee,
+              purpose: request.purpose,
+              requestedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: submitted.effect,
+            body: {
+              trustDisbursementRequestId: submitted.requestId,
+              totalMinor: submitted.totalMinor,
+              status: "pending" as const,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // POST /api/v1/billing/trust-application-requests/{requestId}/approval — the second person, and
+  // the application flow's only path onto the ledger
+  app.openapi(
+    {
+      ...approveTrustApplicationRoute,
+      middleware: chokepointMiddleware(chokepoint, approveTrustApplicationRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { requestId } = c.req.valid("param");
+      const outcome = await runBillingEffect<z.infer<typeof TrustApplicationApprovalAck>>(
+        c,
+        201,
+        async (approvedBy) => {
+          const approved = await composeTrustApplicationApproval(
+            firm.firmDatabase,
+            { requestId, approvedBy },
+            clockOptions(),
+          );
+          return {
+            write: approved.effect,
+            body: {
+              trustDisbursementRequestId: approved.requestId,
+              authorizationBasis: approved.authorizationBasis,
+              transferId: approved.transferId,
+              trustEntryId: approved.trustEntryId,
+              operatingEntryId: approved.operatingEntryId,
+              applicationIds: [...approved.applicationIds],
+              totalMinor: approved.totalMinor,
+              currency: "USD",
             },
           };
         },

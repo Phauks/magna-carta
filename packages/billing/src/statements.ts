@@ -3,9 +3,11 @@ import type {
   InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
+  InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
   LocationId,
   MatterId,
+  TrustDisbursementRequestId,
   TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -701,3 +703,63 @@ export async function readInvoiceMatterBalances(
 // `packages/matters/src/matter-party.ts` — the matter shell owns `matter_party`, and billing, trust,
 // and their fitness suites all read the link from that one place so they cannot drift into two
 // answers about whose matter this is.
+
+// The invoice-and-amount lines of a PENDING earned-fee application — billing's side of the shared
+// authorization queue (the queue row itself is trust's trust_disbursement_request). Written in the
+// same batch as the request, frozen with it by triggers, and re-resolved at approval against the
+// invoices as they stand THEN.
+export const INVOICE_TRUST_APPLICATION_LINE_TABLE = "invoice_trust_application_line";
+
+export interface InsertInvoiceTrustApplicationLineRow {
+  readonly id: InvoiceTrustApplicationLineId;
+  readonly requestId: TrustDisbursementRequestId;
+  readonly invoiceId: InvoiceId;
+  readonly amountMinor: number;
+  readonly currency: string;
+}
+
+export function insertInvoiceTrustApplicationLineStatement(
+  database: SqlDatabase,
+  row: InsertInvoiceTrustApplicationLineRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${INVOICE_TRUST_APPLICATION_LINE_TABLE} (id, request_id, invoice_id, amount_minor, currency) VALUES (?1, ?2, ?3, ?4, ?5)`,
+    )
+    .bind(row.id, row.requestId, row.invoiceId, row.amountMinor, row.currency);
+}
+
+export interface InvoiceTrustApplicationLineSnapshot {
+  readonly id: InvoiceTrustApplicationLineId;
+  readonly requestId: TrustDisbursementRequestId;
+  readonly invoiceId: InvoiceId;
+  readonly amountMinor: number;
+  readonly currency: string;
+}
+
+interface InvoiceTrustApplicationLineRow {
+  id: string;
+  request_id: string;
+  invoice_id: string;
+  amount_minor: number;
+  currency: string;
+}
+
+export async function readInvoiceTrustApplicationLines(
+  database: SqlDatabase,
+  requestId: TrustDisbursementRequestId,
+): Promise<InvoiceTrustApplicationLineSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, request_id, invoice_id, amount_minor, currency FROM ${INVOICE_TRUST_APPLICATION_LINE_TABLE} WHERE request_id = ?1 ORDER BY invoice_id`,
+    )
+    .bind(requestId)
+    .all<InvoiceTrustApplicationLineRow>();
+  return results.map((row) => ({
+    id: row.id as InvoiceTrustApplicationLineId,
+    requestId: row.request_id as TrustDisbursementRequestId,
+    invoiceId: row.invoice_id as InvoiceId,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+  }));
+}

@@ -601,6 +601,13 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance about a firm control, the line custody_destruction_request sits on. The payee the
   // request named is registered above; nothing about a data subject is repeated here.
   "trust_disbursement_decision",
+  // The firm's disbursement-authorization posture, one immutable row per version: a policy kind, a
+  // threshold, a flag, and firm-member provenance (set_by) — configuration about a firm control,
+  // the line firm_account_role sits on.
+  "trust_authorization_policy",
+  // One invoice-and-amount a pending earned-fee application proposes to settle: two handles and an
+  // amount. Whose bill it is resolves through the invoice, never through a column here.
+  "invoice_trust_application_line",
   // A bank statement is the institution's report about the FIRM's own bank account — a period, two
   // balances, and the firm's reference for it. It is the same line `trust_account` sits on; the one
   // column about anybody else is the line's counterparty, registered above.

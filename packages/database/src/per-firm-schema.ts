@@ -68,6 +68,7 @@ import type {
   InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
+  InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
   LedgerAccountId,
   LedgerEntryId,
@@ -112,6 +113,7 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TrustAccountId,
+  TrustAuthorizationPolicyId,
   TrustBankStatementId,
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
@@ -3521,6 +3523,23 @@ export const trustTransfer = sqliteTable(
     authorizedBy: text("authorized_by").$type<UserId>(),
     effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
     recordedAt: text("recorded_at").notNull(), // UTC instant
+    // Who entered the record, beside who let the money go — the same two facts trust_movement keeps
+    // apart, for the same reason: a rule requiring a second person is worth nothing if the record
+    // cannot tell them apart. Null only on rows older than the authorization policy; triggers in the
+    // migration require both on every new row.
+    recordedBy: text("recorded_by").$type<UserId>(),
+    // The authorization-policy version governing this transfer: the current version for a transfer
+    // composed directly, or the version stamped on the approved request it rides with — which is how
+    // an in-flight application keeps the rules it was submitted against. Triggers refuse any other
+    // stamp.
+    policyId: text("policy_id")
+      .$type<TrustAuthorizationPolicyId>()
+      .references(() => trustAuthorizationPolicy.id),
+    // The earned-fee application request this transfer was approved from, when it came through the
+    // authorization queue; null on a transfer the policy allowed to be composed directly.
+    approvedRequestId: text("approved_request_id")
+      .$type<TrustDisbursementRequestId>()
+      .references(() => trustDisbursementRequest.id),
   },
   (table) => [
     // Each entry participates in at most one transfer, on one side: a second row claiming either
@@ -3632,6 +3651,53 @@ export const trustMovement = sqliteTable(
   ],
 );
 
+// The firm's disbursement-authorization posture — whether money leaving a client ledger takes a
+// second person — one immutable row per version, current = highest version. Three postures: `off`
+// (the deciding member may act alone), `threshold` (a second person is required for amounts strictly
+// above `threshold_amount_minor`), `always` (a second person is required for every amount). The
+// independent `require_authorized_approver` flag adds that whoever lets the money go — the approver,
+// or the sole actor when the posture exempts — must hold the `trust:authorize` capability.
+//
+// NO ROW IS THE SHIPPED DEFAULT, AND THE DEFAULT IS THE STRICT ONE: always two-person, no authority
+// requirement — exactly the behavior firms had before this table existed, so a migration never
+// silently relaxes anybody's posture. A firm relaxes only by writing a version, which records who
+// changed the posture, when, and (against the previous row) from what.
+//
+// APPEND-ONLY AND DENSELY VERSIONED, enforced by triggers in the migration: a posture change is a
+// new version, never an edit, so the history of how a firm's money-movement controls evolved is
+// itself an evidentiary record. Requests and transfers stamp the version they were created under,
+// which is what lets an in-flight request keep the rules it was submitted against.
+export const trustAuthorizationPolicy = sqliteTable(
+  "trust_authorization_policy",
+  {
+    id: text("id").primaryKey().$type<TrustAuthorizationPolicyId>(), // trustAuthorizationPolicy_ handle
+    version: integer("version").notNull(),
+    policy: text("policy", { enum: ["off", "threshold", "always"] }).notNull(),
+    // Set exactly when the posture is `threshold`: amounts strictly above it take a second person,
+    // amounts at or below it do not.
+    thresholdAmountMinor: integer("threshold_amount_minor"),
+    requireAuthorizedApprover: integer("require_authorized_approver").notNull(),
+    setBy: text("set_by").notNull().$type<UserId>(),
+    setAt: text("set_at").notNull(), // UTC instant
+  },
+  (table) => [
+    uniqueIndex("trust_authorization_policy_version_unique_index").on(table.version),
+    check(
+      "trust_authorization_policy_policy_check",
+      sql`${table.policy} IN ('off', 'threshold', 'always')`,
+    ),
+    check(
+      "trust_authorization_policy_threshold_shape_check",
+      sql`(${table.policy} = 'threshold' AND ${table.thresholdAmountMinor} IS NOT NULL AND ${table.thresholdAmountMinor} >= 0) OR (${table.policy} <> 'threshold' AND ${table.thresholdAmountMinor} IS NULL)`,
+    ),
+    check(
+      "trust_authorization_policy_authority_flag_check",
+      sql`${table.requireAuthorizedApprover} IN (0, 1)`,
+    ),
+    check("trust_authorization_policy_version_positive_check", sql`${table.version} > 0`),
+  ],
+);
+
 // A proposed payment out of a client ledger, before any money has moved. THIS IS NOT A MOVEMENT: no
 // ledger entry, no balance, no trust_movement row exists while a request is pending, so a request
 // that is never approved leaves the client ledger exactly as it found it. The row carries the full
@@ -3671,6 +3737,23 @@ export const trustDisbursementRequest = sqliteTable(
     effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
     requestedBy: text("requested_by").notNull().$type<UserId>(),
     requestedAt: text("requested_at").notNull(), // UTC instant
+    // What the approval will post. A `disbursement` posts a trust movement; an
+    // `earned_fee_application` posts a trust-to-operating transfer whose invoice particulars live in
+    // invoice_trust_application_line — one queue, one decision discipline, two postings.
+    kind: text("kind", { enum: ["disbursement", "earned_fee_application"] })
+      .notNull()
+      .default("disbursement"),
+    // The operating leg's ledger-entry description, set exactly on an earned-fee application (a
+    // disbursement has no operating leg). Enforced by the kind-shape trigger in the migration.
+    operatingDescription: text("operating_description"),
+    // The authorization-policy version this request was submitted under — the rules the approver
+    // decides by, HOWEVER the firm's posture has changed since. Null only on rows older than the
+    // policy table (or in a firm that has never written a version), which is the shipped default:
+    // always two-person, no authority requirement. A trigger refuses a new request whose stamp is
+    // not the current version, so a caller can never revive a superseded posture.
+    policyId: text("policy_id")
+      .$type<TrustAuthorizationPolicyId>()
+      .references(() => trustAuthorizationPolicy.id),
   },
   (table) => [
     // The approval queue: what is outstanding on one trust account, oldest first.
@@ -3721,31 +3804,46 @@ export const trustDisbursementDecision = sqliteTable(
     // reasoning is the request's own purpose.
     reason: text("reason"),
     // On what footing the approval was given. `second_person` is the rule; `sole_trust_manager`
-    // records, on the face of the record, that the firm had nobody else who could approve and the
-    // submitter authorized their own disbursement.
+    // records, on the face of the record, that a second person was required and the firm had nobody
+    // else who could approve; `policy_exempt` records that the firm's authorization policy — the
+    // version stamped on the request — did not require a second person for this amount, and the
+    // submitter acted alone under it.
     authorizationBasis: text("authorization_basis", {
-      enum: ["second_person", "sole_trust_manager"],
+      enum: ["second_person", "sole_trust_manager", "policy_exempt"],
     }),
     // The movement the approval posted, in the same batch as this row. Null on every other decision,
     // which is the whole point: nothing reached the ledger.
     movementId: text("movement_id")
       .$type<TrustMovementId>()
       .references(() => trustMovement.id),
+    // The trust-to-operating transfer an approved earned-fee application posted, in the same batch.
+    // An approval posts exactly one of the two: a movement for a disbursement request, a transfer
+    // for an earned-fee application — which is what lets one queue and one decision discipline
+    // govern both ways money leaves a client ledger.
+    transferId: text("transfer_id")
+      .$type<TrustTransferId>()
+      .references(() => trustTransfer.id),
   },
   (table) => [
     uniqueIndex("trust_disbursement_decision_request_unique_index").on(table.requestId),
     uniqueIndex("trust_disbursement_decision_movement_unique_index").on(table.movementId),
+    uniqueIndex("trust_disbursement_decision_transfer_unique_index").on(table.transferId),
     check(
       "trust_disbursement_decision_decision_check",
       sql`${table.decision} IN ('approved', 'rejected', 'withdrawn')`,
     ),
+    check(
+      "trust_disbursement_decision_basis_check",
+      sql`${table.authorizationBasis} IS NULL OR ${table.authorizationBasis} IN ('second_person', 'sole_trust_manager', 'policy_exempt')`,
+    ),
     // Each outcome's shape stated once, so a decision cannot misdescribe itself: an approval with no
-    // movement and no basis, a rejection that claims to have posted one, or an unexplained refusal.
+    // posting and no basis, an approval claiming both a movement and a transfer, a rejection that
+    // claims to have posted one, or an unexplained refusal.
     check(
       "trust_disbursement_decision_shape_check",
-      sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.movementId} IS NOT NULL AND ${table.reason} IS NULL)
-        OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND length(${table.reason}) > 0)
-        OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
+      sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.reason} IS NULL AND ((${table.movementId} IS NOT NULL AND ${table.transferId} IS NULL) OR (${table.transferId} IS NOT NULL AND ${table.movementId} IS NULL)))
+        OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND ${table.transferId} IS NULL AND length(${table.reason}) > 0)
+        OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND ${table.transferId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
     ),
   ],
 );
@@ -4341,6 +4439,44 @@ export const invoiceApplication = sqliteTable(
       "invoice_application_reversal_paired_check",
       sql`(${table.kind} = 'reversal') = (${table.reversesApplicationId} IS NOT NULL)`,
     ),
+  ],
+);
+
+// One invoice-and-amount a PENDING earned-fee application proposes to settle — the particulars an
+// approving member is approving, which is why they are structured rows rather than prose in the
+// request's description. The queue row itself is a trust_disbursement_request with
+// kind = 'earned_fee_application' (one approval queue, one decision discipline for every way money
+// leaves a client ledger); these lines are billing's side of that request, and the approval
+// re-resolves every one of them against the invoices as they stand THEN, exactly as a disbursement
+// approval re-reads the available balance.
+//
+// APPEND-ONLY, enforced by triggers in the migration, with the request they belong to: what was
+// proposed is part of the record whether or not it was approved. No status column — the request's
+// decision row settles the whole proposal.
+export const invoiceTrustApplicationLine = sqliteTable(
+  "invoice_trust_application_line",
+  {
+    id: text("id").primaryKey().$type<InvoiceTrustApplicationLineId>(), // invoiceTrustApplicationLine_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<TrustDisbursementRequestId>()
+      .references(() => trustDisbursementRequest.id),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+  },
+  (table) => [
+    // One line per invoice per request: a request naming the same invoice twice would make "what is
+    // being approved" ambiguous where a single larger line says it plainly.
+    uniqueIndex("invoice_trust_application_line_request_invoice_unique_index").on(
+      table.requestId,
+      table.invoiceId,
+    ),
+    check("invoice_trust_application_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("invoice_trust_application_line_currency_check", sql`length(${table.currency}) = 3`),
   ],
 );
 

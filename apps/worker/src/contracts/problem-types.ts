@@ -256,6 +256,12 @@ export const PROBLEM_TYPES = {
   // is the point of the control, so this is not a permission failure — the member holds the
   // capability; they are the wrong person for this particular act.
   "trust-disbursement-authorization-refused": "trust-disbursement-authorization-refused",
+  // A posture change that lost to the posture already standing (HTTP 409): the firm's authorization
+  // policy is already what the caller asked for, or a concurrent change wrote the next version
+  // first. Nothing is broken — the caller re-reads the current policy and decides whether a change
+  // is still wanted against it. DISTINCT from `conflict` in carrying the policy vocabulary in its
+  // detail.
+  "trust-authorization-policy-conflict": "trust-authorization-policy-conflict",
   // A write against a reconciliation that has already closed (HTTP 409): a second close, a match, or
   // a withdrawal. Closing a reconciliation freezes the proof it attested to, and the frozen figures
   // never change afterwards — so a period redone later is a NEW reconciliation superseding the old

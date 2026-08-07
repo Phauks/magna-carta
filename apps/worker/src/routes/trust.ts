@@ -9,6 +9,11 @@ import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
 import {
+  composeTrustAuthorizationPolicyChange,
+  readCurrentTrustAuthorizationPolicy,
+  readTrustAuthorizationPolicyHistory,
+} from "@magna-carta/trust/authorization-policy";
+import {
   composeTrustDisbursementApproval,
   composeTrustDisbursementRejection,
   composeTrustDisbursementRequest,
@@ -60,6 +65,9 @@ import { problemResponseForTrustRefusal } from "../trust-refusal-problems.ts";
 
 const READ = "trust:read" as const;
 const MANAGE = "trust:manage" as const;
+// Changing the firm's money-movement posture is itself an act of authority over client money, so the
+// policy write takes the authority capability rather than the bookkeeping one.
+const AUTHORIZE = "trust:authorize" as const;
 
 // The movement methods a client may state. `internal` is absent deliberately: it is what a
 // matter-to-matter reallocation IS, set server-side, never a method a deposit or a disbursement may
@@ -149,7 +157,7 @@ const MovementAck = z
   })
   .openapi("TrustMovementAck");
 
-const AuthorizationBasis = z.enum(["second_person", "sole_trust_manager"]);
+const AuthorizationBasis = z.enum(["second_person", "sole_trust_manager", "policy_exempt"]);
 
 const MovementRecord = z
   .object({
@@ -168,8 +176,9 @@ const MovementRecord = z
     authorizedBy: z.string().nullable(),
     // The disbursement request this movement was approved from, and on what footing. Present only on
     // a disbursement. `sole_trust_manager` says plainly that the firm had nobody else who could
-    // approve and the submitter authorized their own payment — a fact a reader must not have to
-    // infer from noticing that two user handles match.
+    // approve and the submitter authorized their own payment; `policy_exempt` says the firm's
+    // authorization policy did not require a second person for the amount — facts a reader must not
+    // have to infer from noticing that two user handles match.
     disbursementRequestId: z.string().nullable(),
     authorizationBasis: AuthorizationBasis.nullable(),
     effectiveDate: z.string(),
@@ -180,6 +189,10 @@ const MovementRecord = z
 const PendingDisbursementRequest = z
   .object({
     id: z.string(),
+    // What the approval will post: a `disbursement` pays an external payee and is approved on the
+    // trust approval endpoint; an `earned_fee_application` pays the firm's own finalized invoices
+    // and is approved on the billing application endpoint, which re-resolves its invoice lines.
+    kind: z.enum(["disbursement", "earned_fee_application"]),
     trustLedgerNodeId: z.string(),
     amountMinor: z.number().int(),
     currency: z.string(),
@@ -218,6 +231,40 @@ const DisbursementDecisionAck = z
     decision: z.enum(["rejected", "withdrawn"]),
   })
   .openapi("TrustDisbursementDecisionAck");
+
+// One version of the firm's disbursement-authorization posture. Version 0 with null id, setBy, and
+// setAt is the shipped default — always two-person, no authority requirement — which stands until
+// the firm writes a version.
+const AuthorizationPolicyVersion = z
+  .object({
+    id: z.string().nullable(),
+    version: z.number().int(),
+    policy: z.enum(["off", "threshold", "always"]),
+    thresholdAmountMinor: z.number().int().nullable(),
+    requireAuthorizedApprover: z.boolean(),
+    setBy: z.string().nullable(),
+    setAt: z.string().nullable(),
+  })
+  .openapi("TrustAuthorizationPolicyVersion");
+
+const AuthorizationPolicyResponse = z
+  .object({
+    current: AuthorizationPolicyVersion,
+    // Every version the firm has written, newest first — who changed the posture, when, from what to
+    // what. Empty while the shipped default stands.
+    history: z.array(AuthorizationPolicyVersion),
+  })
+  .openapi("TrustAuthorizationPolicyResponse");
+
+const AuthorizationPolicyChange = z
+  .object({
+    policy: z.enum(["off", "threshold", "always"]),
+    // Required exactly when the posture is `threshold`: amounts strictly above it take a second
+    // person, amounts at or below it do not.
+    thresholdAmountMinor: z.number().int().nonnegative().nullable().optional(),
+    requireAuthorizedApprover: z.boolean(),
+  })
+  .openapi("TrustAuthorizationPolicyChange");
 
 const ClientLedgerResponse = z
   .object({
@@ -452,6 +499,78 @@ const pendingDisbursementRequestsRoute = defineOpenAPIRoute(
   },
 );
 
+const readAuthorizationPolicyRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.readAuthorizationPolicy",
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/trust/authorization-policy",
+    description:
+      "Returns the firm's disbursement-authorization posture — whether money leaving a client ledger takes a second person (off, above a threshold amount, or always) and whether whoever authorizes it must hold the authority capability — together with every version the firm has ever written. A firm that has never written one has the shipped default: always two-person, no authority requirement.",
+    responses: {
+      200: {
+        description: "The firm's authorization policy, current and history",
+        content: { "application/json": { schema: AuthorizationPolicyResponse } },
+      },
+      401: readErrorResponses[401],
+      403: readErrorResponses[403],
+      404: readErrorResponses[404],
+      422: readErrorResponses[422],
+      429: readErrorResponses[429],
+    },
+  },
+);
+
+const changeAuthorizationPolicyRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.changeAuthorizationPolicy",
+    surface: "app",
+    authenticated: true,
+    permission: AUTHORIZE,
+    resource: "firm",
+    audited: true,
+    // Replaying a posture change must not write a second version, and a concurrent change must lose
+    // loudly rather than interleave.
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  },
+  {
+    method: "put",
+    path: "/api/v1/trust/authorization-policy",
+    description:
+      "Changes the firm's disbursement-authorization posture, as a new immutable version recording who changed it, when, and from what. The change governs NEW authorizations only: a request already pending keeps the policy version it was submitted under, in both directions. Requires the authority capability — relaxing how the firm's client money moves is itself an act of authority over it.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: {
+        content: { "application/json": { schema: AuthorizationPolicyChange } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        description: "The new policy version is in force for new authorizations",
+        content: { "application/json": { schema: AuthorizationPolicyVersion } },
+      },
+      400: errorResponses[400],
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+    },
+  },
+);
+
 const matterTransferRoute = defineOpenAPIRoute(movementMeta("trust.transferBetweenMatters"), {
   method: "post",
   path: "/api/v1/trust/matter-transfers",
@@ -569,7 +688,7 @@ interface MovementRow {
   recorded_by: string;
   authorized_by: string | null;
   disbursement_request_id: string | null;
-  authorization_basis: "second_person" | "sole_trust_manager" | null;
+  authorization_basis: "second_person" | "sole_trust_manager" | "policy_exempt" | null;
   effective_date: string;
   recorded_at: string;
 }
@@ -601,6 +720,7 @@ function toPendingRequest(
 ): z.infer<typeof PendingDisbursementRequest> {
   return {
     id: request.id,
+    kind: request.kind,
     trustLedgerNodeId: request.nodeId,
     amountMinor: request.amountMinor,
     currency: request.currency,
@@ -844,6 +964,56 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
         trustAccountId as TrustAccountId,
       );
       return c.json({ requests: pending.map(toPendingRequest) }, 200);
+    },
+  );
+
+  // GET /api/v1/trust/authorization-policy — the firm's posture, current and history
+  app.openapi(
+    {
+      ...readAuthorizationPolicyRoute,
+      middleware: chokepointMiddleware(chokepoint, readAuthorizationPolicyRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const current = await readCurrentTrustAuthorizationPolicy(firm.firmDatabase);
+      const history = await readTrustAuthorizationPolicyHistory(firm.firmDatabase);
+      return c.json({ current, history: [...history] }, 200);
+    },
+  );
+
+  // PUT /api/v1/trust/authorization-policy — a new immutable version of the posture
+  app.openapi(
+    {
+      ...changeAuthorizationPolicyRoute,
+      middleware: chokepointMiddleware(chokepoint, changeAuthorizationPolicyRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      return commitTrustWrite<z.infer<typeof AuthorizationPolicyVersion>>(c, async (setBy) => {
+        const change = await composeTrustAuthorizationPolicyChange(
+          firm.firmDatabase,
+          {
+            policy: request.policy,
+            thresholdAmountMinor: request.thresholdAmountMinor ?? null,
+            requireAuthorizedApprover: request.requireAuthorizedApprover,
+            setBy,
+          },
+          trustOptions(),
+        );
+        return {
+          write: change.effect,
+          body: {
+            id: change.policyId,
+            version: change.version,
+            policy: request.policy,
+            thresholdAmountMinor: request.thresholdAmountMinor ?? null,
+            requireAuthorizedApprover: request.requireAuthorizedApprover,
+            setBy,
+            setAt: change.setAt,
+          },
+        };
+      });
     },
   );
 

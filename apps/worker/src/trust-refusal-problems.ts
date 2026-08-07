@@ -24,7 +24,8 @@ export function problemResponseForTrustRefusal(
   if (
     error.code === "unknown-trust-account" ||
     error.code === "unknown-trust-node" ||
-    error.code === "unknown-trust-disbursement-request"
+    error.code === "unknown-trust-disbursement-request" ||
+    error.code === "unknown-trust-authorization-policy"
   ) {
     return problemJson(c, {
       type: "not-found",
@@ -52,16 +53,31 @@ export function problemResponseForTrustRefusal(
       detail: error.message,
     });
   }
-  // Not a permission failure: the member holds the trust capability, and the two-person rule is the
-  // whole point of the control — they are the wrong PERSON for this particular decision.
+  // Not a permission failure: the member holds the trust capability, and the firm's authorization
+  // policy is the whole point of the control — they are the wrong PERSON for this particular
+  // decision. The authority refusal and the transfer's second-person refusal are the same event on
+  // their respective paths.
   if (
     error.code === "trust-disbursement-decider-is-requester" ||
-    error.code === "trust-disbursement-withdrawal-not-by-requester"
+    error.code === "trust-disbursement-withdrawal-not-by-requester" ||
+    error.code === "transfer-requires-second-person" ||
+    error.code === "trust-authorization-authority-required"
   ) {
     return problemJson(c, {
       type: "trust-disbursement-authorization-refused",
       title: "Another member has to make this decision",
       status: 422,
+      detail: error.message,
+    });
+  }
+  // A concurrent posture change won: the caller re-reads the policy that actually stands and decides
+  // whether their change still makes sense against it. `unchanged` sits here too — the posture the
+  // caller asked for is already in force, which a re-read shows.
+  if (error.code === "trust-authorization-policy-unchanged") {
+    return problemJson(c, {
+      type: "trust-authorization-policy-conflict",
+      title: "This is already the firm's authorization posture",
+      status: 409,
       detail: error.message,
     });
   }

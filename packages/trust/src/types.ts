@@ -3,6 +3,7 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustAuthorizationPolicyId,
   TrustBankStatementId,
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
@@ -132,17 +133,49 @@ export type TrustDisbursementMethod = (typeof TRUST_DISBURSEMENT_METHODS)[number
 export const TRUST_DISBURSEMENT_DECISIONS = ["approved", "rejected", "withdrawn"] as const;
 export type TrustDisbursementDecisionKind = (typeof TRUST_DISBURSEMENT_DECISIONS)[number];
 
-// On what footing an approval was given. `second_person` is the rule — a member other than the one
-// who submitted the request approved it. `sole_trust_manager` is the recorded exception for a firm
-// with only one member holding the trust capability: the submitter authorized their own
-// disbursement, and the record says so in as many words rather than looking like an ordinary
-// approval. The database refuses the exception the moment a second such member exists.
+// On what footing an approval was given. `second_person` is the rule under a policy that requires
+// one — a member other than the one who submitted the request approved it. `sole_trust_manager` is
+// the recorded exception for a firm with only one member holding the trust capability: a second
+// person was required, nobody else existed, and the submitter authorized their own disbursement —
+// the record says so in as many words rather than looking like an ordinary approval; the database
+// refuses it the moment a second such member exists. `policy_exempt` records that the policy version
+// stamped on the request did not require a second person for the amount, and the submitter acted
+// alone under it. Each basis is pinned to the stamped policy by triggers, so none can be worn where
+// another applies.
 export const TRUST_DISBURSEMENT_AUTHORIZATION_BASES = [
   "second_person",
   "sole_trust_manager",
+  "policy_exempt",
 ] as const;
 export type TrustDisbursementAuthorizationBasis =
   (typeof TRUST_DISBURSEMENT_AUTHORIZATION_BASES)[number];
+
+// What a request's approval will post: a `disbursement` posts a trust movement to an external payee;
+// an `earned_fee_application` posts a trust-to-operating transfer whose invoice particulars billing
+// keeps beside the request. One queue, one decision discipline, two postings.
+export const TRUST_DISBURSEMENT_REQUEST_KINDS = ["disbursement", "earned_fee_application"] as const;
+export type TrustDisbursementRequestKind = (typeof TRUST_DISBURSEMENT_REQUEST_KINDS)[number];
+
+// The firm's disbursement-authorization posture. `off`: the deciding member may act alone.
+// `threshold`: a second person is required for amounts strictly above the threshold. `always`: a
+// second person is required for every amount — the shipped default a firm has until it writes a
+// version.
+export const TRUST_AUTHORIZATION_POLICY_KINDS = ["off", "threshold", "always"] as const;
+export type TrustAuthorizationPolicyKind = (typeof TRUST_AUTHORIZATION_POLICY_KINDS)[number];
+
+// One version of the policy — or the shipped default, which has version 0 and no id because no row
+// exists until a firm writes one. `id: null` therefore MEANS "the platform default: always
+// two-person, no authority requirement", and it is what a pre-policy request's null stamp resolves
+// to.
+export interface TrustAuthorizationPolicySnapshot {
+  readonly id: TrustAuthorizationPolicyId | null;
+  readonly version: number;
+  readonly policy: TrustAuthorizationPolicyKind;
+  readonly thresholdAmountMinor: number | null;
+  readonly requireAuthorizedApprover: boolean;
+  readonly setBy: UserId | null;
+  readonly setAt: string | null;
+}
 
 export interface TrustDisbursementRequestSnapshot {
   readonly id: TrustDisbursementRequestId;
@@ -158,6 +191,13 @@ export interface TrustDisbursementRequestSnapshot {
   readonly effectiveDate: string;
   readonly requestedBy: UserId;
   readonly requestedAt: string;
+  readonly kind: TrustDisbursementRequestKind;
+  // The operating leg's ledger-entry description — set exactly on an earned-fee application.
+  readonly operatingDescription: string | null;
+  // The policy version this request was submitted under; null is the shipped default (always
+  // two-person). The decision triggers read this stamp, never the latest version, so a posture
+  // change never re-governs a request already in flight.
+  readonly policyId: TrustAuthorizationPolicyId | null;
   // Null while the request is pending — the derived state, read from the absence of a decision row.
   readonly decision: TrustDisbursementDecisionSnapshot | null;
 }
@@ -170,6 +210,7 @@ export interface TrustDisbursementDecisionSnapshot {
   readonly reason: string | null;
   readonly authorizationBasis: TrustDisbursementAuthorizationBasis | null;
   readonly movementId: TrustMovementId | null;
+  readonly transferId: TrustTransferId | null;
 }
 
 export interface TrustMovementSnapshot {

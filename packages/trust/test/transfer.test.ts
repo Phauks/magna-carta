@@ -35,6 +35,10 @@ async function fundedLeaf(depositMinor: number) {
   return { fixture, leaf };
 }
 
+// A single actor records and authorizes: the fixture seeds no second trust manager, so the shipped
+// always-two-person default resolves to the lone-manager posture and the transfer composes — the
+// same exception the disbursement flow records. The policy suite exercises the multi-manager
+// refusal.
 const transferInput = (
   fixture: Awaited<ReturnType<typeof trustFixture>>,
   leaf: Awaited<ReturnType<typeof seedMatterLeaf>>,
@@ -47,6 +51,8 @@ const transferInput = (
   operatingDescription: "Earned fees received into operating",
   operatingBankAccountId: fixture.operatingBankAccountId,
   accountsReceivableAccountId: fixture.accountsReceivableAccountId,
+  recordedBy: fixture.memberUserId,
+  authorizedBy: fixture.memberUserId,
 });
 
 describe("trust-to-operating transfer", () => {

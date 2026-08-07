@@ -313,9 +313,10 @@ describe("the approver must differ from the submitter", () => {
           reason: "Refusing my own request",
           authorizationBasis: null,
           movementId: null,
+          transferId: null,
         }).run(),
       ),
-    ).rejects.toThrow(/other than the one who requested it/);
+    ).rejects.toThrow(/only another member may reject a trust disbursement request/);
     expect(await countRows(fixture.database, "trust_disbursement_decision")).toBe(0);
   });
 
@@ -333,6 +334,7 @@ describe("the approver must differ from the submitter", () => {
           reason: null,
           authorizationBasis: null,
           movementId: null,
+          transferId: null,
         }).run(),
       ),
     ).rejects.toThrow(/may withdraw it/);
