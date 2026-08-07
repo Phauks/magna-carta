@@ -1,6 +1,12 @@
 -- Notifications — the delivery half. Five tables, created parent-first so a reader can follow the
 -- references down the page, plus the read capability seeded onto every default role.
 --
+-- notification_recipient carries TWO composite indexes rather than one, and that is deliberate: the
+-- state-filtered feed and the unread count lead with (recipient_user_id, state), while the DEFAULT
+-- feed — no state filter, the read the bell opens on — cannot use that index for ordering because
+-- `state` sits between the equality column and the (created_at, id) keyset pair. Without the second
+-- index SQLite sorts the member's entire retained history into a temp B-tree on every page.
+--
 -- The statement ORDER is the only hand-authored departure from what drizzle-kit emits (it sorts
 -- tables alphabetically, which would create the delivery row's table before the recipient row it
 -- references). The permission seeds are hand-appended for the same reason every other seed is:
@@ -48,6 +54,7 @@ CREATE TABLE `notification_recipient` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `notification_recipient_event_user_unique_index` ON `notification_recipient` (`notification_event_id`,`recipient_user_id`);--> statement-breakpoint
 CREATE INDEX `notification_recipient_user_state_created_index` ON `notification_recipient` (`recipient_user_id`,`state`,`created_at`,`id`);--> statement-breakpoint
+CREATE INDEX `notification_recipient_user_created_index` ON `notification_recipient` (`recipient_user_id`,`created_at`,`id`);--> statement-breakpoint
 CREATE TABLE `notification_delivery` (
 	`id` text PRIMARY KEY NOT NULL,
 	`notification_recipient_id` text NOT NULL,

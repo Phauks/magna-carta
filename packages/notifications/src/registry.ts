@@ -106,8 +106,9 @@ function matterSectionLink(
   return (subjectId, matterId) => `/matters/${matterId ?? ""}/${section}?entry=${subjectId}`;
 }
 
-// The slice-1 types, drawn ONLY from topics that already exist and already commit transactionally.
-// Nothing here asks a producing package to change; that is the point of subscribing.
+// The registered types, drawn ONLY from topics that already exist and already commit
+// transactionally. Nothing here asks a producing package to change; that is the point of
+// subscribing.
 const DECLARED_TYPES: readonly NotificationType[] = [
   {
     key: "trust.ledger.entry.posted",
@@ -310,16 +311,16 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     audience: "capability-holders",
     audienceCapability: "firm:manageMembers",
     includeActor: false,
-    // The only slice-1 topic whose producer is a worker route rather than a domain package, so
-    // there is no package constant to import. apps/worker/test/notifications-registry.test.ts pins
-    // this spelling against the route's own exported constant, which is the same guarantee the
+    // The only registered topic whose producer is a worker route rather than a domain package, so
+    // there is no package constant to import here. apps/worker/test/notifications-routes.test.ts
+    // pins this spelling against the route's own exported constant, which is the same guarantee the
     // imports above give by construction.
     subscribesTo: "incident.created",
     subjectKind: "incident",
     subjectPayloadKey: "incidentId",
     // An incident is filed against the firm, not a matter — the route's own resource binding. It is
-    // also the one slice-1 type that proves the firm-scoped path: a null anchor must reach its
-    // audience rather than being filtered out with the matters.
+    // also the type that exercises the firm-scoped path: a null anchor must reach its audience
+    // rather than being filtered out with the matters.
     matterAnchored: false,
     matterResolution: { kind: "none" },
     // How many error identifiers the report gathered — an integer, and the one fact that separates

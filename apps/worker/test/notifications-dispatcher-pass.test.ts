@@ -24,6 +24,11 @@ let firmId: FirmId;
 let matterId: MatterId;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
+// The retry case needs a database it can BREAK, so it gets its own firm rather than vandalizing the
+// one every other test in this file reads. A per-firm Durable Object per firm id makes that free.
+let brokenFirmId: FirmId;
+let brokenMatterId: MatterId;
+
 let acked: number;
 let retried: number;
 
@@ -89,6 +94,28 @@ beforeAll(async () => {
     )
     .bind(matterId, "Dispatch Matter", RESPONSIBLE, TS)
     .run();
+
+  // The second firm, seeded identically and then deliberately broken by the retry test.
+  brokenFirmId = newIdentifier("firm");
+  const brokenDatabase = firmDatabaseFor(env.FIRM_DATABASE, brokenFirmId);
+  await env.DB_CONTROL.prepare(
+    "INSERT INTO firm (id, name, bucket_name, status, created_at) VALUES (?1, ?2, ?3, 'active', ?4)",
+  )
+    .bind(brokenFirmId, "Notification Dispatch Broken Firm", "notification-broken-bucket", TS)
+    .run();
+  await brokenDatabase
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, opted_out_of_usage_analytics, created_at) VALUES (?1, ?2, 'active', 0, ?3)",
+    )
+    .bind(RESPONSIBLE, "Responsible Member", TS)
+    .run();
+  brokenMatterId = newIdentifier("matter");
+  await brokenDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, ?2, 'open', ?3, 0, ?4, ?4)",
+    )
+    .bind(brokenMatterId, "Broken Dispatch Matter", RESPONSIBLE, TS)
+    .run();
 });
 
 describe("the notification pass on the per-firm bus", () => {
@@ -122,9 +149,9 @@ describe("the notification pass on the per-firm bus", () => {
   });
 
   it("acks rather than retries when the translator cannot make sense of a message", async () => {
-    // A missed notification is an annoyance; a re-driven cost posting is a double charge. Where the
-    // two are not equal, the weaker one yields — so nothing the translator does may retry or
-    // dead-letter a message.
+    // A payload that will not parse is PERMANENTLY unprocessable: retrying can never make it valid,
+    // and marching a permanent error to the dead-letter queue helps nobody. This is the case that
+    // must ack even though no owning handler ran.
     acked = 0;
     retried = 0;
     const before = await notificationCount();
@@ -132,6 +159,28 @@ describe("the notification pass on the per-firm bus", () => {
     expect(acked).toBe(1);
     expect(retried).toBe(0);
     expect(await notificationCount()).toBe(before);
+  });
+
+  it("RETRIES a transient translator fault when no owning handler committed for the message", async () => {
+    // matter.closed has no owning handler, so nothing else committed for this message and a retry
+    // costs exactly one redelivery — which buys back a notification a passing database fault would
+    // otherwise have dropped silently. It cannot duplicate anything: the retry re-derives the same
+    // dedupe key and the UNIQUE constraint makes the second attempt a no-op.
+    //
+    // The fault is simulated by removing a table the write needs, in a firm of this test's own, so
+    // the database genuinely rejects the batch rather than the test mocking the rejection.
+    const brokenDatabase = firmDatabaseFor(env.FIRM_DATABASE, brokenFirmId);
+    await brokenDatabase.prepare("DROP TABLE notification_recipient").run();
+    acked = 0;
+    retried = 0;
+    await perFirmQueue(
+      batchOf([
+        message({ firmId: brokenFirmId, payload: JSON.stringify({ matterId: brokenMatterId }) }),
+      ]),
+      env,
+    );
+    expect(retried).toBe(1);
+    expect(acked).toBe(0);
   });
 
   it("acks when a subscribed topic names a matter that does not exist", async () => {

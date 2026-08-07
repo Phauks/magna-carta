@@ -271,7 +271,11 @@ function nothingLinked(
   };
 }
 
-const NO_RULE_LOOKED: AutoFileDecision = {
+// The decision for a capture no rule looked at: nothing linked, nothing suppressed, and — because the
+// suppression reason is null — nothing for a caller to record either. Exported because a gatherer that
+// finds no matching rule short-circuits before assembling the rest of the evidence, and the value it
+// returns instead must be the same one this function would have produced.
+export const NO_AUTO_FILE_RULE_MATCHED: AutoFileDecision = {
   outcome: "noRule",
   matterId: null,
   ruleId: null,
@@ -361,7 +365,7 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
   }
   const matchedRules = asArray(evidence.matchedRules);
   if (matchedRules === null) return nothingLinked("incompleteEvidence");
-  if (matchedRules.length === 0) return NO_RULE_LOOKED;
+  if (matchedRules.length === 0) return NO_AUTO_FILE_RULE_MATCHED;
   if (!matchedRules.every(isWellFormedRule)) return nothingLinked("incompleteEvidence");
 
   const activeRules = matchedRules.filter((rule) => rule.state === "active");

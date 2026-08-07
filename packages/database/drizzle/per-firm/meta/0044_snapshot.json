@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "21f30dbd-d99e-4049-8532-06ee83901744",
+  "id": "75fbf14f-c11d-494f-9109-e2dd5288b7ef",
   "prevId": "5f891aaf-3e98-44d4-9525-9111af5400d1",
   "tables": {
     "account_balance": {
@@ -11760,6 +11760,11 @@
         "notification_recipient_user_state_created_index": {
           "name": "notification_recipient_user_state_created_index",
           "columns": ["recipient_user_id", "state", "created_at", "id"],
+          "isUnique": false
+        },
+        "notification_recipient_user_created_index": {
+          "name": "notification_recipient_user_created_index",
+          "columns": ["recipient_user_id", "created_at", "id"],
           "isUnique": false
         }
       },

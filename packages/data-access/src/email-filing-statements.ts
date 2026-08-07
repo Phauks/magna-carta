@@ -1,5 +1,6 @@
 import type {
   EmailAttachmentId,
+  EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
   EmailMessageId,
@@ -85,6 +86,10 @@ export interface EmailMatterLinkInsert {
   readonly linkedBy: UserId | null;
   readonly linkedAt: string | null;
   readonly capturedVia: "forward" | "api" | "addin" | "sync";
+  // The rule that made this link, where a rule did. Optional because the overwhelming majority of
+  // links are a person's, and an omitted value reads as exactly that — the conservative answer, and
+  // the one every link written before rules existed already carries.
+  readonly autoFileRuleId?: EmailAutoFileRuleId | null;
 }
 
 export interface EmailCaptureAddressInsert {
@@ -207,8 +212,8 @@ export function insertEmailMatterLinkStatement(
   return database
     .prepare(
       `INSERT INTO ${EMAIL_MATTER_LINK_TABLE}
-         (id, email_message_id, matter_id, state, linked_by, linked_at, captured_via, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+         (id, email_message_id, matter_id, state, linked_by, linked_at, captured_via, auto_file_rule_id, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)
        ON CONFLICT (email_message_id, matter_id) DO NOTHING`,
     )
     .bind(
@@ -219,6 +224,7 @@ export function insertEmailMatterLinkStatement(
       input.linkedBy,
       input.linkedAt,
       input.capturedVia,
+      input.autoFileRuleId ?? null,
       now,
     );
 }
@@ -575,6 +581,37 @@ export async function filedMatterIdsForMessage(
     .bind(emailMessageId)
     .all<{ matter_id: string }>();
   return results.map((row) => row.matter_id as MatterId);
+}
+
+export interface EmailMatterLinkState {
+  readonly matterId: MatterId;
+  readonly state: "staged" | "filed" | "unlinked";
+  // Whether a rule made this link. The distinction between a person's decision and a machine's is the
+  // whole input to the guardrail that forbids a rule contradicting a person, so it is read here rather
+  // than inferred from anything else.
+  readonly automatic: boolean;
+}
+
+// EVERY link the message carries, in every state — not just the filed ones. The unlinked rows are the
+// load-bearing ones: a message somebody deliberately removed from a matter must never be put back by a
+// rule, and a row in `unlinked` is the only record that they did. One index walk on
+// (email_message_id), bounded by how many matters one message is on.
+export async function readEmailMatterLinksForMessage(
+  database: SqlDatabase,
+  emailMessageId: EmailMessageId,
+): Promise<EmailMatterLinkState[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT matter_id, state, auto_file_rule_id FROM ${EMAIL_MATTER_LINK_TABLE}
+       WHERE email_message_id = ?1 ORDER BY created_at ASC, id ASC`,
+    )
+    .bind(emailMessageId)
+    .all<{ matter_id: string; state: string; auto_file_rule_id: string | null }>();
+  return results.map((row) => ({
+    matterId: row.matter_id as MatterId,
+    state: row.state as "staged" | "filed" | "unlinked",
+    automatic: row.auto_file_rule_id !== null,
+  }));
 }
 
 // Does this firm hold a message under this dedup key, and if so which message? The "already filed"

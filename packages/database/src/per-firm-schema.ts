@@ -6137,12 +6137,26 @@ export const notificationRecipient = sqliteTable(
       table.notificationEventId,
       table.recipientUserId,
     ),
-    // The unread count and the default feed page are both index walks confined to one member's rows,
-    // in the shape the calendar's sources established: the filter columns lead, then the ordering
-    // pair the keyset cursor walks.
+    // TWO indexes, because the feed has two shapes and they cannot share one.
+    //
+    // The state-filtered read and the unread count lead with (recipient_user_id, state) — two
+    // equality columns — and then walk the (created_at, id) keyset pair. That is the calendar's
+    // source shape: filter columns first, ordering pair last.
     index("notification_recipient_user_state_created_index").on(
       table.recipientUserId,
       table.state,
+      table.createdAt,
+      table.id,
+    ),
+    // The DEFAULT feed — no state filter, which is what the bell opens on — cannot use the index
+    // above for ordering: `state` sits between the equality column and the ordering pair, so SQLite
+    // answers it by sorting the member's ENTIRE retained history into a temp B-tree. That is
+    // correct, invisible, and gets slower every week, which is the worst combination a read can
+    // have. This index puts the ordering pair directly after the equality column so the default
+    // page is a bounded walk whose cost is the page size rather than the firm's accumulated data.
+    // Both plans are pinned by test/read-bounds.test.ts in @magna-carta/notifications.
+    index("notification_recipient_user_created_index").on(
+      table.recipientUserId,
       table.createdAt,
       table.id,
     ),

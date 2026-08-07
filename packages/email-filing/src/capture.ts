@@ -1,5 +1,6 @@
 import type { ParsedMessage } from "@magna-carta/email";
 import type {
+  EmailAutoFileRuleId,
   EmailMatterLinkId,
   EmailMessageId,
   EmailParticipantId,
@@ -7,8 +8,9 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { AutoFileDecision } from "./auto-file-rules.ts";
 import { deriveDedupKey } from "./dedup.ts";
-import type { DkimVerification } from "./dkim.ts";
+import type { DkimVerdict, DkimVerification } from "./dkim.ts";
 import {
   normalizeAddress,
   toRecordRows,
@@ -26,6 +28,29 @@ export interface PersistedOriginal {
   readonly contentSha256: string;
 }
 
+// What the auto-file evidence gatherer is told about the capture in front of it. Everything here is a
+// fact the capture core already holds; the gatherer's job is to turn it into the firm-scoped reads the
+// guardrail function needs, never to re-parse the message.
+export interface AutoFileEvaluationRequest {
+  readonly firmId: string;
+  readonly emailMessageId: EmailMessageId;
+  readonly threadId: EmailThreadId;
+  readonly dedupState: "new" | "existing";
+  readonly capturedVia: CapturedVia;
+  // The normalized `From` address, or null when the message carries no parseable sender. It is the
+  // match value a correspondent rule is looked up by.
+  readonly fromAddress: string | null;
+  readonly subject: string | null;
+  readonly dkimVerdict: DkimVerdict;
+  readonly dkimVerifiedDomain: string | null;
+  readonly dkimBodyFullyCovered: boolean;
+  // Ask the filing-time conflict/ethical-wall hook about one candidate matter. Supplied by the capture
+  // core so the hook keeps ONE call site: the gatherer reports the hook's real answer for the matter
+  // that would actually be filed, and the same answer decides the link state below — a rule can no
+  // more reach `filed` past a hold than a person's accept can.
+  readonly conflictHoldFor: (matterId: MatterId) => boolean;
+}
+
 // The ports captureEmail orchestrates over. The worker consumer supplies the real implementations
 // (the WASM parser, per-firm R2, the firm-scoped statements, Directory resolution); tests supply
 // fakes. Keeping capture pure of those concretions is what lets both entrances converge on it.
@@ -41,6 +66,11 @@ export interface CapturePorts {
   // unverified rather than failing the capture: a message the firm needs is never lost because a DNS
   // lookup was unavailable, and the verdict is informational either way.
   verifyDkim?(bytes: Uint8Array): Promise<DkimVerification>;
+  // Optional auto-file evaluation, consulted only for a capture no entrance routed. The port gathers
+  // the evidence with firm-scoped reads and returns the pure guardrail function's decision. An absent
+  // port means no rules, which is exactly the behaviour before rules existed; a port that throws is
+  // caught and degrades to that same behaviour, because a capture is never lost over a rule.
+  resolveAutoFileDecision?(request: AutoFileEvaluationRequest): Promise<AutoFileDecision>;
   newEmailMessageId(): EmailMessageId;
   newEmailThreadId(): EmailThreadId;
   newEmailParticipantId(): EmailParticipantId;
@@ -71,6 +101,9 @@ export interface CaptureLinkPlan {
   readonly linkedBy: UserId | null;
   readonly linkedAt: string | null;
   readonly capturedVia: CapturedVia;
+  // Null means a person put this message on this matter. Non-null names the rule that did, which is
+  // the fact every "why is this here" read starts from and the one the undo feedback counts against.
+  readonly autoFileRuleId: EmailAutoFileRuleId | null;
 }
 
 // What the consumer commits in one batch. On a dedup hit the message/thread/participants are absent and
@@ -88,13 +121,21 @@ export interface CaptureWritePlan {
   // the outcome of the job it just ran has nothing to read the identity off otherwise.
   readonly emailMessageId: EmailMessageId;
   readonly threadId: EmailThreadId;
+  // What the rules decided, for the consumer to record in the evaluation ledger IN THIS SAME BATCH —
+  // so a ledger row can never claim a decision whose link rolled back, and a redelivery replays the
+  // recorded decision rather than deciding again. Null when no port was wired.
+  readonly autoFileDecision: AutoFileDecision | null;
 }
 
 export interface CaptureResult {
   readonly emailMessageId: EmailMessageId;
   readonly threadId: EmailThreadId;
   readonly dedupState: "new" | "existing";
+  // The matter the capture landed on — the entrance's, or the one a rule chose. Null when nothing
+  // routed it.
+  readonly matterId: MatterId | null;
   readonly linkState: "staged" | "filed" | "none";
+  readonly autoFileDecision: AutoFileDecision | null;
   // The parsed message, returned so the consumer can extract attachments without a second parse. Only
   // a newly-captured message needs extraction; a dedup hit already has its documents.
   readonly parsed: ParsedMessage;
@@ -122,11 +163,20 @@ export async function captureEmail(
   let thread: EmailThreadRow | null = null;
   let message: EmailMessageRow | null = null;
   let participants: readonly EmailParticipantRow[] = [];
+  let dkim: DkimVerification | undefined;
 
   if (existing !== null) {
     emailMessageId = existing.id;
     threadId = existing.threadId;
     dedupState = "existing";
+    // A message the firm already holds still needs its signature adjudicated when rules may act on
+    // this capture, because the shipped message row records the verdict but not whether the signature
+    // covered the whole body — and a partially-covered pass is exactly what a sender-identity rule
+    // must decline. Asking the verifier again is cheaper than storing the answer, and it only happens
+    // where a rule could actually fire.
+    if (request.matterId === null && ports.resolveAutoFileDecision !== undefined) {
+      dkim = await adjudicateDkim(request.bytes, parsed, ports);
+    }
   } else {
     emailMessageId = ports.newEmailMessageId();
     dedupState = "new";
@@ -136,7 +186,7 @@ export async function captureEmail(
     const threadLink = linkThread(parsed, lookup, ports.newEmailThreadId());
     threadId = threadLink.threadId;
     const directoryEntityIdByAddress = await resolveDirectory(parsed, ports);
-    const dkim = await adjudicateDkim(request.bytes, parsed, ports);
+    dkim = await adjudicateDkim(request.bytes, parsed, ports);
     const rows = toRecordRows(parsed, {
       emailMessageId,
       threadId,
@@ -155,31 +205,79 @@ export async function captureEmail(
     participants = rows.participants;
   }
 
-  // Filing to a matter traverses the conflict/ethical-wall hook. A conflict holds the link at staged
-  // for review rather than auto-filing — the structural guardrail against the wrong-matter mass-file
-  // failure mode. The hook is a no-op today (always "no conflict"); the engine drops in behind it.
-  let linkState: "staged" | "filed" = request.acceptOnCapture ? "filed" : "staged";
-  if (request.matterId !== null && linkState === "filed") {
-    const conflict = checkFilingConflict({
+  // The filing-time conflict/ethical-wall hook, asked at most once per candidate matter. Memoized
+  // because two callers ask it here — the auto-file gatherer, so the ledger records the true reason a
+  // firing landed staged, and the promotion gate below — and the hook must give one answer per
+  // capture. It is a no-op today (always "no conflict"); the conflicts engine drops in behind it and
+  // protects the automatic and the manual path identically with no call-site change.
+  const conflictHoldByMatter = new Map<string, boolean>();
+  const conflictHoldFor = (matterId: MatterId): boolean => {
+    const cached = conflictHoldByMatter.get(matterId);
+    if (cached !== undefined) return cached;
+    const held = checkFilingConflict({
       firmId: request.firmId,
-      matterId: request.matterId,
+      matterId,
       emailMessageId,
       participantAddresses: participantAddresses(parsed),
+    }).hasConflict;
+    conflictHoldByMatter.set(matterId, held);
+    return held;
+  };
+
+  // Auto-file rules are consulted only where nothing routed the capture — the firm catch-all and the
+  // unrouted forward, which is where mail lands today with no matter at all and a person has to go
+  // find one. An entrance that already resolved a matter has answered the routing question with
+  // better evidence than a rule has (a credential naming that matter, or an authenticated member
+  // choosing it), so a rule is not invited to second-guess it.
+  let matterId = request.matterId;
+  let autoFileRuleId: EmailAutoFileRuleId | null = null;
+  let autoFileDecision: AutoFileDecision | null = null;
+  let linkState: "staged" | "filed" = request.acceptOnCapture ? "filed" : "staged";
+
+  if (matterId === null && ports.resolveAutoFileDecision !== undefined) {
+    autoFileDecision = await evaluateAutoFile(ports, {
+      firmId: request.firmId,
+      emailMessageId,
+      threadId,
+      dedupState,
+      capturedVia: request.capturedVia,
+      fromAddress: senderAddress(parsed),
+      subject: parsed.subject,
+      dkimVerdict: dkim?.verdict ?? "unverified",
+      dkimVerifiedDomain: dkim?.verdict === "pass" ? dkim.signingDomain : null,
+      dkimBodyFullyCovered: dkim?.bodyFullyCovered ?? false,
+      conflictHoldFor,
     });
-    if (conflict.hasConflict) linkState = "staged";
+    if (
+      autoFileDecision !== null &&
+      autoFileDecision.outcome !== "noRule" &&
+      autoFileDecision.matterId !== null
+    ) {
+      matterId = autoFileDecision.matterId as MatterId;
+      autoFileRuleId = autoFileDecision.ruleId as EmailAutoFileRuleId | null;
+      linkState = autoFileDecision.outcome === "file" ? "filed" : "staged";
+    }
+  }
+
+  // Filing to a matter traverses the conflict/ethical-wall hook. A conflict holds the link at staged
+  // for review rather than filing — the structural guardrail against the wrong-matter mass-file
+  // failure mode, and the reason no path to `filed` in this function skips this gate.
+  if (matterId !== null && linkState === "filed" && conflictHoldFor(matterId)) {
+    linkState = "staged";
   }
 
   const link: CaptureLinkPlan | null =
-    request.matterId === null
+    matterId === null
       ? null
       : {
           id: ports.newEmailMatterLinkId(),
           emailMessageId,
-          matterId: request.matterId,
+          matterId,
           state: linkState,
           linkedBy: request.linkedBy,
           linkedAt: linkState === "filed" ? now : null,
           capturedVia: request.capturedVia,
+          autoFileRuleId,
         };
 
   await ports.writeCapture({
@@ -191,16 +289,43 @@ export async function captureEmail(
     link,
     emailMessageId,
     threadId,
+    autoFileDecision,
   });
 
   return {
     emailMessageId,
     threadId,
     dedupState,
+    matterId,
     linkState: link === null ? "none" : link.state,
+    autoFileDecision,
     parsed,
     shouldExtractAttachments: dedupState === "new",
   };
+}
+
+// Run the auto-file port, or degrade to what the capture did before rules existed. A gatherer that
+// throws — an unreachable per-firm read, a malformed row — must never cost the firm the message, so
+// the throw is swallowed here and the capture continues exactly as an absent port would leave it.
+async function evaluateAutoFile(
+  ports: CapturePorts,
+  request: AutoFileEvaluationRequest,
+): Promise<AutoFileDecision | null> {
+  try {
+    return (await ports.resolveAutoFileDecision?.(request)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// The message's normalized sender, which is what a correspondent rule matches on. Null when the
+// message declares no parseable `From` — a rule that files on who sent the message has nothing to
+// stand on there, and the guardrails read the absence as no match rather than as a wildcard.
+function senderAddress(parsed: ParsedMessage): string | null {
+  for (const entry of parsed.from) {
+    if (entry.address !== null) return normalizeAddress(entry.address);
+  }
+  return null;
 }
 
 // Collect every address on the message and ask the Directory resolver for the ones it knows. Missing

@@ -87,23 +87,49 @@ describe("the feed page's bound", () => {
     expect(results).toHaveLength(MAX_FEED_PAGE_SIZE + 1);
   });
 
-  it("walks the composite index rather than scanning the member's whole history", () => {
-    // (recipient_user_id, state, created_at, id): the filter columns lead, then the ordering pair
-    // the keyset walks. A plan that sorts instead of walking would still return the right page, and
-    // would get slower every week — which is exactly the kind of regression a wall-clock assertion
-    // notices too late.
-    const statement = selectNotificationFeedStatement(
-      handle.database,
-      { recipientUserId: READER, visibility: visibleMatterPredicate(), state: "unread" },
-      { cursor: undefined, pageSize: MAX_FEED_PAGE_SIZE },
-    );
-    const plan = handle.raw
-      .prepare(`EXPLAIN QUERY PLAN ${statement.sql}`)
-      .all(...(statement.bindings as string[])) as { detail: string }[];
-    const text = plan.map((row) => row.detail).join(" | ");
-    expect(text).toContain("notification_recipient_user_state_created_index");
-    expect(text).not.toContain("USE TEMP B-TREE FOR ORDER BY");
-  });
+  // Both feed shapes, because they need DIFFERENT indexes and only one of them was pinned at first.
+  // The state-filtered read leads with (recipient_user_id, state); the DEFAULT read — the one the
+  // bell opens on, with no state filter at all — cannot use that index for ordering, because `state`
+  // sits between the equality column and the ordering pair. SQLite will happily answer it by sorting
+  // the member's entire retained history into a temp B-tree, which is correct, invisible, and gets
+  // slower every week. So each shape gets its own covering index and its own assertion here.
+  const FEED_PLAN_CASES: readonly {
+    readonly name: string;
+    readonly state: "unread" | undefined;
+    readonly index: string;
+  }[] = [
+    {
+      name: "the default feed (no state filter) — the read the bell actually opens on",
+      state: undefined,
+      index: "notification_recipient_user_created_index",
+    },
+    {
+      name: "the unread-filtered feed",
+      state: "unread",
+      index: "notification_recipient_user_state_created_index",
+    },
+  ];
+
+  for (const feedCase of FEED_PLAN_CASES) {
+    it(`walks an index for ${feedCase.name} rather than sorting the member's history`, () => {
+      const statement = selectNotificationFeedStatement(
+        handle.database,
+        { recipientUserId: READER, visibility: visibleMatterPredicate(), state: feedCase.state },
+        { cursor: undefined, pageSize: MAX_FEED_PAGE_SIZE },
+      );
+      const plan = handle.raw
+        .prepare(`EXPLAIN QUERY PLAN ${statement.sql}`)
+        .all(...(statement.bindings as string[])) as { detail: string }[];
+      const text = plan.map((row) => row.detail).join(" | ");
+      expect(text, `${feedCase.name}: plan was ${text}`).toContain(feedCase.index);
+      // The assertion that actually catches the regression. A plan that sorts still returns the
+      // right page — it is only the cost that changes, and it changes with the firm's data rather
+      // than with the page size, which is exactly the bound this file exists to hold.
+      expect(text, `${feedCase.name}: plan was ${text}`).not.toContain(
+        "USE TEMP B-TREE FOR ORDER BY",
+      );
+    });
+  }
 
   it("keeps the unread count on the same index", async () => {
     const statement = selectUnreadNotificationCountStatement(handle.database, {

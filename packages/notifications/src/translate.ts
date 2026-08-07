@@ -2,6 +2,7 @@ import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
+import { FactsValidationError } from "./facts-grammar.ts";
 import { materializeNotification, outboxDedupeKey } from "./materialize.ts";
 import { resolveNotificationRecipients } from "./recipients.ts";
 import { notificationTypesForTopic, type NotificationType } from "./registry.ts";
@@ -54,6 +55,11 @@ export interface TranslateResult {
   readonly emptyAudiences: number;
   readonly clampedRecipients: number;
   readonly substitutedAudiences: number;
+  // Types whose producer sent facts the type's own declaration refuses. PERMANENT — a producer
+  // changed shape, and no number of retries makes the payload conform — so it is reported rather
+  // than thrown, and one such type does not stop its siblings on the same topic. The caller's
+  // counter is what makes it visible.
+  readonly refusedFacts: number;
 }
 
 const EMPTY_RESULT: TranslateResult = {
@@ -63,6 +69,7 @@ const EMPTY_RESULT: TranslateResult = {
   emptyAudiences: 0,
   clampedRecipients: 0,
   substitutedAudiences: 0,
+  refusedFacts: 0,
 };
 
 export async function translateOutboxMessage(options: TranslateOptions): Promise<TranslateResult> {
@@ -82,6 +89,7 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
   let emptyAudiences = 0;
   let clampedRecipients = 0;
   let substitutedAudiences = 0;
+  let refusedFacts = 0;
 
   for (const type of types) {
     const subjectId = payload[type.subjectPayloadKey];
@@ -111,23 +119,38 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
     }
 
     const now = options.now();
-    const materialization = materializeNotification({
-      type,
-      payload,
-      subjectId,
-      matterId,
-      recipientUserIds: audience.recipientUserIds,
-      dedupeKey: outboxDedupeKey(options.topic, options.outboxRowId),
-      // The outbox row was written in the same batch as the change it describes, so the message's
-      // arrival time is not when the thing happened. This pass has no better witness than its own
-      // clock, and using it means a message that sat in the queue ages and digests from now rather
-      // than from a time nothing recorded. Where a producer starts carrying its own instant, that
-      // is the value to prefer.
-      occurredAt: now,
-      createdAt: now,
-      randomSource: options.randomSource,
-    });
+    let materialization;
+    try {
+      materialization = materializeNotification({
+        type,
+        payload,
+        subjectId,
+        matterId,
+        recipientUserIds: audience.recipientUserIds,
+        dedupeKey: outboxDedupeKey(options.topic, options.outboxRowId),
+        // The outbox row was written in the same batch as the change it describes, so the message's
+        // arrival time is not when the thing happened. This pass has no better witness than its own
+        // clock, and using it means a message that sat in the queue ages and digests from now rather
+        // than from a time nothing recorded. Where a producer starts carrying its own instant, that
+        // is the value to prefer.
+        occurredAt: now,
+        createdAt: now,
+        randomSource: options.randomSource,
+      });
+    } catch (caught) {
+      if (caught instanceof FactsValidationError) {
+        // The producer sent something this type's declaration refuses — it changed shape. PERMANENT:
+        // no retry can make the payload conform, so this is reported and the sibling types on the
+        // same topic still run. Letting it throw would hand the caller a fault indistinguishable
+        // from a database outage, and the caller's whole retry decision turns on that difference.
+        refusedFacts++;
+        continue;
+      }
+      throw caught;
+    }
 
+    // Everything past here is a database write, so a throw from it IS plausibly transient — which
+    // is precisely what the caller retries on when nothing else has committed for the message.
     await options.database.batch([
       ...insertNotificationStatements(options.database, materialization),
     ]);
@@ -144,6 +167,7 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
     emptyAudiences,
     clampedRecipients,
     substitutedAudiences,
+    refusedFacts,
   };
 }
 

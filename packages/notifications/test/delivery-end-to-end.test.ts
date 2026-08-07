@@ -5,7 +5,10 @@ import {
 } from "@magna-carta/calendar/visibility";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { MATTER_CLOSED_TOPIC } from "@magna-carta/matters/topics";
-import { FILE_QUARANTINED_TOPIC } from "@magna-carta/file-manager/topics";
+import {
+  DOCUMENT_CHECKIN_CONFLICT_TOPIC,
+  FILE_QUARANTINED_TOPIC,
+} from "@magna-carta/file-manager/topics";
 import {
   selectNotificationFeedStatement,
   selectOwnNotificationStatement,
@@ -185,6 +188,38 @@ describe("the subscriber pass", () => {
       payload: { versionId: "fileVersion_missing00" },
       outboxRowId: "outbox_2",
     });
+    expect(result.materializedEvents).toBe(0);
+    const events = await database
+      .prepare("SELECT COUNT(*) AS count FROM notification_event")
+      .all<{ count: number }>();
+    expect(events.results[0]?.count).toBe(0);
+  });
+
+  it("REPORTS a producer that changed shape rather than throwing", async () => {
+    // The check-in-conflict type declares `divergedFrom` and its producer has always supplied it.
+    // A payload without it is a PRODUCER SHAPE CHANGE — permanent, and no retry makes it conform —
+    // so the translator counts it and returns. Throwing would hand the caller a fault
+    // indistinguishable from a database outage, and the caller's retry decision turns on exactly
+    // that difference: it retries a transient fault and acks a permanent one.
+    await database
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES ('file_conflict000001', 'matter_visible000000', NULL, 'x', NULL, NULL, ?1, ?1)",
+      )
+      .bind(NOW)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, content_type, status, uploaded_by, created_at) VALUES ('fileVersion_conflict1', 'file_conflict000001', 1, 'k', 1, 'h', 'text/plain', 'clean', ?1, ?2)",
+      )
+      .bind(RESPONSIBLE, NOW)
+      .run();
+
+    const result = await translate(database, {
+      topic: DOCUMENT_CHECKIN_CONFLICT_TOPIC,
+      payload: { versionId: "fileVersion_conflict1", fileId: "file_conflict000001" },
+      outboxRowId: "outbox_shape_change",
+    });
+    expect(result.refusedFacts).toBe(1);
     expect(result.materializedEvents).toBe(0);
     const events = await database
       .prepare("SELECT COUNT(*) AS count FROM notification_event")

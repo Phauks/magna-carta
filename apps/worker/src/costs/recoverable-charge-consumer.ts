@@ -40,8 +40,9 @@ import {
 //
 // Beside that table there is a SECOND, NON-EXCLUSIVE PASS: the notification translator, which owns
 // no topic and subscribes to many. It runs AFTER the owning handler and cannot suppress it or be
-// suppressed by it — a topic may legitimately both post costs and notify. See offerToNotifications
-// below for why its failures are caught where the owning handler's propagate.
+// suppressed by it — a topic may legitimately both post costs and notify. Whether ITS failure acks
+// or retries depends on whether an owning handler already committed for the message; see
+// offerToNotifications below for the two arms and why they differ.
 //
 // IDEMPOTENCY has two floors, both keyed on the per-line recoveryRef (`${shipmentId}:${category}`):
 // the per-line idempotency record committed in the same atomic batch as the cost insert, and the
@@ -262,15 +263,26 @@ async function handleShipmentPurchased(
 // all, which is the ordinary case and not an error: the translator finding nothing returns quietly,
 // exactly as an unhandled topic is acked and ignored.
 //
-// AND IT NEVER THROWS OUT. The owning handler's failure still propagates (it always did) and
-// retries the message; a translator failure is caught, counted, and logged here. The asymmetry is
-// the whole point: a missed notification is an annoyance, and a re-driven cost posting is a double
-// charge. Where the two are not equal, the weaker one yields — so nothing about notifications can
-// dead-letter a message another handler already committed for.
+// WHAT A TRANSLATOR FAILURE DOES depends on whether anything else already committed for this
+// message, because that is what decides whether a retry is free.
+//
+//   * An owning handler RAN → the failure is caught, counted, and logged, and the message acks.
+//     Retrying would re-run that handler, and a re-driven cost posting is a double charge where a
+//     missed notification is an annoyance. Where the two are not equal, the weaker one yields.
+//   * NO owning handler exists for the topic (matter.closed and most of this registry) → the
+//     failure PROPAGATES and the message retries. Nothing else committed, so a retry costs one
+//     redelivery and buys back a notification that a transient database fault would otherwise have
+//     dropped silently. It cannot duplicate anything: the translator re-derives the same dedupe key
+//     and the UNIQUE constraint makes the second attempt a no-op.
+//
+// Only genuine faults reach either arm. The permanently-unprocessable cases — a payload that will
+// not parse, a subject whose matter has since gone — return normally from the translator rather
+// than throwing, precisely so they ack instead of marching to the dead-letter queue.
 async function offerToNotifications(
   firmDatabase: ProxyBatchDatabase,
   message: PerFirmQueueMessage,
   logger: Logger,
+  anOwningHandlerRan: boolean,
 ): Promise<void> {
   try {
     const result = await translateOutboxMessage({
@@ -308,9 +320,16 @@ async function offerToNotifications(
         result.clampedRecipients,
       );
     }
+    if (result.refusedFacts > 0) {
+      // A producer changed the shape of what it publishes and a registered type's declaration
+      // refused it. Permanent, so it acks — but silent would mean the notifications for that topic
+      // simply stopped, which is the failure mode this whole bus is prone to.
+      logger.count("notifications.refused_facts", { topic: message.topic }, result.refusedFacts);
+    }
   } catch (caught) {
     logOperationFailed(logger, `queue:notifications:${message.id}`, caught, newCorrelationId());
     logger.count("notifications.translate_failed", { topic: message.topic }, 1);
+    if (!anOwningHandlerRan) throw caught;
   }
 }
 
@@ -346,7 +365,9 @@ async function dispatchMessage(
   // never run against a business effect that has not committed, and must never be the reason a
   // message is retried or acked.
   if (handler !== undefined) await handler(env, firmDatabase, message, logger);
-  if (notificationTypes.length > 0) await offerToNotifications(firmDatabase, message, logger);
+  if (notificationTypes.length > 0) {
+    await offerToNotifications(firmDatabase, message, logger, handler !== undefined);
+  }
 }
 
 // The queue() handler for the shared per-firm queue. One logger per batch; a transient failure routes

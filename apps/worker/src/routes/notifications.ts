@@ -170,10 +170,13 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   path: "/api/v1/notifications",
   description:
     "Returns one page of the session member's own notifications, newest first and cursor-paginated. " +
-    "Every row is filtered by matter visibility at read time, so a member who loses access to a matter " +
-    "stops seeing its notifications on the next read without any row being changed. A notification carries " +
-    "identifiers, closed labels, counts and dates only — never a title, a name, a filename or a subject line; " +
-    "follow the link to resolve the record it points at through that subsystem's own access-checked read.",
+    "Rows are scoped to the calling member and filtered by matter visibility at read time rather than " +
+    "when they were written, so a change in what a matter's notifications may show takes effect on the " +
+    "next read without any row being altered; today that filter excludes the platform's own internal " +
+    "holding matters, and any further restriction composes into the same read when it exists. " +
+    "A notification carries identifiers, closed labels, counts and dates only — never a title, a name, " +
+    "a filename or a subject line; follow the link to resolve the record it points at through that " +
+    "subsystem's own access-checked read.",
   request: {
     query: z.object({
       cursor: z.string().optional(),
@@ -253,8 +256,8 @@ const markReadRoute = defineOpenAPIRoute(markReadMeta, {
   path: "/api/v1/notifications/{notificationRecipientId}/read",
   description:
     "Marks one of the session member's own notifications read. Idempotent: a second call changes nothing " +
-    "and returns the same body. A notification belonging to another member, or one whose matter this member " +
-    "cannot see, is not found rather than forbidden.",
+    "and returns the same body. A notification belonging to another member, or one the same visibility " +
+    "filter keeps off this member's feed, is not found rather than forbidden.",
   request: { params: notificationIdParam },
   responses: {
     200: {
@@ -447,9 +450,9 @@ export function registerNotificationsRoutes(app: NotificationsApp, chokepoint: C
       const { notificationRecipientId } = c.req.valid("param");
       const now = new Date().toISOString();
 
-      // Resolved under the SAME wall as the feed. A row belonging to somebody else, or one whose
-      // matter this member cannot see, is simply not found — 404 and never 403, because a
-      // distinguishable 403 tells the caller the row exists.
+      // Resolved under the SAME filter as the feed. A row belonging to somebody else, or one the
+      // visibility predicate keeps off this member's feed, is simply not found — 404 and never 403,
+      // because a distinguishable 403 tells the caller the row exists.
       const existing = await selectOwnNotificationStatement(
         firm.firmDatabase,
         { recipientUserId: sessionUserId, visibility: visibleMatterPredicate() },
