@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  BillingArrangementId,
   InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
@@ -19,6 +20,7 @@ import type {
   InvoiceLineKind,
   InvoiceLineSnapshot,
   InvoiceMatterBalanceSnapshot,
+  InvoiceRenderShape,
   InvoiceSnapshot,
   InvoiceStatus,
   InvoiceTaxTreatment,
@@ -78,6 +80,9 @@ export interface FinalizeInvoiceInput {
   readonly letterheadFooter: string | null;
   readonly remitTo: string | null;
   readonly clientBillingName: string | null;
+  // How a bill spanning several matters is presented — SNAPSHOT here like the letterhead, so a
+  // later change to the firm's default never re-shapes a document already given to a client.
+  readonly renderShape: InvoiceRenderShape;
   readonly finalizedBy: UserId | null;
   readonly now: string;
 }
@@ -107,6 +112,7 @@ export function finalizeInvoiceStatement(
               letterhead_footer = ?9,
               remit_to = ?10,
               client_billing_name = ?11,
+              render_shape = ?14,
               finalized_at = ?12,
               finalized_by = ?13,
               updated_at = ?12
@@ -126,6 +132,7 @@ export function finalizeInvoiceStatement(
       input.clientBillingName,
       input.now,
       input.finalizedBy,
+      input.renderShape,
     );
 }
 
@@ -159,6 +166,9 @@ export interface InsertInvoiceLineInput {
   readonly utbmsActivityCode: string | null;
   readonly utbmsExpenseCode: string | null;
   readonly taxTreatment: InvoiceTaxTreatment;
+  // The fee-agreement version that composed this line, for the lines an arrangement produces (a
+  // flat fee, a contingency fee); null on hourly and cost lines.
+  readonly billingArrangementId?: BillingArrangementId | null;
   readonly now: string;
 }
 
@@ -168,8 +178,8 @@ export function insertInvoiceLineStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, quantity_e4, rate_e4, amount_minor, currency, utbms_task_code, utbms_activity_code, utbms_expense_code, tax_treatment, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)`,
+      `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, quantity_e4, rate_e4, amount_minor, currency, utbms_task_code, utbms_activity_code, utbms_expense_code, tax_treatment, billing_arrangement_id, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
     )
     .bind(
       input.id,
@@ -186,6 +196,7 @@ export function insertInvoiceLineStatement(
       input.utbmsActivityCode,
       input.utbmsExpenseCode,
       input.taxTreatment,
+      input.billingArrangementId ?? null,
       input.now,
     );
 }

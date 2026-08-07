@@ -34,7 +34,21 @@ export type BillingValidationCode =
   | "earned-fee-too-many-invoices"
   // The pending earned-fee application — billing's side of the shared authorization queue
   | "request-not-an-earned-fee-application"
-  | "application-request-malformed";
+  | "application-request-malformed"
+  // The fee models: the agreement, its shape, and the compositions each kind permits
+  | "billing-arrangement-invalid"
+  | "billing-arrangement-kind-mismatch"
+  | "matter-not-billed-hourly"
+  | "matter-recovery-invalid"
+  | "unknown-matter-recovery"
+  | "contingency-no-recovery"
+  | "contingency-currency-mismatch"
+  | "contingency-base-not-positive"
+  | "contingency-fee-already-on-draft"
+  | "contingency-nothing-unbilled"
+  | "retainer-not-below-floor"
+  | "retainer-replenishment-already-open"
+  | "retainer-replenishment-not-open";
 
 export class BillingValidationError extends Error {
   constructor(

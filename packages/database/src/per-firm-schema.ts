@@ -13,6 +13,7 @@ import { sql } from "drizzle-orm";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BillingArrangementId,
   CalendarEventLinkId,
   ConflictsCheckId,
   ConflictsDispositionId,
@@ -98,6 +99,7 @@ import type {
   MatterEventTypeId,
   MatterId,
   MatterPartyId,
+  MatterRecoveryId,
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
@@ -114,6 +116,7 @@ import type {
   RateId,
   RecordCustodianId,
   RepairProvenanceId,
+  RetainerReplenishmentRequestId,
   ReviewDocumentExceptionId,
   ReviewDocumentId,
   ReviewDocumentOccurrenceId,
@@ -4295,6 +4298,12 @@ export const invoice = sqliteTable(
     letterheadFooter: text("letterhead_footer"),
     remitTo: text("remit_to"),
     clientBillingName: text("client_billing_name"),
+    // How a bill spanning several matters is presented, SNAPSHOT at finalize like the letterhead:
+    // `per_matter_pages` renders one page per matter plus a summary page, `combined` renders one
+    // flowing document. The firm's default lives in the setting table and a later change to it must
+    // not silently re-shape a document the firm already gave somebody. Null on drafts and on
+    // invoices finalized before the column existed, which the render derivation reads as `combined`.
+    renderShape: text("render_shape", { enum: ["combined", "per_matter_pages"] }),
     finalizedAt: text("finalized_at"),
     finalizedBy: text("finalized_by").$type<UserId>(),
     voidedAt: text("voided_at"),
@@ -4313,6 +4322,10 @@ export const invoice = sqliteTable(
       .where(sql`${table.invoiceNumber} IS NOT NULL`),
     check("invoice_status_check", sql`${table.status} IN ('draft', 'final', 'void')`),
     check("invoice_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_render_shape_check",
+      sql`${table.renderShape} IS NULL OR ${table.renderShape} IN ('combined', 'per_matter_pages')`,
+    ),
     check(
       "invoice_number_paired_check",
       sql`(${table.status} = 'final') = (${table.invoiceNumber} IS NOT NULL)`,
@@ -4378,6 +4391,13 @@ export const invoiceLine = sqliteTable(
     taxTreatment: text("tax_treatment", { enum: ["taxable", "exempt"] })
       .notNull()
       .default("exempt"),
+    // The fee-agreement version that produced this line, for the lines an arrangement composes — a
+    // flat fee or a contingency fee. The line's amount is still its own snapshot; this is the record
+    // of WHICH version of the agreement was in force, so an amended agreement never orphans the
+    // question of what a finalized bill was computed under. Null on hourly and cost lines.
+    billingArrangementId: text("billing_arrangement_id")
+      .$type<BillingArrangementId>()
+      .references(() => matterBillingArrangement.id),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -4639,6 +4659,174 @@ export const invoiceTrustApplicationLine = sqliteTable(
     ),
     check("invoice_trust_application_line_amount_positive_check", sql`${table.amountMinor} > 0`),
     check("invoice_trust_application_line_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// The fee agreement: how a matter is billed, per matter, versioned append-only. A fee change is a
+// NEW version — the old one stays, its valid_to closed by the version that superseded it — because
+// an invoice records which version was in force and an edited agreement would rewrite what a
+// finalized bill was computed under. Absence of any row means hourly, so matters that predate this
+// table need no backfill. The kind-specific columns are shaped by CHECK per kind: a flat fee carries
+// its amount, a contingency carries its share and its costs-before-or-after election, a retainer
+// carries its target and its floor. The advance-fee deposit destination — trust or operating — is
+// RECORDED and never defaulted: jurisdictions genuinely differ on where an advance fee must sit, and
+// a wrong silence here states a wrong fact about real client money.
+export const matterBillingArrangement = sqliteTable(
+  "matter_billing_arrangement",
+  {
+    id: text("id").primaryKey().$type<BillingArrangementId>(), // billingArrangement_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Dense per matter, enforced by trigger: "the version in force" is MAX(version) among open rows
+    // with no timestamp tie to break, and two members amending concurrently converge on one winner.
+    version: integer("version").notNull(),
+    kind: text("kind", { enum: ["hourly", "flat_fee", "contingency", "retainer"] }).notNull(),
+    flatFeeAmountMinor: integer("flat_fee_amount_minor"),
+    // The share as a dimensionless decimal at the rate scale (3333 = 33.33%), never Money: a share
+    // of an unknown future recovery has no currency until it multiplies one.
+    contingencyShareE4: integer("contingency_share_e4"),
+    // The costs-before-or-after election: `gross_recovery` computes the fee on the recovery before
+    // advanced costs come off; `net_after_costs` deducts the matter's advanced (hard) costs first.
+    contingencyBasis: text("contingency_basis", { enum: ["gross_recovery", "net_after_costs"] }),
+    retainerTargetMinor: integer("retainer_target_minor"),
+    // The replenishment floor — a BUSINESS configuration, emphatically not the trust leaf's
+    // min_balance_minor, which is the structural no-negative floor and is never repurposed.
+    retainerThresholdMinor: integer("retainer_threshold_minor"),
+    advanceDepositDestination: text("advance_deposit_destination", {
+      enum: ["trust", "operating"],
+    }),
+    currency: text("currency").notNull(),
+    validFrom: text("valid_from").notNull(), // civil PlainDate
+    validTo: text("valid_to"), // null = in force; set once, by the version that superseded it
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("matter_billing_arrangement_version_unique_index").on(
+      table.matterId,
+      table.version,
+    ),
+    uniqueIndex("matter_billing_arrangement_open_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.validTo} IS NULL`),
+    check(
+      "matter_billing_arrangement_kind_check",
+      sql`${table.kind} IN ('hourly', 'flat_fee', 'contingency', 'retainer')`,
+    ),
+    check("matter_billing_arrangement_version_positive_check", sql`${table.version} > 0`),
+    check("matter_billing_arrangement_currency_check", sql`length(${table.currency}) = 3`),
+    // Each kind carries exactly its own fields — a flat-fee row with a contingency share is a row
+    // whose meaning nobody can state.
+    check(
+      "matter_billing_arrangement_kind_shape_check",
+      sql`(${table.kind} = 'flat_fee') = (${table.flatFeeAmountMinor} IS NOT NULL)
+        AND (${table.kind} = 'contingency') = (${table.contingencyShareE4} IS NOT NULL)
+        AND (${table.kind} = 'contingency') = (${table.contingencyBasis} IS NOT NULL)
+        AND (${table.kind} = 'retainer') = (${table.retainerTargetMinor} IS NOT NULL)
+        AND (${table.kind} = 'retainer') = (${table.retainerThresholdMinor} IS NOT NULL)`,
+    ),
+    check(
+      "matter_billing_arrangement_flat_fee_positive_check",
+      sql`${table.flatFeeAmountMinor} IS NULL OR ${table.flatFeeAmountMinor} > 0`,
+    ),
+    // A share is a fraction of the recovery: above zero, at most the whole of it.
+    check(
+      "matter_billing_arrangement_share_bounds_check",
+      sql`${table.contingencyShareE4} IS NULL OR (${table.contingencyShareE4} > 0 AND ${table.contingencyShareE4} <= 10000)`,
+    ),
+    check(
+      "matter_billing_arrangement_retainer_bounds_check",
+      sql`${table.retainerTargetMinor} IS NULL OR (${table.retainerTargetMinor} > 0 AND ${table.retainerThresholdMinor} >= 0 AND ${table.retainerThresholdMinor} <= ${table.retainerTargetMinor})`,
+    ),
+    check(
+      "matter_billing_arrangement_destination_check",
+      sql`${table.advanceDepositDestination} IS NULL OR ${table.advanceDepositDestination} IN ('trust', 'operating')`,
+    ),
+  ],
+);
+
+// One recorded recovery on a matter — a settlement, a judgment, an award. The contingency fee is
+// computed FROM these at invoice time and is never stored here: what is recorded is the fact of the
+// recovery, and the fee is always a derivation of the agreement's share against the recoveries as
+// they stand when the bill is composed. Append-only apart from the void transition (a recovery
+// entered in error is voided with a reason, never edited or deleted), enforced by triggers in the
+// migration.
+export const matterRecovery = sqliteTable(
+  "matter_recovery",
+  {
+    id: text("id").primaryKey().$type<MatterRecoveryId>(), // matterRecovery_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    recoveredDate: text("recovered_date").notNull(), // civil PlainDate
+    description: text("description").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by").$type<UserId>(),
+    voidReason: text("void_reason"),
+  },
+  (table) => [
+    index("matter_recovery_matter_index").on(table.matterId),
+    check("matter_recovery_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("matter_recovery_currency_check", sql`length(${table.currency}) = 3`),
+    check("matter_recovery_description_nonempty_check", sql`length(${table.description}) > 0`),
+    check(
+      "matter_recovery_void_paired_check",
+      sql`(${table.voidedAt} IS NULL) = (${table.voidReason} IS NULL)`,
+    ),
+  ],
+);
+
+// A record that a retainer matter's trust balance fell below the arrangement's floor, and by how
+// much. The request is the RECORD of the ask — the observed available balance, the shortfall against
+// the target, and who raised it — so the replenishment conversation has a row a person can point to
+// rather than a number somebody once noticed on a dashboard. It moves no money and writes no trust
+// table; the client's deposit arrives through trust's own deposit path, and slice 3·7 wires the
+// below-floor alert onto the same topic this emits. Mutable only for its resolution, by trigger; one
+// OPEN request per matter by partial unique index.
+export const retainerReplenishmentRequest = sqliteTable(
+  "retainer_replenishment_request",
+  {
+    id: text("id").primaryKey().$type<RetainerReplenishmentRequestId>(), // retainerReplenishmentRequest_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The retainer arrangement version the floor came from — the target and threshold live there.
+    arrangementId: text("arrangement_id")
+      .notNull()
+      .$type<BillingArrangementId>()
+      .references(() => matterBillingArrangement.id),
+    // The available trust balance OBSERVED when the request was raised — evidence of why, not a live
+    // figure. The live balance is trust's to answer.
+    observedBalanceMinor: integer("observed_balance_minor").notNull(),
+    requestedAmountMinor: integer("requested_amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    requestedAt: text("requested_at").notNull(),
+    requestedBy: text("requested_by").$type<UserId>(),
+    resolvedAt: text("resolved_at"),
+    resolvedBy: text("resolved_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("retainer_replenishment_request_open_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.resolvedAt} IS NULL`),
+    index("retainer_replenishment_request_matter_index").on(table.matterId),
+    check(
+      "retainer_replenishment_request_amount_positive_check",
+      sql`${table.requestedAmountMinor} > 0`,
+    ),
+    check(
+      "retainer_replenishment_request_observed_not_negative_check",
+      sql`${table.observedBalanceMinor} >= 0`,
+    ),
+    check("retainer_replenishment_request_currency_check", sql`length(${table.currency}) = 3`),
   ],
 );
 

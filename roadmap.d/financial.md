@@ -267,31 +267,40 @@
 - id: financial.billing.fee-models
   name: Fee models
   scope: The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen
-  status: not-started
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/arrangements.ts (the versioned append-only per-matter fee agreement; a fee change is a new version and invoice lines record the version that composed them)
+  notes: Built all at once per the owner's docket override of the staged default.
 
 - id: financial.billing.fee-models.hourly
   name: Hourly billing
   scope: Hourly bills from billable WIP time at resolved rates.
-  status: not-started
-  evidence: WIP and rate inputs shipped upstream; no bill generation exists
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/draft.ts (lines composed from each entry's own rate snapshot; billing never re-resolves a rate; a flat-fee or contingency matter refuses hourly time claims by name)
 
 - id: financial.billing.fee-models.flat-fee
   name: Flat/fixed fee
   scope: Flat and fixed-fee billing.
-  status: not-started
-  evidence: no fee-model code in tree
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/flat-fee.ts (one flat_fee line from the agreement; contributing time claimed at zero for realization; instalments representable with over-billing reported by flatFeeBilledBeyondArrangementStatement)
 
 - id: financial.billing.fee-models.contingency
   name: Contingency and settlement statements
-  scope: Settlement disbursement statements splitting client share, fee, costs, and liens.
-  status: not-started
-  evidence: no settlement-statement code in tree
+  scope: Contingency agreements (share, costs-before-or-after election), recorded recoveries, and the fee derived at invoice time; settlement disbursement statements splitting client share, fee, costs, and liens.
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/contingency.ts (matter_recovery records the fact; the fee is always derived at composition, never stored as a decided number)
+  notes: The fee model is shipped; settlement disbursement statements and lien handling stay deferred to a later financial slice, once a real matter demands them.
 
 - id: financial.billing.fee-models.retainer
   name: Retainer/evergreen
   scope: Retainer and evergreen billing with auto-replenishment alerts below threshold.
-  status: not-started
-  evidence: no retainer code; the alert layer belongs to the billing-automations slice in the phase-3 slice map, also unstarted
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/retainer.ts (target and floor on the agreement; floor status from trust's available figure; retainer_replenishment_request with the billing.retainer.replenishment_requested topic)
+  notes: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event.
 
 - id: financial.billing.invoice-composition
   name: Invoice composition

@@ -3676,6 +3676,7 @@ export type BillingFinalizeRequest = {
     letterheadFooter?: string | null;
     remitTo?: string | null;
     clientBillingName?: string | null;
+    renderShape?: 'combined' | 'per_matter_pages';
 };
 
 export type BillingApplyTrustFundsAck = {
@@ -3800,6 +3801,157 @@ export type BillingAgingResponse = {
         invoiceCount: number;
         unpaidMinor: number;
     }>;
+};
+
+export type BillingArrangementResponse = {
+    inForce: BillingArrangementVersion;
+    history: Array<BillingArrangementVersion>;
+};
+
+export type BillingArrangementVersion = {
+    id: string;
+    matterId: string;
+    version: number;
+    kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+    flatFeeAmountMinor: number | null;
+    contingencyShareE4: number | null;
+    contingencyBasis: 'gross_recovery' | 'net_after_costs' | null;
+    retainerTargetMinor: number | null;
+    retainerThresholdMinor: number | null;
+    advanceDepositDestination: 'trust' | 'operating' | null;
+    currency: string;
+    validFrom: string;
+    validTo: string | null;
+} | null;
+
+export type BillingArrangementRequest = {
+    kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+    flatFeeAmountMinor?: number;
+    contingencyShareE4?: number;
+    contingencyBasis?: 'gross_recovery' | 'net_after_costs';
+    retainerTargetMinor?: number;
+    retainerThresholdMinor?: number;
+    advanceDepositDestination?: 'trust' | 'operating' | null;
+    currency: 'USD';
+    validFrom: string;
+};
+
+export type BillingRecoveryAck = {
+    recoveryId: string;
+    matterId: string;
+};
+
+export type BillingRecoveryRequest = {
+    amountMinor: number;
+    currency: 'USD';
+    recoveredDate: string;
+    description: string;
+};
+
+export type BillingRecoveryListResponse = {
+    data: Array<{
+        id: string;
+        amountMinor: number;
+        currency: string;
+        recoveredDate: string;
+        description: string;
+        voidedAt: string | null;
+        voidReason: string | null;
+    }>;
+};
+
+export type BillingVoidRecoveryRequest = {
+    reason: string;
+};
+
+export type BillingFlatFeeAck = {
+    invoiceId: string;
+    lineId: string;
+    claimIds: Array<string>;
+};
+
+export type BillingFlatFeeRequest = {
+    matterId: string;
+    amountMinor?: number;
+    description?: string;
+    contributingTimeEntryIds?: Array<string>;
+};
+
+export type BillingContingencyFeeAck = {
+    invoiceId: string;
+    lineId: string;
+    feeMinor: number;
+    entitlementMinor: number;
+    previouslyBilledMinor: number;
+    baseMinor: number;
+    shareE4: number;
+    basis: 'gross_recovery' | 'net_after_costs';
+    recoveriesMinor: number;
+    advancedCostsMinor: number;
+};
+
+export type BillingContingencyFeeRequest = {
+    matterId: string;
+};
+
+export type BillingRetainerStatusResponse = {
+    matterId: string;
+    targetMinor: number;
+    thresholdMinor: number;
+    availableMinor: number;
+    belowFloor: boolean;
+    shortfallMinor: number;
+    openRequestId: string | null;
+};
+
+export type BillingReplenishmentAck = {
+    requestId: string;
+    matterId: string;
+    observedBalanceMinor: number;
+    requestedAmountMinor: number;
+};
+
+export type BillingReplenishmentRequestBody = {
+    trustAccountId: string;
+};
+
+export type BillingReplenishmentResolutionAck = {
+    requestId: string;
+};
+
+export type BillingRenderModelResponse = {
+    invoiceId: string;
+    status: 'draft' | 'final' | 'void';
+    invoiceNumber: string | null;
+    currency: string;
+    renderShape: 'combined' | 'per_matter_pages';
+    totalMinor: number;
+    pages: Array<{
+        matterId: string | null;
+        matterTitle: string | null;
+        subtotalMinor: number;
+        lines: Array<{
+            id: string;
+            lineIndex: number;
+            matterId: string;
+            kind: string;
+            description: string;
+            quantityE4: number | null;
+            rateE4: number | null;
+            amountMinor: number;
+        }>;
+    }>;
+    summary: {
+        matters: Array<{
+            matterId: string;
+            totalMinor: number;
+        }>;
+        totalMinor: number;
+    } | null;
+};
+
+export type BillingRenderShapeSetting = {
+    renderShape: 'combined' | 'per_matter_pages';
 };
 
 export type TimeEntryAck = {
@@ -19623,6 +19775,656 @@ export type BillingReceivablesAgingResponses = {
 };
 
 export type BillingReceivablesAgingResponse = BillingReceivablesAgingResponses[keyof BillingReceivablesAgingResponses];
+
+export type BillingArrangementData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/arrangement';
+};
+
+export type BillingArrangementErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingArrangementError = BillingArrangementErrors[keyof BillingArrangementErrors];
+
+export type BillingArrangementResponses = {
+    /**
+     * The agreement in force and its history
+     */
+    200: BillingArrangementResponse;
+};
+
+export type BillingArrangementResponse2 = BillingArrangementResponses[keyof BillingArrangementResponses];
+
+export type BillingSetArrangementData = {
+    body: BillingArrangementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/arrangement';
+};
+
+export type BillingSetArrangementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingSetArrangementError = BillingSetArrangementErrors[keyof BillingSetArrangementErrors];
+
+export type BillingSetArrangementResponses = {
+    /**
+     * The agreement was recorded as the version now in force
+     */
+    200: BillingArrangementResponse;
+};
+
+export type BillingSetArrangementResponse = BillingSetArrangementResponses[keyof BillingSetArrangementResponses];
+
+export type BillingListRecoveriesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/recoveries';
+};
+
+export type BillingListRecoveriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingListRecoveriesError = BillingListRecoveriesErrors[keyof BillingListRecoveriesErrors];
+
+export type BillingListRecoveriesResponses = {
+    /**
+     * The matter's recoveries
+     */
+    200: BillingRecoveryListResponse;
+};
+
+export type BillingListRecoveriesResponse = BillingListRecoveriesResponses[keyof BillingListRecoveriesResponses];
+
+export type BillingRecordRecoveryData = {
+    body: BillingRecoveryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/recoveries';
+};
+
+export type BillingRecordRecoveryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRecordRecoveryError = BillingRecordRecoveryErrors[keyof BillingRecordRecoveryErrors];
+
+export type BillingRecordRecoveryResponses = {
+    /**
+     * The recovery was recorded
+     */
+    201: BillingRecoveryAck;
+};
+
+export type BillingRecordRecoveryResponse = BillingRecordRecoveryResponses[keyof BillingRecordRecoveryResponses];
+
+export type BillingVoidRecoveryData = {
+    body: BillingVoidRecoveryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        recoveryId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/recoveries/{recoveryId}/void';
+};
+
+export type BillingVoidRecoveryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingVoidRecoveryError = BillingVoidRecoveryErrors[keyof BillingVoidRecoveryErrors];
+
+export type BillingVoidRecoveryResponses = {
+    /**
+     * The recovery was voided
+     */
+    201: BillingRecoveryAck;
+};
+
+export type BillingVoidRecoveryResponse = BillingVoidRecoveryResponses[keyof BillingVoidRecoveryResponses];
+
+export type BillingAddFlatFeeData = {
+    body: BillingFlatFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/flat-fee';
+};
+
+export type BillingAddFlatFeeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingAddFlatFeeError = BillingAddFlatFeeErrors[keyof BillingAddFlatFeeErrors];
+
+export type BillingAddFlatFeeResponses = {
+    /**
+     * The flat fee was composed and the contributing work claimed
+     */
+    201: BillingFlatFeeAck;
+};
+
+export type BillingAddFlatFeeResponse = BillingAddFlatFeeResponses[keyof BillingAddFlatFeeResponses];
+
+export type BillingAddContingencyFeeData = {
+    body: BillingContingencyFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/contingency-fee';
+};
+
+export type BillingAddContingencyFeeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingAddContingencyFeeError = BillingAddContingencyFeeErrors[keyof BillingAddContingencyFeeErrors];
+
+export type BillingAddContingencyFeeResponses = {
+    /**
+     * The contingency fee was computed and composed
+     */
+    201: BillingContingencyFeeAck;
+};
+
+export type BillingAddContingencyFeeResponse = BillingAddContingencyFeeResponses[keyof BillingAddContingencyFeeResponses];
+
+export type BillingRetainerStatusData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/billing/matters/{matterId}/retainer';
+};
+
+export type BillingRetainerStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRetainerStatusError = BillingRetainerStatusErrors[keyof BillingRetainerStatusErrors];
+
+export type BillingRetainerStatusResponses = {
+    /**
+     * The retainer position
+     */
+    200: BillingRetainerStatusResponse;
+};
+
+export type BillingRetainerStatusResponse2 = BillingRetainerStatusResponses[keyof BillingRetainerStatusResponses];
+
+export type BillingRequestReplenishmentData = {
+    body: BillingReplenishmentRequestBody;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/retainer/replenishment-requests';
+};
+
+export type BillingRequestReplenishmentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRequestReplenishmentError = BillingRequestReplenishmentErrors[keyof BillingRequestReplenishmentErrors];
+
+export type BillingRequestReplenishmentResponses = {
+    /**
+     * The replenishment request was recorded
+     */
+    201: BillingReplenishmentAck;
+};
+
+export type BillingRequestReplenishmentResponse = BillingRequestReplenishmentResponses[keyof BillingRequestReplenishmentResponses];
+
+export type BillingResolveReplenishmentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/replenishment-requests/{requestId}/resolution';
+};
+
+export type BillingResolveReplenishmentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingResolveReplenishmentError = BillingResolveReplenishmentErrors[keyof BillingResolveReplenishmentErrors];
+
+export type BillingResolveReplenishmentResponses = {
+    /**
+     * The request was resolved
+     */
+    201: BillingReplenishmentResolutionAck;
+};
+
+export type BillingResolveReplenishmentResponse = BillingResolveReplenishmentResponses[keyof BillingResolveReplenishmentResponses];
+
+export type BillingInvoiceRenderModelData = {
+    body?: never;
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/render-model';
+};
+
+export type BillingInvoiceRenderModelErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingInvoiceRenderModelError = BillingInvoiceRenderModelErrors[keyof BillingInvoiceRenderModelErrors];
+
+export type BillingInvoiceRenderModelResponses = {
+    /**
+     * The render model
+     */
+    200: BillingRenderModelResponse;
+};
+
+export type BillingInvoiceRenderModelResponse = BillingInvoiceRenderModelResponses[keyof BillingInvoiceRenderModelResponses];
+
+export type BillingRenderShapeDefaultData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/render-shape';
+};
+
+export type BillingRenderShapeDefaultErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRenderShapeDefaultError = BillingRenderShapeDefaultErrors[keyof BillingRenderShapeDefaultErrors];
+
+export type BillingRenderShapeDefaultResponses = {
+    /**
+     * The firm default
+     */
+    200: BillingRenderShapeSetting;
+};
+
+export type BillingRenderShapeDefaultResponse = BillingRenderShapeDefaultResponses[keyof BillingRenderShapeDefaultResponses];
+
+export type BillingSetRenderShapeDefaultData = {
+    body: BillingRenderShapeSetting;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/render-shape';
+};
+
+export type BillingSetRenderShapeDefaultErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingSetRenderShapeDefaultError = BillingSetRenderShapeDefaultErrors[keyof BillingSetRenderShapeDefaultErrors];
+
+export type BillingSetRenderShapeDefaultResponses = {
+    /**
+     * The firm default was set
+     */
+    200: BillingRenderShapeSetting;
+};
+
+export type BillingSetRenderShapeDefaultResponse = BillingSetRenderShapeDefaultResponses[keyof BillingSetRenderShapeDefaultResponses];
 
 export type TimeEntriesListData = {
     body?: never;

@@ -49,6 +49,7 @@ import matterStaffingSql from "@magna-carta/database/drizzle/per-firm/20260807T0
 import matterCourtCaseSql from "@magna-carta/database/drizzle/per-firm/20260807T041000_matter-court-case.sql";
 import matterEstateAndCapacitySql from "@magna-carta/database/drizzle/per-firm/20260807T042000_matter-estate-and-capacity.sql";
 import trustAuthorizationPolicySql from "@magna-carta/database/drizzle/per-firm/20260807T050000_trust-authorization-policy.sql";
+import billingFeeModelsSql from "@magna-carta/database/drizzle/per-firm/20260807T060000_billing-fee-models.sql";
 import calendarFirmEventsResourcesLinksSql from "@magna-carta/database/drizzle/per-firm/20260807T070000_calendar-firm-events-resources-links.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
@@ -109,6 +110,7 @@ export function perFirmMigrations(): Migration[] {
     "20260807T041000_matter-court-case": matterCourtCaseSql,
     "20260807T042000_matter-estate-and-capacity": matterEstateAndCapacitySql,
     "20260807T050000_trust-authorization-policy": trustAuthorizationPolicySql,
+    "20260807T060000_billing-fee-models": billingFeeModelsSql,
     "20260807T070000_calendar-firm-events-resources-links": calendarFirmEventsResourcesLinksSql,
   });
 }
