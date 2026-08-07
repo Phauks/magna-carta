@@ -31,6 +31,7 @@ import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
 import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
@@ -627,6 +628,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerNarrativeTemplatesRoutes(app, chokepoint);
   // My Day: daily headline totals (billable, non-billable, target, shortfall).
   registerMyDayRoutes(app, chokepoint);
+  // The member's own notification feed: one page, the unread counts, and settling an item. Every
+  // read is scoped to the session's user and filtered by matter visibility in SQL.
+  registerNotificationsRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

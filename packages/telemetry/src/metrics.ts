@@ -231,6 +231,54 @@ export const matterAssetProtectedIdentifierReads = defineMetric(
   ["outcome"] as const,
 );
 
+// Notifications — the delivery half. `topic` is the only dimension any of these carries, and it is
+// enum-like by construction: the values are outbox topic names, which come from a producing
+// package's exported constant set rather than from firm data. Deliberately NOT dimensions here: the
+// notification kind's subject id, its matter id, and any recipient handle — this subsystem's whole
+// premise is that a notification row carries no identifier a reader could resolve without going
+// through an access-checked read, and a telemetry dimension is a place that rule would be easy to
+// forget. Recipient counts ride the VALUE, never a dimension.
+//
+// The bus these come off is open and mostly unhandled by design, so a topic that silently stops
+// producing notifications looks exactly like a topic nobody subscribed to. That is what the whole
+// group exists to distinguish.
+
+// Notifications actually written, and the recipient rows they fanned out to. The pair is what makes
+// a fan-out bug legible: events steady while recipients collapse is a resolver that stopped
+// resolving.
+export const notificationsMaterialized = defineMetric("notifications.materialized", [
+  "topic",
+] as const);
+export const notificationsRecipients = defineMetric("notifications.recipients", ["topic"] as const);
+// A registered type matched its topic and reached NOBODY. Either a resolver bug or an audience
+// nobody has configured, and both are invisible without this — the message acks and the feed simply
+// stays empty.
+export const notificationsEmptyAudience = defineMetric("notifications.empty_audience", [
+  "topic",
+] as const);
+// Recipients the per-event fan-out cap removed. A fan-out larger than a firm's staff means a
+// resolver bug; the cap turns that into a number instead of a mail storm, but only if the clamp is
+// counted rather than silently applied.
+export const notificationsRecipientsClamped = defineMetric("notifications.recipients_clamped", [
+  "topic",
+] as const);
+// A producer published facts the registered type's own declaration refuses — the producer changed
+// shape. PERMANENT, so the message acks; this counter is the only thing standing between that and
+// the notifications for one topic quietly ceasing.
+export const notificationsRefusedFacts = defineMetric("notifications.refused_facts", [
+  "topic",
+] as const);
+// A translator failure. Acked when an owning handler already committed for the message (retrying
+// would re-run it) and retried when none exists, so a persistently non-zero count on a topic with no
+// owning handler means messages are marching toward the dead-letter queue rather than being dropped.
+export const notificationsTranslateFailed = defineMetric("notifications.translate_failed", [
+  "topic",
+] as const);
+// How many notifications the nightly retention sweep took from members while they were still unread.
+// No dimension at all: the members it concerns are exactly what must not reach the dataset, and the
+// per-member detail is kept in the firm's own swept-unread tally where that member can read it.
+export const notificationsSweptUnread = defineMetric("notifications.swept_unread", [] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -268,6 +316,13 @@ const CATALOG: readonly MetricDefinition[] = [
   matterAssetValuations,
   matterAssetScheduleReads,
   matterAssetProtectedIdentifierReads,
+  notificationsMaterialized,
+  notificationsRecipients,
+  notificationsEmptyAudience,
+  notificationsRecipientsClamped,
+  notificationsRefusedFacts,
+  notificationsTranslateFailed,
+  notificationsSweptUnread,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -6,6 +6,8 @@ import { CostValidationError } from "@magna-carta/costs/cost-validation";
 import { chargeToCaptureInputs } from "@magna-carta/costs/recoverable-charge";
 import { recoverPlatformFeeDefinition } from "@magna-carta/costs/recovery-policy";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { notificationTypesForTopic } from "@magna-carta/notifications/registry";
+import { translateOutboxMessage } from "@magna-carta/notifications/translate";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -35,6 +37,12 @@ import {
 // slices add more), but this consumer only owns cost recovery for shipment.purchased. So an unknown
 // topic is ACKED AND IGNORED, never thrown — throwing would dead-letter or retry-storm a message we
 // simply do not handle. A counter makes the drop observable rather than silent.
+//
+// Beside that table there is a SECOND, NON-EXCLUSIVE PASS: the notification translator, which owns
+// no topic and subscribes to many. It runs AFTER the owning handler and cannot suppress it or be
+// suppressed by it — a topic may legitimately both post costs and notify. Whether ITS failure acks
+// or retries depends on whether an owning handler already committed for the message; see
+// offerToNotifications below for the two arms and why they differ.
 //
 // IDEMPOTENCY has two floors, both keyed on the per-line recoveryRef (`${shipmentId}:${category}`):
 // the per-line idempotency record committed in the same atomic batch as the cost insert, and the
@@ -246,6 +254,85 @@ async function handleShipmentPurchased(
   }
 }
 
+// The SECOND, NON-EXCLUSIVE PASS: after the owning handler (if there is one), the message is
+// offered to the notification translator, which consults the registry and materializes on a hit.
+//
+// Non-exclusive rather than another row in the dispatch table above, because a topic may legitimately
+// have BOTH a business consumer and a notification — shipment.purchased posts costs and may also
+// notify — and neither may suppress the other. Most topics on this bus have no notification type at
+// all, which is the ordinary case and not an error: the translator finding nothing returns quietly,
+// exactly as an unhandled topic is acked and ignored.
+//
+// WHAT A TRANSLATOR FAILURE DOES depends on whether anything else already committed for this
+// message, because that is what decides whether a retry is free.
+//
+//   * An owning handler RAN → the failure is caught, counted, and logged, and the message acks.
+//     Retrying would re-run that handler, and a re-driven cost posting is a double charge where a
+//     missed notification is an annoyance. Where the two are not equal, the weaker one yields.
+//   * NO owning handler exists for the topic (matter.closed and most of this registry) → the
+//     failure PROPAGATES and the message retries. Nothing else committed, so a retry costs one
+//     redelivery and buys back a notification that a transient database fault would otherwise have
+//     dropped silently. It cannot duplicate anything: the translator re-derives the same dedupe key
+//     and the UNIQUE constraint makes the second attempt a no-op.
+//
+// Only genuine faults reach either arm. The permanently-unprocessable cases — a payload that will
+// not parse, a subject whose matter has since gone — return normally from the translator rather
+// than throwing, precisely so they ack instead of marching to the dead-letter queue.
+async function offerToNotifications(
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+  anOwningHandlerRan: boolean,
+): Promise<void> {
+  try {
+    const result = await translateOutboxMessage({
+      database: firmDatabase,
+      outboxRowId: message.id,
+      topic: message.topic,
+      payload: message.payload,
+      // Non-request code reads the wall clock — the same discipline the cron sweeps and the ingest
+      // consumer use off the request path.
+      now: () => new Date().toISOString(),
+    });
+    if (result.matchedTypes === 0) return;
+    // Counters only, and only closed labels: a kind and a category are enum values from the
+    // registry, where a subject id or a matter id would be a telemetry dimension whose cardinality
+    // tracks firm data.
+    if (result.materializedEvents > 0) {
+      logger.count(
+        "notifications.materialized",
+        { topic: message.topic },
+        result.materializedEvents,
+      );
+      logger.count("notifications.recipients", { topic: message.topic }, result.recipientRows);
+    }
+    if (result.emptyAudiences > 0) {
+      // A type that matched and reached nobody. Worth a counter rather than a silent success: it is
+      // either a resolver bug or an audience nobody has configured, and both are invisible without it.
+      logger.count("notifications.empty_audience", { topic: message.topic }, result.emptyAudiences);
+    }
+    if (result.clampedRecipients > 0) {
+      // A fan-out larger than a firm's staff means a resolver bug. The cap turns that into a metric
+      // instead of a mail storm.
+      logger.count(
+        "notifications.recipients_clamped",
+        { topic: message.topic },
+        result.clampedRecipients,
+      );
+    }
+    if (result.refusedFacts > 0) {
+      // A producer changed the shape of what it publishes and a registered type's declaration
+      // refused it. Permanent, so it acks — but silent would mean the notifications for that topic
+      // simply stopped, which is the failure mode this whole bus is prone to.
+      logger.count("notifications.refused_facts", { topic: message.topic }, result.refusedFacts);
+    }
+  } catch (caught) {
+    logOperationFailed(logger, `queue:notifications:${message.id}`, caught, newCorrelationId());
+    logger.count("notifications.translate_failed", { topic: message.topic }, 1);
+    if (!anOwningHandlerRan) throw caught;
+  }
+}
+
 // Routes one message to its topic handler, resolving the firm database first. Unknown topics are
 // acked-and-ignored (see the file header). Returns normally for every terminal outcome (handled,
 // dropped, or skipped) and THROWS only on a transient fault so the queue() wrapper retries it.
@@ -255,7 +342,8 @@ async function dispatchMessage(
   logger: Logger,
 ): Promise<void> {
   const handler = PER_FIRM_CONSUMERS[message.topic];
-  if (handler === undefined) {
+  const notificationTypes = notificationTypesForTopic(message.topic);
+  if (handler === undefined && notificationTypes.length === 0) {
     logger.count("costs.recovery.unhandled_topic", { topic: message.topic }, 1);
     return;
   }
@@ -273,7 +361,13 @@ async function dispatchMessage(
   if (results[0] === undefined) return;
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
 
-  await handler(env, firmDatabase, message, logger);
+  // The owning handler goes FIRST and its failure still propagates: the notification pass must
+  // never run against a business effect that has not committed, and must never be the reason a
+  // message is retried or acked.
+  if (handler !== undefined) await handler(env, firmDatabase, message, logger);
+  if (notificationTypes.length > 0) {
+    await offerToNotifications(firmDatabase, message, logger, handler !== undefined);
+  }
 }
 
 // The queue() handler for the shared per-firm queue. One logger per batch; a transient failure routes

@@ -160,6 +160,12 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        // Seeded onto EVERY default role including Read-only — the deliberate contrast with
+        // trust:read (20260807T020000_notifications-delivery). Reading one's own feed is not a
+        // privilege: it is scoped to the session's own user id and every row is filtered by matter
+        // visibility at read time, so the key grants sight of nothing the member could not already
+        // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
+        "notifications:read",
         "shipping:manage",
         "support:cosign",
         "support:manage",

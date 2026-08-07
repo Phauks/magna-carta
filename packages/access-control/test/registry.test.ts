@@ -243,6 +243,10 @@ describe("permission registry", () => {
     expect(isPermission("tools:ocr")).toBe(true);
   });
 
+  it("permissionsForNamespace('notifications') returns exactly the notifications key", () => {
+    expect(permissionsForNamespace("notifications")).toEqual(["notifications:read"]);
+  });
+
   it("permissionsForNamespace('billing') returns exactly the billing keys, in registry order", () => {
     expect(permissionsForNamespace("billing")).toEqual([
       "billing:read",
