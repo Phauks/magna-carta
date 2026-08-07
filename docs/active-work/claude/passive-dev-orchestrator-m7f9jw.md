@@ -45,6 +45,57 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~05:50 UTC) — OWNER MEGA-SESSION: docket answered, $5 CI, UI OPENED, main green; 124 merged
+
+OWNER TURNS (all genuine, ~03:00-05:45Z): (1) **$5 GitHub Actions budget** —
+queue-expansion ANSWERED. Spent: one full-main gate dispatch (found 3 new HIGH
+advisories + node break + format debt → green-main batch #170 MERGED fully
+green; main verifiably green first time since austerity), PR-tier CI revived
+(merge bar = gate green + review again). (2) **DECISION DOCKET: all 92
+answered** (artifact 714eea95-7ac2-4223-8c1a-3748c4526199; recorded in PR
+#169 fragment owner-docket-2026-08-07 — MERGES AFTER TRAIN): 67 ratified; 9
+overrides → tasks 119-128 (Magnus evergreen model default; trust per-firm
+authorization policy T18/T-APP; Nevada-first corpus T7; escheat research T16;
+PDF statement import T10; calendar slice 2 design L1/L4 incl. rooms +
+continuance; ALL fee models B9 + per-matter invoice pages B4; semantic-search
+cost analysis D4; directory pronouns G5; Nevada starter forms DA-F2);
+follow-ups same day: T3 bank-fee carve-out CONFIRMED, H3 format variants,
+AF-F7 firm-settable breaker (task 129), B7 interim-until-3·5, D1 label
+"Custodian of Record" (task 130). (3) **CI fail-fast** → #171 (shard
+fail-fast + format tripwire, austerity-marked; pending merge). (4) **UI
+OPENED: sign-in surface ONLY** (rest of UI still parked). Owner iterated the
+mockup 21 versions (artifact 5293058a-000e-4662-bdfa-5c9992259f57,
+full-flow-v21, 16 screens, headless-Chromium-verified). Spine BUILT: **PR
+#173** (identifier-first /login, TOTP, VerificationCodeInput/PasswordInput/
+TopBar.Link in design system; gate pending). Follow-ups: task 134 (mockup
+deltas v4-v18+ to built screen), 132 (unified identity DESIGN: passkeys=
+security keys one WebAuthn button, magic links, firm SSO as HOME-REALM
+DISCOVERY post-identify — never policy pre-identity; client invites/
+activation OUTSIDE sign-in; Turnstile ADOPTED managed-mode; security
+questions NEVER; channel enrollment records SMS/call capability; only
+authenticator codes rotate; lockout escalating+admin-unlock; R1 post-recovery
+checkup; recovery codes in hub, .txt download with context; decline-offer IS
+30-day suppression; E0 gates optional AND mandatory; workspace
+select-then-Continue, default-workspace skip, in-app switcher), 133
+(background art pass, owner-timed). **STANDING RULES ADDED**: (a)
+transposable artifacts built from real tokens/components with data-mc
+mapping annotations — decide once; (b) mockup HTML gets headless-Chromium
+verify (node verify-mock.mjs in scratchpad; playwright-core at
+node_modules/.pnpm/playwright-core@1.60.0/...) before every publish; (c)
+batch text-edits use assert-replacements + post-write marker checks (two
+silent-failure incidents). MERGE TRAIN: #170 merged (134 obsolete... no:
+merge 034bbbe9); #167 discovery idx 43 — gate failure ROOT-CAUSED by agent:
+its fixture seeded committed_at → fixture firm joined the FLEET-WIDE
+re-extraction sweep, moved another suite's numbers; fixed at cause (column
+null), head 61710f70, re-run 12/12 green so far; #165's sweep test has a
+REAL race (live queue consumer vs markTerminal) = task 135. THEN: #168 R2
+matter-dimension (contract RE-EMIT via agent a006a0e0eebc6be08), #166
+auto-file (a31e571574bc6f768), #169 docket record, #171 fail-fast, #173
+sign-in. Load-profile-smoke 5000ms = KNOWN slim-runner flake (rerun clears).
+After train: dispatch 115 notifications, 121 Nevada corpus, 120 trust
+policy; artifact refresh. Owner signed off ~05:45Z "really happy with how
+this looks. watch your context, continue passive work."
+
 ## Position update (2026-08-07 ~00:20 UTC) — CAMPAIGN 2 CLOSED (43/43); assets complete; 123 merged
 
 **#164 assets 4·3·2/3 MERGED** (idx 42 tag 070000_matter-asset-classes-and-
