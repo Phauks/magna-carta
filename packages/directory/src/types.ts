@@ -73,5 +73,6 @@ export const IDENTIFIER_TYPES = [
   "account",
   "drivers_license",
   "ssn_last_four",
+  "bar_number",
 ] as const;
 export type IdentifierType = (typeof IDENTIFIER_TYPES)[number];

@@ -70,7 +70,8 @@ const EXAMPLE_NAME: MergeValue = {
   isOrganisation: false,
 };
 
-export const MERGE_FACETS: readonly MergeFacet[] = [
+// The party facet set: the facts every party subject carries, filled by the one party read.
+const PARTY_FACETS: readonly MergeFacet[] = [
   {
     name: "displayName",
     kinds: ["party"],
@@ -105,6 +106,44 @@ export const MERGE_FACETS: readonly MergeFacet[] = [
     example: { kind: "text", text: "person" },
   },
   {
+    name: "capacity",
+    kinds: ["party"],
+    source: "party",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    // What lets a sentence name the fiduciary role a party acts in; an author writing an ordinary
+    // letter does not reach for it, so it sits behind the subject's disclosure.
+    prominence: "secondary",
+    labelTemplate: "{subject}'s capacity",
+    descriptionTemplate:
+      "The capacity the {prose} acts in on this matter, as recorded on the party link — never guessed.",
+    synonyms: ["administrator", "trustee", "executor", "attorney-in-fact", "fiduciary"],
+    example: { kind: "text", text: "Administrator" },
+  },
+  {
+    name: "capacityLine",
+    kinds: ["party"],
+    source: "party",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    prominence: "secondary",
+    labelTemplate: "{subject}'s capacity line",
+    // Composed IN THE RESOLVER, never in the template: a hand-concatenated
+    // "name, as capacity of style" renders stray punctuation and three markers when a part is
+    // missing, where this is one absence with a reason naming which part.
+    descriptionTemplate:
+      "The {prose}'s name, capacity, and the estate's style as one phrase — one marker, not three, when any part is unrecorded.",
+    synonyms: ["as administrator", "fiduciary line", "capacity phrase"],
+    example: {
+      kind: "text",
+      text: "Devon Marchetti, as Administrator of the Estate of Rowan Ashcroft, Deceased",
+    },
+  },
+  {
     name: "all",
     kinds: ["party"],
     source: "party",
@@ -134,6 +173,110 @@ export const MERGE_FACETS: readonly MergeFacet[] = [
     ],
   },
 ];
+
+// The member facet set. Declared as its own rows rather than by adding "member" to the party rows,
+// because a facet row carries ONE source and the two families are filled by different reads — the
+// party read and the staffing read. The vocabulary deliberately rhymes: `{{opposingCounsel.displayName}}`
+// and `{{responsibleAttorney.displayName}}` are the same shape, the same formats, and the same
+// ambiguity rule, differing only in which batched read answers them.
+//
+// Deliberately absent until the structured value types land: `address` (the office's, needing the
+// structured address type) and `signatureBlock` (multi-line, needing real line-break emission — a
+// literal newline in a w:t renders as a space). Both are stored today; neither becomes a facet that
+// would render a subtly wrong document.
+const MEMBER_FACETS: readonly MergeFacet[] = [
+  {
+    name: "displayName",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "name",
+    defaultFormat: "full",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    prominence: "primary",
+    labelTemplate: "{subject}'s name",
+    descriptionTemplate: "The {prose}'s name, when the matter staffs exactly one.",
+    synonyms: ["name"],
+    example: EXAMPLE_NAME,
+  },
+  {
+    name: "title",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    prominence: "primary",
+    labelTemplate: "{subject}'s title",
+    descriptionTemplate: "The {prose}'s professional title, from their professional profile.",
+    synonyms: ["position", "partner", "associate"],
+    example: { kind: "text", text: "Partner" },
+  },
+  {
+    name: "emailAddress",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    prominence: "primary",
+    labelTemplate: "{subject}'s email address",
+    descriptionTemplate: "The {prose}'s professional email address, from their profile.",
+    synonyms: ["email", "e-mail"],
+    example: { kind: "text", text: "r.ashcroft@marchettivale.example" },
+  },
+  {
+    name: "directDial",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: "ordinary",
+    prominence: "secondary",
+    labelTemplate: "{subject}'s direct dial",
+    descriptionTemplate: "The {prose}'s direct telephone line, from their profile.",
+    synonyms: ["phone", "telephone", "direct line"],
+    example: { kind: "text", text: "(775) 555-0114" },
+  },
+  {
+    name: "all",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "list",
+    // A list is never rendered — a repeating block walks it — so its default format is the empty
+    // rendering the format table declares for the type.
+    defaultFormat: "",
+    // A matter that staffs nobody in the role has an empty list, which a repeating block correctly
+    // renders as nothing at all. That is a correct document, not an absence.
+    absence: "blank",
+    sensitivity: "ordinary",
+    prominence: "primary",
+    labelTemplate: "Every {prose} on the matter",
+    descriptionTemplate:
+      "Everyone staffed on the matter as {prose}, for a repeating block to walk.",
+    synonyms: ["list", "each", "repeating"],
+    itemFields: [
+      {
+        name: "displayName",
+        valueType: "text",
+        description: "The member's name as it should appear in a document.",
+      },
+      {
+        name: "title",
+        valueType: "text",
+        description: "The member's professional title, when their profile records one.",
+      },
+    ],
+  },
+];
+
+// The whole facet registry — the party family and the member family together. Two rows may share a
+// name ("displayName") when their kind sets are disjoint: a facet row carries ONE source, and the
+// two families are filled by different reads.
+export const MERGE_FACETS: readonly MergeFacet[] = [...PARTY_FACETS, ...MEMBER_FACETS];
 
 export function facetsForKind(kind: SubjectKind): readonly MergeFacet[] {
   return MERGE_FACETS.filter((facet) => facet.kinds.includes(kind));

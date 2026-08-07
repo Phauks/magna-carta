@@ -312,8 +312,11 @@ describe("role resolution costs one read, however many roles a template names", 
       ],
       [...everyRoleKey, "matter.parties"],
     );
-    expect(sources).toEqual(["matter", "party"]);
-    expect(reads).toHaveLength(2);
+    // The estate read rides along because every role's key set now includes the capacity line,
+    // which composes over the estate's stored style — one estate read for all of them, not one per
+    // role. The party collection itself is still exactly one read.
+    expect(sources).toEqual(["matter", "estate", "party"]);
+    expect(reads).toHaveLength(3);
     expect(reads.filter((read) => read.sql.includes("matter_party"))).toHaveLength(1);
   });
 
@@ -321,7 +324,9 @@ describe("role resolution costs one read, however many roles a template names", 
     const parties = [
       { role: "opposing_party", display_name: "Riverside Partners", kind: "organisation" },
     ];
-    const one = await resolve(parties, ["opposingParty.displayName"]);
+    // The one-key side names a capacity line too, so both sides carry the estate read the phrase
+    // composes over — the comparison stays about ROLE COUNT, which is the thing that must be free.
+    const one = await resolve(parties, ["opposingParty.displayName", "opposingParty.capacityLine"]);
     const many = await resolve(
       parties,
       DIRECTORY_ROLE_SOURCES.flatMap((source) => directoryRoleKeysFor(source)),

@@ -31,8 +31,18 @@
 export type SubjectKind =
   | "matter"
   | "party"
+  // The firm's own people, staffed onto the matter. Our side of "attorneys and types of attorneys":
+  // a `member` subject and a `party` subject share one facet vocabulary and one resolution shape,
+  // and differ in which batched read fills them — the staffing read, joining assignments to the
+  // member table and the professional profile — and in the few facets each carries.
+  | "member"
   | "office"
   | "firm"
+  // The matter's court-and-case identity. Two one-of-a-kind subjects (`court`, `case`) whose facts
+  // are written out and answered by the one court-case read.
+  | "court"
+  // The estate a probate matter administers — one one-of-a-kind subject over the estate read.
+  | "estate"
   | "system"
   | "firmDefined"
   | "assetClass";
@@ -124,6 +134,59 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     presence: "conditional",
     synonyms: ["deponent"],
   },
+  // The firm's own people. The responsible attorney resolves from the matter row's own
+  // responsible_member_id column — its one home — and the other four from matter_assignment rows
+  // whose assignment_role normalizes to the subject key, exactly as a party subject matches
+  // matter_party.role. All five ride the ONE staffing read. Two members in one role is the level-1
+  // ambiguity answer every party subject already gives: an absence naming the count, with the
+  // subject's `.all` collection as the way out.
+  {
+    key: "responsibleAttorney",
+    kind: "member",
+    label: "Responsible attorney",
+    proseLabel: "responsible attorney",
+    group: "ourPeople",
+    // Every matter carries a responsible member — the column is required — so the one member
+    // subject a matter always has is this one.
+    presence: "always",
+    synonyms: ["attorney", "lawyer", "matter attorney", "handling attorney"],
+  },
+  {
+    key: "originatingAttorney",
+    kind: "member",
+    label: "Originating attorney",
+    proseLabel: "originating attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["originator", "source attorney"],
+  },
+  {
+    key: "supervisingAttorney",
+    kind: "member",
+    label: "Supervising attorney",
+    proseLabel: "supervising attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["supervisor", "supervising partner", "partner in charge"],
+  },
+  {
+    key: "billingAttorney",
+    kind: "member",
+    label: "Billing attorney",
+    proseLabel: "billing attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["billing partner", "biller"],
+  },
+  {
+    key: "assignedParalegal",
+    kind: "member",
+    label: "Assigned paralegal",
+    proseLabel: "assigned paralegal",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["paralegal", "legal assistant"],
+  },
   {
     key: "location",
     kind: "office",
@@ -141,6 +204,41 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     group: "firm",
     presence: "always",
     synonyms: ["practice"],
+  },
+  // The matter's court-and-case identity, from its court-case record. `court` is WHERE the case is
+  // (the courthouse — a Directory organisation, plus the assigned judge); `case` is WHAT the case
+  // is (its number, its dates, and the designation words this court's captions use). Side is a
+  // caption fact recorded on the case, never a key axis — `case.clientDesignation` prints
+  // "Plaintiff" or "Petitioner" as this court has it, rather than doubling every key per side.
+  {
+    key: "court",
+    kind: "court",
+    label: "The court",
+    proseLabel: "court case",
+    group: "courtCase",
+    presence: "conditional",
+    synonyms: ["courthouse", "tribunal", "judge", "venue"],
+  },
+  {
+    key: "case",
+    kind: "court",
+    label: "The case",
+    proseLabel: "court case",
+    group: "courtCase",
+    presence: "conditional",
+    synonyms: ["cause", "docket", "caption", "action"],
+  },
+  // The estate a probate matter administers. Its style and short style are STORED legal
+  // designations, and its decedent is a Directory person, so every name format applies to
+  // `estate.decedent` with no new machinery.
+  {
+    key: "estate",
+    kind: "estate",
+    label: "The estate",
+    proseLabel: "estate",
+    group: "estate",
+    presence: "conditional",
+    synonyms: ["probate", "decedent", "deceased"],
   },
   {
     key: "system",

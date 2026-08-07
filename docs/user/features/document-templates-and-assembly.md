@@ -205,6 +205,84 @@ where the block was.
 **A role you use that is not one of the four** is still reachable: `{{#each matter.parties}}` walks
 everyone linked to the matter, and each item carries `role` alongside `displayName` and `kind`.
 
+## Your own people
+
+The attorneys and staff on your side of the file are merge fields too. The **responsible attorney**
+comes from the matter itself — every matter has one. The rest come from the matter's **staffing**: on
+the matter, add an assignment naming a member and their working role, and the matching fields fill
+in:
+
+```
+{{responsibleAttorney.displayName}}, {{responsibleAttorney.title}}
+{{supervisingAttorney.displayName}} - {{supervisingAttorney.emailAddress}}
+{{assignedParalegal.displayName}}, direct dial {{assignedParalegal.directDial}}
+```
+
+The roles are `responsibleAttorney`, `originatingAttorney`, `supervisingAttorney`,
+`billingAttorney`, and `assignedParalegal` — and as with party roles, spacing, capitals, hyphens,
+and underscores in how you record the role are ignored. Names take every rendering a party's name
+does (`{{responsibleAttorney.displayName:lastFirst}}`), the title, email address, and direct dial
+come from the member's **professional profile** (an administrator maintains it under Members), and
+two people staffed in one role behaves exactly as two opposing parties do: a marker, a note saying
+there were two, and `{{supervisingAttorney.all}}` to list them.
+
+**Bar numbers are protected values.** `{{responsibleAttorney.barNumber}}` fills in only for a member
+permitted to read protected identifiers, every fill-in is recorded, and it is held on the member's
+Directory record — ask an administrator to record it there if the marker says none is held.
+
+## The court and the case
+
+A litigation or probate matter can record its **court case**: the court, the judge, the case number,
+the division and department, the filing date — and the two words _this_ court's captions use for
+each side. A caption then reads:
+
+```
+IN THE {{court.name:upper}}
+{{client.displayName:upper}}, {{case.clientDesignation}},
+v.
+{{opposingParty.displayName:upper}}, {{case.opposingDesignation}}.
+Case No. {{case.number}}
+```
+
+`{{case.clientDesignation}}` prints whatever you recorded — Plaintiff, Petitioner, Appellant — so
+the same template files correctly in courts that use different vocabularies. The judge's name
+(`{{court.judge}}`) takes every name rendering. A matter with no court case simply shows markers,
+which is the honest state of a draft prepared before filing.
+
+## The estate
+
+A probate matter can record the **estate** it administers, and an estate has several names, each
+used in a different place:
+
+```
+In the Matter of {{estate.style}}
+The decedent, {{estate.decedent}}, died on {{estate.dateOfDeath:legal}}.
+Correspondence concerning {{estate.shortStyle}} ...
+```
+
+The style — "the Estate of Rowan Ashcroft, Deceased" — is stored **exactly as the court has it**,
+never assembled from pieces, because a court-fixed designation has to be stated verbatim. The
+decedent's name takes every rendering; the record also carries the proceeding type and the date
+letters issued. And when a template lists what the estate owns, the asset register's figures speak
+**as of the date of death** automatically.
+
+## Acting in a capacity
+
+When you link a party to a matter you can record the **capacity** they act in — Administrator,
+Trustee, Attorney-in-fact. `{{client.capacity}}` prints the word itself, and
+`{{client.capacityLine}}` prints the whole phrase a petition opens with:
+
+```
+Petitioner: {{client.capacityLine}}.
+-> Petitioner: Devon Marchetti, as Administrator of the Estate of Rowan Ashcroft, Deceased.
+```
+
+The phrase is put together for you from three recorded facts — the party's name, the capacity on the
+link, and the estate's style. If any part is missing, the whole phrase shows **one** marker and the
+result names which part to record. Do not build it by hand in the template: a hand-built
+`{{client.displayName}}, as {{client.capacity}} of {{estate.style}}` renders stray punctuation and
+three separate markers the moment one fact is unrecorded.
+
 ## Your firm's own fields
 
 Every custom field you have defined on matters is a merge field too. Its name in a template is
@@ -451,12 +529,16 @@ is a report, not a template.
 
 ## What is not here yet
 
-- **A party's own details** beyond their name and whether they are a person or an organisation — an
-  address, a telephone number, an email.
-- **The attorneys on your own side** — the responsible attorney, the supervising partner, the
-  paralegal on the file — and the court, the case number, and an estate's own names.
-- **Protected details for anyone but the client** — an opposing party's date of birth, say.
+- **A party's own details** beyond their name, capacity, and whether they are a person or an
+  organisation — an address, a telephone number, an email.
+- **Addresses and signature blocks as fields** — a member's office address, the court's address, and
+  the signature block a pleading signs off with. The facts are recorded today; the fields arrive
+  with proper multi-line rendering, so an address never comes out flattened onto one line.
+- **Protected details for anyone but the client and your members' bar numbers** — an opposing
+  party's date of birth, say.
 - **Marking one of your own custom fields as protected.** The protected fields today are the client's
-  identifiers held in the Directory.
+  identifiers and members' bar numbers, held in the Directory.
+- **A member editing their own professional profile** — today an administrator maintains profiles
+  under Members.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

@@ -2809,6 +2809,752 @@
           "matterNumber"
         ]
       },
+      "MatterAssignmentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssignmentRecord"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MatterAssignmentRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "memberUserId": {
+            "type": "string"
+          },
+          "assignmentRole": {
+            "type": "string"
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "memberUserId",
+          "assignmentRole",
+          "validFrom",
+          "validTo",
+          "createdAt"
+        ]
+      },
+      "MatterAssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CreateMatterAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "memberUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "assignmentRole": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The working role — originating attorney, supervising attorney, billing attorney, assigned paralegal, or the firm's own wording of one. Matched by its letters and digits, so spelling and separators are free. The responsible attorney is refused here: that fact lives on the matter itself."
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "memberUserId",
+          "assignmentRole"
+        ]
+      },
+      "MatterCourtCaseReadResponse": {
+        "type": "object",
+        "properties": {
+          "courtCase": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "matterId": {
+                "type": "string"
+              },
+              "courtEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The court, as a Directory organisation — its name and identity live there."
+              },
+              "judgeEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The assigned judge, as a Directory person."
+              },
+              "caseNumber": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "division": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "department": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "filedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "clientDesignation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What this court's caption calls the client's side — Plaintiff, Petitioner."
+              },
+              "opposingDesignation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What this court's caption calls the other side — Defendant, Respondent."
+              }
+            },
+            "required": [
+              "id",
+              "matterId",
+              "courtEntityId",
+              "judgeEntityId",
+              "caseNumber",
+              "division",
+              "department",
+              "filedOn",
+              "clientDesignation",
+              "opposingDesignation"
+            ]
+          }
+        },
+        "required": [
+          "courtCase"
+        ]
+      },
+      "MatterCourtCaseResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "courtEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The court, as a Directory organisation — its name and identity live there."
+          },
+          "judgeEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The assigned judge, as a Directory person."
+          },
+          "caseNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "division": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "department": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "filedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "clientDesignation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What this court's caption calls the client's side — Plaintiff, Petitioner."
+          },
+          "opposingDesignation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What this court's caption calls the other side — Defendant, Respondent."
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "courtEntityId",
+          "judgeEntityId",
+          "caseNumber",
+          "division",
+          "department",
+          "filedOn",
+          "clientDesignation",
+          "opposingDesignation"
+        ]
+      },
+      "MatterCourtCaseFields": {
+        "type": "object",
+        "properties": {
+          "courtEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The court, as a Directory organisation — its name and identity live there."
+          },
+          "judgeEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The assigned judge, as a Directory person."
+          },
+          "caseNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "division": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "department": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "filedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "clientDesignation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What this court's caption calls the client's side — Plaintiff, Petitioner."
+          },
+          "opposingDesignation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What this court's caption calls the other side — Defendant, Respondent."
+          }
+        },
+        "required": [
+          "courtEntityId",
+          "judgeEntityId",
+          "caseNumber",
+          "division",
+          "department",
+          "filedOn",
+          "clientDesignation",
+          "opposingDesignation"
+        ]
+      },
+      "MatterEstateReadResponse": {
+        "type": "object",
+        "properties": {
+          "estate": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "matterId": {
+                "type": "string"
+              },
+              "decedentEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The decedent, as a Directory person — every name rendering reads from there."
+              },
+              "estateEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier."
+              },
+              "dateOfDeath": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "estateStyle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 500,
+                "description": "The estate's style exactly as the court has it — stored, never composed."
+              },
+              "shortStyle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "proceedingType": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "testate",
+                  "intestate",
+                  "small_estate",
+                  "ancillary",
+                  null
+                ]
+              },
+              "lettersIssuedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "id",
+              "matterId",
+              "decedentEntityId",
+              "estateEntityId",
+              "dateOfDeath",
+              "estateStyle",
+              "shortStyle",
+              "proceedingType",
+              "lettersIssuedOn"
+            ]
+          }
+        },
+        "required": [
+          "estate"
+        ]
+      },
+      "MatterEstateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "decedentEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decedent, as a Directory person — every name rendering reads from there."
+          },
+          "estateEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier."
+          },
+          "dateOfDeath": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "estateStyle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "The estate's style exactly as the court has it — stored, never composed."
+          },
+          "shortStyle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "proceedingType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "testate",
+              "intestate",
+              "small_estate",
+              "ancillary",
+              null
+            ]
+          },
+          "lettersIssuedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "decedentEntityId",
+          "estateEntityId",
+          "dateOfDeath",
+          "estateStyle",
+          "shortStyle",
+          "proceedingType",
+          "lettersIssuedOn"
+        ]
+      },
+      "MatterEstateFields": {
+        "type": "object",
+        "properties": {
+          "decedentEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decedent, as a Directory person — every name rendering reads from there."
+          },
+          "estateEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier."
+          },
+          "dateOfDeath": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "estateStyle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "The estate's style exactly as the court has it — stored, never composed."
+          },
+          "shortStyle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "proceedingType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "testate",
+              "intestate",
+              "small_estate",
+              "ancillary",
+              null
+            ]
+          },
+          "lettersIssuedOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "decedentEntityId",
+          "estateEntityId",
+          "dateOfDeath",
+          "estateStyle",
+          "shortStyle",
+          "proceedingType",
+          "lettersIssuedOn"
+        ]
+      },
+      "MemberProfessionalProfileReadResponse": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "memberUserId": {
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "admissions": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2000,
+                "description": "Bar admissions as running prose the firm writes — never parsed, never guessed."
+              },
+              "directDial": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100
+              },
+              "professionalEmail": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 320
+              },
+              "signatureBlock": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4000,
+                "description": "The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands."
+              }
+            },
+            "required": [
+              "memberUserId",
+              "title",
+              "admissions",
+              "directDial",
+              "professionalEmail",
+              "signatureBlock"
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ]
+      },
+      "MemberProfessionalProfileResponse": {
+        "type": "object",
+        "properties": {
+          "memberUserId": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "admissions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Bar admissions as running prose the firm writes — never parsed, never guessed."
+          },
+          "directDial": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "professionalEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 320
+          },
+          "signatureBlock": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000,
+            "description": "The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands."
+          }
+        },
+        "required": [
+          "memberUserId",
+          "title",
+          "admissions",
+          "directDial",
+          "professionalEmail",
+          "signatureBlock"
+        ]
+      },
+      "MemberProfessionalProfileFields": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "admissions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "description": "Bar admissions as running prose the firm writes — never parsed, never guessed."
+          },
+          "directDial": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "professionalEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 320
+          },
+          "signatureBlock": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000,
+            "description": "The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands."
+          }
+        },
+        "required": [
+          "title",
+          "admissions",
+          "directDial",
+          "professionalEmail",
+          "signatureBlock"
+        ]
+      },
       "MatterType": {
         "type": "object",
         "properties": {
@@ -4738,7 +5484,8 @@
               "dob",
               "account",
               "drivers_license",
-              "ssn_last_four"
+              "ssn_last_four",
+              "bar_number"
             ]
           },
           "value": {
@@ -4970,7 +5717,8 @@
                     "dob",
                     "account",
                     "drivers_license",
-                    "ssn_last_four"
+                    "ssn_last_four",
+                    "bar_number"
                   ]
                 },
                 "value": {
@@ -5053,6 +5801,12 @@
           "role": {
             "type": "string",
             "minLength": 1
+          },
+          "capacity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The capacity the entity acts in on this matter — Administrator, Trustee, Attorney-in-fact. Recorded by the firm, never inferred; documents that name a capacity read this value and show an honest gap where none was recorded."
           }
         },
         "required": [
@@ -24583,6 +25337,958 @@
         }
       }
     },
+    "/api/v1/matters/{id}/assignments": {
+      "get": {
+        "description": "Lists the matter's staffing assignments, every recorded window included. The responsible attorney is not among them: that fact lives on the matter record itself.",
+        "operationId": "matters.listAssignments",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.listAssignments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's assignments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssignmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Staffs a firm member onto the matter in a working role. A role that names the responsible attorney is refused — edit the matter's responsible attorney instead, so that fact keeps one home.",
+        "operationId": "matters.createAssignment",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.createAssignment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMatterAssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssignmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/assignments/{assignmentId}/end": {
+      "post": {
+        "description": "Ends an assignment: stamps its validity window closed and keeps the row — who carried a file, and when, is the matter's own record and outlives the staffing.",
+        "operationId": "matters.endAssignment",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.endAssignment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterAssignment_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "assignmentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The assignment was ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssignmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/court-case": {
+      "get": {
+        "description": "Returns the matter's court-case record, or null for a matter that is not before a court — which is an ordinary state, not an error.",
+        "operationId": "matters.courtCase",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.courtCase",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's court-case record, when one is recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterCourtCaseReadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Records or updates the matter's court-case identity: the court (a Directory organisation), the judge (a Directory person), the case number, and the designation words this court's captions use. One record per matter; its facts accrete as the case does.",
+        "operationId": "matters.setCourtCase",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.setCourtCase",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterCourtCaseFields"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recorded court-case record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterCourtCaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/estate": {
+      "get": {
+        "description": "Returns the matter's estate record, or null for a matter that administers no estate — an ordinary state, not an error.",
+        "operationId": "matters.estate",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.estate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's estate record, when one is recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterEstateReadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Records or updates the estate a probate matter administers: the decedent (a Directory person), the date of death, the estate's styles exactly as the court fixed them, the proceeding type, and the letters-issued date. One record per matter.",
+        "operationId": "matters.setEstate",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.setEstate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterEstateFields"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recorded estate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterEstateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/members/{userId}/professional-profile": {
+      "get": {
+        "description": "Returns a member's professional profile, or null where none has been written yet. Open to any authenticated member: it is the identity the firm's own documents state.",
+        "operationId": "members.professionalProfile",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.professionalProfile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's professional profile, when one exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberProfessionalProfileReadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the member is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Writes any member's professional profile — the administrative door, under firm:manageMembers.",
+        "operationId": "members.setProfessionalProfile",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.setProfessionalProfile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberProfessionalProfileFields"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The written profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberProfessionalProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the member is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matter-types": {
       "post": {
         "description": "Creates a matter type (name plus an optional short code used by numbering schemes).",
@@ -29840,7 +31546,8 @@
                 "dob",
                 "account",
                 "drivers_license",
-                "ssn_last_four"
+                "ssn_last_four",
+                "bar_number"
               ]
             },
             "required": true,

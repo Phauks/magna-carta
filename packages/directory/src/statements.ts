@@ -68,6 +68,9 @@ export interface InsertMatterPartyRow {
   readonly matterId: string;
   readonly entityId: string;
   readonly role: string;
+  // The capacity the party acts in on this matter — "Administrator", "Trustee" — recorded by the
+  // firm, never inferred. Null when the link carries none.
+  readonly capacity: string | null;
   readonly createdAt: string;
 }
 
@@ -77,9 +80,9 @@ export function insertMatterPartyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_PARTY_TABLE} (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
+      `INSERT INTO ${MATTER_PARTY_TABLE} (id, matter_id, entity_id, role, capacity, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, ?6, ?6, NULL)`,
     )
-    .bind(row.id, row.matterId, row.entityId, row.role, row.createdAt);
+    .bind(row.id, row.matterId, row.entityId, row.role, row.capacity, row.createdAt);
 }
 
 // An email address attached to an entity. `address` is stored as entered (trimmed); `normalized`

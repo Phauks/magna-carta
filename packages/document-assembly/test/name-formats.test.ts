@@ -130,6 +130,7 @@ describe("the party read supplies the parts", () => {
       partyNameValue({
         displayName: "Rowan Ashcroft",
         role: "witness",
+        capacity: null,
         kind: "person",
         entityId: "directoryPerson_AAAAAAAAAAAAAAAAAAAAA",
         namePrefix: "Dr.",
@@ -152,6 +153,7 @@ describe("the party read supplies the parts", () => {
     const value = partyNameValue({
       displayName: "A name the link still carries",
       role: "witness",
+      capacity: null,
       kind: "unknown",
       entityId: "directoryPerson_AAAAAAAAAAAAAAAAAAAAA",
       namePrefix: null,

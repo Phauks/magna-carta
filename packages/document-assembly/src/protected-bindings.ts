@@ -2,8 +2,14 @@ import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-
 import type { IdentifierType } from "@magna-carta/directory/types";
 import type { DictionaryEntry } from "./catalog/entry.ts";
 import { exampleRenderingsFor } from "./catalog/examples.ts";
-import { mergeSubject, normalizedRoleToken } from "./catalog/subjects.ts";
+import {
+  MERGE_SUBJECTS,
+  mergeSubject,
+  normalizedRoleToken,
+  type MergeSubject,
+} from "./catalog/subjects.ts";
 import type { MatterPartyMergeRow } from "./merge-statements.ts";
+import type { StaffingSlot } from "./staffing-bindings.ts";
 import type { MergeValue } from "./types.ts";
 
 // The client's sealed identifiers, as merge fields.
@@ -102,6 +108,12 @@ const IDENTIFIER_SOURCES: Readonly<
     synonyms: ["SSN last four", "last four"],
     exampleRendering: "0000",
   },
+  bar_number: {
+    segment: "barNumber",
+    label: "bar number",
+    synonyms: ["bar", "state bar number", "attorney number"],
+    exampleRendering: "00000",
+  },
 };
 
 export const PROTECTED_IDENTIFIER_SOURCES: readonly ProtectedIdentifierSource[] = Object.entries(
@@ -172,6 +184,151 @@ export const PROTECTED_DICTIONARY_ENTRIES: readonly DictionaryEntry[] =
     }),
     status: "current" as const,
   }));
+
+// ---------------------------------------------------------------------------------------------
+// The firm's own people's bar numbers
+// ---------------------------------------------------------------------------------------------
+
+// One protected merge key per MEMBER subject: `responsibleAttorney.barNumber` and its four
+// siblings. A pleading's signature block states the signing attorney's bar number, and it is the
+// one protected fact a document asks about the firm's own people — held encrypted on the member's
+// mapped Directory person, read through the same chokepoint the client's identifiers use.
+export interface MemberProtectedSource {
+  readonly key: string;
+  // The subject whose resolved slot supplies the entity. The decrypt is attempted only for a slot
+  // that RESOLVED — an ambiguous or empty slot is an absence before any decryption, so an assembly
+  // cannot generate a decrypt audit trail for a member the document never names.
+  readonly subjectKey: string;
+  readonly label: string;
+  readonly identifierType: IdentifierType;
+}
+
+export const MEMBER_PROTECTED_SOURCES: readonly MemberProtectedSource[] = MERGE_SUBJECTS.filter(
+  (subject) => subject.kind === "member",
+).map((subject: MergeSubject) => ({
+  key: `${subject.key}.barNumber`,
+  subjectKey: subject.key,
+  label: subject.proseLabel,
+  identifierType: "bar_number" as IdentifierType,
+}));
+
+const MEMBER_SOURCE_BY_KEY: ReadonlyMap<string, MemberProtectedSource> = new Map(
+  MEMBER_PROTECTED_SOURCES.map((source) => [source.key, source]),
+);
+
+export function memberProtectedSourcesIn(keys: Iterable<string>): readonly MemberProtectedSource[] {
+  const wanted: MemberProtectedSource[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    const source = MEMBER_SOURCE_BY_KEY.get(key);
+    if (source === undefined || seen.has(source.key)) continue;
+    seen.add(source.key);
+    wanted.push(source);
+  }
+  return wanted;
+}
+
+export const MEMBER_PROTECTED_DICTIONARY_ENTRIES: readonly DictionaryEntry[] =
+  MEMBER_PROTECTED_SOURCES.map((source) => {
+    const subject = mergeSubject(source.subjectKey);
+    return {
+      key: source.key,
+      source: "protectedIdentifier" as const,
+      valueType: "text" as const,
+      defaultFormat: "plain",
+      sensitivity: "protected" as const,
+      absence: "placeholder" as const,
+      description: `The ${source.label}'s bar number, held encrypted. Filling it in decrypts it, which requires permission and is recorded.`,
+      label: `${subject?.label ?? source.subjectKey}'s bar number`,
+      group: subject?.group ?? "ourPeople",
+      subject: source.subjectKey,
+      // Behind the subject's disclosure, so an author choosing an attorney's name never trips over
+      // their sealed identifier.
+      prominence: "secondary" as const,
+      synonyms: ["bar", "bar number", "state bar number"],
+      exampleRenderings: exampleRenderingsFor("text", { kind: "text", text: "00000" }),
+      status: "current" as const,
+    };
+  });
+
+function memberRefusalReason(source: MemberProtectedSource, permission: string): string {
+  return `The ${source.label}'s bar number is a protected value. Filling it in requires the ${permission} permission, which you do not hold, so the document shows a marker where it would have gone — ask someone who holds that permission to complete it.`;
+}
+
+// Every member bar number the manifest named, resolved through the caller's chokepoint reader
+// against the slot the staffing resolution produced. Three properties, in resolution order:
+//
+// 1. A SLOT THAT DID NOT RESOLVE IS AN ABSENCE BEFORE ANY DECRYPT. An ambiguous or empty staffing
+//    slot carries its own reason, and no read — and therefore no decrypt audit row — happens for it.
+// 2. A MEMBER THE DIRECTORY DOES NOT MIRROR HAS NO IDENTIFIER TO READ. The bar number lives on the
+//    member's mapped Directory person; a member without one is an absence naming that, not a decrypt
+//    of nothing.
+// 3. A REFUSAL COSTS ONE ATTEMPT AND ANSWERS EVERY REMAINING KEY — the permission guarding one
+//    sealed identifier guards them all, exactly as the client pass short-circuits.
+export async function memberProtectedValues(
+  sources: readonly MemberProtectedSource[],
+  slots: ReadonlyMap<string, StaffingSlot>,
+  read: ProtectedIdentifierReader | undefined,
+): Promise<ProtectedIdentifierResolution> {
+  const values = new Map<string, MergeValue>();
+  const reasons = new Map<string, string>();
+  if (sources.length === 0) return { values, reasons };
+
+  if (read === undefined) {
+    for (const source of sources) {
+      reasons.set(
+        source.key,
+        `The ${source.label}'s bar number is a protected value, and this assembly ran without a way to read protected values.`,
+      );
+    }
+    return { values, reasons };
+  }
+
+  let refusedPermission: string | undefined;
+  for (const source of sources) {
+    if (refusedPermission !== undefined) {
+      reasons.set(source.key, memberRefusalReason(source, refusedPermission));
+      continue;
+    }
+    const slot = slots.get(source.subjectKey);
+    if (slot?.row === undefined) {
+      reasons.set(
+        source.key,
+        slot?.reason ?? `This matter staffs no member in the ${source.label} role.`,
+      );
+      continue;
+    }
+    const entityId = slot.row.entityId;
+    if (entityId === null) {
+      reasons.set(
+        source.key,
+        `The ${source.label} has no Directory record mapped to their member account, so there is no identifier record to read a bar number from.`,
+      );
+      continue;
+    }
+    let plaintext: string | null;
+    try {
+      plaintext = await read(entityId, source.identifierType);
+    } catch (error) {
+      // The chokepoint's own refusal, caught by identity — thrown BEFORE any decrypt and before any
+      // audit row, so a refused read is not a read. Anything else propagates to the caller.
+      if (!(error instanceof ProtectedReadForbiddenError)) throw error;
+      refusedPermission = error.permission;
+      reasons.set(source.key, memberRefusalReason(source, error.permission));
+      continue;
+    }
+    if (plaintext === null || plaintext === "") {
+      reasons.set(
+        source.key,
+        `The Directory holds no bar number for the ${source.label}'s mapped record.`,
+      );
+      continue;
+    }
+    values.set(source.key, { kind: "text", text: plaintext });
+  }
+
+  return { values, reasons };
+}
 
 // How the caller reads one sealed identifier. Injected rather than imported, exactly as the image-asset
 // reader is: the plaintext comes from the firm's protected-field chokepoint, which needs a firm key, an

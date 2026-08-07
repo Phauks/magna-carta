@@ -115,6 +115,11 @@ const IDENTIFIER_DECLARATIONS: Readonly<Record<IdentifierType, ProtectedFieldDec
   dob: directoryIdentifierValue,
   // SSN last-four — protected, NEVER standalone-indexed.
   ssn_last_four: directoryIdentifierValue,
+  // Bar number — professional public record the firm nonetheless holds encrypted, so reading one is
+  // still permission-gated and audited. NEVER standalone-indexed: a bar number is a short
+  // state-scoped integer whose entropy is too low to index without leaking the value distribution,
+  // the same reasoning DOB takes, and nothing needs to equality-search one.
+  bar_number: directoryIdentifierValue,
 };
 
 // A directory_identifier row. value_ciphertext is the chokepoint-sealed value; value_blind_index is the

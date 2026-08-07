@@ -672,6 +672,218 @@ export type RenumberMatterRequest = {
     matterNumber: string;
 };
 
+export type MatterAssignmentListResponse = {
+    data: Array<MatterAssignmentRecord>;
+};
+
+export type MatterAssignmentRecord = {
+    id: string;
+    matterId: string;
+    memberUserId: string;
+    assignmentRole: string;
+    validFrom: string | null;
+    validTo: string | null;
+    createdAt: string;
+};
+
+export type MatterAssignmentResponse = {
+    id: string;
+};
+
+export type CreateMatterAssignmentRequest = {
+    memberUserId: string;
+    /**
+     * The working role — originating attorney, supervising attorney, billing attorney, assigned paralegal, or the firm's own wording of one. Matched by its letters and digits, so spelling and separators are free. The responsible attorney is refused here: that fact lives on the matter itself.
+     */
+    assignmentRole: string;
+    validFrom?: string | null;
+    validTo?: string | null;
+};
+
+export type MatterCourtCaseReadResponse = {
+    courtCase: {
+        id: string;
+        matterId: string;
+        /**
+         * The court, as a Directory organisation — its name and identity live there.
+         */
+        courtEntityId: string | null;
+        /**
+         * The assigned judge, as a Directory person.
+         */
+        judgeEntityId: string | null;
+        caseNumber: string | null;
+        division: string | null;
+        department: string | null;
+        filedOn: string | null;
+        /**
+         * What this court's caption calls the client's side — Plaintiff, Petitioner.
+         */
+        clientDesignation: string | null;
+        /**
+         * What this court's caption calls the other side — Defendant, Respondent.
+         */
+        opposingDesignation: string | null;
+    } | null;
+};
+
+export type MatterCourtCaseResponse = {
+    id: string;
+    matterId: string;
+    /**
+     * The court, as a Directory organisation — its name and identity live there.
+     */
+    courtEntityId: string | null;
+    /**
+     * The assigned judge, as a Directory person.
+     */
+    judgeEntityId: string | null;
+    caseNumber: string | null;
+    division: string | null;
+    department: string | null;
+    filedOn: string | null;
+    /**
+     * What this court's caption calls the client's side — Plaintiff, Petitioner.
+     */
+    clientDesignation: string | null;
+    /**
+     * What this court's caption calls the other side — Defendant, Respondent.
+     */
+    opposingDesignation: string | null;
+};
+
+export type MatterCourtCaseFields = {
+    /**
+     * The court, as a Directory organisation — its name and identity live there.
+     */
+    courtEntityId: string | null;
+    /**
+     * The assigned judge, as a Directory person.
+     */
+    judgeEntityId: string | null;
+    caseNumber: string | null;
+    division: string | null;
+    department: string | null;
+    filedOn: string | null;
+    /**
+     * What this court's caption calls the client's side — Plaintiff, Petitioner.
+     */
+    clientDesignation: string | null;
+    /**
+     * What this court's caption calls the other side — Defendant, Respondent.
+     */
+    opposingDesignation: string | null;
+};
+
+export type MatterEstateReadResponse = {
+    estate: {
+        id: string;
+        matterId: string;
+        /**
+         * The decedent, as a Directory person — every name rendering reads from there.
+         */
+        decedentEntityId: string | null;
+        /**
+         * The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier.
+         */
+        estateEntityId: string | null;
+        dateOfDeath: string | null;
+        /**
+         * The estate's style exactly as the court has it — stored, never composed.
+         */
+        estateStyle: string | null;
+        shortStyle: string | null;
+        proceedingType: 'testate' | 'intestate' | 'small_estate' | 'ancillary' | null;
+        lettersIssuedOn: string | null;
+    } | null;
+};
+
+export type MatterEstateResponse = {
+    id: string;
+    matterId: string;
+    /**
+     * The decedent, as a Directory person — every name rendering reads from there.
+     */
+    decedentEntityId: string | null;
+    /**
+     * The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier.
+     */
+    estateEntityId: string | null;
+    dateOfDeath: string | null;
+    /**
+     * The estate's style exactly as the court has it — stored, never composed.
+     */
+    estateStyle: string | null;
+    shortStyle: string | null;
+    proceedingType: 'testate' | 'intestate' | 'small_estate' | 'ancillary' | null;
+    lettersIssuedOn: string | null;
+};
+
+export type MatterEstateFields = {
+    /**
+     * The decedent, as a Directory person — every name rendering reads from there.
+     */
+    decedentEntityId: string | null;
+    /**
+     * The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier.
+     */
+    estateEntityId: string | null;
+    dateOfDeath: string | null;
+    /**
+     * The estate's style exactly as the court has it — stored, never composed.
+     */
+    estateStyle: string | null;
+    shortStyle: string | null;
+    proceedingType: 'testate' | 'intestate' | 'small_estate' | 'ancillary' | null;
+    lettersIssuedOn: string | null;
+};
+
+export type MemberProfessionalProfileReadResponse = {
+    profile: {
+        memberUserId: string;
+        title: string | null;
+        /**
+         * Bar admissions as running prose the firm writes — never parsed, never guessed.
+         */
+        admissions: string | null;
+        directDial: string | null;
+        professionalEmail: string | null;
+        /**
+         * The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands.
+         */
+        signatureBlock: string | null;
+    } | null;
+};
+
+export type MemberProfessionalProfileResponse = {
+    memberUserId: string;
+    title: string | null;
+    /**
+     * Bar admissions as running prose the firm writes — never parsed, never guessed.
+     */
+    admissions: string | null;
+    directDial: string | null;
+    professionalEmail: string | null;
+    /**
+     * The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands.
+     */
+    signatureBlock: string | null;
+};
+
+export type MemberProfessionalProfileFields = {
+    title: string | null;
+    /**
+     * Bar admissions as running prose the firm writes — never parsed, never guessed.
+     */
+    admissions: string | null;
+    directDial: string | null;
+    professionalEmail: string | null;
+    /**
+     * The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands.
+     */
+    signatureBlock: string | null;
+};
+
 export type MatterType = {
     id: string;
     name: string;
@@ -1125,7 +1337,7 @@ export type AddDirectoryNameRequest = {
 };
 
 export type AddDirectoryIdentifierRequest = {
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     value: string;
     validFrom?: string | null;
     validTo?: string | null;
@@ -1182,7 +1394,7 @@ export type DirectoryDuplicateCandidatesRequest = {
     family?: string;
     legalName?: string;
     identifiers?: Array<{
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
         value: string;
     }>;
     excludeEntityId?: string;
@@ -1208,6 +1420,10 @@ export type LinkMatterPartyRequest = {
     matterId: string;
     entityId: string;
     role: string;
+    /**
+     * The capacity the entity acts in on this matter — Administrator, Trustee, Attorney-in-fact. Recorded by the firm, never inferred; documents that name a capacity read this value and show an honest gap where none was recorded.
+     */
+    capacity?: string;
 };
 
 export type CreatedConflictsCheckResponse = {
@@ -7031,6 +7247,417 @@ export type MattersRenumberResponses = {
 
 export type MattersRenumberResponse = MattersRenumberResponses[keyof MattersRenumberResponses];
 
+export type MattersListAssignmentsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/assignments';
+};
+
+export type MattersListAssignmentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersListAssignmentsError = MattersListAssignmentsErrors[keyof MattersListAssignmentsErrors];
+
+export type MattersListAssignmentsResponses = {
+    /**
+     * The matter's assignments
+     */
+    200: MatterAssignmentListResponse;
+};
+
+export type MattersListAssignmentsResponse = MattersListAssignmentsResponses[keyof MattersListAssignmentsResponses];
+
+export type MattersCreateAssignmentData = {
+    body: CreateMatterAssignmentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/assignments';
+};
+
+export type MattersCreateAssignmentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCreateAssignmentError = MattersCreateAssignmentErrors[keyof MattersCreateAssignmentErrors];
+
+export type MattersCreateAssignmentResponses = {
+    /**
+     * The assignment
+     */
+    201: MatterAssignmentResponse;
+};
+
+export type MattersCreateAssignmentResponse = MattersCreateAssignmentResponses[keyof MattersCreateAssignmentResponses];
+
+export type MattersEndAssignmentData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+        assignmentId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/assignments/{assignmentId}/end';
+};
+
+export type MattersEndAssignmentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersEndAssignmentError = MattersEndAssignmentErrors[keyof MattersEndAssignmentErrors];
+
+export type MattersEndAssignmentResponses = {
+    /**
+     * The assignment was ended
+     */
+    200: MatterAssignmentResponse;
+};
+
+export type MattersEndAssignmentResponse = MattersEndAssignmentResponses[keyof MattersEndAssignmentResponses];
+
+export type MattersCourtCaseData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/court-case';
+};
+
+export type MattersCourtCaseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCourtCaseError = MattersCourtCaseErrors[keyof MattersCourtCaseErrors];
+
+export type MattersCourtCaseResponses = {
+    /**
+     * The matter's court-case record, when one is recorded
+     */
+    200: MatterCourtCaseReadResponse;
+};
+
+export type MattersCourtCaseResponse = MattersCourtCaseResponses[keyof MattersCourtCaseResponses];
+
+export type MattersSetCourtCaseData = {
+    body: MatterCourtCaseFields;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/court-case';
+};
+
+export type MattersSetCourtCaseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersSetCourtCaseError = MattersSetCourtCaseErrors[keyof MattersSetCourtCaseErrors];
+
+export type MattersSetCourtCaseResponses = {
+    /**
+     * The recorded court-case record
+     */
+    200: MatterCourtCaseResponse;
+};
+
+export type MattersSetCourtCaseResponse = MattersSetCourtCaseResponses[keyof MattersSetCourtCaseResponses];
+
+export type MattersEstateData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/estate';
+};
+
+export type MattersEstateErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersEstateError = MattersEstateErrors[keyof MattersEstateErrors];
+
+export type MattersEstateResponses = {
+    /**
+     * The matter's estate record, when one is recorded
+     */
+    200: MatterEstateReadResponse;
+};
+
+export type MattersEstateResponse = MattersEstateResponses[keyof MattersEstateResponses];
+
+export type MattersSetEstateData = {
+    body: MatterEstateFields;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/estate';
+};
+
+export type MattersSetEstateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersSetEstateError = MattersSetEstateErrors[keyof MattersSetEstateErrors];
+
+export type MattersSetEstateResponses = {
+    /**
+     * The recorded estate record
+     */
+    200: MatterEstateResponse;
+};
+
+export type MattersSetEstateResponse = MattersSetEstateResponses[keyof MattersSetEstateResponses];
+
+export type MembersProfessionalProfileData = {
+    body?: never;
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/professional-profile';
+};
+
+export type MembersProfessionalProfileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersProfessionalProfileError = MembersProfessionalProfileErrors[keyof MembersProfessionalProfileErrors];
+
+export type MembersProfessionalProfileResponses = {
+    /**
+     * The member's professional profile, when one exists
+     */
+    200: MemberProfessionalProfileReadResponse;
+};
+
+export type MembersProfessionalProfileResponse = MembersProfessionalProfileResponses[keyof MembersProfessionalProfileResponses];
+
+export type MembersSetProfessionalProfileData = {
+    body: MemberProfessionalProfileFields;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/professional-profile';
+};
+
+export type MembersSetProfessionalProfileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersSetProfessionalProfileError = MembersSetProfessionalProfileErrors[keyof MembersSetProfessionalProfileErrors];
+
+export type MembersSetProfessionalProfileResponses = {
+    /**
+     * The written profile
+     */
+    200: MemberProfessionalProfileResponse;
+};
+
+export type MembersSetProfessionalProfileResponse = MembersSetProfessionalProfileResponses[keyof MembersSetProfessionalProfileResponses];
+
 export type MatterTypesListData = {
     body?: never;
     path?: never;
@@ -9302,7 +9929,7 @@ export type DirectoryReadIdentifierData = {
     body?: never;
     path: {
         id: string;
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     };
     query?: never;
     url: '/api/v1/directory/entities/{id}/identifiers/{type}';

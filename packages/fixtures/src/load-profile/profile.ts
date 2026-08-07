@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 8;
+export const GENERATOR_VERSION = 9;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -249,6 +249,11 @@ export interface DocumentAutomationVolume {
   readonly customFieldBindings: number;
   // Party links on the probe matter: the matter's whole party collection, read once for a repeat.
   readonly partyLinksOnProbeMatter: number;
+  // Staffing assignments on the probe matter beyond the responsible attorney (who lives on the
+  // matter row): the rows the ONE staffing read joins to members, profiles, and mapped Directory
+  // persons. The probe matter also carries its court-case and estate records — one of each by
+  // construction, so they are structural rather than parameters.
+  readonly staffingAssignmentsOnProbeMatter: number;
   // Assemblies (filed-document provenance rows) recorded per matter over the span.
   readonly assembliesPerMatter: { readonly min: number; readonly max: number };
   // Confirmed Word-name-to-merge-key entries in the firm's mapping library — read WHOLE, once per
@@ -358,7 +363,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 11,
+  version: 12,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -465,6 +470,7 @@ export const ledgerVolume: LedgerVolumeProfile = {
     occurrencesPerField: { min: 1, max: 3 },
     customFieldBindings: 40,
     partyLinksOnProbeMatter: 12,
+    staffingAssignmentsOnProbeMatter: 3,
     assembliesPerMatter: { min: 0, max: 8 },
     fieldMappingCount: 120,
     templateSizeBytes: { min: 20_000, max: 400_000 },
