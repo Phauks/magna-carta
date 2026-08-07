@@ -41,6 +41,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/object-dimensions": "workspace:*",
     "client-zip": "catalog:",
     "file-type": "catalog:",
     "zod": "catalog:"

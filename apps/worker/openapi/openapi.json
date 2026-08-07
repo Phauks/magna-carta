@@ -11222,6 +11222,469 @@
           "status"
         ]
       },
+      "ReviewSetList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewSet"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReviewSet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "locked",
+              "closed"
+            ]
+          },
+          "documentCeiling": {
+            "type": "number"
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "semanticIndexEnabled": {
+            "type": "boolean"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "lockedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "name",
+          "state",
+          "documentCeiling",
+          "documentCount",
+          "semanticIndexEnabled",
+          "createdBy",
+          "lockedAt",
+          "closedAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateReviewSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "semanticIndexEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateReviewSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "semanticIndexEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TransitionReviewSetRequest": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "locked",
+              "closed"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "RecordCustodianList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordCustodian"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "RecordCustodian": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewSetId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "directoryEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unattributed"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reviewSetId",
+          "displayName",
+          "directoryEntityId",
+          "kind",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateRecordCustodianRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unattributed"
+            ]
+          },
+          "directoryEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "displayName",
+          "kind"
+        ]
+      },
+      "UpdateRecordCustodianRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unattributed"
+            ]
+          },
+          "directoryEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiscoveryLoadList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryLoad"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DiscoveryLoad": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewSetId": {
+            "type": "string"
+          },
+          "lane": {
+            "type": "string",
+            "enum": [
+              "internal-files",
+              "internal-email",
+              "received-production",
+              "direct-collection"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "declared",
+              "loading",
+              "processing",
+              "complete",
+              "failed",
+              "reversed"
+            ]
+          },
+          "transcriptScope": {
+            "type": "string",
+            "enum": [
+              "exclude",
+              "include"
+            ]
+          },
+          "declaredDocumentCount": {
+            "type": "number"
+          },
+          "loadedDocumentCount": {
+            "type": "number"
+          },
+          "processedCount": {
+            "type": "number"
+          },
+          "exceptionCount": {
+            "type": "number"
+          },
+          "defaultRecordCustodianId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceDescription": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initiatedBy": {
+            "type": "string"
+          },
+          "initiatedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifestR2Key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exceptionReportR2Key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reconciliation": {
+            "type": "object",
+            "properties": {
+              "declarationMatched": {
+                "type": "boolean"
+              },
+              "accountedFor": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "declarationMatched",
+              "accountedFor"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reviewSetId",
+          "lane",
+          "state",
+          "transcriptScope",
+          "declaredDocumentCount",
+          "loadedDocumentCount",
+          "processedCount",
+          "exceptionCount",
+          "defaultRecordCustodianId",
+          "sourceDescription",
+          "initiatedBy",
+          "initiatedAt",
+          "completedAt",
+          "manifestR2Key",
+          "exceptionReportR2Key",
+          "reconciliation"
+        ]
+      },
+      "DeclareLoadRequest": {
+        "type": "object",
+        "properties": {
+          "lane": {
+            "type": "string",
+            "enum": [
+              "internal-files",
+              "internal-email",
+              "received-production",
+              "direct-collection"
+            ]
+          },
+          "transcriptScope": {
+            "type": "string",
+            "enum": [
+              "exclude",
+              "include"
+            ],
+            "description": "Whether the firm's assistant transcripts are in scope for this load. Required, with no default in either direction: a transcript is the firm's own work product, and a silent exclusion decides as much for somebody as a silent inclusion would. Recorded on the load, so the manifest states what the corpus was drawn from and not only what landed in it."
+          },
+          "declaredDocumentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sourceDescription": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "defaultRecordCustodianId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^recordCustodian_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "lane",
+          "transcriptScope",
+          "declaredDocumentCount"
+        ]
+      },
+      "RunInternalLoadResponse": {
+        "type": "object",
+        "properties": {
+          "loadId": {
+            "type": "string"
+          },
+          "plannedCount": {
+            "type": "number"
+          },
+          "allocatedCount": {
+            "type": "number"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "loadId",
+          "plannedCount",
+          "allocatedCount",
+          "complete"
+        ]
+      },
+      "RunInternalLoadRequest": {
+        "type": "object",
+        "properties": {
+          "recordCustodianId": {
+            "type": "string",
+            "pattern": "^recordCustodian_[A-Za-z0-9_-]{21}$"
+          },
+          "fileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 5000
+          },
+          "emailMessageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 5000
+          }
+        },
+        "required": [
+          "recordCustodianId"
+        ]
+      },
       "CustomFieldAck": {
         "type": "object",
         "properties": {
@@ -15019,6 +15482,12 @@
           "uploadUrl": {
             "type": "string"
           },
+          "uploadHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "sourceKey": {
             "type": "string"
           }
@@ -15026,6 +15495,7 @@
         "required": [
           "jobId",
           "uploadUrl",
+          "uploadHeaders",
           "sourceKey"
         ]
       },
@@ -15102,11 +15572,18 @@
           },
           "uploadUrl": {
             "type": "string"
+          },
+          "uploadHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "uploadKey",
-          "uploadUrl"
+          "uploadUrl",
+          "uploadHeaders"
         ]
       },
       "RegisteredTemplate": {
@@ -40101,6 +40578,1403 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/review-sets": {
+      "get": {
+        "description": "The matter's review sets, newest first. A matter may have several — the firm's own collection, a production received in March, a second request — and each is its own corpus with its own index and its own lifecycle.",
+        "operationId": "discovery.listReviewSets",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listReviewSets",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's review sets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSetList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a review set on this matter. It starts open and empty, with the firm's document ceiling snapshotted onto it — a ceiling later lowered by the firm does not retroactively invalidate a set already created. Semantic indexing is off unless asked for: embedding a large corpus is a real, metered cost incurred whether or not anyone runs a semantic query, and keyword search is what discovery actually runs on.",
+        "operationId": "discovery.createReviewSet",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.createReviewSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The review set was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}": {
+      "get": {
+        "description": "One review set: its lifecycle, how many documents it holds, its ceiling, and whether its semantic half is on.",
+        "operationId": "discovery.getReviewSet",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getReviewSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The review set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Renames a review set, or turns its semantic half on or off. Turning semantic indexing on afterwards drains the corpus without re-extracting anything, because the extracted text is already stored.",
+        "operationId": "discovery.updateReviewSet",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.updateReviewSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated review set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/state": {
+      "post": {
+        "description": "Locks or closes a review set. Locking refuses new loads and changes nothing else — every read still serves. Closing additionally releases the derived artifacts (extracted text, metadata sidecars, index splits) for collection, all of which are rebuildable from source; every row, every manifest, and every exception report survives it. There is no reopen: the corpus under review is what was reviewed, and a set that could be reopened is a corpus whose contents depend on when you looked.",
+        "operationId": "discovery.transitionReviewSet",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.transitionReviewSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionReviewSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The review set in its new state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/record-custodians": {
+      "get": {
+        "description": "Whose records are in this review set. Record custodians are scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.",
+        "operationId": "discovery.listRecordCustodians",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listRecordCustodians",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The review set's record custodians",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordCustodianList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Records whose electronic records these were. The Directory link is optional — a production may name somebody the firm has never met — and `unattributed` is a real kind rather than a blank: material that arrived with no custodial attribution is a fact worth recording as one.",
+        "operationId": "discovery.createRecordCustodian",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.createRecordCustodian",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecordCustodianRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The record custodian was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-custodians/{recordCustodianId}": {
+      "patch": {
+        "description": "Corrects a record custodian in place, which re-points every document already attributed to it — and that is the intent: a production that named \"J. Smith\" and the person the firm later identified are one custodian, and a second row would split the attribution of documents already loaded under the first.",
+        "operationId": "discovery.updateRecordCustodian",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.updateRecordCustodian",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^recordCustodian_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "recordCustodianId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecordCustodianRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated record custodian",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordCustodian"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/loads": {
+      "get": {
+        "description": "What went into this corpus: every load, newest first, with its lane, its source, who ran it, when, whether assistant transcripts were in scope, and how what arrived reconciles against what was declared. This is the provenance record a firm hands over.",
+        "operationId": "discovery.listLoads",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listLoads",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The review set's loads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryLoadList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Declares a load BEFORE the material arrives. That ordering is what makes the manifest's declared-against-actual reconciliation possible at all, and what lets a load resume across a dropped connection. The declaration states the lane, how many documents are expected, where the material came from, and whether assistant transcripts are in scope; a load that would carry the review set past its ceiling is refused here, with the count and the ceiling in the message, rather than degrading partway through.",
+        "operationId": "discovery.declareLoad",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.declareLoad",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:load",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclareLoadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The load was declared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/loads/{loadId}": {
+      "get": {
+        "description": "One load: its provenance, its state, its counts, and its reconciliation. Once complete it also carries the keys of its manifest and its exception report, neither of which is ever regenerated — a re-processing writes a new processing record, while the manifest describes what arrived, which does not change.",
+        "operationId": "discovery.getLoad",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getLoad",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^discoveryLoad_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "loadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The load",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryLoad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/loads/{loadId}/internal-selection": {
+      "post": {
+        "description": "Resolves a selection of the firm's own matter files, or its filed email, into review documents. NO BYTES MOVE: the platform already holds them, along with their hashes and their scan verdicts, so this pins the version each review document points at and nothing is copied. Loading is a snapshot of a version, not a subscription to a file — a later version of the same file does not change this review set, and enters only through a new load. A quarantined or unscanned version is refused by name rather than skipped, and email enters as a family: the message and its attachments stay together.",
+        "operationId": "discovery.runInternalLoad",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.runInternalLoad",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:load",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^discoveryLoad_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "loadId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunInternalLoadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The load's fan-out has run a turn; the response says how far it got",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunInternalLoadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custom-fields/fields": {
       "post": {
         "description": "Defines a custom field on a matter type or entity category.",
@@ -54091,6 +55965,9 @@
     },
     {
       "name": "directory"
+    },
+    {
+      "name": "discovery"
     },
     {
       "name": "documentTypes"

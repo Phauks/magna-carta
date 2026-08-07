@@ -252,6 +252,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // matter's file a transcript belongs to; it is not the resource the capability governs, and it puts
   // none of that matter's content into anything the assistant is sent.
   magnus: "firm",
+  // discovery:* governs the corpus of documents under review. It binds the MATTER, on the
+  // matterAssets reasoning rather than custody:*'s: a review set IS one matter's corpus and cannot
+  // exist without one, where a custody packet may have no matter at all by construction. The
+  // namespace being separate from matters:* and files:* is the load-bearing part — a review set is
+  // reachable from a discovery grant and from nothing else, because material produced by another
+  // party may be attorney's-eyes-only under a protective order and matter access must not carry it.
+  discovery: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -825,6 +832,18 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.merge",
       "directory.readIdentifier",
       "directory.search",
+      "discovery.createRecordCustodian",
+      "discovery.createReviewSet",
+      "discovery.declareLoad",
+      "discovery.getLoad",
+      "discovery.getReviewSet",
+      "discovery.listLoads",
+      "discovery.listRecordCustodians",
+      "discovery.listReviewSets",
+      "discovery.runInternalLoad",
+      "discovery.transitionReviewSet",
+      "discovery.updateRecordCustodian",
+      "discovery.updateReviewSet",
       "documentTypes.create",
       "documentTypes.deactivate",
       "documentTypes.list",

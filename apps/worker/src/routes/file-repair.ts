@@ -286,7 +286,7 @@ async function attachOneFile(
   await commitEffectBatch(firm.firmDatabase, effect, { now });
 
   // The metadata batch is committed; now put the bytes so the R2 event drives ingest.
-  await bucket.put(initiated.r2Key, bytes);
+  await bucket.put(initiated.r2Key, bytes, { customMetadata: initiated.dimensions });
   return { fileId: initiated.fileId, versionId: initiated.versionId };
 }
 

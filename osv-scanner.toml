@@ -23,8 +23,14 @@ reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no produc
 # own acceptance reason named. office-crypto was quick-xml's only consumer in every audited lockfile, and
 # no office-crypto release resolves quick-xml >= 0.41, so replacing it was the only remediation that
 # existed. crates/decryption-core now implements the MS-OFFCRYPTO package decryption loop itself, on the
-# agile verifier and descriptor parser it already owned; `cargo tree` finds no quick-xml in crates/ or
-# containers/recovery/. The 64 KiB descriptor cap and the EncryptedPackage bounds stay — they are correct
-# defense-in-depth for the in-house parser too.
+# agile verifier and descriptor parser it already owned. The 64 KiB descriptor cap and the
+# EncryptedPackage bounds stay — they are correct defense-in-depth for the in-house parser too.
+#
+# quick-xml is back in the tree, and this time at a FIXED version rather than an accepted one:
+# crates/discovery-core takes it directly to pull character data out of OOXML and OpenDocument parts,
+# and it resolves >= 0.41.0 in crates/Cargo.lock and containers/discovery/Cargo.lock. 0.41.0 is the
+# release that carries both fixes — the attribute duplicate check is O(N) rather than O(N²), and
+# NamespaceResolver::push caps namespace declarations per element instead of allocating unbounded — so
+# neither advisory applies and neither needs an entry here. A future bump must not drop below 0.41.
 #
 # No Rust advisory is currently accepted. The npm entry above is the only remaining ignore.

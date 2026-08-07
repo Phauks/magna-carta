@@ -7,7 +7,6 @@
    * disabled treatment.
    */
   .mc-input {
-    min-block-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-12);
     border-style: solid;
     border-width: var(--mc-border-width-default);
@@ -25,6 +24,17 @@
     outline-style: solid;
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Sizes — the same control scale the Button uses, through the density aliases. min-block-size,
+     not block-size, so OS/browser text-only scaling can grow the value without clipping it. */
+  .mc-input-sm {
+    min-block-size: var(--mc-density-control-sm);
+  }
+  .mc-input-md {
+    min-block-size: var(--mc-density-control-md);
+  }
+  .mc-input-lg {
+    min-block-size: var(--mc-density-control-lg);
   }
   .mc-input::placeholder {
     color: var(--mc-text-muted);
