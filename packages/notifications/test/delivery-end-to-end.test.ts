@@ -201,15 +201,18 @@ describe("the subscriber pass", () => {
     // so the translator counts it and returns. Throwing would hand the caller a fault
     // indistinguishable from a database outage, and the caller's retry decision turns on exactly
     // that difference: it retries a transient fault and acks a permanent one.
+    // Only the columns the matter lookup actually traverses (file_version -> file -> matter); every
+    // other column on both tables is nullable or defaulted, so the fixture stays the minimum that
+    // makes the join resolve.
     await database
       .prepare(
-        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES ('file_conflict000001', 'matter_visible000000', NULL, 'x', NULL, NULL, ?1, ?1)",
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES ('file_conflict000001', 'matter_visible000000', 'x', ?1, ?1)",
       )
       .bind(NOW)
       .run();
     await database
       .prepare(
-        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, content_type, status, uploaded_by, created_at) VALUES ('fileVersion_conflict1', 'file_conflict000001', 1, 'k', 1, 'h', 'text/plain', 'clean', ?1, ?2)",
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, status, uploaded_by, created_at) VALUES ('fileVersion_conflict1', 'file_conflict000001', 1, 'k', 'clean', ?1, ?2)",
       )
       .bind(RESPONSIBLE, NOW)
       .run();
