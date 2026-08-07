@@ -172,6 +172,22 @@ export const PERMISSIONS = [
   // know about is how a feature ends up enforced by discipline in a route handler.
   "magnus:converse", // start conversations, submit turns, read and delete one's OWN conversations
   "magnus:readAllConversations", // read any member's conversation in the firm (the audited supervision read)
+  // Discovery — the corpus of documents under review on a matter. Its OWN namespace, and that is the
+  // load-bearing part: material produced by another party may be attorney's-eyes-only under a
+  // protective order, so reaching a review set must never follow from holding matters:* or files:*.
+  // A member with full access to the matter and no discovery grant cannot read a review set, cannot
+  // see what was loaded into it, and cannot load anything more.
+  //
+  // Three keys rather than the house read/manage pair, because the third capability is genuinely
+  // different: LOADING is the act that brings another party's untrusted material into the firm's own
+  // corpus, consumes the review set's document ceiling, and is the one discovery operation whose cost
+  // is set from outside the firm. A contract reviewer working under a protective order holds
+  // discovery:read and neither of the others, and that configuration has to be expressible.
+  // All three bind resource: "matter" — a review set IS one matter's corpus and cannot exist without
+  // one, the matterAssets:* binding rather than custody:*'s firm binding.
+  "discovery:read", // read review sets, record custodians, loads, review documents, and exception reports
+  "discovery:manageReviewSets", // create, rename, lock and close review sets; create and edit record custodians
+  "discovery:load", // declare a load and put material into a review set
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

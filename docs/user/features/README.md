@@ -8,6 +8,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`case-calendar-and-deadlines.md`](case-calendar-and-deadlines.md) — Case calendar and deadlines: recording hearings and filings, recording the dates the firm must act by, and the matter timeline that gathers everything already recorded about a case (backend built, screens pending).
 - [`document-templates-and-assembly.md`](document-templates-and-assembly.md) — Document templates and assembly: authoring a template in Word, registering it, and producing a document onto a matter (backend built, screens pending).
 - [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).
+- [`review-sets-and-loading.md`](review-sets-and-loading.md) — Review sets: gathering the documents in a case, saying whose records they are, and loading the firm's own files and filed email (backend built, screens pending).
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).
