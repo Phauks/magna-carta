@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MatterId, TrustAccountId } from "@magna-carta/identifiers/types";
 import { setBillingArrangement } from "../src/arrangements.ts";
+import { addClaimsToDraft, createInvoiceDraft } from "../src/draft.ts";
 import {
   readRetainerStatus,
   requestRetainerReplenishment,
@@ -14,6 +15,7 @@ import {
   expectRefusal,
   options,
   seedMatter,
+  seedTimeEntry,
   seedTrustAccount,
   type BillingFixture,
 } from "./support.ts";
@@ -163,6 +165,26 @@ describe("the evergreen retainer", () => {
       options,
     );
     await commit(fixture.database, again.effect);
+  });
+
+  it("a retainer matter's time still bills hourly: the retainer funds the work, it does not price it", async () => {
+    const fixture = await billingFixture();
+    const { matterId } = await seedRetainerMatter(fixture);
+    const timeEntryId = await seedTimeEntry(fixture, matterId);
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: "entity_client", currency: "USD", createdBy: null },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+    const claimed = await addClaimsToDraft(
+      fixture.database,
+      draft.invoiceId,
+      [{ sourceKind: "time_entry", sourceId: timeEntryId }],
+      options,
+    );
+    await commit(fixture.database, claimed.effect);
+    expect(claimed.lineIds).toHaveLength(1);
   });
 
   it("refuses on a matter without a retainer agreement, and on a matter holding no trust ledger", async () => {

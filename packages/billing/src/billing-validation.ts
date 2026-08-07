@@ -40,9 +40,12 @@ export type BillingValidationCode =
   | "billing-arrangement-kind-mismatch"
   | "matter-not-billed-hourly"
   | "matter-recovery-invalid"
+  | "unknown-matter-recovery"
   | "contingency-no-recovery"
   | "contingency-currency-mismatch"
   | "contingency-base-not-positive"
+  | "contingency-fee-already-on-draft"
+  | "contingency-nothing-unbilled"
   | "retainer-not-below-floor"
   | "retainer-replenishment-already-open"
   | "retainer-replenishment-not-open";

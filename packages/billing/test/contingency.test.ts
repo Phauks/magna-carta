@@ -11,6 +11,10 @@ import {
 import { addClaimsToDraft, createInvoiceDraft } from "../src/draft.ts";
 import { finalizeInvoice } from "../src/finalize.ts";
 import {
+  contingencyBilledBeyondEntitlementStatement,
+  invoiceLinesUnderArrangementsNotInForceStatement,
+} from "../src/fitness.ts";
+import {
   billingFixture,
   commit,
   expectRefusal,
@@ -107,13 +111,52 @@ describe("the contingency fee", () => {
     const fixture = await billingFixture();
     const matterId = await seedContingencyMatter(fixture, "entity_client", "net_after_costs");
     await recordRecovery(fixture, matterId, 10_000_000);
-    await seedCostEntry(fixture, matterId, { amountMinor: 1_000_000, disbursementClass: "hard" });
-    await seedCostEntry(fixture, matterId, { amountMinor: 500_000, disbursementClass: "soft" });
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 1_000_000,
+      disbursementClass: "hard",
+      status: "approved",
+    });
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 500_000,
+      disbursementClass: "soft",
+      status: "approved",
+    });
 
     const derivation = await deriveContingencyFee(fixture.database, matterId);
     expect(derivation.advancedCostsMinor).toBe(1_000_000);
     expect(derivation.baseMinor).toBe(9_000_000);
     expect(derivation.feeMinor).toBe(2_999_700);
+  });
+
+  it("only costs the firm stood behind reduce the base: approved and billed count, draft and submitted do not", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "net_after_costs");
+    await recordRecovery(fixture, matterId, 10_000_000);
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 600_000,
+      disbursementClass: "hard",
+      status: "approved",
+    });
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 400_000,
+      disbursementClass: "hard",
+      status: "billed",
+    });
+    // Claims nobody has confirmed yet: neither reduces the client's recovery base.
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 5_000_000,
+      disbursementClass: "hard",
+      status: "draft",
+    });
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 5_000_000,
+      disbursementClass: "hard",
+      status: "submitted",
+    });
+
+    const derivation = await deriveContingencyFee(fixture.database, matterId);
+    expect(derivation.advancedCostsMinor).toBe(1_000_000);
+    expect(derivation.baseMinor).toBe(9_000_000);
   });
 
   it("refuses without a recovery, and refuses a base the costs have consumed", async () => {
@@ -124,7 +167,11 @@ describe("the contingency fee", () => {
     });
 
     await recordRecovery(fixture, matterId, 100_000);
-    await seedCostEntry(fixture, matterId, { amountMinor: 100_000, disbursementClass: "hard" });
+    await seedCostEntry(fixture, matterId, {
+      amountMinor: 100_000,
+      disbursementClass: "hard",
+      status: "approved",
+    });
     await expect(deriveContingencyFee(fixture.database, matterId)).rejects.toMatchObject({
       code: "contingency-base-not-positive",
     });
@@ -148,6 +195,7 @@ describe("the contingency fee", () => {
 
     const voided = await voidMatterRecovery(
       fixture.database,
+      matterId,
       wrongId,
       "Amount entered with an extra digit",
       null,
@@ -163,6 +211,23 @@ describe("the contingency fee", () => {
       wrongId,
     );
     expect(wrongRow?.void_reason).toBe("Amount entered with an extra digit");
+  });
+
+  it("voiding a recovery through another matter answers not-found: the record is not that caller's to reach", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    const otherMatterId = await seedMatter(fixture, "entity_client", "Other");
+    const recoveryId = await recordRecovery(fixture, matterId, 1_000_000);
+    await expect(
+      voidMatterRecovery(
+        fixture.database,
+        otherMatterId,
+        recoveryId,
+        "Wrong matter",
+        null,
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-matter-recovery" });
   });
 
   it("composes the fee line from the derivation, stamped with the agreement version, and finalizes as an ordinary fee", async () => {
@@ -198,6 +263,157 @@ describe("the contingency fee", () => {
     );
     await commit(fixture.database, finalized.effect);
     expect(finalized.totalMinor).toBe(3_333_000);
+  });
+
+  it("bills incrementally: a later recovery bills exactly its own share, never the whole basis again", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+
+    const firstInvoiceId = await openDraft(fixture, "entity_client");
+    const first = await addContingencyFeeToDraft(
+      fixture.database,
+      firstInvoiceId,
+      matterId,
+      options,
+    );
+    await commit(fixture.database, first.effect);
+    expect(first.lineAmountMinor).toBe(3_333_000);
+    const firstFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: firstInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-04",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, firstFinalized.effect);
+
+    // A second recovery lands. The entitlement is now the share of A+B; the second bill charges
+    // ONLY B's increment — the reproduction shape was the whole 3,999,600 billed again on top.
+    await recordRecovery(fixture, matterId, 2_000_000);
+    const secondInvoiceId = await openDraft(fixture, "entity_client");
+    const second = await addContingencyFeeToDraft(
+      fixture.database,
+      secondInvoiceId,
+      matterId,
+      options,
+    );
+    expect(second.entitlementMinor).toBe(3_999_600);
+    expect(second.previouslyBilledMinor).toBe(3_333_000);
+    expect(second.lineAmountMinor).toBe(666_600);
+    await commit(fixture.database, second.effect);
+    const secondFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: secondInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-05",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, secondFinalized.effect);
+    expect(secondFinalized.totalMinor).toBe(666_600);
+
+    // Everything billed under the agreement sums to the entitlement exactly, and the over-billing
+    // fitness report is empty.
+    const billed = await readOneRow<{ billed_minor: number }>(
+      fixture.database,
+      `SELECT SUM(l.amount_minor) AS billed_minor FROM invoice_line l JOIN invoice i ON i.id = l.invoice_id
+        WHERE l.billing_arrangement_id IS NOT NULL AND i.status = 'final'`,
+    );
+    expect(billed?.billed_minor).toBe(3_999_600);
+    const { results } = await contingencyBilledBeyondEntitlementStatement(fixture.database).all();
+    expect(results).toHaveLength(0);
+
+    // And with nothing new recovered, a third bill has nothing to charge.
+    const thirdInvoiceId = await openDraft(fixture, "entity_client");
+    await expect(
+      addContingencyFeeToDraft(fixture.database, thirdInvoiceId, matterId, options),
+    ).rejects.toMatchObject({ code: "contingency-nothing-unbilled" });
+  });
+
+  it("refuses a second contingency fee line on the same draft", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+    const invoiceId = await openDraft(fixture, "entity_client");
+    const composed = await addContingencyFeeToDraft(fixture.database, invoiceId, matterId, options);
+    await commit(fixture.database, composed.effect);
+    await expect(
+      addContingencyFeeToDraft(fixture.database, invoiceId, matterId, options),
+    ).rejects.toMatchObject({ code: "contingency-fee-already-on-draft" });
+  });
+
+  it("a basis that shrinks after billing is surfaced by the fitness report: voiding the recovery behind a finalized fee", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    const recoveryId = await recordRecovery(fixture, matterId, 10_000_000);
+    const invoiceId = await openDraft(fixture, "entity_client");
+    const composed = await addContingencyFeeToDraft(fixture.database, invoiceId, matterId, options);
+    await commit(fixture.database, composed.effect);
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId, issueDate: "2026-08-05", dueDate: "2026-09-04", finalizedBy: null },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+
+    // True when it finalized, so nothing is flagged yet.
+    const before = await contingencyBilledBeyondEntitlementStatement(fixture.database).all();
+    expect(before.results).toHaveLength(0);
+
+    // The sole recovery behind the fee is then voided. No write-path guard can catch this — the
+    // bill was honest when it issued — so the fitness report is the mechanism that says the firm
+    // now holds a billed fee its surviving basis does not support.
+    const voided = await voidMatterRecovery(
+      fixture.database,
+      matterId,
+      recoveryId,
+      "Settlement fell through before funding",
+      null,
+      options,
+    );
+    await commit(fixture.database, voided);
+    const after = await contingencyBilledBeyondEntitlementStatement(fixture.database).all<{
+      matter_id: string;
+      billed_minor: number;
+      entitlement_minor: number;
+    }>();
+    expect(after.results).toHaveLength(1);
+    expect(after.results[0]).toMatchObject({
+      matter_id: matterId,
+      billed_minor: 3_333_000,
+      entitlement_minor: 0,
+    });
+  });
+
+  it("a line billed under an agreement version that did not govern the bill's issue date is surfaced by the fitness report", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+    const invoiceId = await openDraft(fixture, "entity_client");
+    const composed = await addContingencyFeeToDraft(fixture.database, invoiceId, matterId, options);
+    await commit(fixture.database, composed.effect);
+    // The agreement's valid_from is 2026-08-01; issuing the bill BEFORE that date bills under a
+    // version that was not in force on the bill's own date.
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId, issueDate: "2026-07-01", dueDate: "2026-09-04", finalizedBy: null },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+    const flagged = await invoiceLinesUnderArrangementsNotInForceStatement(fixture.database).all<{
+      invoice_id: string;
+    }>();
+    expect(flagged.results).toHaveLength(1);
+    expect(flagged.results[0]?.invoice_id).toBe(invoiceId);
   });
 
   it("refuses hourly time claims on a contingency matter by name", async () => {

@@ -206,6 +206,65 @@ export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): 
     .bind();
 }
 
+// A CONTINGENCY AGREEMENT IS NOT BILLED PAST ITS ENTITLEMENT. The entitlement is DERIVED here from
+// the basis as it survives NOW — the non-voided recoveries, minus (under the net-after-costs
+// election) the matter's approved or billed advanced costs, times the agreed share — and compared
+// against every contingency fee line on a FINALIZED bill under the arrangement version. Two
+// findings surface as one shape: an offset the write path missed (more billed than the basis ever
+// supported), and a basis that SHRANK after billing — a recovery voided, or a late advanced cost —
+// which no write-path guard can catch because the bill was true when it finalized. The half-up CAST
+// matches the line boundary's half-away-from-zero exactly, because the base here is never negative.
+export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT arrangement_id, matter_id, billed_minor, entitlement_minor
+         FROM (SELECT a.id AS arrangement_id,
+                      a.matter_id AS matter_id,
+                      (SELECT COALESCE(SUM(l.amount_minor), 0)
+                         FROM invoice_line l
+                         JOIN invoice i ON i.id = l.invoice_id
+                        WHERE l.billing_arrangement_id = a.id AND l.kind = 'fee' AND i.status = 'final') AS billed_minor,
+                      CAST(MAX((SELECT COALESCE(SUM(r.amount_minor), 0)
+                                  FROM matter_recovery r
+                                 WHERE r.matter_id = a.matter_id AND r.voided_at IS NULL)
+                               - CASE WHEN a.contingency_basis = 'net_after_costs'
+                                      THEN (SELECT COALESCE(SUM(c.amount_minor), 0)
+                                              FROM cost_entry c
+                                             WHERE c.matter_id = a.matter_id
+                                               AND c.disbursement_class = 'hard'
+                                               AND c.status IN ('approved', 'billed'))
+                                      ELSE 0 END,
+                               0) * a.contingency_share_e4 / 10000.0 + 0.5 AS INTEGER) AS entitlement_minor
+                 FROM matter_billing_arrangement a
+                WHERE a.kind = 'contingency')
+        WHERE billed_minor > entitlement_minor`,
+    )
+    .bind();
+}
+
+// EVERY LINE'S RECORDED AGREEMENT VERSION WAS IN FORCE WHEN ITS BILL ISSUED. The composer reads the
+// in-force version and the finalize batch freezes the line, but nothing holds the two instants
+// together — an amendment can land between the read and the commit. Rather than a batch guard (a
+// zero-row guarded write aborts nothing, and aiming a CHECK violation at the arrangement row would
+// entangle the finalize batch with a table it does not own), the binding is re-proved here: a
+// finalized line whose version started after the bill's issue date, or ended before it, is a line
+// billed under an agreement that did not govern that bill. A version closed ON the issue date is
+// tolerated — that is the ordinary same-day amendment, where the old version governed the morning.
+export function invoiceLinesUnderArrangementsNotInForceStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT l.id AS invoice_line_id, l.invoice_id AS invoice_id, l.billing_arrangement_id AS billing_arrangement_id
+         FROM invoice_line l
+         JOIN invoice i ON i.id = l.invoice_id
+         JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
+        WHERE i.status = 'final'
+          AND (a.valid_from > i.issue_date OR (a.valid_to IS NOT NULL AND a.valid_to < i.issue_date))`,
+    )
+    .bind();
+}
+
 // FEE-AGREEMENT VERSIONS DO NOT OVERLAP. The service closes the superseded version's valid_to at the
 // new version's valid_from and refuses a back-dated amendment, but SQLite has no range-exclusion
 // constraint (the same gap the rate engine documents), so which agreement governed a date must be

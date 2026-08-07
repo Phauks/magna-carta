@@ -127,11 +127,17 @@ ADR-0072, ADR-0079.) **Invariants:**
   when superseded. Lines an arrangement composes (flat fee, contingency) carry
   `billing_arrangement_id`, so what a finalized bill was computed under is permanent. Absence of an
   arrangement means hourly; never backfill one.
-- **A contingency fee is DERIVED at composition, never stored as a decided number.** The stored
-  facts are the agreement (share + costs-before-or-after election) and the `matter_recovery` rows
-  (void-with-reason their only edit); `deriveContingencyFee` recomputes from them on every call, and
-  the only place a result lands is the reviewable invoice line it produces. Net-after-costs deducts
-  the matter's advanced (hard) costs, never soft costs.
+- **A contingency fee is DERIVED at composition, never stored as a decided number — and it is
+  OFFSET, never re-billed.** The stored facts are the agreement (share + costs-before-or-after
+  election) and the `matter_recovery` rows (void-with-reason their only edit);
+  `deriveContingencyFee` recomputes the WHOLE entitlement from them on every call, and the line
+  charges the entitlement minus every contingency fee already on a FINALIZED bill under the
+  agreement version — so a later recovery bills exactly its own increment, a re-compose after
+  finalize refuses (`contingency-nothing-unbilled`), and a draft carries at most one contingency
+  line (`contingency-fee-already-on-draft`). Net-after-costs deducts the matter's advanced (hard)
+  costs, never soft costs, and only `approved`/`billed` entries — a draft cost is a claim nobody
+  confirmed. A basis that SHRINKS after billing (a voided recovery, a late cost) cannot be caught on
+  the write path; `contingencyBilledBeyondEntitlementStatement` is the mechanism that surfaces it.
 - **A non-hourly matter refuses hourly time claims by name** (`matter-not-billed-hourly`) — charging
   a flat-fee or contingency client by the hour would bill the same agreement twice. Costs stay
   claimable on every matter, and a retainer matter still bills hourly: a retainer FUNDS work, it

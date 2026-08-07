@@ -20,12 +20,15 @@ client is charged. Charging a flat-fee matter by the hour is refused outright, n
 Billing instalments past the agreed total is possible on purpose and reported by a fitness query
 rather than silently blocked.
 
-**A contingency fee is computed, never stored.** The firm records the recovery — the settlement,
-judgment, or award — and the fee is derived at the moment the bill is composed: the agreed share,
-against the gross recovery or the recovery net of advanced costs as the agreement elects. A wrongly
-entered recovery is voided with a reason, never edited. There is no settlement disbursement
-statement here: money in trust still leaves only through the existing earned-fee application against
-the finalized bill.
+**A contingency fee is computed, never stored — and never billed twice.** The firm records the
+recovery — the settlement, judgment, or award — and the fee is derived at the moment the bill is
+composed: the agreed share, against the gross recovery or the recovery net of advanced costs as the
+agreement elects (only costs the firm has stood behind count). Each bill charges only what earlier
+finalized bills have not already taken, so a later recovery bills exactly its own share, and a bill
+with nothing left to charge is refused. A wrongly entered recovery is voided with a reason, never
+edited — and if that leaves a finalized fee larger than the surviving recoveries support, a fitness
+report says so by name. There is no settlement disbursement statement here: money in trust still
+leaves only through the existing earned-fee application against the finalized bill.
 
 **An evergreen retainer has a floor the firm can act on.** The agreement records the target balance
 and the replenishment threshold; the platform reads the matter's available trust balance (money

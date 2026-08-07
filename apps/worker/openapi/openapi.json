@@ -16031,6 +16031,12 @@
           "feeMinor": {
             "type": "integer"
           },
+          "entitlementMinor": {
+            "type": "integer"
+          },
+          "previouslyBilledMinor": {
+            "type": "integer"
+          },
           "baseMinor": {
             "type": "integer"
           },
@@ -16055,6 +16061,8 @@
           "invoiceId",
           "lineId",
           "feeMinor",
+          "entitlementMinor",
+          "previouslyBilledMinor",
           "baseMinor",
           "shareE4",
           "basis",

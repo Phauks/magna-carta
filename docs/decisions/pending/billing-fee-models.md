@@ -36,9 +36,19 @@ this, so the models compose onto working machinery.
 
 4. **Contingency:** `matter_recovery` is the recorded fact (void-with-reason its only edit) and the
    fee is computed at composition from the share against the non-voided recoveries — net of the
-   matter's advanced (hard) costs under the `net_after_costs` election — never stored as a decided
-   number anywhere but the reviewable line it produces. Settlement disbursement statements stay
-   deferred.
+   matter's advanced (hard) costs under the `net_after_costs` election, counting only `approved` and
+   `billed` cost entries (a draft cost is a claim nobody has confirmed) — never stored as a decided
+   number anywhere but the reviewable line it produces. **The fee is billed as an offset, never
+   re-derived from scratch onto a new bill:** the line charges the current entitlement minus every
+   contingency fee already on a finalized bill under the agreement version, so a later recovery
+   bills exactly its own increment; a draft carries at most one contingency line, and a compose with
+   nothing left refuses. A basis that shrinks after billing (a voided recovery, a late advanced
+   cost) is beyond any write-path guard — the bill was true when it issued — and is surfaced by the
+   `contingencyBilledBeyondEntitlementStatement` fitness report against the surviving basis.
+   Settlement disbursement statements stay deferred. The line-to-version binding is likewise
+   re-proved over stored rows (`invoiceLinesUnderArrangementsNotInForceStatement`: a finalized
+   line's version must have governed the bill's issue date) rather than guarded in the batch, where
+   a zero-row guarded write aborts nothing.
 
 5. **Retainer:** target and floor on the agreement; status read from trust's available balance;
    `retainer_replenishment_request` records the ask (one open per matter, resolution-only edits) and

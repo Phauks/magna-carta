@@ -364,6 +364,15 @@ describe("the fee models", () => {
     const derivation = (await composed.json()) as { feeMinor: number; baseMinor: number };
     expect(derivation).toMatchObject({ feeMinor: 3_333_000, baseMinor: 10_000_000 });
 
+    // A recovery is reachable only through its own matter: voiding it through another matter's path
+    // answers not-found rather than acting on a record that is not that path's to reach.
+    const otherMatterId = await openMatterWithClient("Contingency other");
+    const mismatched = await post(
+      `/api/v1/billing/matters/${otherMatterId}/recoveries/${recoveryId}/void`,
+      { reason: "Entered twice" },
+    );
+    expect(mismatched.status).toBe(404);
+
     // The recoveries read shows the record; a void keeps it readable with its reason.
     const voided = await post(`/api/v1/billing/matters/${matterId}/recoveries/${recoveryId}/void`, {
       reason: "Entered twice",

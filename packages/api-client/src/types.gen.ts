@@ -3675,6 +3675,8 @@ export type BillingContingencyFeeAck = {
     invoiceId: string;
     lineId: string;
     feeMinor: number;
+    entitlementMinor: number;
+    previouslyBilledMinor: number;
     baseMinor: number;
     shareE4: number;
     basis: 'gross_recovery' | 'net_after_costs';

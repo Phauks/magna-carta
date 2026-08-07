@@ -461,12 +461,16 @@ const ContingencyFeeRequest = z
   .openapi("BillingContingencyFeeRequest");
 
 // The whole derivation is echoed back so the biller sees the arithmetic that produced the line —
-// the number is computed at composition, never stored anywhere but the reviewable line.
+// the number is computed at composition, never stored anywhere but the reviewable line. feeMinor is
+// what THIS line charges: the entitlement under the agreement, net of what earlier finalized bills
+// already took of it.
 const ContingencyFeeAck = z
   .object({
     invoiceId: z.string(),
     lineId: z.string(),
     feeMinor: z.number().int(),
+    entitlementMinor: z.number().int(),
+    previouslyBilledMinor: z.number().int(),
     baseMinor: z.number().int(),
     shareE4: z.number().int(),
     basis: z.enum(["gross_recovery", "net_after_costs"]),
@@ -1257,7 +1261,8 @@ function billingErrorResponse(
   if (
     error.code === "unknown-invoice" ||
     error.code === "unknown-invoice-line" ||
-    error.code === "unknown-invoice-claim"
+    error.code === "unknown-invoice-claim" ||
+    error.code === "unknown-matter-recovery"
   ) {
     return problemJson(c, {
       type: "not-found",
@@ -1962,6 +1967,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
         async (voidedBy) => ({
           write: await voidMatterRecovery(
             firm.firmDatabase,
+            matterId,
             recoveryId,
             request.reason,
             voidedBy,
@@ -2029,7 +2035,9 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
             body: {
               invoiceId,
               lineId: composed.lineId,
-              feeMinor: composed.derivation.feeMinor,
+              feeMinor: composed.lineAmountMinor,
+              entitlementMinor: composed.entitlementMinor,
+              previouslyBilledMinor: composed.previouslyBilledMinor,
               baseMinor: composed.derivation.baseMinor,
               shareE4: composed.derivation.shareE4,
               basis: composed.derivation.basis,
@@ -2175,7 +2183,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
                 firm.firmDatabase,
                 multiMatterRenderShapeDefinition,
                 request.renderShape,
-                new Date().toISOString(),
+                clockOptions().clock.now(),
               ),
             ],
             outboxMessages: [],

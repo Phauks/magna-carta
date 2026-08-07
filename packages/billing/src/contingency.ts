@@ -10,12 +10,12 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { readMatterClientEntityIds } from "@magna-carta/matters/matter-party";
 import { toMinor } from "@magna-carta/money/format";
-import { currencyFromCode, money, multiplyByQuantity } from "@magna-carta/money/money";
+import { currencyFromCode, money, percentOf, ratio } from "@magna-carta/money/money";
 import { roundInvoiceLine } from "@magna-carta/money/rounding";
 import { requireArrangementOfKind, type ContingencyBasis } from "./arrangements.ts";
 import { BillingValidationError } from "./billing-validation.ts";
 import { BILLING_AGGREGATE_KEY } from "./draft.ts";
-import { aggregateMinor, RATE_SCALE_DIVISOR } from "./line-amounts.ts";
+import { aggregateMinor } from "./line-amounts.ts";
 import { insertInvoiceLineStatement, readInvoice, readInvoiceLines } from "./statements.ts";
 import type { BillingServiceOptions } from "./types.ts";
 
@@ -157,9 +157,12 @@ export function recordMatterRecovery(
 
 // The one edit a recovery ever takes: voided with a reason, never edited or deleted, so the wrong
 // record and its correction both stay readable. The trigger holds this shape; the guard here is the
-// sentence in front of it.
+// sentence in front of it. The caller names the matter as well as the recovery, and a recovery that
+// belongs to a different matter answers not-found — the record's existence under another matter is
+// not this caller's to learn.
 export async function voidMatterRecovery(
   database: SqlDatabase,
+  matterId: MatterId,
   recoveryId: MatterRecoveryId,
   reason: string,
   voidedBy: UserId | null,
@@ -172,14 +175,20 @@ export async function voidMatterRecovery(
     );
   }
   const { results } = await database
-    .prepare(`SELECT id, voided_at FROM matter_recovery WHERE id = ?1`)
+    .prepare(`SELECT id, matter_id, voided_at FROM matter_recovery WHERE id = ?1`)
     .bind(recoveryId)
-    .all<{ id: string; voided_at: string | null }>();
+    .all<{ id: string; matter_id: string; voided_at: string | null }>();
   const row = results[0];
-  if (!row || row.voided_at !== null) {
+  if (!row || row.matter_id !== matterId) {
+    throw new BillingValidationError(
+      "unknown-matter-recovery",
+      `no such recovery on matter ${matterId}: ${recoveryId}`,
+    );
+  }
+  if (row.voided_at !== null) {
     throw new BillingValidationError(
       "matter-recovery-invalid",
-      `no open recovery record: ${recoveryId}`,
+      `recovery ${recoveryId} is already voided`,
     );
   }
   const now = options.clock.now();
@@ -195,19 +204,17 @@ export async function voidMatterRecovery(
   };
 }
 
-// The derivation, pure: base times share, collapsed once at the invoice-line boundary. The share is
-// a dimensionless decimal at the rate scale, so it takes the quantity position against the base —
-// the same collapse `invoiceLineAmountMinor` performs for rate-times-hours, with the same
-// half-away-from-zero rounding.
+// The derivation, pure: the agreed share of the base, taken through the money package's own
+// share-of-a-value idiom (`percentOf` against a scale-4 ratio, so the multiplication stays in
+// integer math end to end), collapsed once at the invoice-line boundary with the same
+// half-away-from-zero rounding every line takes.
 export function contingencyFeeMinor(
   baseMinor: number,
   shareE4: number,
   currencyCode: string,
 ): number {
   const currency = currencyFromCode(currencyCode);
-  return toMinor(
-    roundInvoiceLine(multiplyByQuantity(money(baseMinor, currency), shareE4 / RATE_SCALE_DIVISOR)),
-  );
+  return toMinor(roundInvoiceLine(percentOf(money(baseMinor, currency), ratio(shareE4, 4))));
 }
 
 export interface ContingencyFeeDerivation {
@@ -221,12 +228,14 @@ export interface ContingencyFeeDerivation {
 
 // The matter's advanced (hard) costs — money the firm laid out on the client's behalf — for the
 // net-after-costs election. Soft costs are the firm's own expenses and never reduce the client's
-// recovery base.
+// recovery base. Only costs the firm has stood behind count: `approved` passed review and `billed`
+// was actually invoiced, while a `draft` or `submitted` entry is a claim nobody has confirmed yet —
+// deducting one would shrink the client's recovery base on an unreviewed keystroke.
 async function readAdvancedCostsMinor(database: SqlDatabase, matterId: MatterId): Promise<number> {
   const { results } = await database
     .prepare(
       `SELECT SUM(amount_minor) AS amount_minor FROM cost_entry
-        WHERE matter_id = ?1 AND disbursement_class = 'hard' AND status <> 'void'`,
+        WHERE matter_id = ?1 AND disbursement_class = 'hard' AND status IN ('approved', 'billed')`,
     )
     .bind(matterId)
     .all<{ amount_minor: number | null }>();
@@ -286,12 +295,40 @@ export async function deriveContingencyFee(
 export interface ComposedContingencyFee {
   readonly lineId: InvoiceLineId;
   readonly derivation: ContingencyFeeDerivation;
+  // The whole entitlement under the agreement as the basis stands now, what earlier finalized
+  // bills already took of it, and the remainder this line actually charges.
+  readonly entitlementMinor: number;
+  readonly previouslyBilledMinor: number;
+  readonly lineAmountMinor: number;
   readonly effect: EffectWrite;
 }
 
-// One fee line from the derivation. The line snapshots the result and the share (in the rate
-// position, where an hourly line snapshots its rate) and names the agreement version — so the
-// finalized bill re-renders from its own rows, and the arithmetic that produced it stays statable.
+// What earlier FINALIZED bills already charged under this agreement version. Draft lines are not
+// counted — a draft asserts nothing and may be voided — but a second line on the SAME draft is
+// refused outright below, so a draft can never accumulate two.
+async function readFinalizedContingencyBilledMinor(
+  database: SqlDatabase,
+  arrangementId: string,
+): Promise<number> {
+  const { results } = await database
+    .prepare(
+      `SELECT SUM(l.amount_minor) AS amount_minor
+         FROM invoice_line l
+         JOIN invoice i ON i.id = l.invoice_id
+        WHERE l.billing_arrangement_id = ?1 AND l.kind = 'fee' AND i.status = 'final'`,
+    )
+    .bind(arrangementId)
+    .all<{ amount_minor: number | null }>();
+  return results[0]?.amount_minor ?? 0;
+}
+
+// One fee line, OFFSET against what the agreement has already billed. The derivation computes the
+// whole entitlement from the basis as it stands now; the line charges the entitlement MINUS every
+// contingency fee already on a finalized bill under this agreement version — so a later recovery
+// bills exactly its own increment, and re-composing after a finalize charges nothing twice. The
+// line snapshots the share in the rate position and names the agreement version, so the finalized
+// bill re-renders from its own rows and the arithmetic that produced it stays statable;
+// `contingencyBilledBeyondEntitlementStatement` re-proves the ceiling over stored rows.
 export async function addContingencyFeeToDraft(
   database: SqlDatabase,
   invoiceId: InvoiceId,
@@ -330,16 +367,50 @@ export async function addContingencyFeeToDraft(
     );
   }
 
+  // ONE contingency fee line per draft. Composing is idempotent in intent — "put the fee on this
+  // bill" — so a second call must not quietly append a second identical line for a reviewer to miss.
+  const alreadyOnDraft = await database
+    .prepare(
+      `SELECT COUNT(*) AS line_count FROM invoice_line WHERE invoice_id = ?1 AND billing_arrangement_id = ?2`,
+    )
+    .bind(invoiceId, arrangement.id)
+    .all<{ line_count: number }>();
+  if ((alreadyOnDraft.results[0]?.line_count ?? 0) > 0) {
+    throw new BillingValidationError(
+      "contingency-fee-already-on-draft",
+      `invoice ${invoiceId} already carries the contingency fee under agreement version ${arrangement.version}: review the existing line, or remove it and compose again`,
+    );
+  }
+
   const derivation = await deriveContingencyFee(database, matterId);
+  // THE OFFSET, and the rule that stops a recovery being billed twice: the entitlement is the whole
+  // share of the basis as it stands NOW, and this line charges only what earlier finalized bills
+  // have not already taken of it. A new recovery therefore bills exactly its own increment.
+  const previouslyBilledMinor = await readFinalizedContingencyBilledMinor(database, arrangement.id);
+  const lineAmountMinor = derivation.feeMinor - previouslyBilledMinor;
+  if (lineAmountMinor <= 0) {
+    throw new BillingValidationError(
+      "contingency-nothing-unbilled",
+      `the contingency entitlement on matter ${matterId} is ${derivation.feeMinor} and finalized bills under this agreement already charge ${previouslyBilledMinor}: there is nothing left to bill until a further recovery is recorded${previouslyBilledMinor > derivation.feeMinor ? " — and the amount already billed EXCEEDS the current entitlement, which the over-billing fitness report surfaces" : ""}`,
+    );
+  }
+
   const existingLines = await readInvoiceLines(database, invoiceId);
   const now = options.clock.now();
   const lineId = newIdentifier("invoiceLine", options.randomSource);
   const sharePercent = (derivation.shareE4 / 100).toFixed(2);
   const basisText =
     derivation.basis === "net_after_costs" ? "recovery net of advanced costs" : "gross recovery";
+  const description =
+    previouslyBilledMinor > 0
+      ? `Contingency fee — ${sharePercent}% of ${basisText}, net of amounts previously billed`
+      : `Contingency fee — ${sharePercent}% of ${basisText}`;
   return {
     lineId,
     derivation,
+    entitlementMinor: derivation.feeMinor,
+    previouslyBilledMinor,
+    lineAmountMinor,
     effect: {
       statements: [
         insertInvoiceLineStatement(database, {
@@ -348,12 +419,12 @@ export async function addContingencyFeeToDraft(
           lineIndex: existingLines.length,
           matterId,
           kind: "fee",
-          description: `Contingency fee — ${sharePercent}% of ${basisText}`,
+          description,
           quantityE4: null,
           // The share in the rate position, at the rate scale — the snapshot an hourly line keeps
           // of its hourly rate, kept here of the agreed share.
           rateE4: derivation.shareE4,
-          amountMinor: derivation.feeMinor,
+          amountMinor: lineAmountMinor,
           currency: invoice.currency,
           utbmsTaskCode: null,
           utbmsActivityCode: null,
