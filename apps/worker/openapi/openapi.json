@@ -2910,7 +2910,88 @@
         "type": "object",
         "properties": {
           "courtCase": {
-            "$ref": "#/components/schemas/MatterCourtCaseResponse"
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "matterId": {
+                "type": "string"
+              },
+              "courtEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The court, as a Directory organisation — its name and identity live there."
+              },
+              "judgeEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The assigned judge, as a Directory person."
+              },
+              "caseNumber": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "division": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "department": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "filedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "clientDesignation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What this court's caption calls the client's side — Plaintiff, Petitioner."
+              },
+              "opposingDesignation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What this court's caption calls the other side — Defendant, Respondent."
+              }
+            },
+            "required": [
+              "id",
+              "matterId",
+              "courtEntityId",
+              "judgeEntityId",
+              "caseNumber",
+              "division",
+              "department",
+              "filedOn",
+              "clientDesignation",
+              "opposingDesignation"
+            ]
           }
         },
         "required": [
@@ -2918,10 +2999,7 @@
         ]
       },
       "MatterCourtCaseResponse": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "id": {
             "type": "string"
@@ -3078,7 +3156,85 @@
         "type": "object",
         "properties": {
           "estate": {
-            "$ref": "#/components/schemas/MatterEstateResponse"
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "matterId": {
+                "type": "string"
+              },
+              "decedentEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The decedent, as a Directory person — every name rendering reads from there."
+              },
+              "estateEntityId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier."
+              },
+              "dateOfDeath": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "estateStyle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 500,
+                "description": "The estate's style exactly as the court has it — stored, never composed."
+              },
+              "shortStyle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "proceedingType": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "testate",
+                  "intestate",
+                  "small_estate",
+                  "ancillary",
+                  null
+                ]
+              },
+              "lettersIssuedOn": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "id",
+              "matterId",
+              "decedentEntityId",
+              "estateEntityId",
+              "dateOfDeath",
+              "estateStyle",
+              "shortStyle",
+              "proceedingType",
+              "lettersIssuedOn"
+            ]
           }
         },
         "required": [
@@ -3086,10 +3242,7 @@
         ]
       },
       "MatterEstateResponse": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "id": {
             "type": "string"
@@ -3240,7 +3393,60 @@
         "type": "object",
         "properties": {
           "profile": {
-            "$ref": "#/components/schemas/MemberProfessionalProfileResponse"
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "memberUserId": {
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "admissions": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2000,
+                "description": "Bar admissions as running prose the firm writes — never parsed, never guessed."
+              },
+              "directDial": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100
+              },
+              "professionalEmail": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 320
+              },
+              "signatureBlock": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4000,
+                "description": "The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands."
+              }
+            },
+            "required": [
+              "memberUserId",
+              "title",
+              "admissions",
+              "directDial",
+              "professionalEmail",
+              "signatureBlock"
+            ]
           }
         },
         "required": [
@@ -3248,10 +3454,7 @@
         ]
       },
       "MemberProfessionalProfileResponse": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "memberUserId": {
             "type": "string"

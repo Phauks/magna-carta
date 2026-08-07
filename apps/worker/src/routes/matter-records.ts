@@ -100,13 +100,17 @@ const CourtCaseFields = z
   })
   .openapi("MatterCourtCaseFields");
 
-const CourtCaseResponse = z
+// The record shape stays unnamed; the two named components derive from it. Naming the record once
+// and reusing it nullable inside the read response would register one component name under two
+// emitted shapes, which the contract conformance suite refuses.
+const CourtCaseRecord = z
   .object({ id: z.string(), matterId: z.string() })
-  .extend(CourtCaseFields.shape)
-  .openapi("MatterCourtCaseResponse");
+  .extend(CourtCaseFields.shape);
+
+const CourtCaseResponse = CourtCaseRecord.openapi("MatterCourtCaseResponse");
 
 const CourtCaseReadResponse = z
-  .object({ courtCase: CourtCaseResponse.nullable() })
+  .object({ courtCase: CourtCaseRecord.nullable() })
   .openapi("MatterCourtCaseReadResponse");
 
 const EstateFields = z
@@ -132,13 +136,13 @@ const EstateFields = z
   })
   .openapi("MatterEstateFields");
 
-const EstateResponse = z
-  .object({ id: z.string(), matterId: z.string() })
-  .extend(EstateFields.shape)
-  .openapi("MatterEstateResponse");
+// Unnamed for the same reason the court-case record is.
+const EstateRecord = z.object({ id: z.string(), matterId: z.string() }).extend(EstateFields.shape);
+
+const EstateResponse = EstateRecord.openapi("MatterEstateResponse");
 
 const EstateReadResponse = z
-  .object({ estate: EstateResponse.nullable() })
+  .object({ estate: EstateRecord.nullable() })
   .openapi("MatterEstateReadResponse");
 
 // ---- metas ----

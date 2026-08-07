@@ -701,7 +701,30 @@ export type CreateMatterAssignmentRequest = {
 };
 
 export type MatterCourtCaseReadResponse = {
-    courtCase: MatterCourtCaseResponse;
+    courtCase: {
+        id: string;
+        matterId: string;
+        /**
+         * The court, as a Directory organisation — its name and identity live there.
+         */
+        courtEntityId: string | null;
+        /**
+         * The assigned judge, as a Directory person.
+         */
+        judgeEntityId: string | null;
+        caseNumber: string | null;
+        division: string | null;
+        department: string | null;
+        filedOn: string | null;
+        /**
+         * What this court's caption calls the client's side — Plaintiff, Petitioner.
+         */
+        clientDesignation: string | null;
+        /**
+         * What this court's caption calls the other side — Defendant, Respondent.
+         */
+        opposingDesignation: string | null;
+    } | null;
 };
 
 export type MatterCourtCaseResponse = {
@@ -727,7 +750,7 @@ export type MatterCourtCaseResponse = {
      * What this court's caption calls the other side — Defendant, Respondent.
      */
     opposingDesignation: string | null;
-} | null;
+};
 
 export type MatterCourtCaseFields = {
     /**
@@ -753,7 +776,26 @@ export type MatterCourtCaseFields = {
 };
 
 export type MatterEstateReadResponse = {
-    estate: MatterEstateResponse;
+    estate: {
+        id: string;
+        matterId: string;
+        /**
+         * The decedent, as a Directory person — every name rendering reads from there.
+         */
+        decedentEntityId: string | null;
+        /**
+         * The estate's own Directory organisation, where the firm keeps one — the home of the estate's encrypted tax identifier.
+         */
+        estateEntityId: string | null;
+        dateOfDeath: string | null;
+        /**
+         * The estate's style exactly as the court has it — stored, never composed.
+         */
+        estateStyle: string | null;
+        shortStyle: string | null;
+        proceedingType: 'testate' | 'intestate' | 'small_estate' | 'ancillary' | null;
+        lettersIssuedOn: string | null;
+    } | null;
 };
 
 export type MatterEstateResponse = {
@@ -775,7 +817,7 @@ export type MatterEstateResponse = {
     shortStyle: string | null;
     proceedingType: 'testate' | 'intestate' | 'small_estate' | 'ancillary' | null;
     lettersIssuedOn: string | null;
-} | null;
+};
 
 export type MatterEstateFields = {
     /**
@@ -797,7 +839,20 @@ export type MatterEstateFields = {
 };
 
 export type MemberProfessionalProfileReadResponse = {
-    profile: MemberProfessionalProfileResponse;
+    profile: {
+        memberUserId: string;
+        title: string | null;
+        /**
+         * Bar admissions as running prose the firm writes — never parsed, never guessed.
+         */
+        admissions: string | null;
+        directDial: string | null;
+        professionalEmail: string | null;
+        /**
+         * The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands.
+         */
+        signatureBlock: string | null;
+    } | null;
 };
 
 export type MemberProfessionalProfileResponse = {
@@ -813,7 +868,7 @@ export type MemberProfessionalProfileResponse = {
      * The multi-line block a pleading signs off with, stored with its line breaks. It becomes a merge field once the assembly engine emits real line breaks; until then it is recorded here so nothing has to be retyped when that lands.
      */
     signatureBlock: string | null;
-} | null;
+};
 
 export type MemberProfessionalProfileFields = {
     title: string | null;

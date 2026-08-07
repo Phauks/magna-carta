@@ -50,13 +50,14 @@ const ProfileFields = z
   })
   .openapi("MemberProfessionalProfileFields");
 
-const ProfileResponse = z
-  .object({ memberUserId: z.string() })
-  .extend(ProfileFields.shape)
-  .openapi("MemberProfessionalProfileResponse");
+// The record shape stays unnamed; naming it once and reusing it nullable in the read response
+// would register one component name under two emitted shapes, which conformance refuses.
+const ProfileRecord = z.object({ memberUserId: z.string() }).extend(ProfileFields.shape);
+
+const ProfileResponse = ProfileRecord.openapi("MemberProfessionalProfileResponse");
 
 const ProfileReadResponse = z
-  .object({ profile: ProfileResponse.nullable() })
+  .object({ profile: ProfileRecord.nullable() })
   .openapi("MemberProfessionalProfileReadResponse");
 
 const memberParam = z.object({ userId: identifierPathParam("user", "userId") });
