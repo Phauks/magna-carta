@@ -45,6 +45,32 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~00:20 UTC) — CAMPAIGN 2 CLOSED (43/43); assets complete; 123 merged
+
+**#164 assets 4·3·2/3 MERGED** (idx 42 tag 070000_matter-asset-classes-and-
+encumbrances — agent renamed the tag from the directive's guess, sort order
+unchanged; seven tables; computed-withheld equity; estate schedule as-of
+required; custody link read-only both directions by source scan; eleven
+collection-only merge subjects one batched source; task 106 closed; deferred
+with reasons: custom_field.target widening travels with custodian
+custodyPacket, starter template + volume profile queued). NEW GOTCHA from
+#164: drizzle-kit generate treats a column rename inside an unmerged
+migration as NO-CHANGE non-interactively — check-snapshots reports current
+while the snapshot holds the old name; fix = delete the new snapshot and
+regenerate from the previous baseline. **#165 R3 MERGED → CAMPAIGN 2 CLOSED
+43/43** (tasks 102 + 94 closed; 3H/7M/6L all fixed; duplicate-From finding
+DISPROVEN and pinned by Rust test per RFC 6376 both sides; contention
+adjudication accepted: stash-to-base + standalone pass + three clean full
+runs on the document-assembly-protected-binding trio; no migration, no
+contract drift). Journal head idx 42, snapshot 0042. **Artifact REFRESHED
+to 123** (label campaign2-closed-123; all sections rewritten: streams,
+roadmap, new log entry, ideas +stats-harness-idiom +rename-snapshot-fitness,
+waiting-on-owner rewritten to current flag ledger A1-A6/T18-T21/F1/queue-
+expansion). IN FLIGHT: discovery 5·1·2 (task 103, idx 43 tag 080000, told
+to sync main post-#164) and R2 matter-dimension (task 110, contingent idx
+44 tag 090000). Check-in armed ~01:16Z. Next dispatches when slots free:
+104 auto-file wiring, 115 notifications slice 1.
+
 ## Position update (2026-08-06 ~22:40 UTC) — trust arc COMPLETE; AI Search designed; 121 merged
 
 (Newest entry; the one below carries a misjudged ~23:50 stamp — it was actually
