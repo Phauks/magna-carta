@@ -36,6 +36,6 @@ concern. Built to the pattern `containers/file-repair` established.
   workspace, not just the crates it uses: they inherit `edition` from `crates/Cargo.toml`, so cargo
   needs that workspace root or the build fails with `failed to find a workspace root`. The
   `.dockerignore` that trims the context lives at the repo root, not beside the Dockerfile.
-- **Validate config changes with** `pnpm --filter @magna-carta/discovery-worker exec wrangler deploy
-  --dry-run --containers-rollout=none`, which checks the worker bundle and the container config
-  without attempting the image build.
+- **Validate config changes with**
+  `pnpm --filter @magna-carta/discovery-worker exec wrangler deploy --dry-run --containers-rollout=none`,
+  which checks the worker bundle and the container config without attempting the image build.

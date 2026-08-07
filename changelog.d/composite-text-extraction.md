@@ -23,7 +23,7 @@ container now asks that same function rather than keeping its own copy. If the e
 recognizer ever disagreed about a page, it would be read twice or by neither — a duplicate in the
 index, or a page silently absent from the corpus. The rule itself is unchanged and still weighs text
 against what it sits on, so a Bates stamp on a scanned page does not make the page look like it has a
-text layer. Reading the layer, unlike measuring it, includes *invisible* glyphs: what recognition
+text layer. Reading the layer, unlike measuring it, includes _invisible_ glyphs: what recognition
 writes back onto a scan is an invisible layer, so skipping those would have made this product's own
 searchable PDFs extract to nothing.
 
