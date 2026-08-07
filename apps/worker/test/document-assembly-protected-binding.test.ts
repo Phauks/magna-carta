@@ -4,11 +4,14 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
+import { insertDocumentAssemblyStatement } from "@magna-carta/document-assembly/assembly-statements";
+import { DICTIONARY_VERSION } from "@magna-carta/document-assembly/resolve";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
+import { ASSEMBLY_ENGINE_VERSION } from "../src/assemblies/assembly-engine.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -149,6 +152,42 @@ async function mirrorMemberWithRole(
   }).run();
 }
 
+// The assembly row is SEEDED, not submitted through the route. The submit route is not what this
+// file proves — document-automation.test.ts owns it — and under the test pool a route submit also
+// starts the coordinator, whose real queue message the live document-assembly consumer then
+// processes about a second later, concurrently with the direct documentAssemblyQueue call below.
+// Whichever consume wins the race files the document, and when the delivery wins it decrypts as the
+// SUBMITTING owner — moving the decrypt-audit counts these tests exist to pin down, and putting the
+// value into a document a test expects to carry an absence. Production never has two competing
+// consumes for one assembly (the coordinator single-flights the enqueue); seeding the row keeps the
+// one consume under test — the real consumer, the real chokepoint, the real audit write — without
+// manufacturing a second. The row's requested_by is the owner, exactly as the route records the
+// submitter; the MESSAGE carries the identity the job runs for, which is the fact under test.
+async function seedAssembly(): Promise<string> {
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+  const assemblyId = newIdentifier("documentAssembly");
+  const templateId =
+    (
+      await queryFirstRow<{ template_id: string }>(
+        "SELECT template_id FROM document_template_version WHERE id = ?1",
+        [templateVersionId],
+      )
+    )?.template_id ?? "";
+  expect(templateId).not.toBe("");
+  await insertDocumentAssemblyStatement(firmDatabase, {
+    id: assemblyId,
+    matterId: assertIdentifier(matterId, "matter"),
+    templateId: assertIdentifier(templateId, "documentTemplate"),
+    templateVersionId: assertIdentifier(templateVersionId, "documentTemplateVersion"),
+    folderId: null,
+    engineVersion: ASSEMBLY_ENGINE_VERSION,
+    dictionaryVersion: DICTIONARY_VERSION,
+    requestedBy: ownerUserId,
+    createdAt: new Date().toISOString(),
+  }).run();
+  return assemblyId;
+}
+
 function messageFor(assemblyId: string, requestedBy: string | null): DocumentAssemblyMessage {
   return {
     firmId,
@@ -185,17 +224,11 @@ interface AssemblyState {
   absentFieldKeys: string[];
 }
 
-// Submit as the owner (a submit needs `documents:assemble`, which both members hold) and consume the
-// job as `requestedBy`. The consumer resolves what that member may decrypt from the firm's database at
-// consume time, which is the whole point: the message carries an identity, never a decided answer.
+// Seed the assembly as the owner would have submitted it and consume the job as `requestedBy`. The
+// consumer resolves what that member may decrypt from the firm's database at consume time, which is
+// the whole point: the message carries an identity, never a decided answer.
 async function assembleAs(requestedBy: UserId): Promise<{ state: AssemblyState; lines: string[] }> {
-  const submitted = await post(
-    `/api/v1/matters/${matterId}/assemblies`,
-    { templateVersionId },
-    ownerCookie,
-  );
-  expect(submitted.status, await submitted.clone().text()).toBe(202);
-  const { assemblyId } = await jsonOf<{ assemblyId: string }>(submitted);
+  const assemblyId = await seedAssembly();
 
   // The telemetry adapter is the one sanctioned console site, so capturing console is capturing every
   // structured line and every metric this job emits.
@@ -459,12 +492,7 @@ describe("assembling for a member who does not hold the decrypt permission", () 
 describe("assembling with no requesting member", () => {
   it("decrypts nothing, and the field is an absence", async () => {
     const before = await decryptAuditCount(identifierRowId);
-    const submitted = await post(
-      `/api/v1/matters/${matterId}/assemblies`,
-      { templateVersionId },
-      ownerCookie,
-    );
-    const { assemblyId } = await jsonOf<{ assemblyId: string }>(submitted);
+    const assemblyId = await seedAssembly();
     await documentAssemblyQueue(batchFor(messageFor(assemblyId, null)), env);
 
     const state = await jsonOf<AssemblyState>(

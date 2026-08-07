@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "0c5281ed-281c-4e7e-b440-b814aa08c8ae",
-  "prevId": "22582b74-ff65-4882-b613-c593c1533719",
+  "prevId": "7e8b7acf-de85-4fd4-9bb8-688bdd2b5743",
   "tables": {
     "account_balance": {
       "name": "account_balance",
