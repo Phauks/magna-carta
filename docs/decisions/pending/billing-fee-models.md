@@ -39,10 +39,17 @@ this, so the models compose onto working machinery.
    matter's advanced (hard) costs under the `net_after_costs` election, counting only `approved` and
    `billed` cost entries (a draft cost is a claim nobody has confirmed) — never stored as a decided
    number anywhere but the reviewable line it produces. **The fee is billed as an offset, never
-   re-derived from scratch onto a new bill:** the line charges the current entitlement minus every
-   contingency fee already on a finalized bill under the agreement version, so a later recovery
-   bills exactly its own increment; a draft carries at most one contingency line, and a compose with
-   nothing left refuses. A basis that shrinks after billing (a voided recovery, a late advanced
+   re-derived from scratch onto a new bill — and the offset spans the matter's whole
+   contingency-agreement chain, not the version:** the line charges the current entitlement minus
+   every contingency fee already on a finalized bill under ANY version of the matter's contingency
+   agreement, because an amendment mints a new version without minting a new recovery, so a later
+   recovery bills exactly its own increment even across a re-signed engagement letter; a draft
+   carries at most one contingency line, and a compose with nothing left refuses. **Under a share
+   CHANGE the entitlement re-levels to the in-force share against the current basis with the
+   matter-level offset unchanged: a raised share bills the difference, and a lowered share whose
+   entitlement falls below what was already billed refuses to compose and is carried as a finding
+   by the fitness report — what the firm owes back is a credit-note decision, not one the platform
+   makes.** A basis that shrinks after billing (a voided recovery, a late advanced
    cost) is beyond any write-path guard — the bill was true when it issued — and is surfaced by the
    `contingencyBilledBeyondEntitlementStatement` fitness report against the surviving basis.
    Settlement disbursement statements stay deferred. The line-to-version binding is likewise

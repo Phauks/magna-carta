@@ -131,10 +131,14 @@ ADR-0072, ADR-0079.) **Invariants:**
   OFFSET, never re-billed.** The stored facts are the agreement (share + costs-before-or-after
   election) and the `matter_recovery` rows (void-with-reason their only edit);
   `deriveContingencyFee` recomputes the WHOLE entitlement from them on every call, and the line
-  charges the entitlement minus every contingency fee already on a FINALIZED bill under the
-  agreement version — so a later recovery bills exactly its own increment, a re-compose after
-  finalize refuses (`contingency-nothing-unbilled`), and a draft carries at most one contingency
-  line (`contingency-fee-already-on-draft`). Net-after-costs deducts the matter's advanced (hard)
+  charges the entitlement minus every contingency fee already on a FINALIZED bill across the
+  MATTER'S WHOLE CONTINGENCY-AGREEMENT CHAIN — never scoped to the version, because an amendment
+  (even at the same share) mints a new version without minting a new recovery — so a later recovery
+  bills exactly its own increment, a re-compose after finalize refuses
+  (`contingency-nothing-unbilled`), and a draft carries at most one contingency line
+  (`contingency-fee-already-on-draft`). A share change re-levels to the in-force share: a raise
+  bills the difference, a cut that leaves billed above entitlement refuses and is a fitness
+  finding. Net-after-costs deducts the matter's advanced (hard)
   costs, never soft costs, and only `approved`/`billed` entries — a draft cost is a claim nobody
   confirmed. A basis that SHRINKS after billing (a voided recovery, a late cost) cannot be caught on
   the write path; `contingencyBilledBeyondEntitlementStatement` is the mechanism that surfaces it.

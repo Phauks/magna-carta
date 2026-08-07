@@ -14,6 +14,8 @@ import {
   contingencyBilledBeyondEntitlementStatement,
   invoiceLinesUnderArrangementsNotInForceStatement,
 } from "../src/fitness.ts";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { insertInvoiceLineStatement } from "../src/statements.ts";
 import {
   billingFixture,
   commit,
@@ -335,6 +337,266 @@ describe("the contingency fee", () => {
     await expect(
       addContingencyFeeToDraft(fixture.database, thirdInvoiceId, matterId, options),
     ).rejects.toMatchObject({ code: "contingency-nothing-unbilled" });
+  });
+
+  it("an amendment does not resurrect the double-bill: the offset spans the matter's whole agreement chain", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+
+    const firstInvoiceId = await openDraft(fixture, "entity_client");
+    const first = await addContingencyFeeToDraft(
+      fixture.database,
+      firstInvoiceId,
+      matterId,
+      options,
+    );
+    await commit(fixture.database, first.effect);
+    const firstFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: firstInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-04",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, firstFinalized.effect);
+
+    // The routine re-signed engagement letter: SAME share, new version. The recoveries are still
+    // the matter's, so nothing about what was billed resets.
+    const amended = await setBillingArrangement(
+      fixture.database,
+      {
+        matterId,
+        kind: "contingency",
+        contingencyShareE4: 3_333,
+        contingencyBasis: "gross_recovery",
+        currency: "USD",
+        validFrom: "2026-08-03",
+        createdBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, amended.effect);
+    expect(amended.version).toBe(2);
+
+    await recordRecovery(fixture, matterId, 2_000_000);
+    const secondInvoiceId = await openDraft(fixture, "entity_client");
+    const second = await addContingencyFeeToDraft(
+      fixture.database,
+      secondInvoiceId,
+      matterId,
+      options,
+    );
+    // The reproduction reported previouslyBilledMinor 0 and billed the whole 3,999,600 again.
+    expect(second.previouslyBilledMinor).toBe(3_333_000);
+    expect(second.lineAmountMinor).toBe(666_600);
+    await commit(fixture.database, second.effect);
+    const secondFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: secondInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-05",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, secondFinalized.effect);
+    expect(secondFinalized.totalMinor).toBe(666_600);
+
+    // A further compose with nothing new recovered refuses, and the matter-level report is clean.
+    const thirdInvoiceId = await openDraft(fixture, "entity_client");
+    await expect(
+      addContingencyFeeToDraft(fixture.database, thirdInvoiceId, matterId, options),
+    ).rejects.toMatchObject({ code: "contingency-nothing-unbilled" });
+    const report = await contingencyBilledBeyondEntitlementStatement(fixture.database).all();
+    expect(report.results).toHaveLength(0);
+  });
+
+  it("the fitness report judges the MATTER across the chain: a version-scoped double bill cannot look clean", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+    const firstInvoiceId = await openDraft(fixture, "entity_client");
+    const first = await addContingencyFeeToDraft(
+      fixture.database,
+      firstInvoiceId,
+      matterId,
+      options,
+    );
+    await commit(fixture.database, first.effect);
+    const firstFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: firstInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-04",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, firstFinalized.effect);
+
+    const amended = await setBillingArrangement(
+      fixture.database,
+      {
+        matterId,
+        kind: "contingency",
+        contingencyShareE4: 3_333,
+        contingencyBasis: "gross_recovery",
+        currency: "USD",
+        validFrom: "2026-08-03",
+        createdBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, amended.effect);
+    await recordRecovery(fixture, matterId, 2_000_000);
+
+    // The PROBE: write the line a version-scoped offset would have written — the whole 3,999,600
+    // again under version 2 — onto a second bill, and finalize it. Each version individually
+    // "looks clean" (v1 billed 3,333,000; v2 billed 3,999,600, each at most one version's share of
+    // the basis); the matter is double-billed, and the matter-level report must say so.
+    const secondInvoiceId = await openDraft(fixture, "entity_client");
+    await commit(fixture.database, {
+      statements: [
+        insertInvoiceLineStatement(fixture.database, {
+          id: newIdentifier("invoiceLine"),
+          invoiceId: secondInvoiceId,
+          lineIndex: 0,
+          matterId,
+          kind: "fee",
+          description: "Contingency fee billed as if never billed before",
+          quantityE4: null,
+          rateE4: 3_333,
+          amountMinor: 3_999_600,
+          currency: "USD",
+          utbmsTaskCode: null,
+          utbmsActivityCode: null,
+          utbmsExpenseCode: null,
+          taxTreatment: "exempt",
+          billingArrangementId: amended.arrangementId,
+          now: options.clock.now(),
+        }),
+      ],
+      outboxMessages: [],
+    });
+    const secondFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: secondInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-05",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, secondFinalized.effect);
+
+    const report = await contingencyBilledBeyondEntitlementStatement(fixture.database).all<{
+      matter_id: string;
+      billed_minor: number;
+      entitlement_minor: number;
+    }>();
+    expect(report.results).toHaveLength(1);
+    expect(report.results[0]).toMatchObject({
+      matter_id: matterId,
+      billed_minor: 7_332_600,
+      entitlement_minor: 3_999_600,
+    });
+  });
+
+  it("a share CHANGE re-levels against the in-force share: an increase bills the difference, a decrease refuses and is reported", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    await recordRecovery(fixture, matterId, 10_000_000);
+    const firstInvoiceId = await openDraft(fixture, "entity_client");
+    const first = await addContingencyFeeToDraft(
+      fixture.database,
+      firstInvoiceId,
+      matterId,
+      options,
+    );
+    await commit(fixture.database, first.effect);
+    const firstFinalized = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: firstInvoiceId,
+        issueDate: "2026-08-05",
+        dueDate: "2026-09-04",
+        finalizedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, firstFinalized.effect);
+
+    // Amended UP to 40%: the entitlement is the in-force share of the whole basis, and the next
+    // bill charges the difference over what the old share already took.
+    const raised = await setBillingArrangement(
+      fixture.database,
+      {
+        matterId,
+        kind: "contingency",
+        contingencyShareE4: 4_000,
+        contingencyBasis: "gross_recovery",
+        currency: "USD",
+        validFrom: "2026-08-03",
+        createdBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, raised.effect);
+    const raisedInvoiceId = await openDraft(fixture, "entity_client");
+    const raisedFee = await addContingencyFeeToDraft(
+      fixture.database,
+      raisedInvoiceId,
+      matterId,
+      options,
+    );
+    expect(raisedFee.entitlementMinor).toBe(4_000_000);
+    expect(raisedFee.previouslyBilledMinor).toBe(3_333_000);
+    expect(raisedFee.lineAmountMinor).toBe(667_000);
+    // Not finalized — the draft asserts nothing, so the amount billed stays 3,333,000 for the
+    // decrease below.
+
+    // Amended DOWN to 20%: the entitlement falls below what the old share already billed. The
+    // composer refuses, and the matter-level report carries the finding — the platform does not
+    // decide what the firm owes back; the credit-note path is that decision's home.
+    const lowered = await setBillingArrangement(
+      fixture.database,
+      {
+        matterId,
+        kind: "contingency",
+        contingencyShareE4: 2_000,
+        contingencyBasis: "gross_recovery",
+        currency: "USD",
+        validFrom: "2026-08-04",
+        createdBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, lowered.effect);
+    const loweredInvoiceId = await openDraft(fixture, "entity_client");
+    await expect(
+      addContingencyFeeToDraft(fixture.database, loweredInvoiceId, matterId, options),
+    ).rejects.toMatchObject({ code: "contingency-nothing-unbilled" });
+    const report = await contingencyBilledBeyondEntitlementStatement(fixture.database).all<{
+      matter_id: string;
+      billed_minor: number;
+      entitlement_minor: number;
+    }>();
+    expect(report.results).toHaveLength(1);
+    expect(report.results[0]).toMatchObject({
+      matter_id: matterId,
+      billed_minor: 3_333_000,
+      entitlement_minor: 2_000_000,
+    });
   });
 
   it("refuses a second contingency fee line on the same draft", async () => {

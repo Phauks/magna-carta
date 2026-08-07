@@ -303,21 +303,26 @@ export interface ComposedContingencyFee {
   readonly effect: EffectWrite;
 }
 
-// What earlier FINALIZED bills already charged under this agreement version. Draft lines are not
+// What earlier FINALIZED bills already charged across the MATTER'S WHOLE CONTINGENCY-AGREEMENT
+// CHAIN — every version of the matter's contingency agreement, not the one in force. The scope is
+// the matter because the recoveries are the matter's: an ordinary amendment (a re-signed engagement
+// letter, even at the same share) mints a new version, and an offset scoped to the version would
+// forget everything billed under the old one and charge the whole basis again. Draft lines are not
 // counted — a draft asserts nothing and may be voided — but a second line on the SAME draft is
 // refused outright below, so a draft can never accumulate two.
 async function readFinalizedContingencyBilledMinor(
   database: SqlDatabase,
-  arrangementId: string,
+  matterId: MatterId,
 ): Promise<number> {
   const { results } = await database
     .prepare(
       `SELECT SUM(l.amount_minor) AS amount_minor
          FROM invoice_line l
          JOIN invoice i ON i.id = l.invoice_id
-        WHERE l.billing_arrangement_id = ?1 AND l.kind = 'fee' AND i.status = 'final'`,
+         JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
+        WHERE a.matter_id = ?1 AND a.kind = 'contingency' AND l.kind = 'fee' AND i.status = 'final'`,
     )
-    .bind(arrangementId)
+    .bind(matterId)
     .all<{ amount_minor: number | null }>();
   return results[0]?.amount_minor ?? 0;
 }
@@ -367,31 +372,39 @@ export async function addContingencyFeeToDraft(
     );
   }
 
-  // ONE contingency fee line per draft. Composing is idempotent in intent — "put the fee on this
-  // bill" — so a second call must not quietly append a second identical line for a reviewer to miss.
+  // ONE contingency fee line per draft, judged across the matter's WHOLE agreement chain: an
+  // amendment between two composes on the same draft must not let the second slip in under the new
+  // version id. Composing is idempotent in intent — "put the fee on this bill" — so a second call
+  // must not quietly append a second identical line for a reviewer to miss.
   const alreadyOnDraft = await database
     .prepare(
-      `SELECT COUNT(*) AS line_count FROM invoice_line WHERE invoice_id = ?1 AND billing_arrangement_id = ?2`,
+      `SELECT COUNT(*) AS line_count
+         FROM invoice_line l
+         JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
+        WHERE l.invoice_id = ?1 AND a.matter_id = ?2 AND a.kind = 'contingency'`,
     )
-    .bind(invoiceId, arrangement.id)
+    .bind(invoiceId, matterId)
     .all<{ line_count: number }>();
   if ((alreadyOnDraft.results[0]?.line_count ?? 0) > 0) {
     throw new BillingValidationError(
       "contingency-fee-already-on-draft",
-      `invoice ${invoiceId} already carries the contingency fee under agreement version ${arrangement.version}: review the existing line, or remove it and compose again`,
+      `invoice ${invoiceId} already carries the contingency fee on matter ${matterId}: review the existing line, or remove it and compose again`,
     );
   }
 
   const derivation = await deriveContingencyFee(database, matterId);
-  // THE OFFSET, and the rule that stops a recovery being billed twice: the entitlement is the whole
-  // share of the basis as it stands NOW, and this line charges only what earlier finalized bills
-  // have not already taken of it. A new recovery therefore bills exactly its own increment.
-  const previouslyBilledMinor = await readFinalizedContingencyBilledMinor(database, arrangement.id);
+  // THE OFFSET, and the rule that stops a recovery being billed twice: the entitlement is the
+  // in-force share of the basis as it stands NOW, and this line charges only what earlier finalized
+  // bills — under ANY version of the matter's contingency agreement — have not already taken of it.
+  // A new recovery therefore bills exactly its own increment; an amendment that raises the share
+  // bills the difference; one that lowers it can leave the billed total above the entitlement,
+  // which refuses here and is surfaced matter-by-matter by the over-billing fitness report.
+  const previouslyBilledMinor = await readFinalizedContingencyBilledMinor(database, matterId);
   const lineAmountMinor = derivation.feeMinor - previouslyBilledMinor;
   if (lineAmountMinor <= 0) {
     throw new BillingValidationError(
       "contingency-nothing-unbilled",
-      `the contingency entitlement on matter ${matterId} is ${derivation.feeMinor} and finalized bills under this agreement already charge ${previouslyBilledMinor}: there is nothing left to bill until a further recovery is recorded${previouslyBilledMinor > derivation.feeMinor ? " — and the amount already billed EXCEEDS the current entitlement, which the over-billing fitness report surfaces" : ""}`,
+      `the contingency entitlement on matter ${matterId} is ${derivation.feeMinor} and finalized bills under its agreement already charge ${previouslyBilledMinor}: there is nothing left to bill until a further recovery is recorded${previouslyBilledMinor > derivation.feeMinor ? " — and the amount already billed EXCEEDS the current entitlement, which the over-billing fitness report surfaces" : ""}`,
     );
   }
 

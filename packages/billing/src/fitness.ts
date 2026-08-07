@@ -206,24 +206,32 @@ export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): 
     .bind();
 }
 
-// A CONTINGENCY AGREEMENT IS NOT BILLED PAST ITS ENTITLEMENT. The entitlement is DERIVED here from
-// the basis as it survives NOW — the non-voided recoveries, minus (under the net-after-costs
-// election) the matter's approved or billed advanced costs, times the agreed share — and compared
-// against every contingency fee line on a FINALIZED bill under the arrangement version. Two
-// findings surface as one shape: an offset the write path missed (more billed than the basis ever
-// supported), and a basis that SHRANK after billing — a recovery voided, or a late advanced cost —
-// which no write-path guard can catch because the bill was true when it finalized. The half-up CAST
-// matches the line boundary's half-away-from-zero exactly, because the base here is never negative.
+// A MATTER IS NOT BILLED PAST ITS CONTINGENCY ENTITLEMENT. The entitlement ceiling is the IN-FORCE
+// contingency version's share against the basis as it survives NOW — the non-voided recoveries,
+// minus (under the net-after-costs election) the matter's approved or billed advanced costs — and
+// what is billed is summed across the matter's WHOLE agreement chain: every finalized contingency
+// fee line under ANY version, because the recoveries are the matter's and an amendment mints a new
+// version without minting a new recovery. A version-scoped comparison would pass a matter whose
+// every version individually looks clean while the matter as a whole is double-billed. Three
+// findings surface as one shape: an offset the write path missed, a basis that SHRANK after billing
+// (a recovery voided, or a late advanced cost — no write-path guard can catch either, because the
+// bill was true when it finalized), and a share LOWERED by amendment below what the old share
+// already billed. A matter amended off contingency entirely carries no in-force ceiling and is not
+// reported here — the agreement moved on, and its old bills answer to the versions that issued
+// them. The half-up CAST matches the line boundary's half-away-from-zero exactly, because the base
+// here is never negative.
 export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT arrangement_id, matter_id, billed_minor, entitlement_minor
-         FROM (SELECT a.id AS arrangement_id,
-                      a.matter_id AS matter_id,
+      `SELECT matter_id, in_force_arrangement_id, billed_minor, entitlement_minor
+         FROM (SELECT a.matter_id AS matter_id,
+                      a.id AS in_force_arrangement_id,
                       (SELECT COALESCE(SUM(l.amount_minor), 0)
                          FROM invoice_line l
                          JOIN invoice i ON i.id = l.invoice_id
-                        WHERE l.billing_arrangement_id = a.id AND l.kind = 'fee' AND i.status = 'final') AS billed_minor,
+                         JOIN matter_billing_arrangement v ON v.id = l.billing_arrangement_id
+                        WHERE v.matter_id = a.matter_id AND v.kind = 'contingency'
+                          AND l.kind = 'fee' AND i.status = 'final') AS billed_minor,
                       CAST(MAX((SELECT COALESCE(SUM(r.amount_minor), 0)
                                   FROM matter_recovery r
                                  WHERE r.matter_id = a.matter_id AND r.voided_at IS NULL)
@@ -236,7 +244,7 @@ export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabas
                                       ELSE 0 END,
                                0) * a.contingency_share_e4 / 10000.0 + 0.5 AS INTEGER) AS entitlement_minor
                  FROM matter_billing_arrangement a
-                WHERE a.kind = 'contingency')
+                WHERE a.kind = 'contingency' AND a.valid_to IS NULL)
         WHERE billed_minor > entitlement_minor`,
     )
     .bind();
