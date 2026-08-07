@@ -174,9 +174,7 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
     expect(results).toHaveLength(2);
     // Identified by content rather than position: the fixture clock is frozen, so the two audit
     // rows share created_at and no stored order between them is meaningful.
-    const metadatas = results.map(
-      (row) => JSON.parse(row.metadata) as Record<string, unknown>,
-    );
+    const metadatas = results.map((row) => JSON.parse(row.metadata) as Record<string, unknown>);
     const second = metadatas.find((metadata) => metadata["toPolicy"] === "off");
     expect(second).toMatchObject({
       fromPolicy: "threshold",
