@@ -102,19 +102,27 @@ async function createMatter(title: string): Promise<string> {
 // A stored file with a committed version, seeded directly. NO BYTES ever reach a discovery route:
 // the internal lanes are a SELECTION, not an upload, and the platform already holds the bytes, the
 // hash, and the scan verdict. Seeding the handles is exactly what the lane resolves against.
+//
+// Three statements rather than two, because `file.current_version_id` and `file_version.file_id`
+// point at each other: the file is written with no current version, the version is written against
+// it, and only then does the file point back. Writing the file with its version id up front is a
+// forward reference the foreign key refuses — which is the real ingest path's ordering too.
+// The handles are MINTED rather than written by hand: a route validates every identifier it is
+// handed against the platform's own handle shape, so a readable-but-invalid `file_internal_one`
+// never reaches a handler — it is refused at the schema gate, which is the gate working.
 async function seedCleanFile(
-  fileId: string,
-  versionId: string,
   name: string,
   options: { status?: string; matter?: string; sha256?: string } = {},
-): Promise<void> {
+): Promise<{ fileId: string; versionId: string }> {
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
   const belongsTo = options.matter ?? matterId;
   await firmDatabase
     .prepare(
       "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) " +
-        "VALUES (?1, ?2, NULL, ?3, NULL, ?4, NULL, ?5, ?5)",
+        "VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, ?4, ?4)",
     )
-    .bind(fileId, belongsTo, name, versionId, clock.now())
+    .bind(fileId, belongsTo, name, clock.now())
     .run();
   await firmDatabase
     .prepare(
@@ -130,6 +138,11 @@ async function seedCleanFile(
       clock.now(),
     )
     .run();
+  await firmDatabase
+    .prepare("UPDATE file SET current_version_id = ?2, updated_at = ?3 WHERE id = ?1")
+    .bind(fileId, versionId, clock.now())
+    .run();
+  return { fileId, versionId };
 }
 
 async function createReviewSet(name: string): Promise<string> {
@@ -345,9 +358,11 @@ describe("declaring a load", () => {
       lane: "internal-files",
       declaredDocumentCount: 3,
     });
-    // The request schema demands the field, so the shape gate catches it first — which is the
-    // stronger place for it: a body with no transcriptScope cannot reach a handler at all.
-    expect(response.status).toBe(400);
+    // The request schema demands the field, so the shape gate catches it before a handler runs —
+    // which is the stronger place for it: a body with no transcriptScope cannot reach code that
+    // might supply one. There is no default anywhere on the path, in either direction.
+    expect(response.status).toBe(422);
+    expect(String(((await response.json()) as { type: string }).type)).toContain("validation");
   });
 
   it("refuses an include by name rather than dropping it or pretending to honour it", async () => {
@@ -420,8 +435,8 @@ describe("the internal file lane", () => {
   it("resolves a selection into review documents without moving a byte", async () => {
     const setId = await createReviewSet("Internal files");
     const custodianId = await createRecordCustodian(setId, "Ana Vasquez");
-    await seedCleanFile("file_internal_one", "fileVersion_internal_one", "contract.docx");
-    await seedCleanFile("file_internal_two", "fileVersion_internal_two", "invoice.pdf");
+    const first = await seedCleanFile("contract.docx");
+    const second = await seedCleanFile("invoice.pdf");
 
     const declared = await declareLoad(setId, {
       lane: "internal-files",
@@ -433,7 +448,7 @@ describe("the internal file lane", () => {
 
     const run = await post(`/api/v1/loads/${loadId}/internal-selection`, {
       recordCustodianId: custodianId,
-      fileIds: ["file_internal_one", "file_internal_two"],
+      fileIds: [first.fileId, second.fileId],
     });
     expect(run.status).toBe(202);
     const turn = (await run.json()) as {
@@ -469,14 +484,17 @@ describe("the internal file lane", () => {
         content_sha256: string;
       }>();
     expect(results).toHaveLength(2);
+    // The versions the load PINNED — a snapshot of what was there, not a subscription to the files.
+    expect(results.map((row) => row.file_version_id).sort()).toEqual(
+      [first.versionId, second.versionId].sort(),
+    );
     for (const row of results) {
-      expect(row.file_version_id).toMatch(/^fileVersion_internal_/);
       // A standalone document is its own family, so every document has one.
       expect(row.family_id).toBe(row.id);
       expect(row.family_role).toBe("standalone");
       expect(row.processing_state).toBe("pending");
       // The hash was already computed at ingest, so exact dedup is free at load time.
-      expect(row.content_sha256).toMatch(/^sha256-file_internal_/);
+      expect(row.content_sha256).toMatch(/^sha256-file_/);
     }
   });
 
@@ -485,9 +503,7 @@ describe("the internal file lane", () => {
   it("refuses a quarantined version by name rather than skipping it", async () => {
     const setId = await createReviewSet("Quarantine test");
     const custodianId = await createRecordCustodian(setId, "Ana Vasquez");
-    await seedCleanFile("file_quarantined", "fileVersion_quarantined", "malware.doc", {
-      status: "quarantined",
-    });
+    const quarantined = await seedCleanFile("malware.doc", { status: "quarantined" });
     const declared = await declareLoad(setId, {
       lane: "internal-files",
       transcriptScope: "exclude",
@@ -495,7 +511,7 @@ describe("the internal file lane", () => {
     });
     const run = await post(`/api/v1/loads/${String(declared.body.id)}/internal-selection`, {
       recordCustodianId: custodianId,
-      fileIds: ["file_quarantined"],
+      fileIds: [quarantined.fileId],
     });
     expect(run.status).toBe(422);
     const problem = (await run.json()) as { type: string; detail: string };
@@ -509,9 +525,7 @@ describe("the internal file lane", () => {
     const otherMatter = await createMatter("Unrelated matter");
     const setId = await createReviewSet("Cross-matter test");
     const custodianId = await createRecordCustodian(setId, "Ana Vasquez");
-    await seedCleanFile("file_other_matter", "fileVersion_other_matter", "stranger.docx", {
-      matter: otherMatter,
-    });
+    const stranger = await seedCleanFile("stranger.docx", { matter: otherMatter });
     const declared = await declareLoad(setId, {
       lane: "internal-files",
       transcriptScope: "exclude",
@@ -519,7 +533,7 @@ describe("the internal file lane", () => {
     });
     const run = await post(`/api/v1/loads/${String(declared.body.id)}/internal-selection`, {
       recordCustodianId: custodianId,
-      fileIds: ["file_other_matter"],
+      fileIds: [stranger.fileId],
     });
     expect(run.status).toBe(422);
     expect(String((await run.json()).type)).toContain("discovery-selection-refused");
@@ -530,14 +544,14 @@ describe("the internal file lane", () => {
   it("converges rather than duplicating when the same selection runs twice", async () => {
     const setId = await createReviewSet("Idempotency test");
     const custodianId = await createRecordCustodian(setId, "Ana Vasquez");
-    await seedCleanFile("file_retry", "fileVersion_retry", "retried.docx");
+    const retried = await seedCleanFile("retried.docx");
     const declared = await declareLoad(setId, {
       lane: "internal-files",
       transcriptScope: "exclude",
       declaredDocumentCount: 1,
     });
     const loadId = String(declared.body.id);
-    const body = { recordCustodianId: custodianId, fileIds: ["file_retry"] };
+    const body = { recordCustodianId: custodianId, fileIds: [retried.fileId] };
 
     const first = await post(`/api/v1/loads/${loadId}/internal-selection`, body);
     expect(first.status).toBe(202);
