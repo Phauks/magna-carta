@@ -242,7 +242,12 @@ jobs:
   # vite.config.ts) is not keyed, a deliberate trade so config-only edits don't cold-build; if you change
   # that task in a way that alters its output, also touch a keyed input so the cache busts.
   wasm:
-    needs: changes
+    # TEMPORARY CI AUSTERITY 2026-08-07 — format is a ~2-minute tripwire before the expensive
+    # tier; a doomed-on-formatting run stops here instead of spending ~40 runner-minutes. Costs a
+    # green run ~2.5 minutes of latency. On revert, drop `format` from the three needs lists below
+    # (wasm, rust, containers). Deliberately not gated on governance: a new upstream advisory is
+    # external news and must not cancel testing.
+    needs: [changes, format]
     if: needs.changes.outputs.code == 'true'
     # Stays on the 2-core runner even though a cache hit is 14 s: on a MISS this shells out to
     # `docker build`, and the 1-vCPU runner is an unprivileged container with the Docker client but no
@@ -434,7 +439,7 @@ jobs:
   # The Rust workspace gate (cargo fmt --check + clippy -D warnings + tests). Runs on the host toolchain
   # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
   rust:
-    needs: changes
+    needs: [changes, format]
     if: needs.changes.outputs.rust == 'true'
     # Stays: cargo scales with cores, and a cold clippy build of the crates workspace runs well past
     # the 1-vCPU runner's 15-minute cap.
@@ -468,6 +473,8 @@ jobs:
   # job). The `test-collection` job below proves both registrations landed.
   # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
   # change a count. fail-fast off so one shard's failure still lets its siblings report.
+  # TEMPORARY CI AUSTERITY 2026-08-07 — revert when Actions minutes reset: fail-fast flipped ON so a
+  # failing shard cancels its siblings (saves minutes, loses sibling reports). Restore `false` on revert.
   #
   # PASS THE PATHS ABSOLUTE — "$PWD/packages", never "packages". The runner matches a positional path
   # filter PER PROJECT, against the candidate file's path relative to THAT PROJECT'S OWN root, not
@@ -491,7 +498,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
       matrix:
         shard: [1, 2]
     env:
@@ -524,7 +531,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
-      fail-fast: false
+      fail-fast: true # TEMPORARY CI AUSTERITY 2026-08-07 — restore false on revert
       matrix:
         # Shard count comes from the `changes` job: 2 on a small diff, 4 otherwise. `--shard=i/N`
         # partitions the whole suite for either N, so this trades wall-clock for the fixed per-shard
@@ -782,7 +789,7 @@ jobs:
   # to an acceptance suite nor explicitly listed as not-yet-covered FAILS the job — a new container must
   # opt in loudly, never silently join the untested set.
   containers:
-    needs: changes
+    needs: [changes, format]
     if: needs.changes.outputs.containers == 'true'
     # Stays, and could not move: multi-gigabyte `docker build`s need a daemon the 1-vCPU runner does
     # not have, and the 90-minute cap below is six times its ceiling.
