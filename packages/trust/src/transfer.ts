@@ -144,21 +144,26 @@ export async function composeTrustToOperatingTransfer(
     input.recordedBy === input.authorizedBy &&
     trustAuthorizationRequiresSecondPerson(policy, amountMinor)
   ) {
-    // The same lone-manager posture the disbursement flow records: a firm with genuinely nobody
-    // else is not locked out of taking its earned fees. The count mirrors the trigger, over-counting
+    // The same lone-holder posture the disbursement flow records: a firm with genuinely nobody else
+    // is not locked out of taking its earned fees — but the exception belongs to the one member the
+    // count found, so a sole actor who is not that member (a member who can apply but not authorize)
+    // is refused even while a lone holder exists. The count mirrors the trigger, over-counting
     // lapsed grants deliberately — refusing the exception is the safe direction to be wrong in.
     const { results: managers } = await selectActiveTrustManagersStatement(database).all<{
       user_id: string;
       display_name: string;
     }>();
-    if (managers.length > 1) {
+    const actorIsHolder = managers.some((manager) => manager.user_id === input.authorizedBy);
+    if (managers.length > 1 || !actorIsHolder) {
       const others = managers
         .filter((manager) => manager.user_id !== input.authorizedBy)
         .map((manager) => `${manager.display_name} (${manager.user_id})`)
         .join(", ");
       throw new TrustValidationError(
         "transfer-requires-second-person",
-        `this firm requires a second person to authorize money leaving a client ledger at this amount; submit it as a pending earned-fee application for one of these members to approve: ${others}`,
+        others.length === 0
+          ? `this firm requires a second person to authorize money leaving a client ledger at this amount, and no active member holds trust:manage to approve it; grant the capability first`
+          : `this firm requires a second person to authorize money leaving a client ledger at this amount; submit it as a pending earned-fee application for one of these members to approve: ${others}`,
       );
     }
   }

@@ -3695,6 +3695,10 @@ export const trustTransfer = sqliteTable(
     // entry would double-count the movement in every report that joins through this table.
     uniqueIndex("trust_transfer_trust_entry_unique_index").on(table.trustEntryId),
     uniqueIndex("trust_transfer_operating_entry_unique_index").on(table.operatingEntryId),
+    // One transfer per approved request, ever — without this a settled request could be named by a
+    // second transfer under its old stamp. SQLite UNIQUE permits many NULLs, so directly composed
+    // transfers are unaffected.
+    uniqueIndex("trust_transfer_approved_request_unique_index").on(table.approvedRequestId),
     index("trust_transfer_from_node_index").on(table.fromNodeId),
     index("trust_transfer_account_effective_date_index").on(
       table.trustAccountId,

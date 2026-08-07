@@ -575,3 +575,97 @@ describe("the earned-fee transfer runs the same policy", () => {
     ).rejects.toThrow(/current authorization policy version/);
   });
 });
+
+describe("the lone-holder exception belongs to the counted member", () => {
+  it("refuses a member who is not the holder acting alone, composer and database alike", async () => {
+    const { fixture, node } = await fundedFixture(500000);
+    // The firm's ONE trust:manage holder is the fixture member; the clerk holds nothing.
+    const clerk = "user_clerk" as UserId;
+    const requestId = await submitDisbursement(fixture, node.id, 120000, clerk);
+
+    // The composer refuses the clerk's self-approval by name, pointing at the holder.
+    await expect(
+      composeTrustDisbursementApproval(fixture.database, { requestId, approvedBy: clerk }, options),
+    ).rejects.toMatchObject({ code: "trust-disbursement-decider-is-requester" });
+
+    // And the DATABASE refuses the same shape with the composer bypassed entirely, wearing the
+    // sole-manager basis a lone holder would legitimately carry.
+    const movementId = await committedProbeMovement(fixture, node.id, 1000, clerk);
+    await expect(
+      expectRefusal(() =>
+        insertTrustDisbursementDecisionStatement(fixture.database, {
+          id: newIdentifier("trustDisbursementDecision"),
+          requestId,
+          decision: "approved",
+          decidedBy: clerk,
+          decidedAt: clock.now(),
+          reason: null,
+          authorizationBasis: "sole_trust_manager",
+          movementId,
+          transferId: null,
+        }).run(),
+      ),
+    ).rejects.toThrow(/sole-authorizer exception/);
+
+    // The genuine lone holder approves the clerk's request as an ordinary second person.
+    const approved = await composeTrustDisbursementApproval(
+      fixture.database,
+      { requestId, approvedBy: fixture.memberUserId },
+      options,
+    );
+    expect(approved.authorizationBasis).toBe("second_person");
+    await commit(fixture.database, approved.effect);
+  });
+
+  it("refuses a non-holder single-actor transfer while the genuine lone holder may still act alone", async () => {
+    const { fixture, node } = await fundedFixture(500000);
+    const clerk = "user_clerk" as UserId;
+    const transferInput = (actor: UserId, minor: number) => ({
+      fromNodeId: node.id as never,
+      amount: usd(minor),
+      effectiveDate: "2026-08-05",
+      trustDescription: "Earned fees withdrawn from trust",
+      operatingDescription: "Earned fees received into operating",
+      operatingBankAccountId: fixture.operatingBankAccountId,
+      accountsReceivableAccountId: fixture.accountsReceivableAccountId,
+      recordedBy: actor,
+      authorizedBy: actor,
+    });
+
+    // The clerk cannot take fees single-handed even though the firm has only one holder — the
+    // exception is the holder's, not the room's.
+    await expect(
+      composeTrustToOperatingTransfer(fixture.database, transferInput(clerk, 120000), {
+        ...options,
+        earnedFeePrecondition: permitting,
+      }),
+    ).rejects.toMatchObject({ code: "transfer-requires-second-person" });
+
+    // The genuine lone holder can.
+    const byHolder = await composeTrustToOperatingTransfer(
+      fixture.database,
+      transferInput(fixture.memberUserId, 120000),
+      { ...options, earnedFeePrecondition: permitting },
+    );
+    await commit(fixture.database, byHolder.effect);
+
+    // And the DATABASE refuses the clerk's row with the composer bypassed.
+    await expect(
+      expectRefusal(() =>
+        fixture.database
+          .prepare(
+            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 100, 'USD', ?4, ?5, 'user_clerk', 'user_clerk', NULL, NULL, '2026-08-05', ?6)",
+          )
+          .bind(
+            newIdentifier("trustTransfer"),
+            fixture.trustAccountId,
+            node.id,
+            byHolder.trustEntryId,
+            byHolder.operatingEntryId,
+            clock.now(),
+          )
+          .run(),
+      ),
+    ).rejects.toThrow(/second person/);
+  });
+});

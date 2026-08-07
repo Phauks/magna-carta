@@ -138,6 +138,15 @@ export function trustAuthorizationRequiresSecondPerson(
         );
       }
       return amountMinor > policy.thresholdAmountMinor;
+    default:
+      // Unreachable under the type, load-bearing against data: a policy kind this code does not
+      // recognize — a future value reaching an old deploy — must not resolve to "no second person
+      // required". Refuse rather than waive, the same direction the triggers' exemption whitelists
+      // take.
+      throw new TrustValidationError(
+        "trust-authorization-policy-malformed",
+        `unrecognized authorization policy kind: ${String(policy.policy)}`,
+      );
   }
 }
 

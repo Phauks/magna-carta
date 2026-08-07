@@ -16,6 +16,7 @@ import {
   billingFixture,
   clock,
   commit,
+  expectRefusal,
   mapAccountRoles,
   options,
   readOneRow,
@@ -317,5 +318,106 @@ describe("the earned-fee application under the always-two-person default", () =>
     // And with the posture off, the direct single-actor path is back.
     const [balance] = await readInvoiceMatterBalances(fixture.database, context.invoiceId);
     expect(balance?.appliedMinor).toBe(500_00);
+  });
+});
+
+describe("the lone-holder exception is not borrowable through the application flow", () => {
+  // The reviewer's reproduction, at the composer the route calls: a firm with exactly ONE
+  // trust:manage holder (the fixture member) and a clerk who can apply but not authorize. The clerk
+  // submits an application and self-approves; before the membership half of the lone-holder rule,
+  // the batch committed with a sole_trust_manager basis nobody had.
+  async function clerkFixture() {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, [...APPLY_ROLES]);
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const timeEntryId = await seedTimeEntry(fixture, matterId, { amountMinor: 500_00 });
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: ACME, currency: "USD", createdBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+    const claimed = await addClaimsToDraft(
+      fixture.database,
+      draft.invoiceId,
+      [{ sourceKind: "time_entry", sourceId: timeEntryId }],
+      options,
+    );
+    await commit(fixture.database, claimed.effect);
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+    const trustAccountId = await seedTrustAccount(fixture);
+    await depositToMatterTrustLeaf(fixture, trustAccountId, matterId, 800_00);
+    return { fixture, trustAccountId, matterId, invoiceId: draft.invoiceId };
+  }
+
+  it("refuses the clerk's self-approval; the holder approves it as a second person", async () => {
+    const context = await clerkFixture();
+    const { fixture } = context;
+    const clerk = "user_clerk_billing_only" as UserId;
+
+    const submitted = await submitTrustApplicationRequest(
+      fixture.database,
+      {
+        trustAccountId: context.trustAccountId,
+        matterId: context.matterId,
+        applications: [{ invoiceId: context.invoiceId, amountMinor: 500_00 }],
+        currency: "USD",
+        effectiveDate: "2026-08-05",
+        trustDescription: "Earned fees transferred to operating",
+        operatingDescription: "Earned fees received from trust",
+        method: "electronic_transfer",
+        payee: "The Firm — operating account",
+        purpose: "Earned fees on finalized invoice",
+        requestedBy: clerk,
+      },
+      options,
+    );
+    await commit(fixture.database, submitted.effect);
+
+    // Not a second person, and not the holder the exception belongs to: refused by name.
+    await expect(
+      composeTrustApplicationApproval(
+        fixture.database,
+        { requestId: submitted.requestId, approvedBy: clerk },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "trust-disbursement-decider-is-requester" });
+
+    // The firm's one trust:manage holder approves it as an ordinary second person.
+    const approved = await composeTrustApplicationApproval(
+      fixture.database,
+      { requestId: submitted.requestId, approvedBy: fixture.memberUserId },
+      options,
+    );
+    expect(approved.authorizationBasis).toBe("second_person");
+    await commit(fixture.database, approved.effect);
+
+    // A settled request's particulars are spent: a second transfer claiming the same request under
+    // its old stamp aborts at the database, composer or no composer.
+    await expect(
+      expectRefusal(() =>
+        fixture.database
+          .prepare(
+            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 50000, 'USD', ?4, ?5, ?6, ?7, NULL, ?8, '2026-08-05', ?9)",
+          )
+          .bind(
+            newIdentifier("trustTransfer"),
+            context.trustAccountId,
+            submitted.nodeId,
+            approved.trustEntryId,
+            approved.operatingEntryId,
+            fixture.memberUserId,
+            clerk,
+            submitted.requestId,
+            clock.now(),
+          )
+          .run(),
+      ),
+    ).rejects.toThrow(/request nobody has decided|UNIQUE/);
   });
 });

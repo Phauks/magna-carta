@@ -377,6 +377,21 @@ export async function resolveTrustAuthorizationApproval(
         `${decidedBy} submitted this request, and this firm has other members who can authorize money leaving a client ledger; one of them must approve it: ${others}`,
       );
     }
+    // The exception belongs to the one member the count found, not to whoever reached this line
+    // while a lone holder exists: a member who can submit but not authorize must route the request
+    // to the holder, or the recorded basis would assert a footing nobody had. The trigger holds the
+    // same membership test.
+    if (!managers.some((manager) => manager.user_id === decidedBy)) {
+      const holder = managers
+        .map((manager) => `${manager.display_name} (${manager.user_id})`)
+        .join(", ");
+      throw new TrustValidationError(
+        "trust-disbursement-decider-is-requester",
+        managers.length === 0
+          ? `no active member of this firm holds trust:manage, so nobody may authorize money leaving a client ledger; grant the capability first`
+          : `${decidedBy} does not hold trust:manage; the sole-authorizer exception belongs to the firm's only member who does, and this request must be approved by: ${holder}`,
+      );
+    }
   }
 
   // The authority option binds whoever lets money go, second person or sole actor alike. The

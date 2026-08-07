@@ -9,7 +9,11 @@ much of that protection your firm wants is your choice.
 - **Always** (the default): every payment out of a client ledger, whatever the amount, must be
   proposed by one member and approved by another.
 - **Above a threshold**: payments at or below an amount you set can be completed by the member who
-  proposed them; anything above it takes a second person.
+  proposed them; anything above it takes a second person. One thing to know before choosing this
+  posture: the threshold applies to each payment on its own. Two payments each at or below the
+  threshold do not add up to one that requires approval — there is no per-payee or per-day
+  aggregation — so splitting a payment can stay under the line. Every payment is still permanently
+  recorded, but if that pattern worries you, choose **Always**.
 - **Off**: any member who can move trust money can complete their own payment.
 
 Every firm starts on **Always**. Nothing about your controls changes unless someone with the

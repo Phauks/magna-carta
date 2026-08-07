@@ -161,13 +161,16 @@ BEGIN
   SELECT RAISE(ABORT, 'an exception basis records a submitter approving their own request; a different approver is an ordinary second-person approval');
 END;
 --> statement-breakpoint
--- The sole-manager exception is only available to a firm that genuinely has nobody else: the moment
--- a second ACTIVE member holds the trust capability, this refuses. Expiring direct grants count
--- regardless of expiry — over-counting authorizers refuses the exception, the safe direction to be
--- wrong in, and a trigger reading the wall clock would make the answer depend on when it was asked.
+-- The sole-manager exception is only available to a firm that genuinely has nobody else, AND only to
+-- the one member the count found: the exception belongs to the firm's lone trust:manage holder, not
+-- to whoever reaches the table while a lone holder exists. Without the membership half, a member who
+-- can submit but not authorize could claim the lone holder's exception in a one-manager firm and the
+-- record would assert a footing nobody had. Expiring direct grants count regardless of expiry —
+-- over-counting authorizers refuses the exception, the safe direction to be wrong in, and a trigger
+-- reading the wall clock would make the answer depend on when it was asked.
 CREATE TRIGGER `trust_disbursement_decision_sole_basis_requires_lone_manager` BEFORE INSERT ON `trust_disbursement_decision`
 WHEN NEW.`authorization_basis` = 'sole_trust_manager'
-  AND (SELECT COUNT(*) FROM (
+  AND ((SELECT COUNT(*) FROM (
         SELECT mr.`member_user_id` AS `user_id`
           FROM `member_role` mr
           JOIN `role_permission` rp ON rp.`role_id` = mr.`role_id`
@@ -179,8 +182,20 @@ WHEN NEW.`authorization_basis` = 'sole_trust_manager'
           JOIN `member` m ON m.`user_id` = dg.`member_user_id`
          WHERE dg.`permission` = 'trust:manage' AND m.`status` = 'active'
       )) > 1
+    OR NOT EXISTS (SELECT 1 FROM (
+        SELECT mr.`member_user_id` AS `user_id`
+          FROM `member_role` mr
+          JOIN `role_permission` rp ON rp.`role_id` = mr.`role_id`
+          JOIN `member` m ON m.`user_id` = mr.`member_user_id`
+         WHERE rp.`permission` = 'trust:manage' AND m.`status` = 'active'
+        UNION
+        SELECT dg.`member_user_id`
+          FROM `direct_grant` dg
+          JOIN `member` m ON m.`user_id` = dg.`member_user_id`
+         WHERE dg.`permission` = 'trust:manage' AND m.`status` = 'active'
+      ) WHERE `user_id` = NEW.`decided_by`))
 BEGIN
-  SELECT RAISE(ABORT, 'this firm has more than one member who can authorize a trust disbursement, so a second member must approve it');
+  SELECT RAISE(ABORT, 'the sole-authorizer exception belongs to the firm''s only member holding trust:manage; either this firm has more than one, or the deciding member is not that member');
 END;
 --> statement-breakpoint
 -- Each exception basis matches the policy stamped on the request — the policy IN FORCE WHEN IT WAS
@@ -188,16 +203,20 @@ END;
 -- stamp is the shipped default: always two-person. sole_trust_manager is for when a second person is
 -- required and nobody else exists; policy_exempt is for when the stamp did not require one. Using
 -- either where the other applies would misdescribe the approval on its face.
+--
+-- The CASE whitelists the EXEMPTION (off, or threshold at-or-below), never the requirement: a policy
+-- kind these triggers do not recognize — a future value reaching an old firm database — therefore
+-- requires a second person rather than waiving one, the safe direction to be wrong in.
 CREATE TRIGGER `trust_disbursement_decision_sole_basis_requires_two_person_policy` BEFORE INSERT ON `trust_disbursement_decision`
 WHEN NEW.`authorization_basis` = 'sole_trust_manager'
   AND (SELECT CASE
-         WHEN r.`policy_id` IS NULL THEN 1
-         WHEN p.`policy` = 'always' THEN 1
-         WHEN p.`policy` = 'threshold' AND r.`amount_minor` > p.`threshold_amount_minor` THEN 1
+         WHEN r.`policy_id` IS NULL THEN 0
+         WHEN p.`policy` = 'off' THEN 1
+         WHEN p.`policy` = 'threshold' AND r.`amount_minor` <= p.`threshold_amount_minor` THEN 1
          ELSE 0 END
        FROM `trust_disbursement_request` r
        LEFT JOIN `trust_authorization_policy` p ON p.`id` = r.`policy_id`
-       WHERE r.`id` = NEW.`request_id`) = 0
+       WHERE r.`id` = NEW.`request_id`) = 1
 BEGIN
   SELECT RAISE(ABORT, 'the authorization policy this request was submitted under does not require a second person for this amount; the basis for the submitter acting alone under it is policy_exempt');
 END;
@@ -205,13 +224,13 @@ END;
 CREATE TRIGGER `trust_disbursement_decision_exempt_basis_requires_exempting_policy` BEFORE INSERT ON `trust_disbursement_decision`
 WHEN NEW.`authorization_basis` = 'policy_exempt'
   AND (SELECT CASE
-         WHEN r.`policy_id` IS NULL THEN 1
-         WHEN p.`policy` = 'always' THEN 1
-         WHEN p.`policy` = 'threshold' AND r.`amount_minor` > p.`threshold_amount_minor` THEN 1
+         WHEN r.`policy_id` IS NULL THEN 0
+         WHEN p.`policy` = 'off' THEN 1
+         WHEN p.`policy` = 'threshold' AND r.`amount_minor` <= p.`threshold_amount_minor` THEN 1
          ELSE 0 END
        FROM `trust_disbursement_request` r
        LEFT JOIN `trust_authorization_policy` p ON p.`id` = r.`policy_id`
-       WHERE r.`id` = NEW.`request_id`) = 1
+       WHERE r.`id` = NEW.`request_id`) = 0
 BEGIN
   SELECT RAISE(ABORT, 'the authorization policy this request was submitted under requires a second person for this amount');
 END;
@@ -304,6 +323,10 @@ END;
 ALTER TABLE `trust_transfer` ADD COLUMN `recorded_by` text;--> statement-breakpoint
 ALTER TABLE `trust_transfer` ADD COLUMN `policy_id` text REFERENCES `trust_authorization_policy`(`id`);--> statement-breakpoint
 ALTER TABLE `trust_transfer` ADD COLUMN `approved_request_id` text REFERENCES `trust_disbursement_request`(`id`);--> statement-breakpoint
+-- One transfer per approved request, ever: without this, a request could be named by a second
+-- transfer under its old stamp. SQLite UNIQUE permits many NULLs, so directly composed transfers
+-- are unaffected.
+CREATE UNIQUE INDEX `trust_transfer_approved_request_unique_index` ON `trust_transfer` (`approved_request_id`);--> statement-breakpoint
 -- Money leaving a client ledger names who entered the record and who let it go — the discipline the
 -- movement shape CHECK already imposes on disbursements, imposed here by trigger because SQLite
 -- cannot add a NOT NULL constraint to an existing table. Old rows keep their NULLs; every new row
@@ -315,17 +338,21 @@ BEGIN
 END;
 --> statement-breakpoint
 -- A transfer approved from the queue is composed FROM its request: same submitter recorded, same
--- policy stamp, an application-kind request. The decision row that follows in the same batch pins
--- the approver; this pins everything the transfer itself asserts.
+-- policy stamp, the request's own amount, an application-kind request that is still PENDING — a
+-- settled request's particulars are spent, and a transfer claiming one would be a second payment
+-- wearing an old approval's stamp. The decision row that follows in the same batch pins the
+-- approver; this pins everything the transfer itself asserts.
 CREATE TRIGGER `trust_transfer_approved_request_shape` BEFORE INSERT ON `trust_transfer`
 WHEN NEW.`approved_request_id` IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM `trust_disbursement_request` r
         WHERE r.`id` = NEW.`approved_request_id`
           AND r.`kind` = 'earned_fee_application'
           AND r.`requested_by` = NEW.`recorded_by`
-          AND r.`policy_id` IS NEW.`policy_id`)
+          AND r.`policy_id` IS NEW.`policy_id`
+          AND r.`amount_minor` = NEW.`amount_minor`
+          AND NOT EXISTS (SELECT 1 FROM `trust_disbursement_decision` d WHERE d.`request_id` = r.`id`))
 BEGIN
-  SELECT RAISE(ABORT, 'a transfer approved from the authorization queue must record the submitting member and carry the policy version stamped on its earned-fee application request');
+  SELECT RAISE(ABORT, 'a transfer approved from the authorization queue must record the submitting member, carry the policy version and amount stamped on its pending earned-fee application request, and claim a request nobody has decided');
 END;
 --> statement-breakpoint
 -- A transfer composed DIRECTLY (no queue) is governed by the CURRENT policy and stamps it; only a
@@ -343,16 +370,19 @@ END;
 -- The firm's policy applied to the OTHER way money leaves a client ledger. When the governing
 -- version requires a second person for this amount, the member who recorded the transfer cannot also
 -- be the one who authorized it — unless the firm genuinely has nobody else holding the trust
--- capability, the same lone-manager exception the decision table records explicitly.
+-- capability AND the sole actor IS that one member: the same lone-holder exception the decision
+-- table records explicitly, and the same membership half — a member who is not the lone holder
+-- cannot borrow the exception while one exists. The CASE whitelists the EXEMPTION (off, or threshold
+-- at-or-below), so an unrecognized policy kind requires two people rather than zero.
 CREATE TRIGGER `trust_transfer_requires_second_person` BEFORE INSERT ON `trust_transfer`
 WHEN NEW.`recorded_by` = NEW.`authorized_by`
   AND (CASE
-         WHEN NEW.`policy_id` IS NULL THEN 1
-         WHEN (SELECT `policy` FROM `trust_authorization_policy` WHERE `id` = NEW.`policy_id`) = 'always' THEN 1
+         WHEN NEW.`policy_id` IS NULL THEN 0
+         WHEN (SELECT `policy` FROM `trust_authorization_policy` WHERE `id` = NEW.`policy_id`) = 'off' THEN 1
          WHEN (SELECT `policy` FROM `trust_authorization_policy` WHERE `id` = NEW.`policy_id`) = 'threshold'
-           AND NEW.`amount_minor` > (SELECT `threshold_amount_minor` FROM `trust_authorization_policy` WHERE `id` = NEW.`policy_id`) THEN 1
-         ELSE 0 END) = 1
-  AND (SELECT COUNT(*) FROM (
+           AND NEW.`amount_minor` <= (SELECT `threshold_amount_minor` FROM `trust_authorization_policy` WHERE `id` = NEW.`policy_id`) THEN 1
+         ELSE 0 END) = 0
+  AND ((SELECT COUNT(*) FROM (
         SELECT mr.`member_user_id` AS `user_id`
           FROM `member_role` mr
           JOIN `role_permission` rp ON rp.`role_id` = mr.`role_id`
@@ -364,6 +394,18 @@ WHEN NEW.`recorded_by` = NEW.`authorized_by`
           JOIN `member` m ON m.`user_id` = dg.`member_user_id`
          WHERE dg.`permission` = 'trust:manage' AND m.`status` = 'active'
       )) > 1
+    OR NOT EXISTS (SELECT 1 FROM (
+        SELECT mr.`member_user_id` AS `user_id`
+          FROM `member_role` mr
+          JOIN `role_permission` rp ON rp.`role_id` = mr.`role_id`
+          JOIN `member` m ON m.`user_id` = mr.`member_user_id`
+         WHERE rp.`permission` = 'trust:manage' AND m.`status` = 'active'
+        UNION
+        SELECT dg.`member_user_id`
+          FROM `direct_grant` dg
+          JOIN `member` m ON m.`user_id` = dg.`member_user_id`
+         WHERE dg.`permission` = 'trust:manage' AND m.`status` = 'active'
+      ) WHERE `user_id` = NEW.`authorized_by`))
 BEGIN
   SELECT RAISE(ABORT, 'this firm requires a second person to authorize money leaving a client ledger at this amount; submit it as a pending earned-fee application for another member to approve');
 END;
