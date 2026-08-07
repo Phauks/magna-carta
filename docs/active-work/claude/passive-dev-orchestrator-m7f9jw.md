@@ -45,6 +45,32 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~14:10 UTC) — four more landed (139 merged); worker suite FULLY GREEN first time
+
+Since ~12:50: **#179** calendar slice 2 DESIGN (8dd7764d, task 124 → build
+queued as task 141): firm_event own-table (NOT NULL rebuild forbidden —
+mechanical argument), firm_resource + bookings (liveness derives from event
+status), warn-and-allow double-booking, continuance chains via partial unique
+indexes; 3 confirmation flags R1-R3. **#180** test-race pair (a55502c4, tasks
+135+138+140): BOTH full-suite flakes root-caused to the live test-pool queue
+consumers (deterministic repro; product verdict machines correct and
+deliberately untouched — overwritable failed/deferred IS the redelivery
+design); THREE dangling snapshot prevIds fixed (0034/0040/0048) + a permanent
+chain fitness check; worker suite 214 files / 1569 tests ALL GREEN — first
+fully green parallel run ever; full-suite reds are now signal. **#181**
+escheat research (380ef0fe, task 122): trust funds DO NOT escheat — NRS
+120A.500(6)(f) exemption verified since 2009; operative regime is NRPC
+1.15(f): 5 years from receipt, permissive TERMINAL remittance to the Clients'
+Security Fund, good-faith safe harbor; firms stay ordinary 120A holders for
+non-trust property; 4 more stale-secondary traps documented. RETURNS TO OWNER
+before encoding. **#182** catalog follow-ups (5f0f2683, task 139):
+validity-window semantic pinned — civil dates inclusive whole-day,
+length-discriminated against end-instant form in the staffing read. BUILDING
+NOW: fee models (task 125, B9 — idx 49 tag 20260807T060000 pre-assigned;
+STOP-guard on any new trust write shape) and the trust pair (136 citation
+sweep vs primary sources + 137 jurisdictions hardening). Owner list adds the
+T16 escheat findings. Journal head idx 48; next tag T060000.
+
 ## Position update (2026-08-07 ~12:50 UTC) — catalog 2-4 + trust policy SHIPPED under austerity; 135 merged
 
 **#177** catalog slices 2-4 merged (8d98eca0, idx 45-47, task 93): catalog 37→92
