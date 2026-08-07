@@ -83,6 +83,11 @@ describe("schema conformance (fitness functions)", () => {
       // One professional profile per member, and the member IS the row — a second handle would let
       // two profiles exist for one person, and every read already arrives holding the user id.
       member_professional_profile: "member_user_id",
+      // One running tally per member of how many notifications aged out of their feed while still
+      // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
+      // event anybody appends, and a handle would let two tallies exist for one person — which is
+      // exactly the state the unread count must never have to reconcile.
+      notification_swept_unread: "recipient_user_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.

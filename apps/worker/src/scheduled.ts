@@ -24,6 +24,13 @@ import {
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
 import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
+import {
+  recordSweptUnreadStatement,
+  retentionCutoff,
+  retentionSweepDeleteStatements,
+  selectSweepableUnreadTallyStatement,
+} from "@magna-carta/notifications/retention";
+import { readNotificationRetentionDays } from "@magna-carta/notifications/settings";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
@@ -552,6 +559,85 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
     }
   }
   return { firmsReconciled, corrections };
+}
+
+// The nightly notification-retention sweep, on the daily pass over the SAME reachable-active-firm
+// enumeration every other per-firm sweep uses.
+//
+// A notification is a POINTER and never a record: the ledger entry, the invoice, the quarantined
+// version, the deadline, and the audit_log row beside each of them are the record, keep their own
+// retention posture, and are untouched by anything here. Sweeping a pointer destroys no evidence.
+// That is what makes a retention window defensible in this subsystem where the custody register
+// refuses one outright — the custodian rule is about a client's irreplaceable property, and this is
+// about a badge.
+//
+// Unread rows age on the same clock as read ones, and the sweep does NOT simply drop them: it first
+// tallies, per member, how many it is about to take that were still unread and how far back they
+// reach, and the member's unread count reports that beside the live count. Returning a silent zero
+// to somebody back from three weeks' leave would be the platform making a claim — "there is nothing
+// you missed" — that it is not in a position to make.
+//
+// Bounded and resumable: one pass takes at most RETENTION_SWEEP_BATCH_SIZE events per firm, so a
+// firm that has gone unswept for a month does not present the nightly pass with an unbounded
+// DELETE; the next pass continues where this one stopped. One firm's failure is quarantined exactly
+// as the outbox sweep quarantines a sick firm database.
+export async function runNotificationRetentionSweep(env: Bindings): Promise<number> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let firmsSwept = 0;
+  for (const firm of firms) {
+    try {
+      const now = new Date().toISOString();
+      const retentionDays = await readNotificationRetentionDays(firm.database);
+      const cutoff = retentionCutoff(now, retentionDays);
+
+      // The tally is read BEFORE the delete, in the same pass, because afterwards the answer is
+      // gone — and the answer is exactly the fact this mechanism exists to keep.
+      const { results: tally } = await selectSweepableUnreadTallyStatement(
+        firm.database,
+        cutoff,
+      ).all<{ recipient_user_id: string; unread_count: number; oldest_occurred_at: string }>();
+
+      const statements = [
+        ...tally.map((row) =>
+          recordSweptUnreadStatement(firm.database, {
+            recipientUserId: row.recipient_user_id,
+            unreadCount: row.unread_count,
+            oldestOccurredAt: row.oldest_occurred_at,
+            now,
+          }),
+        ),
+        ...retentionSweepDeleteStatements(firm.database, cutoff),
+      ];
+      // One batch: recording what was taken and taking it must not be separable, or a crash between
+      // them loses the tally and leaves the member with nothing but a zero.
+      await commitEffectBatch(
+        firm.database,
+        { statements, outboxMessages: [] },
+        { now: () => now },
+      );
+
+      firmsSwept++;
+      if (tally.length > 0) {
+        // Counters, not events: the member handles have no place in a structured log, and the rate
+        // is the alertable signal.
+        logger.count(
+          "notifications.swept_unread",
+          {},
+          tally.reduce((total, row) => total + row.unread_count, 0),
+        );
+      }
+    } catch (caught) {
+      logOperationFailed(
+        logger,
+        `cron:notification-retention:${firm.firmId}`,
+        caught,
+        correlationId,
+      );
+    }
+  }
+  return firmsSwept;
 }
 
 // The status-snapshot Cron pass (its own */10 Cron, separate from both the */5 sweep and the daily

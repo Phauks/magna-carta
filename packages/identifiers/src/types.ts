@@ -157,3 +157,7 @@ export type DiscoveryLoadId = Identifier<"discoveryLoad">;
 export type ReviewDocumentId = Identifier<"reviewDocument">;
 export type ReviewDocumentExceptionId = Identifier<"reviewDocumentException">;
 export type ReviewDocumentOccurrenceId = Identifier<"reviewDocumentOccurrence">;
+export type NotificationEventId = Identifier<"notificationEvent">;
+export type NotificationRecipientId = Identifier<"notificationRecipient">;
+export type NotificationDeliveryId = Identifier<"notificationDelivery">;
+export type NotificationDigestId = Identifier<"notificationDigest">;

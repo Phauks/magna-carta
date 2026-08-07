@@ -17,6 +17,7 @@
     "./matter-estate": "./src/matter-estate.ts",
     "./member-professional-profile": "./src/member-professional-profile.ts",
     "./matter-service": "./src/matter-service.ts",
+    "./topics": "./src/topics.ts",
     "./matter-type-statements": "./src/matter-type-statements.ts",
     "./system-matter-statements": "./src/system-matter-statements.ts",
     "./matter-type-service": "./src/matter-type-service.ts",

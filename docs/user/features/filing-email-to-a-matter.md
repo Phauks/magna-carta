@@ -36,7 +36,7 @@ proposed, never named in a reason, and never hinted at by a count.
 
 ## Auto-file rules
 
-_The rules themselves and the screens for managing them are being built; this describes what a rule is and how it behaves, so you know what you are turning on._
+_Rules now act on mail as it is captured, and the firm-wide switch below is live. The screens for creating and pruning rules are still being built, so this describes what a rule is and how it behaves, so you know what you are turning on._
 
 A suggestion waits for somebody to open a message and choose. An **auto-file rule** does not wait: it
 puts a message on the right matter as it arrives, with its reasons attached. That is the difference

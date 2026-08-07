@@ -107,6 +107,19 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
   "trust.previewStatementImport":
     "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
+  // The three notification-settling routes. They DO write — a read receipt on the member's own feed
+  // row — and are exempt on the aiDetection.detect reasoning rather than the pure-computation one:
+  // the write records nothing about the firm's conduct, only that one member cleared one badge, and
+  // it fires once per item cleared. Auditing it would put a row in audit_log every time somebody
+  // glanced at their notifications, flooding the one table a firm actually needs to be able to read.
+  // The rows are also swept on the firm's retention window, so an audit trail would outlive the fact
+  // it described.
+  "notifications.markRead":
+    "A member's read receipt on their own feed row — no firm-domain state changes, and auditing every badge clear would flood audit_log.",
+  "notifications.dismiss":
+    "As notifications.markRead: the member settling their own feed row, which records nothing about the firm's conduct.",
+  "notifications.markAllRead":
+    "As notifications.markRead, bounded by a cursor from a page the member actually read — one member clearing their own backlog.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -259,6 +272,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // reachable from a discovery grant and from nothing else, because material produced by another
   // party may be attorney's-eyes-only under a protective order and matter access must not carry it.
   discovery: "matter",
+  // notifications:* governs a member's own feed of things the platform noticed. It binds the FIRM,
+  // on the custody/magnus reasoning: a feed spans every matter a member touches AND firm-scoped
+  // kinds that have no matter at all — an incident filed against the firm, a trust posting whose
+  // entry belongs to the firm's own chart of accounts — so binding it to "matter" would name a
+  // resource half the rows do not have. The matter each row DOES name is the visibility anchor the
+  // read filters on, not the resource the capability governs.
+  notifications: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -864,6 +884,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.file",
       "emails.filingContext",
       "emails.get",
+      "emails.getAutoFilePolicy",
       "emails.list",
       "emails.listCaptureAddresses",
       "emails.mintCaptureAddress",
@@ -873,6 +894,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.rotateCaptureAddress",
       "emails.suggestMatters",
       "emails.unlink",
+      "emails.updateAutoFilePolicy",
       "esign.seal",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
@@ -971,6 +993,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "nonBillableCategories.create",
       "nonBillableCategories.list",
       "nonBillableCategories.update",
+      "notifications.dismiss",
+      "notifications.list",
+      "notifications.markAllRead",
+      "notifications.markRead",
+      "notifications.unreadCount",
       "numbering.get",
       "numbering.preview",
       "numbering.set",

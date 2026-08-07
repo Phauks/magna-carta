@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f385bf70-598d-49bb-9039-5f49e99805c6",
-  "prevId": "25a14968-3aea-4f4f-99ea-dffe0b3f01f6",
+  "id": "75fbf14f-c11d-494f-9109-e2dd5288b7ef",
+  "prevId": "5f891aaf-3e98-44d4-9525-9111af5400d1",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -3684,14 +3684,7 @@
           "autoincrement": false
         }
       },
-      "indexes": {
-        "directory_person_member_id_index": {
-          "name": "directory_person_member_id_index",
-          "columns": ["member_id"],
-          "isUnique": false,
-          "where": "\"directory_person\".\"member_id\" IS NOT NULL"
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -10146,225 +10139,6 @@
         }
       }
     },
-    "matter_assignment": {
-      "name": "matter_assignment",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "member_user_id": {
-          "name": "member_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "assignment_role": {
-          "name": "assignment_role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "valid_from": {
-          "name": "valid_from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "valid_to": {
-          "name": "valid_to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_assignment_matter_id_index": {
-          "name": "matter_assignment_matter_id_index",
-          "columns": ["matter_id"],
-          "isUnique": false
-        },
-        "matter_assignment_member_user_id_index": {
-          "name": "matter_assignment_member_user_id_index",
-          "columns": ["member_user_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_assignment_matter_id_matter_id_fk": {
-          "name": "matter_assignment_matter_id_matter_id_fk",
-          "tableFrom": "matter_assignment",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_assignment_member_user_id_member_user_id_fk": {
-          "name": "matter_assignment_member_user_id_member_user_id_fk",
-          "tableFrom": "matter_assignment",
-          "tableTo": "member",
-          "columnsFrom": ["member_user_id"],
-          "columnsTo": ["user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_assignment_role_nonempty_check": {
-          "name": "matter_assignment_role_nonempty_check",
-          "value": "length(\"matter_assignment\".\"assignment_role\") > 0"
-        }
-      }
-    },
-    "matter_court_case": {
-      "name": "matter_court_case",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "court_entity_id": {
-          "name": "court_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "judge_entity_id": {
-          "name": "judge_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "case_number": {
-          "name": "case_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "division": {
-          "name": "division",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "department": {
-          "name": "department",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "filed_on": {
-          "name": "filed_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "client_designation": {
-          "name": "client_designation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "opposing_designation": {
-          "name": "opposing_designation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_court_case_matter_id_unique_index": {
-          "name": "matter_court_case_matter_id_unique_index",
-          "columns": ["matter_id"],
-          "isUnique": true,
-          "where": "\"matter_court_case\".\"deleted_at\" IS NULL"
-        }
-      },
-      "foreignKeys": {
-        "matter_court_case_matter_id_matter_id_fk": {
-          "name": "matter_court_case_matter_id_matter_id_fk",
-          "tableFrom": "matter_court_case",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "matter_deadline": {
       "name": "matter_deadline",
       "columns": {
@@ -10624,122 +10398,6 @@
         "matter_deadline_priority_check": {
           "name": "matter_deadline_priority_check",
           "value": "\"matter_deadline\".\"priority\" IS NULL OR \"matter_deadline\".\"priority\" > 0"
-        }
-      }
-    },
-    "matter_estate": {
-      "name": "matter_estate",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "decedent_entity_id": {
-          "name": "decedent_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "estate_entity_id": {
-          "name": "estate_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "date_of_death": {
-          "name": "date_of_death",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "estate_style": {
-          "name": "estate_style",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "short_style": {
-          "name": "short_style",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "proceeding_type": {
-          "name": "proceeding_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "letters_issued_on": {
-          "name": "letters_issued_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_estate_matter_id_unique_index": {
-          "name": "matter_estate_matter_id_unique_index",
-          "columns": ["matter_id"],
-          "isUnique": true,
-          "where": "\"matter_estate\".\"deleted_at\" IS NULL"
-        }
-      },
-      "foreignKeys": {
-        "matter_estate_matter_id_matter_id_fk": {
-          "name": "matter_estate_matter_id_matter_id_fk",
-          "tableFrom": "matter_estate",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_estate_proceeding_type_check": {
-          "name": "matter_estate_proceeding_type_check",
-          "value": "\"matter_estate\".\"proceeding_type\" IS NULL OR \"matter_estate\".\"proceeding_type\" IN ('testate', 'intestate', 'small_estate', 'ancillary')"
         }
       }
     },
@@ -11274,13 +10932,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "capacity": {
-          "name": "capacity",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "valid_from": {
           "name": "valid_from",
           "type": "text",
@@ -11541,82 +11192,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "member_professional_profile": {
-      "name": "member_professional_profile",
-      "columns": {
-        "member_user_id": {
-          "name": "member_user_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "admissions": {
-          "name": "admissions",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "direct_dial": {
-          "name": "direct_dial",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "professional_email": {
-          "name": "professional_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "signature_block": {
-          "name": "signature_block",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "member_professional_profile_member_user_id_member_user_id_fk": {
-          "name": "member_professional_profile_member_user_id_member_user_id_fk",
-          "tableFrom": "member_professional_profile",
-          "tableTo": "member",
-          "columnsFrom": ["member_user_id"],
-          "columnsTo": ["user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "member_role": {
       "name": "member_role",
       "columns": {
@@ -11795,6 +11370,473 @@
         "non_billable_category_name_nonempty_check": {
           "name": "non_billable_category_name_nonempty_check",
           "value": "length(\"non_billable_category\".\"name\") > 0"
+        }
+      }
+    },
+    "notification_delivery": {
+      "name": "notification_delivery",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notification_recipient_id": {
+          "name": "notification_recipient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "suppressed_reason": {
+          "name": "suppressed_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "digest_id": {
+          "name": "digest_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dispatched_at": {
+          "name": "dispatched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notification_delivery_recipient_channel_unique_index": {
+          "name": "notification_delivery_recipient_channel_unique_index",
+          "columns": ["notification_recipient_id", "channel"],
+          "isUnique": true
+        },
+        "notification_delivery_state_index": {
+          "name": "notification_delivery_state_index",
+          "columns": ["state", "created_at", "id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "notification_delivery_notification_recipient_id_notification_recipient_id_fk": {
+          "name": "notification_delivery_notification_recipient_id_notification_recipient_id_fk",
+          "tableFrom": "notification_delivery",
+          "tableTo": "notification_recipient",
+          "columnsFrom": ["notification_recipient_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_delivery_suppressed_reason_check": {
+          "name": "notification_delivery_suppressed_reason_check",
+          "value": "(\"notification_delivery\".\"state\" = 'suppressed') = (\"notification_delivery\".\"suppressed_reason\" IS NOT NULL)"
+        },
+        "notification_delivery_attempts_nonnegative_check": {
+          "name": "notification_delivery_attempts_nonnegative_check",
+          "value": "\"notification_delivery\".\"attempts\" >= 0"
+        },
+        "notification_delivery_channel_check": {
+          "name": "notification_delivery_channel_check",
+          "value": "\"notification_delivery\".\"channel\" IN ('in_app', 'email', 'push', 'sms', 'desktop')"
+        },
+        "notification_delivery_state_check": {
+          "name": "notification_delivery_state_check",
+          "value": "\"notification_delivery\".\"state\" IN ('pending', 'sent', 'failed', 'suppressed')"
+        },
+        "notification_delivery_suppressed_reason_value_check": {
+          "name": "notification_delivery_suppressed_reason_value_check",
+          "value": "\"notification_delivery\".\"suppressed_reason\" IS NULL OR \"notification_delivery\".\"suppressed_reason\" IN ('preference', 'not-visible', 'no-address', 'policy')"
+        }
+      }
+    },
+    "notification_digest_run": {
+      "name": "notification_digest_run",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recipient_user_id": {
+          "name": "recipient_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cadence": {
+          "name": "cadence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_occurred_at": {
+          "name": "last_occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_event_id": {
+          "name": "last_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_run_at": {
+          "name": "last_run_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notification_digest_run_user_cadence_unique_index": {
+          "name": "notification_digest_run_user_cadence_unique_index",
+          "columns": ["recipient_user_id", "cadence"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_digest_run_cadence_check": {
+          "name": "notification_digest_run_cadence_check",
+          "value": "\"notification_digest_run\".\"cadence\" IN ('daily', 'weekly')"
+        },
+        "notification_digest_run_watermark_pair_check": {
+          "name": "notification_digest_run_watermark_pair_check",
+          "value": "(\"notification_digest_run\".\"last_occurred_at\" IS NULL) = (\"notification_digest_run\".\"last_event_id\" IS NULL)"
+        }
+      }
+    },
+    "notification_event": {
+      "name": "notification_event",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_kind": {
+          "name": "subject_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "facts": {
+          "name": "facts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notification_event_dedupe_key_unique_index": {
+          "name": "notification_event_dedupe_key_unique_index",
+          "columns": ["dedupe_key"],
+          "isUnique": true
+        },
+        "notification_event_matter_id_index": {
+          "name": "notification_event_matter_id_index",
+          "columns": ["matter_id"],
+          "isUnique": false
+        },
+        "notification_event_occurred_at_index": {
+          "name": "notification_event_occurred_at_index",
+          "columns": ["occurred_at", "id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "notification_event_matter_id_matter_id_fk": {
+          "name": "notification_event_matter_id_matter_id_fk",
+          "tableFrom": "notification_event",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_event_category_check": {
+          "name": "notification_event_category_check",
+          "value": "\"notification_event\".\"category\" IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')"
+        },
+        "notification_event_severity_check": {
+          "name": "notification_event_severity_check",
+          "value": "\"notification_event\".\"severity\" IN ('informational', 'attention', 'critical')"
+        },
+        "notification_event_subject_kind_check": {
+          "name": "notification_event_subject_kind_check",
+          "value": "\"notification_event\".\"subject_kind\" IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')"
+        }
+      }
+    },
+    "notification_recipient": {
+      "name": "notification_recipient",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notification_event_id": {
+          "name": "notification_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recipient_user_id": {
+          "name": "recipient_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'unread'"
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dismissed_at": {
+          "name": "dismissed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notification_recipient_event_user_unique_index": {
+          "name": "notification_recipient_event_user_unique_index",
+          "columns": ["notification_event_id", "recipient_user_id"],
+          "isUnique": true
+        },
+        "notification_recipient_user_state_created_index": {
+          "name": "notification_recipient_user_state_created_index",
+          "columns": ["recipient_user_id", "state", "created_at", "id"],
+          "isUnique": false
+        },
+        "notification_recipient_user_created_index": {
+          "name": "notification_recipient_user_created_index",
+          "columns": ["recipient_user_id", "created_at", "id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "notification_recipient_notification_event_id_notification_event_id_fk": {
+          "name": "notification_recipient_notification_event_id_notification_event_id_fk",
+          "tableFrom": "notification_recipient",
+          "tableTo": "notification_event",
+          "columnsFrom": ["notification_event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_recipient_state_check": {
+          "name": "notification_recipient_state_check",
+          "value": "\"notification_recipient\".\"state\" IN ('unread', 'read', 'dismissed')"
+        },
+        "notification_recipient_read_at_check": {
+          "name": "notification_recipient_read_at_check",
+          "value": "(\"notification_recipient\".\"state\" = 'read') = (\"notification_recipient\".\"read_at\" IS NOT NULL)"
+        },
+        "notification_recipient_dismissed_at_check": {
+          "name": "notification_recipient_dismissed_at_check",
+          "value": "(\"notification_recipient\".\"state\" = 'dismissed') = (\"notification_recipient\".\"dismissed_at\" IS NOT NULL)"
+        }
+      }
+    },
+    "notification_swept_unread": {
+      "name": "notification_swept_unread",
+      "columns": {
+        "recipient_user_id": {
+          "name": "recipient_user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unread_count": {
+          "name": "unread_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "oldest_swept_occurred_at": {
+          "name": "oldest_swept_occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_swept_at": {
+          "name": "last_swept_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "notification_swept_unread_count_nonnegative_check": {
+          "name": "notification_swept_unread_count_nonnegative_check",
+          "value": "\"notification_swept_unread\".\"unread_count\" >= 0"
         }
       }
     },

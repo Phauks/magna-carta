@@ -97,6 +97,10 @@ import type {
   MemberRoleId,
   NarrativeTemplateId,
   NonBillableCategoryId,
+  NotificationDeliveryId,
+  NotificationDigestId,
+  NotificationEventId,
+  NotificationRecipientId,
   NumberingSchemeId,
   OutboxId,
   PicklistOptionId,
@@ -6098,5 +6102,351 @@ export const reviewDocumentOccurrence = sqliteTable(
       "review_document_occurrence_distinct_check",
       sql`${table.primaryReviewDocumentId} <> ${table.duplicateReviewDocumentId}`,
     ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Notifications — the delivery half.
+//
+// A notification is a POINTER, never a record. The thing it points at — the ledger entry, the
+// invoice, the quarantined version, the matter's own lifecycle row — is the record, and each of
+// those carries its own retention posture set by its own subsystem. That is what makes a retention
+// window defensible here and what makes these rows deletable at all: sweeping one destroys no
+// evidence, because the audit_log row and the source row it pointed at are still there. Nothing in
+// this subsystem is ever the only record of the fact it describes.
+//
+// THREE LIFETIMES, THREE TABLES. What happened happens once however many people hear about it;
+// whether one person has dealt with it is one fact per recipient and the thing the feed sorts and
+// counts on; whether a copy left the platform is one fact per recipient per outbound channel, with
+// attempts, a failure state, and a retry the other two do not have. One table holding all three
+// would be a null-heavy row meaning something different in each of its states.
+
+// What happened. Written ONCE per occurrence, whatever the size of the audience.
+//
+// The redaction rule is the whole design of this table: it carries identifiers, enum labels,
+// integers, and instants, and NO STRING A PERSON TYPED. No matter title, no client name, no
+// filename, no email subject line, no deadline description, no free-text note. Three reasons, in
+// the order they bind. The row OUTLIVES THE ACCESS CHECK that justified it — it is read next week
+// and swept months later, and access can be revoked in between, so a row holding a title holds it
+// after the reader stops being entitled to it. A stored title is a STALE title — a matter
+// renumbered or an invoice voided leaves every notification about it wrong, and wrong invisibly,
+// because the row still looks authoritative. And resolving at read costs nothing, because the feed
+// read already joins `matter` to enforce visibility. The reader sees "a deadline you are
+// responsible for is due today — matter 8181-3", assembled at read time from the kind plus that
+// join, and never a stored sentence naming the motion and the parties.
+export const notificationEvent = sqliteTable(
+  "notification_event",
+  {
+    id: text("id").primaryKey().$type<NotificationEventId>(), // notificationEvent_ handle
+    // A registry key from @magna-carta/notifications. A WIRE CONTRACT once shipped: it appears in
+    // responses and in the feed's `kind` filter.
+    kind: text("kind").notNull(),
+    // Denormalized from the registry so a category filter and the per-category digest counts are an
+    // index walk rather than a code-side join against a table that does not exist.
+    category: text("category", {
+      enum: [
+        "deadlines",
+        "calendar",
+        "trust",
+        "billing",
+        "documents",
+        "custody",
+        "email",
+        "conflicts",
+        "jobs",
+        "security",
+        "system",
+      ],
+    }).notNull(),
+    severity: text("severity", { enum: ["informational", "attention", "critical"] }).notNull(),
+    // The kind of record this points at. Seeded with every subject the inventoried emission points
+    // name, not only the ones wired today: this is a SQLite CHECK, and widening one rebuilds a
+    // growing table (the same reasoning the channel column below states at length).
+    subjectKind: text("subject_kind", {
+      enum: [
+        "matter",
+        "matterEvent",
+        "matterDeadline",
+        "matterAsset",
+        "invoice",
+        "ledgerEntry",
+        "trustMovement",
+        "file",
+        "fileVersion",
+        "documentCheckout",
+        "directoryEntity",
+        "location",
+        "shipment",
+        "emailMessage",
+        "emailCaptureAddress",
+        "custodyPacket",
+        "custodyItem",
+        "custodyMovement",
+        "conflictsCheck",
+        "incident",
+        "magnusConversation",
+        "reviewSet",
+        "discoveryLoad",
+        "conversionJob",
+        "documentAssembly",
+        "bundleBuild",
+        "searchIndexJob",
+        "recoveryJob",
+        "member",
+      ],
+    }).notNull(),
+    // The record's own handle. A LINK, never a copy, and deliberately no cross-domain foreign key —
+    // the matter_party precedent. The subject is resolved when the member follows the deep link,
+    // through the owning subsystem's own access-checked read, so a subject that has since been
+    // removed degrades to a dead link rather than to a broken constraint on this table.
+    subjectId: text("subject_id").notNull(),
+    // THE VISIBILITY ANCHOR, and the single column that makes the wall a join rather than a per-kind
+    // rule — the difference between one enforcement point and thirty. Non-null for every
+    // matter-rooted kind (the registry declares which, and a fitness test holds the materializers to
+    // it); null only for genuinely firm-scoped kinds, which are the ones a matter filter must not
+    // hide. Unlike subject_id this IS a foreign key: every read joins it to enforce the wall, and a
+    // dangling anchor would be a row the predicate cannot decide about.
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // When the thing HAPPENED, not when this row was written. The retention sweep and the digest
+    // watermark both order on it, so a message that sat in the queue for an hour still ages and
+    // digests from the moment it describes.
+    occurredAt: text("occurred_at").notNull(),
+    // The declared non-privileged slot: canonical JSON whose keys are declared by the registry type
+    // and whose values are drawn from a closed grammar — an identifier, an integer, a boolean, an
+    // enum label the type itself declares, a canonical instant, or a civil date. A declared string
+    // field is a validation failure rather than a review comment, which is what makes the redaction
+    // rule above structural instead of aspirational.
+    facts: text("facts"),
+    // The idempotency floor, and the reason neither production path needs a check-then-insert.
+    // Queues are at-least-once and sweeps overlap, so both paths converge here: the insert is
+    // attempted and the UNIQUE constraint refuses the duplicate. The event-driven path keys on the
+    // originating outbox row id, which is stable across every redelivery of that message; the
+    // comparison-driven path keys on a CIVIL DATE, so a condition that is continuously true (a
+    // deadline that is overdue) raises once a day rather than once a sweep.
+    dedupeKey: text("dedupe_key").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_event_dedupe_key_unique_index").on(table.dedupeKey),
+    index("notification_event_matter_id_index").on(table.matterId),
+    // The retention sweep's own walk: oldest first, bounded, resumable.
+    index("notification_event_occurred_at_index").on(table.occurredAt, table.id),
+    check(
+      "notification_event_category_check",
+      sql`${table.category} IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
+    ),
+    check(
+      "notification_event_severity_check",
+      sql`${table.severity} IN ('informational', 'attention', 'critical')`,
+    ),
+    check(
+      "notification_event_subject_kind_check",
+      sql`${table.subjectKind} IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')`,
+    ),
+  ],
+);
+
+// One person's copy, and the ONLY home of whether they have dealt with it.
+//
+// Read state belongs to the recipient rather than to a channel: marking an item read in the feed
+// must also settle it for a push notification nobody tapped, whenever push arrives. Putting read_at
+// on a channel row would make the answer to "has this person dealt with it" depend on which channel
+// you ask.
+export const notificationRecipient = sqliteTable(
+  "notification_recipient",
+  {
+    id: text("id").primaryKey().$type<NotificationRecipientId>(), // notificationRecipient_ handle
+    notificationEventId: text("notification_event_id")
+      .notNull()
+      .$type<NotificationEventId>()
+      .references(() => notificationEvent.id),
+    // The same global user_ handle member.user_id carries. Not a foreign key: a row addressed to a
+    // person must never be the thing that blocks removing their membership, and the read path never
+    // needs the join — every read is scoped to the SESSION's user id, never to a path parameter, so
+    // a member cannot reach another member's feed by guessing a handle.
+    recipientUserId: text("recipient_user_id").notNull().$type<UserId>(),
+    state: text("state", { enum: ["unread", "read", "dismissed"] })
+      .notNull()
+      .default("unread"),
+    readAt: text("read_at"),
+    dismissedAt: text("dismissed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // A redelivered queue message must not produce a second feed entry, and a partially-failed
+    // fan-out that retries must top up the recipients it missed without duplicating the ones it
+    // already wrote. Both fall out of this one constraint.
+    uniqueIndex("notification_recipient_event_user_unique_index").on(
+      table.notificationEventId,
+      table.recipientUserId,
+    ),
+    // TWO indexes, because the feed has two shapes and they cannot share one.
+    //
+    // The state-filtered read and the unread count lead with (recipient_user_id, state) — two
+    // equality columns — and then walk the (created_at, id) keyset pair. That is the calendar's
+    // source shape: filter columns first, ordering pair last.
+    index("notification_recipient_user_state_created_index").on(
+      table.recipientUserId,
+      table.state,
+      table.createdAt,
+      table.id,
+    ),
+    // The DEFAULT feed — no state filter, which is what the bell opens on — cannot use the index
+    // above for ordering: `state` sits between the equality column and the ordering pair, so SQLite
+    // answers it by sorting the member's ENTIRE retained history into a temp B-tree. That is
+    // correct, invisible, and gets slower every week, which is the worst combination a read can
+    // have. This index puts the ordering pair directly after the equality column so the default
+    // page is a bounded walk whose cost is the page size rather than the firm's accumulated data.
+    // Both plans are pinned by test/read-bounds.test.ts in @magna-carta/notifications.
+    index("notification_recipient_user_created_index").on(
+      table.recipientUserId,
+      table.createdAt,
+      table.id,
+    ),
+    check(
+      "notification_recipient_state_check",
+      sql`${table.state} IN ('unread', 'read', 'dismissed')`,
+    ),
+    // A settled row names when it settled, and an unread one cannot claim to have been. The state
+    // column and its instant are two spellings of one fact, and a row where they disagree is a feed
+    // entry whose badge and whose history contradict each other.
+    check(
+      "notification_recipient_read_at_check",
+      sql`(${table.state} = 'read') = (${table.readAt} IS NOT NULL)`,
+    ),
+    check(
+      "notification_recipient_dismissed_at_check",
+      sql`(${table.state} = 'dismissed') = (${table.dismissedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One attempt to push a copy OUT of the platform. The in-app feed deliberately gets no row here:
+// it is not delivered, it is READ — the recipient row's existence IS the delivery, and there is no
+// attempt, no transport failure, no retry, and no address to fail against. Inventing a
+// permanently-`sent` in-app row to make the schema look symmetric would store a fact no code could
+// ever branch on.
+export const notificationDelivery = sqliteTable(
+  "notification_delivery",
+  {
+    id: text("id").primaryKey().$type<NotificationDeliveryId>(), // notificationDelivery_ handle
+    notificationRecipientId: text("notification_recipient_id")
+      .notNull()
+      .$type<NotificationRecipientId>()
+      .references(() => notificationRecipient.id),
+    // Seeded with the full set from the first migration even though only `email` is ever written
+    // today. This is a SQLite CHECK: widening one rebuilds the whole table, and by the time a push
+    // or SMS channel lands this table grows with every notification the platform has ever mailed. A
+    // value nothing writes costs a byte in a constraint; a rebuild costs a migration that copies
+    // every row. `in_app` is present for the same reason and is deliberately never written — see
+    // the header above.
+    channel: text("channel", { enum: ["in_app", "email", "push", "sms", "desktop"] }).notNull(),
+    state: text("state", { enum: ["pending", "sent", "failed", "suppressed"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    // `suppressed` is a real state rather than an absent row, because "we decided not to email you
+    // about this" is a fact a support conversation needs and an absent row cannot express. The
+    // reason is a CLOSED LABEL and never a sentence — and `not-visible` records that something was
+    // withheld without recording what, which is the difference between an audit trail and an
+    // existence oracle.
+    suppressedReason: text("suppressed_reason", {
+      enum: ["preference", "not-visible", "no-address", "policy"],
+    }),
+    // Which composed summary carried it. Null for a send that was not part of one.
+    digestId: text("digest_id").$type<NotificationDigestId>(),
+    dispatchedAt: text("dispatched_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_delivery_recipient_channel_unique_index").on(
+      table.notificationRecipientId,
+      table.channel,
+    ),
+    // A retry pass walks the not-yet-settled rows.
+    index("notification_delivery_state_index").on(table.state, table.createdAt, table.id),
+    // A suppression must always name its reason, and a settled non-suppressed row must not carry
+    // one. A constraint rather than a convention because the reason is what a support conversation
+    // reads, and a null one answers nothing.
+    check(
+      "notification_delivery_suppressed_reason_check",
+      sql`(${table.state} = 'suppressed') = (${table.suppressedReason} IS NOT NULL)`,
+    ),
+    check("notification_delivery_attempts_nonnegative_check", sql`${table.attempts} >= 0`),
+    check(
+      "notification_delivery_channel_check",
+      sql`${table.channel} IN ('in_app', 'email', 'push', 'sms', 'desktop')`,
+    ),
+    check(
+      "notification_delivery_state_check",
+      sql`${table.state} IN ('pending', 'sent', 'failed', 'suppressed')`,
+    ),
+    check(
+      "notification_delivery_suppressed_reason_value_check",
+      sql`${table.suppressedReason} IS NULL OR ${table.suppressedReason} IN ('preference', 'not-visible', 'no-address', 'policy')`,
+    ),
+  ],
+);
+
+// Where the next composed summary starts, per recipient per cadence.
+//
+// The watermark is a KEYSET CURSOR — an instant AND the event id that instant belongs to — never a
+// bare timestamp. Two events sharing an instant would straddle a bare-timestamp boundary: one is
+// carried and the other silently is not, or both are carried twice. The pair is total.
+export const notificationDigestRun = sqliteTable(
+  "notification_digest_run",
+  {
+    id: text("id").primaryKey().$type<NotificationDigestId>(), // notificationDigest_ handle
+    recipientUserId: text("recipient_user_id").notNull().$type<UserId>(),
+    cadence: text("cadence", { enum: ["daily", "weekly"] }).notNull(),
+    lastOccurredAt: text("last_occurred_at"),
+    lastEventId: text("last_event_id").$type<NotificationEventId>(),
+    lastRunAt: text("last_run_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_digest_run_user_cadence_unique_index").on(
+      table.recipientUserId,
+      table.cadence,
+    ),
+    check("notification_digest_run_cadence_check", sql`${table.cadence} IN ('daily', 'weekly')`),
+    // The watermark is a pair or it is nothing. Half a keyset cursor cannot be walked, and a run
+    // that stored only the instant would carry or skip every event sharing it.
+    check(
+      "notification_digest_run_watermark_pair_check",
+      sql`(${table.lastOccurredAt} IS NULL) = (${table.lastEventId} IS NULL)`,
+    ),
+  ],
+);
+
+// What the retention sweep took while it was still unread, per member.
+//
+// This table exists to keep one promise honest. A notification is a pointer and sweeping one
+// destroys no evidence — but a member who was away while thirty deadlines aged out of their feed
+// would otherwise open the app to a badge of zero, which is a different claim from "there is
+// nothing you missed" and not one the platform is in a position to make. So the sweep records what
+// it took from each member instead of dropping the fact on the floor, the unread count surfaces it
+// beside the live count, and what it points back at — the matter timeline, the deadline itself, the
+// audit log — is all still there, because a notification never was the record. Clearing the tally
+// is the same act as marking the live feed read: the member saying they have dealt with what they
+// missed.
+//
+// One row per member, updated in place. It is a TALLY, not a copy of anything swept: a count and
+// two instants, and nothing about which notifications they were.
+export const notificationSweptUnread = sqliteTable(
+  "notification_swept_unread",
+  {
+    recipientUserId: text("recipient_user_id").primaryKey().$type<UserId>(),
+    unreadCount: integer("unread_count").notNull().default(0),
+    // The oldest occurrence still represented in the tally, so the member is told how far back the
+    // gap reaches rather than only how big it is.
+    oldestSweptOccurredAt: text("oldest_swept_occurred_at"),
+    lastSweptAt: text("last_swept_at").notNull(),
+  },
+  (table) => [
+    check("notification_swept_unread_count_nonnegative_check", sql`${table.unreadCount} >= 0`),
   ],
 );

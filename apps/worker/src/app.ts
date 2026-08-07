@@ -31,6 +31,7 @@ import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
 import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
@@ -75,6 +76,7 @@ import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
 import { registerEmailAddInRoutes } from "./routes/email-add-in.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
+import { registerAutoFilePolicyRoutes } from "./routes/auto-file-policy.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -530,6 +532,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // The writer for the forward/CC token index: minting an address is what makes a capture token
   // resolve to a firm and a matter. Registered beside the emails surface it feeds.
   registerCaptureAddressRoutes(app, chokepoint);
+  // The firm ceiling on unattended filing, in the same administrative lane as the catch-all address.
+  registerAutoFilePolicyRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerDocumentSealRoutes(app, chokepoint, options.sealPort);
@@ -630,6 +634,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerNarrativeTemplatesRoutes(app, chokepoint);
   // My Day: daily headline totals (billable, non-billable, target, shortfall).
   registerMyDayRoutes(app, chokepoint);
+  // The member's own notification feed: one page, the unread counts, and settling an item. Every
+  // read is scoped to the session's user and filtered by matter visibility in SQL.
+  registerNotificationsRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

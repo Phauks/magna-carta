@@ -6,6 +6,7 @@ import {
   findMattersByNumbers,
   listConsultations,
   listMatters,
+  readMatterFilingTargets,
   readMattersByIds,
 } from "../src/queries.ts";
 
@@ -220,6 +221,32 @@ describe("readMattersByIds", () => {
       .prepare("UPDATE matter SET system_key = 'scans' WHERE id = 'matter_system'")
       .run();
     expect(await readMattersByIds(database, ["matter_system" as MatterId])).toEqual([]);
+  });
+});
+
+describe("readMatterFilingTargets", () => {
+  it("reports status and platform ownership rather than filtering either out", async () => {
+    const database = await setup();
+    await seedMatter(database, { id: "matter_open", status: "open", createdAt: day(1) });
+    await seedMatter(database, { id: "matter_closed", status: "closed", createdAt: day(2) });
+    await seedMatter(database, { id: "matter_system", status: "open", createdAt: day(3) });
+    await database
+      .prepare("UPDATE matter SET system_key = 'scans' WHERE id = 'matter_system'")
+      .run();
+    const targets = await readMatterFilingTargets(database, [
+      "matter_open" as MatterId,
+      "matter_closed" as MatterId,
+      "matter_system" as MatterId,
+      "matter_absent" as MatterId,
+    ]);
+    expect([...targets].sort((left, right) => left.id.localeCompare(right.id))).toEqual([
+      { id: "matter_closed", status: "closed", systemOwned: false },
+      { id: "matter_open", status: "open", systemOwned: false },
+      { id: "matter_system", status: "open", systemOwned: true },
+    ]);
+    // A matter that does not exist simply is not reported — the caller reads that absence as "no
+    // answer", which is not the same as "not a legitimate target".
+    expect(await readMatterFilingTargets(database, [])).toEqual([]);
   });
 });
 
