@@ -45,6 +45,39 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~10:30 UTC) — notifications SHIPPED (133 merged); $5 SPENT, austerity back
+
+Merged since ~07:00: **#166** auto-file wiring (6ff4a7ee, task 104 closed — the
+rules engine now receives captured mail), **#174** Nevada trust corpus
+(132b6614 — review-gated fail-closed; NRPC 1.15(b) bank-charge text returned
+verbatim for the owner; three research corrections: retention 5 years not 7,
+SCR 78 not repealed 78.5, NO mandated reconciliation; tasks 136 catalog-citation
+sweep + 137 hardening queued), **#176** AI Search wall experiment (ffe04e0f,
+task 116 closed — E1/E2 DEFERRED-WITH-CHECKLIST, live fenced-account run needs
+Cloudflare credentials = owner list; slice 1 retrieval stays gated, non-retrieval
+halves may build), **#175** notifications delivery slice 1 (45003814, idx 44,
+task 115 closed) after a FIX-FIRST review cycle: temp-B-tree index defect fixed
+in the unshipped migration + plan assertions pinned for BOTH feed shapes;
+translator retry split transient-vs-permanent (facts refusal counts, never
+dead-letters); 7 counters declared in the telemetry metric catalog. Running
+count 133. **CI BUDGET EXHAUSTED ~09:27Z**: jobs fail at runner assignment
+(runner_id 0, ~3s, NO logs — that signature means budget, not code; verified
+against a successful gate job which does produce logs). AUSTERITY MERGE BAR
+BACK (task 61 updated): full local suites + adversarial review; #175 merged
+under it with all 17 real CI jobs green (only the aggregator was denied a
+runner). GOTCHAS BANKED: (a) repo-wide registry scans live in the package that
+OWNS the registry, not the violator — per-package runs structurally cannot
+catch them; known list: five permission inventories + conformance not-vacuous
+operation list + telemetry metric catalog; (b) status.d slot numbers collide
+across parallel branches (move to next free); (c) two concurrent full-suite
+runs on this box starve each other — per-package + CI is the honest fallback;
+(d) new interference case task 138 (protected-binding decrypt count under
+parallelism). IN FLIGHT: catalog slices 2-4 (tag 20260807T040000 → retag dense
+to idx 45) and trust authorization policy (T18/T-APP, tag 20260807T050000) —
+both briefed on austerity + retag. Owner list grew: Actions budget spent (the
+queue-expansion lever is theirs again), AI Search live-run checklist, Nevada
+attorney review + T3 rule text, #174 F-flags.
+
 ## Position update (2026-08-07 ~07:00 UTC) — merge train landed: FIRST UI SHIPPED; docket recorded; 129 merged
 
 Train complete except #166. Since the 05:50 entry, merged in order, each on a
