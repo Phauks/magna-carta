@@ -59,6 +59,8 @@ import type { PluginRuntime } from "./plugins/runtime.ts";
 import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
+import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
+import { registerMemberProfilesRoutes } from "./routes/member-profiles.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
@@ -543,6 +545,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the
   // numbering-scheme surface — each composed through the same chokepoint.
   registerMattersRoutes(app, chokepoint);
+  // The matter's identity records beyond the shell — staffing assignments, the court-case record,
+  // and the estate record — plus the member professional profile documents read from.
+  registerMatterRecordsRoutes(app, chokepoint);
+  registerMemberProfilesRoutes(app, chokepoint);
   registerMatterTypesRoutes(app, chokepoint);
   registerDocumentTypesRoutes(app, chokepoint);
   registerLocationsRoutes(app, chokepoint);

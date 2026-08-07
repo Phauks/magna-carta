@@ -11,6 +11,10 @@ import {
 import type { CustomFieldWriteOptions } from "@magna-carta/custom-fields/run-custom-field-effect";
 import type { CustomFieldKind } from "@magna-carta/custom-fields/types";
 import { linkMatterParty } from "@magna-carta/directory/party";
+import { composeCreateMatterAssignment } from "@magna-carta/matters/matter-assignment";
+import { composeSetMatterCourtCase } from "@magna-carta/matters/matter-court-case";
+import { composeSetMatterEstate } from "@magna-carta/matters/matter-estate";
+import { upsertMemberProfessionalProfileStatement } from "@magna-carta/matters/member-professional-profile";
 import { customMergeKeyFor } from "@magna-carta/document-assembly/custom-field-bindings";
 import { DICTIONARY } from "@magna-carta/document-assembly/dictionary";
 import { confirmFieldMappingStatements } from "@magna-carta/document-assembly/field-mapping-statements";
@@ -43,6 +47,7 @@ import type {
   FileId,
   FileVersionId,
   MatterId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import type { FixtureContext } from "../context.ts";
 import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
@@ -363,11 +368,102 @@ export async function generateDocumentAutomationVolume(
         matterId: probeMatterId,
         entityId: person.id,
         role: partyRoleAt(index),
+        // The client acts in a recorded fiduciary capacity, so the composed capacity line resolves
+        // over real data — the phrase the probate measurements read.
+        capacity: index === 0 ? "Administrator" : null,
       },
       { clock, actorUserId: null, randomSource },
     );
     clock.advanceMinutes(1);
   }
+
+  // --- The probe matter's staffing beyond the responsible attorney, each member with a professional
+  // profile so the staffing read's joins return real facts. Distinct roles by construction: the
+  // measured context is the RESOLVED one, and a duplicated role would honestly resolve its subject
+  // to an absence — a correct answer that would leave the joins unmeasured. ---
+  const STAFFING_ROLES = [
+    "supervising_attorney",
+    "originating_attorney",
+    "assigned_paralegal",
+    "billing_attorney",
+  ] as const;
+  const { results: staffMemberRows } = await database
+    .prepare("SELECT user_id FROM member ORDER BY user_id LIMIT ?1")
+    .bind(Math.min(volume.staffingAssignmentsOnProbeMatter, STAFFING_ROLES.length))
+    .all<{ user_id: string }>();
+  for (const [index, member] of staffMemberRows.entries()) {
+    const memberUserId = member.user_id as UserId;
+    const assignment = await composeCreateMatterAssignment(
+      database,
+      {
+        matterId: probeMatterId,
+        memberUserId,
+        assignmentRole: STAFFING_ROLES[index]!,
+      },
+      { clock, actorUserId: null, randomSource },
+    );
+    await commit(assignment.statements);
+    clock.advanceMinutes(1);
+    await commit([
+      upsertMemberProfessionalProfileStatement(
+        database,
+        memberUserId,
+        {
+          title: index === 0 ? "Partner" : "Associate",
+          admissions: "Nevada, 2014",
+          directDial: faker.phone.number({ style: "national" }),
+          professionalEmail: faker.internet.email().toLowerCase(),
+          signatureBlock: null,
+        },
+        clock.now(),
+      ),
+    ]);
+    clock.advanceMinutes(1);
+  }
+
+  // --- The probe matter's court-case and estate records: one of each, so the court and estate
+  // sources resolve real rows and the merge-context measurement covers every statement-issuing
+  // source the catalogue declares. The court is a Directory organisation and the judge and decedent
+  // Directory persons, exactly as production records them. ---
+  const { results: courtOrganisationRows } = await database
+    .prepare("SELECT id FROM directory_organization ORDER BY id LIMIT 1")
+    .all<{ id: string }>();
+  const { results: judgeRows } = await database
+    .prepare("SELECT id FROM directory_person ORDER BY id DESC LIMIT 2")
+    .all<{ id: string }>();
+  const courtCase = await composeSetMatterCourtCase(
+    database,
+    probeMatterId,
+    {
+      courtEntityId: courtOrganisationRows[0]?.id ?? null,
+      judgeEntityId: judgeRows[0]?.id ?? null,
+      caseNumber: "PR26-00381",
+      division: "Probate Division",
+      department: "Department 6",
+      filedOn: "2025-11-04",
+      clientDesignation: "Petitioner",
+      opposingDesignation: "Respondent",
+    },
+    { clock, actorUserId: null, randomSource },
+  );
+  await commit(courtCase.statements);
+  clock.advanceMinutes(1);
+  const estate = await composeSetMatterEstate(
+    database,
+    probeMatterId,
+    {
+      decedentEntityId: judgeRows[1]?.id ?? null,
+      estateEntityId: null,
+      dateOfDeath: "2025-09-17",
+      estateStyle: "the Estate of Rowan Ashcroft, Deceased",
+      shortStyle: "the Ashcroft Estate",
+      proceedingType: "intestate",
+      lettersIssuedOn: "2025-12-02",
+    },
+    { clock, actorUserId: null, randomSource },
+  );
+  await commit(estate.statements);
+  clock.advanceMinutes(1);
 
   // --- The mapping library: confirmed Word-name-to-merge-key entries, read WHOLE once per
   // registration. Names are unique by construction (the table's unique index is on field_name). ---

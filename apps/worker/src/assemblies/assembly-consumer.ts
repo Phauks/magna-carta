@@ -16,7 +16,8 @@ import {
   resolveMergeContext,
 } from "@magna-carta/document-assembly/resolve";
 import { readTemplateVersionForAssembly } from "@magna-carta/document-assembly/template-statements";
-import type { FieldManifest } from "@magna-carta/document-assembly/types";
+import { assetSubjectsIn } from "@magna-carta/document-assembly/asset-bindings";
+import { manifestKeys, type FieldManifest } from "@magna-carta/document-assembly/types";
 import type { ProtectedIdentifierReader } from "@magna-carta/document-assembly/protected-bindings";
 import { readIdentifier } from "@magna-carta/directory/identifiers";
 import { completeUploadSession, initiateUpload } from "@magna-carta/file-manager/file-service";
@@ -265,9 +266,28 @@ async function assembleOne(
     customFieldDictionaryEntries(await readCustomFieldCatalog(firmDatabase)),
   );
 
+  // The date a template's asset figures speak to. For an estate that is the date of death — the
+  // estate record's own fact, read here only when the template actually walks the register — and a
+  // matter with no estate record (or no recorded date) falls back to the assembly's own date, a
+  // schedule as of today. Supplied to the resolver rather than read inside it, because the asset
+  // read needs the date before it runs and the register never invents one.
+  let assetsAsOfDate: string | undefined;
+  if (assetSubjectsIn(new Set(manifestKeys(manifest))).length > 0) {
+    const estateRow = await firmDatabase
+      .prepare(
+        "SELECT date_of_death FROM matter_estate WHERE matter_id = ?1 AND deleted_at IS NULL",
+      )
+      .bind(matterId)
+      .first<{ date_of_death: string | null }>();
+    if (estateRow?.date_of_death != null && estateRow.date_of_death !== "") {
+      assetsAsOfDate = estateRow.date_of_death;
+    }
+  }
+
   const resolution = await resolveMergeContext(firmDatabase, {
     matterId,
     manifest,
+    ...(assetsAsOfDate === undefined ? {} : { assetsAsOfDate }),
     firmName: firmRow?.name ?? "",
     assembledAt: now(),
     // The one currency the platform registers. When a firm may choose another, its setting is read here

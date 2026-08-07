@@ -17,8 +17,11 @@ import { mergeSubject } from "@magna-carta/document-assembly/catalog-subjects";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
 import {
   selectMatterAssetsForMergeStatement,
+  selectMatterCourtCaseForMergeStatement,
+  selectMatterEstateForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
+  selectMatterStaffingForMergeStatement,
 } from "@magna-carta/document-assembly/merge-statements";
 import {
   mergeFieldCatalogRevision,
@@ -343,6 +346,30 @@ export function documentAutomationHotPathPlans(
       statement: capturedStatement(
         selectCustomFieldValuesStatement(handle.database, matterId, handle.probeCustomHandles),
       ),
+    },
+    // The three record reads the widened catalogue added — the staffing, court-case, and estate
+    // sources. Each is one statement filling every subject of its kind: the staffing statement's two
+    // arms both seek (the matter by id, the assignments by matter_id), and the record reads seek the
+    // partial unique index on matter_id.
+    {
+      label: "assembly.merge-context.staffing",
+      statement: capturedStatement(
+        selectMatterStaffingForMergeStatement(
+          handle.database,
+          matterId,
+          "2026-01-01T00:00:00.000Z",
+        ),
+      ),
+    },
+    {
+      label: "assembly.merge-context.court-case",
+      statement: capturedStatement(
+        selectMatterCourtCaseForMergeStatement(handle.database, matterId),
+      ),
+    },
+    {
+      label: "assembly.merge-context.estate",
+      statement: capturedStatement(selectMatterEstateForMergeStatement(handle.database, matterId)),
     },
     {
       label: "templates.custom-field-catalog",

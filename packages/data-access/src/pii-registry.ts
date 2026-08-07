@@ -424,6 +424,51 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // Matter staffing: which firm member carried a matter, in which role, over which dates. Retained
+  // as the matter's record on the same line time_entry.timekeeper_user_id sits on — who worked a
+  // file is that file's history, not current operational state.
+  {
+    table: "matter_assignment",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "who was staffed on a matter, and in what role, is that matter's record",
+  },
+  // A member's professional identity as documents state it — title, admissions, direct dial,
+  // professional email, signature block. The member's own current-state data with no matter
+  // retention basis, so it is deletable outright at the subject.
+  { table: "member_professional_profile", subjectKey: "member_user_id", action: "hard-delete" },
+  // The court-case record names two people-adjacent Directory references: the court organisation
+  // and the assigned judge. Both are the matter's own identity facts — which court a case is before
+  // is the caption — and the subject-side scrub happens at the Directory entity, as matter_party.
+  {
+    table: "matter_court_case",
+    subjectKey: "judge_entity_id",
+    action: "retain-under-matter",
+    note: "which judge a matter's case is assigned to is the case's own identity",
+  },
+  {
+    table: "matter_court_case",
+    subjectKey: "court_entity_id",
+    action: "retain-under-matter",
+    note: "which court a matter's case is before is the caption's own fact",
+  },
+  // The estate record names the decedent (a Directory person) and, where the firm keeps one, the
+  // estate's own Directory organisation. A probate matter IS about the decedent; the record of whom
+  // it administered is the matter's record, and the subject-side scrub happens at the Directory
+  // entity. The stored styles repeat the decedent's name as free text fixed by a court — surfaced
+  // by the residue report on the same basis as other frozen legal designations.
+  {
+    table: "matter_estate",
+    subjectKey: "decedent_entity_id",
+    action: "retain-under-matter",
+    note: "whose estate a probate matter administers is that matter's own identity",
+  },
+  {
+    table: "matter_estate",
+    subjectKey: "estate_entity_id",
+    action: "retain-under-matter",
+    note: "the estate's own Directory record, where the firm keeps one",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.

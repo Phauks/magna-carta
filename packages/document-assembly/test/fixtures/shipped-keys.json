@@ -382,5 +382,445 @@
     "defaultFormat": "plain",
     "absence": "placeholder",
     "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.capacity",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.capacityLine",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.capacity",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.capacityLine",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.capacity",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.capacityLine",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.capacity",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.capacityLine",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.capacity",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.capacityLine",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "responsibleAttorney.displayName",
+    "valueType": "name",
+    "source": "staffing",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.title",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.emailAddress",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.directDial",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.all",
+    "valueType": "list",
+    "source": "staffing",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "originatingAttorney.displayName",
+    "valueType": "name",
+    "source": "staffing",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.title",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.emailAddress",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.directDial",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.all",
+    "valueType": "list",
+    "source": "staffing",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "supervisingAttorney.displayName",
+    "valueType": "name",
+    "source": "staffing",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.title",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.emailAddress",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.directDial",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.all",
+    "valueType": "list",
+    "source": "staffing",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "billingAttorney.displayName",
+    "valueType": "name",
+    "source": "staffing",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.title",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.emailAddress",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.directDial",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.all",
+    "valueType": "list",
+    "source": "staffing",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "assignedParalegal.displayName",
+    "valueType": "name",
+    "source": "staffing",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.title",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.emailAddress",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.directDial",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.all",
+    "valueType": "list",
+    "source": "staffing",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.barNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "court.name",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "court.judge",
+    "valueType": "name",
+    "source": "court",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.number",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.filedOn",
+    "valueType": "date",
+    "source": "court",
+    "defaultFormat": "long",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.division",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.department",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.clientDesignation",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "case.opposingDesignation",
+    "valueType": "text",
+    "source": "court",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.style",
+    "valueType": "text",
+    "source": "estate",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.shortStyle",
+    "valueType": "text",
+    "source": "estate",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.decedent",
+    "valueType": "name",
+    "source": "estate",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.dateOfDeath",
+    "valueType": "date",
+    "source": "estate",
+    "defaultFormat": "long",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.proceedingType",
+    "valueType": "text",
+    "source": "estate",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "estate.lettersIssuedOn",
+    "valueType": "date",
+    "source": "estate",
+    "defaultFormat": "long",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
   }
 ]

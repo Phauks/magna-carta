@@ -58,9 +58,12 @@ function recordingDatabase(): { database: SqlDatabase; reads: RecordedRead[] } {
         all() {
           const rows = sql.includes("matter_party")
             ? PARTY_ROWS
-            : sql.includes("matter_asset")
-              ? // An empty register. The read still HAPPENED, which is what this test counts, and an
-                // empty list is the correct resolution for a matter that owns nothing recorded.
+            : sql.includes("matter_asset") ||
+                sql.includes("matter_estate") ||
+                sql.includes("matter_court_case") ||
+                sql.includes("matter_assignment")
+              ? // Empty records. Each read still HAPPENED, which is what this test counts, and an
+                // empty result is the correct resolution for a matter that records none of them.
                 []
               : sql.includes(" location ")
                 ? [LOCATION_ROW]
@@ -124,9 +127,19 @@ describe("resolution issues one read per source, never one per field", () => {
     if (!result.ok) return;
     // `protectedIdentifier` is in the list because the manifest names protected keys, but it issues no
     // statement of its own: a sealed value is decrypted through the chokepoint reader, which this
-    // manifest was resolved without. The four PREPARED reads are matter, party, asset, and location.
-    expect(result.reads).toEqual(["matter", "party", "protectedIdentifier", "asset", "location"]);
-    expect(reads).toHaveLength(4);
+    // manifest was resolved without. The seven PREPARED reads are matter, estate, party, staffing,
+    // court, asset, and location.
+    expect(result.reads).toEqual([
+      "matter",
+      "estate",
+      "party",
+      "protectedIdentifier",
+      "staffing",
+      "court",
+      "asset",
+      "location",
+    ]);
+    expect(reads).toHaveLength(7);
   });
 
   it("costs a 150-field template exactly the reads its SOURCES need, not the reads its fields would", async () => {
@@ -146,9 +159,10 @@ describe("resolution issues one read per source, never one per field", () => {
     expect(large.reads.map((read) => read.sql)).toEqual(
       oneFieldPerSource.reads.map((read) => read.sql),
     );
-    // And the absolute bound: four reads for a template with a hundred and fifty merge fields — the
-    // matter, its party collection, its asset register, and its office.
-    expect(large.reads).toHaveLength(4);
+    // And the absolute bound: seven reads for a template with a hundred and fifty merge fields —
+    // the matter, its estate record, its party collection, its staffing, its court case, its asset
+    // register, and its office.
+    expect(large.reads).toHaveLength(7);
   });
 
   // THE READ BUDGET, stated against the catalogue rather than against a number somebody typed. Cost
@@ -175,7 +189,9 @@ describe("resolution issues one read per source, never one per field", () => {
 
   // A SUBJECT COSTS NO READ. Every party subject is answered by a pass over rows the one party read
   // already returned, so naming all of them costs what naming one costs — the property that lets the
-  // subject registry grow without the read count following it.
+  // subject registry grow without the read count following it. The one party facet that reads more
+  // than the party rows is the capacity line, which composes over the estate's stored style: naming
+  // it adds the ONE estate read, once, however many subjects name it.
   it("costs the same reads for every party subject as for one", async () => {
     const partyKeys = DICTIONARY.filter((entry) => entry.source === "party").map(
       (entry) => entry.key,
@@ -204,10 +220,131 @@ describe("resolution issues one read per source, never one per field", () => {
           parts: [],
           forms: ["brace"],
         },
+        {
+          key: "opposingParty.capacityLine",
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace"],
+        },
       ]),
     });
     expect(many.reads.map((read) => read.sql)).toEqual(one.reads.map((read) => read.sql));
-    expect(many.reads).toHaveLength(2);
+    expect(many.reads).toHaveLength(3);
+  });
+
+  it("costs no estate read for party keys that are not the capacity line", async () => {
+    const { database, reads } = recordingDatabase();
+    await resolveMergeContext(database, {
+      ...input,
+      manifest: manifestOf([
+        {
+          key: "opposingParty.displayName",
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace"],
+        },
+        {
+          key: "opposingParty.capacity",
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace"],
+        },
+      ]),
+    });
+    expect(reads).toHaveLength(2);
+    expect(reads.some((read) => read.sql.includes("matter_estate"))).toBe(false);
+  });
+
+  // THE STAFFING READ BUDGET: five member subjects ride one staffing read, so naming every member
+  // key costs what naming one costs — one statement, and no matter row of its own, because the
+  // statement reads the responsible member through the matter join itself.
+  it("costs one read for every member subject, the same one it costs for one", async () => {
+    const staffingKeys = DICTIONARY.filter((entry) => entry.source === "staffing").map(
+      (entry) => entry.key,
+    );
+    // Five subjects, five scalar facets less the office address and signature block that wait on
+    // the structured value types, plus the collection: stated so a subject silently lost from the
+    // registry fails here rather than quietly costing nothing.
+    expect(staffingKeys).toHaveLength(25);
+
+    const many = recordingDatabase();
+    await resolveMergeContext(many.database, {
+      ...input,
+      manifest: manifestOf(
+        staffingKeys.map((key) => ({
+          key,
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace" as const],
+        })),
+      ),
+    });
+    const one = recordingDatabase();
+    await resolveMergeContext(one.database, {
+      ...input,
+      manifest: manifestOf([
+        {
+          key: "supervisingAttorney.displayName",
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace"],
+        },
+      ]),
+    });
+    expect(many.reads.map((read) => read.sql)).toEqual(one.reads.map((read) => read.sql));
+    expect(many.reads).toHaveLength(1);
+    expect(many.reads[0]?.sql).toContain("matter_assignment");
+  });
+
+  // THE COURT READ BUDGET: the `court` and `case` subjects share the one court-case read.
+  it("costs one read for the court and case subjects together", async () => {
+    const courtKeys = DICTIONARY.filter((entry) => entry.source === "court").map(
+      (entry) => entry.key,
+    );
+    expect(courtKeys).toHaveLength(8);
+    const { database, reads } = recordingDatabase();
+    await resolveMergeContext(database, {
+      ...input,
+      manifest: manifestOf(
+        courtKeys.map((key) => ({
+          key,
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace" as const],
+        })),
+      ),
+    });
+    expect(reads).toHaveLength(1);
+    expect(reads[0]?.sql).toContain("matter_court_case");
+  });
+
+  // THE ESTATE READ BUDGET: every estate key rides the one estate read.
+  it("costs one read for every estate key", async () => {
+    const estateKeys = DICTIONARY.filter((entry) => entry.source === "estate").map(
+      (entry) => entry.key,
+    );
+    expect(estateKeys).toHaveLength(6);
+    const { database, reads } = recordingDatabase();
+    await resolveMergeContext(database, {
+      ...input,
+      manifest: manifestOf(
+        estateKeys.map((key) => ({
+          key,
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace" as const],
+        })),
+      ),
+    });
+    expect(reads).toHaveLength(1);
+    expect(reads[0]?.sql).toContain("matter_estate");
   });
 
   // THE ASSET READ BUDGET, and the property the catalogue's whole shape exists to preserve: a subject
