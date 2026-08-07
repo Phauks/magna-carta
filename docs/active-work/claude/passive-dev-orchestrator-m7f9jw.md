@@ -45,6 +45,32 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~07:00 UTC) — merge train landed: FIRST UI SHIPPED; docket recorded; 129 merged
+
+Train complete except #166. Since the 05:50 entry, merged in order, each on a
+fully green PR gate: **#167** discovery 5·1·2 (227b4acd, per-firm idx 43),
+**#173** sign-in screen (adb1ba36 — the first UI surface in production code),
+**#168** R2 matter dimension (49eef4e9, task 110 closed → AI Search slice 1 now
+gated only on the wall experiment 116), **#169** docket record (110003ea, ADR
+fragment owner-docket-2026-08-07 — all 92 answers durable in-repo), **#171** CI
+fail-fast (a59d9199, austerity-marked → joins the Sept 1 revert checklist with
+trig_01CyD83cWkUfdtGdPxz5vmob). Running count 129 merged. Main head a59d9199;
+per-firm journal head idx 43; next tags pre-assigned: idx 44 = notifications
+20260807T020000 (agent a10ebc3b6bfb382bc, in flight), contingent idx 45 =
+Nevada corpus 20260807T030000 (agent a435786dfe5de0b9b, in flight,
+attorney-review-gated, ships NOT-VERIFIED). **#166 auto-file wiring**: branch
+update hit a 422 merge conflict on generated contract files → agent
+a31e571574bc6f768 resumed with merge-main + RE-EMIT (openapi.json/api-client
+re-derived, never hand-merged) + r2-object-dimension-scan compliance; awaiting
+its push → gate → merge closes task 104. Swept: branches
+claude/owner-docket-answers + claude/ci-fail-fast (local) and scratchpad
+worktrees docket-wt/failfast-wt; remote refs for both remain — the git proxy
+403s ref deletions (known; owner-manual cleanup). Known flake unchanged:
+fixtures load-profile-smoke 5000ms on slim runners. In flight beyond the
+train: 115 notifications delivery, 121 Nevada corpus. Next: status-artifact
+milestone refresh, then dispatch 116 (AI Search wall experiment — owner A6:
+disclosure-gated, no GA wait) and consider 93 (catalog slices 2-4).
+
 ## Position update (2026-08-07 ~05:50 UTC) — OWNER MEGA-SESSION: docket answered, $5 CI, UI OPENED, main green; 124 merged
 
 OWNER TURNS (all genuine, ~03:00-05:45Z): (1) **$5 GitHub Actions budget** —
