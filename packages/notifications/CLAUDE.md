@@ -49,10 +49,15 @@ dispatcher. Everything expensive here is a policy question, not a plumbing one.
   title, wrong invisibly because the row still looks authoritative; and resolving at read costs
   nothing, because the read already joins `matter` to enforce visibility.
 - **The wall binds at DELIVERY time, through ONE predicate, composed in SQL before the `LIMIT`.**
-  Access changes after emission — a member removed from a matter on Tuesday must stop seeing Monday's
-  notifications about it on Tuesday, and a member added should see what is still live. Rows are never
-  deleted or rewritten when access changes; they are filtered, and become visible again if access
-  returns. Every read takes `visibleMatterPredicate` as a **required** argument, and
+  What a matter's notifications may show changes after emission, so it is resolved at read: rows are
+  never deleted or rewritten when it changes, they are filtered, and they reappear if it changes
+  back. **What the predicate actually decides today** is one thing — it excludes the platform's own
+  internal holding matters. It takes **no member context**, so there is no per-member matter wall
+  yet; the point of composing it here is that when an overlay exists it is one more clause in that
+  one predicate and every read inherits it untouched. Do not describe this surface, in an OpenAPI
+  `description` or anywhere else a caller reads, as though a member losing access to a matter
+  already loses its notifications. Every read takes `visibleMatterPredicate` as a **required**
+  argument, and
   `test/wall-fitness.test.ts` proves every exported read carries the marker from one table-driven
   pass. A post-filter is never acceptable: it under-fills the page, makes the cursor mean something
   different from page to page, and turns the page size into an existence oracle.
@@ -119,9 +124,15 @@ is not enforced.
   rebuilds a growing table; `push`, `sms`, and `desktop` are there for the same reason.
 - **Read state lives on the recipient row, not on a channel.** Marking an item read in the feed must
   also settle it for a push notification nobody tapped, whenever push arrives.
-- **A firm-scoped kind has a null matter anchor and is NOT behind the wall.** There is no matter whose
-  visibility could decide it. That arm is written once, in `visibleNotificationScope`, so tightening
-  the join cannot silently make firm-scoped kinds disappear.
+- **A firm-scoped kind has a null matter anchor and is NOT behind the filter.** There is no matter
+  whose visibility could decide it. That arm is written once, in `visibleNotificationScope`, so
+  tightening the join cannot silently make firm-scoped kinds disappear. The **accepted cost**: such a
+  row's capability is enforced when the fan-out resolves its audience and never again, so a member
+  who held `trust:manage` when a trust posting landed keeps that row in their feed after the
+  capability is withdrawn. The deep link behind it still re-checks, so following it reveals nothing —
+  but the row and its category count persist. Re-resolving capability at read would put a per-row
+  permission check on the hot path for the one class of row with no anchor to check against; the fix,
+  when it is worth it, is a capability column on the event resolved by this same shared read.
 - **`matter-number` is a declared and unbuilt email detail level.** It is in the vocabulary so a
   firm's stored ceiling is not silently rewritten when the level ships; nothing renders it today.
 - **`designated` resolves to nobody** until the firm-tier trust-compliance designation is built. An
