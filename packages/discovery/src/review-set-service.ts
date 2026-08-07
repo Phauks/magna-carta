@@ -122,7 +122,10 @@ export async function renameReviewSet(
 ): Promise<{ effect: EffectWrite }> {
   const trimmed = assertReviewSetName(name);
   const existing = await requireReviewSet(database, reviewSetId);
-  if (trimmed !== existing.name && (await reviewSetNameIsTaken(database, existing.matter_id, trimmed))) {
+  if (
+    trimmed !== existing.name &&
+    (await reviewSetNameIsTaken(database, existing.matter_id, trimmed))
+  ) {
     throw new DiscoveryValidationError(
       "discovery-review-set-name-taken",
       `this matter already has a review set called ${JSON.stringify(trimmed)}`,
@@ -181,7 +184,7 @@ export async function lockReviewSet(
   options: DiscoveryServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const existing = await requireReviewSet(database, reviewSetId);
-  assertReviewSetTransition(existing.state as ReviewSetState, "locked");
+  assertReviewSetTransition(existing.state, "locked");
   const now = options.clock.now();
   return {
     effect: {
@@ -217,7 +220,7 @@ export async function closeReviewSet(
   options: DiscoveryServiceOptions,
 ): Promise<CloseReviewSetResult> {
   const existing = await requireReviewSet(database, reviewSetId);
-  assertReviewSetTransition(existing.state as ReviewSetState, "closed");
+  assertReviewSetTransition(existing.state, "closed");
   const now = options.clock.now();
   return {
     collectablePrefixes: reviewSetDerivedPrefixes(reviewSetId),

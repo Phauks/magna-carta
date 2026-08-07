@@ -10,10 +10,7 @@ import {
   readDiscoveryLoad,
   transitionDiscoveryLoadStatement,
 } from "./load-statements.ts";
-import {
-  validateLoadSourceDeclaration,
-  type LoadSourceDeclaration,
-} from "./load-source.ts";
+import { validateLoadSourceDeclaration, type LoadSourceDeclaration } from "./load-source.ts";
 import { LOAD_SOURCE_DESCRIPTION_MAX_LENGTH } from "./types.ts";
 import { loadExceptionReportKey, loadManifestKey } from "./r2-keys.ts";
 import { assertRecordCustodianBelongsToReviewSet } from "./record-custodian-service.ts";
@@ -64,7 +61,7 @@ export async function declareLoad(
       `no such review set: ${input.reviewSetId}`,
     );
   }
-  if (!reviewSetAcceptsLoads(reviewSet.state as ReviewSetState)) {
+  if (!reviewSetAcceptsLoads(reviewSet.state)) {
     throw new DiscoveryValidationError(
       "discovery-review-set-not-open",
       `this review set is ${reviewSet.state} and takes no more material. A locked review set still ` +
@@ -262,9 +259,7 @@ export function advanceLoadProcessingCounts(
   options: DiscoveryServiceOptions,
 ): EffectWrite {
   return {
-    statements: [
-      advanceProcessingCountsStatement(database, loadId, deltas, options.clock.now()),
-    ],
+    statements: [advanceProcessingCountsStatement(database, loadId, deltas, options.clock.now())],
     outboxMessages: [],
   };
 }

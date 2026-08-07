@@ -34,7 +34,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables exist and are filled by the processing sub-slice; the manifest and exception report are written there too.
+  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables exist and are filled by the processing sub-slice; the manifest and exception report are written there too.
   notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list the design recommended is named for the review surface rather than built.
 
 - id: discovery.pipeline.load-lanes

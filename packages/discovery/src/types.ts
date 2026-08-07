@@ -15,12 +15,13 @@ export const REVIEW_SET_STATES = ["open", "locked", "closed"] as const;
 export type ReviewSetState = (typeof REVIEW_SET_STATES)[number];
 
 // Which forward moves are legal. A reopen is not among them, and its absence is the point.
-export const REVIEW_SET_FORWARD_TRANSITIONS: Readonly<Record<ReviewSetState, readonly ReviewSetState[]>> =
-  {
-    open: ["locked", "closed"],
-    locked: ["closed"],
-    closed: [],
-  };
+export const REVIEW_SET_FORWARD_TRANSITIONS: Readonly<
+  Record<ReviewSetState, readonly ReviewSetState[]>
+> = {
+  open: ["locked", "closed"],
+  locked: ["closed"],
+  closed: [],
+};
 
 // Whose records these were. `unattributed` is first-class rather than a null: a production that
 // arrives with no custodial attribution is a fact about the production, and recording it as "we do

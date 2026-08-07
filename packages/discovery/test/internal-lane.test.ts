@@ -71,10 +71,11 @@ describe("the selection reads impose a stable total order", () => {
 
   it("orders the filed-message selection by the message's primary key", () => {
     const { database, lastSql } = recordingDatabase();
-    selectFiledMessagesStatement(database, "matter_1" as MatterId, [
-      "emailMessage_b",
-      "emailMessage_a",
-    ] as EmailMessageId[]);
+    selectFiledMessagesStatement(
+      database,
+      "matter_1" as MatterId,
+      ["emailMessage_b", "emailMessage_a"] as EmailMessageId[],
+    );
     expect(lastSql()).toContain("ORDER BY email_message.id ASC");
   });
 
@@ -89,9 +90,11 @@ describe("the selection reads impose a stable total order", () => {
 
   it("reads only filed links and only extracted attachments", () => {
     const { database, lastSql } = recordingDatabase();
-    selectFiledMessagesStatement(database, "matter_1" as MatterId, [
-      "emailMessage_a",
-    ] as EmailMessageId[]);
+    selectFiledMessagesStatement(
+      database,
+      "matter_1" as MatterId,
+      ["emailMessage_a"] as EmailMessageId[],
+    );
     // A message not filed to the matter is not the matter's correspondence, and a load reaching one
     // would be a load reaching outside the corpus it declared.
     expect(lastSql()).toContain("email_matter_link.state = 'filed'");

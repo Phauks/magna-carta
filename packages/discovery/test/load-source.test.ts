@@ -36,9 +36,9 @@ describe("the load-source contract", () => {
   });
 
   it("refuses an unknown lane by name", () => {
-    expect(codeOf(() => validateLoadSourceDeclaration(declaration({ lane: "telepathy" as never })))).toBe(
-      "discovery-unknown-load-lane",
-    );
+    expect(
+      codeOf(() => validateLoadSourceDeclaration(declaration({ lane: "telepathy" as never }))),
+    ).toBe("discovery-unknown-load-lane");
   });
 
   // Declared and refused BY NAME rather than absent, so a firm asking for it learns the platform
@@ -50,9 +50,9 @@ describe("the load-source contract", () => {
     } catch (caught) {
       message = (caught as DiscoveryValidationError).message;
     }
-    expect(codeOf(() => validateLoadSourceDeclaration(declaration({ lane: "direct-collection" })))).toBe(
-      "discovery-load-lane-not-built",
-    );
+    expect(
+      codeOf(() => validateLoadSourceDeclaration(declaration({ lane: "direct-collection" }))),
+    ).toBe("discovery-load-lane-not-built");
     expect(message).toContain("received production");
   });
 });
@@ -87,9 +87,7 @@ describe("the transcript control", () => {
       message = (caught as DiscoveryValidationError).message;
     }
     expect(
-      codeOf(() =>
-        validateLoadSourceDeclaration(declaration({ transcriptScope: "include" })),
-      ),
+      codeOf(() => validateLoadSourceDeclaration(declaration({ transcriptScope: "include" }))),
     ).toBe("discovery-transcript-lane-not-built");
     // The refusal has to say what to do, because the honest alternatives are both worse: silently
     // dropping the include produces a corpus that does not match the declaration, and pretending to
@@ -106,7 +104,9 @@ describe("the transcript control", () => {
         validateLoadSourceDeclaration(declaration({ lane, transcriptScope: "exclude" })),
       ).not.toThrow();
       expect(
-        codeOf(() => validateLoadSourceDeclaration(declaration({ lane, transcriptScope: "include" }))),
+        codeOf(() =>
+          validateLoadSourceDeclaration(declaration({ lane, transcriptScope: "include" })),
+        ),
       ).toBe("discovery-transcript-lane-not-built");
     }
     // A transcript is a record in the firm's own database, so only the internal lanes could sweep

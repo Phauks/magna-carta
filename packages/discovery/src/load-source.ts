@@ -1,9 +1,5 @@
 import type { RecordCustodianId } from "@magna-carta/identifiers/types";
-import {
-  DISCOVERY_LOAD_LANES,
-  UNBUILT_LOAD_LANES,
-  type DiscoveryLoadLane,
-} from "./types.ts";
+import { DISCOVERY_LOAD_LANES, UNBUILT_LOAD_LANES, type DiscoveryLoadLane } from "./types.ts";
 import { DiscoveryValidationError } from "./validation.ts";
 
 // THE LOAD-SOURCE CONTRACT: what a person is declaring when they say "put this material into this
@@ -108,7 +104,10 @@ export function validateLoadSourceDeclaration(declaration: LoadSourceDeclaration
         `them in a later, separate load so the record says when they entered and who decided it.`,
     );
   }
-  if (!Number.isInteger(declaration.declaredDocumentCount) || declaration.declaredDocumentCount < 0) {
+  if (
+    !Number.isInteger(declaration.declaredDocumentCount) ||
+    declaration.declaredDocumentCount < 0
+  ) {
     throw new DiscoveryValidationError(
       "discovery-invalid-declared-count",
       "The declared document count is a whole number of documents, zero or more.",

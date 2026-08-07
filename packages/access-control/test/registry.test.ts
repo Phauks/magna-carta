@@ -147,7 +147,10 @@ describe("permission registry", () => {
   // attorney's-eyes-only under a protective order.
   it("no matters:* or files:* key is a discovery key", () => {
     const discoveryKeys = new Set<string>(permissionsForNamespace("discovery"));
-    for (const key of [...permissionsForNamespace("matters"), ...permissionsForNamespace("files")]) {
+    for (const key of [
+      ...permissionsForNamespace("matters"),
+      ...permissionsForNamespace("files"),
+    ]) {
       expect(discoveryKeys.has(key)).toBe(false);
     }
     expect(discoveryKeys.size).toBe(3);

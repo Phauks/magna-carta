@@ -537,7 +537,7 @@ const patchRecordCustodianRoute = defineOpenAPIRoute(manageMeta("updateRecordCus
   path: "/api/v1/record-custodians/{recordCustodianId}",
   description:
     "Corrects a record custodian in place, which re-points every document already attributed to " +
-    "it — and that is the intent: a production that named \"J. Smith\" and the person the firm later " +
+    'it — and that is the intent: a production that named "J. Smith" and the person the firm later ' +
     "identified are one custodian, and a second row would split the attribution of documents " +
     "already loaded under the first.",
   request: {
@@ -867,7 +867,7 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
         const { effect } =
           state === "locked"
             ? await lockReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId, options)
-            : (await closeReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId, options));
+            : await closeReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId, options);
         await commitEffectBatch(firm.firmDatabase, effect, { now: options.clock.now });
         const row = await readReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId);
         if (row === undefined) {

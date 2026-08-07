@@ -216,11 +216,11 @@ describe("the review set", () => {
     const setId = await createReviewSet("Second request");
     const locked = await post(`/api/v1/review-sets/${setId}/state`, { state: "locked" });
     expect(locked.status).toBe(200);
-    expect(((await locked.json()) as { state: string }).state).toBe("locked");
+    expect((await locked.json()).state).toBe("locked");
 
     const closed = await post(`/api/v1/review-sets/${setId}/state`, { state: "closed" });
     expect(closed.status).toBe(200);
-    expect(((await closed.json()) as { state: string }).state).toBe("closed");
+    expect((await closed.json()).state).toBe("closed");
 
     // There is no route that could ask for `open` — the request schema does not offer it — so the
     // reopen a firm actually attempts is a re-lock of a closed set.
@@ -248,13 +248,9 @@ describe("the review set", () => {
       semanticIndexEnabled: true,
     });
     expect(response.status).toBe(200);
-    expect(((await response.json()) as { semanticIndexEnabled: boolean }).semanticIndexEnabled).toBe(
-      true,
-    );
+    expect((await response.json()).semanticIndexEnabled).toBe(true);
     const off = await patch(`/api/v1/review-sets/${reviewSetId}`, { semanticIndexEnabled: false });
-    expect(((await off.json()) as { semanticIndexEnabled: boolean }).semanticIndexEnabled).toBe(
-      false,
-    );
+    expect((await off.json()).semanticIndexEnabled).toBe(false);
   });
 });
 
@@ -324,7 +320,7 @@ describe("record custodians", () => {
       kind: "person",
     });
     expect(response.status).toBe(200);
-    expect(((await response.json()) as { displayName: string }).displayName).toBe("Jordan Smith");
+    expect((await response.json()).displayName).toBe("Jordan Smith");
     const listed = await get(`/api/v1/review-sets/${setId}/record-custodians`);
     const page = (await listed.json()) as { data: unknown[] };
     expect(page.data).toHaveLength(1);
@@ -440,7 +436,11 @@ describe("the internal file lane", () => {
       fileIds: ["file_internal_one", "file_internal_two"],
     });
     expect(run.status).toBe(202);
-    const turn = (await run.json()) as { plannedCount: number; allocatedCount: number; complete: boolean };
+    const turn = (await run.json()) as {
+      plannedCount: number;
+      allocatedCount: number;
+      complete: boolean;
+    };
     expect(turn.plannedCount).toBe(2);
     expect(turn.allocatedCount).toBe(2);
     expect(turn.complete).toBe(true);
@@ -522,9 +522,7 @@ describe("the internal file lane", () => {
       fileIds: ["file_other_matter"],
     });
     expect(run.status).toBe(422);
-    expect(String(((await run.json()) as { type: string }).type)).toContain(
-      "discovery-selection-refused",
-    );
+    expect(String((await run.json()).type)).toContain("discovery-selection-refused");
   });
 
   // Structural idempotency from the derived key rather than a guard: a retried run converges on the

@@ -119,7 +119,7 @@ produced it forbids.
   same batch as the rows it counts, so two concurrent chunk commits cannot lose each other's work.
 - **The occurrence table's two columns are named for what they hold**, not for the relation:
   `primary_review_document_id` and `duplicate_review_document_id`. The design's
-  `duplicate_of_review_document_id` reads backwards to half of everyone on the row that *is* the
+  `duplicate_of_review_document_id` reads backwards to half of everyone on the row that _is_ the
   duplicate.
 - **`assertVersionsAreClean` refuses, it does not filter.** A firm that selected fifty files and
   silently received forty-eight review documents has a corpus it cannot certify the contents of.

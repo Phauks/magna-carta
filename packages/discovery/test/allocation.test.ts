@@ -93,11 +93,7 @@ describe("planning an email selection", () => {
   // makes its parent responsive, a privileged parent taints its attachments, and a production that
   // breaks a family will be challenged.
   it("keeps a message and its attachments in one family under the message's identifier", () => {
-    const rows = planEmailAllocations(
-      [message(1)],
-      [attachment(1, 1), attachment(1, 2)],
-      context,
-    );
+    const rows = planEmailAllocations([message(1)], [attachment(1, 1), attachment(1, 2)], context);
     expect(rows).toHaveLength(3);
     const [parent, first, second] = rows as [
       (typeof rows)[number],
