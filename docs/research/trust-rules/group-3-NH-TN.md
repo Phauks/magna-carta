@@ -2,6 +2,17 @@
 
 **DRAFT FOR ATTORNEY REVIEW.** Compiled 2026-05-30. Jurisdictions: New Hampshire, New Jersey, New Mexico, New York, North Carolina, North Dakota, Ohio, Oklahoma, Oregon, Pennsylvania, Rhode Island, South Carolina, South Dakota, Tennessee.
 
+> **RE-VERIFICATION NOTE (2026-08-07).** A primary-source sweep found that this catalog's home-jurisdiction
+> entry (Nevada, group 2) — compiled as "verified in full" in the same research pass as this file — cited
+> **SCR 78.5, a rule repealed in 2019**; the corrections are recorded in
+> [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md).
+> Nevada is the only jurisdiction with a primary-source research record in this repository, so no entry in
+> THIS file could be swept the same way. **Every entry below is therefore NOT VERIFIED, whatever its
+> per-field confidence tag** — including [VERIFIED], which records the compiler's claim from the 2026-05-30
+> pass, not a check against any primary source held in this repository. Treat each entry as a research lead,
+> not a finding, until it has its own dated primary-source research record under `docs/research/`. The
+> encoding gate in `@magna-carta/trust-jurisdictions` refuses every jurisdiction in this file by construction.
+
 **Confidence legend:**
 
 - **[VERIFIED]** = confirmed against primary-source text fetched during research (rule PDF / official bar/court page body text).

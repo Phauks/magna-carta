@@ -81,7 +81,18 @@ export function problemResponseForTrustRefusal(
       detail: error.message,
     });
   }
-  if (error.code === "jurisdiction-not-recorded" || error.code === "jurisdiction-not-encoded") {
+  // All four jurisdiction refusals share one problem type: each means "no reviewed rule stands
+  // behind an answer here", and each is fixed by a person doing something other than retrying the
+  // request — recording the office's state, researching a jurisdiction, having an attorney review
+  // one, researching the missed field. The distinction between them lives in the detail (the codes
+  // stay distinct upstream); what must NOT happen is the newer refusals falling through to the
+  // generic movement-refused catch-all, which tells a caller the movement itself was improper.
+  if (
+    error.code === "jurisdiction-not-recorded" ||
+    error.code === "jurisdiction-not-encoded" ||
+    error.code === "jurisdiction-not-verified" ||
+    error.code === "jurisdiction-requirement-not-encoded"
+  ) {
     return problemJson(c, {
       type: "trust-jurisdiction-unavailable",
       title: "The trust account's jurisdiction cannot be resolved",
