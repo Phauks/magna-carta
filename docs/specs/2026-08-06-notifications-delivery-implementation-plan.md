@@ -91,13 +91,14 @@ preferences (every category is on, which is the recommended default), no email, 
 - [ ] Add the four tables to `packages/database/src/per-firm-schema.ts`: `notification_event`,
       `notification_recipient`, `notification_delivery`, `notification_digest_run`, per the design's
       section 2. Column comments state the reasoning inline.
-- [ ] `notification_delivery.channel` CHECK is seeded with the full set `in_app | email | push | sms |
-    desktop` from the first migration — widening a SQLite CHECK later means rebuilding a growing
-      table, and a value nothing writes costs a byte.
+- [ ] `notification_delivery.channel` CHECK is seeded with the full set
+      `in_app | email | push | sms | desktop` from the first migration — widening a SQLite CHECK later
+      means rebuilding a growing table, and a value nothing writes costs a byte.
 - [ ] Indexes: `notification_recipient (recipient_user_id, state, created_at, id)` — the filter column
       leads, then the ordering pair the keyset walks; `notification_event (matter_id)`;
-      `notification_event (dedupe_key)` UNIQUE; `notification_recipient (notification_event_id,
-    recipient_user_id)` UNIQUE; `notification_delivery (notification_recipient_id, channel)` UNIQUE.
+      `notification_event (dedupe_key)` UNIQUE;
+      `notification_recipient (notification_event_id, recipient_user_id)` UNIQUE;
+      `notification_delivery (notification_recipient_id, channel)` UNIQUE.
 - [ ] Generate the migration, refresh the snapshot in the same commit, and run the schema-conformance
       and schema-name-sync suites.
 
@@ -236,8 +237,9 @@ calendar event changes and email filings become transactional topics; delivered 
 ### Task 3.1 — the preference value
 
 - [ ] A single `ScopedSettingDefinition` keyed `notifications.preferences` in the notifications
-      package, whose zod schema is the per-category matrix (`inApp: on|off`, `email:
-    off|daily|weekly`) and whose in-code default is the recommended default set — every category
+      package, whose zod schema is the per-category matrix
+      (`inApp: on|off`, `email: off|daily|weekly`) and whose in-code default is the recommended
+      default set — every category
       `inApp: on`; `email: daily` except `jobs` and `system`, which default `off`. One key, not one per
       category: `resolveScopedSetting` reads one key per call, and the fan-out path resolves
       preferences once per recipient.
