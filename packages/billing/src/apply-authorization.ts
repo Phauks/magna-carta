@@ -21,10 +21,7 @@ import {
 import type { TrustDisbursementMethod } from "@magna-carta/trust/types";
 import { applyTrustFundsToInvoices, type AppliedTrustFunds } from "./apply-trust-funds.ts";
 import { BillingValidationError } from "./billing-validation.ts";
-import {
-  resolveEarnedFeeApplications,
-  type EarnedFeeApplicationRequest,
-} from "./earned-fee.ts";
+import { resolveEarnedFeeApplications, type EarnedFeeApplicationRequest } from "./earned-fee.ts";
 import {
   insertInvoiceTrustApplicationLineStatement,
   readInvoiceTrustApplicationLines,

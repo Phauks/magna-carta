@@ -358,7 +358,10 @@ describe("end-to-end", () => {
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Owner/Admin, Attorney, and Billing
-        // (20260805T120001_seed-trust-permissions). Read-only carries neither.
+        // (20260805T120001_seed-trust-permissions). Read-only carries neither. trust:authorize —
+        // the authority to act on client money under the firm's authorization policy — reaches
+        // Owner/Admin and Attorney only (20260807T050000_trust-authorization-policy).
+        "trust:authorize",
         "trust:manage",
         "trust:read",
       ],

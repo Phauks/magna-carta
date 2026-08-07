@@ -202,6 +202,14 @@
   adrs: ADR-0009, ADR-0072
   evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
 
+- id: financial.trust.authorization-policy
+  name: Disbursement authorization policy (per-firm)
+  scope: Whether money leaving a client ledger takes a second person as firm configuration — off, threshold-based, or always (the strict shipped default) — plus an approver-authority option requiring the trust:authorize capability of whoever lets money go; the earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under.
+  status: shipped
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion); policy-aware decision and transfer triggers in the per-firm migration; billing's application queue in packages/billing/src/apply-authorization.ts; routes for the policy read/change and the application submit/approve
+  notes: Owner-directed override of the always-two-person default. Flagged, not decided - whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
+
 - id: financial.trust.no-commingling
   name: No commingling
   scope: Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).

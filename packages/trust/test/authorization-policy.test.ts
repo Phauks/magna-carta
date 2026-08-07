@@ -168,14 +168,23 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
 
     const { results } = await fixture.database
       .prepare(
-        "SELECT actor_user_id, subject_id, metadata FROM audit_log WHERE event = 'trust.authorization_policy_changed' ORDER BY created_at, id",
+        "SELECT actor_user_id, subject_id, metadata FROM audit_log WHERE event = 'trust.authorization_policy_changed'",
       )
       .all<{ actor_user_id: string; subject_id: string; metadata: string }>();
     expect(results).toHaveLength(2);
-    const second = JSON.parse(results[1]?.metadata ?? "{}") as Record<string, unknown>;
-    expect(second["fromPolicy"]).toBe("threshold");
-    expect(second["toPolicy"]).toBe("off");
-    expect(second["fromThresholdAmountMinor"]).toBe(100000);
+    // Identified by content rather than position: the fixture clock is frozen, so the two audit
+    // rows share created_at and no stored order between them is meaningful.
+    const metadatas = results.map(
+      (row) => JSON.parse(row.metadata) as Record<string, unknown>,
+    );
+    const second = metadatas.find((metadata) => metadata["toPolicy"] === "off");
+    expect(second).toMatchObject({
+      fromPolicy: "threshold",
+      toPolicy: "off",
+      fromThresholdAmountMinor: 100000,
+      fromVersion: 1,
+      toVersion: 2,
+    });
   });
 
   it("refuses a re-statement, a threshold without an amount, and an amount without threshold", async () => {
@@ -204,9 +213,7 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
       ),
     ).rejects.toThrow(/append-only/);
     await expect(
-      expectRefusal(() =>
-        fixture.database.prepare("DELETE FROM trust_authorization_policy").run(),
-      ),
+      expectRefusal(() => fixture.database.prepare("DELETE FROM trust_authorization_policy").run()),
     ).rejects.toThrow(/append-only/);
     // A concurrent change computed the same next version and lost: the dense-version trigger is
     // what turns interleaving into a refusal.
@@ -562,7 +569,7 @@ describe("the earned-fee transfer runs the same policy", () => {
             newIdentifier("trustTransfer"),
             fixture.trustAccountId,
             node.id,
-            superseded.policyId as TrustAuthorizationPolicyId,
+            superseded.policyId,
             clock.now(),
           )
           .run(),

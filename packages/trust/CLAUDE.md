@@ -20,9 +20,17 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/movements.ts` — `composeTrustDeposit` / `composeTrustDisbursement` /
   `composeMatterToMatterTransfer` + the `TrustDisbursementMethodPolicy` port, and
   `resolveTrustDisbursement`: the shared pre-checks a proposal and its posting both run
+- `src/authorization-policy.ts` — the firm's disbursement-authorization posture: off, threshold, or
+  always, plus the approver-authority option; `readCurrentTrustAuthorizationPolicy` /
+  `composeTrustAuthorizationPolicyChange` / `trustAuthorizationRequiresSecondPerson` (THE predicate
+  both money-out paths share) / `assertActorHoldsTrustAuthority`
 - `src/disbursement-authorization.ts` — the pending request, and the one decision that settles it:
   `composeTrustDisbursementRequest` / `composeTrustDisbursementApproval` /
-  `composeTrustDisbursementRejection` / `composeTrustDisbursementWithdrawal`
+  `composeTrustDisbursementRejection` / `composeTrustDisbursementWithdrawal`, plus the shared
+  approval resolution (`resolveTrustAuthorizationApproval`) and the earned-fee application's queue
+  row and decision (`composeEarnedFeeApplicationAuthorizationRequest` /
+  `composeEarnedFeeApplicationApprovalDecision` — billing composes the transfer and the invoice
+  side)
 - `src/transfer.ts` — `composeTrustToOperatingTransfer` + the `EarnedFeePrecondition` port
 - `src/jurisdiction.ts` — the resolver contract and the refusing default
 - `src/close-precondition.ts` — `matterTrustClosePrecondition` + `readMatterTrustPositions`: the
@@ -87,16 +95,29 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   CHECK rather than by the composer remembering. A movement also carries its method as a VALUE
   (never buried in a description), because a jurisdiction rule cannot forbid a payment method the
   engine cannot see.
-- **A disbursement takes two people, and the second one is the database's business.** A payment out
-  of a client ledger is a pending `trust_disbursement_request` until a `trust_disbursement_decision`
-  approves it; the movement is composed at that moment through the ordinary
-  `composeTrustDisbursement`, in the approver's context, so the available-balance ceiling is re-read
-  against the ledger as it stands THEN. Never fork the posting path for an approval. The
-  approver-differs rule, the withdrawal-by-the-submitter rule, and the availability of the
-  `sole_trust_manager` basis are all triggers on the decision insert — a route is one code path
-  among several that will reach this table, and a control that lives in one of them protects only
-  that one. `recorded_by` is the submitter and `authorized_by` is the approver; that is what the two
-  columns are for.
+- **Whether money out takes two people is the FIRM'S POLICY, and the request keeps the version it
+  was submitted under.** `trust_authorization_policy` is append-only, densely versioned, and strict
+  by default: no row means always-two-person with no authority requirement, so nothing relaxes on
+  migrate. Every new request and transfer stamps the current version; every decision trigger and
+  the approval resolution read the STAMP, never the latest row — an in-flight request is governed by
+  the rules it was proposed under, in both directions. The stamp-is-current triggers are what stop a
+  caller reviving a superseded posture.
+- **A gated disbursement takes two people, and the second one is the database's business.** A
+  payment out of a client ledger is a pending `trust_disbursement_request` until a
+  `trust_disbursement_decision` approves it; the movement is composed at that moment through the
+  ordinary `composeTrustDisbursement`, in the approver's context, so the available-balance ceiling
+  is re-read against the ledger as it stands THEN. Never fork the posting path for an approval. The
+  approver-differs rule, the withdrawal-by-the-submitter rule, the exactness of every authorization
+  basis against the stamped policy (`second_person` / `sole_trust_manager` / `policy_exempt`), and
+  the approver-authority requirement (`trust:authorize`) are all triggers on the decision insert — a
+  route is one code path among several that will reach this table, and a control that lives in one
+  of them protects only that one. `recorded_by` is the submitter and `authorized_by` is the
+  approver; that is what the two columns are for.
+- **The earned-fee application rides the SAME queue and the same policy.** An application is a
+  `trust_disbursement_request` with kind `earned_fee_application`; billing keeps its invoice lines
+  beside it (`invoice_trust_application_line`) and composes the transfer at approval through
+  `composeTrustToOperatingTransfer`, which runs the same predicate against the same policy rows and
+  stamps the transfer with the request's policy version. Rejection and withdrawal are kind-agnostic.
 - **Pending is derived, settled is one row.** A request no decision names is pending; `UNIQUE` on
   `request_id` is what makes two concurrent approvals produce one payment, because the decision and
   the posting ride ONE batch and the loser's ledger entry rolls back with its decision. No status
@@ -171,11 +192,12 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   exists without its floor is a leaf that can be overdrawn.
 - **The chart of accounts is not ours.** `openTrustAccount` and the transfer take operating account
   ids from the caller and invent no numbering scheme; the operating general ledger designs that.
-- **One read reaches outside the trust tables**: `selectActiveTrustManagerCountStatement` counts
-  active members holding `trust:manage` across `member` / `member_role` / `role_permission` /
-  `direct_grant`. It exists only to turn the sole-authorizer trigger's abort into a sentence — the
-  trigger in the migration is the guarantee, and it counts the same rows the same way. Keep the two
-  in step, and keep this the only place trust reads RBAC.
+- **One read reaches outside the trust tables**: the trust-manager and authority-holder selects
+  count active members holding `trust:manage` / `trust:authorize` across `member` / `member_role` /
+  `role_permission` / `direct_grant`. They exist only to turn the sole-authorizer and authority
+  triggers' aborts into sentences — the triggers in the migration are the guarantee, and they count
+  the same rows the same way. Keep them in step, and keep `src/statements.ts` the only place trust
+  reads RBAC.
 
 ## Gotchas
 

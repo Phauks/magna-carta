@@ -166,9 +166,7 @@ export async function assertActorHoldsTrustAuthority(
   if (!policy.requireAuthorizedApprover) return;
   const holders = await readActiveTrustAuthorityHolders(database);
   if (holders.some((holder) => holder.user_id === actor)) return;
-  const named = holders
-    .map((holder) => `${holder.display_name} (${holder.user_id})`)
-    .join(", ");
+  const named = holders.map((holder) => `${holder.display_name} (${holder.user_id})`).join(", ");
   throw new TrustValidationError(
     "trust-authorization-authority-required",
     holders.length === 0

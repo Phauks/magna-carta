@@ -96,6 +96,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Attorney")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Paralegal")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Attorney")).toContain("magnus:converse");
+    // The authority to act on client money — what the firm's authorization policy can require of
+    // whoever lets a disbursement or an earned-fee application go, and the key that changes that
+    // policy. Owner/Admin and Attorney by seed, deliberately narrower than trust:manage (which also
+    // reaches Billing): holding it does nothing until a firm turns the approver-authority option
+    // on, and a firm that wants its billing manager to carry authority grants the key.
+    expect(grantsFor("Owner/Admin")).toContain("trust:authorize");
+    expect(grantsFor("Attorney")).toContain("trust:authorize");
+    expect(grantsFor("Paralegal")).not.toContain("trust:authorize");
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
     // a matter reaches no review set on it. Billing and Read-only carry none of the three keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.
