@@ -99,9 +99,9 @@ async function createMatter(title: string): Promise<string> {
   return id;
 }
 
-// A stored file with a committed version, seeded directly. NO BYTES ever reach a discovery route:
-// the internal lanes are a SELECTION, not an upload, and the platform already holds the bytes, the
-// hash, and the scan verdict. Seeding the handles is exactly what the lane resolves against.
+// A stored file with a clean version, seeded directly. NO BYTES ever reach a discovery route: the
+// internal lanes are a SELECTION, not an upload, and the platform already holds the bytes, the hash,
+// and the scan verdict. Seeding the handles is exactly what the lane resolves against.
 //
 // Three statements rather than two, because `file.current_version_id` and `file_version.file_id`
 // point at each other: the file is written with no current version, the version is written against
@@ -110,6 +110,15 @@ async function createMatter(title: string): Promise<string> {
 // The handles are MINTED rather than written by hand: a route validates every identifier it is
 // handed against the platform's own handle shape, so a readable-but-invalid `file_internal_one`
 // never reaches a handler — it is refused at the schema gate, which is the gate working.
+//
+// `committed_at` IS DELIBERATELY LEFT NULL, and it is not an oversight. These versions are inserted
+// straight into the table; they never travelled the ingest pipeline, and that column records the
+// instant a version actually committed through it. Claiming one would be a small lie with a real
+// consequence: the search re-extraction sweep walks EVERY active firm in the control plane and
+// treats a clean, committed, not-yet-indexed version as a document owed a repair, so a fixture
+// firm asserting a commit it never made joins the fleet's re-extraction backlog and moves that
+// sweep's fleet-wide counts. The discovery lanes resolve on `status` and `current_version_id` and
+// never read this column, so leaving it null is both the honest record and the isolated one.
 async function seedCleanFile(
   name: string,
   options: { status?: string; matter?: string; sha256?: string } = {},
@@ -127,7 +136,7 @@ async function seedCleanFile(
   await firmDatabase
     .prepare(
       "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, created_at, committed_at) " +
-        "VALUES (?1, ?2, 1, ?3, 4096, ?4, ?5, ?6, ?6)",
+        "VALUES (?1, ?2, 1, ?3, 4096, ?4, ?5, ?6, NULL)",
     )
     .bind(
       versionId,
