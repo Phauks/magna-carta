@@ -74,6 +74,7 @@ describe("problem-type URI registry", () => {
         "trust-jurisdiction-unavailable",
         "trust-disbursement-not-pending",
         "trust-disbursement-authorization-refused",
+        "trust-authorization-policy-conflict",
         "trust-reconciliation-closed",
         "trust-reconciliation-already-accounted-for",
         "trust-statement-import-refused",
