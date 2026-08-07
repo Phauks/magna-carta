@@ -104,9 +104,14 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - **Every movement resolves a jurisdiction or refuses.** A trust account whose office recorded none
   cannot be told which rules govern it, so movements refuse with `jurisdiction-not-recorded` — a
   different refusal from `jurisdiction-not-encoded`, and never a fallback.
-- **Jurisdiction facts refuse rather than fall back.** A null `trust_account.jurisdiction` and an
-  unencoded jurisdiction are different refusals (`jurisdiction-not-recorded` vs
-  `jurisdiction-not-encoded`) and must stay different. Never introduce a default.
+- **Jurisdiction facts refuse rather than fall back, in four distinguishable ways.** A null
+  `trust_account.jurisdiction` (`jurisdiction-not-recorded`), a jurisdiction nobody researched
+  (`jurisdiction-not-encoded`), a jurisdiction whose rules ARE encoded but no attorney has reviewed
+  (`jurisdiction-not-verified`), and a reviewed jurisdiction with one unresearched field
+  (`jurisdiction-requirement-not-encoded`). Each is fixed by a different person doing a different
+  thing, so they must stay different. Never introduce a default. The rules themselves are
+  `@magna-carta/trust-jurisdictions`, which owns the review gate — this package owns only the
+  contract and the refusing behaviour in its absence.
 - **Nothing matches a bank statement line on its own.** `suggestTrustStatementMatches` ranks bounded
   candidates and returns the reasons; a `trust_reconciliation_match` row exists only because a caller
   named both ends. There is deliberately no composer that takes a suggestion — one would let a caller

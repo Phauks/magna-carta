@@ -44,6 +44,17 @@ export interface TrustJurisdictionPort {
   ): ResolvedTrustRequirement<T>;
 }
 
+// ENCODED IS NOT REVIEWED, and the two are different answers. A jurisdiction whose rules have been
+// read out of the state's published text and typed into a profile is still not something the platform
+// may put its voice behind: the values are a lawyer's reading of a rule, and until a licensed
+// attorney has checked them they refuse with `jurisdiction-not-verified` rather than resolving. That
+// refusal is deliberately narrower than `jurisdiction-not-encoded` and carries the profile with it,
+// so a surface can show a firm what the platform HAS while declining to answer with it.
+//
+// The implementation of that gate, and the encoded jurisdictions themselves, live in
+// @magna-carta/trust-jurisdictions — reference data is a package release rather than a migration,
+// which is why the rules are not in this package and why a correction never touches a tenant.
+
 // The default port, and the one every caller gets until a reviewed corpus is bound. It refuses every
 // field for every jurisdiction, so a surface that has not been taught to handle a refusal fails
 // loudly in development rather than silently shipping a fabricated requirement to a firm.
