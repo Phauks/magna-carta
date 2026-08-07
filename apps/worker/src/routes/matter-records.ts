@@ -72,8 +72,23 @@ const CreateAssignmentRequest = z
           "so spelling and separators are free. The responsible attorney is refused here: that fact " +
           "lives on the matter itself.",
       }),
-    validFrom: z.string().nullable().optional(),
-    validTo: z.string().nullable().optional(),
+    validFrom: civilDate
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The first day the assignment holds, as a civil date (YYYY-MM-DD), inclusive. Omit for an " +
+          "assignment that starts open-ended.",
+      }),
+    validTo: civilDate
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The last day the assignment holds, as a civil date (YYYY-MM-DD), inclusive — an " +
+          "assignment through 2026-08-07 still staffs the matter for the whole of that day. Omit " +
+          "for a current assignment; ending one later stamps the exact ending moment instead.",
+      }),
   })
   .openapi("CreateMatterAssignmentRequest");
 

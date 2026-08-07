@@ -211,10 +211,18 @@ export function staffingValues(
       continue;
     }
 
+    // Two ambiguities that want different repairs, so they are different sentences: several
+    // DIFFERENT members in the role (counted as members, not rows — walk them all, or end the
+    // stale ones), and ONE member assigned to the role more than once (a duplicate staffing
+    // record — end the duplicates). Saying "2 members" about one member twice would send the
+    // reader hunting for a second person who does not exist.
+    const distinctMembers = new Set(matched.map((row) => row.memberUserId)).size;
     const reason =
       matched.length === 0
         ? `This matter staffs no member in the ${source.label} role.`
-        : `This matter staffs ${matched.length} members in the ${source.label} role, so there is no single ${source.label} to name. Walk them all with a repeating block over ${listKey}.`;
+        : distinctMembers === 1
+          ? `This matter records ${matched.length} assignments of the same member in the ${source.label} role, so there is no single assignment to read. End the duplicate assignments, or walk them with a repeating block over ${listKey}.`
+          : `This matter staffs ${distinctMembers} members in the ${source.label} role, so there is no single ${source.label} to name. Walk them all with a repeating block over ${listKey}.`;
     slots.set(source.key, { reason });
     for (const facet of source.scalarFacets) reasons.set(`${source.key}.${facet}`, reason);
   }

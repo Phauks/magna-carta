@@ -656,14 +656,18 @@ export const matterAssignment = sqliteTable(
       .$type<UserId>()
       .references(() => member.userId),
     assignmentRole: text("assignment_role").notNull(), // e.g. 'originating_attorney', 'assigned_paralegal'
+    // A bound recorded at creation is a civil date (YYYY-MM-DD, inclusive of its whole day);
+    // ending an assignment stamps valid_to with the ending instant instead. The staffing read
+    // (packages/document-assembly/src/merge-statements.ts) tells the two forms apart by length.
     validFrom: text("valid_from"),
     validTo: text("valid_to"), // null = current; set = the assignment ended
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    // The staffing read is WHERE matter_id = ? — lead with it; the member composite serves the
-    // caseload question ("what is this member staffed on") from the index itself.
+    // The staffing read is WHERE matter_id = ? — lead with it. The member index narrows the
+    // caseload question ("what is this member staffed on") to that member's rows; it is
+    // single-column, so the row fetch follows the index rather than being answered from it.
     index("matter_assignment_matter_id_index").on(table.matterId),
     index("matter_assignment_member_user_id_index").on(table.memberUserId),
     check("matter_assignment_role_nonempty_check", sql`length(${table.assignmentRole}) > 0`),

@@ -15,6 +15,7 @@ import {
   readCustomFieldCatalog,
   resolveMergeContext,
 } from "@magna-carta/document-assembly/resolve";
+import { selectMatterEstateDateOfDeathStatement } from "@magna-carta/document-assembly/merge-statements";
 import { readTemplateVersionForAssembly } from "@magna-carta/document-assembly/template-statements";
 import { assetSubjectsIn } from "@magna-carta/document-assembly/asset-bindings";
 import { manifestKeys, type FieldManifest } from "@magna-carta/document-assembly/types";
@@ -273,12 +274,9 @@ async function assembleOne(
   // read needs the date before it runs and the register never invents one.
   let assetsAsOfDate: string | undefined;
   if (assetSubjectsIn(new Set(manifestKeys(manifest))).length > 0) {
-    const estateRow = await firmDatabase
-      .prepare(
-        "SELECT date_of_death FROM matter_estate WHERE matter_id = ?1 AND deleted_at IS NULL",
-      )
-      .bind(matterId)
-      .first<{ date_of_death: string | null }>();
+    const estateRow = await selectMatterEstateDateOfDeathStatement(firmDatabase, matterId).first<{
+      date_of_death: string | null;
+    }>();
     if (estateRow?.date_of_death != null && estateRow.date_of_death !== "") {
       assetsAsOfDate = estateRow.date_of_death;
     }

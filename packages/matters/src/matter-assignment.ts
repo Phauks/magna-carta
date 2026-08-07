@@ -27,11 +27,21 @@ export function normalizedAssignmentRoleToken(role: string): string {
 
 const RESPONSIBLE_ATTORNEY_TOKEN = normalizedAssignmentRoleToken("responsibleAttorney");
 
+// A validity bound recorded at creation is a civil date. The end path is different on purpose: it
+// stamps valid_to with the ending INSTANT, exclusive from that moment, so "remove them now" means
+// now and not "at the end of today". The staffing read in
+// packages/document-assembly/src/merge-statements.ts distinguishes the two forms by length.
+const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export interface CreateMatterAssignmentInput {
   readonly matterId: MatterId;
   readonly memberUserId: UserId;
   readonly assignmentRole: string;
-  // Optional validity window. Open-ended when absent — the ordinary current assignment.
+  // Optional validity window, each bound a CIVIL DATE (YYYY-MM-DD) — staffing is recorded in whole
+  // days, the way a person says "Pat carried this file through August 7", and both bounds are
+  // INCLUSIVE of their day. Open-ended when absent — the ordinary current assignment. The format is
+  // enforced here because the staffing read compares these strings lexicographically: an arbitrary
+  // string would not error, it would silently mis-window who a document names.
   readonly validFrom?: string | null;
   readonly validTo?: string | null;
 }
@@ -124,6 +134,24 @@ export async function composeCreateMatterAssignment(
         "edit the matter's responsible attorney instead",
     );
   }
+  const validFrom = input.validFrom ?? null;
+  const validTo = input.validTo ?? null;
+  for (const bound of [validFrom, validTo]) {
+    if (bound !== null && !CIVIL_DATE_PATTERN.test(bound)) {
+      throw new MatterValidationError(
+        "invalid-validity-window",
+        "a validity bound must be a civil date (YYYY-MM-DD)",
+      );
+    }
+  }
+  // Civil dates in this format order lexicographically, so string comparison is date comparison.
+  // A one-day assignment records the same date on both bounds; both are inclusive of their day.
+  if (validFrom !== null && validTo !== null && validFrom > validTo) {
+    throw new MatterValidationError(
+      "invalid-validity-window",
+      "the validity window must start on or before the day it ends",
+    );
+  }
   await assertExists(
     database,
     "SELECT 1 AS one FROM matter WHERE id = ?1",
@@ -147,15 +175,7 @@ export async function composeCreateMatterAssignment(
           `INSERT INTO matter_assignment (id, matter_id, member_user_id, assignment_role, valid_from, valid_to, created_at, updated_at)
            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)`,
         )
-        .bind(
-          assignmentId,
-          input.matterId,
-          input.memberUserId,
-          role,
-          input.validFrom ?? null,
-          input.validTo ?? null,
-          now,
-        ),
+        .bind(assignmentId, input.matterId, input.memberUserId, role, validFrom, validTo, now),
       matterAuditStatement(
         database,
         {
@@ -174,8 +194,11 @@ export async function composeCreateMatterAssignment(
   };
 }
 
-// The statements that END an assignment: valid_to is stamped, the row stays. Staffing history is a
-// matter record — who carried a file, and when, outlives the assignment — so there is no delete.
+// The statements that END an assignment: valid_to is stamped with the ending INSTANT, the row
+// stays. Staffing history is a matter record — who carried a file, and when, outlives the
+// assignment — so there is no delete. The instant stamp is deliberate where a created window's
+// bound is a civil date: ending an assignment means "off the file from this moment", not "through
+// the end of today".
 export async function composeEndMatterAssignment(
   database: BatchDatabase,
   matterId: MatterId,

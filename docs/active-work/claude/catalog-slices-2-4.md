@@ -4,7 +4,7 @@ worktree: .claude/worktrees/catalog-slices-2-4 (remote session)
 area: document automation — merge-field catalog slices 2-4 (staffing, court/case, estate & capacity)
 status: building
 touches: >
-  packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/ (idx 46-48, tags
+  packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/ (idx 45-47, tags
   20260807T040000/T041000/T042000), apps/worker/src/per-firm-migrations.ts,
   packages/identifiers/src/registry.ts, packages/data-access/src/pii-registry.ts,
   packages/matters/src/matter-assignment.ts (new), packages/directory/src/{types,identifiers,party,statements}.ts,
@@ -25,6 +25,6 @@ type, multi-line renderings) and 2·6·7 (party subjects at scale) are NOT built
 structured address type or multi-line emission (member/court address, signatureBlock) are
 deliberately deferred to those slices and noted in the PR.
 
-Migrations: idx 46 = 20260807T040000_matter-staffing, idx 47 = 20260807T041000_matter-court-case,
-idx 48 = 20260807T042000_matter-estate-and-capacity. Snapshot refreshed to idx 48 in the same
+Migrations: idx 45 = 20260807T040000_matter-staffing, idx 46 = 20260807T041000_matter-court-case,
+idx 47 = 20260807T042000_matter-estate-and-capacity. Snapshot refreshed to idx 47 in the same
 commit.
