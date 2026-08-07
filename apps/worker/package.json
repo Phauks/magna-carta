@@ -48,6 +48,7 @@
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/notifications": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
     "@magna-carta/property-links": "workspace:*",
     "@magna-carta/safe-browse": "workspace:*",

@@ -71,6 +71,17 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .sort(),
     ).toEqual(roles.map((row) => row.id).sort());
+    // notifications:read is likewise seeded onto EVERY default role, Read-only included — the
+    // deliberate contrast with trust:read, which stops short of that seat. A member reading their
+    // own feed is not a privilege: the read is scoped to the session's own user id and every row is
+    // filtered by matter visibility at read time, so the key reveals nothing the member could not
+    // already reach.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "notifications:read")
+        .map((grant) => grant.role_id)
+        .sort(),
+    ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
@@ -144,6 +155,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        "notifications:read",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
@@ -183,6 +195,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
+        "notifications:read",
         "support:request",
         "trust:manage",
         "trust:read",
@@ -211,6 +224,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
+        // Read-only carries it, where trust:read deliberately stops one seat short. The two are not
+        // the same kind of read: a trust ledger is the record of money the firm holds for other
+        // people, where a notification feed is the member's own, scoped to their own user id and
+        // filtered by matter visibility before it returns a row.
+        "notifications:read",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",

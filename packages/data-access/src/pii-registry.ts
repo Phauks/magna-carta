@@ -424,6 +424,40 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // Notifications. Four of the five tables key to a member — not as provenance on somebody else's
+  // record, but as the member's OWN feed: what they were told, whether they dealt with it, whether
+  // a copy was mailed to them, and how much aged out unread while they were away. That is activity
+  // about the subject, the line time_entry.timekeeper_user_id sits on.
+  //
+  // The action is HARD-DELETE, and it is the one place in this registry where that is the easy call
+  // rather than the aggressive one. A notification is a POINTER and never a record: the thing it
+  // points at — the ledger entry, the invoice, the deadline, the audit_log row — is the record, is
+  // registered here in its own right, and stays exactly where it is. Erasing a member's feed
+  // therefore removes no evidence and breaks no reconciliation; it removes stale pointers to
+  // evidence that is still there. These rows are already deleted wholesale by the retention sweep
+  // on the firm's configured window, so erasure is doing early and by subject what the platform
+  // already does on a clock.
+  {
+    table: "notification_recipient",
+    subjectKey: "recipient_user_id",
+    action: "hard-delete",
+    note: "the member's own feed — pointers to records that are retained and registered separately",
+  },
+  // The outbound-channel row resolves to its subject through the recipient row it belongs to
+  // (notification_recipient_id -> notification_recipient.recipient_user_id), a two-hop rather than a
+  // direct column, exactly as directory_name_phonetic_code resolves through directory_name.
+  {
+    table: "notification_delivery",
+    subjectKey: "notification_recipient_id",
+    action: "hard-delete",
+  },
+  { table: "notification_digest_run", subjectKey: "recipient_user_id", action: "hard-delete" },
+  {
+    table: "notification_swept_unread",
+    subjectKey: "recipient_user_id",
+    action: "hard-delete",
+    note: "a per-member tally of how many pointers aged out unread; carries a count and two instants and nothing about what they pointed at",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -708,4 +742,13 @@ export const NO_PII_TABLES: readonly string[] = [
   // One further copy of a deduplicated document — five handles and a timestamp. It exists precisely
   // to PRESERVE attribution, and whose attribution resolves through record_custodian.
   "review_document_occurrence",
+  // Notifications. The four tables keyed to a member are registered in PII_TABLES above; the event
+  // row itself carries no column about anybody. It is a kind, a category, a severity, the handle of
+  // the record it points at, the matter that anchors its visibility, two instants, and a `facts`
+  // blob whose values are restricted BY A VALIDATED GRAMMAR to identifiers, integers, booleans,
+  // declared enum labels, and dates. There is deliberately no free-text residue class here at all —
+  // unlike matter.description or custody_item.description, this row cannot hold a string a person
+  // typed, which is the property the whole subsystem is built around. Who was told about it is
+  // notification_recipient's fact and is keyed there.
+  "notification_event",
 ];

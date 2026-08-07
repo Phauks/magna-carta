@@ -80,6 +80,11 @@ describe("schema conformance (fitness functions)", () => {
       // acceptances exist for one person, which is precisely the state the version comparison must
       // never have to disambiguate.
       magnus_member_acknowledgement: "user_id",
+      // One running tally per member of how many notifications aged out of their feed while still
+      // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
+      // event anybody appends, and a handle would let two tallies exist for one person — which is
+      // exactly the state the unread count must never have to reconcile.
+      notification_swept_unread: "recipient_user_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.

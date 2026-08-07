@@ -3533,6 +3533,50 @@ export type MyDayResponse = {
     unloggedDay: boolean;
 };
 
+export type NotificationPage = {
+    data: Array<NotificationItem>;
+    nextCursor: string | null;
+};
+
+export type NotificationItem = {
+    id: string;
+    kind: string;
+    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    severity: 'informational' | 'attention' | 'critical';
+    state: 'unread' | 'read' | 'dismissed';
+    subjectKind: string;
+    subjectId: string;
+    matterId: string | null;
+    matterNumber: string | null;
+    occurredAt: string;
+    createdAt: string;
+    readAt: string | null;
+    dismissedAt: string | null;
+    facts: {
+        [key: string]: string | number | boolean;
+    } | null;
+    link: string;
+};
+
+export type NotificationUnreadCountResponse = {
+    unreadCount: number;
+    sweptUnreadCount: number;
+    sweptUnreadOldestOccurredAt: string | null;
+};
+
+export type NotificationMarkResponse = {
+    id: string;
+    state: 'unread' | 'read' | 'dismissed';
+};
+
+export type NotificationMarkAllReadResponse = {
+    remainingUnreadCount: number;
+};
+
+export type NotificationMarkAllReadRequest = {
+    throughCursor: string;
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -19093,6 +19137,200 @@ export type MyDayGetResponses = {
 };
 
 export type MyDayGetResponse = MyDayGetResponses[keyof MyDayGetResponses];
+
+export type NotificationsListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        category?: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+        state?: 'unread' | 'read' | 'dismissed';
+        pageSize?: number;
+    };
+    url: '/api/v1/notifications';
+};
+
+export type NotificationsListErrors = {
+    /**
+     * The cursor is not one this API minted
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * The category filter names no registered category
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsListError = NotificationsListErrors[keyof NotificationsListErrors];
+
+export type NotificationsListResponses = {
+    /**
+     * One page of the member's notifications
+     */
+    200: NotificationPage;
+};
+
+export type NotificationsListResponse = NotificationsListResponses[keyof NotificationsListResponses];
+
+export type NotificationsUnreadCountData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/unread-count';
+};
+
+export type NotificationsUnreadCountErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsUnreadCountError = NotificationsUnreadCountErrors[keyof NotificationsUnreadCountErrors];
+
+export type NotificationsUnreadCountResponses = {
+    /**
+     * The member's unread counts
+     */
+    200: NotificationUnreadCountResponse;
+};
+
+export type NotificationsUnreadCountResponse = NotificationsUnreadCountResponses[keyof NotificationsUnreadCountResponses];
+
+export type NotificationsMarkReadData = {
+    body?: never;
+    path: {
+        notificationRecipientId: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/{notificationRecipientId}/read';
+};
+
+export type NotificationsMarkReadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * No such notification for this member
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsMarkReadError = NotificationsMarkReadErrors[keyof NotificationsMarkReadErrors];
+
+export type NotificationsMarkReadResponses = {
+    /**
+     * The notification's settled state
+     */
+    200: NotificationMarkResponse;
+};
+
+export type NotificationsMarkReadResponse = NotificationsMarkReadResponses[keyof NotificationsMarkReadResponses];
+
+export type NotificationsDismissData = {
+    body?: never;
+    path: {
+        notificationRecipientId: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/{notificationRecipientId}/dismiss';
+};
+
+export type NotificationsDismissErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * No such notification for this member
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsDismissError = NotificationsDismissErrors[keyof NotificationsDismissErrors];
+
+export type NotificationsDismissResponses = {
+    /**
+     * The notification's settled state
+     */
+    200: NotificationMarkResponse;
+};
+
+export type NotificationsDismissResponse = NotificationsDismissResponses[keyof NotificationsDismissResponses];
+
+export type NotificationsMarkAllReadData = {
+    body: NotificationMarkAllReadRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/read-all';
+};
+
+export type NotificationsMarkAllReadErrors = {
+    /**
+     * The cursor is not one this API minted
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks notifications:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationsMarkAllReadError = NotificationsMarkAllReadErrors[keyof NotificationsMarkAllReadErrors];
+
+export type NotificationsMarkAllReadResponses = {
+    /**
+     * The member's unread count after the bounded mark
+     */
+    200: NotificationMarkAllReadResponse;
+};
+
+export type NotificationsMarkAllReadResponse = NotificationsMarkAllReadResponses[keyof NotificationsMarkAllReadResponses];
 
 export type ConversionsUploadData = {
     body?: never;
