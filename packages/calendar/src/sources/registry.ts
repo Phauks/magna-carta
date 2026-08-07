@@ -76,12 +76,27 @@ export interface TimelineEntry {
   readonly link: string;
 }
 
+// What a source's rows are anchored to for visibility. A 'matter'-anchored source composes the
+// visible-matter predicate exactly as it always has, fitness-enforced. A 'firm'-anchored source
+// DECLARES that its rows are firm-visible by construction — a firm event has no matter, so it
+// structurally cannot compose a matter predicate, and under the trusted-insider posture every
+// member sees the firm's own calendar (an ethical wall is a MATTER screen with nothing to bind to
+// on a firm meeting). The fitness pass asserts the declaration both ways: every matter-anchored
+// statement carries the predicate marker, and every firm-anchored source is one of a REVIEWED
+// ALLOWLIST. Absence of the predicate is a declared decision with a named reviewer, never a silent
+// exemption — the declaresLabel:false idiom applied to visibility. If screening firm events is ever
+// needed (a partners-only compensation meeting), that is a NEW declared anchor with its own
+// predicate, never a loosening of this one.
+export type VisibilityAnchor = "matter" | "firm";
+
 export interface TimelineSource {
   // Stable, and a WIRE CONTRACT: it appears in responses and in the `kind` filter, so it is
   // permanent once shipped.
   readonly key: string;
   // The closed set of entry kinds this source can emit.
   readonly kinds: readonly string[];
+  // Declared, never inferred — see VisibilityAnchor above.
+  readonly visibilityAnchor: VisibilityAnchor;
   // Declared, never inferred: the merge compares sort keys as TEXT, and only canonical instants sort
   // chronologically that way.
   readonly timeColumnShape: TimeColumnShape;

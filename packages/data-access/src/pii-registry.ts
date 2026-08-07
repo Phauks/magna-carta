@@ -350,6 +350,30 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
+  // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
+  // matter event's, for the same three shapes — but the retention basis differs: attendance at the
+  // all-hands or a training session is the firm's operational record, not a matter's litigation
+  // record, so there is no Art. 17(3) ground to retain a name against its subject's request.
+  // Anonymize scrubs the reference and keeps the row: the meeting happened and the headcount
+  // stands, but nothing ties the erased person to it.
+  {
+    table: "firm_event_participant",
+    subjectKey: "entity_id",
+    action: "anonymize",
+    note: "a Directory contact at a firm meeting; the subject-side scrub happens at the entity, and the attendance row itself carries no retention obligation",
+  },
+  {
+    table: "firm_event_participant",
+    subjectKey: "participant_name",
+    action: "anonymize",
+    note: "an external attendee (a visiting CLE speaker) with no Directory record — the only handle erasure has on them",
+  },
+  {
+    table: "firm_event_participant",
+    subjectKey: "member_user_id",
+    action: "anonymize",
+    note: "a firm member's attendance at the firm's own event — activity, with no matter retention basis behind it",
+  },
   // The matter asset register. Its METADATA alone is a disclosure: "this person owns these eleven
   // things" needs no document attached to be sensitive. Four of its tables carry a structured
   // reference to a person or that person's home; the rest of the group is catalog, structure, and
@@ -737,6 +761,24 @@ export const NO_PII_TABLES: readonly string[] = [
   // reason, and satisfaction note are the same free-text residue class the event's title sits in;
   // recorded_by / satisfied_by are firm-member provenance on a control row about a date.
   "matter_deadline",
+  // The firm's own calendar scope. The one table that references a person (firm_event_participant)
+  // is registered in PII_TABLES above; these four carry no structured personal-data column.
+  // A firm event describes something the FIRM scheduled: its type, when and where, its audience,
+  // and firm-member provenance (recorded_by). Its title and description are free text that can name
+  // a person ("Retirement lunch for J. Alvarez") — the residue class matter.description
+  // established, handled by the residue report. Who attended IS keyed, on firm_event_participant.
+  "firm_event",
+  // A resource is a THING the firm owns — a room's name, kind, office, and capacity. Nothing about
+  // any person; the notes column is the ordinary free-text residue class.
+  "firm_resource",
+  // A booking is a claim on a room for an event's sake: two handles, a window, a zone, and
+  // firm-member provenance (recorded_by). Whose proceeding occupies the room resolves through the
+  // event, never through a column here.
+  "firm_resource_booking",
+  // A link is two event handles, a closed kind, a note, and firm-member provenance (recorded_by).
+  // The note is free text in the ordinary residue class; the events on its ends carry their own
+  // entries.
+  "calendar_event_link",
   // The matter asset register. The five tables that reference a person or a person's home are
   // registered in PII_TABLES above; these two carry no structured personal-data column.
   // The asset-type catalog is a classification vocabulary under a platform class (single-family

@@ -1533,6 +1533,7 @@ export type MatterEventDetail = {
     title: string;
     description: string | null;
     status: 'scheduled' | 'occurred' | 'cancelled';
+    statusReason: string | null;
     startsOn: string;
     startsAtTime: string | null;
     endsOn: string | null;
@@ -1542,6 +1543,8 @@ export type MatterEventDetail = {
     courtReference: string | null;
     recordedAt: string;
     recordedBy: string | null;
+    continuedFromEventId: string | null;
+    continuedToEventId: string | null;
 };
 
 export type MatterEventWithParticipants = {
@@ -1646,6 +1649,10 @@ export type UpdateMatterEventRequest = {
     participants?: Array<MatterEventParticipantInput>;
 };
 
+export type CancelEventRequest = {
+    statusReason?: string | null;
+};
+
 export type CreateMatterDeadlineRequest = {
     title: string;
     dueOn: string;
@@ -1687,6 +1694,205 @@ export type UpdateMatterEventTypeRequest = {
     name?: string;
     code?: string | null;
     category?: 'litigation' | 'transaction' | 'firm' | 'other';
+};
+
+export type FirmEventPage = {
+    data: Array<FirmEventDetail>;
+    nextCursor: string | null;
+};
+
+export type FirmEventDetail = {
+    id: string;
+    eventTypeId: string | null;
+    title: string;
+    description: string | null;
+    status: 'scheduled' | 'occurred' | 'cancelled';
+    statusReason: string | null;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    audience: 'all_members' | 'participants';
+    locationId: string | null;
+    locationText: string | null;
+    recordedAt: string;
+    recordedBy: string | null;
+};
+
+export type FirmEventWithParticipants = {
+    event: FirmEventDetail;
+    participants: Array<MatterEventParticipantDetail>;
+};
+
+export type CreateFirmEventRequest = {
+    eventTypeId?: string | null;
+    title: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone: string;
+    audience?: 'all_members' | 'participants';
+    locationId?: string | null;
+    locationText?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type UpdateFirmEventRequest = {
+    eventTypeId?: string | null;
+    title?: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn?: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+    audience?: 'all_members' | 'participants';
+    locationId?: string | null;
+    locationText?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type FirmResourceList = {
+    data: Array<FirmResourceDetail>;
+};
+
+export type FirmResourceDetail = {
+    id: string;
+    name: string;
+    kind: 'room' | 'vehicle' | 'equipment' | 'other';
+    locationId: string | null;
+    capacity: number | null;
+    notes: string | null;
+    active: boolean;
+};
+
+export type CreateFirmResourceRequest = {
+    name: string;
+    kind: 'room' | 'vehicle' | 'equipment' | 'other';
+    locationId?: string | null;
+    capacity?: number | null;
+    notes?: string | null;
+};
+
+export type UpdateFirmResourceRequest = {
+    name?: string;
+    kind?: 'room' | 'vehicle' | 'equipment' | 'other';
+    locationId?: string | null;
+    capacity?: number | null;
+    notes?: string | null;
+    active?: boolean;
+};
+
+export type ResourceAvailability = {
+    data: Array<ResourceAvailabilityEntry>;
+};
+
+export type ResourceAvailabilityEntry = {
+    bookingId: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    eventKind: 'matterEvent' | 'firmEvent';
+    eventId: string;
+    eventTypeName: string | null;
+    link: string;
+    overlappingBookingIds: Array<string>;
+};
+
+export type BookingCreatedResponse = {
+    id: string;
+    conflicts: Array<BookingConflict>;
+};
+
+export type BookingConflict = {
+    bookingId: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    eventKind: 'matterEvent' | 'firmEvent';
+    eventId: string;
+    link: string;
+};
+
+export type CreateBookingRequest = {
+    resourceId: string;
+    matterEventId?: string | null;
+    firmEventId?: string | null;
+    startsOn?: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+};
+
+export type BookingUpdatedResponse = {
+    ok: true;
+    conflicts: Array<BookingConflict>;
+};
+
+export type UpdateBookingRequest = {
+    startsOn?: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+};
+
+export type CreateEventLinkRequest = {
+    fromMatterEventId?: string | null;
+    fromFirmEventId?: string | null;
+    toMatterEventId?: string | null;
+    toFirmEventId?: string | null;
+    note?: string | null;
+};
+
+export type ContinueMatterEventResponse = {
+    newEventId: string;
+    oldEventId: string;
+    triggerLinkedOpenDeadlines: Array<ContinuanceDeadlineReference>;
+    releasedBookings: Array<BookingConflict>;
+};
+
+export type ContinuanceDeadlineReference = {
+    id: string;
+    title: string;
+    dueOn: string;
+    dueAtTime: string | null;
+    timeZone: string;
+    state: 'open' | 'satisfied' | 'vacated' | 'superseded';
+};
+
+export type ContinueMatterEventRequest = {
+    startsOn: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+    locationText?: string | null;
+    courtReference?: string | null;
+    statusReason?: string | null;
+};
+
+export type ContinuanceChain = {
+    data: Array<ContinuanceChainNode>;
+};
+
+export type ContinuanceChainNode = {
+    eventId: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    timeZone: string;
+    status: string;
+    statusReason: string | null;
 };
 
 export type CustodyLocation = {
@@ -10748,6 +10954,7 @@ export type CalendarFirmCalendarData = {
         matterId?: string;
         memberId?: string;
         kind?: string | Array<string>;
+        scope?: 'matter' | 'firm' | 'all';
     };
     url: '/api/v1/calendar/events';
 };
@@ -10926,7 +11133,7 @@ export type CalendarCreateEventTypeResponses = {
 export type CalendarCreateEventTypeResponse = CalendarCreateEventTypeResponses[keyof CalendarCreateEventTypeResponses];
 
 export type CalendarCancelEventData = {
-    body?: never;
+    body?: CancelEventRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -11356,6 +11563,808 @@ export type CalendarDeactivateEventTypeResponses = {
 };
 
 export type CalendarDeactivateEventTypeResponse = CalendarDeactivateEventTypeResponses[keyof CalendarDeactivateEventTypeResponses];
+
+export type CalendarListFirmEventsData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        from: string;
+        to: string;
+        status?: 'scheduled' | 'occurred' | 'cancelled';
+        eventTypeId?: string;
+    };
+    url: '/api/v1/firm-events';
+};
+
+export type CalendarListFirmEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListFirmEventsError = CalendarListFirmEventsErrors[keyof CalendarListFirmEventsErrors];
+
+export type CalendarListFirmEventsResponses = {
+    /**
+     * One page of firm events
+     */
+    200: FirmEventPage;
+};
+
+export type CalendarListFirmEventsResponse = CalendarListFirmEventsResponses[keyof CalendarListFirmEventsResponses];
+
+export type CalendarCreateFirmEventData = {
+    body: CreateFirmEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm-events';
+};
+
+export type CalendarCreateFirmEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateFirmEventError = CalendarCreateFirmEventErrors[keyof CalendarCreateFirmEventErrors];
+
+export type CalendarCreateFirmEventResponses = {
+    /**
+     * The recorded firm event
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateFirmEventResponse = CalendarCreateFirmEventResponses[keyof CalendarCreateFirmEventResponses];
+
+export type CalendarGetFirmEventData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}';
+};
+
+export type CalendarGetFirmEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarGetFirmEventError = CalendarGetFirmEventErrors[keyof CalendarGetFirmEventErrors];
+
+export type CalendarGetFirmEventResponses = {
+    /**
+     * The firm event and its participants
+     */
+    200: FirmEventWithParticipants;
+};
+
+export type CalendarGetFirmEventResponse = CalendarGetFirmEventResponses[keyof CalendarGetFirmEventResponses];
+
+export type CalendarUpdateFirmEventData = {
+    body: UpdateFirmEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}';
+};
+
+export type CalendarUpdateFirmEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateFirmEventError = CalendarUpdateFirmEventErrors[keyof CalendarUpdateFirmEventErrors];
+
+export type CalendarUpdateFirmEventResponses = {
+    /**
+     * The firm event was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateFirmEventResponse = CalendarUpdateFirmEventResponses[keyof CalendarUpdateFirmEventResponses];
+
+export type CalendarCancelFirmEventData = {
+    body?: CancelEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/cancel';
+};
+
+export type CalendarCancelFirmEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCancelFirmEventError = CalendarCancelFirmEventErrors[keyof CalendarCancelFirmEventErrors];
+
+export type CalendarCancelFirmEventResponses = {
+    /**
+     * The firm event was cancelled
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarCancelFirmEventResponse = CalendarCancelFirmEventResponses[keyof CalendarCancelFirmEventResponses];
+
+export type CalendarListResourcesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        kind?: 'room' | 'vehicle' | 'equipment' | 'other';
+        locationId?: string;
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/calendar/resources';
+};
+
+export type CalendarListResourcesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListResourcesError = CalendarListResourcesErrors[keyof CalendarListResourcesErrors];
+
+export type CalendarListResourcesResponses = {
+    /**
+     * The resource catalog
+     */
+    200: FirmResourceList;
+};
+
+export type CalendarListResourcesResponse = CalendarListResourcesResponses[keyof CalendarListResourcesResponses];
+
+export type CalendarCreateResourceData = {
+    body: CreateFirmResourceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/resources';
+};
+
+export type CalendarCreateResourceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateResourceError = CalendarCreateResourceErrors[keyof CalendarCreateResourceErrors];
+
+export type CalendarCreateResourceResponses = {
+    /**
+     * The resource
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateResourceResponse = CalendarCreateResourceResponses[keyof CalendarCreateResourceResponses];
+
+export type CalendarUpdateResourceData = {
+    body: UpdateFirmResourceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmResourceId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar/resources/{firmResourceId}';
+};
+
+export type CalendarUpdateResourceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateResourceError = CalendarUpdateResourceErrors[keyof CalendarUpdateResourceErrors];
+
+export type CalendarUpdateResourceResponses = {
+    /**
+     * The resource was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateResourceResponse = CalendarUpdateResourceResponses[keyof CalendarUpdateResourceResponses];
+
+export type CalendarResourceAvailabilityData = {
+    body?: never;
+    path: {
+        firmResourceId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/calendar/resources/{firmResourceId}/availability';
+};
+
+export type CalendarResourceAvailabilityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarResourceAvailabilityError = CalendarResourceAvailabilityErrors[keyof CalendarResourceAvailabilityErrors];
+
+export type CalendarResourceAvailabilityResponses = {
+    /**
+     * The window's bookings
+     */
+    200: ResourceAvailability;
+};
+
+export type CalendarResourceAvailabilityResponse = CalendarResourceAvailabilityResponses[keyof CalendarResourceAvailabilityResponses];
+
+export type CalendarCreateBookingData = {
+    body: CreateBookingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/resource-bookings';
+};
+
+export type CalendarCreateBookingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateBookingError = CalendarCreateBookingErrors[keyof CalendarCreateBookingErrors];
+
+export type CalendarCreateBookingResponses = {
+    /**
+     * The booking, with any conflicts it created
+     */
+    201: BookingCreatedResponse;
+};
+
+export type CalendarCreateBookingResponse = CalendarCreateBookingResponses[keyof CalendarCreateBookingResponses];
+
+export type CalendarDeleteBookingData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmResourceBookingId: string;
+    };
+    query?: never;
+    url: '/api/v1/resource-bookings/{firmResourceBookingId}';
+};
+
+export type CalendarDeleteBookingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarDeleteBookingError = CalendarDeleteBookingErrors[keyof CalendarDeleteBookingErrors];
+
+export type CalendarDeleteBookingResponses = {
+    /**
+     * The booking was removed
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarDeleteBookingResponse = CalendarDeleteBookingResponses[keyof CalendarDeleteBookingResponses];
+
+export type CalendarUpdateBookingData = {
+    body: UpdateBookingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmResourceBookingId: string;
+    };
+    query?: never;
+    url: '/api/v1/resource-bookings/{firmResourceBookingId}';
+};
+
+export type CalendarUpdateBookingErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateBookingError = CalendarUpdateBookingErrors[keyof CalendarUpdateBookingErrors];
+
+export type CalendarUpdateBookingResponses = {
+    /**
+     * The booking was updated, with any conflicts the move created
+     */
+    200: BookingUpdatedResponse;
+};
+
+export type CalendarUpdateBookingResponse = CalendarUpdateBookingResponses[keyof CalendarUpdateBookingResponses];
+
+export type CalendarCreateEventLinkData = {
+    body: CreateEventLinkRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/event-links';
+};
+
+export type CalendarCreateEventLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateEventLinkError = CalendarCreateEventLinkErrors[keyof CalendarCreateEventLinkErrors];
+
+export type CalendarCreateEventLinkResponses = {
+    /**
+     * The link
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateEventLinkResponse = CalendarCreateEventLinkResponses[keyof CalendarCreateEventLinkResponses];
+
+export type CalendarDeleteEventLinkData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        calendarEventLinkId: string;
+    };
+    query?: never;
+    url: '/api/v1/event-links/{calendarEventLinkId}';
+};
+
+export type CalendarDeleteEventLinkErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarDeleteEventLinkError = CalendarDeleteEventLinkErrors[keyof CalendarDeleteEventLinkErrors];
+
+export type CalendarDeleteEventLinkResponses = {
+    /**
+     * The link was removed
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarDeleteEventLinkResponse = CalendarDeleteEventLinkResponses[keyof CalendarDeleteEventLinkResponses];
+
+export type CalendarContinueEventData = {
+    body: ContinueMatterEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/continue';
+};
+
+export type CalendarContinueEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarContinueEventError = CalendarContinueEventErrors[keyof CalendarContinueEventErrors];
+
+export type CalendarContinueEventResponses = {
+    /**
+     * The new setting, the vacated one, and what referenced them
+     */
+    201: ContinueMatterEventResponse;
+};
+
+export type CalendarContinueEventResponse = CalendarContinueEventResponses[keyof CalendarContinueEventResponses];
+
+export type CalendarContinuanceChainData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/continuance-chain';
+};
+
+export type CalendarContinuanceChainErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarContinuanceChainError = CalendarContinuanceChainErrors[keyof CalendarContinuanceChainErrors];
+
+export type CalendarContinuanceChainResponses = {
+    /**
+     * The chain, oldest setting first
+     */
+    200: ContinuanceChain;
+};
+
+export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

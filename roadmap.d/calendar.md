@@ -7,7 +7,7 @@
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   status: partial
   adrs: ADR-0018, ADR-0055
-  evidence: The event and deadline model, the federated matter timeline, and seventeen routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
+  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources), and thirty-two routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
 
 - id: calendar.events
   name: Litigation events and deadlines
@@ -19,11 +19,33 @@
 
 - id: calendar.timeline
   name: Matter timeline (federated)
-  scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility predicate.
+  scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
   status: shipped
   adrs: ADR-0051, ADR-0068
   notes: Backend only — the calendar screens are their own slice.
-  evidence: Thirteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; the visible-matter predicate is a required argument of every statement builder and is proven by a table-driven fitness test.
+  evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test.
+
+- id: calendar.firm-events
+  name: Firm events
+  scope: Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events.
+  status: shipped
+  adrs: ADR-0055, ADR-0068
+  notes: Backend only — the calendar screens are their own slice.
+  evidence: firm_event and firm_event_participant in 20260807T070000_calendar-firm-events-resources-links; write paths in packages/calendar/src/firm-event-service.ts; the firmEvent federated source with visibilityAnchor 'firm'; scope and widened member filters on GET /api/v1/calendar/events.
+
+- id: calendar.resources
+  name: Rooms and resources
+  scope: Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact.
+  status: shipped
+  notes: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams.
+  evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability and booking routes in apps/worker/src/routes/calendar.ts.
+
+- id: calendar.links-continuance
+  name: Event links and continuance
+  scope: Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved.
+  status: shipped
+  notes: Backend only. Continuance binds matter events; a moved staff meeting stays an edit.
+  evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue and continuance-chain routes.
 
 - id: calendar.surface
   name: Calendar surface

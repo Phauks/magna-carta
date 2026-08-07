@@ -99,15 +99,21 @@ describe("no code path computes a deadline date", () => {
 });
 
 describe("the notification emission points are declared and nothing is wired", () => {
-  it("exports a frozen constant naming the six points", () => {
+  it("exports a frozen constant naming the ten points", () => {
     expect(Object.isFrozen(CALENDAR_NOTIFICATION_EMISSION_POINTS)).toBe(true);
     expect([...CALENDAR_NOTIFICATION_EMISSION_POINTS]).toEqual([
       "calendar.deadline.horizon",
       "calendar.deadline.due",
       "calendar.deadline.overdue",
       "calendar.event.scheduled",
+      // A continuance raises THIS point — the vacate-and-reset is the reschedule it was named for;
+      // no new constant exists for it.
       "calendar.event.rescheduled",
       "calendar.event.cancelled",
+      "calendar.firmEvent.scheduled",
+      "calendar.firmEvent.rescheduled",
+      "calendar.firmEvent.cancelled",
+      "calendar.booking.conflict",
     ]);
   });
 

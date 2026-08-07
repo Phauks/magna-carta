@@ -198,6 +198,94 @@ describe("the matter timeline federates what already exists", () => {
   });
 });
 
+describe("firm events federate onto the firm calendar, never onto a matter's history", () => {
+  function seedFirmEvents(raw: Raw): void {
+    raw.exec(`
+      INSERT INTO firm_event (id, title, status, starts_on, starts_at_time, time_zone, audience, recorded_at, created_at, updated_at)
+        VALUES ('firmEvent_allHands000000000000000', 'Quarterly all-hands', 'scheduled', '2026-09-18', '09:00', 'America/Los_Angeles', 'all_members', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z');
+      INSERT INTO firm_event (id, title, status, starts_on, time_zone, audience, recorded_at, created_at, updated_at)
+        VALUES ('firmEvent_teamMeeting000000000000', 'Listed-members meeting', 'scheduled', '2026-09-21', 'America/Los_Angeles', 'participants', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z');
+    `);
+  }
+
+  it("interleaves firm events on the firm calendar and keeps them off every matter timeline", async () => {
+    const { database, raw } = migratedDatabase();
+    seedCorpus(raw);
+    seedFirmEvents(raw);
+    const firmCalendar = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+      pageSize: 50,
+    });
+    const firmEntries = firmCalendar.entries.filter((entry) => entry.sourceKey === "firmEvent");
+    expect(firmEntries).toHaveLength(2);
+    // A firm event's entry carries a NULL matter, the catalog-free label, and never the title.
+    expect(firmEntries.every((entry) => entry.matterId === null)).toBe(true);
+    expect(JSON.stringify(firmEntries)).not.toContain("Quarterly all-hands");
+
+    const timeline = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { matterId: MATTER },
+      pageSize: 100,
+    });
+    expect(timeline.entries.some((entry) => entry.sourceKey === "firmEvent")).toBe(false);
+  });
+
+  it("narrows by anchor scope before any statement is built, exactly as a kind filter does", async () => {
+    const { database, raw } = migratedDatabase();
+    seedCorpus(raw);
+    seedFirmEvents(raw);
+    const firmOnly = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+      anchorScope: "firm",
+      pageSize: 50,
+    });
+    expect(firmOnly.statementCount).toBe(1);
+    expect(firmOnly.sourcesRead).toEqual(["firmEvent"]);
+    const matterOnly = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+      anchorScope: "matter",
+      pageSize: 50,
+    });
+    expect(matterOnly.sourcesRead).not.toContain("firmEvent");
+  });
+
+  it("answers a member filter with participants OR all_members, composed in SQL", async () => {
+    const { database, raw } = migratedDatabase();
+    seedCorpus(raw);
+    seedFirmEvents(raw);
+    raw.exec(
+      `INSERT INTO firm_event_participant (id, firm_event_id, participant_kind, member_user_id, created_at, updated_at)
+         VALUES ('firmEventParticipant_actor0000000', 'firmEvent_teamMeeting000000000000', 'member', '${ACTOR}', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z')`,
+    );
+    const forActor = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { fromDate: "2026-09-01", toDate: "2026-09-30", memberUserId: ACTOR },
+      sourceKeys: ["firmEvent"],
+      pageSize: 50,
+    });
+    // Both: the meeting the member is listed on, and the all-members entry.
+    expect(forActor.entries.map((entry) => entry.rowId).sort()).toEqual([
+      "firmEvent_allHands000000000000000",
+      "firmEvent_teamMeeting000000000000",
+    ]);
+
+    const forStranger = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { fromDate: "2026-09-01", toDate: "2026-09-30", memberUserId: "user_notInvited00000" },
+      sourceKeys: ["firmEvent"],
+      pageSize: 50,
+    });
+    // The firm holiday is on EVERYONE'S calendar — that is the audience column's point — and the
+    // listed-members meeting is not.
+    expect(forStranger.entries.map((entry) => entry.rowId)).toEqual([
+      "firmEvent_allHands000000000000000",
+    ]);
+  });
+});
+
 describe("the audit log is a source only over its strict allowlist", () => {
   it("shows the three lifecycle events and refuses every other key", async () => {
     const { database, raw } = migratedDatabase();

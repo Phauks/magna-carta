@@ -268,6 +268,46 @@ export async function readOpenDeadlineTimeZones(
   return results.map((row) => row.time_zone);
 }
 
+// The open deadlines whose trigger names one event — what the continuance operation reports so the
+// person holding the order can see what referenced the vacated setting. A LOOKUP, not a cascade:
+// nothing here moves a date, and nothing anywhere derives one from the new setting; what a
+// continuance does to a stipulated briefing schedule is a legal judgement the person makes. Carries
+// the visible-matter predicate like every read of this table.
+export function selectOpenDeadlinesByTriggerEventStatement(
+  database: SqlDatabase,
+  triggerEventId: MatterEventId,
+  options: {
+    readonly limit: number;
+    readonly visibilityFragment: string;
+    readonly visibilityBindings: readonly unknown[];
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${DEADLINE_COLUMNS} FROM ${MATTER_DEADLINE_TABLE} ` +
+        `WHERE matter_deadline.trigger_event_id = ? AND matter_deadline.state = 'open' AND ` +
+        `${options.visibilityFragment} ORDER BY due_on ASC, id ASC LIMIT ?`,
+    )
+    .bind(triggerEventId, ...options.visibilityBindings, options.limit);
+}
+
+export async function readOpenDeadlinesByTriggerEvent(
+  database: SqlDatabase,
+  triggerEventId: MatterEventId,
+  options: {
+    readonly limit: number;
+    readonly visibilityFragment: string;
+    readonly visibilityBindings: readonly unknown[];
+  },
+): Promise<MatterDeadlineRow[]> {
+  const { results } = await selectOpenDeadlinesByTriggerEventStatement(
+    database,
+    triggerEventId,
+    options,
+  ).all<MatterDeadlineRow>();
+  return results;
+}
+
 // The overdue narrowing, composed per zone.
 //
 // One clause per zone the page could contain, each comparing the row's own two columns against the

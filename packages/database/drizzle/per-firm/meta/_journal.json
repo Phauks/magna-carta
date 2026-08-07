@@ -344,6 +344,13 @@
       "when": 1786078800000,
       "tag": "20260807T050000_trust-authorization-policy",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1786086000000,
+      "tag": "20260807T070000_calendar-firm-events-resources-links",
+      "breakpoints": true
     }
   ]
 }

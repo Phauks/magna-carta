@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
+  boundedFirmScopedSelect,
   boundedSelect,
   civilDateWindowConditions,
   instantWindowConditions,
@@ -36,6 +37,7 @@ function matterSectionLink(
 const matterEventSource: TimelineSource = {
   key: "matterEvent",
   kinds: ["event"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: true,
@@ -86,6 +88,7 @@ const matterEventSource: TimelineSource = {
 const matterDeadlineSource: TimelineSource = {
   key: "matterDeadline",
   kinds: ["deadline"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -139,6 +142,7 @@ function directInstantSource(options: {
   return {
     key: options.key,
     kinds: [options.kind],
+    visibilityAnchor: "matter",
     timeColumnShape: "instant",
     declaresLabel: options.declaresLabel,
     supportsMemberFilter: false,
@@ -231,6 +235,7 @@ const documentFiledSource = directInstantSource({
 const timeEntrySource: TimelineSource = {
   key: "timeEntry",
   kinds: ["timeEntry"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: true,
@@ -273,6 +278,7 @@ const timeEntrySource: TimelineSource = {
 const costEntrySource: TimelineSource = {
   key: "costEntry",
   kinds: ["costEntry"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -355,6 +361,7 @@ export const MATTER_LIFECYCLE_EVENT_KEYS = Object.freeze([
 const matterLifecycleSource: TimelineSource = {
   key: "matterLifecycle",
   kinds: MATTER_LIFECYCLE_EVENT_KEYS,
+  visibilityAnchor: "matter",
   timeColumnShape: "instant",
   declaresLabel: false,
   supportsMemberFilter: false,
@@ -456,6 +463,7 @@ const custodyMovementSource: TimelineSource = {
     "hold_released",
     "correction",
   ],
+  visibilityAnchor: "matter",
   timeColumnShape: "instant",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -516,6 +524,7 @@ const CUSTODY_ITEM_STILL_HELD = "custody_item.status IN ('held', 'out')";
 const custodyReviewDueSource: TimelineSource = {
   key: "custodyReviewDue",
   kinds: ["packetReviewDue", "itemReviewDue"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -587,6 +596,7 @@ const custodyReviewDueSource: TimelineSource = {
 const custodyDueBackSource: TimelineSource = {
   key: "custodyDueBack",
   kinds: ["dueBack"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -643,6 +653,7 @@ const custodyDueBackSource: TimelineSource = {
 const trustMovementSource: TimelineSource = {
   key: "trustMovement",
   kinds: ["deposit", "disbursement", "matter_transfer"],
+  visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
   supportsMemberFilter: false,
@@ -684,7 +695,67 @@ const trustMovementSource: TimelineSource = {
   project: projectRow("trustMovement", matterSectionLink("trust")),
 };
 
-// The registry. Thirteen declarations, reviewed when the list changes — the read count per page
+// ---- the firm's own scope ----
+
+// The REVIEWED ALLOWLIST of firm-anchored sources — the other half of the visibilityAnchor
+// declaration (see registry.ts). A source on this list composes NO visible-matter predicate,
+// because its rows have no matter and are firm-visible by construction under the trusted-insider
+// posture. Growing this list is a review decision with the same weight as loosening a predicate:
+// the fitness pass fails on any firm-anchored source not named here, so the exemption can never be
+// an accident of a forgotten argument.
+export const FIRM_ANCHORED_SOURCE_KEYS = Object.freeze(["firmEvent"] as const);
+
+// What the firm scheduled for itself, on the firm calendar beside everything else. The label is the
+// catalog type name (a vocabulary term, the documentFiled discipline) and the audience — "Firm
+// meeting · all_members" is renderable without disclosure. The TITLE stays off the federated read
+// for the same reason every label is declared: "Discuss the Herrera write-down" is not the
+// platform's to broadcast beyond the event's own access-gated read; detail follows the deep link.
+//
+// On a MATTER timeline this source returns no statements — a firm event is on no matter's history.
+const firmEventSource: TimelineSource = {
+  key: "firmEvent",
+  kinds: ["firmEvent"],
+  visibilityAnchor: "firm",
+  timeColumnShape: "civilDate",
+  declaresLabel: true,
+  supportsMemberFilter: true,
+  buildStatements: (request) => {
+    if (request.scope.matterId !== undefined) return [];
+    const window = civilDateWindowConditions(
+      "firm_event.starts_on",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions];
+    const bindings = [...window.bindings];
+    if (request.scope.memberUserId !== undefined) {
+      // "On this member's calendar" means: the member is a participant, OR the event's audience is
+      // all_members — a firm holiday is on everyone's answer, which is the audience column's whole
+      // point. Composed in SQL, never post-filtered.
+      conditions.push(
+        "(firm_event.audience = 'all_members'" +
+          " OR EXISTS (SELECT 1 FROM firm_event_participant WHERE firm_event_participant.firm_event_id = firm_event.id AND firm_event_participant.member_user_id = ?))",
+      );
+      bindings.push(request.scope.memberUserId);
+    }
+    return [
+      boundedFirmScopedSelect(request.database, {
+        request,
+        from: "firm_event LEFT JOIN matter_event_type ON matter_event_type.id = firm_event.event_type_id",
+        sortColumn: "firm_event.starts_on",
+        idColumn: "firm_event.id",
+        kindExpression: "'firmEvent'",
+        actorExpression: "firm_event.recorded_by",
+        labelExpression: "COALESCE(matter_event_type.name || ' · ', '') || firm_event.audience",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("firmEvent", (row) => `/calendar/firm-events?entry=${row.row_id}`),
+};
+
+// The registry. Fourteen declarations, reviewed when the list changes — the read count per page
 // scales with THIS, not with the firm's data.
 export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   matterEventSource,
@@ -700,6 +771,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   custodyReviewDueSource,
   custodyDueBackSource,
   trustMovementSource,
+  firmEventSource,
 ]);
 
 export function timelineSourceRegistry(): TimelineSourceRegistry {
