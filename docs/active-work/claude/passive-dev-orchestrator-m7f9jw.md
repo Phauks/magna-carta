@@ -45,6 +45,37 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-07 ~12:50 UTC) — catalog 2-4 + trust policy SHIPPED under austerity; 135 merged
+
+**#177** catalog slices 2-4 merged (8d98eca0, idx 45-47, task 93): catalog 37→92
+keys on a 7-statement read budget; first protected member fact (bar_number
+through the one chokepoint, audit-before-plaintext, never on ambiguous slots) —
+review REFUTED every protected-value attack, reproduced 675 tests. Follow-up
+task 139 (validity-window free-string RISK + NITs). **#178** trust
+authorization policy merged (93eee6c5, idx 48, task 120): off/threshold/always
++ approver-authority per firm, absent-row = always-two-person, versioned
+stamps, one predicate for disbursements AND earned-fee applications. Its
+review REPRODUCED A MONEY BUG pre-merge: the lone-manager exception was
+borrowable by a billing:apply clerk in a one-manager firm (self-approved
+application COMMITTED); fixed in all four mirrors (both TS resolvers + both
+triggers) with regression tests refusing at composer AND database; plus
+orphan-transfer trigger hardening (UNIQUE approved_request_id + amount pin +
+no-settled-request) and fail-closed unknown policy kinds (default-throw +
+exemption whitelist). Re-review verdict MERGE, 291 tests reproduced. Task 140:
+0048 snapshot prevId cosmetic. THE AUSTERITY REVIEW BAR IS EARNING ITS KEEP —
+two reproduced defects caught pre-merge today (this + the notifications index).
+NEW OWNER FLAGS accumulating: (1) "should one person be able to dismantle the
+two-person control" — a single seeded attorney can relax the policy to off and
+then act alone, audited; (2) matter-to-matter reallocations sit outside the
+policy (nothing leaves trust; reporting concern only); (3) threshold posture's
+structuring limitation (two at-threshold requests bypass one above-threshold
+rule) — stated honestly in ADR + admin guide, aggregation guard is future work.
+DISPATCHED into freed slots: calendar slice 2 DESIGN (task 124, L1/L4 — firm
+events, rooms/resources, event links, continuance semantics) and the
+test-race pair (tasks 135+138+140 — sweep-verdict race, decrypt-count
+interference; product-race-vs-test-race adjudication required). Trust
+worktree sweep pending (transient classifier outage).
+
 ## Position update (2026-08-07 ~10:30 UTC) — notifications SHIPPED (133 merged); $5 SPENT, austerity back
 
 Merged since ~07:00: **#166** auto-file wiring (6ff4a7ee, task 104 closed — the
