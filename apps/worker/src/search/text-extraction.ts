@@ -36,10 +36,14 @@ import type { Bindings } from "../app.ts";
 // reads them — the same discipline the /api/v1/ocr route applies to the same response. Only the fields
 // the index needs are declared; the engine may report more (word boxes, confidences, orientation) and
 // those are simply not read here.
+// `nonnegative` because a page index is a position in a document: a negative one would become page 0 in
+// a passage, which is not a page anyone can turn to. Uniqueness is not expressible here and is settled
+// where the pages are assembled (`extractedFromPages` in @magna-carta/search/extraction), since the
+// native and recognition halves can each contribute a reading of the same page.
 const RecognitionSchema = z.object({
   pages: z.array(
     z.object({
-      pageIndex: z.number().int(),
+      pageIndex: z.number().int().nonnegative(),
       lines: z.array(z.object({ text: z.string() })),
     }),
   ),

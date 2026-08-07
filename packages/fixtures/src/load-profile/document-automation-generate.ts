@@ -30,7 +30,12 @@ import {
   type TemplateServiceOptions,
 } from "@magna-carta/document-assembly/template-service";
 import type { TemplatePreparation } from "@magna-carta/document-assembly/register";
-import type { FieldManifest, ManifestField } from "@magna-carta/document-assembly/types";
+import type {
+  FieldManifest,
+  ManifestBlock,
+  ManifestComputedField,
+  ManifestField,
+} from "@magna-carta/document-assembly/types";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DocumentTemplateId,
@@ -132,6 +137,14 @@ export interface DocumentAutomationProbes {
   // The probe manifest, as stored, so the measurement resolves the SAME manifest the version carries
   // rather than rebuilding one that might drift from it.
   readonly probeFieldManifestJson: string;
+  // The SECOND probe manifest: a repeating block over a role collection, an aggregate over its items,
+  // and every protected key the dictionary offers. The plain manifest above leaves blocks and computed
+  // fields empty, which is right for an ordinary template — but it means the two things that make the
+  // batching claim non-trivial go unmeasured. Expression keys join the read plan precisely so an
+  // expression can never be the reason a read happens late, and protected keys are read one at a time
+  // by design (one permission check, one audit row, one decrypt each). Neither shows up in a profile
+  // unless a manifest actually carries them.
+  readonly expressionProbeFieldManifestJson: string;
   // The name of the first catalogue page's last row, and its id — the keyset cursor a second page
   // starts from, so the list measurement can be taken at a real page boundary rather than only at the
   // head of the table.
@@ -176,6 +189,85 @@ function manifestFor(
     unconvertedMergeFields: [],
     blocks: [],
     computedFields: [],
+  };
+}
+
+// A manifest that carries the constructs the plain one deliberately leaves out: a repeating block over
+// a collection, an aggregate computed over that collection's items, and every protected key.
+//
+// The point is not the microsecond number. It is that the READ PLAN and the DECRYPT COUNT appear in the
+// harness at the size a real firm produces: expression keys are supposed to join the plan so a
+// resolution still issues one read per source, and the protected read loop is supposed to be serial —
+// both are claims about shape that only a manifest carrying these constructs can exercise.
+function expressionManifestFor(
+  context: FixtureContext,
+  occurrences: { readonly min: number; readonly max: number },
+): FieldManifest {
+  const collection = DICTIONARY.find(
+    (entry) => entry.valueType === "list" && (entry.itemFields?.length ?? 0) > 0,
+  );
+  const protectedKeys = DICTIONARY.filter((entry) => entry.sensitivity === "protected").map(
+    (entry) => entry.key,
+  );
+
+  const fields: ManifestField[] = [];
+  let totalOccurrences = 0;
+  // The protected keys as ordinary placeholders: each one costs its own permission check, audit row,
+  // and decrypt, which is the serial cost this manifest exists to make visible.
+  for (const key of protectedKeys) {
+    const count = context.faker.number.int(occurrences);
+    totalOccurrences += count;
+    fields.push({
+      key,
+      format: null,
+      occurrences: count,
+      parts: ["word/document.xml"],
+      forms: ["brace"],
+    });
+  }
+
+  const blocks: ManifestBlock[] = [];
+  const computedFields: ManifestComputedField[] = [];
+  if (collection !== undefined) {
+    const itemField = collection.itemFields?.[0]?.name;
+    blocks.push({
+      kind: "each",
+      source: collection.key,
+      resultType: "list",
+      part: "word/document.xml",
+      keys: [collection.key],
+      depth: 0,
+    });
+    // An aggregate over the same collection: one computed field whose key set joins the read plan.
+    computedFields.push({
+      source: `count(${collection.key})`,
+      format: null,
+      resultType: "number",
+      part: "word/document.xml",
+      keys: [collection.key],
+      occurrences: 1,
+    });
+    totalOccurrences += 1;
+    if (itemField !== undefined) {
+      // A placeholder scoped INSIDE the repeat, which is the case that must not add a read: the
+      // collection was already read whole.
+      blocks.push({
+        kind: "if",
+        source: `has(${collection.key})`,
+        resultType: "boolean",
+        part: "word/document.xml",
+        keys: [collection.key],
+        depth: 1,
+      });
+    }
+  }
+
+  return {
+    fields,
+    totalOccurrences,
+    unconvertedMergeFields: [],
+    blocks,
+    computedFields,
   };
 }
 
@@ -403,6 +495,9 @@ export async function generateDocumentAutomationVolume(
     context,
     volume.occurrencesPerField,
   );
+  // Registered on the same probe template's version history, so it is stored rather than rebuilt at
+  // measurement time and cannot drift from what the measurement resolves.
+  const expressionProbeManifest = expressionManifestFor(context, volume.occurrencesPerField);
   const probeInput: RegisterTemplateInput = {
     name: "Zzz Probe Assembly Template",
     description: "The widest merge context this firm's dictionary can offer.",
@@ -510,6 +605,7 @@ export async function generateDocumentAutomationVolume(
       probeTemplateId: probeTemplate.templateId,
       probeTemplateVersionId: probeVersionId,
       probeFieldManifestJson: JSON.stringify(probeManifest),
+      expressionProbeFieldManifestJson: JSON.stringify(expressionProbeManifest),
       catalogueCursorName: cursor.name,
       catalogueCursorId: cursor.id,
     },

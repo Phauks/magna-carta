@@ -328,6 +328,43 @@ mod tests {
         assert!(parse_eml(&[0xFF, 0xFE, 0x00]).is_err());
     }
 
+    // WHICH `From` A DUPLICATE-FROM MESSAGE REPORTS, and why it is pinned.
+    //
+    // RFC 5322 allows exactly one From field, so a message carrying two is malformed — but it parses,
+    // and the instance reported here is the one the capture record stores and shows a person. DKIM
+    // signs the physically LAST instance of a repeated field (RFC 6376, section 5.4.2), and the
+    // verifier in packages/email-filing/src/dkim.ts implements that bottom-up rule. The two therefore
+    // have to agree: if the record displayed the first From while a pass vouched for the last, a
+    // verified signature would be a statement about a sender nobody is shown.
+    //
+    // They do agree — both take the last — and this test is what keeps that true, because it is a
+    // property of the address parser rather than of this crate and could change under a dependency
+    // bump with nothing else noticing.
+    #[test]
+    fn reports_the_last_from_when_a_message_carries_more_than_one() {
+        let raw = b"Message-ID: <dup@example.test>\r\n\
+From: first@example.test\r\n\
+From: second@example.test\r\n\
+To: bob@example.test\r\n\
+Subject: Two senders\r\n\
+\r\n\
+body\r\n";
+        let message = parse_eml(raw).expect("a duplicate From still parses");
+        assert_eq!(message.from.len(), 1);
+        assert_eq!(
+            message.from[0].address.as_deref(),
+            Some("second@example.test"),
+            "the capture record stores the LAST From, which is the instance DKIM signs"
+        );
+        let from_headers: Vec<&str> = message
+            .raw_headers
+            .iter()
+            .filter(|(name, _)| name.eq_ignore_ascii_case("From"))
+            .map(|(_, value)| value.as_str())
+            .collect();
+        assert_eq!(from_headers.len(), 2, "both instances survive verbatim");
+    }
+
     #[test]
     fn an_encoding_fault_in_the_body_does_not_discard_the_message() {
         // A single-part message with real, well-formed headers, but a

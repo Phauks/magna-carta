@@ -577,8 +577,22 @@ function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): st
   const value = state.context.values.get(key);
 
   if (entry === undefined && scoped !== undefined) {
+    const scopedRendering = renderExpressionValue(
+      scoped,
+      explicitFormat ?? defaultFormatFor(scoped),
+      state,
+    );
+    if (scopedRendering === undefined) {
+      recordAbsence(
+        state,
+        key,
+        "placeholder",
+        "this item's value could not be rendered in the form the placeholder asked for.",
+      );
+      return absenceMarkerFor(key);
+    }
     state.substitutions += 1;
-    return renderExpressionValue(scoped, explicitFormat ?? defaultFormatFor(scoped), state);
+    return scopedRendering;
   }
 
   if (entry === undefined) {
@@ -650,13 +664,24 @@ function renderComputedField(body: string, frame: Frame, state: AssemblyState): 
     return absenceMarkerFor(evaluation.name);
   }
 
+  const effectiveFormat = format ?? defaultFormatFor(evaluation.value);
+  const rendered = renderExpressionValue(evaluation.value, effectiveFormat, state);
+  if (rendered === undefined) {
+    // The check passed and the evaluation produced a value, and the formatter still refused it. That is
+    // this engine breaking its own invariant, not the matter missing a value — so it is reported as a
+    // refusal and marked on the page, never tallied `resolved` with an empty string in the document.
+    tally(state, "computedField", "refused");
+    fail(
+      state,
+      "expression-refused",
+      `the calculation "${source}" produced a value this document cannot render as ${effectiveFormat}.`,
+    );
+    return absenceMarkerFor(source);
+  }
+
   tally(state, "computedField", "resolved");
   state.substitutions += 1;
-  return renderExpressionValue(
-    evaluation.value,
-    format ?? defaultFormatFor(evaluation.value),
-    state,
-  );
+  return rendered;
 }
 
 // The default rendering is the result TYPE's default — plain for text and number, currency for money,
@@ -674,14 +699,18 @@ function defaultFormatFor(value: ExpressionValue): string {
   }
 }
 
+// UNDEFINED, NEVER THE EMPTY STRING. A value the formatter refuses at this point is an engine
+// invariant break — the static check passed, the evaluation produced a value, and the rendering still
+// failed — and collapsing that to "" would file a blank as a clean substitution, which is the one
+// outcome this package's absence model exists to make impossible. Each caller records it.
 function renderExpressionValue(
   value: ExpressionValue,
   format: string,
   state: AssemblyState,
-): string {
+): string | undefined {
   const merge = mergeValueOf(value);
-  if (merge === undefined) return "";
-  return formatMergeValue(merge, format, { timeZone: state.context.timeZone }) ?? "";
+  if (merge === undefined) return undefined;
+  return formatMergeValue(merge, format, { timeZone: state.context.timeZone });
 }
 
 // An exact decimal renders by MOVING THE DECIMAL POINT on its digits, never by dividing — the same rule

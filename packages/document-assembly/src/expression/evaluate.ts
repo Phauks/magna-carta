@@ -190,6 +190,20 @@ function isoDateOf(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+// The years a date in this language can actually be written in. `isoDateOf` pads to four digits, and
+// every reader of the result is built on exactly four: the formatter matches ^(\d{4})-(\d{2})-(\d{2})$,
+// and `orderOf` compares dates as raw strings, which is an ordering only while both are that shape.
+// `String(-4713).padStart(4, "0")` is a no-op on a five-character string, so a negative year escapes
+// the padding as well as the range — which is why the check is on the year, not on the rendered text.
+const MINIMUM_CALENDAR_YEAR = 1;
+const MAXIMUM_CALENDAR_YEAR = 9999;
+
+function isRepresentableCalendarYear(year: number): boolean {
+  return (
+    Number.isSafeInteger(year) && year >= MINIMUM_CALENDAR_YEAR && year <= MAXIMUM_CALENDAR_YEAR
+  );
+}
+
 function parseIsoDate(
   isoDate: string,
 ): { readonly year: number; readonly month: number; readonly day: number } | undefined {
@@ -461,6 +475,16 @@ function orderOf(left: ExpressionValue, right: ExpressionValue): Ordering {
     return { kind: "ordered", comparison: left.value === right.value ? 0 : left.value ? 1 : -1 };
   }
   if (left.kind === "date" && right.kind === "date") {
+    // A RAW-STRING COMPARISON IS ONLY AN ORDERING WHILE BOTH OPERANDS ARE CALENDAR DATES. A stored
+    // "03/14/2026" sorts below "2026-01-01" and the condition takes the wrong branch with nothing to
+    // read afterwards, so this arm refuses what it cannot order — the same belt-and-braces the money
+    // and number arms already apply, rather than an answer derived from string bytes.
+    if (parseIsoDate(left.isoDate) === undefined || parseIsoDate(right.isoDate) === undefined) {
+      return {
+        kind: "refusal",
+        refusal: refusal("invalid-operand", "a value that is not a calendar date was compared."),
+      };
+    }
     return {
       kind: "ordered",
       comparison: left.isoDate === right.isoDate ? 0 : left.isoDate < right.isoDate ? -1 : 1,
@@ -734,12 +758,18 @@ function evaluateCall(
       }
       const parts = parseIsoDate(date.isoDate);
       if (parts === undefined) return refused("invalid-operand", "that is not a calendar date.");
-      if (name === "addDays") {
-        const moved = civilFromDays(daysFromCivil(parts.year, parts.month, parts.day) + whole);
-        return valued({ kind: "date", isoDate: isoDateOf(moved.year, moved.month, moved.day) });
-      }
-      const moved = addCalendarMonths(parts, name === "addMonths" ? whole : whole * 12);
-      if (!Number.isSafeInteger(moved.year) || moved.year < 1 || moved.year > 9999) {
+      // ONE RANGE GUARD, SHARED BY ALL THREE HELPERS. A moved date outside the four-digit years has no
+      // representation anywhere downstream: `isoDateOf` pads to four digits, so a five-digit or
+      // negative year renders a string the formatter's calendar-date pattern does not match — which
+      // would collapse the computed field to an empty string and tally it as a clean substitution —
+      // and the raw-string date ordering answers backwards on it, because "12977-09-14" sorts below
+      // "2030-01-01". Both failures are silent, so the only honest outcome is a refusal, and a day
+      // count reaches the same out-of-range dates a month or year count does.
+      const moved =
+        name === "addDays"
+          ? civilFromDays(daysFromCivil(parts.year, parts.month, parts.day) + whole)
+          : addCalendarMonths(parts, name === "addMonths" ? whole : whole * 12);
+      if (!isRepresentableCalendarYear(moved.year)) {
         return refused("magnitude", "that date falls outside the years this language works in.");
       }
       return valued({ kind: "date", isoDate: isoDateOf(moved.year, moved.month, moved.day) });

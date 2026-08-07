@@ -74,6 +74,8 @@ export {
   removeEmail,
   readEmails,
   findEntitiesByEmailAddress,
+  findEntitiesByEmailAddresses,
+  MAXIMUM_BATCHED_EMAIL_LOOKUPS,
   normalizeEmailAddress,
   InvalidEmailAddressError,
   DirectoryEmailNotFoundError,

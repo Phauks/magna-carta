@@ -96,8 +96,13 @@ describe("the search-index enqueue gate", () => {
     await setIndexingEnabled(true);
     const versionId = await seedAndCommitVersion("gate-on.pdf");
 
-    const message = await enqueueVersionForIndexing(env, firmId, versionId);
-    expect(message).toBeDefined();
+    const outcome = await enqueueVersionForIndexing(env, firmId, versionId);
+    expect(outcome).toBeDefined();
+    // The version resolves to indexable work — but `seedAndCommitVersion` drove the real ingest
+    // consumer, which already enqueued it, so this call started nothing. That is the same no-op the
+    // Durable Object assertion below states, read from the enqueue's own answer.
+    expect(outcome?.started).toBe(false);
+    const message = outcome?.message;
     expect(message?.matterId).toBe(matterId);
     expect(message?.version).toBe(1);
     expect(message?.contentType).toBe("application/pdf");
@@ -115,7 +120,7 @@ describe("the search-index enqueue gate", () => {
   it("resolves the document, matter, and version number the index is keyed on", async () => {
     await setIndexingEnabled(true);
     const versionId = await seedAndCommitVersion("resolves.pdf");
-    const message = await enqueueVersionForIndexing(env, firmId, versionId);
+    const message = (await enqueueVersionForIndexing(env, firmId, versionId))?.message;
 
     expect(message?.documentId).toMatch(/^file_/u);
     expect(message?.matterId).toBe(matterId);
