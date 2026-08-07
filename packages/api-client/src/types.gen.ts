@@ -314,6 +314,14 @@ export type CaptureAddressSummary = {
     rotatedAt: string | null;
 };
 
+export type AutoFilePolicyResponse = {
+    directFilingPermitted: boolean;
+};
+
+export type PatchAutoFilePolicyRequest = {
+    directFilingPermitted?: boolean;
+};
+
 export type FileRepairDiagnosis = {
     detectedFormat: string | null;
     corruption: Array<string>;
@@ -5225,6 +5233,95 @@ export type EmailsRevokeCaptureAddressResponses = {
 };
 
 export type EmailsRevokeCaptureAddressResponse = EmailsRevokeCaptureAddressResponses[keyof EmailsRevokeCaptureAddressResponses];
+
+export type EmailsGetAutoFilePolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/email-auto-file-policy';
+};
+
+export type EmailsGetAutoFilePolicyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsGetAutoFilePolicyError = EmailsGetAutoFilePolicyErrors[keyof EmailsGetAutoFilePolicyErrors];
+
+export type EmailsGetAutoFilePolicyResponses = {
+    /**
+     * The firm's automatic-filing policy
+     */
+    200: AutoFilePolicyResponse;
+};
+
+export type EmailsGetAutoFilePolicyResponse = EmailsGetAutoFilePolicyResponses[keyof EmailsGetAutoFilePolicyResponses];
+
+export type EmailsUpdateAutoFilePolicyData = {
+    body: PatchAutoFilePolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/email-auto-file-policy';
+};
+
+export type EmailsUpdateAutoFilePolicyErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsUpdateAutoFilePolicyError = EmailsUpdateAutoFilePolicyErrors[keyof EmailsUpdateAutoFilePolicyErrors];
+
+export type EmailsUpdateAutoFilePolicyResponses = {
+    /**
+     * The updated automatic-filing policy
+     */
+    200: AutoFilePolicyResponse;
+};
+
+export type EmailsUpdateAutoFilePolicyResponse = EmailsUpdateAutoFilePolicyResponses[keyof EmailsUpdateAutoFilePolicyResponses];
 
 export type FileRepairDiagnoseData = {
     body: unknown;

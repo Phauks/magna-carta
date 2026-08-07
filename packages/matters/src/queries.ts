@@ -151,6 +151,37 @@ export async function readMattersByIds(
   return results.map(toMatterListItem);
 }
 
+export interface MatterFilingTarget {
+  readonly id: MatterId;
+  readonly status: MatterStatus;
+  // A platform-owned row that exists to satisfy a structural requirement rather than to hold a client
+  // engagement. Reported rather than filtered out, because a caller deciding whether it may place
+  // something on a matter has to tell "this matter is not a legitimate target" apart from "this
+  // matter does not exist" — the two justify different answers and only one of them is a mistake
+  // worth surfacing.
+  readonly systemOwned: boolean;
+}
+
+// The narrow read a caller makes before placing something on a matter it did not pick itself: is this
+// matter real, is it open, and is it a client matter at all. One primary-key walk over a bounded id
+// set, no display fields — a placement decision has no business reading a client's name.
+export async function readMatterFilingTargets(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<MatterFilingTarget[]> {
+  if (matterIds.length === 0) return [];
+  const placeholders = matterIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(`SELECT id, status, system_key FROM ${MATTER_TABLE} WHERE id IN (${placeholders})`)
+    .bind(...matterIds)
+    .all<{ id: MatterId; status: MatterStatus; system_key: string | null }>();
+  return results.map((row) => ({
+    id: row.id,
+    status: row.status,
+    systemOwned: row.system_key !== null,
+  }));
+}
+
 // Matters whose number is EXACTLY one of these strings. The caller extracts number-shaped candidates
 // from free text (an email subject line, a document header) and this decides which are real: an exact
 // match on the unique matter_number index, so a candidate that is not a number simply matches nothing.

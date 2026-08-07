@@ -73,6 +73,7 @@ import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
 import { registerEmailAddInRoutes } from "./routes/email-add-in.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
+import { registerAutoFilePolicyRoutes } from "./routes/auto-file-policy.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -528,6 +529,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // The writer for the forward/CC token index: minting an address is what makes a capture token
   // resolve to a firm and a matter. Registered beside the emails surface it feeds.
   registerCaptureAddressRoutes(app, chokepoint);
+  // The firm ceiling on unattended filing, in the same administrative lane as the catch-all address.
+  registerAutoFilePolicyRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerDocumentSealRoutes(app, chokepoint, options.sealPort);

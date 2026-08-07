@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type {
+  EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
   EmailMessageId,
@@ -22,6 +23,7 @@ import {
   insertEmailParticipantStatement,
   insertEmailThreadStatement,
   readCaptureOutcome,
+  readEmailMatterLinksForMessage,
   readFiledMattersForThreads,
   readLiveCaptureAddressesForMatters,
   readMatterEmails,
@@ -293,6 +295,92 @@ describe("email-filing statements", () => {
     // No message repeats across the two pages.
     const seen = new Set([...page1.data, ...page2.data].map((r) => r.emailMessageId));
     expect(seen.size).toBe(3);
+  });
+
+  it("records which rule made a link, and reads every link back with that distinction", async () => {
+    await seedMessage(messageInput());
+    const personMatter = seedMatter("one0000000000000000");
+    const ruleMatter = seedMatter("two0000000000000000");
+    const ruleId = "emailAutoFileRule_a" as EmailAutoFileRuleId;
+    raw
+      .prepare(
+        `INSERT INTO email_auto_file_rule
+           (id, kind, matter_id, match_value, promotion, state, created_at, updated_at)
+         VALUES (?, 'threadContinuation', ?, 'emailThread_a', 'stage', 'active', ?, ?)`,
+      )
+      .run(ruleId, ruleMatter, NOW, NOW);
+    await database.batch([
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: "emailMatterLink_person" as EmailMatterLinkId,
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId: personMatter,
+          state: "filed",
+          linkedBy: null,
+          linkedAt: NOW,
+          capturedVia: "api",
+        },
+        NOW,
+      ),
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: "emailMatterLink_rule" as EmailMatterLinkId,
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId: ruleMatter,
+          state: "staged",
+          linkedBy: null,
+          linkedAt: null,
+          capturedVia: "forward",
+          autoFileRuleId: ruleId,
+        },
+        NOW,
+      ),
+    ]);
+    const links = await readEmailMatterLinksForMessage(
+      database,
+      "emailMessage_a" as EmailMessageId,
+    );
+    expect(links).toEqual([
+      { matterId: personMatter, state: "filed", automatic: false },
+      { matterId: ruleMatter, state: "staged", automatic: true },
+    ]);
+  });
+
+  it("reads back an unlinked row, which is the record a rule may never contradict", async () => {
+    await seedMessage(messageInput());
+    const matterId = seedMatter("one0000000000000000");
+    await database.batch([
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: "emailMatterLink_a" as EmailMatterLinkId,
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId,
+          state: "filed",
+          linkedBy: null,
+          linkedAt: NOW,
+          capturedVia: "api",
+        },
+        NOW,
+      ),
+    ]);
+    await database.batch([
+      unlinkEmailFromMatterStatement(
+        database,
+        { emailMessageId: "emailMessage_a" as EmailMessageId, matterId },
+        NOW,
+      ),
+    ]);
+    // filedMatterIdsForMessage no longer reports it — but the link read still does, which is the
+    // whole point: "a person removed this" is a fact, not an absence.
+    expect(await filedMatterIdsForMessage(database, "emailMessage_a" as EmailMessageId)).toEqual(
+      [],
+    );
+    expect(
+      await readEmailMatterLinksForMessage(database, "emailMessage_a" as EmailMessageId),
+    ).toEqual([{ matterId, state: "unlinked", automatic: false }]);
   });
 });
 
