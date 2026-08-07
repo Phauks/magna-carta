@@ -6,8 +6,14 @@ import type { FirmContext } from "../chokepoint/ports.ts";
 // the identity filter — but every wall-sensitive read (the "already filed" signal, the multi-matter
 // "also on ..." list, the single-message read) routes its matter set through here, so when walls land
 // the narrowing happens in one place and those reads become wall-safe with no call-site change.
+//
+// Takes the firm's DATABASE HANDLE rather than the whole request context, because the callers are no
+// longer all request handlers: the capture consumer asks the same question off the queue, about the
+// member who delegated a filing rule rather than about a member who is present. A wall answer that
+// depended on a request context would have forced that caller to invent one, or to filter somewhere
+// else — and a second narrowing point is exactly what this seam exists to prevent.
 export async function filterAccessibleMatters(
-  _firm: FirmContext,
+  _firm: Pick<FirmContext, "firmDatabase">,
   _userId: string,
   matterIds: readonly MatterId[],
 ): Promise<MatterId[]> {

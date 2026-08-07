@@ -2,6 +2,13 @@ import { ensureReady, parseMessage } from "@magna-carta/email";
 import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import {
+  insertEmailAutoFileDecisionStatement,
+  suspendEmailAutoFileRule,
+  type AutoFileDecisionOutcome,
+  type AutoFileDecisionSuppressionReason,
+} from "@magna-carta/data-access/email-auto-file-statements";
 import {
   captureIdempotencyKey,
   findByDedupKey,
@@ -14,6 +21,7 @@ import {
   touchEmailMessageStatement,
 } from "@magna-carta/data-access/email-filing-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { AutoFileDecision } from "@magna-carta/email-filing/auto-file-rules";
 import {
   captureEmail,
   type CapturePorts,
@@ -23,6 +31,7 @@ import { verifyDkim } from "@magna-carta/email-filing/dkim";
 import { findEntitiesByEmailAddresses } from "@magna-carta/directory/contact-email";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  EmailAutoFileRuleId,
   EmailMessageId,
   EmailThreadId,
   MatterId,
@@ -35,6 +44,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
+import { createAutoFileDecisionPort } from "./auto-file-evaluation.ts";
 import { createDkimKeyLookup } from "./dkim-dns-resolver.ts";
 import { raiseEmailFiledNotification } from "@magna-carta/email-filing/seams";
 
@@ -127,6 +137,10 @@ export async function handleCaptureMessage(
     // capture core records an honest "unverified" if this port is unavailable or throws.
     verifyDkim: (input) =>
       verifyDkim(input, { lookupKeyRecords: createDkimKeyLookup(env.DKIM_RESOLVER_URL) }),
+    // Auto-file evaluation runs here for the same reason signature adjudication does: it is several
+    // per-firm reads, and the capture consumer is already off the request path. The capture route
+    // does not grow a rules pass — it stages bytes and enqueues, exactly as before.
+    resolveAutoFileDecision: createAutoFileDecisionPort({ firmDatabase, now }),
     newEmailMessageId: () => newIdentifier("emailMessage"),
     newEmailThreadId: () => newIdentifier("emailThread"),
     newEmailParticipantId: () => newIdentifier("emailParticipant"),
@@ -160,6 +174,11 @@ export async function handleCaptureMessage(
       if (plan.link !== null) {
         statements.push(insertEmailMatterLinkStatement(firmDatabase, plan.link, timestamp));
       }
+      // Everything the rules did rides THIS batch — the ledger row, the audit row, and the circuit
+      // breaker's suspension — beside the link they describe. A separate write would leave a window
+      // in which the ledger claims a filing that rolled back, and would need an idempotency story of
+      // its own; here a redelivery replays the recorded decision instead of deciding again.
+      statements.push(...autoFileStatements(firmDatabase, plan, timestamp));
       // One atomic batch: the capture writes + the idempotency record, keyed on the capture job id.
       // A redelivery replays without re-writing; a concurrent same-message capture that loses the
       // dedup_key race rolls back wholesale and re-runs, converging on the one record.
@@ -214,9 +233,13 @@ export async function handleCaptureMessage(
 
   // Extract real attachments into the File Manager (self-guards on existing rows so a redelivery or a
   // second filer never double-files). Bytes ride the existing ingest/quarantine chokepoint.
+  //
+  // The matter comes from the capture's RESULT, not from the entrance's candidate: where a rule chose
+  // the matter, the message's attachments belong on the same one. Reading the candidate here would
+  // leave an automatically-filed message on a matter whose file list did not hold its attachments.
   await extractAndFileAttachments(env, firmDatabase, {
     emailMessageId: result.emailMessageId,
-    matterId: candidateMatterId === null ? null : (candidateMatterId as MatterId),
+    matterId: result.matterId,
     bucketName: message.bucketName,
     parsed: result.parsed,
     rawBytes: bytes,
@@ -226,17 +249,105 @@ export async function handleCaptureMessage(
   });
 
   // "email filed to matter" is raised off the hot path, carrying a deep link and never body content.
-  // A no-op until the Notifications subsystem ships; the raise site is placed now.
-  if (result.linkState === "filed" && candidateMatterId !== null) {
+  // A no-op until the Notifications subsystem ships; the raise site is placed now. An automatic filing
+  // raises it exactly as a manual one does — the firm is told a message reached the matter, and by
+  // what, without having to go looking.
+  if (result.linkState === "filed" && result.matterId !== null) {
     raiseEmailFiledNotification({
       firmId: message.firmId,
-      matterId: candidateMatterId,
+      matterId: result.matterId,
       emailMessageId: result.emailMessageId,
     });
   }
 
   // The staged pointer is transient — the verbatim original now lives under its content-addressed key.
   await env.R2.delete(message.stagedR2Key);
+}
+
+// What the rules did, as rows: the evaluation ledger entry, the audit row, and — where a rule has
+// been firing far more often than a person would, or its recent filings keep being undone — the
+// suspension that takes it out of service.
+//
+// Nothing is written for a capture no rule looked at. That is the property that keeps this table
+// proportional to rule activity rather than to the firm's mail volume, and it is why a firm with no
+// rules pays two indexed lookups per capture and no writes.
+//
+// IDENTIFIERS AND ENUMS ONLY, in the ledger row and in the audit metadata alike. The plain-language
+// sentences a person reads are rendered from these enums at read time, the way the suggestion
+// machinery renders its reasons — no subject, no address, no display name reaches either row.
+function autoFileStatements(
+  database: ReturnType<typeof firmDatabaseFor>,
+  plan: CaptureWritePlan,
+  now: string,
+): SqlStatement[] {
+  const decision: AutoFileDecision | null = plan.autoFileDecision;
+  if (decision === null) return [];
+  if (decision.outcome === "noRule" && decision.suppressionReason === null) return [];
+
+  // The outcome is read off the LINK that was actually written, not off what the decision asked for:
+  // the capture core re-checks the conflict hook before it commits, so a decision of `file` can still
+  // land staged, and a ledger that recorded the request rather than the result would misexplain it.
+  const outcome: AutoFileDecisionOutcome =
+    decision.outcome === "noRule"
+      ? "suppressed"
+      : plan.link?.state === "filed"
+        ? "filed"
+        : "staged";
+  const clock = { now: () => now };
+
+  const statements: SqlStatement[] = [
+    insertEmailAutoFileDecisionStatement(
+      database,
+      {
+        id: newIdentifier("emailAutoFileDecision"),
+        emailMessageId: plan.emailMessageId,
+        autoFileRuleId: decision.ruleId as EmailAutoFileRuleId | null,
+        matterId: decision.matterId as MatterId | null,
+        outcome,
+        suppressionReason:
+          outcome === "suppressed"
+            ? (decision.suppressionReason as AutoFileDecisionSuppressionReason | null)
+            : null,
+        evidence: {
+          decision: decision.outcome,
+          demotionReason: decision.demotionReason,
+          suppressionReason: decision.suppressionReason,
+          suspensionReason: decision.suspension?.reason ?? null,
+        },
+      },
+      now,
+    ),
+  ];
+
+  if (outcome !== "suppressed" && plan.link !== null) {
+    statements.push(
+      domainAuditStatement(database, {
+        event: outcome === "filed" ? "emails.autoFiled" : "emails.autoFileStaged",
+        subjectId: plan.emailMessageId,
+        // No actor: nobody was present. The delegating member is on the rule row, which the metadata
+        // names, so the trail still terminates in a person's decision without pretending they made
+        // this one.
+        actorUserId: null,
+        clock,
+        metadata: { matterId: plan.link.matterId, ruleId: plan.link.autoFileRuleId },
+      }),
+    );
+  }
+
+  if (decision.suspension !== null) {
+    statements.push(
+      ...suspendEmailAutoFileRule(
+        database,
+        {
+          id: decision.suspension.ruleId as EmailAutoFileRuleId,
+          reason: decision.suspension.reason,
+        },
+        { clock, actorUserId: null },
+      ).statements,
+    );
+  }
+
+  return statements;
 }
 
 // The emails-capture queue consumer: one job per message. Ack on success, retry on throw.
