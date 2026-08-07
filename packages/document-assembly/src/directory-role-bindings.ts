@@ -148,14 +148,53 @@ export function partyNameValue(party: MatterPartyMergeRow): MergeValue | undefin
   };
 }
 
+// What the capacity line composes OVER, beyond the party row itself: the estate's stored style,
+// when the matter carries an estate record. Supplied by resolution from the estate read — the
+// composition works the moment any identity record with a style exists, and the estate is the
+// first such record, not the only one.
+export interface CapacityLineContext {
+  readonly estateStyle?: string;
+}
+
+// The composed capacity phrase — "Devon Marchetti, as Administrator of the Estate of Rowan
+// Ashcroft, Deceased" — built in the RESOLVER, never in the template. A template concatenating the
+// three parts renders stray punctuation and three separate markers when any part is unrecorded;
+// this is ONE absence for the whole phrase, with a reason naming which part is missing. Nothing is
+// guessed: every part is a recorded fact or the phrase does not exist.
+function capacityLineValue(
+  party: MatterPartyMergeRow,
+  context: CapacityLineContext | undefined,
+): MergeValue | { readonly missingParts: readonly string[] } {
+  const missingParts: string[] = [];
+  const name =
+    party.displayName === null || party.displayName === "" ? undefined : party.displayName;
+  const capacity = party.capacity === null || party.capacity === "" ? undefined : party.capacity;
+  const estateStyle =
+    context?.estateStyle === undefined || context.estateStyle === ""
+      ? undefined
+      : context.estateStyle;
+  if (name === undefined) missingParts.push("the party's name");
+  if (capacity === undefined) missingParts.push("a capacity on the party link");
+  if (estateStyle === undefined) missingParts.push("an estate style on the matter");
+  if (name === undefined || capacity === undefined || estateStyle === undefined) {
+    return { missingParts };
+  }
+  return { kind: "text", text: `${name}, as ${capacity} of ${estateStyle}` };
+}
+
 // One scalar facet's value for one resolved party. A facet added to the party kind lands here, and
-// nowhere else — the switch is total, so a facet declared without a resolution stops this file compiling.
+// nowhere else. The capacity line is deliberately absent: it composes over more than the party row,
+// so it has its own arm in the resolution loop below.
 function facetValue(facet: string, party: MatterPartyMergeRow): MergeValue | undefined {
   switch (facet) {
     case "displayName":
       return partyNameValue(party);
     case "kind":
       return { kind: "text", text: party.kind };
+    case "capacity":
+      return party.capacity === null || party.capacity === ""
+        ? undefined
+        : { kind: "text", text: party.capacity };
     default:
       return undefined;
   }
@@ -169,6 +208,10 @@ export function directoryRoleValues(
   sources: readonly DirectoryRoleSource[],
   // The keys the manifest actually names, so a collection is materialized only when something walks it.
   wantedKeys: ReadonlySet<string>,
+  // What the capacity line composes over beyond the party row. Optional so a caller resolving no
+  // capacity line supplies nothing; a capacity line resolved without it is an absence naming the
+  // estate style as the missing part.
+  capacityContext?: CapacityLineContext,
 ): DirectoryRoleResolution {
   const values = new Map<string, MergeValue>();
   const reasons = new Map<string, string>();
@@ -192,19 +235,39 @@ export function directoryRoleValues(
     if (only !== undefined) {
       for (const facet of source.scalarFacets) {
         const key = `${source.key}.${facet}`;
+        // The composed phrase has its own arm: it reads more than the party row, and its absence is
+        // ONE absence for the whole phrase with the missing parts named — never three markers and
+        // stray punctuation. Composed only when the manifest names it, so a template that never
+        // asks for the phrase never carries a reason about the estate it did not mention.
+        if (facet === "capacityLine") {
+          if (!wantedKeys.has(key)) continue;
+          const composed = capacityLineValue(only, capacityContext);
+          if ("missingParts" in composed) {
+            reasons.set(
+              key,
+              `The capacity line is composed from the ${source.label}'s name, the capacity recorded on the party link, and the estate's style. This matter is missing ${composed.missingParts.join(" and ")}, so the whole phrase is one absence.`,
+            );
+          } else {
+            values.set(key, composed);
+          }
+          continue;
+        }
         const value = facetValue(facet, only);
         if (value !== undefined) {
           values.set(key, value);
           continue;
         }
-        // The link is there and the Directory entry behind it is gone or nameless. That is a different
-        // fact from "no such party", and saying which one it is saves a search that would find the link
-        // and conclude the merge field is broken. Only a name can land here today — every other scalar
-        // facet reads a column the link itself carries — so the sentence names one.
-        reasons.set(
-          key,
-          `This matter links one party in the ${source.label} role, but that Directory entry supplies no name.`,
-        );
+        // The link is there and the Directory entry behind it is gone or nameless. That is a
+        // different fact from "no such party", and saying which one it is saves a search that would
+        // find the link and conclude the merge field is broken. The name gets that sentence; a
+        // missing capacity is an ordinary absence the marker already states — a fact the firm has
+        // not recorded — and a reason on it would bury the ones that need reading.
+        if (facet === "displayName") {
+          reasons.set(
+            key,
+            `This matter links one party in the ${source.label} role, but that Directory entry supplies no name.`,
+          );
+        }
       }
       continue;
     }

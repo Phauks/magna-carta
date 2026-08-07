@@ -207,6 +207,7 @@ export async function migrateClientDisplayFields(
         matterId: matterRow.id,
         entityId,
         role: "client",
+        capacity: null,
         createdAt: now,
       }),
       directoryAuditStatement(database, options, auditEvent, entityId),

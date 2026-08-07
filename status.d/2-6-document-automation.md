@@ -219,8 +219,41 @@ is ever a dimension.
 
 Load profile: the `documentAutomation` set gains the catalogue projection and the binding-index lookup,
 both index walks, with the generator version bumped because registration now writes binding rows.
-Remaining for the subsystem: PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4),
-the office-settings UI for the logo, and the interface seams. Next in the catalogue plan: the rest of the
-format system (2·6·6), then the party subjects at scale (2·6·7). Owner flag H1 — whether matter
-staffing, the court-case record, and the estate become platform tables — gates 2·6·8 through 2·6·10 and
-is still open; nothing shipped here depends on it.
+
+**Slices 2·6·8–2·6·10 built and tested — the platform record subjects, unblocked by the owner's H1
+ratification.** Three per-firm records land as the Matters area's own tables with the catalogue as one
+consumer: `matter_assignment` (staffing beyond the responsible attorney, whose one home stays the
+matter row — an assignment role that normalizes to it is refused), `matter_court_case` (the court a
+Directory organisation, the judge a Directory person, the case number and the two caption designation
+words — side is a recorded fact, never a key axis), and `matter_estate` (the decedent a Directory
+person, the styles STORED exactly as the court fixed them, never composed). `matter_party` gains a
+recorded `capacity`, and the member professional profile carries title, admissions, direct dial, and
+professional email — written through `firm:manageMembers` until the platform grows a self-scoped
+mutation concept (the deferral the pending decision record names).
+
+Fifty-five keys on three new batched reads — five member subjects on one staffing read, `court.*` and
+`case.*` on one court-case read, `estate.*` on one estate read — and the whole-catalogue read budget
+grows from four statements to seven. The member subjects share the party facet grammar (level-1
+ambiguity naming the count, `.all` as the way out) and every name is parts-carrying, so all seven
+renderings apply to an attorney, the judge, and the decedent alike. `<member>.barNumber` is the first
+protected fact about the firm's own people: `bar_number` joins the Directory identifier catalog
+(protected, never standalone-indexed), resolves only through the chokepoint reader, and is never
+attempted for a slot that resolved ambiguously — proven end to end in the worker suite with the audit
+table itself (value plus one audit row with the permission; marker plus reason and NO row without it;
+no row at all on an ambiguous slot, even for a member who holds the permission). `capacityLine`
+composes in the resolver from three recorded facts with ONE absence naming the missing part — the
+three-marker template concatenation it exists to prevent is the committed test. Caption and probate
+fixtures assemble in the shapes the profession files, asserted over emitted parts. The estate's date
+of death now drives the asset register's as-of date at assembly. Load profile: the probe matter gains
+staffing, a court case, an estate, and a recorded capacity; three new plan probes prove the record
+reads are index walks (a partial index on `directory_person.member_id` was added for the staffing
+read's mapped-person seek); profile v12, generator v9.
+
+Deliberately deferred to the structured-value slice (2·6·6): the member's office address, the court's
+address, and the signature block as merge facets — each needs the structured `address` type or real
+line-break (`w:br`) emission, and flattened text would render documents that look right and are
+subtly wrong. The records store the facts today. Remaining for the subsystem: PDF output and the
+signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the
+interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
+subjects at scale (2·6·7) — `capacityLine` extends to the nine new party subjects automatically when
+their rows land.

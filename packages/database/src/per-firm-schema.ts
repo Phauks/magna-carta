@@ -84,7 +84,10 @@ import type {
   MatterAssetInterestId,
   MatterAssetTypeId,
   MatterAssetValuationId,
+  MatterAssignmentId,
+  MatterCourtCaseId,
   MatterDeadlineId,
+  MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
   MatterEventTypeId,
@@ -257,6 +260,29 @@ export const directGrant = sqliteTable(
     index("direct_grant_member_user_id_index").on(table.memberUserId),
   ],
 );
+
+// A member's professional identity as documents and letterhead state it — title, bar admissions,
+// direct dial, professional email, and the signature block a pleading signs off with. One row per
+// member, keyed by the member's own user id (the profile IS the member's, so a second handle would
+// only be a second name for the same fact). A member's bar number is deliberately NOT a column
+// here: it is a sensitive identifier and lives encrypted in directory_identifier on the member's
+// mapped Directory person, read only through the protected-field chokepoint.
+export const memberProfessionalProfile = sqliteTable("member_professional_profile", {
+  memberUserId: text("member_user_id")
+    .primaryKey()
+    .$type<UserId>()
+    .references(() => member.userId),
+  title: text("title"), // "Partner", "Associate", "Senior Paralegal"
+  admissions: text("admissions"), // "Nevada, 2014; California, 2016" — running prose, not a catalog
+  directDial: text("direct_dial"),
+  professionalEmail: text("professional_email"),
+  // The multi-line block a pleading signs off with, stored with its line breaks. Rendered into a
+  // document only once the assembly engine emits real line breaks (w:br) — a literal newline in a
+  // w:t renders as a space, so the merge facet waits for that machinery.
+  signatureBlock: text("signature_block"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 // Append-only double-entry ledger. Structure only — the posting
 // service, validation, and balance composition live in @magna-carta/ledger.
@@ -606,6 +632,115 @@ export const matterNumberAllocation = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
     index("matter_number_allocation_matter_id_index").on(table.matterId),
+  ],
+);
+
+// The matter's staffing beyond the single responsible attorney: who originated it, who supervises,
+// who bills it, which paralegal carries it. Wanted well beyond documents — caseload views, billing
+// attribution, conflicts imputation, and workload reporting all ask the same question — and until
+// this table every one of them was answered by matter.responsible_member_id or not at all. The
+// responsible attorney deliberately STAYS on the matter row (one home per fact); the write path
+// refuses an assignment_role that normalizes to it. assignment_role is free text matched the way
+// matter_party.role is: lowercased with every non-alphanumeric character removed, so a merge
+// subject and a firm's own spelling of the same role meet without a mapping table.
+export const matterAssignment = sqliteTable(
+  "matter_assignment",
+  {
+    id: text("id").primaryKey().$type<MatterAssignmentId>(), // matterAssignment_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    memberUserId: text("member_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    assignmentRole: text("assignment_role").notNull(), // e.g. 'originating_attorney', 'assigned_paralegal'
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"), // null = current; set = the assignment ended
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The staffing read is WHERE matter_id = ? — lead with it; the member composite serves the
+    // caseload question ("what is this member staffed on") from the index itself.
+    index("matter_assignment_matter_id_index").on(table.matterId),
+    index("matter_assignment_member_user_id_index").on(table.memberUserId),
+    check("matter_assignment_role_nonempty_check", sql`length(${table.assignmentRole}) > 0`),
+  ],
+);
+
+// The matter's court-and-case identity — the record a caption reads and rules-based docketing will
+// later hang off. The court and the judge are Directory references (an organisation and a person),
+// so a court's own address and a judge's name formats come from the Directory rather than from
+// columns restated here; both are plain entity ids (no cross-domain FK, exactly as matter_party).
+// The two designation words are what make a caption read correctly in its own jurisdiction's
+// vocabulary — "Plaintiff"/"Defendant", "Petitioner"/"Respondent" — recorded once rather than baked
+// into key names. One live record per matter: a matter is before one court at a time, and the
+// partial unique index is what makes a second live record structurally impossible.
+export const matterCourtCase = sqliteTable(
+  "matter_court_case",
+  {
+    id: text("id").primaryKey().$type<MatterCourtCaseId>(), // matterCourtCase_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    courtEntityId: text("court_entity_id"), // FK to directory_organization.id (the court)
+    judgeEntityId: text("judge_entity_id"), // FK to directory_person.id (the assigned judge)
+    caseNumber: text("case_number"),
+    division: text("division"),
+    department: text("department"),
+    filedOn: text("filed_on"), // civil date, YYYY-MM-DD
+    clientDesignation: text("client_designation"), // e.g. 'Plaintiff', 'Petitioner'
+    opposingDesignation: text("opposing_designation"), // e.g. 'Defendant', 'Respondent'
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("matter_court_case_matter_id_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  ],
+);
+
+// The estate a probate matter administers — a first-class identity on the matter, because an estate
+// has SEVERAL names and a document uses each in a different place: the decedent's (a Directory
+// person, so every name format applies), the style a caption and a bank account use, and the short
+// style a letter's second reference uses. THE STYLE IS STORED, NOT COMPOSED: "the Estate of Rowan
+// Ashcroft, Deceased" is a legal designation a firm may need to state exactly as the court has it,
+// and a composed string would be right most of the time — which is the worst frequency. The
+// estate's own Directory record (estate_entity_id, an organisation) is where its tax identifier
+// lives, through the same encrypted directory_identifier mechanism every entity uses — never a
+// ciphertext column here. One live record per matter, as the court case is.
+export const matterEstate = sqliteTable(
+  "matter_estate",
+  {
+    id: text("id").primaryKey().$type<MatterEstateId>(), // matterEstate_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    decedentEntityId: text("decedent_entity_id"), // FK to directory_person.id
+    estateEntityId: text("estate_entity_id"), // FK to directory_organization.id (the estate's own record)
+    dateOfDeath: text("date_of_death"), // civil date, YYYY-MM-DD
+    estateStyle: text("estate_style"), // "the Estate of Rowan Ashcroft, Deceased" — as the court has it
+    shortStyle: text("short_style"), // "the Ashcroft Estate"
+    proceedingType: text("proceeding_type"), // 'testate' | 'intestate' | 'small_estate' | 'ancillary'
+    lettersIssuedOn: text("letters_issued_on"), // civil date, YYYY-MM-DD
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("matter_estate_matter_id_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    check(
+      "matter_estate_proceeding_type_check",
+      sql`${table.proceedingType} IS NULL OR ${table.proceedingType} IN ('testate', 'intestate', 'small_estate', 'ancillary')`,
+    ),
   ],
 );
 
@@ -1086,6 +1221,11 @@ export const directoryPerson = sqliteTable(
     deletedAt: text("deleted_at"),
   },
   (table) => [
+    // The member mapping, sought by the staffing merge read (a member's name parts and bar number
+    // live on their mapped Directory person). Partial: most Directory persons map to no member.
+    index("directory_person_member_id_index")
+      .on(table.memberId)
+      .where(sql`${table.memberId} IS NOT NULL`),
     check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
     check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
   ],
@@ -1404,6 +1544,11 @@ export const matterParty = sqliteTable(
       .references(() => matter.id),
     entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
     role: text("role").notNull(), // e.g. 'client', 'opposing_party', 'witness'
+    // The capacity the party acts in on THIS matter — "Administrator", "Trustee",
+    // "Attorney-in-fact". A fact about the link, not about the entity: the same person is an
+    // administrator on one matter and a beneficiary on the next. Free text the firm records;
+    // never inferred, so an unrecorded capacity is an honest absence wherever a document asks.
+    capacity: text("capacity"),
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
     createdAt: text("created_at").notNull(),

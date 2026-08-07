@@ -45,6 +45,9 @@ import billingTrustApplicationSql from "@magna-carta/database/drizzle/per-firm/2
 import matterAssetClassesAndEncumbrancesSql from "@magna-carta/database/drizzle/per-firm/20260806T070000_matter-asset-classes-and-encumbrances.sql";
 import discoveryReviewSetModelSql from "@magna-carta/database/drizzle/per-firm/20260806T080000_discovery-5-1-2.sql";
 import notificationsDeliverySql from "@magna-carta/database/drizzle/per-firm/20260807T020000_notifications-delivery.sql";
+import matterStaffingSql from "@magna-carta/database/drizzle/per-firm/20260807T040000_matter-staffing.sql";
+import matterCourtCaseSql from "@magna-carta/database/drizzle/per-firm/20260807T041000_matter-court-case.sql";
+import matterEstateAndCapacitySql from "@magna-carta/database/drizzle/per-firm/20260807T042000_matter-estate-and-capacity.sql";
 import trustAuthorizationPolicySql from "@magna-carta/database/drizzle/per-firm/20260807T050000_trust-authorization-policy.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
@@ -101,6 +104,9 @@ export function perFirmMigrations(): Migration[] {
     "20260806T070000_matter-asset-classes-and-encumbrances": matterAssetClassesAndEncumbrancesSql,
     "20260806T080000_discovery-5-1-2": discoveryReviewSetModelSql,
     "20260807T020000_notifications-delivery": notificationsDeliverySql,
+    "20260807T040000_matter-staffing": matterStaffingSql,
+    "20260807T041000_matter-court-case": matterCourtCaseSql,
+    "20260807T042000_matter-estate-and-capacity": matterEstateAndCapacitySql,
     "20260807T050000_trust-authorization-policy": trustAuthorizationPolicySql,
   });
 }

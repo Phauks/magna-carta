@@ -6,7 +6,7 @@ import type { CustomFieldDefinitionRow } from "../custom-field-bindings.ts";
 // rather than mysteriously so, and it moves whenever the SHIPPED LIST OR THE GENERATION THAT PRODUCES
 // IT moves — a facet added, a subject added, a value type widened. It does not move for a firm's own
 // fields, which are per firm and carried by the digest below instead.
-export const DICTIONARY_VERSION = 2;
+export const DICTIONARY_VERSION = 3;
 
 // The revision a caching client compares.
 //

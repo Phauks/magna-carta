@@ -245,6 +245,14 @@ export const ENTITY_PREFIXES = {
   matterAssetEncumbrance: "matterAssetEncumbrance",
   matterAssetDocument: "matterAssetDocument",
   matterAssetIdentifier: "matterAssetIdentifier",
+  // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
+  // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
+  // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
+  // number, and the designation words a caption prints; a `matterEstate` is the estate a probate
+  // matter administers — the decedent, the date of death, and the styles a court has fixed.
+  matterAssignment: "matterAssignment",
+  matterCourtCase: "matterCourtCase",
+  matterEstate: "matterEstate",
   // Magnus — the conversational assistant a firm member talks to. A `magnusConversation` is one
   // thread a member started, kept as a firm record; a `magnusTurn` is one message inside it, from
   // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The

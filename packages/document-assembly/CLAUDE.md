@@ -174,6 +174,45 @@ computed fields alike — because "which templates break if this key goes away" 
   instead). A role a firm uses that no source covers is still reachable through `matter.parties`, whose
   items carry the role they were linked in.
 
+## The firm's own people (`responsibleAttorney.*` and the other member subjects)
+
+- **Five member subjects ride ONE staffing read** (`selectMatterStaffingForMergeStatement`): the
+  responsible attorney off the matter row's own column — the statement's first arm labels that row
+  with the subject's token, and `matter.responsible_member_id` stays the fact's one home — and the
+  rest off `matter_assignment` rows whose free-text role normalizes to the subject key, exactly as
+  party roles match. Resolution in `src/staffing-bindings.ts` is the party grammar verbatim: level-1
+  ambiguity is an absence naming the count, `<subject>.all` is the way out.
+- **A member's name is parts-carrying**: display from the member row, separated parts from the
+  member's mapped Directory person (resolved through a correlated sub-select so a duplicate mapping
+  can never fake an ambiguity), `isOrganisation: false` always — a member is a person.
+- **`<subject>.barNumber` is protected and slot-gated.** It resolves through the SAME chokepoint
+  reader the client's identifiers use, against the mapped person's `bar_number` identifier — and
+  ONLY for a slot that resolved. An ambiguous or empty staffing slot is an absence BEFORE any
+  decrypt, so an assembly can never write a decrypt audit row for a member the document never names
+  (`memberProtectedValues` in `src/protected-bindings.ts`; proven against the real audit table in
+  the worker suite).
+- **Missing profile facts are ordinary absences with no reason** — a profile the member has not
+  filled in yet is what the marker already says. Only a nameless member row gets a sentence, because
+  that is a data defect worth naming.
+
+## The court, the case, and the estate (`court.*`, `case.*`, `estate.*`)
+
+- **Two one-of-a-kind reads.** The court-case read joins the record to the court's Directory
+  organisation and the judge's Directory person; the estate read joins the decedent's Directory
+  person. Both subjects of the court kind share the one court read. A matter without either record
+  is the conditional absence the availability derivation already declares — never a defect.
+- **The estate's styles are STORED designations printed as recorded** — never composed here, never
+  composable in a template. The judge's and decedent's names are parts-carrying, so every name
+  rendering applies with no new machinery.
+- **`capacityLine` composes in the RESOLVER** (`capacityLineValue` in
+  `src/directory-role-bindings.ts`), from the party's name, the `capacity` recorded on the party
+  link, and the estate's stored style — ONE absence for the whole phrase naming the missing parts,
+  which is the whole reason it exists: the template-side concatenation renders stray punctuation and
+  three markers. Naming a capacityLine key is the one party facet that adds a read (the estate's,
+  once); everything else on the party kind stays a pass over the party rows.
+- **The asset register's as-of date is the estate's date of death** when the matter records one —
+  supplied by the caller (`assetsAsOfDate`), read in the assembly consumer, never stored twice.
+
 ## The firm's own fields (`custom.<handle>`)
 
 - **Bound by HANDLE, never by name.** `src/custom-field-bindings.ts` derives one dictionary entry per

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1d6bfc2e-2149-43a2-a5eb-b7c493a98a60",
+  "id": "7e8b7acf-de85-4fd4-9bb8-688bdd2b5743",
   "prevId": "75fbf14f-c11d-494f-9109-e2dd5288b7ef",
   "tables": {
     "account_balance": {
@@ -3684,7 +3684,14 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "directory_person_member_id_index": {
+          "name": "directory_person_member_id_index",
+          "columns": ["member_id"],
+          "isUnique": false,
+          "where": "\"directory_person\".\"member_id\" IS NOT NULL"
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -7690,85 +7697,6 @@
         }
       }
     },
-    "invoice_trust_application_line": {
-      "name": "invoice_trust_application_line",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_id": {
-          "name": "request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_trust_application_line_request_invoice_unique_index": {
-          "name": "invoice_trust_application_line_request_invoice_unique_index",
-          "columns": ["request_id", "invoice_id"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "invoice_trust_application_line_request_id_trust_disbursement_request_id_fk": {
-          "name": "invoice_trust_application_line_request_id_trust_disbursement_request_id_fk",
-          "tableFrom": "invoice_trust_application_line",
-          "tableTo": "trust_disbursement_request",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_trust_application_line_invoice_id_invoice_id_fk": {
-          "name": "invoice_trust_application_line_invoice_id_invoice_id_fk",
-          "tableFrom": "invoice_trust_application_line",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_trust_application_line_amount_positive_check": {
-          "name": "invoice_trust_application_line_amount_positive_check",
-          "value": "\"invoice_trust_application_line\".\"amount_minor\" > 0"
-        },
-        "invoice_trust_application_line_currency_check": {
-          "name": "invoice_trust_application_line_currency_check",
-          "value": "length(\"invoice_trust_application_line\".\"currency\") = 3"
-        }
-      }
-    },
     "invoice_wip_claim": {
       "name": "invoice_wip_claim",
       "columns": {
@@ -10218,6 +10146,225 @@
         }
       }
     },
+    "matter_assignment": {
+      "name": "matter_assignment",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "assignment_role": {
+          "name": "assignment_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "matter_assignment_matter_id_index": {
+          "name": "matter_assignment_matter_id_index",
+          "columns": ["matter_id"],
+          "isUnique": false
+        },
+        "matter_assignment_member_user_id_index": {
+          "name": "matter_assignment_member_user_id_index",
+          "columns": ["member_user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "matter_assignment_matter_id_matter_id_fk": {
+          "name": "matter_assignment_matter_id_matter_id_fk",
+          "tableFrom": "matter_assignment",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "matter_assignment_member_user_id_member_user_id_fk": {
+          "name": "matter_assignment_member_user_id_member_user_id_fk",
+          "tableFrom": "matter_assignment",
+          "tableTo": "member",
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "matter_assignment_role_nonempty_check": {
+          "name": "matter_assignment_role_nonempty_check",
+          "value": "length(\"matter_assignment\".\"assignment_role\") > 0"
+        }
+      }
+    },
+    "matter_court_case": {
+      "name": "matter_court_case",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "court_entity_id": {
+          "name": "court_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "judge_entity_id": {
+          "name": "judge_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "case_number": {
+          "name": "case_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "division": {
+          "name": "division",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "filed_on": {
+          "name": "filed_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "client_designation": {
+          "name": "client_designation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "opposing_designation": {
+          "name": "opposing_designation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "matter_court_case_matter_id_unique_index": {
+          "name": "matter_court_case_matter_id_unique_index",
+          "columns": ["matter_id"],
+          "isUnique": true,
+          "where": "\"matter_court_case\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "matter_court_case_matter_id_matter_id_fk": {
+          "name": "matter_court_case_matter_id_matter_id_fk",
+          "tableFrom": "matter_court_case",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "matter_deadline": {
       "name": "matter_deadline",
       "columns": {
@@ -10477,6 +10624,122 @@
         "matter_deadline_priority_check": {
           "name": "matter_deadline_priority_check",
           "value": "\"matter_deadline\".\"priority\" IS NULL OR \"matter_deadline\".\"priority\" > 0"
+        }
+      }
+    },
+    "matter_estate": {
+      "name": "matter_estate",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decedent_entity_id": {
+          "name": "decedent_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "estate_entity_id": {
+          "name": "estate_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "date_of_death": {
+          "name": "date_of_death",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "estate_style": {
+          "name": "estate_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "short_style": {
+          "name": "short_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "proceeding_type": {
+          "name": "proceeding_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letters_issued_on": {
+          "name": "letters_issued_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "matter_estate_matter_id_unique_index": {
+          "name": "matter_estate_matter_id_unique_index",
+          "columns": ["matter_id"],
+          "isUnique": true,
+          "where": "\"matter_estate\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "matter_estate_matter_id_matter_id_fk": {
+          "name": "matter_estate_matter_id_matter_id_fk",
+          "tableFrom": "matter_estate",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "matter_estate_proceeding_type_check": {
+          "name": "matter_estate_proceeding_type_check",
+          "value": "\"matter_estate\".\"proceeding_type\" IS NULL OR \"matter_estate\".\"proceeding_type\" IN ('testate', 'intestate', 'small_estate', 'ancillary')"
         }
       }
     },
@@ -11011,6 +11274,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "capacity": {
+          "name": "capacity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "valid_from": {
           "name": "valid_from",
           "type": "text",
@@ -11263,6 +11533,82 @@
           "tableTo": "location",
           "columnsFrom": ["location_id"],
           "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "member_professional_profile": {
+      "name": "member_professional_profile",
+      "columns": {
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "admissions": {
+          "name": "admissions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "direct_dial": {
+          "name": "direct_dial",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "professional_email": {
+          "name": "professional_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "signature_block": {
+          "name": "signature_block",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_professional_profile_member_user_id_member_user_id_fk": {
+          "name": "member_professional_profile_member_user_id_member_user_id_fk",
+          "tableFrom": "member_professional_profile",
+          "tableTo": "member",
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -14135,88 +14481,6 @@
         }
       }
     },
-    "trust_authorization_policy": {
-      "name": "trust_authorization_policy",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "policy": {
-          "name": "policy",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "threshold_amount_minor": {
-          "name": "threshold_amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "require_authorized_approver": {
-          "name": "require_authorized_approver",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "set_by": {
-          "name": "set_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "set_at": {
-          "name": "set_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "trust_authorization_policy_version_unique_index": {
-          "name": "trust_authorization_policy_version_unique_index",
-          "columns": ["version"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "trust_authorization_policy_policy_check": {
-          "name": "trust_authorization_policy_policy_check",
-          "value": "\"trust_authorization_policy\".\"policy\" IN ('off', 'threshold', 'always')"
-        },
-        "trust_authorization_policy_threshold_shape_check": {
-          "name": "trust_authorization_policy_threshold_shape_check",
-          "value": "(\"trust_authorization_policy\".\"policy\" = 'threshold' AND \"trust_authorization_policy\".\"threshold_amount_minor\" IS NOT NULL AND \"trust_authorization_policy\".\"threshold_amount_minor\" >= 0) OR (\"trust_authorization_policy\".\"policy\" <> 'threshold' AND \"trust_authorization_policy\".\"threshold_amount_minor\" IS NULL)"
-        },
-        "trust_authorization_policy_authority_flag_check": {
-          "name": "trust_authorization_policy_authority_flag_check",
-          "value": "\"trust_authorization_policy\".\"require_authorized_approver\" IN (0, 1)"
-        },
-        "trust_authorization_policy_version_positive_check": {
-          "name": "trust_authorization_policy_version_positive_check",
-          "value": "\"trust_authorization_policy\".\"version\" > 0"
-        }
-      }
-    },
     "trust_bank_statement": {
       "name": "trust_bank_statement",
       "columns": {
@@ -14530,13 +14794,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "transfer_id": {
-          "name": "transfer_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -14548,11 +14805,6 @@
         "trust_disbursement_decision_movement_unique_index": {
           "name": "trust_disbursement_decision_movement_unique_index",
           "columns": ["movement_id"],
-          "isUnique": true
-        },
-        "trust_disbursement_decision_transfer_unique_index": {
-          "name": "trust_disbursement_decision_transfer_unique_index",
-          "columns": ["transfer_id"],
           "isUnique": true
         }
       },
@@ -14574,15 +14826,6 @@
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "trust_disbursement_decision_transfer_id_trust_transfer_id_fk": {
-          "name": "trust_disbursement_decision_transfer_id_trust_transfer_id_fk",
-          "tableFrom": "trust_disbursement_decision",
-          "tableTo": "trust_transfer",
-          "columnsFrom": ["transfer_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -14592,13 +14835,9 @@
           "name": "trust_disbursement_decision_decision_check",
           "value": "\"trust_disbursement_decision\".\"decision\" IN ('approved', 'rejected', 'withdrawn')"
         },
-        "trust_disbursement_decision_basis_check": {
-          "name": "trust_disbursement_decision_basis_check",
-          "value": "\"trust_disbursement_decision\".\"authorization_basis\" IS NULL OR \"trust_disbursement_decision\".\"authorization_basis\" IN ('second_person', 'sole_trust_manager', 'policy_exempt')"
-        },
         "trust_disbursement_decision_shape_check": {
           "name": "trust_disbursement_decision_shape_check",
-          "value": "(\"trust_disbursement_decision\".\"decision\" = 'approved' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NOT NULL AND \"trust_disbursement_decision\".\"reason\" IS NULL AND ((\"trust_disbursement_decision\".\"movement_id\" IS NOT NULL AND \"trust_disbursement_decision\".\"transfer_id\" IS NULL) OR (\"trust_disbursement_decision\".\"transfer_id\" IS NOT NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL)))\n        OR (\"trust_disbursement_decision\".\"decision\" = 'rejected' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND \"trust_disbursement_decision\".\"transfer_id\" IS NULL AND length(\"trust_disbursement_decision\".\"reason\") > 0)\n        OR (\"trust_disbursement_decision\".\"decision\" = 'withdrawn' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND \"trust_disbursement_decision\".\"transfer_id\" IS NULL AND (\"trust_disbursement_decision\".\"reason\" IS NULL OR length(\"trust_disbursement_decision\".\"reason\") > 0))"
+          "value": "(\"trust_disbursement_decision\".\"decision\" = 'approved' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NOT NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NOT NULL AND \"trust_disbursement_decision\".\"reason\" IS NULL)\n        OR (\"trust_disbursement_decision\".\"decision\" = 'rejected' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND length(\"trust_disbursement_decision\".\"reason\") > 0)\n        OR (\"trust_disbursement_decision\".\"decision\" = 'withdrawn' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND (\"trust_disbursement_decision\".\"reason\" IS NULL OR length(\"trust_disbursement_decision\".\"reason\") > 0))"
         }
       }
     },
@@ -14695,28 +14934,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'disbursement'"
-        },
-        "operating_description": {
-          "name": "operating_description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "policy_id": {
-          "name": "policy_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -14746,15 +14963,6 @@
           "tableFrom": "trust_disbursement_request",
           "tableTo": "trust_ledger_node",
           "columnsFrom": ["node_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "trust_disbursement_request_policy_id_trust_authorization_policy_id_fk": {
-          "name": "trust_disbursement_request_policy_id_trust_authorization_policy_id_fk",
-          "tableFrom": "trust_disbursement_request",
-          "tableTo": "trust_authorization_policy",
-          "columnsFrom": ["policy_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -15636,27 +15844,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "policy_id": {
-          "name": "policy_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "approved_request_id": {
-          "name": "approved_request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -15714,24 +15901,6 @@
           "tableFrom": "trust_transfer",
           "tableTo": "ledger_entry",
           "columnsFrom": ["operating_entry_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "trust_transfer_policy_id_trust_authorization_policy_id_fk": {
-          "name": "trust_transfer_policy_id_trust_authorization_policy_id_fk",
-          "tableFrom": "trust_transfer",
-          "tableTo": "trust_authorization_policy",
-          "columnsFrom": ["policy_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "trust_transfer_approved_request_id_trust_disbursement_request_id_fk": {
-          "name": "trust_transfer_approved_request_id_trust_disbursement_request_id_fk",
-          "tableFrom": "trust_transfer",
-          "tableTo": "trust_disbursement_request",
-          "columnsFrom": ["approved_request_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
