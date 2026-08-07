@@ -258,6 +258,37 @@ function claimKey(sourceKind: WorkInProgressKind, sourceId: string): string {
   return `${sourceKind}:${sourceId}`;
 }
 
+interface NonHourlyArrangement {
+  readonly kind: "flat_fee" | "contingency";
+  readonly version: number;
+}
+
+// The in-force fee agreement for each matter that is NOT billed by the hour. One chunked read over
+// the open rows; hourly-by-arrangement and hourly-by-absence both come back absent, because they
+// bill identically. Retainer matters are absent too — a retainer funds hourly work, it does not
+// price it.
+async function readNonHourlyArrangementKinds(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<Map<string, NonHourlyArrangement>> {
+  const byMatter = new Map<string, NonHourlyArrangement>();
+  for (let start = 0; start < matterIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = matterIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT matter_id, kind, version FROM matter_billing_arrangement
+          WHERE matter_id IN (${placeholders}) AND valid_to IS NULL AND kind IN ('flat_fee', 'contingency')`,
+      )
+      .bind(...chunk)
+      .all<{ matter_id: string; kind: "flat_fee" | "contingency"; version: number }>();
+    for (const row of results) {
+      byMatter.set(row.matter_id, { kind: row.kind, version: row.version });
+    }
+  }
+  return byMatter;
+}
+
 export interface AddClaimsResult {
   readonly claimIds: readonly InvoiceWipClaimId[];
   readonly lineIds: readonly InvoiceLineId[];
@@ -303,9 +334,15 @@ export async function addClaimsToDraft(
   const lineIds: InvoiceLineId[] = [];
 
   const claimableEntries = await loadClaimableEntries(database, requests);
-  const clientByMatter = await readMatterClientEntityIds(database, [
-    ...new Set([...claimableEntries.values()].map((entry) => entry.matterId)),
-  ]);
+  const matterIds = [...new Set([...claimableEntries.values()].map((entry) => entry.matterId))];
+  const clientByMatter = await readMatterClientEntityIds(database, matterIds);
+  // Which of these matters is NOT billed by the hour. A flat-fee matter's time contributes to the
+  // fee at a zero claimed amount through the flat-fee path, and a contingency matter's fee is a
+  // share of the recovery — composing an hourly fee line on either would charge the client twice
+  // for the same agreement. Costs stay claimable on every matter: advancing a filing fee is not a
+  // fee model. A retainer is a FUNDING arrangement, not a fee computation, so its time still bills
+  // hourly against the replenishing balance.
+  const nonHourlyKindByMatter = await readNonHourlyArrangementKinds(database, matterIds);
 
   for (const request of requests) {
     const entry = claimableEntries.get(claimKey(request.sourceKind, request.sourceId));
@@ -326,6 +363,17 @@ export async function addClaimsToDraft(
       throw new BillingValidationError(
         "invoice-client-mismatch",
         `matter ${entry.matterId} belongs to client ${clientEntityId}, but this invoice bills ${invoice.clientEntityId}: one invoice bills one client`,
+      );
+    }
+    const nonHourly = nonHourlyKindByMatter.get(entry.matterId);
+    if (entry.sourceKind === "time_entry" && nonHourly) {
+      const remedy =
+        nonHourly.kind === "flat_fee"
+          ? "add the flat fee to the draft and name this entry as contributing work instead"
+          : "the fee is a share of the recovery, composed from the recorded recovery instead";
+      throw new BillingValidationError(
+        "matter-not-billed-hourly",
+        `matter ${entry.matterId} is billed under a ${nonHourly.kind.replace("_", " ")} agreement (version ${nonHourly.version}), so its time is not charged by the hour: ${remedy}`,
       );
     }
     // ONE CURRENCY PER INVOICE, refused here rather than absorbed later. The line is written with

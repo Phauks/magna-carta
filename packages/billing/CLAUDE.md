@@ -30,6 +30,15 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/line-amounts.ts` — `invoiceLineAmountMinor` (through `roundInvoiceLine`) and `aggregateMinor`
 - `src/queries.ts` — the unbilled work-in-progress read (the hot one), the invoice list and detail,
   the per-matter receivable, and the aging read
+- `src/arrangements.ts` — the fee agreement: `setBillingArrangement` (a fee change is a NEW
+  version), the in-force/history reads, and `requireArrangementOfKind`
+- `src/flat-fee.ts` — `addFlatFeeToDraft`: one `flat_fee` line, contributing time claimed at ZERO
+- `src/contingency.ts` — `matter_recovery` record/void, `deriveContingencyFee` (always computed at
+  composition, never stored), and `addContingencyFeeToDraft`
+- `src/retainer.ts` — `readRetainerStatus` + the replenishment request record, and the
+  `billing.retainer.replenishment_requested` topic (the notifications seam)
+- `src/render-shape.ts` — the multi-matter render-shape firm setting and `readInvoiceRenderModel`
+  (per-matter pages + summary), the model the PDF tail consumes
 - `src/statements.ts` / `src/types.ts` / `src/billing-validation.ts` / `src/fitness.ts`
 
 ## Invariants that apply here
@@ -112,6 +121,39 @@ ADR-0072, ADR-0079.) **Invariants:**
   being repaid for money it advanced, not earning. `cost_entry.disbursement_class` already carries
   the distinction. That account runs negative until operating disbursements land — a documented open
   position, not a bug.
+- **The fee agreement is append-only and versioned; invoice lines pin the version.** A fee change is
+  a NEW `matter_billing_arrangement` version — dense per matter by trigger, one in force by partial
+  unique index, and the ONLY update a version ever takes is the one-time close of its `valid_to`
+  when superseded. Lines an arrangement composes (flat fee, contingency) carry
+  `billing_arrangement_id`, so what a finalized bill was computed under is permanent. Absence of an
+  arrangement means hourly; never backfill one.
+- **A contingency fee is DERIVED at composition, never stored as a decided number — and it is
+  OFFSET, never re-billed.** The stored facts are the agreement (share + costs-before-or-after
+  election) and the `matter_recovery` rows (void-with-reason their only edit);
+  `deriveContingencyFee` recomputes the WHOLE entitlement from them on every call, and the line
+  charges the entitlement minus every contingency fee already on a FINALIZED bill across the
+  MATTER'S WHOLE CONTINGENCY-AGREEMENT CHAIN — never scoped to the version, because an amendment
+  (even at the same share) mints a new version without minting a new recovery — so a later recovery
+  bills exactly its own increment, a re-compose after finalize refuses
+  (`contingency-nothing-unbilled`), and a draft carries at most one contingency line
+  (`contingency-fee-already-on-draft`). A share change re-levels to the in-force share: a raise
+  bills the difference, a cut that leaves billed above entitlement refuses and is a fitness
+  finding. Net-after-costs deducts the matter's advanced (hard)
+  costs, never soft costs, and only `approved`/`billed` entries — a draft cost is a claim nobody
+  confirmed. A basis that SHRINKS after billing (a voided recovery, a late cost) cannot be caught on
+  the write path; `contingencyBilledBeyondEntitlementStatement` is the mechanism that surfaces it.
+- **A non-hourly matter refuses hourly time claims by name** (`matter-not-billed-hourly`) — charging
+  a flat-fee or contingency client by the hour would bill the same agreement twice. Costs stay
+  claimable on every matter, and a retainer matter still bills hourly: a retainer FUNDS work, it
+  does not price it.
+- **The retainer floor is business configuration, never trust's floor.** `retainer_threshold_minor`
+  is the replenishment ask; the trust leaf's `min_balance_minor` is the structural no-negative floor
+  and is never repurposed. Retainer reads use trust's AVAILABLE figure (holds excluded) through
+  trust's own reads, and the replenishment request moves no money and writes no trust table.
+- **The render shape is SNAPSHOT at finalize, like the letterhead.** `invoice.render_shape` is
+  resolved (per-invoice override, else the firm setting in `render-shape.ts`) inside
+  `finalizeInvoice` and never read live afterwards; a null column (drafts, invoices finalized before
+  the column) derives as `combined`. The derivation is a read; no PDF machinery lives here.
 - **Money discipline.** Integer minor units everywhere; rounding only through the named helpers.
   `roundInvoiceLine` is half-AWAY-from-zero because an invoice line may be negative (a discount, a
   write-down); `roundTax` is half-up; `roundLedger` is banker's. Aggregating already-collapsed

@@ -14,6 +14,12 @@ export type InvoiceLineKind =
 
 export type InvoiceTaxTreatment = "taxable" | "exempt";
 
+// How a bill spanning several matters is presented: one flowing document, or one page per matter
+// plus a summary page. A render-shape fact on the invoice — snapshot at finalize from the firm's
+// default (overridable per invoice), read by the render derivation, and never a rendering engine
+// concern here.
+export type InvoiceRenderShape = "combined" | "per_matter_pages";
+
 // Every way value reaches an invoice. The kind is the direction and the provenance in one column: a
 // reversal carries a positive amount and subtracts because it is a reversal, never because of a sign.
 //

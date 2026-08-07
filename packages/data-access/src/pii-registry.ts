@@ -720,6 +720,17 @@ export const NO_PII_TABLES: readonly string[] = [
   // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
   // by another name, and configuration rather than personal data (the line `rate_card` sits on).
   "firm_account_role",
+  // The fee agreement: how a matter is billed — a kind, its amounts, and a validity window, in the
+  // effective-dated shape `rate` sits on. Business configuration about a MATTER; whose matter it is
+  // resolves through matter_party, never through a column here.
+  "matter_billing_arrangement",
+  // A recorded recovery: a matter handle, an amount, a date, and firm-member provenance. Its
+  // description is the firm's own narrative of a settlement or judgment — free text with no
+  // structured subject, the residue class matter.description established.
+  "matter_recovery",
+  // A replenishment ask: a matter, an arrangement version, two observed integers, and firm-member
+  // provenance on who raised and who resolved it. Nothing about a person of its own.
+  "retainer_replenishment_request",
   // The case calendar. The one table that references a person (matter_event_participant) is
   // registered in PII_TABLES above; these three carry no structured personal-data column.
   // The event-type catalog is a classification vocabulary (hearing, deposition, filing), the line

@@ -6,6 +6,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 
 - [`signing-in.md`](signing-in.md) — Signing in: the email, password, and authenticator-code steps, staying signed in, trusting a device, and what to do when a sign-in is refused.
 - [`asset-register.md`](asset-register.md) — Asset register: what an estate or a client owns, kept on the matter, with a dated value history, interests, and linked documents (backend built, screens pending).
+- [`billing-fee-arrangements.md`](billing-fee-arrangements.md) — Fee arrangements: recording how a matter is billed (hourly, flat fee, contingency, retainer), billing each kind, retainer top-ups, and how multi-matter bills are presented (backend built, screens pending).
 - [`case-calendar-and-deadlines.md`](case-calendar-and-deadlines.md) — Case calendar and deadlines: recording hearings and filings, recording the dates the firm must act by, and the matter timeline that gathers everything already recorded about a case (backend built, screens pending).
 - [`document-templates-and-assembly.md`](document-templates-and-assembly.md) — Document templates and assembly: authoring a template in Word, registering it, and producing a document onto a matter (backend built, screens pending).
 - [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).

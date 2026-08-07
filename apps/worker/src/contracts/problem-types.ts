@@ -332,6 +332,11 @@ export const PROBLEM_TYPES = {
   // money is not there, here the debt is not — and it is a 409 for the same reason: a credit note or
   // another payment may have consumed the balance since the caller last looked.
   "billing-exceeds-unpaid-balance": "billing-exceeds-unpaid-balance",
+  // A retainer replenishment ask raised while one is already open for the matter (HTTP 409). One
+  // open ask per matter is the rule — a floor that stays crossed must not stack a new request on
+  // every look — and the remedy is to resolve the open one, which is why this is a conflict rather
+  // than a refusal on the merits.
+  "billing-replenishment-already-open": "billing-replenishment-already-open",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.
