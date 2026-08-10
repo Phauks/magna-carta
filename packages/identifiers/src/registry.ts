@@ -237,6 +237,20 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
+  // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
+  // its own table rather than a null where a case should be; a `firmEventParticipant` is one person
+  // on it, in the same three shapes a matter event's participants take. A `firmResource` is a
+  // bookable thing the firm owns (a conference room, a pool car, a projector); a
+  // `firmResourceBooking` occupies one resource for one event's sake, with its own window because
+  // the room is booked from half past eight for a nine o'clock deposition. A `calendarEventLink` is
+  // a typed relation between two events — `related`, or the `continuance_of` chain that shows what
+  // a continued hearing was continued from.
+  firmEvent: "firmEvent",
+  firmEventParticipant: "firmEventParticipant",
+  firmResource: "firmResource",
+  firmResourceBooking: "firmResourceBooking",
+  calendarEventLink: "calendarEventLink",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

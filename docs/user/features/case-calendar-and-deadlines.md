@@ -37,10 +37,13 @@ zone it happens in. Everything else is optional.
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a
   directory contact for a judge you will never write to.
 
-**A hearing that gets continued is the same hearing on a new date.** Change the date; the record
-moves and the change is kept in the audit trail. You do not end up with two hearings on the calendar
-and a question about which one counts. A hearing that comes off entirely is **cancelled**, not
-deleted — that it was vacated is itself a fact about the case.
+**Correcting a record and rescheduling reality are different acts, and there is a verb for each.**
+Typed the 13th when the hearing was always on the 14th? Edit the event — the record misdescribed
+reality, and fixing it is one change with the audit trail behind it. But when the court vacates a
+setting and makes a new one, **continue** the event instead: both settings happened in the world,
+and the record keeps both — see [Continuing a hearing](continuing-a-hearing.md). A hearing that
+comes off entirely is **cancelled**, not deleted, with an optional note saying why — that it was
+vacated is itself a fact about the case.
 
 ## Recording a deadline
 
@@ -127,6 +130,10 @@ retired type keeps its meaning. The shipped types can be retired or regrouped bu
 
 ## Related features
 
+- [Continuing a hearing](continuing-a-hearing.md) — when the court vacates a setting and makes a
+  new one, the record shows both.
+- [Firm events and rooms](firm-events-and-rooms.md) — meetings, closures, and holidays that belong
+  to the firm rather than to a case, and the rooms and vehicles they book.
 - [Safe custody register](safe-custody-register.md) — review dates and due-backs for physical
   originals appear on the case timeline.
 - [Filing email to a matter](filing-email-to-a-matter.md) — filed mail appears on the timeline.

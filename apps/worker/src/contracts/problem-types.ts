@@ -129,6 +129,34 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // A firm event given an event type from another category (HTTP 422). The two calendar scopes share
+  // one type catalog and `category` is the only thing separating them, so typing the all-hands as a
+  // "Hearing" would file a staff meeting as procedural history everywhere a surface groups by
+  // category. Fixed by choosing a firm-category type, never by the caller rephrasing the request.
+  "calendar-event-type-category-mismatch": "calendar-event-type-category-mismatch",
+  // A booking against a resource that has been deactivated (HTTP 422). Soft-deactivation's meaning:
+  // existing bookings keep resolving and the history stands; new bookings are refused. Fixed by
+  // reactivating the resource or booking another one. DISTINCT from `validation` — the request is
+  // well formed and the resource is real; it has been retired.
+  "calendar-resource-inactive": "calendar-resource-inactive",
+  // A resource name the firm already uses (HTTP 422). Two rooms called the same thing are one room
+  // nobody can book on purpose, so the catalog holds names unique and this refusal names the
+  // collision before the unique index aborts it.
+  "calendar-resource-name-taken": "calendar-resource-name-taken",
+  // A continuance asked of a setting that cannot take one (HTTP 409): it is already cancelled, or it
+  // already has a successor in the chain. Continue the LATEST setting instead — the chain holds one
+  // predecessor and one successor per setting, refused by the schema itself under racing writes.
+  "calendar-event-not-continuable": "calendar-event-not-continuable",
+  // A second related link between the same pair of events, in either direction (HTTP 422). 'related'
+  // is undirected in meaning though stored directed, so A-to-B and B-to-A are the same fact twice.
+  "calendar-duplicate-link": "calendar-duplicate-link",
+  // An attempt to delete a continuance link through the link routes (HTTP 422). A continuance link
+  // is the record of what was continued from what — procedural history, minted only by the continue
+  // operation and never removed; a related link is the only deletable kind.
+  "calendar-continuance-link-immutable": "calendar-continuance-link-immutable",
+  // A continuance chain deeper than the walk's bound (HTTP 422). A hearing continued a hundred
+  // times is corrupt data, not litigation; the read refuses rather than walking it.
+  "calendar-continuance-chain-too-deep": "calendar-continuance-chain-too-deep",
   // An asset given a type declared under a different class (HTTP 422). A firm filing a retirement
   // account under `vehicle` has made a data-entry error, not expressed a preference — the class
   // decides which structured columns exist, so the pairing has to hold. Also raised when a class's

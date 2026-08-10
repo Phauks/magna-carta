@@ -77,6 +77,13 @@ async function get(path: string, cookie = ownerCookie) {
   });
 }
 
+async function del(path: string, cookie = ownerCookie) {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "DELETE",
+    headers: authHeaders(cookie, crypto.randomUUID()),
+  });
+}
+
 async function createMatter(title: string): Promise<string> {
   // Prospective rather than open: the calendar has no interest in a matter's NUMBER, and drawing
   // one would make this block depend on a numbering scheme it does not otherwise need.
@@ -362,5 +369,319 @@ describe("the event-type catalog", () => {
       code: "CITATION",
     });
     expect(own.status).toBe(201);
+  });
+});
+
+describe("the firm's own scope: firm events, rooms, and bookings", () => {
+  it("records a firm meeting with two members and an external speaker, and reads it back", async () => {
+    const secondMember = await seedCredentialedUser("calendar-second@example.com", {
+      userName: "Second Member",
+      firmId,
+    });
+    await mirrorMemberWithOwnerRole(secondMember.userId, "Second Member", firmId);
+
+    const created = await post("/api/v1/firm-events", {
+      title: "Continuing legal education: trust accounting",
+      startsOn: "2026-09-10",
+      startsAtTime: "12:00",
+      endsAtTime: "13:30",
+      timeZone: "America/Los_Angeles",
+      participants: [
+        { participantKind: "member", memberUserId: ownerUserId },
+        { participantKind: "member", memberUserId: secondMember.userId },
+        { participantKind: "external", participantName: "Visiting speaker", role: "speaker" },
+      ],
+    });
+    expect(created.status).toBe(201);
+    const { id: firmEventId } = (await created.json()) as { id: string };
+
+    const detail = await get(`/api/v1/firm-events/${firmEventId}`);
+    expect(detail.status).toBe(200);
+    const body = (await detail.json()) as {
+      event: { audience: string; status: string };
+      participants: { participantKind: string }[];
+    };
+    expect(body.event.audience).toBe("participants");
+    expect(body.participants).toHaveLength(3);
+  });
+
+  it("puts an all-members closure on every member's filtered read, and keeps firm events off the matter timeline", async () => {
+    const closure = await post("/api/v1/firm-events", {
+      title: "Office closed — statewide holiday",
+      startsOn: "2026-10-30",
+      timeZone: "America/Los_Angeles",
+      audience: "all_members",
+    });
+    expect(closure.status).toBe(201);
+    const { id: closureId } = (await closure.json()) as { id: string };
+
+    // A member with NO participant row anywhere still sees the closure on their calendar: that is
+    // what the all-members audience is for.
+    const readerSession = await get(
+      `/api/v1/calendar/events?from=2026-10-01&to=2026-10-31&memberId=${ownerUserId}`,
+      readOnlyCookie,
+    );
+    expect(readerSession.status).toBe(200);
+    const filtered = (await readerSession.json()) as {
+      data: { sourceKey: string; rowId: string; label: string | null }[];
+    };
+    const firmEntries = filtered.data.filter((entry) => entry.sourceKey === "firmEvent");
+    expect(firmEntries.map((entry) => entry.rowId)).toContain(closureId);
+    // The label carries the audience and the catalog term, never the title.
+    expect(JSON.stringify(filtered.data)).not.toContain("statewide holiday");
+
+    // A matter timeline never shows a firm event: it belongs to no case.
+    const timeline = await get(`/api/v1/matters/${matterId}/timeline`);
+    const timelineBody = (await timeline.json()) as { data: { sourceKey: string }[] };
+    expect(timelineBody.data.some((entry) => entry.sourceKey === "firmEvent")).toBe(false);
+
+    // The scope filter narrows to the firm side only.
+    const firmOnly = await get("/api/v1/calendar/events?from=2026-10-01&to=2026-10-31&scope=firm");
+    const firmOnlyBody = (await firmOnly.json()) as { data: { sourceKey: string }[] };
+    expect(firmOnlyBody.data.every((entry) => entry.sourceKey === "firmEvent")).toBe(true);
+  });
+
+  it("refuses the firm-scope writes to a member who holds only calendar:read", async () => {
+    const refused = await post(
+      "/api/v1/firm-events",
+      { title: "Not allowed", startsOn: "2026-09-14", timeZone: "America/Los_Angeles" },
+      readOnlyCookie,
+    );
+    expect(refused.status).toBe(403);
+    const refusedResource = await post(
+      "/api/v1/calendar/resources",
+      { name: "Not allowed", kind: "room" },
+      readOnlyCookie,
+    );
+    expect(refusedResource.status).toBe(403);
+  });
+
+  it("books a room for a hearing, warns on the double-booking, and frees the room by derivation", async () => {
+    const room = await post("/api/v1/calendar/resources", {
+      name: "Conference Room A",
+      kind: "room",
+      capacity: 10,
+    });
+    expect(room.status).toBe(201);
+    const { id: roomId } = (await room.json()) as { id: string };
+
+    const hearing = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Deposition of R. Malloy",
+      startsOn: "2026-09-21",
+      startsAtTime: "09:00",
+      endsAtTime: "12:00",
+      timeZone: "America/Los_Angeles",
+    });
+    const { id: hearingId } = (await hearing.json()) as { id: string };
+
+    const booked = await post("/api/v1/resource-bookings", {
+      resourceId: roomId,
+      matterEventId: hearingId,
+      // The setup-time case: the room from half past eight.
+      startsAtTime: "08:30",
+    });
+    expect(booked.status).toBe(201);
+    const bookedBody = (await booked.json()) as { id: string; conflicts: unknown[] };
+    expect(bookedBody.conflicts).toHaveLength(0);
+
+    // The room being taken is NEVER a reason a hearing cannot be recorded: the second hearing
+    // records, its booking lands, and the conflict is reported rather than refused.
+    const second = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Status conference",
+      startsOn: "2026-09-21",
+      startsAtTime: "10:00",
+      endsAtTime: "11:00",
+      timeZone: "America/Los_Angeles",
+    });
+    expect(second.status).toBe(201);
+    const { id: secondId } = (await second.json()) as { id: string };
+    const doubleBooked = await post("/api/v1/resource-bookings", {
+      resourceId: roomId,
+      matterEventId: secondId,
+    });
+    expect(doubleBooked.status).toBe(201);
+    const doubleBody = (await doubleBooked.json()) as {
+      id: string;
+      conflicts: { bookingId: string }[];
+    };
+    expect(doubleBody.conflicts.map((conflict) => conflict.bookingId)).toContain(bookedBody.id);
+    // A conflict is a reference with a window and a link — never a title.
+    expect(JSON.stringify(doubleBody.conflicts)).not.toContain("Deposition");
+
+    // The availability grid pre-pairs the overlap.
+    const availability = await get(
+      `/api/v1/calendar/resources/${roomId}/availability?from=2026-09-01&to=2026-09-30`,
+    );
+    expect(availability.status).toBe(200);
+    const availabilityBody = (await availability.json()) as {
+      data: { bookingId: string; overlappingBookingIds: string[]; eventTypeName: string | null }[];
+    };
+    expect(availabilityBody.data).toHaveLength(2);
+    expect(
+      availabilityBody.data.find((entry) => entry.bookingId === bookedBody.id)
+        ?.overlappingBookingIds,
+    ).toContain(doubleBody.id);
+
+    // Cancelling the second hearing frees the room with no second write anywhere.
+    const cancelled = await post(`/api/v1/events/${secondId}/cancel`, {
+      statusReason: "Off calendar",
+    });
+    expect(cancelled.status).toBe(200);
+    const after = await get(
+      `/api/v1/calendar/resources/${roomId}/availability?from=2026-09-01&to=2026-09-30`,
+    );
+    const afterBody = (await after.json()) as { data: { bookingId: string }[] };
+    expect(afterBody.data.map((entry) => entry.bookingId)).toEqual([bookedBody.id]);
+
+    // Deleting the surviving booking is a true delete.
+    const deleted = await del(`/api/v1/resource-bookings/${bookedBody.id}`);
+    expect(deleted.status).toBe(200);
+  });
+});
+
+describe("continuance: the record shows what was continued from what", () => {
+  it("continues a hearing, reports its deadlines and released bookings, and walks the chain", async () => {
+    const hearing = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Hearing on the merits",
+      startsOn: "2026-11-09",
+      startsAtTime: "09:00",
+      timeZone: "America/Los_Angeles",
+      participants: [
+        { participantKind: "external", participantName: "Hon. A. Judge", role: "judge" },
+      ],
+    });
+    const { id: firstSettingId } = (await hearing.json()) as { id: string };
+
+    const deadline = await post(`/api/v1/matters/${matterId}/deadlines`, {
+      title: "Trial brief due",
+      dueOn: "2026-11-02",
+      timeZone: "America/Los_Angeles",
+      triggerEventId: firstSettingId,
+    });
+    const { id: deadlineId } = (await deadline.json()) as { id: string };
+
+    const room = await post("/api/v1/calendar/resources", {
+      name: "War room",
+      kind: "room",
+    });
+    const { id: roomId } = (await room.json()) as { id: string };
+    const booking = await post("/api/v1/resource-bookings", {
+      resourceId: roomId,
+      matterEventId: firstSettingId,
+    });
+    const { id: bookingId } = (await booking.json()) as { id: string };
+
+    const continued = await post(`/api/v1/events/${firstSettingId}/continue`, {
+      startsOn: "2026-12-14",
+      statusReason: "Continued on defendant's motion",
+    });
+    expect(continued.status).toBe(201);
+    const continuedBody = (await continued.json()) as {
+      newEventId: string;
+      oldEventId: string;
+      triggerLinkedOpenDeadlines: { id: string; dueOn: string }[];
+      releasedBookings: { bookingId: string }[];
+    };
+    expect(continuedBody.oldEventId).toBe(firstSettingId);
+    // The deadline is REPORTED, with its date untouched: nothing moves a date.
+    expect(continuedBody.triggerLinkedOpenDeadlines.map((row) => row.id)).toEqual([deadlineId]);
+    expect(continuedBody.triggerLinkedOpenDeadlines[0]?.dueOn).toBe("2026-11-02");
+    // The booking the status change just released, so the person can re-book at the new time.
+    expect(continuedBody.releasedBookings.map((row) => row.bookingId)).toEqual([bookingId]);
+
+    // The old setting: cancelled with the reason, history intact, badge pointing forward.
+    const oldDetail = await get(`/api/v1/events/${firstSettingId}`);
+    const oldBody = (await oldDetail.json()) as {
+      event: {
+        status: string;
+        statusReason: string | null;
+        startsOn: string;
+        continuedToEventId: string | null;
+      };
+      participants: unknown[];
+    };
+    expect(oldBody.event.status).toBe("cancelled");
+    expect(oldBody.event.statusReason).toBe("Continued on defendant's motion");
+    expect(oldBody.event.startsOn).toBe("2026-11-09");
+    expect(oldBody.event.continuedToEventId).toBe(continuedBody.newEventId);
+
+    // The new setting: scheduled, participants carried, badge pointing back.
+    const newDetail = await get(`/api/v1/events/${continuedBody.newEventId}`);
+    const newBody = (await newDetail.json()) as {
+      event: { status: string; startsOn: string; continuedFromEventId: string | null };
+      participants: unknown[];
+    };
+    expect(newBody.event.status).toBe("scheduled");
+    expect(newBody.event.startsOn).toBe("2026-12-14");
+    expect(newBody.event.continuedFromEventId).toBe(firstSettingId);
+    expect(newBody.participants).toHaveLength(1);
+
+    // A second continuance of the SAME setting is refused by name; the chain continues from the end.
+    const refused = await post(`/api/v1/events/${firstSettingId}/continue`, {
+      startsOn: "2027-01-11",
+    });
+    expect(refused.status).toBe(409);
+    const refusedProblem = (await refused.json()) as { type: string };
+    expect(refusedProblem.type).toContain("calendar-event-not-continuable");
+
+    const secondContinuance = await post(`/api/v1/events/${continuedBody.newEventId}/continue`, {
+      startsOn: "2027-01-11",
+      statusReason: "Continued again",
+    });
+    expect(secondContinuance.status).toBe(201);
+    const thirdSetting = (await secondContinuance.json()) as { newEventId: string };
+
+    // The chain read walks the whole path in order from the MIDDLE node.
+    const chain = await get(`/api/v1/events/${continuedBody.newEventId}/continuance-chain`);
+    expect(chain.status).toBe(200);
+    const chainBody = (await chain.json()) as {
+      data: { eventId: string; status: string; statusReason: string | null }[];
+    };
+    expect(chainBody.data.map((node) => node.eventId)).toEqual([
+      firstSettingId,
+      continuedBody.newEventId,
+      thirdSetting.newEventId,
+    ]);
+    expect(chainBody.data.at(-1)?.status).toBe("scheduled");
+  });
+
+  it("relates two events with a link, refuses the duplicate, and refuses deleting a continuance link", async () => {
+    const prep = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Prep session",
+      startsOn: "2026-11-05",
+      timeZone: "America/Los_Angeles",
+    });
+    const { id: prepId } = (await prep.json()) as { id: string };
+    const firmEvent = await post("/api/v1/firm-events", {
+      title: "War-room afternoon",
+      startsOn: "2026-11-06",
+      timeZone: "America/Los_Angeles",
+    });
+    const { id: firmEventId } = (await firmEvent.json()) as { id: string };
+
+    const linked = await post("/api/v1/event-links", {
+      fromMatterEventId: prepId,
+      toFirmEventId: firmEventId,
+      note: "Prep for the Malloy deposition",
+    });
+    expect(linked.status).toBe(201);
+    const { id: linkId } = (await linked.json()) as { id: string };
+
+    const duplicate = await post("/api/v1/event-links", {
+      fromFirmEventId: firmEventId,
+      toMatterEventId: prepId,
+    });
+    expect(duplicate.status).toBe(422);
+
+    // Both ends on one side is a malformed link, refused at the door.
+    const malformed = await post("/api/v1/event-links", {
+      fromMatterEventId: prepId,
+      fromFirmEventId: firmEventId,
+      toMatterEventId: prepId,
+    });
+    expect(malformed.status).toBe(422);
+
+    const unlinked = await del(`/api/v1/event-links/${linkId}`);
+    expect(unlinked.status).toBe(200);
   });
 });

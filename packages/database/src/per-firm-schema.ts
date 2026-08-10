@@ -14,6 +14,7 @@ import type {
   AiDetectionUsageId,
   AuditLogId,
   BillingArrangementId,
+  CalendarEventLinkId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
@@ -59,6 +60,10 @@ import type {
   EntityMergeId,
   FileId,
   FileVersionId,
+  FirmEventId,
+  FirmEventParticipantId,
+  FirmResourceBookingId,
+  FirmResourceId,
   FirmSecretId,
   FolderId,
   GrantId,
@@ -4917,6 +4922,11 @@ export const matterEvent = sqliteTable(
     status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
       .notNull()
       .default("scheduled"),
+    // Why this setting is no longer happening, when it is not — set by the cancel and continuance
+    // paths, optional because an outright cancellation does not always deserve a paragraph. What
+    // distinguishes a continuance from a cancellation is not this column but the existence of a
+    // successor, which is calendar_event_link's fact.
+    statusReason: text("status_reason"),
     startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
     startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day, which is what a filing is
     endsOn: text("ends_on"), // null on a point event; set on a range, which is what a three-day trial is
@@ -5151,6 +5161,335 @@ export const matterDeadline = sqliteTable(
     check(
       "matter_deadline_priority_check",
       sql`${table.priority} IS NULL OR ${table.priority} > 0`,
+    ),
+  ],
+);
+
+// What the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a
+// reservation. Its own table and NOT a nullable matter_id on matter_event, twice over: every read of
+// matter_event is "what happened on this case" and the visibility predicate keys off the matter — a
+// null matter would put a does-not-apply branch inside the one seam whose value is having no
+// branches — and mechanically, dropping a NOT NULL on a shipped SQLite table is a rebuild the
+// additive-only lineage forbids. The two tables are the two answers to "whose calendar is this on".
+//
+// The event SHAPE is matter_event's (civil dates, separate optional times, a required per-row IANA
+// zone, the same status vocabulary and record-versus-appearance instants); the scope is the firm's.
+// The type catalog is SHARED deliberately: matter_event_type's category column already carries
+// 'firm', its rows are vocabulary rather than matter facts, and a second catalog would mean the firm
+// curating "Meeting" twice — the table's matter_ name prefix is an accepted naming wart, cheaper
+// than a second home for one vocabulary.
+//
+// `audience` is what makes a firm-wide entry possible without enumerating members: an 'all_members'
+// event is on everyone's calendar by construction — a participant list decays with every hire, and a
+// firm holiday that silently misses the newest associate is worse than none. A 'participants' event
+// is on the calendars of the people listed. There is deliberately no personal-appointment shape
+// here: a firm event is readable by every member by construction, and "dentist, Thursday 3pm" has an
+// audience of one and a privacy posture the trusted-insider model does not cover.
+//
+// location_id is a real foreign key where matter_event's location_text is free text, because a firm
+// event — unlike a hearing — usually IS at one of the firm's offices; nullable because an offsite
+// retreat is real, with location_text beside it for the venue or the detail within an office.
+export const firmEvent = sqliteTable(
+  "firm_event",
+  {
+    id: text("id").primaryKey().$type<FirmEventId>(), // firmEvent_ handle
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
+      .notNull()
+      .default("scheduled"),
+    // Why this is no longer happening, when it is not. Optional: a cancelled staff meeting does not
+    // always deserve a paragraph.
+    statusReason: text("status_reason"),
+    startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
+    startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day
+    endsOn: text("ends_on"),
+    endsAtTime: text("ends_at_time"),
+    // Required, per row. Defaulted by the interface from the hosting office; a firm retreat in
+    // another state overrides it per row, exactly as a hearing in another state's court does.
+    timeZone: text("time_zone").notNull(),
+    audience: text("audience", { enum: ["all_members", "participants"] })
+      .notNull()
+      .default("participants"),
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    locationText: text("location_text"),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The firm calendar's date-ranged read: filter, sort, and keyset out of one composite.
+    index("firm_event_starts_on_id_index").on(table.startsOn, table.id),
+    // "What is still scheduled" — filtered before it is sorted, so the filter column leads.
+    index("firm_event_status_starts_on_index").on(table.status, table.startsOn),
+    index("firm_event_location_index").on(table.locationId),
+    check("firm_event_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "firm_event_status_check",
+      sql`${table.status} IN ('scheduled', 'occurred', 'cancelled')`,
+    ),
+    check("firm_event_audience_check", sql`${table.audience} IN ('all_members', 'participants')`),
+    check("firm_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "firm_event_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_event_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_event_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_event_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_event_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    check(
+      "firm_event_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// Who is at a firm meeting: mostly members, sometimes a Directory entity (the bank's relationship
+// manager), sometimes an external who belongs in nobody's conflicts corpus (a visiting CLE speaker).
+// A second table rather than a nullable firm_event_id on matter_event_participant, because that
+// table's event_id is NOT NULL and shipped, and "exactly one of two columns" cannot be retrofitted
+// without a rebuild. The duplication is the schema's, not the code's — the participant replace-set
+// logic in @magna-carta/calendar is written once and parameterized over the table.
+export const firmEventParticipant = sqliteTable(
+  "firm_event_participant",
+  {
+    id: text("id").primaryKey().$type<FirmEventParticipantId>(), // firmEventParticipant_ handle
+    firmEventId: text("firm_event_id")
+      .notNull()
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key
+    // (the matter_event_participant precedent).
+    entityId: text("entity_id"),
+    participantName: text("participant_name"),
+    role: text("role"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("firm_event_participant_event_index").on(table.firmEventId),
+    // "What is on my calendar" — the member filter, resolved as a predicate in SQL.
+    index("firm_event_participant_member_index").on(table.memberUserId),
+    check(
+      "firm_event_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "firm_event_participant_shape_check",
+      sql`(${table.participantKind} = 'member' AND ${table.memberUserId} IS NOT NULL)
+        OR (${table.participantKind} = 'entity' AND ${table.entityId} IS NOT NULL)
+        OR (${table.participantKind} = 'external' AND ${table.participantName} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A bookable thing the firm owns: a conference room, a pool car, the video rig. Its own table — NOT
+// a Directory entity (the Directory is the conflicts corpus, and "Conference Room A" beside opposing
+// counsel in the same search index is the forced-judge problem with none of the judge's dignity),
+// and NOT a custody_location node (that tree answers "where is the original will"; entangling what
+// can be reserved with where things are kept couples two subsystems that change for different
+// reasons). Its natural foreign key is `location` — the same office table the custody tree's roots
+// bind to, so the two views of the building agree on what an office is without sharing rows.
+//
+// `kind` is a closed platform enum, not a firm catalog: unlike event types, no
+// jurisdiction-specific vocabulary exists here and nothing branches on it beyond grouping and
+// iconography (the custody_location.kind discipline); 'other' is the pressure valve. `capacity` is
+// nullable and NOTHING enforces it — the platform does not refuse a twelve-person meeting in a
+// ten-seat room; capacity renders on the picker so a person can decide.
+export const firmResource = sqliteTable(
+  "firm_resource",
+  {
+    id: text("id").primaryKey().$type<FirmResourceId>(), // firmResource_ handle
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ["room", "vehicle", "equipment", "other"] }).notNull(),
+    // The home office; null for a resource assigned to none.
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    capacity: integer("capacity"),
+    notes: text("notes"),
+    // Soft-deactivate, the catalog discipline: a deactivated room keeps its history and takes no
+    // new bookings.
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("firm_resource_name_unique_index").on(table.name),
+    check("firm_resource_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "firm_resource_kind_check",
+      sql`${table.kind} IN ('room', 'vehicle', 'equipment', 'other')`,
+    ),
+    check("firm_resource_capacity_check", sql`${table.capacity} IS NULL OR ${table.capacity} > 0`),
+  ],
+);
+
+// One resource occupied for one event's sake. Its own row because the two facts genuinely diverge:
+// one event can occupy several resources, and a booking's window is not always the event's window —
+// the room is booked from half past eight for a nine o'clock deposition because somebody has to set
+// up. But a booking is NEVER freestanding: every booking belongs to exactly one event (matter or
+// firm — the participant-kind exactly-one idiom), because "a room is busy because something is
+// happening in it" is the one rule that keeps who-booked-it, who-is-going, cancellation, and the
+// calendar's read surfaces from being reinvented per booking. "Book the pool car Friday" with no
+// event is a firm event of the seeded Reservation type with the booking attached.
+//
+// A booking's LIVENESS IS DERIVED from its event, never stored: it blocks the resource if and only
+// if its event's status is not 'cancelled'. There is no released flag and no second write when an
+// event is cancelled or continued — a fact that is a join cannot drift from the row it joins, and
+// releasing is not an action at all.
+//
+// time_zone is THE RESOURCE'S zone: defaulted from the resource's office (location.time_zone) and
+// frozen on the row at the write (the rate-snapshot idiom), so an office zone change never silently
+// reinterprets an existing booking.
+export const firmResourceBooking = sqliteTable(
+  "firm_resource_booking",
+  {
+    id: text("id").primaryKey().$type<FirmResourceBookingId>(), // firmResourceBooking_ handle
+    resourceId: text("resource_id")
+      .notNull()
+      .$type<FirmResourceId>()
+      .references(() => firmResource.id),
+    matterEventId: text("matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    firmEventId: text("firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    // Defaulted from the event at the write, editable per booking (the setup-time case), and never
+    // silently re-derived afterward. Null times mean all day (a vehicle taken for the day).
+    startsOn: text("starts_on").notNull(),
+    startsAtTime: text("starts_at_time"),
+    endsOn: text("ends_on"),
+    endsAtTime: text("ends_at_time"),
+    timeZone: text("time_zone").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The availability read's filter, sort, and keyset.
+    index("firm_resource_booking_resource_starts_index").on(
+      table.resourceId,
+      table.startsOn,
+      table.id,
+    ),
+    index("firm_resource_booking_matter_event_index").on(table.matterEventId),
+    index("firm_resource_booking_firm_event_index").on(table.firmEventId),
+    check(
+      "firm_resource_booking_event_shape_check",
+      sql`(${table.matterEventId} IS NOT NULL AND ${table.firmEventId} IS NULL)
+        OR (${table.matterEventId} IS NULL AND ${table.firmEventId} IS NOT NULL)`,
+    ),
+    check("firm_resource_booking_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "firm_resource_booking_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    check(
+      "firm_resource_booking_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// A typed, directed relation between two events — the calendar linking to itself, so integrity is
+// enforceable and is enforced with real foreign keys (events are never hard-deleted, so a link never
+// dangles). Four nullable end columns with an exactly-one shape check per end. `kind` is closed and
+// small because the engine branches on 'continuance_of' (the chain rules) and on nothing else;
+// everything a firm means beyond that goes in the note. 'related' is undirected in meaning though
+// stored directed; readers render it symmetrically.
+export const calendarEventLink = sqliteTable(
+  "calendar_event_link",
+  {
+    id: text("id").primaryKey().$type<CalendarEventLinkId>(), // calendarEventLink_ handle
+    fromMatterEventId: text("from_matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    fromFirmEventId: text("from_firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    toMatterEventId: text("to_matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    toFirmEventId: text("to_firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    kind: text("kind", { enum: ["continuance_of", "related"] }).notNull(),
+    note: text("note"),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // One per end column: "links touching this event", from either side.
+    index("calendar_event_link_from_matter_index").on(table.fromMatterEventId),
+    index("calendar_event_link_from_firm_index").on(table.fromFirmEventId),
+    index("calendar_event_link_to_matter_index").on(table.toMatterEventId),
+    index("calendar_event_link_to_firm_index").on(table.toFirmEventId),
+    // What makes a continuance chain a CHAIN: at most one predecessor and at most one successor per
+    // setting, so a hearing continued three times is a path walkable in both directions and a fork
+    // is refused by the database even under racing writes — never by a service invariant somebody
+    // forgets. Matter ends only, which the continuance check below already guarantees.
+    uniqueIndex("calendar_event_link_continuance_from_unique")
+      .on(table.fromMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
+    uniqueIndex("calendar_event_link_continuance_to_unique")
+      .on(table.toMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
+    check("calendar_event_link_kind_check", sql`${table.kind} IN ('continuance_of', 'related')`),
+    check(
+      "calendar_event_link_from_shape_check",
+      sql`(${table.fromMatterEventId} IS NOT NULL AND ${table.fromFirmEventId} IS NULL)
+        OR (${table.fromMatterEventId} IS NULL AND ${table.fromFirmEventId} IS NOT NULL)`,
+    ),
+    check(
+      "calendar_event_link_to_shape_check",
+      sql`(${table.toMatterEventId} IS NOT NULL AND ${table.toFirmEventId} IS NULL)
+        OR (${table.toMatterEventId} IS NULL AND ${table.toFirmEventId} IS NOT NULL)`,
+    ),
+    check(
+      "calendar_event_link_continuance_matter_check",
+      sql`${table.kind} <> 'continuance_of' OR (${table.fromMatterEventId} IS NOT NULL AND ${table.toMatterEventId} IS NOT NULL)`,
     ),
   ],
 );

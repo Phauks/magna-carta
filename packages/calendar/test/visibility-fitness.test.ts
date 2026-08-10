@@ -6,9 +6,11 @@ import {
   selectMatterDeadlineStatement,
   selectMatterDeadlinesStatement,
   selectOpenDeadlineTimeZonesStatement,
+  selectOpenDeadlinesByTriggerEventStatement,
 } from "../src/deadline-statements.ts";
 import {
   MATTER_EVENT_TABLE,
+  selectMatterEventChainNodesStatement,
   selectMatterEventStatement,
   selectMatterEventsStatement,
 } from "../src/event-statements.ts";
@@ -68,6 +70,25 @@ const directReads: { readonly name: string; readonly statement: InspectableState
     statement: selectOpenDeadlineTimeZonesStatement(database, {
       throughDate: "2026-08-07",
       limit: 64,
+      ...deadlineFragment,
+    }) as InspectableStatement,
+  },
+  {
+    // The continuance chain's bulk resolve — an id-addressed read like the single-event one, and
+    // predicate-composed for the same reason.
+    name: "selectMatterEventChainNodesStatement",
+    statement: selectMatterEventChainNodesStatement(
+      database,
+      [EVENT_ID],
+      visibility,
+    ) as InspectableStatement,
+  },
+  {
+    // The continuance response's deadline lookup: a read, never a cascade, and predicate-composed
+    // like every other read of the deadline table.
+    name: "selectOpenDeadlinesByTriggerEventStatement",
+    statement: selectOpenDeadlinesByTriggerEventStatement(database, EVENT_ID, {
+      limit: 200,
       ...deadlineFragment,
     }) as InspectableStatement,
   },

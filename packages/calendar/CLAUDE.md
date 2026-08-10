@@ -1,11 +1,12 @@
 # @magna-carta/calendar — CLAUDE.md
 
-**Purpose.** The case calendar: the two recorded tables that hold facts born here (a litigation event
-and a deadline), the event-type catalog and participant list beside them, and the **source registry**
-that federates those rows with the subsystem tables that already record what the firm did — under one
-comparable sort key, one shared cursor, and one visibility predicate. Validates in memory and composes
-statements into `@magna-carta/data-access`'s `composeEffectBatch`; holds no binding, reads no clock,
-and never calls an external service.
+**Purpose.** The calendar: the recorded tables that hold facts born here (a litigation event, a
+deadline, a firm event, a resource and its bookings, a typed link between events), the event-type
+catalog and participant lists beside them, and the **source registry** that federates those rows with
+the subsystem tables that already record what the firm did — under one comparable sort key, one
+shared cursor, and one visibility contract. Validates in memory and composes statements into
+`@magna-carta/data-access`'s `composeEffectBatch`; holds no binding, reads no clock, and never calls
+an external service.
 
 **White paper:** _Calendar and rules-based docketing_, with _Foundational data & runtime conventions_
 (the time model), _Notifications_, _Tenancy and data isolation_, and _Authentication, access control &
@@ -29,14 +30,29 @@ ADR-0059, ADR-0068, ADR-0051.)
   immutability rule
 - `src/deadline-statements.ts` / `src/deadline-service.ts` — recording, editing, satisfying,
   vacating, and superseding a deadline
-- `src/visibility.ts` — **the visibility seam**: the one predicate every source composes
-- `src/sources/registry.ts` — the `TimelineSource` declaration shape and the registry
-- `src/sources/build.ts` — the one place a source's SELECT is assembled
-- `src/sources/all.ts` — the thirteen declared sources, and the audit-log lifecycle allowlist
+- `src/event-shape.ts` — the shape asserts both event scopes share (dates, times, zone, the three
+  participant shapes), written once and parameterized over the table
+- `src/firm-event-statements.ts` / `src/firm-event-service.ts` — the firm's own scope: meetings,
+  closures, training, holidays, reservations, with the `all_members`/`participants` audience switch
+- `src/resource-statements.ts` / `src/resource-service.ts` — the bookable-resource catalog (rooms,
+  vehicles, equipment), soft-deactivate discipline
+- `src/booking-statements.ts` / `src/booking-service.ts` — bookings, the two-stage overlap check,
+  and the availability read with pre-paired conflicts
+- `src/link-statements.ts` / `src/link-service.ts` — typed event links; `related` only through the
+  service, `continuance_of` only through the continuance operation
+- `src/continuance-service.ts` — the one-batch continue operation and the depth-capped chain read
+- `src/visibility.ts` — **the visibility seam**: the one predicate every matter-anchored source
+  composes
+- `src/sources/registry.ts` — the `TimelineSource` declaration shape, the `visibilityAnchor`
+  contract field, and the registry
+- `src/sources/build.ts` — the one place a source's SELECT is assembled (`boundedSelect` for
+  matter anchors, `boundedFirmScopedSelect` for the allowlisted firm anchors)
+- `src/sources/all.ts` — the fourteen declared sources, the audit-log lifecycle allowlist, and
+  `FIRM_ANCHORED_SOURCE_KEYS` (the reviewed firm-anchor allowlist)
 - `src/merge.ts` — the k-way merge, the shared cursor, and the canonical-instant assertion
 - `src/timeline.ts` — one page across the registry: pre-reads, statements, merge, and the counts a
   measurement asserts against
-- `src/notifications.ts` — the six emission points, declared and wired to nothing
+- `src/notifications.ts` — the ten emission points, declared and wired to nothing
 
 ## Invariants that apply here
 
@@ -45,12 +61,48 @@ ADR-0059, ADR-0068, ADR-0051.)
   where the timeline disagrees with the register unwritable — the timeline IS the register. A source
   is a read-side declaration and NEVER a write-side obligation on the subsystem that owns the rows.
 - **Every source's statement builder takes the visible-matter predicate as a REQUIRED argument** and
-  composes it into the `WHERE` clause **before the `LIMIT`**. Required rather than optional so the
-  omission is a type error first and a fitness failure second. Composed in SQL and never applied in
-  the Worker after the rows come back: a post-filter under-fills the page, makes the next cursor mean
-  something different from page to page, and turns the page size into an existence oracle for the
-  rows it removed. `test/source-fitness.test.ts` proves all of it for every registered source from
-  one table-driven pass.
+  a **matter-anchored** source composes it into the `WHERE` clause **before the `LIMIT`**. Required
+  rather than optional so the omission is a type error first and a fitness failure second. Composed
+  in SQL and never applied in the Worker after the rows come back: a post-filter under-fills the
+  page, makes the next cursor mean something different from page to page, and turns the page size
+  into an existence oracle for the rows it removed. `test/source-fitness.test.ts` proves all of it
+  for every registered source from one table-driven pass.
+- **A source declares its `visibilityAnchor`, and a `firm` anchor is a reviewed allowlist entry,
+  never a silent exemption.** A firm event has no matter, so it structurally cannot compose the
+  matter predicate; under the trusted-insider posture its rows are firm-visible by construction (an
+  ethical wall is a MATTER screen with nothing to bind to on a firm meeting). The fitness pass
+  asserts the declaration both ways: every `matter`-anchored statement carries the predicate marker,
+  and every `firm`-anchored source is one of `FIRM_ANCHORED_SOURCE_KEYS` (today: exactly
+  `firmEvent`). If screening firm events is ever needed, that is a NEW declared anchor with its own
+  predicate — never a loosening of this one.
+- **The correction/continuance line.** A CORRECTION is an edit: the row misdescribed reality, the
+  edit-in-place rule stands, and the audit row carries the fix. A CONTINUANCE is a real-world
+  reschedule: the court vacated one setting and made another, both of which happened — so the old
+  row keeps every historical column byte-untouched (only `status`, `status_reason`, and
+  `updated_at` move), a new row carries the setting as it now stands, and ONE `continuance_of` link
+  points new to old, held to a chain by two partial unique indexes the SCHEMA enforces (at most one
+  predecessor and one successor per setting; a fork is refused even under racing writes).
+  Continuance binds MATTER events only — a moved staff meeting is not procedural history, so firm
+  events keep edit-in-place semantics. The continue response lists trigger-linked open deadlines as
+  a PURE LOOKUP (nothing moves; the no-arithmetic position binds in full) and the bookings the
+  status change released.
+- **A booking's liveness is DERIVED from its event, never stored.** A booking blocks its resource if
+  and only if its event's status is not `cancelled`. There is no released flag and no second write —
+  a fact that is a join cannot drift from the row it joins, so cancelling or continuing an event
+  frees its rooms atomically because releasing is not an action at all. The booking's `time_zone`
+  is the RESOURCE'S, frozen from its office at the write, so an office zone change never
+  reinterprets an old booking.
+- **Double-booking is warn-and-allow, with the conflict visible everywhere.** The write succeeds and
+  carries `conflicts`; the availability read pre-pairs every overlapping pair. Refusal would make
+  the platform referee rooms it does not own, could not be held by SQLite anyway (no interval
+  exclusion constraint, so a refusal is a race), and must never be why a hearing cannot be
+  recorded. The overlap check is two bounded stages: one coarse civil-date SQL statement widened a
+  day each side, then precise instant intersection per row through each row's own stored zone.
+- **A booking is never freestanding, and a booking is not a source.** Every booking hangs off
+  exactly one event ("book the pool car Friday" is a Reservation-type firm event with the booking
+  attached) — that one rule keeps who-booked-it, cancellation, and the calendar's read surfaces
+  from being reinvented per booking. And nothing about bookings joins the timeline registry: a room
+  being busy is the availability read's fact, not a calendar entry.
 - **Every instant column is canonical.** The merge compares sort keys AS TEXT, which is chronological
   only for the exact shape `YYYY-MM-DDTHH:mm:ss.sssZ`. A source that began writing `…:00Z` would sort
   AFTER `…:00.500Z` — `'.'` precedes `'Z'` in byte order — and the timeline would be quietly wrong in
@@ -103,7 +155,9 @@ ADR-0059, ADR-0068, ADR-0051.)
 One entry in `TIMELINE_SOURCES`, and nothing else anywhere:
 
 1. **A registry row** — the stable `key` (a WIRE CONTRACT once shipped, since it appears in responses
-   and in the `kind` filter), the closed `kinds` set, and the declared `timeColumnShape`.
+   and in the `kind` filter), the closed `kinds` set, the declared `timeColumnShape`, and the
+   declared `visibilityAnchor` (almost always `matter`; a `firm` anchor additionally requires an
+   entry on the reviewed `FIRM_ANCHORED_SOURCE_KEYS` allowlist, with the reasoning written down).
 2. **A statement builder** — built through `boundedSelect`, which composes the predicate, the keyset,
    and the `LIMIT` for you. Return `[]` where the scope cannot match rather than a query that cannot
    hit.
