@@ -530,6 +530,98 @@ describe("renderStatusPage", () => {
       expect(html).toContain('class="tick t-info"');
       expect(html).toContain("100% uptime");
     });
+
+    test("the per-day record reaches a screen reader as text, without hovering", () => {
+      // Ticks are hidden from assistive technology (ninety announcements would be unusable), so
+      // the state each one encodes has to arrive in words: consecutive days sharing a state
+      // collapse into one run, and every day in the window falls in exactly one run.
+      const ticks: (ComponentStatus | null)[] = Array(HISTORY_WINDOW_DAYS).fill(null);
+      for (let index = HISTORY_WINDOW_DAYS - 3; index < HISTORY_WINDOW_DAYS; index += 1) {
+        ticks[index] = "operational";
+      }
+      ticks[HISTORY_WINDOW_DAYS - 1] = "degraded";
+      const html = renderStatusPage(
+        snapshotFixture({
+          components: [{ id: "api", name: "Application API", group: "Core", status: "degraded" }],
+          history: {
+            windowDays: HISTORY_WINDOW_DAYS,
+            components: { api: componentHistory(ticks, 0.98) },
+          },
+        }),
+        { now: GENERATED_AT },
+      );
+      expect(html).toContain(
+        '<p class="offscreen">Daily record for Application API, oldest first: ' +
+          "5 April 2026 to 30 June 2026 — No data; " +
+          "1 July 2026 to 2 July 2026 — Operational; " +
+          "3 July 2026 — Degraded.</p>",
+      );
+      // The summary percentage is plain visible text, not a hover affordance.
+      expect(html).toContain('<span class="uptime num">98.00% uptime</span>');
+    });
+
+    test("the offscreen record names the unrecorded days as no data, never as operational", () => {
+      const html = renderStatusPage(
+        snapshotFixture({
+          components: [
+            { id: "api", name: "Application API", group: "Core", status: "operational" },
+          ],
+          history: {
+            windowDays: HISTORY_WINDOW_DAYS,
+            components: { api: componentHistory(Array(HISTORY_WINDOW_DAYS).fill(null), null) },
+          },
+        }),
+        { now: GENERATED_AT },
+      );
+      const record = html.match(/<p class="offscreen">([^<]*)<\/p>/)?.[1] ?? "";
+      expect(record).toBe(
+        "Daily record for Application API, oldest first: 5 April 2026 to 3 July 2026 — No data.",
+      );
+      expect(record).not.toContain("Operational");
+    });
+  });
+
+  describe("provider links", () => {
+    test("an explicit statusPageUrl wins over the polled feed's origin", () => {
+      const html = renderStatusPage(
+        snapshotFixture({
+          providers: [
+            {
+              id: "cloudflare",
+              name: "Cloudflare",
+              status: "operational",
+              upstreamUrl: "https://www.cloudflarestatus.com/api/v2/summary.json",
+              statusPageUrl: "https://new.cloudflarestatus.com/",
+              fetchedAt: GENERATED_AT,
+              reachable: true,
+            },
+          ],
+        }),
+      );
+      expect(html).toContain('<a href="https://new.cloudflarestatus.com/">Cloudflare</a>');
+      expect(html).not.toContain('<a href="https://www.cloudflarestatus.com">Cloudflare</a>');
+    });
+
+    test("the advisory links to the same explicit page", () => {
+      const provider = {
+        id: "cloudflare",
+        name: "Cloudflare",
+        status: "degraded" as const,
+        upstreamUrl: "https://www.cloudflarestatus.com/api/v2/summary.json",
+        statusPageUrl: "https://new.cloudflarestatus.com/",
+        fetchedAt: GENERATED_AT,
+        reachable: true,
+      };
+      const html = renderStatusPage(
+        snapshotFixture({
+          providers: [provider],
+          upstreamAdvisory: { providers: [provider], worst: "degraded" },
+        }),
+      );
+      expect(html).toContain(
+        '<a href="https://new.cloudflarestatus.com/">Cloudflare</a> is reporting degraded performance',
+      );
+    });
   });
 
   test("resolved events render as history, with maintenance closed as Completed", () => {

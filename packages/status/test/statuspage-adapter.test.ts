@@ -129,7 +129,9 @@ test("polls a summary.json into a Provider row", async () => {
 
 test("a definition's statusPageUrl rides along on the row", async () => {
   const fetchImpl = (async () =>
-    new Response(JSON.stringify(cloudflareLikeSummary()), { status: 200 })) as unknown as typeof fetch;
+    new Response(JSON.stringify(cloudflareLikeSummary()), {
+      status: 200,
+    })) as unknown as typeof fetch;
   const row = await pollStatuspageProvider(
     { ...DEF, statusPageUrl: "https://new.example/", serviceComponentGroups: CLOUDFLARE_SCOPE },
     fetchImpl,
