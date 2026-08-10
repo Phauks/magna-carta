@@ -25,6 +25,24 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
   commits ahead and growing; everything below rides the next push.
 
+## Status page — the upstream-severity fix needs BOTH workers deployed
+
+No new binding, no new secret, no dashboard step. But the fix spans the two
+sides of `STATUS_KV` and only shows once both have shipped:
+
+- **`apps/worker`** (the cron) computes the provider severity and writes
+  `status:derived`. Until it redeploys, the stored snapshot still carries the
+  old whole-page reading and the page will keep rendering Cloudflare as
+  degraded no matter how current the status worker is.
+- **`apps/status-worker`** (the page) renders the provider link and the
+  uptime bar's spoken record. It is a **separate deployable with its own
+  Workers Build** — deliberately not part of `vp run build-all` — so it does
+  not ride along with the app worker's deploy and needs its own step.
+
+Order does not matter; both are needed. The page corrects itself within one
+cron cycle (10 minutes) of the app worker deploying, plus the 30-second edge
+cache window.
+
 ## Order-sensitive deploy hazards
 
 1. **`magna-carta-sign` must exist before the app worker deploys.** The app
