@@ -30,8 +30,8 @@
   slices: email-filing
   adrs: ADR-0200, ADR-0202
   spec: docs/specs/2026-06-16-email-filing-design.md
-  evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token) + apps/worker/src/routes/capture-addresses.ts + emails.ts on main; capture-address mint, rotate, and revoke are built and the six email tables are classified in the PII registry.
-  notes: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route; the firm-mailbox Gmail/Outlook plugin path is not built.
+  evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token, DKIM verdict) + apps/worker/src/routes/{capture-addresses,emails,email-add-in}.ts on main; capture-address mint/rotate/revoke, an RFC 6376 DKIM verifier (informational, never a filter), and the mail-client add-in's client API (matter suggestions, capture status, filing context) are built; the six email tables are classified in the PII registry.
+  notes: Slice 1 (record model, forward/CC capture) plus the add-in's backend client API are functionally complete pending the deploy that activates the inbound route; the actual Gmail/Outlook mail-client plugin/extension itself is not built, only the API surface it would consume.
 
 - id: communications.email.filing.capture-addresses
   name: Capture-address management
@@ -49,8 +49,8 @@
   status: partial
   slices: email-filing
   spec: docs/specs/2026-08-05-auto-file-rules-design.md
-  evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, and the emails:manageAutoFileRules capability with its role seed.
-  notes: Build slice 1 only — the rule model, the capability, and the pure guardrail decision. Nothing evaluates during a capture yet: the port on the capture core and the evidence gatherer in the consumer are the next slice, the management routes, review read, and load-profile numbers the one after. No screens.
+  evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, the emails:manageAutoFileRules capability, and the engine wired live into the capture consumer (apps/worker/src/emails/{auto-file-evaluation,capture-consumer}.ts) with staged/direct posture routes (apps/worker/src/routes/auto-file-policy.ts).
+  notes: The rule model, guardrail decision, and consumer wiring are built and firing on real inbound capture. A decisions/evidence review-read surface, load-profile numbers, and screens are still unbuilt.
 
 - id: communications.email.parse-engine
   name: Email parse core

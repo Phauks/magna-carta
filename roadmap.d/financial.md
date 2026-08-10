@@ -146,15 +146,14 @@
   status: shipped
   slices: 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
   evidence: packages/billing-core/src/lifecycle.ts (transition rules, isFrozen) + review-gate.ts (approvalRequired setting)
-  notes: The Billed transition is exercised at invoice finalize, which is not built yet.
+  notes: The Billed transition is exercised at invoice finalize, shipped in packages/billing/src/finalize.ts.
 
 - id: financial.time.wip
   name: Time is WIP, not a ledger posting
   scope: Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing.
-  status: partial
-  slices: 3-1-time-tracking-wip-rate-engine
-  evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger
-  notes: WIP store shipped; the WIP-to-A/R conversion belongs to the unbuilt billing slice.
+  status: shipped
+  slices: 3-1-time-tracking-wip-rate-engine, 3-4-billing-and-invoicing
+  evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger; billable time claimed and converted to an A/R receivable at finalize in packages/billing/src/finalize.ts.
 
 - id: financial.time.my-day
   name: My Day visibility
@@ -191,16 +190,16 @@
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
-  notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, movements (deposits/disbursements/matter-to-matter transfers), two-person disbursement authorization as per-firm policy, matter-close zero-balance blocking, and bank-statement three-way reconciliation, over eight-plus per-firm tables; only the jurisdiction-configurable compliance engine (rules profiles, multi-jurisdiction accounts) is unbuilt.
+  notes: Sub-slice 1 (schema + structural guards) plus movements, authorization, close-blocking, and reconciliation are built; the jurisdiction engine stays designed-only. Several of the fifteen owner flags from the 2026-08-04 analysis have since been ratified; some (e.g. jurisdiction rules) remain open.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
   scope: Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
-  status: partial
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
-  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
+  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations ship in packages/trust/src/movements.ts (composeTrustDeposit, composeTrustDisbursement, composeMatterToMatterTransfer).
 
 - id: financial.trust.authorization-policy
   name: Disbursement authorization policy (per-firm)
@@ -221,19 +220,20 @@
 - id: financial.trust.jurisdiction-engine
   name: Jurisdiction-configurable compliance engine
   scope: A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: approved design (typed profiles, baseline/overlay resolution, silence-vs-unresearched distinction) on main; packages/trust-jurisdictions does not exist yet
+  evidence: packages/trust-jurisdictions ships the TrustJurisdictionPort contract, a fail-closed resolver (attorneyReview null refuses everything as jurisdiction-not-verified, revision-bound so an amendment re-closes the gate), and the Nevada profile (ten typed requirements, verbatim rule quotes and citations). packages/trust/src/jurisdiction.ts wires trust accounts to it by their recorded jurisdiction, but the worker keeps the refusing default until the reviewed port is actually bound.
+  notes: Only Nevada is encoded; the other 55 jurisdictions have no primary-source-verified profile.
 
 - id: financial.trust.jurisdiction-engine.rules-catalog
   name: Trust-rules catalog (56 jurisdictions)
   scope: Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: docs/research/trust-rules/ (four jurisdiction groups + verification pass); design cites 896 verified cells; compiled data package not yet built
-  notes: Research corpus complete and adversarially verified; the build-data pipeline exists only in the design.
+  evidence: docs/research/trust-rules/ (four jurisdiction groups + verification pass); Nevada corrected against primary sources and compiled into packages/trust-jurisdictions/src/data/nevada.ts (SCR 78 citations, two five-year retention clocks, NRPC 1.15(f)/NRS 120A.500(6)(f) unclaimed-funds no-escheat exemption).
+  notes: Nevada is primary-source-verified and compiled. The 55 sibling entries have no primary source in the repo to check against and carry a NOT-VERIFIED banner in the research docs — narrative research only, not compiled.
 
 - id: financial.trust.multi-jurisdiction-accounts
   name: Multiple active jurisdictions per firm
@@ -245,24 +245,26 @@
 - id: financial.trust.reconciliation
   name: Interactive three-way reconciliation
   scope: Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account.
-  status: not-started
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: in slice 3-2 scope per the phase-3 slice map; the jurisdiction-schema design covers cadence rules, not the workflow; no code
-  notes: Banking-plugin import additionally depends on an unbuilt banking integration.
+  evidence: packages/trust/src/{bank-statements,statement-import,matching,reconciliation,three-way-proof}.ts — statements entered or CSV-imported through preview -> confirm -> report, human-confirmed matching (no silent auto-match), the three-way proof (adjusted bank = book = sum of client ledgers) computed from the ledger's own statements, and a frozen, named-member-attested reconciliation record. Four append-only per-firm tables, twelve routes.
+  notes: Manual entry and CSV import are built; a live banking-plugin import still depends on an unbuilt banking integration.
 
 - id: financial.trust.close-rule
   name: Zero-balance close precondition
   scope: Registers "all bills paid, no remaining balance" on the matter close-precondition hook.
-  status: not-started
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: the hook is shipped and deliberately empty (packages/matters/src/close-preconditions.ts); no registration exists
+  evidence: packages/trust/src/close-precondition.ts registers into the matters close-precondition registry seam; refuses close naming the amount, account, held portion, and the movements that would clear it; race-safe via an in-transaction re-check that aborts the whole close batch on a concurrent deposit.
 
 - id: financial.billing
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
-  status: not-started
-  evidence: no billing/invoicing code (packages/billing-core holds only the shared WIP lifecycle and review gate); no slice branch or design spec; scope fixed in docs/specs/2026-06-21-phase-3-financial-core-slice-map.md
-  notes: The slice map serializes this after time and costs, which are both on main.
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  spec: docs/specs/2026-08-05-billing-design.md
+  evidence: packages/billing — the invoice spine (draft/claim/finalize/post/number, migration 20260805T230000), applying trust funds to a finalized invoice as the earned-fee satisfier (packages/billing/src/apply-trust-funds.ts, migration 20260806T060000), and all four fee models (arrangements.ts, hourly/flat-fee/contingency/retainer).
+  notes: LEDES export/guideline validation/electronic submission, invoice-location letterhead rendering, and the billing-automations slice (replenishment alerts) remain unbuilt; no UI.
 
 - id: financial.billing.fee-models
   name: Fee models
@@ -305,8 +307,10 @@
 - id: financial.billing.invoice-composition
   name: Invoice composition
   scope: Bills combine time/fees plus costs plus taxes.
-  status: not-started
-  evidence: no invoice model in tree
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/draft.ts composes invoice lines from claimed time and cost WIP entries plus the four fee models; packages/billing/src/finalize.ts is one composed batch (number draw, presentation snapshot, billed lock, balance rows, A/R posting).
+  notes: No tax computation; a bill combines time/fees and costs only.
 
 - id: financial.billing.location-letterhead
   name: Location letterhead and remit-to on invoices
@@ -317,8 +321,9 @@
 - id: financial.billing.wip-to-ar
   name: WIP to A/R posting at finalize
   scope: At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
-  status: not-started
-  evidence: the phase-3 slice map assigns all WIP-to-A/R posting (time and cost) to the billing slice; no posting service exists
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/finalize.ts posts the accounts-receivable ledger entry, the billed lock on every claimed WIP entry, and the per-matter balance rows in one composed batch; a commit guard aborts the whole batch if a claimed entry was voided mid-flight.
 
 - id: financial.billing.ledes
   name: LEDES e-billing
@@ -353,7 +358,7 @@
   slices: 3-3-costs-expenses-disbursements
   spec: docs/specs/2026-06-23-slice-3-3-costs-expenses-design.md
   evidence: packages/costs + @magna-carta/billing-core on main; status.d/3-3 built+tested done, ui todo
-  notes: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice.
+  notes: Backend shipped, including cost-to-A/R conversion at invoice finalize; cost-entry UI not built; LEDES export is unbuilt.
 
 - id: financial.costs.entry-model
   name: Cost entry anatomy
@@ -366,10 +371,9 @@
 - id: financial.costs.hard
   name: Hard costs as client receivable
   scope: Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back.
-  status: partial
-  slices: 3-3-costs-expenses-disbursements
-  evidence: hard-cost capture as billable WIP in packages/costs
-  notes: Capture shipped; the receivable posting and bill-back happen at the unbuilt billing slice per the slice map.
+  status: shipped
+  slices: 3-3-costs-expenses-disbursements, 3-4-billing-and-invoicing
+  evidence: hard-cost capture as billable WIP in packages/costs; receivable posting and bill-back at invoice finalize in packages/billing/src/finalize.ts.
 
 - id: financial.costs.soft
   name: Soft/in-house costs

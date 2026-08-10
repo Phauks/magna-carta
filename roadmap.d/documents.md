@@ -351,7 +351,7 @@
   slices: 2-4-in-app-conversion
   adrs: ADR-0030, ADR-0116
   spec: docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md
-  evidence: packages/conversion + apps/convert-worker (with the per-engine dispatch seam) + apps/worker/src/conversions + containers/raster on main; the office, AV, and email engine bodies are still unbuilt and production stays dormant until the deploy activation.
+  evidence: packages/conversion + apps/convert-worker (with the per-engine dispatch seam) + apps/worker/src/conversions + containers/{raster,libreoffice} on main, serving raster, image-to-PDF, and the office (docx/odt/wpd to-from PDF) edges; the AV and email engine bodies are still unbuilt.
 
 - id: documents.conversion.registry
   name: Format registry & pathfinding
@@ -372,7 +372,7 @@
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
   evidence: apps/worker/src/routes/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/worker/src/conversions.
-  notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
+  notes: Execution currently limited to the built engine edges (raster, image-to-PDF, office docx/odt/wpd to-from PDF).
 
 - id: documents.conversion.raster
   name: Raster image engine
@@ -391,10 +391,12 @@
 - id: documents.conversion.office
   name: Office document conversion
   scope: Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
-  status: planned
+  status: shipped
+  slices: 2-4-in-app-conversion
   adrs: ADR-0204
   spec: docs/specs/2026-08-04-libreoffice-conversion-engine-design.md
-  evidence: ADR-0204 settles the engine design (network-isolated Container, supervisor over a pool of long-lived single-threaded LibreOfficeKit workers, pure-Rust libreofficekit binding); no office-conversion container in containers/ yet.
+  evidence: containers/libreoffice — a Rust supervisor over a pool of long-lived LibreOfficeKit worker processes (pinned jacobtread/libreofficekit binding, no build.rs/cc/bindgen), wired into the convert worker's engine dispatch (apps/worker/src/conversions/conversion-engine.ts) and the CONVERSION queue. Serves the registry's docx->pdf, odt->pdf, docx->odt, and wpd->odt edges; no outbound network, unprivileged, macros disabled.
+  notes: Owner-consented C++ dependency under the memory-safety rule (golden rule 14) — no build tooling for it enters the image, only a shared library loaded at run time.
   notes: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite; the build phase is next.
 
 - id: documents.conversion.av-transcode
@@ -420,8 +422,8 @@
   scope: Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions.
   status: partial
   adrs: ADR-0116
-  evidence: apps/worker/src/conversions/conversion-coordinator.ts is the per-job ConversionJob Durable Object (start, markRunning, markDone, markFailed, status, alarm) fed by the CONVERSION queue consumer; apps/convert-worker dispatches the hop per engine id.
-  notes: Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone.
+  evidence: apps/worker/src/conversions/conversion-coordinator.ts is the per-job ConversionJob Durable Object (start, markRunning, markDone, markFailed, status, alarm) fed by the CONVERSION queue consumer; apps/convert-worker dispatches the hop per engine id. A client can subscribe over the DO hibernation WebSocket API and be pushed completion instead of polling.
+  notes: Single-file jobs only — per-item batch progress is not built, and container spin-up/sleep applies to the raster container alone.
 
 - id: documents.conversion.output-placement
   name: Output placement

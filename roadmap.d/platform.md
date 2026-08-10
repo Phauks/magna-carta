@@ -231,7 +231,7 @@
   scope: Durable-Object-backed channels only where needed: long-running job progress and the cross-device live timer.
   status: shipped
   adrs: ADR-0131
-  evidence: apps/worker/src/timer/, apps/worker/src/routes/bundle-status.ts, async bulk-download job DO
+  evidence: apps/worker/src/timer/, apps/worker/src/routes/bundle-status.ts, async bulk-download job DO; a client can now subscribe over the Durable Object hibernation WebSocket API (ctx.acceptWebSocket) and be pushed a bulk-download or conversion job's progress instead of polling — job state read back from ctx.storage on wake, never held on the evicted instance.
 
 - id: platform.client-state.global-server-push
   name: Global server-push layer

@@ -17,7 +17,7 @@
   adrs: ADR-0004, ADR-0073
   spec: docs/specs/2026-06-09-slice-0-4-auth-rbac-provisioning-design.md
   evidence: apps/worker/src/auth.ts, control-plane auth tables + schema-sync fitness test
-  notes: API-only to date; the login/2FA UI is the 0-7b slice (branch active).
+  notes: The login/2FA UI (0-7b slice) has since shipped — see auth.first-party-login.auth-ui.
 
 - id: auth.first-party-login.invitation-only
   name: Invitation-only membership
@@ -28,9 +28,10 @@
 - id: auth.first-party-login.auth-ui
   name: Login and 2FA UI
   scope: The login/2FA surface over the auth backend — the design system's first consumer.
-  status: in-build
+  status: partial
   slices: 0-7b-auth-ui-deferred-surfaces
-  evidence: apps/web/src/routes/login, account/security; branch slice-0-7b-app-shell on origin
+  evidence: Identifier-first sign-in at /login (email, then password, then authenticator code as step state) over the existing Better Auth emailAndPassword + twoFactor backend (apps/web/src/routes/login, apps/web/src/lib/auth); new design-system components VerificationCodeInput and PasswordInput.
+  notes: Self-service registration is deliberately absent (invitation-only); password reset and recovery-code entry land on holding cards for the next slice.
 
 - id: auth.two-factor
   name: Second factors

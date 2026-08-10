@@ -9,8 +9,8 @@
   slices: 4-2-custodian
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: packages/custodian + twenty-five routes in apps/worker/src/routes/custody.ts, over eleven per-firm tables. Matter detail skeleton reserves a Custodian section (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
-  notes: Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.
+  evidence: packages/custodian + apps/worker/src/routes/custody.ts (register, location tree, movements, reminders, reports, labels, stocktake, destruction — 38 routes), over thirteen per-firm tables. Matter detail skeleton reserves a Custodian section (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
+  notes: Backend only — no UI. Receipts and portal visibility are not built; the will-on-death engine is a catalog only, not yet wired to reminders.
 
 - id: custodian.register
   name: Item register
@@ -77,17 +77,19 @@
 - id: custodian.retention-destruction
   name: Retention and destruction dates
   scope: Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
-  status: designed
+  status: shipped
+  slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: custody_destruction_request exists as a schema seam with no service, no route, and no code path that writes it (packages/database/src/per-firm-schema.ts).
-  notes: Owner-gated and deliberately unbuilt. The platform ships NO retention period, default, derived date, or sweep — there is no retention_until column at all, and a review date is not a retention clock.
+  evidence: packages/custodian/src/{destruction-service,destruction-statements,close-advisory}.ts, migration 20260805T180000_custodian-destruction.sql. Raise -> approve/refuse -> execute, two-person by construction; the intrinsic-value refusal enforced at three layers including the ordinary movement path; matter-close CloseAdvisory hook that cannot block closure.
+  notes: The platform still ships NO retention period, default, derived date, or sweep — there is no retention_until column at all, and a review date is not a retention clock. Owner-ratified scope (C4-C11).
 
 - id: custodian.will-reminders
   name: Will release-on-death reminders
   scope: Per-state will-deposit deadline engine (jurisdiction-keyed catalog) driving release reminders.
-  status: deferred
+  status: partial
   spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: The design explicitly defers the will-on-death engine and per-state statute catalog out of the MVP.
+  evidence: packages/custodian/src/will-deposit-catalog.ts — jurisdiction-keyed duty catalog and due-date computation from a recorded trigger date; Nevada NV-1..NV-5 encoded verbatim from NRS 136.050 and related statutes.
+  notes: The catalog and deadline computation exist but are not yet wired to the reminder feed or any release-reminder surface, and only Nevada is encoded so far.
 
 - id: custodian.checkout-workflow
   name: Gated release and signed receipts
@@ -101,6 +103,8 @@
 - id: custodian.stocktake
   name: Scan-to-locate and stocktake
   scope: Barcode scan-to-locate and stocktake reconciliation over the container tree.
-  status: deferred
-  spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: MVP explicitly ships container data with no stocktake workflow; later slice.
+  status: shipped
+  slices: 4-2-custodian
+  spec: docs/specs/2026-08-04-custodian-design.md
+  evidence: packages/custodian/src/{stocktake-service,stocktake-reconciliation,stocktake-statements}.ts, seven routes on existing custody permissions, migration 20260805T150000_custodian-stocktake.sql. Open a count, record batched observations (sighted/not_found/unregistered), close producing a reconciliation.
+  notes: Backend only. Observe-only by construction — corrective movements are proposals only, applied (if at all) by a person through the existing movements endpoint, never auto-applied.

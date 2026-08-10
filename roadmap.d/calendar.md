@@ -8,6 +8,7 @@
   status: partial
   adrs: ADR-0018, ADR-0055
   evidence: The event and deadline model, the federated matter timeline, and seventeen routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
+  notes: Calendar slice 2 (firm events, rooms/resources with bookings, event links, continuance) is designed (docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md), not yet built.
 
 - id: calendar.events
   name: Litigation events and deadlines

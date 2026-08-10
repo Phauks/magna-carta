@@ -7,7 +7,7 @@
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
   adrs: ADR-0012, ADR-0060, ADR-0167
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the search index is designed (spec + storage-architecture ADR) but unbuilt; review and production workflows do not exist.
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the search keyword-index write pipeline, catalog, and query composition are built but deploy-gated (see discovery.search); review and production workflows do not exist.
   notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
 
 - id: discovery.pipeline
@@ -75,17 +75,18 @@
 - id: discovery.search
   name: Search
   scope: Full-text and semantic search over the discovery corpus.
-  status: designed
+  status: partial
   adrs: ADR-0012, ADR-0167
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: Stateful-service design accepted (index = immutable Tantivy splits in per-firm R2, pruned + range-read from an always-warm search Worker; catalog in the FirmDatabase DO; Vectorize namespace-per-firm; both behind one SearchIndexPort, fused by RRF). No index code on the tree yet.
+  evidence: The keyword half is built end to end and deploy-gated: crates/search-core (splits, range-reading directory), the per-firm index_split catalog, a SearchIndexJob Durable Object write pipeline over a dead-lettered queue (apps/worker/src/search/), composite native+OCR per-page text extraction, and keyword/hybrid query composition with reciprocal rank fusion. Wired-but-dormant — jobs park in a distinct deferred state until apps/search-worker (the always-warm Container that range-reads splits from R2) is deployed; no code change needed there when it is. Gated per firm by search.indexing_enabled (off by default). The semantic (Vectorize) half is not implemented — runSemanticSearch returns engine-not-implemented and hybrid search degrades to keyword-only.
 
 - id: discovery.search.keyword
   name: Tantivy keyword search
   scope: Tantivy (Rust) behind a swappable index interface.
-  status: designed
+  status: partial
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, multi-split merge, generation gating, AND the range-reading directory — a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks (an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail). All unit-tested. Not yet wired to a worker/port/R2 (the RangeReader's R2 adapter is the next slice); the footer pruning digest is deferred within the same format.
+  evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, multi-split merge, generation gating, AND the range-reading directory — a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks. The write pipeline, catalog, port, and keyword/hybrid query composition are on main (apps/worker/src/search/{index-consumer,keyword-search,search-engine,hybrid-search}.ts).
+  notes: apps/search-worker — the always-warm Container that actually serves /index, /query, /remove over R2 — is not deployed, so no query returns a real hit yet; the matter-scoped /api/v1 search route and its UI are built after the engine deploys.
 
 - id: discovery.search.semantic
   name: Semantic search
@@ -99,19 +100,21 @@
   name: Review workflow
   scope: Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
   status: partial
-  evidence: Redaction engine shipped; every review surface and workflow is unbuilt.
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Redaction engine shipped; the review workflow itself (tagging/coding, privilege, redaction integration, productions, threading, near-duplicates) is designed over six sub-slices (docs/specs/2026-08-07-discovery-5-2-review-workflow.md) with four open owner flags (P1-P4); no code yet.
 
 - id: discovery.review.filters
   name: Review filters
   scope: Filtering the corpus by date, custodian, party, and keyword.
   status: not-started
-  evidence: No review UI or query surface exists.
+  evidence: No review UI or query surface exists; not covered by the 5-2 review-workflow design, which designs coding/tagging status filters only.
 
 - id: discovery.review.tagging
   name: Tagging
   scope: Responsive/privileged/confidential document tagging.
-  status: not-started
-  evidence: No tagging model or UI on the tree.
+  status: designed
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Two-level coding (groups holding tags) designed with per-document rows, bulk/family as recorded gestures with exact undo, and an audit event journal; no code yet.
 
 - id: discovery.review.redaction
   name: Redaction
@@ -120,26 +123,29 @@
   slices: pdf-render-engine
   adrs: ADR-0134
   spec: docs/specs/2026-06-22-pdf-slice-2-redaction-design.md
-  evidence: PDF redaction engine (rasterize route) shipped in crates/pdf-core; no review-workflow integration.
+  evidence: PDF redaction engine (rasterize route) shipped in crates/pdf-core; review-workflow integration is now designed (docs/specs/2026-08-07-discovery-5-2-review-workflow.md section 4), not yet built.
 
 - id: discovery.review.email-threading
   name: Email threading
   scope: Thread email documents during review.
-  status: not-started
+  status: designed
   slices: email-core-parse-engine
-  evidence: No threading code; the shipped email parse core (crates/email-core) is the substrate it will build on.
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Designed as a review aid over the shipped email_thread model (5-2-6 sub-slice); the shipped email parse core (crates/email-core) is the substrate. No code yet.
 
 - id: discovery.review.near-duplicates
   name: Near-duplicate detection
   scope: Detect near-duplicate documents in the review set.
-  status: not-started
-  evidence: No similarity/duplicate-detection code for documents.
+  status: designed
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Designed as near-duplicate clusters over the 5-1 fingerprints, threshold recorded (5-2-6 sub-slice). No code yet.
 
 - id: discovery.production
   name: Production workflow
   scope: Bates numbering, applied redactions, and privilege log with defensibility built in.
   status: partial
-  evidence: Bates and hashing engines shipped; no production workflow assembles them.
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Bates and hashing engines shipped; the production workflow that assembles them is designed (explicit member rows frozen at staging, Bates drawn as blocks from a per-matter register, five digests per artifact, redacted-production-text invariant) — docs/specs/2026-08-07-discovery-5-2-review-workflow.md section 5. No code yet.
 
 - id: discovery.production.bates
   name: Bates numbering engine
@@ -153,8 +159,9 @@
 - id: discovery.production.privilege-log
   name: Privilege log
   scope: Privilege log generated from tagged documents in a production.
-  status: not-started
-  evidence: No privilege-log model or generator exists.
+  status: designed
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Designed as a privilege tag semantic plus a claim record feeding a structurally content-blind log generator, with clawback in both directions as a recorded fact and Bates staying burned (section 3). No code yet.
 
 - id: discovery.production.defensibility
   name: Defensibility
