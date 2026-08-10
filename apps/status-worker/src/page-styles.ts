@@ -147,6 +147,20 @@ a { color: inherit; }
 }
 .num { font-variant-numeric: tabular-nums; }
 
+/* Text carried for assistive technology only: removed from the visual layout without being removed
+   from the accessibility tree (display:none and visibility:hidden would take it out of both).
+   Used where a graphic encodes data a screen reader must still be told in words. */
+.offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* The centered measure: substantially wider than the genre's ~900px letterbox, but still a
    measure — fluid viewport-relative gutters keep it off the screen edges, and the extra width
    is spent on breathing room (wider column gap, roomier rows), never on more density (the

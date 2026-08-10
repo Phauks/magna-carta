@@ -38,7 +38,11 @@ export const providerSchema = z.object({
   id: z.string(),
   name: z.string(),
   status: providerStatusEnum,
+  // The machine feed that was polled. Kept on the row so a reader can see what was actually asked.
   upstreamUrl: z.string(),
+  // The human status page to link to, when it is not simply the feed's origin. Optional so a
+  // snapshot written before this field existed still parses instead of blanking the page.
+  statusPageUrl: z.string().optional(),
   fetchedAt: z.string(),
   reachable: z.boolean(),
 });

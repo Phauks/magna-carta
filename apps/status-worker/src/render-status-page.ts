@@ -378,10 +378,40 @@ function formatUptime(uptimeRatio: number | null): string | null {
   return `${percent.toFixed(2)}% uptime`;
 }
 
+// The day-by-day record as sentences, for a reader who cannot see the bar. Ninety individually
+// announced ticks would be unusable, and a hover-only title is not an answer at all — so
+// consecutive days sharing a state collapse into one run ("2 June 2026 to 4 August 2026 — No
+// data"). Every day in the window falls in exactly one run, so this is the complete per-day record,
+// not a summary of it, and it is typically a handful of phrases rather than ninety.
+export function describeHistoryRuns(
+  ticks: readonly (ComponentStatus | null)[],
+  dayKeys: readonly string[],
+): string[] {
+  const labelAt = (index: number): string => {
+    const status = ticks[index];
+    return status === null || status === undefined ? "No data" : STATUS_PRESENTATION[status].label;
+  };
+  const dayAt = (index: number): string => {
+    const day = dayKeys[index];
+    return day === undefined ? `day ${index + 1}` : formatUtcDate(day);
+  };
+  const runs: string[] = [];
+  let runStart = 0;
+  for (let index = 1; index <= ticks.length; index += 1) {
+    if (index < ticks.length && labelAt(index) === labelAt(runStart)) continue;
+    const last = index - 1;
+    const span = runStart === last ? dayAt(runStart) : `${dayAt(runStart)} to ${dayAt(last)}`;
+    runs.push(`${span} — ${labelAt(runStart)}`);
+    runStart = index;
+  }
+  return runs;
+}
+
 // One tick per day in the window, oldest first, colored by the worst status observed that day; a day
-// with no samples is a no-data tick, never a green one. The bar is a single labelled image to
-// assistive technology — ninety announced ticks would be unusable — and each tick carries a title
-// for the sighted reader's hover.
+// with no samples is a no-data tick, never a green one. The ticks themselves are decoration to
+// assistive technology (each carries a title for the sighted reader's hover); the state they encode
+// reaches a screen reader as real text — the labelled summary on the bar, the visible uptime figure
+// beneath it, and the run-length record above, which is read out without any hovering.
 function renderUptimeBar(
   component: PublishedComponent,
   history: ComponentHistory | undefined,
@@ -399,8 +429,10 @@ function renderUptimeBar(
       return `<span class="tick t-${hue}" title="${escapeHtml(title)}" aria-hidden="true"></span>`;
     })
     .join("");
+  const record = describeHistoryRuns(history.ticks, dayKeys).join("; ");
   return `
 <div class="bar" role="img" aria-label="${escapeHtml(`${component.name}: ${summary} over the last ${history.ticks.length} days`)}">${ticks}</div>
+<p class="offscreen">Daily record for ${escapeHtml(component.name)}, oldest first: ${escapeHtml(record)}.</p>
 <div class="bar-axis"><span>${history.ticks.length} days ago</span><span class="uptime num">${escapeHtml(uptime ?? "No data")}</span><span>Today</span></div>`;
 }
 
@@ -465,12 +497,17 @@ ${rows}
     .join("\n");
 }
 
-function providerStatusPageUrl(upstreamUrl: string): string | null {
-  // The stored URL is the machine feed (…/api/v2/summary.json); its origin is the provider's
-  // human status page, which is the link a reader wants — and the one destination that stays
-  // reachable when that provider is the thing that broke.
+function providerStatusPageUrl(provider: Provider): string | null {
+  // The provider row carries the human status page explicitly when it differs from the feed's
+  // origin (Cloudflare serves its API from one host and publishes the page readers should visit at
+  // another). Otherwise the feed URL is the machine endpoint (…/api/v2/summary.json) and its origin
+  // is the page — the link a reader wants, and the one destination that stays reachable when that
+  // provider is the thing that broke.
+  if (provider.statusPageUrl !== undefined && provider.statusPageUrl !== "") {
+    return provider.statusPageUrl;
+  }
   try {
-    return new URL(upstreamUrl).origin;
+    return new URL(provider.upstreamUrl).origin;
   } catch {
     return null;
   }
@@ -494,7 +531,7 @@ const ADVISORY_PHRASE: Partial<Record<ProviderStatus, string>> = {
 function renderUpstreamAdvisory(advisory: UpstreamAdvisory | null): string {
   if (advisory === null) return "";
   const clauses = advisory.providers.map((provider: Provider) => {
-    const statusPage = providerStatusPageUrl(provider.upstreamUrl);
+    const statusPage = providerStatusPageUrl(provider);
     const name =
       statusPage === null
         ? escapeHtml(provider.name)
@@ -524,7 +561,7 @@ function renderProviders(snapshot: PublishedSnapshot): string {
   const rows = snapshot.providers
     .map((provider: Provider) => {
       const presentation = STATUS_PRESENTATION[provider.status];
-      const statusPage = providerStatusPageUrl(provider.upstreamUrl);
+      const statusPage = providerStatusPageUrl(provider);
       const name =
         statusPage === null
           ? escapeHtml(provider.name)
