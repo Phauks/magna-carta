@@ -410,8 +410,8 @@ export function describeHistoryRuns(
 // One tick per day in the window, oldest first, colored by the worst status observed that day; a day
 // with no samples is a no-data tick, never a green one. The ticks themselves are decoration to
 // assistive technology (each carries a title for the sighted reader's hover); the state they encode
-// reaches a screen reader as real text — the labelled summary on the bar, the visible uptime figure
-// beneath it, and the run-length record above, which is read out without any hovering.
+// reaches a screen reader as real text — the labelled summary on the bar, the run-length record
+// immediately after it, and the visible uptime figure on the axis. Nothing needs hovering.
 function renderUptimeBar(
   component: PublishedComponent,
   history: ComponentHistory | undefined,
