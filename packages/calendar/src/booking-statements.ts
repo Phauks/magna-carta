@@ -194,7 +194,11 @@ export async function readLiveBookingsInWindow(
 }
 
 // The bookings an event holds — what a continuance response reports as released, and what an event
-// card embeds. Liveness joined for the same reason as everywhere else.
+// card embeds. Liveness joined for the same reason as everywhere else. One event's bookings are a
+// handful (a room, a car, a projector), so the LIMIT is a backstop on an unbounded read and not
+// pagination; reached, the response under-reports what a cancellation releases.
+const EVENT_BOOKINGS_LIMIT = 200;
+
 export function selectBookingsForEventStatement(
   database: SqlDatabase,
   event: { readonly matterEventId: MatterEventId } | { readonly firmEventId: FirmEventId },
@@ -204,9 +208,9 @@ export function selectBookingsForEventStatement(
   return database
     .prepare(
       `${LIVE_BOOKING_SELECT}WHERE ${FIRM_RESOURCE_BOOKING_TABLE}.${column} = ?1 ` +
-        `ORDER BY ${FIRM_RESOURCE_BOOKING_TABLE}.starts_on ASC, ${FIRM_RESOURCE_BOOKING_TABLE}.id ASC`,
+        `ORDER BY ${FIRM_RESOURCE_BOOKING_TABLE}.starts_on ASC, ${FIRM_RESOURCE_BOOKING_TABLE}.id ASC LIMIT ?2`,
     )
-    .bind(id);
+    .bind(id, EVENT_BOOKINGS_LIMIT);
 }
 
 export async function readBookingsForEvent(

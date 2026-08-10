@@ -59,7 +59,7 @@ describe("related links", () => {
   it("links two events, refuses the duplicate pair in either direction, and deletes outright", async () => {
     const { database } = seeded();
     const prep = await seedHearing(database, { title: "Prep session", startsOn: "2026-09-10" });
-    const firmEvent = createFirmEvent(
+    const firmEvent = await createFirmEvent(
       database,
       { title: "War-room afternoon", startsOn: "2026-09-11", timeZone: "America/Los_Angeles" },
       options,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FirmResourceId } from "@magna-carta/identifiers/types";
 import {
+  bookingInterval,
   createFirmResourceBooking,
   deleteFirmResourceBooking,
   readResourceAvailability,
@@ -159,7 +160,7 @@ describe("a booking's window and zone", () => {
     const { database } = seeded();
     const roomId = await seedRoom(database);
     const matterEventId = await seedHearing(database);
-    const firmEvent = createFirmEvent(
+    const firmEvent = await createFirmEvent(
       database,
       { title: "Reservation", startsOn: "2026-09-14", timeZone: "America/Los_Angeles" },
       options,
@@ -226,6 +227,74 @@ describe("double-booking warns and allows", () => {
     expect(overlapsByBooking.get(secondBooking.firmResourceBookingId)).toEqual([
       firstBooking.firmResourceBookingId,
     ]);
+  });
+
+  // The grid's pairing is a sweep over intervals sorted by start instant rather than a comparison of
+  // every pair. This pins the two to the same answer on a day that mixes a three-way pile-up, a
+  // touching-but-not-overlapping pair, and bookings on their own.
+  it("pairs conflicts exactly as an all-pairs comparison would", async () => {
+    const { database } = seeded();
+    const roomId = await seedRoom(database);
+    const windows = [
+      { startsAtTime: "09:00", endsAtTime: "10:00" },
+      { startsAtTime: "09:30", endsAtTime: "11:00" },
+      { startsAtTime: "09:45", endsAtTime: "10:15" },
+      { startsAtTime: "10:00", endsAtTime: "11:00" },
+      { startsAtTime: "13:00", endsAtTime: "14:00" },
+      { startsAtTime: "14:00", endsAtTime: "15:00" },
+      { startsAtTime: "16:00", endsAtTime: "17:00" },
+      { startsAtTime: "16:30", endsAtTime: "16:45" },
+    ];
+    for (const window of windows) {
+      const event = await createFirmEvent(
+        database,
+        {
+          title: "Reservation",
+          startsOn: "2026-09-14",
+          ...window,
+          timeZone: "America/Los_Angeles",
+        },
+        options,
+      );
+      await commit(database, event.effect);
+      const booking = await createFirmResourceBooking(
+        database,
+        { resourceId: roomId, firmEventId: event.firmEventId },
+        options,
+      );
+      await commit(database, booking.effect);
+    }
+
+    const availability = await readResourceAvailability(database, {
+      resourceId: roomId,
+      fromDate: "2026-09-01",
+      toDate: "2026-09-30",
+    });
+    expect(availability).toHaveLength(windows.length);
+
+    const intervals = availability.map((entry) =>
+      bookingInterval({
+        starts_on: entry.startsOn,
+        starts_at_time: entry.startsAtTime,
+        ends_on: entry.endsOn,
+        ends_at_time: entry.endsAtTime,
+        time_zone: entry.timeZone,
+      }),
+    );
+    const allPairs = availability.map((_entry, index) =>
+      availability
+        .filter((_other, otherIndex) => {
+          const a = intervals[index];
+          const b = intervals[otherIndex];
+          if (otherIndex === index || a === undefined || b === undefined) return false;
+          return a.start < b.endExclusive && b.start < a.endExclusive;
+        })
+        .map((other) => other.bookingId),
+    );
+    expect(availability.map((entry) => entry.overlappingBookingIds)).toEqual(allPairs);
+    // Not a vacuous agreement: the pile-up is paired and the day's loners are not.
+    expect(allPairs.filter((pairs) => pairs.length > 0)).toHaveLength(6);
+    expect(allPairs.some((pairs) => pairs.length === 3)).toBe(true);
   });
 
   it("detects an overlap across zones through each row's own stored zone", async () => {

@@ -733,6 +733,13 @@ function calendarErrorResponse(
         status: 422,
         detail: caught.message,
       });
+    case "calendar-event-type-category-mismatch":
+      return problemJson(c, {
+        type: "calendar-event-type-category-mismatch",
+        title: "Event type is from another category",
+        status: 422,
+        detail: caught.message,
+      });
     default:
       return problemJson(c, {
         type: "validation",
@@ -2616,14 +2623,20 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const outcome = await commitCalendarEffect(c, firm.firmDatabase, idempotency, 201, () => {
-        const created = createFirmEvent(
-          firm.firmDatabase,
-          { ...request, locationId: request.locationId as never },
-          serviceOptions(userId),
-        );
-        return Promise.resolve({ id: created.firmEventId, effect: created.effect });
-      });
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createFirmEvent(
+            firm.firmDatabase,
+            { ...request, locationId: request.locationId as never },
+            serviceOptions(userId),
+          );
+          return { id: created.firmEventId, effect: created.effect };
+        },
+      );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json({ id: outcome.id }, 201);

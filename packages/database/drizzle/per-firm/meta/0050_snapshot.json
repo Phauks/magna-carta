@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "815f7b98-000d-4cf9-ad17-4f0d9550046d",
+  "id": "98e4db3a-e5c5-4978-9453-ddce225074b0",
   "prevId": "bb6d8308-8499-4734-9866-36cf4fda920a",
   "tables": {
     "account_balance": {
@@ -328,6 +328,22 @@
             "to_firm_event_id"
           ],
           "isUnique": false
+        },
+        "calendar_event_link_continuance_from_unique": {
+          "name": "calendar_event_link_continuance_from_unique",
+          "columns": [
+            "from_matter_event_id"
+          ],
+          "isUnique": true,
+          "where": "\"calendar_event_link\".\"kind\" = 'continuance_of'"
+        },
+        "calendar_event_link_continuance_to_unique": {
+          "name": "calendar_event_link_continuance_to_unique",
+          "columns": [
+            "to_matter_event_id"
+          ],
+          "isUnique": true,
+          "where": "\"calendar_event_link\".\"kind\" = 'continuance_of'"
         }
       },
       "foreignKeys": {

@@ -5439,12 +5439,6 @@ export const firmResourceBooking = sqliteTable(
 // small because the engine branches on 'continuance_of' (the chain rules) and on nothing else;
 // everything a firm means beyond that goes in the note. 'related' is undirected in meaning though
 // stored directed; readers render it symmetrically.
-//
-// The two partial unique indexes that make a continuance chain a CHAIN — at most one predecessor
-// and at most one successor per setting, refused by the schema rather than by a service invariant
-// somebody forgets under concurrency — are hand-written in the migration (drizzle cannot express a
-// partial index), as is the check restricting 'continuance_of' to matter-event ends: a moved staff
-// meeting is not procedural history.
 export const calendarEventLink = sqliteTable(
   "calendar_event_link",
   {
@@ -5472,6 +5466,16 @@ export const calendarEventLink = sqliteTable(
     index("calendar_event_link_from_firm_index").on(table.fromFirmEventId),
     index("calendar_event_link_to_matter_index").on(table.toMatterEventId),
     index("calendar_event_link_to_firm_index").on(table.toFirmEventId),
+    // What makes a continuance chain a CHAIN: at most one predecessor and at most one successor per
+    // setting, so a hearing continued three times is a path walkable in both directions and a fork
+    // is refused by the database even under racing writes — never by a service invariant somebody
+    // forgets. Matter ends only, which the continuance check below already guarantees.
+    uniqueIndex("calendar_event_link_continuance_from_unique")
+      .on(table.fromMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
+    uniqueIndex("calendar_event_link_continuance_to_unique")
+      .on(table.toMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
     check("calendar_event_link_kind_check", sql`${table.kind} IN ('continuance_of', 'related')`),
     check(
       "calendar_event_link_from_shape_check",

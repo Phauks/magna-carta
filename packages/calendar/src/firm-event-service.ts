@@ -9,6 +9,7 @@ import {
   assertParticipantShape,
   type EventParticipantInput,
 } from "./event-shape.ts";
+import { readMatterEventType } from "./event-type-statements.ts";
 import {
   cancelFirmEventStatement,
   deleteFirmEventParticipantsStatement,
@@ -69,12 +70,32 @@ function participantStatements(
   });
 }
 
-export function createFirmEvent(
+// The catalog is shared between the two scopes and its `category` column is what separates them, so
+// a firm event typed "Hearing" is a data-entry error the read surfaces would then have to explain.
+// Refused here rather than by the table: the column is a plain foreign key, and narrowing it in SQL
+// would mean rebuilding a settled table for a rule composition can hold. A type nothing in the
+// catalog matches is left to the foreign key, which already refuses it.
+async function assertFirmScopedEventType(
+  database: SqlDatabase,
+  eventTypeId: MatterEventTypeId | null,
+): Promise<void> {
+  if (eventTypeId === null) return;
+  const eventType = await readMatterEventType(database, eventTypeId);
+  if (eventType !== undefined && eventType.category !== "firm") {
+    throw new CalendarValidationError(
+      "calendar-event-type-category-mismatch",
+      `"${eventType.name}" is a ${eventType.category} event type; a firm event takes a firm-category type`,
+    );
+  }
+}
+
+export async function createFirmEvent(
   database: SqlDatabase,
   input: CreateFirmEventInput,
   options: CalendarServiceOptions,
-): { firmEventId: FirmEventId; effect: EffectWrite } {
+): Promise<{ firmEventId: FirmEventId; effect: EffectWrite }> {
   assertEventShape(input);
+  await assertFirmScopedEventType(database, input.eventTypeId ?? null);
   const now = options.clock.now();
   const firmEventId = newIdentifier("firmEvent", options.randomSource);
   const statements: SqlStatement[] = [
@@ -160,6 +181,11 @@ export async function updateFirmEvent(
     locationText: patch.locationText === undefined ? existing.location_text : patch.locationText,
   };
   assertEventShape(merged);
+  // Only what the patch actually names: an edit to the title never re-litigates a type already on
+  // the row.
+  if (patch.eventTypeId !== undefined) {
+    await assertFirmScopedEventType(database, patch.eventTypeId);
+  }
   const now = options.clock.now();
   const statements: SqlStatement[] = [updateFirmEventStatement(database, firmEventId, merged, now)];
   if (patch.participants !== undefined) {

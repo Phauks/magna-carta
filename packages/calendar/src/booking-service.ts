@@ -424,6 +424,40 @@ export interface AvailabilityEntry {
   readonly overlappingBookingIds: readonly FirmResourceBookingId[];
 }
 
+// Which bookings overlap which, as row-index lists parallel to `rows`. A sweep rather than a
+// pairwise scan: sorted by start instant, an interval can only overlap ones still open when it
+// begins, so one pass over an active set finds every pair. Comparing all pairs is quadratic in the
+// row bound whatever the data looks like — two thousand bookings is four million comparisons inside
+// a request handler for a room that has no conflicts at all.
+function pairOverlappingBookings(rows: readonly LiveBookingRow[]): number[][] {
+  const intervals = rows.map((row, index) => ({ index, ...bookingInterval(row) }));
+  const byStart = [...intervals].sort((left, right) => left.start - right.start);
+  const overlaps: number[][] = rows.map(() => []);
+  const active: (typeof intervals)[number][] = [];
+  for (const current of byStart) {
+    // Close out everything that ended before this one began. What survives is exactly the set the
+    // pairing below walks, so the sweep does no work beyond the overlaps it reports.
+    let kept = 0;
+    for (const open of active) {
+      if (open.endExclusive > current.start) {
+        active[kept] = open;
+        kept += 1;
+      }
+    }
+    active.length = kept;
+    for (const open of active) {
+      // The other half of the intersection — `open` is known to end after `current` starts, so a
+      // start before `current` ends is the whole test. Zero-length windows fall out correctly.
+      if (open.start < current.endExclusive) {
+        overlaps[current.index]?.push(open.index);
+        overlaps[open.index]?.push(current.index);
+      }
+    }
+    active.push(current);
+  }
+  return overlaps;
+}
+
 export async function readResourceAvailability(
   database: SqlDatabase,
   options: {
@@ -438,23 +472,14 @@ export async function readResourceAvailability(
     toDate: options.toDate,
     limit: 2000,
   });
-  const intervals = rows.map((row) => bookingInterval(row));
+  const overlaps = pairOverlappingBookings(rows);
   return rows.map((row, index) => {
-    const overlapping: FirmResourceBookingId[] = [];
-    for (let other = 0; other < rows.length; other += 1) {
-      if (other === index) continue;
-      const a = intervals[index];
-      const b = intervals[other];
-      if (
-        a !== undefined &&
-        b !== undefined &&
-        a.start < b.endExclusive &&
-        b.start < a.endExclusive
-      ) {
+    const overlapping = (overlaps[index] ?? [])
+      .sort((left, right) => left - right)
+      .flatMap((other) => {
         const otherRow = rows[other];
-        if (otherRow !== undefined) overlapping.push(otherRow.id);
-      }
-    }
+        return otherRow === undefined ? [] : [otherRow.id];
+      });
     const conflict = toConflict(row);
     return {
       bookingId: row.id,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FirmEventId } from "@magna-carta/identifiers/types";
+import type { FirmEventId, MatterEventTypeId } from "@magna-carta/identifiers/types";
 import { cancelFirmEvent, createFirmEvent, updateFirmEvent } from "../src/firm-event-service.ts";
 import { readFirmEvent, readFirmEventParticipants } from "../src/firm-event-statements.ts";
 import { CalendarValidationError } from "../src/validation.ts";
@@ -30,7 +30,7 @@ function seeded() {
 describe("recording what the firm schedules for itself", () => {
   it("records a firm meeting with members and an external speaker, defaulting the audience to participants", async () => {
     const { database } = seeded();
-    const created = createFirmEvent(
+    const created = await createFirmEvent(
       database,
       {
         title: "Continuing legal education: trust accounting",
@@ -64,7 +64,7 @@ describe("recording what the firm schedules for itself", () => {
 
   it("records an all-members closure with no participant rows at all", async () => {
     const { database } = seeded();
-    const created = createFirmEvent(
+    const created = await createFirmEvent(
       database,
       {
         title: "Office closed — statewide holiday",
@@ -80,9 +80,9 @@ describe("recording what the firm schedules for itself", () => {
     expect(await readFirmEventParticipants(database, created.firmEventId)).toHaveLength(0);
   });
 
-  it("holds the event shape rules: range, end-time-needs-start-time, resolvable zone", () => {
+  it("holds the event shape rules: range, end-time-needs-start-time, resolvable zone", async () => {
     const { database } = seeded();
-    expect(() =>
+    await expect(
       createFirmEvent(
         database,
         {
@@ -93,8 +93,8 @@ describe("recording what the firm schedules for itself", () => {
         },
         options,
       ),
-    ).toThrow(CalendarValidationError);
-    expect(() =>
+    ).rejects.toThrow(CalendarValidationError);
+    await expect(
       createFirmEvent(
         database,
         {
@@ -105,19 +105,19 @@ describe("recording what the firm schedules for itself", () => {
         },
         options,
       ),
-    ).toThrow(/end time needs a start time/);
-    expect(() =>
+    ).rejects.toThrow(/end time needs a start time/);
+    await expect(
       createFirmEvent(
         database,
         { title: "Nowhere", startsOn: "2026-09-10", timeZone: "Mars/Olympus_Mons" },
         options,
       ),
-    ).toThrow(/IANA identifier/);
+    ).rejects.toThrow(/IANA identifier/);
   });
 
   it("edits in place, replaces the participant set only when one is supplied, and audits the move", async () => {
     const { database, raw } = seeded();
-    const created = createFirmEvent(
+    const created = await createFirmEvent(
       database,
       {
         title: "Quarterly all-hands",
@@ -167,7 +167,7 @@ describe("recording what the firm schedules for itself", () => {
 
   it("cancels with an optional reason and refuses an unknown firm event by name", async () => {
     const { database } = seeded();
-    const created = createFirmEvent(
+    const created = await createFirmEvent(
       database,
       { title: "Retreat planning", startsOn: "2026-09-20", timeZone: "America/Los_Angeles" },
       options,
@@ -187,5 +187,75 @@ describe("recording what the firm schedules for itself", () => {
     await expect(
       cancelFirmEvent(database, "firmEvent_doesNotExist00000000000" as FirmEventId, options),
     ).rejects.toThrow(/no such firm event/);
+  });
+
+  // The catalog is shared with matter events and `category` is the only thing separating the two
+  // scopes, so the pairing is held at composition: a staff meeting typed "Hearing" would file itself
+  // as procedural history on every surface that groups by category.
+  const FIRM_MEETING_TYPE = "matterEventType_firmMeeting0000000000" as MatterEventTypeId;
+  const HEARING_TYPE = "matterEventType_hearing00000000000000" as MatterEventTypeId;
+
+  it("takes a firm-category event type", async () => {
+    const { database } = seeded();
+    const created = await createFirmEvent(
+      database,
+      {
+        title: "Monthly partners' meeting",
+        eventTypeId: FIRM_MEETING_TYPE,
+        startsOn: "2026-09-03",
+        timeZone: "America/Los_Angeles",
+      },
+      options,
+    );
+    await commit(database, created.effect);
+    expect((await readFirmEvent(database, created.firmEventId))?.event_type_id).toBe(
+      FIRM_MEETING_TYPE,
+    );
+
+    const retyped = await updateFirmEvent(
+      database,
+      created.firmEventId,
+      { eventTypeId: "matterEventType_training0000000000000" as MatterEventTypeId },
+      options,
+    );
+    await commit(database, retyped.effect);
+    expect((await readFirmEvent(database, created.firmEventId))?.event_type_id).toBe(
+      "matterEventType_training0000000000000",
+    );
+  });
+
+  it("refuses a litigation-category event type by name, on create and on edit", async () => {
+    const { database } = seeded();
+    await expect(
+      createFirmEvent(
+        database,
+        {
+          title: "All-hands",
+          eventTypeId: HEARING_TYPE,
+          startsOn: "2026-09-03",
+          timeZone: "America/Los_Angeles",
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "calendar-event-type-category-mismatch" });
+
+    const created = await createFirmEvent(
+      database,
+      {
+        title: "All-hands",
+        eventTypeId: FIRM_MEETING_TYPE,
+        startsOn: "2026-09-03",
+        timeZone: "America/Los_Angeles",
+      },
+      options,
+    );
+    await commit(database, created.effect);
+    await expect(
+      updateFirmEvent(database, created.firmEventId, { eventTypeId: HEARING_TYPE }, options),
+    ).rejects.toMatchObject({ code: "calendar-event-type-category-mismatch" });
+    // The refused edit changed nothing.
+    expect((await readFirmEvent(database, created.firmEventId))?.event_type_id).toBe(
+      FIRM_MEETING_TYPE,
+    );
   });
 });

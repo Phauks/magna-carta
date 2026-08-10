@@ -8,10 +8,11 @@
 -- matter_event reuses 'cancelled' for a continued setting because widening its status CHECK would
 -- be one too.
 --
--- Hand-ordered parent-first (firm_event before its participants and bookings), with the two partial
--- unique indexes that hold a continuance chain to a chain — at most one predecessor and at most one
--- successor per setting, refused by the schema rather than by a service invariant somebody forgets
--- under concurrency — written by hand because drizzle-kit cannot express a partial index.
+-- Hand-ordered parent-first (firm_event before its participants and bookings), which is why this
+-- migration is hand-written rather than generated; the two partial unique indexes that hold a
+-- continuance chain to a chain — at most one predecessor and at most one successor per setting,
+-- refused by the database rather than by a service invariant somebody forgets under concurrency —
+-- are declared in the drizzle schema too, so a later regeneration keeps them.
 CREATE TABLE `firm_event` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_type_id` text,

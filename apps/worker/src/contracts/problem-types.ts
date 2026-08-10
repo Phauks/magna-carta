@@ -129,6 +129,11 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // A firm event given an event type from another category (HTTP 422). The two calendar scopes share
+  // one type catalog and `category` is the only thing separating them, so typing the all-hands as a
+  // "Hearing" would file a staff meeting as procedural history everywhere a surface groups by
+  // category. Fixed by choosing a firm-category type, never by the caller rephrasing the request.
+  "calendar-event-type-category-mismatch": "calendar-event-type-category-mismatch",
   // A booking against a resource that has been deactivated (HTTP 422). Soft-deactivation's meaning:
   // existing bookings keep resolving and the history stands; new bookings are refused. Fixed by
   // reactivating the resource or booking another one. DISTINCT from `validation` — the request is

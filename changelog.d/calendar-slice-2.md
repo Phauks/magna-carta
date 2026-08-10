@@ -36,6 +36,8 @@ lists the deadlines that referenced the old setting as pure information, because
 does to a briefing schedule is a legal judgement.
 
 Four notification emission points declared and wired to nothing; five firm-scope platform event
-types seeded; the five load-profile bounds asserted over the fixtures corpus (a year of weekly firm
+types seeded, and a firm event takes one of those firm-category types — the shared catalog's
+category is what separates the two scopes, so typing the all-hands as a "Hearing" is refused by
+name rather than filed as procedural history; the five load-profile bounds asserted over the fixtures corpus (a year of weekly firm
 events, eight resources, deliberate overlaps, a five-node continuance chain). Owner flags R1
 (warn-and-allow), R2 (closed resource kinds), R3 (no freestanding bookings) built as confirmed.

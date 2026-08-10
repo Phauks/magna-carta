@@ -39,6 +39,10 @@ export type CalendarValidationCode =
   | "calendar-platform-type-immutable"
   | "calendar-event-type-name-taken"
   | "calendar-event-type-code-taken"
+  // A catalog type from the wrong scope: the two scopes share one catalog and its category column is
+  // the only thing separating them, so a firm meeting typed "Hearing" would read as procedural
+  // history everywhere the category is what a surface groups by.
+  | "calendar-event-type-category-mismatch"
   // The requested window or horizon is wider than a single read is allowed to be. A REFUSAL and
   // never a silent clamp: a caller that asked for three years and quietly received one cannot tell
   // that from a firm with nothing recorded in years two and three.

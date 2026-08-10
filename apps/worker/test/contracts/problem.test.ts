@@ -91,6 +91,7 @@ describe("problem-type URI registry", () => {
         "calendar-deadline-catalog-unavailable",
         "calendar-deadline-settled",
         "calendar-platform-type-immutable",
+        "calendar-event-type-category-mismatch",
         "calendar-resource-inactive",
         "calendar-resource-name-taken",
         "calendar-event-not-continuable",
