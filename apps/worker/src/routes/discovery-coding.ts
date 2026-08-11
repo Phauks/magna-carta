@@ -54,6 +54,7 @@ import {
 } from "@magna-carta/discovery/types";
 import { DiscoveryValidationError } from "@magna-carta/discovery/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
 import type {
   ReviewDocumentId,
   ReviewSetId,
@@ -1170,6 +1171,10 @@ export function registerDiscoveryCodingRoutes(app: DiscoveryApp, chokepoint: Cho
         return notOnTheList(c);
       }
       const kind = body.action === "apply" ? ("bulk-apply" as const) : ("bulk-remove" as const);
+      // Read for the matter the selection object is stamped with. The key is deliberately scope-free,
+      // so an unstamped object is one nothing can place.
+      const reviewSet = await readReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (reviewSet === undefined) return notOnTheList(c);
       try {
         const plan = await planBulkCoding(
           firm.firmDatabase,
@@ -1195,7 +1200,13 @@ export function registerDiscoveryCodingRoutes(app: DiscoveryApp, chokepoint: Cho
             reviewSetId: plan.reviewSetId,
             reviewDocumentIds: plan.documentIds,
           }),
-          { httpMetadata: { contentType: "application/json" } },
+          {
+            httpMetadata: { contentType: "application/json" },
+            customMetadata: matterScopedObjectDimensions({
+              matterId: reviewSet.matter_id,
+              objectClass: "review-coding-selection",
+            }),
+          },
         );
         let written = 0;
         for (const chunk of plan.chunks) {
