@@ -23,6 +23,7 @@ import {
   options,
   seedMatter,
   seedTrustManager,
+  setTrustAuthorizationPolicy,
   trustFixture,
 } from "./support.ts";
 
@@ -38,6 +39,11 @@ const fixtureWithJurisdiction = () => trustFixture({ jurisdiction: "US-NV" });
 
 async function fundedFixture(amountMinor: number) {
   const fixture = await fixtureWithJurisdiction();
+  // This suite is about the TWO-PERSON shape, which is a posture a firm writes rather than the one
+  // every database is seeded with, so it is stated here once. Authority off, because who may
+  // authorize is the subject of authorization-policy.test.ts and would otherwise be a second
+  // variable in every case below.
+  await setTrustAuthorizationPolicy(fixture, { policy: "always" });
   const matterId = await seedMatter(fixture, "Webb", "entity_webb");
   const deposit = await composeTrustDeposit(
     fixture.database,

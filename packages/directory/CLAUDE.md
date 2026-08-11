@@ -16,7 +16,8 @@
 - `src/normalize-name.ts` — frozen name normalization: NFC, case-fold, diacritic/punctuation strip, suffix/title parse — produces the `normalized_display` stored at write time
 - `src/phonetics.ts` — scheme-keyed Double Metaphone computation (seam over `words/double-metaphone`); produces `directory_name_phonetic_code` rows for both primary and secondary codes
 - `src/statements.ts` — SQL statement builders (insert/update/repoint) for the atomic batch; the `directoryAuditStatement` helper
-- `src/person.ts` — `createPerson` / `readPerson` / `updatePerson`
+- `src/person.ts` — `createPerson` / `readPerson` / `updatePerson` / `setPersonPronouns`
+- `src/pronouns.ts` — the pronoun set: the five grammatical forms plus verb agreement, the all-or-nothing column projection, and the validation the write path runs
 - `src/organization.ts` — `createOrganization` / `readOrganization` (an organization's name changes through `name-history.ts`, so there is deliberately no `updateOrganization` twin of `updatePerson`)
 - `src/name-history.ts` — `addName` / `changeName` (append-and-flip); inserts the new `directory_name` row + phonetic codes + flips `is_current` on the prior in the same batch
 - `src/search.ts` — FTS5 trigram name search (`searchNames`) + `findDuplicateCandidates` (phonetic-block union trigram union blind-index, signal-count ranked). The blind-index channel takes plaintext `identifiers` (entry-time duplicate detection) **or** a `subjectEntityId` (conflicts): the latter self-joins an already-persisted entity's sealed blind indexes, so the exact-identifier channel runs with no plaintext in hand.
@@ -45,6 +46,18 @@
 - **Writes never land on a merged-away entity.** `assertEntityExists` treats status as part of existence: a merged subordinate throws `MergedEntityError` (409, naming the master), while a missing or soft-deleted row throws `UnknownEntityError` (404). Reads are unchanged — a merged entity is still readable and carries `mergedIntoId` for a client to follow.
 - **Idempotency on all write routes.** All directory create/update/merge operations thread the idempotency context (the matters pattern) — a same-key retry returns the committed result without re-executing the batch. Merge replay is proven not to double-repoint.
 - **Scheme CHECK is open.** The `directory_name_phonetic_code.scheme` column CHECK is `length > 0`, not an exhaustive enum — adding Beider-Morse is additive rows + a backfill sweep, no schema change.
+- **Pronouns are RECORDED, never inferred, and whole or absent.** A person's pronoun set is what
+  that person stated. Nothing derives it — not from `name_given`, not from `name_prefix`, not from any
+  other column — and nothing derives anything else from it; the platform holds no gender field, and a
+  pronoun set must never become a proxy for one. The set is the WHOLE declension (subject, object,
+  possessive determiner, possessive pronoun, reflexive) plus a verb-agreement number, because a
+  two-form label determines none of the last three for a set the platform has not seen and any
+  label-to-forms table is a closed enum in disguise. All six columns are recorded together or none is:
+  the table CHECK refuses a partial row, `updatePersonPronounsStatement` is the only write and writes
+  all six, and `pronounSetFromColumns` returns null for anything short of a whole set — three layers
+  for one invariant, because "she" in one clause and "them" in the next is invisible to a proofreader
+  and lands on a real person. Rendering, including what an unrecorded set becomes, is
+  `@magna-carta/document-assembly`'s business, not this package's.
 - **Every mutation audited.** An `audit_log` row rides in the same batch as each mutation (the `directoryAuditStatement` helper).
 
 ## Dependencies & contracts

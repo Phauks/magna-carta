@@ -2,6 +2,17 @@ export * from "./types.ts";
 export { normalizeName } from "./normalize-name.ts";
 export { phoneticCodes } from "./phonetics.ts";
 export { createPerson, readPerson, updatePerson } from "./person.ts";
+export { setPersonPronouns } from "./person.ts";
+export type { Person } from "./person.ts";
+export {
+  IncompletePronounSetError,
+  isPronounVerbNumber,
+  pronounLabel,
+  pronounSetFromColumns,
+  validatePronounSet,
+  PRONOUN_VERB_NUMBERS,
+} from "./pronouns.ts";
+export type { PronounColumns, PronounSet, PronounVerbNumber } from "./pronouns.ts";
 export { createOrganization, readOrganization } from "./organization.ts";
 export { addName, changeName } from "./name-history.ts";
 export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.ts";

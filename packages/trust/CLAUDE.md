@@ -23,9 +23,13 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/authorization-policy.ts` — the firm's disbursement-authorization posture: off, threshold, or
   always, plus the approver-authority option; `readCurrentTrustAuthorizationPolicy` /
   `composeTrustAuthorizationPolicyChange` / `trustAuthorizationRequiresSecondPerson` (THE predicate
-  both money-out paths share) / `assertActorHoldsTrustAuthority`
+  both money-out paths share) / `assertActorHoldsTrustAuthority` /
+  `resolveLoneTrustManagerException` (the count-plus-membership pair, in one place) /
+  `resolveTrustAuthorizationDisposition` (THE read both money-out paths choose solo-versus-route
+  from, before composing anything)
 - `src/disbursement-authorization.ts` — the pending request, and the one decision that settles it:
-  `composeTrustDisbursementRequest` / `composeTrustDisbursementApproval` /
+  `composeTrustDisbursementRequest` / `composeTrustDisbursementSubmission` (proposal plus, when the
+  disposition says solo, the release — one batch) / `composeTrustDisbursementApproval` /
   `composeTrustDisbursementRejection` / `composeTrustDisbursementWithdrawal`, plus the shared
   approval resolution (`resolveTrustAuthorizationApproval`) and the earned-fee application's queue
   row and decision (`composeEarnedFeeApplicationAuthorizationRequest` /
@@ -96,12 +100,33 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   (never buried in a description), because a jurisdiction rule cannot forbid a payment method the
   engine cannot see.
 - **Whether money out takes two people is the FIRM'S POLICY, and the request keeps the version it
-  was submitted under.** `trust_authorization_policy` is append-only, densely versioned, and strict
-  by default: no row means always-two-person with no authority requirement, so nothing relaxes on
-  migrate. Every new request and transfer stamps the current version; every decision trigger and
-  the approval resolution read the STAMP, never the latest row — an in-flight request is governed by
-  the rules it was proposed under, in both directions. The stamp-is-current triggers are what stop a
-  caller reviving a superseded posture.
+  was submitted under.** `trust_authorization_policy` is append-only and densely versioned. Two
+  distinct facts about the default, deliberately kept apart: **no row** means always-two-person with
+  no authority requirement — that is what a NULL stamp resolves to, forever, because it describes
+  the requests decided before any posture existed — while **every per-firm database is seeded** with
+  version 1 (`off` plus the authority requirement) by
+  `20260808T020000_trust-authority-default-posture.sql`, conditionally on the table being empty so a
+  firm that already chose a posture keeps it. Every new request and transfer stamps the current
+  version; every decision trigger and the approval resolution read the STAMP, never the latest row —
+  an in-flight request is governed by the rules it was proposed under, in both directions. The
+  stamp-is-current triggers are what stop a caller reviving a superseded posture.
+- **AUTHORITY IS A PROPERTY OF THE PERSON, and the check is always about the ACTOR.** With
+  `require_authorized_approver` set, the amount-only exemption becomes actor-conditional: an amount
+  no second person is required for can still only be released by a holder, and a non-holder's
+  self-decision is refused, leaving the request pending for one. Every authority or lone-holder
+  check therefore asks whether **this actor is in the counted set** — never whether the set is
+  non-empty, and never whether the firm has exactly one holder without also asking whether the actor
+  IS that holder. A count without the membership half let a member holding only `billing:apply`
+  borrow a lone manager's exception and release money alone. `resolveLoneTrustManagerException` is
+  the one place the pair is written, and both triggers hold the same pair.
+- **The disposition is a READ IN FRONT of the guarantees, never a substitute for them.**
+  `resolveTrustAuthorizationDisposition` answers "may this member release this amount alone, on what
+  footing, and if not who can" before anything is composed, so an ordinary outcome (a member without
+  authority raising a payment for somebody else) does not have to wear the face of a refusal. It
+  calls the shared predicate and the same membership reads the triggers count — it is not a fifth
+  mirror — and every path out of it is a refusal, a route, or an answer the composers and triggers
+  would independently accept. A composer that moves money must never become one that writes a queue
+  row: the routing arm lives one level up, in the caller.
 - **A gated disbursement takes two people, and the second one is the database's business.** A
   payment out of a client ledger is a pending `trust_disbursement_request` until a
   `trust_disbursement_decision` approves it; the movement is composed at that moment through the

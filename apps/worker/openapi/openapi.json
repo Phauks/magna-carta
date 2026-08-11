@@ -5346,6 +5346,9 @@
               "string",
               "null"
             ]
+          },
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
           }
         },
         "required": [
@@ -5357,7 +5360,80 @@
           "suffix",
           "displayName",
           "status",
-          "mergedIntoId"
+          "mergedIntoId",
+          "pronouns"
+        ]
+      },
+      "DirectoryPronounSet": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she signed."
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: we served her."
+          },
+          "possessiveDeterminer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: her signature."
+          },
+          "possessivePronoun": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: the signature is hers."
+          },
+          "reflexive": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she represented herself."
+          },
+          "verbNumber": {
+            "type": "string",
+            "enum": [
+              "singular",
+              "plural"
+            ],
+            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
+          }
+        },
+        "required": [
+          "subject",
+          "object",
+          "possessiveDeterminer",
+          "possessivePronoun",
+          "reflexive",
+          "verbNumber"
+        ],
+        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
+      },
+      "DirectoryAckResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SetDirectoryPersonPronounsRequest": {
+        "type": "object",
+        "properties": {
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
+          }
+        },
+        "required": [
+          "pronouns"
         ]
       },
       "CreateDirectoryOrganizationRequest": {
@@ -5412,17 +5488,6 @@
           "displayName",
           "status",
           "mergedIntoId"
-        ]
-      },
-      "DirectoryAckResponse": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok"
         ]
       },
       "AddDirectoryNameRequest": {
@@ -14880,13 +14945,67 @@
           "status": {
             "type": "string",
             "enum": [
-              "pending"
+              "pending",
+              "approved"
             ]
+          },
+          "authorizationBasis": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "second_person",
+              "sole_trust_manager",
+              "policy_exempt",
+              null
+            ]
+          },
+          "trustMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ledgerEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "eligibleApprovers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustAuthorizedMember"
+            }
           }
         },
         "required": [
           "trustDisbursementRequestId",
-          "status"
+          "status",
+          "authorizationBasis",
+          "trustMovementId",
+          "ledgerEntryId",
+          "trustLedgerNodeId",
+          "eligibleApprovers"
+        ]
+      },
+      "TrustAuthorizedMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName"
         ]
       },
       "TrustDisbursementRequestSubmission": {
@@ -16758,22 +16877,80 @@
         "type": "object",
         "properties": {
           "trustDisbursementRequestId": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "totalMinor": {
             "type": "integer"
           },
+          "currency": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
-              "pending"
+              "pending",
+              "applied"
             ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trustEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operatingEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "applicationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "eligibleApprovers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingAuthorizedMember"
+            }
           }
         },
         "required": [
           "trustDisbursementRequestId",
           "totalMinor",
-          "status"
+          "currency",
+          "status",
+          "transferId",
+          "trustEntryId",
+          "operatingEntryId",
+          "applicationIds",
+          "eligibleApprovers"
+        ]
+      },
+      "BillingAuthorizedMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName"
         ]
       },
       "BillingTrustApplicationRequestSubmission": {
@@ -33450,6 +33627,139 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/persons/{id}/pronouns": {
+      "put": {
+        "description": "Records the pronouns a person stated, or removes the set on file. Every form is supplied together: a partly recorded set is refused, because a document that renders one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it. Pronouns are never worked out from a name, a courtesy title, or any other field.",
+        "operationId": "directory.setPersonPronouns",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.setPersonPronouns",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^directoryPerson_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectoryPersonPronounsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryAckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -53968,7 +54278,7 @@
     },
     "/api/v1/trust/disbursement-requests": {
       "post": {
-        "description": "Proposes a payment of client money out of a matter's trust ledger. NO MONEY MOVES: no ledger entry, no balance change, and no movement record exists until a second member approves the request. The proposal is checked against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — so an impossible payment is refused now rather than at approval, and it is checked again when it is approved.",
+        "description": "Proposes a payment of client money out of a matter's trust ledger, and — when the firm's posture lets this member release it alone — makes the payment in the same atomic write. The firm decides which: a member holding the authority to act on client money releases an amount that needs no second person by themselves, and the response says `approved` with the movement it posted; anybody else leaves a pending request that somebody who holds the authority has to approve, and the response says `pending`, names who can approve it, and moves no money at all — no ledger entry, no balance change, no movement record. Either way the proposal is checked against the ledger's AVAILABLE balance (the stored balance less any disputed-funds holds), and a request that stays pending is checked again when it is approved.",
         "operationId": "trust.requestDisbursement",
         "tags": [
           "trust"
@@ -54008,7 +54318,7 @@
         },
         "responses": {
           "201": {
-            "description": "The disbursement request is recorded and awaiting approval",
+            "description": "The disbursement was released by the submitting member, or recorded and awaiting approval",
             "content": {
               "application/json": {
                 "schema": {
@@ -57379,7 +57689,7 @@
     },
     "/api/v1/billing/trust-application-requests": {
       "post": {
-        "description": "Proposes taking earned fees out of a client's trust ledger against named finalized invoices, as a pending request for another member to approve. NO MONEY MOVES: the request and its invoice lines are a proposal, checked now so the submitter learns of a problem immediately, and re-checked in full at approval. This is the path a firm whose authorization policy requires a second person takes its fees by; the request is decided under the policy version in force when it is submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
+        "description": "Takes earned fees out of a client's trust ledger against named finalized invoices, under the firm's own posture — which decides whether this member may take them now or has to ask. A member holding the authority to act on client money, for an amount that needs no second person, takes them in one atomic write and the response says `applied`. Anybody else leaves a pending request with its invoice lines beside it; the response says `pending`, names who can release it, and nothing reaches the ledger. A pending request is checked now so the submitter learns of a problem immediately and re-checked in full at approval, and it is decided under the policy version in force when it was submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
         "operationId": "billing.submitTrustApplication",
         "tags": [
           "billing"
@@ -57419,7 +57729,7 @@
         },
         "responses": {
           "201": {
-            "description": "The application request is recorded and awaiting approval",
+            "description": "The earned fees were applied by the submitting member, or the request is recorded and awaiting approval",
             "content": {
               "application/json": {
                 "schema": {

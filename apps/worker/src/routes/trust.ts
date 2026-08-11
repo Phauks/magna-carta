@@ -16,7 +16,7 @@ import {
 import {
   composeTrustDisbursementApproval,
   composeTrustDisbursementRejection,
-  composeTrustDisbursementRequest,
+  composeTrustDisbursementSubmission,
   composeTrustDisbursementWithdrawal,
   readPendingTrustDisbursementRequests,
 } from "@magna-carta/trust/disbursement-authorization";
@@ -51,10 +51,13 @@ import { problemResponseForTrustRefusal } from "../trust-refusal-problems.ts";
 // matters of one client. Every one of them is idempotency-REQUIRED, because a retried request that
 // posted a second entry would be a second real movement of somebody else's money.
 //
-// Money going OUT is two calls rather than one: a member submits a disbursement request, and a
-// SECOND member approves it. There is no endpoint that pays a client's money out in a single call,
-// which is the point — the request endpoint writes no ledger entry at all, and the approval endpoint
-// is where the movement is composed and committed.
+// Money going OUT is proposed on one endpoint and, when it needs somebody else, released on
+// another. Which of the two happens is the FIRM'S posture, not this module's: a member holding the
+// authority the firm requires releases an amount that takes no second person in the same atomic
+// write as the proposal, and everybody else leaves a pending request the approval endpoint settles.
+// This module never decides that — it asks @magna-carta/trust for the disposition and reports the
+// answer, including WHO can approve when the caller cannot, so a member is never invited to attempt
+// a decision the database is going to refuse.
 //
 // This module composes and commits; it decides nothing. The rules live one layer down in
 // @magna-carta/trust, whose composition guard is the only supported way to build an entry touching
@@ -211,8 +214,26 @@ const PendingDisbursementRequestsResponse = z
   .object({ requests: z.array(PendingDisbursementRequest) })
   .openapi("TrustPendingDisbursementRequestsResponse");
 
+// A member the firm has given the authority to act on client money, named so a pending request can
+// say who is able to settle it rather than only that somebody must.
+const AuthorizedMember = z
+  .object({ userId: z.string(), displayName: z.string() })
+  .openapi("TrustAuthorizedMember");
+
+// What became of a proposed payment. `approved` means the submitting member held the authority the
+// firm requires and the amount needed no second person, so the payment was proposed and released in
+// the same atomic write — the movement fields are then present. `pending` means somebody else has to
+// settle it, and `eligibleApprovers` says who; nothing has reached the ledger.
 const DisbursementRequestAck = z
-  .object({ trustDisbursementRequestId: z.string(), status: z.literal("pending") })
+  .object({
+    trustDisbursementRequestId: z.string(),
+    status: z.enum(["pending", "approved"]),
+    authorizationBasis: AuthorizationBasis.nullable(),
+    trustMovementId: z.string().nullable(),
+    ledgerEntryId: z.string().nullable(),
+    trustLedgerNodeId: z.string(),
+    eligibleApprovers: z.array(AuthorizedMember),
+  })
   .openapi("TrustDisbursementRequestAck");
 
 const DisbursementApprovalAck = z
@@ -371,7 +392,7 @@ const requestDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.requestD
   method: "post",
   path: "/api/v1/trust/disbursement-requests",
   description:
-    "Proposes a payment of client money out of a matter's trust ledger. NO MONEY MOVES: no ledger entry, no balance change, and no movement record exists until a second member approves the request. The proposal is checked against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — so an impossible payment is refused now rather than at approval, and it is checked again when it is approved.",
+    "Proposes a payment of client money out of a matter's trust ledger, and — when the firm's posture lets this member release it alone — makes the payment in the same atomic write. The firm decides which: a member holding the authority to act on client money releases an amount that needs no second person by themselves, and the response says `approved` with the movement it posted; anybody else leaves a pending request that somebody who holds the authority has to approve, and the response says `pending`, names who can approve it, and moves no money at all — no ledger entry, no balance change, no movement record. Either way the proposal is checked against the ledger's AVAILABLE balance (the stored balance less any disputed-funds holds), and a request that stays pending is checked again when it is approved.",
   request: {
     headers: idempotencyKeyHeader,
     body: {
@@ -381,7 +402,8 @@ const requestDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.requestD
   },
   responses: {
     201: {
-      description: "The disbursement request is recorded and awaiting approval",
+      description:
+        "The disbursement was released by the submitting member, or recorded and awaiting approval",
       content: { "application/json": { schema: DisbursementRequestAck } },
     },
     400: errorResponses[400],
@@ -843,7 +865,7 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
           request.trustAccountId,
           request.matterId,
         );
-        const composed = await composeTrustDisbursementRequest(
+        const composed = await composeTrustDisbursementSubmission(
           firm.firmDatabase,
           {
             fromNodeId: node.id,
@@ -860,7 +882,20 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
         );
         return {
           write: composed.effect,
-          body: { trustDisbursementRequestId: composed.requestId, status: "pending" as const },
+          body: {
+            trustDisbursementRequestId: composed.requestId,
+            status: composed.released ? ("approved" as const) : ("pending" as const),
+            authorizationBasis: composed.released?.authorizationBasis ?? null,
+            trustMovementId: composed.released?.movement.movementId ?? null,
+            ledgerEntryId: composed.released?.movement.entryId ?? null,
+            trustLedgerNodeId: composed.nodeId,
+            // Who can settle it if this member could not. Empty on a release, because nobody is
+            // waiting on anybody.
+            eligibleApprovers: composed.disposition.eligibleApprovers.map((approver) => ({
+              userId: approver.userId,
+              displayName: approver.displayName,
+            })),
+          },
         };
       });
     },

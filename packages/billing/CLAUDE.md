@@ -22,6 +22,12 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/earned-fee.ts` — `resolveEarnedFeeApplications` + `invoiceBackedEarnedFeePrecondition`: the
   satisfier for the port at `packages/trust/src/transfer.ts` that refuses every transfer by default,
   and `MAXIMUM_INVOICES_PER_TRUST_APPLICATION` (the per-transfer bound)
+- `src/apply-authorization.ts` — `applyEarnedFeesUnderAuthorizationPolicy`: THE entrance for taking
+  earned fees, which asks trust's shared disposition first and then either applies directly or
+  queues; plus the queue row itself (`submitTrustApplicationRequest`) and its approval
+  (`composeTrustApplicationApproval`). The routing arm lives here, one level above
+  `composeTrustToOperatingTransfer`'s refusal — that refusal is the last guard before a posting and
+  must never become a route, or a composer meant to move money would start writing queue rows.
 - `src/apply-trust-funds.ts` — `applyTrustFundsToInvoices`: trust's transfer and the applications
   merged into ONE batch
 - `src/account-roles.ts` — the `firm_account_role` map, its configuration composer, and the resolver

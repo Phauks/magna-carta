@@ -6,6 +6,7 @@ import type {
   DirectoryPersonId,
   MatterPartyId,
 } from "@magna-carta/identifiers/types";
+import type { PronounSet } from "./pronouns.ts";
 import type { EntityKind, NameRole, PhoneticScheme } from "./types.ts";
 
 export const MATTER_PARTY_TABLE = "matter_party";
@@ -233,14 +234,45 @@ export interface PersonRow {
   readonly displayName: string | null;
   readonly status: PersonStatus;
   readonly mergedIntoId: string | null;
+  readonly pronouns: PronounSet | null;
 }
 
 export function selectPersonStatement(database: SqlDatabase, id: DirectoryPersonId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, name_prefix, name_given, name_middle, name_family, name_suffix, display_name, status, merged_into_id FROM ${DIRECTORY_PERSON_TABLE} WHERE id = ?1`,
+      `SELECT id, name_prefix, name_given, name_middle, name_family, name_suffix, display_name, status, merged_into_id, ` +
+        `pronoun_subject, pronoun_object, pronoun_possessive_determiner, pronoun_possessive_pronoun, pronoun_reflexive, pronoun_verb_number ` +
+        `FROM ${DIRECTORY_PERSON_TABLE} WHERE id = ?1`,
     )
     .bind(id);
+}
+
+// The person's pronouns, written whole or cleared whole. There is deliberately no statement that
+// writes ONE form: a set is one value, and a per-form update is the write that leaves a row saying
+// "she … them", which is the defect the field exists to prevent. Clearing binds six NULLs, which is
+// the only other state the table's completeness CHECK admits.
+export function updatePersonPronounsStatement(
+  database: SqlDatabase,
+  id: DirectoryPersonId,
+  pronouns: PronounSet | null,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_PERSON_TABLE} SET pronoun_subject = ?2, pronoun_object = ?3, ` +
+        `pronoun_possessive_determiner = ?4, pronoun_possessive_pronoun = ?5, pronoun_reflexive = ?6, ` +
+        `pronoun_verb_number = ?7, updated_at = ?8 WHERE id = ?1`,
+    )
+    .bind(
+      id,
+      pronouns?.subject ?? null,
+      pronouns?.object ?? null,
+      pronouns?.possessiveDeterminer ?? null,
+      pronouns?.possessivePronoun ?? null,
+      pronouns?.reflexive ?? null,
+      pronouns?.verbNumber ?? null,
+      updatedAt,
+    );
 }
 
 // The non-name standard fields a caller may change after creation: lifecycle status and the

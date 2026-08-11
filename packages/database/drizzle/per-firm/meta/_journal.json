@@ -365,6 +365,20 @@
       "when": 1786147200000,
       "tag": "20260808T000000_discovery-review-coding-and-access",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1786190400000,
+      "tag": "20260808T010000_directory-pronouns",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1786197600000,
+      "tag": "20260808T020000_trust-authority-default-posture",
+      "breakpoints": true
     }
   ]
 }

@@ -265,10 +265,12 @@ describe("resolution issues one read per source, never one per field", () => {
     const staffingKeys = DICTIONARY.filter((entry) => entry.source === "staffing").map(
       (entry) => entry.key,
     );
-    // Five subjects, five scalar facets less the office address and signature block that wait on
-    // the structured value types, plus the collection: stated so a subject silently lost from the
-    // registry fails here rather than quietly costing nothing.
-    expect(staffingKeys).toHaveLength(25);
+    // Five subjects times five scalar facets — name, title, email address, direct dial, pronouns,
+    // the office address and signature block still waiting on the structured value types — plus the
+    // collection: stated so a subject silently lost from the registry fails here rather than quietly
+    // costing nothing. Pronouns ride the mapped Directory person the read already joins, so the
+    // sixth key per subject adds columns to one statement and no statement of its own.
+    expect(staffingKeys).toHaveLength(30);
 
     const many = recordingDatabase();
     await resolveMergeContext(many.database, {

@@ -25,12 +25,20 @@ export type ExpressionType = "text" | "number" | "money" | "rate" | "date" | "bo
 //    computed values, which is the line this language does not cross
 //  - `sameAsFirst` / `sameAsSecond` tie a parameter to an earlier one, which is how `default` and
 //    `choose` stay total without becoming generic
+//  - `personSubject` accepts only the NAME of a subject the document can speak about as a person —
+//    `client`, `opposingParty`, `responsibleAttorney`. It is a name rather than a value because a
+//    pronoun is a fact about WHOSE it is, and there is no value in the language that carries a
+//    person; the checker settles which subjects qualify against the firm's own field catalogue
+//  - `pronounForm` accepts only a text LITERAL naming a grammatical position, so a misspelled form
+//    is a registration error a template author sees rather than a hole in a filed document
 export type ParameterSpecification =
   | ExpressionType
   | "scalar"
   | "integer"
   | "mergeKey"
   | "listField"
+  | "personSubject"
+  | "pronounForm"
   | "sameAsFirst"
   | "sameAsSecond";
 
@@ -99,6 +107,36 @@ const HELPER_LIST: readonly HelperSignature[] = [
     parameters: ["text"],
     result: "text",
     summary: "The text with each word capitalised, leaving names already in mixed case alone.",
+  },
+
+  // ------------------------------------------------------------------------------------------
+  // Pronouns — the two helpers that let a sentence be about a person without the author knowing
+  // which set that person uses
+  //
+  // These are the only helpers that ANSWER when the firm's record is silent, and that is their whole
+  // reason to exist. Every other absence in this subsystem shows a marker, because a hole on a page
+  // is safer than a plausible-looking blank; a pronoun is the opposite case, since the sentence is
+  // grammatical either way and a marker mid-clause turns an ordinary letter into a document needing
+  // repair. So the neutral set answers, and the author never writes the fallback.
+  //
+  // NEITHER HELPER INFLECTS A VERB. There is no verb dictionary here and there will not be one: a
+  // sentence needing "signs" against "sign" needs the two forms an author already knows how to
+  // write, and pronounVerb picks between them by the agreement the person's set declares. Guessing
+  // an inflection would be the name-guessing failure again, one part of speech over.
+  // ------------------------------------------------------------------------------------------
+  {
+    name: "pronoun",
+    parameters: ["personSubject", "pronounForm"],
+    result: "text",
+    summary:
+      'That person\'s pronoun in the position named — "subject", "object", "possessiveDeterminer", "possessivePronoun", or "reflexive". A person whose record states no pronouns is written they, them, their, theirs, themselves.',
+  },
+  {
+    name: "pronounVerb",
+    parameters: ["personSubject", "text", "text"],
+    result: "text",
+    summary:
+      'The verb form that agrees with that person\'s pronouns: the second input when they go with "he" or "she" ("signs"), the third when they go with "they" ("sign"). A person whose record states no pronouns takes the "they" form.',
   },
 
   // ------------------------------------------------------------------------------------------

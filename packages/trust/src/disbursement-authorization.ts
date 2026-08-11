@@ -17,7 +17,10 @@ import {
   assertActorHoldsTrustAuthority,
   loadTrustAuthorizationPolicy,
   readCurrentTrustAuthorizationPolicy,
+  resolveLoneTrustManagerException,
+  resolveTrustAuthorizationDisposition,
   trustAuthorizationRequiresSecondPerson,
+  type TrustAuthorizationDisposition,
 } from "./authorization-policy.ts";
 import { readTrustAvailableBalance } from "./holds.ts";
 import {
@@ -31,12 +34,12 @@ import {
 import {
   insertTrustDisbursementDecisionStatement,
   insertTrustDisbursementRequestStatement,
-  selectActiveTrustManagersStatement,
   selectPendingTrustDisbursementRequestsStatement,
   selectTrustDisbursementRequestStatement,
 } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 import type {
+  TrustAuthorizationPolicySnapshot,
   TrustDisbursementAuthorizationBasis,
   TrustDisbursementDecisionKind,
   TrustDisbursementMethod,
@@ -97,6 +100,14 @@ export interface ComposedTrustDisbursementRequest {
   readonly requestId: TrustDisbursementRequestId;
   readonly trustAccountId: TrustAccountId;
   readonly nodeId: TrustLedgerNodeId;
+  // The proposal's amount in the ACCOUNT's minor units, as the request row stores it — so a caller
+  // asking the authorization question about this proposal asks it about the same number the
+  // triggers compare against the stamped threshold, never about a re-derived one.
+  readonly amountMinor: number;
+  // The policy version STAMPED on the request, for the same reason: a caller deciding what this
+  // member may do with this proposal must ask it of the row the decision triggers will read, not of
+  // a second read of "the current policy" that could have moved in between.
+  readonly policy: TrustAuthorizationPolicySnapshot;
   readonly effect: EffectWrite;
 }
 
@@ -121,6 +132,8 @@ export async function composeTrustDisbursementRequest(
     requestId,
     trustAccountId: account.id,
     nodeId: node.id,
+    amountMinor,
+    policy,
     effect: {
       statements: [
         insertTrustDisbursementRequestStatement(database, {
@@ -144,6 +157,100 @@ export async function composeTrustDisbursementRequest(
       ],
       outboxMessages: [],
     },
+  };
+}
+
+export interface ComposedTrustDisbursementSubmission extends ComposedTrustDisbursementRequest {
+  readonly disposition: TrustAuthorizationDisposition;
+  // Present exactly when the disposition was `solo`: the payment was proposed and released in the
+  // same act, by the same member, and this is what the record says about it.
+  readonly released: {
+    readonly decisionId: TrustDisbursementDecisionId;
+    readonly authorizationBasis: TrustDisbursementAuthorizationBasis;
+    readonly movement: ComposedTrustMovement;
+  } | null;
+}
+
+// PROPOSING A PAYMENT, AND — WHEN THIS MEMBER MAY RELEASE IT ALONE — RELEASING IT, IN ONE ACT.
+//
+// The firm's posture decides which of the two happened, through the shared disposition read: a
+// member holding the authority the firm requires releases an amount no second person is needed for
+// by themselves; anybody else leaves a pending request behind for somebody who can. Both outcomes
+// come out of ONE effect, so a solo release is one atomic write rather than a proposal followed by
+// a second call — which matters beyond tidiness: between those two calls the request is pending, and
+// another member could settle it as an ordinary two-person approval the submitter never asked for.
+//
+// The solo arm composes NOTHING new. It reuses the same request composer, the same
+// `composeTrustDisbursement` an approval would have used, and the same decision statement, in the
+// order the decision triggers need: the request row, then the posting, then the decision that names
+// both. Every guard therefore still fires — the available-balance ceiling, the jurisdiction
+// refusals, the method policy, the composition guard, and the decision table's whole trigger set —
+// and if any of them refuses, the proposal goes down with the payment.
+export async function composeTrustDisbursementSubmission(
+  database: SqlDatabase,
+  input: TrustDisbursementRequestInput,
+  options: TrustMovementOptions,
+): Promise<ComposedTrustDisbursementSubmission> {
+  const request = await composeTrustDisbursementRequest(database, input, options);
+  // Resolved against the version the request itself STAMPED, not a second read of "the current
+  // policy": the answer this caller acts on and the row the decision triggers will read have to be
+  // the same one, or a posture change landing between the two reads would produce a decision whose
+  // basis its own stamp contradicts. The stamp-is-current trigger holds the other half at the
+  // database.
+  const disposition = await resolveTrustAuthorizationDisposition(database, {
+    policy: request.policy,
+    amountMinor: request.amountMinor,
+    actor: input.requestedBy,
+  });
+
+  if (disposition.mode === "route" || disposition.authorizationBasis === null) {
+    return { ...request, disposition, released: null };
+  }
+
+  const movement = await composeTrustDisbursement(
+    database,
+    {
+      fromNodeId: request.nodeId,
+      amount: input.amount,
+      effectiveDate: input.effectiveDate,
+      description: input.description,
+      method: input.method,
+      reference: input.reference ?? null,
+      payee: input.payee,
+      purpose: input.purpose,
+      // One member did both, and the record says so plainly rather than leaving a reader to notice
+      // that two handles match: the basis on the decision names the footing they acted on.
+      recordedBy: input.requestedBy,
+      authorizedBy: input.requestedBy,
+    },
+    options,
+  );
+
+  const decisionId = newIdentifier("trustDisbursementDecision", options.randomSource);
+  return {
+    ...request,
+    disposition,
+    released: {
+      decisionId,
+      authorizationBasis: disposition.authorizationBasis,
+      movement,
+    },
+    effect: mergeEffects(request.effect, movement.effect, {
+      statements: [
+        insertTrustDisbursementDecisionStatement(database, {
+          id: decisionId,
+          requestId: request.requestId,
+          decision: "approved",
+          decidedBy: input.requestedBy,
+          decidedAt: options.clock.now(),
+          reason: null,
+          authorizationBasis: disposition.authorizationBasis,
+          movementId: movement.movementId,
+          transferId: null,
+        }),
+      ],
+      outboxMessages: [],
+    }),
   };
 }
 
@@ -191,6 +298,8 @@ export async function composeEarnedFeeApplicationAuthorizationRequest(
     requestId,
     trustAccountId: account.id,
     nodeId: node.id,
+    amountMinor,
+    policy,
     effect: {
       statements: [
         insertTrustDisbursementRequestStatement(database, {
@@ -325,19 +434,6 @@ export async function loadPendingTrustDisbursementRequest(
   return request;
 }
 
-// Which members could possibly authorize a disbursement in this firm. Read only to turn the
-// sole-authorizer trigger's abort into a sentence — the trigger is what actually holds, because this
-// read and the write that follows it cannot be one atomic act.
-async function readActiveTrustManagers(
-  database: SqlDatabase,
-): Promise<readonly { user_id: string; display_name: string }[]> {
-  const { results } = await selectActiveTrustManagersStatement(database).all<{
-    user_id: string;
-    display_name: string;
-  }>();
-  return results;
-}
-
 export interface TrustDisbursementApprovalInput {
   readonly requestId: TrustDisbursementRequestId;
   readonly approvedBy: UserId;
@@ -361,7 +457,9 @@ export async function resolveTrustAuthorizationApproval(
 
   const deciderIsRequester = decidedBy === request.requestedBy;
   if (deciderIsRequester && requiresSecondPerson) {
-    const managers = await readActiveTrustManagers(database);
+    // The lone-holder exception, resolved through the one helper both this and the disposition read
+    // use: available only when the firm has exactly one holder AND the decider IS that holder.
+    const { available, managers } = await resolveLoneTrustManagerException(database, decidedBy);
     if (managers.length > 1) {
       // The refusal NAMES them. The trigger this mirrors counts a direct grant of `trust:manage`
       // whether or not it has expired, deliberately, because over-counting authorizers refuses the
@@ -381,7 +479,7 @@ export async function resolveTrustAuthorizationApproval(
     // while a lone holder exists: a member who can submit but not authorize must route the request
     // to the holder, or the recorded basis would assert a footing nobody had. The trigger holds the
     // same membership test.
-    if (!managers.some((manager) => manager.user_id === decidedBy)) {
+    if (!available) {
       const holder = managers
         .map((manager) => `${manager.display_name} (${manager.user_id})`)
         .join(", ");

@@ -6,6 +6,11 @@ import {
 } from "./catalog/subjects.ts";
 import { facetsForKind } from "./catalog/facets.ts";
 import type { MatterPartyMergeRow } from "./merge-statements.ts";
+import {
+  declensionFromColumns,
+  pronounLabelValue,
+  type PronounDeclension,
+} from "./pronoun-bindings.ts";
 import type { MergeListItem, MergeValue } from "./types.ts";
 
 // The matter's party links, as merge fields.
@@ -112,6 +117,11 @@ export function directoryRoleSourcesIn(keys: Iterable<string>): readonly Directo
 // What one party subject worked out to, given the matter's whole party collection.
 export interface DirectoryRoleResolution {
   readonly values: ReadonlyMap<string, MergeValue>;
+  // The declension behind each subject that resolved to exactly one person who stated a set, keyed
+  // by the SUBJECT rather than by a merge key: it is what the pronoun helpers spend, not a value a
+  // document prints. A subject that is ambiguous, absent, an organisation, or a person who stated
+  // nothing simply has no entry, and the helpers answer with the neutral set for all four.
+  readonly pronouns: ReadonlyMap<string, PronounDeclension>;
   // Keyed by the merge key that could not be resolved. A key that resolved carries no reason, and a
   // reason names COUNTS and ROLES only — never a candidate's name, which is the value the resolution
   // deliberately refused to choose between.
@@ -195,6 +205,8 @@ function facetValue(facet: string, party: MatterPartyMergeRow): MergeValue | und
       return party.capacity === null || party.capacity === ""
         ? undefined
         : { kind: "text", text: party.capacity };
+    case "pronouns":
+      return pronounLabelValue(party);
     default:
       return undefined;
   }
@@ -215,6 +227,7 @@ export function directoryRoleValues(
 ): DirectoryRoleResolution {
   const values = new Map<string, MergeValue>();
   const reasons = new Map<string, string>();
+  const pronouns = new Map<string, PronounDeclension>();
 
   const byToken = new Map<string, MatterPartyMergeRow[]>();
   for (const party of parties) {
@@ -233,6 +246,12 @@ export function directoryRoleValues(
 
     const only = matched.length === 1 ? matched[0] : undefined;
     if (only !== undefined) {
+      // The declension rides the same single-party resolution the scalar facets do, and is recorded
+      // whether or not the manifest names the `pronouns` KEY: a template that writes
+      // `pronoun(client, "subject")` never mentions the key on the page, and the checker put it in
+      // the manifest for exactly this read.
+      const declension = declensionFromColumns(only);
+      if (declension !== undefined) pronouns.set(source.key, declension);
       for (const facet of source.scalarFacets) {
         const key = `${source.key}.${facet}`;
         // The composed phrase has its own arm: it reads more than the party row, and its absence is
@@ -279,5 +298,5 @@ export function directoryRoleValues(
     for (const facet of source.scalarFacets) reasons.set(`${source.key}.${facet}`, reason);
   }
 
-  return { values, reasons };
+  return { values, reasons, pronouns };
 }

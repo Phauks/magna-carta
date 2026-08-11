@@ -87,6 +87,13 @@ async function post(path: string, body: unknown, cookie = ownerCookie, withKey =
     body: JSON.stringify(body),
   });
 }
+async function put(path: string, body: unknown, cookie = ownerCookie, withKey = true) {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "PUT",
+    headers: authHeaders(cookie, withKey),
+    body: JSON.stringify(body),
+  });
+}
 async function get(path: string, cookie = ownerCookie) {
   return SELF.fetch(`https://example.com${path}`, {
     headers: { origin: "https://example.com", cookie },
@@ -167,6 +174,127 @@ describe("directory person routes", () => {
   });
 });
 
+// Pronouns over HTTP. The route's job is to record a whole set or refuse, and to make the empty case
+// an ordinary answer rather than an error — a person who has stated nothing is the common case.
+describe("directory person pronoun routes", () => {
+  const SHE = {
+    subject: "she",
+    object: "her",
+    possessiveDeterminer: "her",
+    possessivePronoun: "hers",
+    reflexive: "herself",
+    verbNumber: "singular",
+  };
+
+  async function newPerson(given: string, family: string): Promise<string> {
+    const created = await post("/api/v1/directory/persons", { given, family });
+    expect(created.status).toBe(201);
+    return (await created.json()).id;
+  }
+
+  async function pronounsOf(id: string) {
+    const read = await get(`/api/v1/directory/persons/${id}`);
+    expect(read.status).toBe(200);
+    return (await read.json()).pronouns;
+  }
+
+  it("reports null for a person who has stated none, rather than an error or a guess", async () => {
+    expect(await pronounsOf(await newPerson("Elizabeth", "Marchetti"))).toBeNull();
+  });
+
+  it("records a whole set and reads it back", async () => {
+    const id = await newPerson("Dana", "Okafor");
+    const recorded = await put(`/api/v1/directory/persons/${id}/pronouns`, { pronouns: SHE });
+    expect(recorded.status).toBe(200);
+    expect(await pronounsOf(id)).toEqual(SHE);
+  });
+
+  it("records a set no closed list of options would contain", async () => {
+    const id = await newPerson("Rowan", "Ashcroft");
+    const xe = {
+      subject: "xe",
+      object: "xem",
+      possessiveDeterminer: "xyr",
+      possessivePronoun: "xyrs",
+      reflexive: "xemself",
+      verbNumber: "singular",
+    };
+    expect((await put(`/api/v1/directory/persons/${id}/pronouns`, { pronouns: xe })).status).toBe(
+      200,
+    );
+    expect(await pronounsOf(id)).toEqual(xe);
+  });
+
+  it("clears the set on file when null is sent", async () => {
+    const id = await newPerson("Priya", "Raman");
+    await put(`/api/v1/directory/persons/${id}/pronouns`, { pronouns: SHE });
+    expect((await put(`/api/v1/directory/persons/${id}/pronouns`, { pronouns: null })).status).toBe(
+      200,
+    );
+    expect(await pronounsOf(id)).toBeNull();
+  });
+
+  // Half a set is what renders "she signed their declaration", so the contract refuses it at the
+  // edge rather than storing something the document layer has to defend against.
+  it("refuses a set missing a form", async () => {
+    const id = await newPerson("Elias", "Renn");
+    const { reflexive: _reflexive, ...withoutReflexive } = SHE;
+    const response = await put(`/api/v1/directory/persons/${id}/pronouns`, {
+      pronouns: withoutReflexive,
+    });
+    // 422 is the contract's answer to a body the schema refuses; 400 is reserved for a missing
+    // Idempotency-Key, which is a different mistake with a different fix.
+    expect(response.status).toBe(422);
+    expect(await pronounsOf(id)).toBeNull();
+  });
+
+  it("refuses a verb agreement that is neither singular nor plural", async () => {
+    const id = await newPerson("Mara", "Ferreira");
+    const response = await put(`/api/v1/directory/persons/${id}/pronouns`, {
+      pronouns: { ...SHE, verbNumber: "dual" },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a blank form rather than storing an empty pronoun", async () => {
+    const id = await newPerson("Tomas", "Halvorsen");
+    const response = await put(`/api/v1/directory/persons/${id}/pronouns`, {
+      pronouns: { ...SHE, object: "   " },
+    });
+    expect(response.status).toBe(422);
+    expect(await pronounsOf(id)).toBeNull();
+  });
+
+  it("is 404 for a person this firm does not have", async () => {
+    const response = await put(
+      "/api/v1/directory/persons/directoryPerson_MISSINGMISSINGMISS/pronouns",
+      { pronouns: SHE },
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("refuses a caller without directory:edit", async () => {
+    const id = await newPerson("Ines", "Duarte");
+    const response = await put(
+      `/api/v1/directory/persons/${id}/pronouns`,
+      { pronouns: SHE },
+      readOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("requires an Idempotency-Key", async () => {
+    const id = await newPerson("Noor", "Haddad");
+    const response = await put(
+      `/api/v1/directory/persons/${id}/pronouns`,
+      { pronouns: SHE },
+      ownerCookie,
+      false,
+    );
+    expect(response.status).toBe(400);
+  });
+});
+
 describe("directory organization + duplicate-candidate routes", () => {
   it("creates an organization and surfaces a duplicate candidate", async () => {
     const created = await post("/api/v1/directory/organizations", {
@@ -203,7 +331,7 @@ describe("directory sensitive-identifier read gate", () => {
     // returns the plaintext.
     const ownerRead = await get(`/api/v1/directory/entities/${id}/identifiers/ssn`);
     expect(ownerRead.status).toBe(200);
-    expect(((await ownerRead.json()) as { value: string }).value).toBe("123-45-6789");
+    expect((await ownerRead.json()).value).toBe("123-45-6789");
 
     // The Read-only member lacks the permission — the chokepoint refuses before any decrypt.
     const denied = await get(`/api/v1/directory/entities/${id}/identifiers/ssn`, readOnlyCookie);

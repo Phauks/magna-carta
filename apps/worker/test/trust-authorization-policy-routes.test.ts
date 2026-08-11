@@ -246,19 +246,28 @@ beforeAll(async () => {
 });
 
 describe("the firm's authorization policy over HTTP", () => {
-  it("ships the strict default: always two-person, no authority requirement, no history", async () => {
+  it("ships authority-based: a holder acts alone, and the posture is version 1 of the firm's own history", async () => {
     const response = await get("/api/v1/trust/authorization-policy", managerCookie);
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
-      current: { version: number; policy: string; requireAuthorizedApprover: boolean };
-      history: unknown[];
+      current: {
+        id: string | null;
+        version: number;
+        policy: string;
+        thresholdAmountMinor: number | null;
+        requireAuthorizedApprover: boolean;
+      };
+      history: { version: number }[];
     };
     expect(body.current).toMatchObject({
-      version: 0,
-      policy: "always",
-      requireAuthorizedApprover: false,
+      version: 1,
+      policy: "off",
+      thresholdAmountMinor: null,
+      requireAuthorizedApprover: true,
     });
-    expect(body.history).toEqual([]);
+    // A real row rather than a reading of an absent one: the firm can see what it started with.
+    expect(body.current.id).not.toBeNull();
+    expect(body.history.map((version) => version.version)).toEqual([1]);
   });
 
   it("refuses a posture change from a member without the authority capability", async () => {
@@ -272,6 +281,15 @@ describe("the firm's authorization policy over HTTP", () => {
   });
 
   it("a pending request keeps the always posture it was submitted under when the firm relaxes", async () => {
+    // The firm tightens first: the seeded posture would let this owner release the payment alone,
+    // and the point of this case is a request that has to wait.
+    const strict = await put("/api/v1/trust/authorization-policy", {
+      policy: "always",
+      requireAuthorizedApprover: false,
+    });
+    expect(strict.status).toBe(201);
+    expect(await strict.json()).toMatchObject({ version: 2, policy: "always" });
+
     const matterId = await openMatterWithClient("In-flight Matter");
     await depositToMatter(matterId, 500000);
     const submitted = await post(
@@ -279,9 +297,11 @@ describe("the firm's authorization policy over HTTP", () => {
       disbursementBody(matterId, 120000),
     );
     expect(submitted.status).toBe(201);
-    const { trustDisbursementRequestId } = (await submitted.json()) as {
+    const { trustDisbursementRequestId, status } = (await submitted.json()) as {
       trustDisbursementRequestId: string;
+      status: string;
     };
+    expect(status).toBe("pending");
 
     // The owner relaxes the posture entirely — for NEW authorizations.
     const relaxed = await put("/api/v1/trust/authorization-policy", {
@@ -289,7 +309,7 @@ describe("the firm's authorization policy over HTTP", () => {
       requireAuthorizedApprover: false,
     });
     expect(relaxed.status).toBe(201);
-    expect(await relaxed.json()).toMatchObject({ version: 1, policy: "off", setBy: ownerUserId });
+    expect(await relaxed.json()).toMatchObject({ version: 3, policy: "off", setBy: ownerUserId });
 
     // The in-flight request still refuses the submitter's own approval.
     const selfApproval = await post(
@@ -301,23 +321,21 @@ describe("the firm's authorization policy over HTTP", () => {
       "https://api.magnacarta.esq/problems/trust-disbursement-authorization-refused",
     );
 
-    // A request submitted under the relaxed posture self-approves, and the record says on what
-    // footing.
+    // A payment raised under the relaxed posture is released in the same call, and the record says
+    // on what footing.
     const relaxedRequest = await post(
       "/api/v1/trust/disbursement-requests",
       disbursementBody(matterId, 60000),
     );
-    const relaxedId = (await relaxedRequest.json()).trustDisbursementRequestId;
-    const approved = await post(
-      `/api/v1/trust/disbursement-requests/${relaxedId}/approval`,
-      undefined,
-    );
-    expect(approved.status).toBe(201);
-    expect(await approved.json()).toMatchObject({ authorizationBasis: "policy_exempt" });
+    expect(relaxedRequest.status).toBe(201);
+    expect(await relaxedRequest.json()).toMatchObject({
+      status: "approved",
+      authorizationBasis: "policy_exempt",
+    });
   });
 
   it("routes the earned-fee application to somebody with the authority to act when the option is on", async () => {
-    // Version 2: no second person required, but whoever lets money go must hold trust:authorize.
+    // A new version: no second person required, but whoever lets money go must hold trust:authorize.
     const changed = await put("/api/v1/trust/authorization-policy", {
       policy: "off",
       requireAuthorizedApprover: true,
@@ -361,9 +379,16 @@ describe("the firm's authorization policy over HTTP", () => {
       managerCookie,
     );
     expect(submitted.status).toBe(201);
-    const { trustDisbursementRequestId: requestId } = (await submitted.json()) as {
+    const submission = (await submitted.json()) as {
       trustDisbursementRequestId: string;
+      status: string;
+      eligibleApprovers: { userId: string }[];
     };
+    const requestId = submission.trustDisbursementRequestId;
+    // The manager may act alone under the off posture, but does not hold the authority the firm
+    // requires of whoever lets money go — so this queued rather than applied, and it says who can.
+    expect(submission.status).toBe("pending");
+    expect(submission.eligibleApprovers.map((approver) => approver.userId)).toContain(ownerUserId);
 
     // The shared queue shows it, labelled as what its approval will post.
     const queued = await get(
@@ -375,8 +400,8 @@ describe("the firm's authorization policy over HTTP", () => {
       expect.objectContaining({ id: requestId, kind: "earned_fee_application" }),
     );
 
-    // The manager may act alone under the off posture — but does not hold the authority the firm
-    // now requires of whoever lets money go.
+    // And the guard behind the routing says the same thing: attempting the decision anyway is
+    // refused, so the disposition is a face on the rule rather than the rule itself.
     const withoutAuthority = await post(
       `/api/v1/billing/trust-application-requests/${requestId}/approval`,
       undefined,
@@ -439,9 +464,11 @@ describe("the firm's authorization policy over HTTP", () => {
       current: { version: number };
       history: { version: number; policy: string; setBy: string }[];
     };
-    expect(body.current.version).toBe(2);
+    expect(body.current.version).toBe(4);
     expect(body.history.map((version) => [version.version, version.policy])).toEqual([
-      [2, "off"],
+      [4, "off"],
+      [3, "off"],
+      [2, "always"],
       [1, "off"],
     ]);
     expect(body.history[0]?.setBy).toBe(ownerUserId);
