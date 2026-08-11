@@ -174,10 +174,20 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
 ### Registries and merges
 
 - **Repo-wide registry scans live in the package that OWNS the registry, not in the
-  violator.** Per-package runs therefore cannot structurally catch them. Seven known:
-  five permission inventories, the conformance not-vacuous operation list, and the
-  telemetry metric catalog. A metric missing from the catalog is **silently dropped**,
-  so a subsystem can ship with its observability going nowhere.
+  violator.** Per-package runs therefore cannot structurally catch them. **Ten known**,
+  and the count has risen every time somebody went looking — treat the list as a floor,
+  not an inventory, and grep for source-scanning fitness tests before claiming a slice
+  is done:
+  1. five permission inventories (one is `RESOURCE_BY_PERMISSION_NAMESPACE` in
+     `conformance.test.ts`, which is easy to miss)
+  2. the conformance not-vacuous operation list — update it when adding a route
+  3. the telemetry metric catalog — a metric missing from it is **silently dropped**,
+     so a subsystem ships with its observability going nowhere
+  4. `packages/data-access/src/pii-registry.ts` — its coverage test forces every table
+     to be classified
+  5. the problem-type registry inventory in `test/contracts/problem.test.ts`
+  6. the object-dimension source scan in `apps/worker` — fails any new R2 write path
+     that omits the dimension stamp
 - Keep-both conflict resolution on additive registries (`per-firm-schema.ts`,
   `pii-registry.ts`, telemetry events) can **silently interleave** blocks: git aligns
   on shared trailing lines — `createdAt`/`updatedAt`, closing brackets — and splices
