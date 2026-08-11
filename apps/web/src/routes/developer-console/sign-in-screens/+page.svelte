@@ -75,7 +75,6 @@
   ];
 
   const PASSKEY_GAP = unbuiltCapability("passkey").missing;
-  const LADDER_GAP = unbuiltCapability("attempt-budget").missing;
   const CHOICE_GAP = unbuiltCapability("second-factor-choice").missing;
   const WORKSPACE_GAP = unbuiltCapability("workspace-selection").missing;
   const VERIFICATION_GAP = unbuiltCapability("human-verification").missing;
@@ -187,7 +186,6 @@
       <ScreenSpecimen
         name="Rejected, with attempts remaining"
         note={`The shared ladder allows ${ATTEMPT_LIMIT} failures across the password, the code and the recovery code.`}
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -200,7 +198,6 @@
       <ScreenSpecimen
         name="Last attempt"
         note="The wording narrows as the count drops; a constant message trains people to ignore it."
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -213,7 +210,6 @@
       <ScreenSpecimen
         name="Locked out"
         note="The lockout REPLACES the rejection: once the budget is spent, whether the last attempt was wrong stopped mattering. The countdown and the way out sit in one element."
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -378,7 +374,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Last attempt" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Last attempt">
         <VerificationCodeScreen
           channel="authenticator"
           rejected
@@ -389,7 +385,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Locked out" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Locked out">
         <VerificationCodeScreen
           channel="authenticator"
           rejected
@@ -426,7 +422,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Locked out" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Locked out">
         <RecoveryCodeScreen
           rejection="That code didn't match. Each code works once."
           lockoutSeconds={298}
@@ -463,11 +459,11 @@
       <h2 class="text-lg font-semibold">Not transposed yet</h2>
       <Alert.Root variant="info">
         <Alert.Description>
-          Registration and its three-way role fork, invitation redemption, the two-factor enrolment
-          hub and its authenticator, phone and recovery-code screens, the recovery-codes issuance
-          and export, and the reset-password screen as one progressively-disclosed surface are all
-          designed but not built here. Each depends on a server route that does not exist, and the
-          set is larger than one reviewable change.
+          The two-factor enrolment hub and its authenticator, phone and recovery-code screens, the
+          recovery-codes issuance and export, and the reset-password screen as one
+          progressively-disclosed surface are designed but not built here. Registration and its
+          three-way role fork and invitation redemption are a different case: those routes now
+          exist and answer, so what is missing is only the screens that would call them.
         </Alert.Description>
       </Alert.Root>
     </section>

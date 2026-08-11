@@ -21,6 +21,8 @@ export type Problem = {
     errors?: Array<ProblemFieldError>;
     requestAccess?: boolean;
     stepUpRequired?: boolean;
+    attemptsRemaining?: number;
+    retryAfterSeconds?: number;
 };
 
 export type ProblemFieldError = {
@@ -465,6 +467,67 @@ export type ProvisionFirmRequest = {
         email: string;
         name: string;
     };
+};
+
+export type StartRegistrationResponse = {
+    next: 'checkEmail' | 'redeemInvitation';
+};
+
+export type StartRegistrationRequest = {
+    /**
+     * Which door the visitor came through: a client of a law firm, someone who works at one, or someone starting a new one. The first two are joined by invitation; only the third creates a firm.
+     */
+    role: 'clientOfFirm' | 'firmMember' | 'foundFirm';
+    email: string;
+    name: string;
+    firmName?: string;
+};
+
+export type ConfirmRegistrationResponse = {
+    email: string;
+    status: 'provisioning';
+};
+
+export type ConfirmRegistrationRequest = {
+    token: string;
+};
+
+export type IssueInvitationResponse = {
+    id: string;
+    /**
+     * What the invitee becomes: a member of the firm, or a client of it with portal access only.
+     */
+    kind: 'firmMember' | 'clientOfFirm';
+    email: string;
+    code: string;
+    expiresAt: string;
+};
+
+export type IssueInvitationRequest = {
+    /**
+     * What the invitee becomes: a member of the firm, or a client of it with portal access only.
+     */
+    kind: 'firmMember' | 'clientOfFirm';
+    email: string;
+    name: string;
+    lastName: string;
+    dateOfBirth: string;
+    expiresInDays?: number;
+};
+
+export type RedeemInvitationResponse = {
+    email: string;
+    /**
+     * What the invitee becomes: a member of the firm, or a client of it with portal access only.
+     */
+    kind: 'firmMember' | 'clientOfFirm';
+    next: 'checkEmail';
+};
+
+export type RedeemInvitationRequest = {
+    code: string;
+    lastName: string;
+    dateOfBirth: string;
 };
 
 export type PlatformSetReleaseChannelResponse = {
@@ -6916,6 +6979,145 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type RegistrationsStartData = {
+    body: StartRegistrationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/registrations';
+};
+
+export type RegistrationsStartErrors = {
+    /**
+     * The request body is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type RegistrationsStartError = RegistrationsStartErrors[keyof RegistrationsStartErrors];
+
+export type RegistrationsStartResponses = {
+    /**
+     * The registration was accepted; what to do next is in the body
+     */
+    202: StartRegistrationResponse;
+};
+
+export type RegistrationsStartResponse = RegistrationsStartResponses[keyof RegistrationsStartResponses];
+
+export type RegistrationsConfirmData = {
+    body: ConfirmRegistrationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/registrations/confirmations';
+};
+
+export type RegistrationsConfirmErrors = {
+    /**
+     * The token will not confirm — unknown, already used, or expired
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type RegistrationsConfirmError = RegistrationsConfirmErrors[keyof RegistrationsConfirmErrors];
+
+export type RegistrationsConfirmResponses = {
+    /**
+     * The registration is confirmed and the firm is being built
+     */
+    200: ConfirmRegistrationResponse;
+};
+
+export type RegistrationsConfirmResponse = RegistrationsConfirmResponses[keyof RegistrationsConfirmResponses];
+
+export type InvitationsIssueData = {
+    body: IssueInvitationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/invitations';
+};
+
+export type InvitationsIssueErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability to bring people into the firm
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is malformed, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type InvitationsIssueError = InvitationsIssueErrors[keyof InvitationsIssueErrors];
+
+export type InvitationsIssueResponses = {
+    /**
+     * The issued invitation, carrying the code for the only time it is readable
+     */
+    201: IssueInvitationResponse;
+};
+
+export type InvitationsIssueResponse = InvitationsIssueResponses[keyof InvitationsIssueResponses];
+
+export type InvitationsRedeemData = {
+    body: RedeemInvitationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/invitations/redemptions';
+};
+
+export type InvitationsRedeemErrors = {
+    /**
+     * The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination and carries the remaining attempt budget
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded; the body carries the remaining budget and the retry window
+     */
+    429: Problem;
+};
+
+export type InvitationsRedeemError = InvitationsRedeemErrors[keyof InvitationsRedeemErrors];
+
+export type InvitationsRedeemResponses = {
+    /**
+     * The invitation was redeemed; the password-setting link has been sent
+     */
+    200: RedeemInvitationResponse;
+};
+
+export type InvitationsRedeemResponse = InvitationsRedeemResponses[keyof InvitationsRedeemResponses];
 
 export type PlatformSetFirmReleaseChannelData = {
     body: PlatformSetReleaseChannelRequest;

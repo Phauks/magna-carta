@@ -44,6 +44,13 @@ export interface RateLimitVerdict {
   // Present only when denied: whole seconds (rounded up, never 0) until the oldest in-window
   // timestamp ages out — feeds the Retry-After header at the chokepoint.
   retryAfterSeconds?: number;
+  // THE BUDGET, published on every verdict. A 429 that says only "too many" leaves a caller — and a
+  // sign-in screen counting down beside it — with nothing to state but a guess, and a count the
+  // server does not agree with is worse than no count. `limit` is the bucket's ceiling and
+  // `remaining` is what is left of it after this request, so a client can warn before it is
+  // refused rather than only afterwards.
+  limit: number;
+  remaining: number;
 }
 
 // The seam the chokepoint depends on. check() returns the verdict only; replying with the 429
@@ -150,13 +157,15 @@ export function createInMemoryRateLimiter(
           retryAfterSeconds: Math.ceil(
             (oldestTimestamp + windowMilliseconds - nowMilliseconds) / 1000,
           ),
+          limit,
+          remaining: 0,
         };
       }
 
       inWindow.push(nowMilliseconds);
       timestampsByKey.set(key, inWindow);
       timestampsByBucket.set(bucket, timestampsByKey);
-      return { allowed: true };
+      return { allowed: true, limit, remaining: Math.max(0, limit - inWindow.length) };
     },
 
     trackedKeyCount() {
