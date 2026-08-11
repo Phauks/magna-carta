@@ -253,6 +253,14 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
 - A subagent does **not** get resumed by its own background tasks. Arming a Monitor or
   a background waiter and stopping burns the whole budget for nothing — one agent lost
   293k tokens this way. Tell them explicitly not to.
+- **A `pgrep`-based wait loop matches itself and never exits.** `until ! pgrep -f "vp
+  test"; do sleep 20; done` polls forever, because the waiter's own command line
+  contains the pattern. Two agents have left these behind; each orphan then fires a
+  task notification every time the harness reaps one, and every notification costs a
+  turn in the parent session. Find them with `ps -eo pid,args | grep 'until ! pgrep'`
+  and kill the shell plus its `sleep` children. Better: do not poll for a command's
+  completion at all — run it in the foreground, or background it and read the exit
+  code from a file it writes on the way out.
 - Give every file exactly one owner. Overlapping ownership turns a fast parallel pass
   into a serial repair job.
 - Remove each agent's worktree at merge; the disk filled once.
