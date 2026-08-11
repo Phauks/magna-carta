@@ -133,3 +133,24 @@ Runbook: `docs/conventions/operations.md` section 2a.
   `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
   `lint-scope-ignore-workflow-yaml`, plus any branch whose pull request has
   since merged (`docs-sync/2026-07-20` after #41's closure).
+
+## Before the first firm goes live — verify the trust authorization posture
+
+The authority-based trust posture ships seeded as version-1 data: whoever holds the
+authority releases money alone, and whoever does not raises a request to someone who
+does. That is the owner's directed rule and it is deliberate.
+
+**The seed relaxes any firm that already exists with no policy row** — from
+always-two-person to authority-solo. It is guarded by `WHERE NOT EXISTS`, so a firm
+that has already chosen a posture keeps it; the exposure is limited to firms created
+before the policy feature that never set one. The design's safety argument is that no
+such firm exists, and the repository cannot prove that.
+
+So before a real firm is served, run the check rather than trusting the argument:
+confirm no firm row lacks a stored authorization policy, and if one does, set its
+posture deliberately instead of letting the seed decide. A control that weakens
+without anyone choosing it is the one outcome this subsystem must not produce.
+
+Related and still open for the owner: the lone-holder exception counts `trust:manage`
+rather than `trust:authorize`. Switching would take a firm with several managers and
+one authority holder from two-person to solo — a reduction, so it waits for a decision.
