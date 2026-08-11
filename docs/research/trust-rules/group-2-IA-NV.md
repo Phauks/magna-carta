@@ -13,16 +13,42 @@
 > well-established public record (high confidence on the citation number itself) but **field-level details are
 > marked for verification** against the listed primary URLs.
 
+> **RE-VERIFICATION NOTE (2026-08-07).** The Nevada entry below has been corrected against the current
+> published rule text. As originally compiled — and labelled "verified in full" — it cited **SCR 78.5, a
+> rule repealed on 22 August 2019** whose content moved into **SCR 78** on the same date; the repealed
+> number appeared in five of its thirteen fields. The full primary-source record behind the corrections is
+> [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md), with
+> the unclaimed-funds/escheat picture completed by
+> [`../2026-08-07-nevada-unclaimed-client-funds-escheat.md`](../2026-08-07-nevada-unclaimed-client-funds-escheat.md).
+> Nevada is the **only** jurisdiction with such a record in this repository, so no other entry in this
+> catalog could be swept the same way. Every non-Nevada entry in this file — whatever its per-field
+> confidence label — is therefore **NOT VERIFIED**: the labels record the compiler's claims from the
+> 2026-05-30 pass, not a check against any primary source held in this repository, and the home-jurisdiction
+> entry demonstrates that even a "verified in full" label from that pass could carry a repealed citation.
+> Treat each non-Nevada entry as a research lead, not a finding, until it has its own dated primary-source
+> research record under `docs/research/`. Nothing here is encodable on its own: the encoding gate in
+> `@magna-carta/trust-jurisdictions` refuses every jurisdiction in this catalog by construction until a
+> jurisdiction is researched from primary sources and attorney-reviewed.
+
 ---
 
-## Nevada (HOME JURISDICTION — verified in full)
+## Nevada (HOME JURISDICTION — re-verified 2026-08-07 against the primary rule text)
 
-**Overall confidence: HIGH.** Verified against the Nevada Legislature's official court-rules text
-(leg.state.nv.us) for RPC 1.15, and Nevada Supreme Court Rules (SCR) 78.5, 216, 217, 219, 220, 221.
+**Overall confidence: HIGH.** Re-verified 2026-08-07 against the Nevada Legislature's official court-rules
+text (leg.state.nv.us, publisher stamp `[Rev. 4/15/2026 --2025]`) for RPC 1.15 and Nevada Supreme Court
+Rules (SCR) 78, 216, 217, 219, 220, 221 — the full record, with verbatim quotes and the searches that
+establish the negatives, is
+[`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md). The
+original 2026-05-30 compilation of this entry cited **SCR 78.5 throughout — a rule repealed on
+22 August 2019** — matching the State Bar's stale 2019 handbook rather than the live rules; every SCR 78.5
+citation below has been corrected to SCR 78.
 
 1. **Governing rule citation.** Nevada Rules of Professional Conduct (RPC) **Rule 1.15 "Safekeeping Property."**
    Trust-account/IOLTA and recordkeeping mechanics are in the **Nevada Supreme Court Rules (SCR)**:
-   **SCR 78.5** (maintenance of trust funds in approved institutions; overdraft notification; recordkeeping),
+   **SCR 78** (maintenance of trust funds in approved institutions; overdraft notification; recordkeeping —
+   **SCR 78.5 was repealed 22 August 2019 and its content moved into SCR 78** the same date; material still
+   citing 78.5, including the State Bar's own handbook and the dangling cross-references inside SCR 217(1)
+   and NRPC 7.5A, predates the repeal),
    **SCR 216** (creation of the bar foundation / IOLTA disbursement), **SCR 217** (creation and maintenance of
    interest-bearing trust accounts — the core IOLTA rule), **SCR 219** (earnings to client), **SCR 220**
    (earnings to attorney prohibited), **SCR 221** (nominal/short-term determination).
@@ -37,10 +63,12 @@
 3. **IOLTA program (mandatory/opt-out/voluntary; name; interest remittance).** **MANDATORY.** SCR 217: "A member
    of the state bar or the member's law firm **shall** create or maintain an interest-bearing trust account for
    clients' funds that are nominal in amount or to be held for a short period of time." Program is administered
-   through the designated tax-exempt **bar foundation** under SCR 216 (the **Nevada Bar Foundation / Nevada
-   Law Foundation IOLTA program**). Interest/dividends are remitted **at least monthly** to the designated
-   foundation. **96%** of IOLTA funds (after reserves/expenses) go to Access-to-Justice-approved civil legal
-   service providers; remaining 4% as the foundation deems appropriate (SCR 216(1)(a)). Non-compliance →
+   through the designated tax-exempt **bar foundation** under SCR 216 — **the rule names no foundation**; it
+   creates a designation power, and "**Nevada Bar Foundation**" comes from the Foundation's and the State
+   Bar's own IOLTA pages (corroborated, not primary — flagged for the reviewing attorney). Interest/dividends
+   are remitted **at least monthly** to the designated foundation. **96%** of IOLTA funds (after
+   reserves/expenses) go to Access-to-Justice-approved civil legal service providers; remaining 4% as the
+   foundation deems appropriate (SCR 216(1)(a)). Non-compliance →
    written notice, then $200 assessment after 30 days plus possible suspension (SCR 217(7)).
 
 4. **Firm funds allowed in trust for bank charges? Cap?** Yes. RPC 1.15(b): a lawyer "may deposit the lawyer's
@@ -51,35 +79,47 @@
 
 5. **Advance/flat fee treatment.** RPC 1.15(c): "A lawyer shall deposit into a client trust account legal fees
    and expenses that have been paid in advance, to be withdrawn by the lawyer only as fees are earned or
-   expenses incurred." Nevada thus requires advance fees in trust until earned. (Nevada recognizes a true
-   "retainer for availability" in case law/ethics opinions, but the rule text itself mandates trust deposit of
-   advance fees and expenses. **Flat-fee earned-on-receipt** treatment — verify against State Bar of Nevada
-   ethics opinions; **needs verification**.)
+   expenses incurred." Nevada thus requires advance fees in trust until earned; RPC 1.15(a) reinforces it by
+   expressly counting "advances for costs and expenses" among the funds that must be deposited in trust — so
+   Nevada has **no earned-on-receipt category by rule**. The flat-fee question is corroborated the same way:
+   _In re Discipline of Sull_ (Nev.) holds that labelling a fee "flat" or "fixed" does not make it earned when
+   paid — but the opinion's date and citation could not be verified against the official reporter, so the
+   finding rests on the rule text and the case is corroboration only (see the 2026-08-07 research record,
+   section 7).
 
 6. **Records retention period.** **Five (5) years** after termination of the representation (RPC 1.15(a):
-   "preserved for a period of five years after termination of the representation"; SCR 78.5(1)(b): "maintain
+   "preserved for a period of five years after termination of the representation"; SCR 78(1)(b): "maintain
    and preserve for a period of **at least five years**, after final disposition of the underlying matter").
+   **Two clocks, one number** — termination of the representation and final disposition of the underlying
+   matter are different events, and neither citation is redundant. The State Bar's 2019 handbook still prints
+   **seven** years; seven is the pre-2021 text of RPC 1.15(a), superseded effective 19 April 2021.
 
-7. **Required records.** SCR 78.5(1)(b): checkbooks, canceled checks, check stubs, vouchers, **ledgers,
+7. **Required records.** SCR 78(1)(b): checkbooks, canceled checks, check stubs, vouchers, **ledgers,
    journals**, closing statements, accountings/statements of disbursements rendered to clients — or equivalent
    records "clearly and expressly reflecting the date, amount, source, and explanation for all receipts,
    withdrawals, deliveries, and disbursements" of client funds/property; available to the state bar on request.
 
-8. **Three-way reconciliation required? Frequency?** **No explicit three-way (triple) reconciliation mandate in
-   the rule text.** The word "reconcil-" does not appear in SCR 78.5/216–221 or RPC 1.15. (Best practice and
-   bar guidance recommend regular reconciliation, but it is not a codified requirement.) Confidence HIGH that
-   it is not expressly required by rule; **verify whether any State Bar regulation or audit standard imposes it.**
+8. **Three-way reconciliation required? Frequency?** **No — Nevada mandates NO reconciliation, at any
+   cadence.** The string "reconcil" appears **zero times** in the complete Nevada Rules of Professional
+   Conduct and the complete Nevada Supreme Court Rules (both searched in full, 2026-08-07). The State Bar's
+   handbook does teach monthly reconciliation and attributes it to **SCR 217(4)(a) — a miscitation**: that
+   subsection directs the **depository institution** to remit interest and transmit statements, and imposes no
+   duty on the lawyer. Reconciliation remains sound practice (and the platform's reconciliation feature stays
+   worth using); what is refused is the claim that Nevada compels it.
 
-9. **Trust overdraft notification program (banks report to bar?).** **Yes — mandatory.** SCR 78.5(2): a
+9. **Trust overdraft notification program (banks report to bar?).** **Yes — mandatory.** SCR 78(2): a
    financial institution is approved as a trust depository only if it agrees to **report to state bar counsel
    whenever any properly payable instrument is presented against a lawyer trust account containing insufficient
    funds, whether or not honored.** No trust account may be held at a non-reporting institution. Reports for
    dishonored instruments are made simultaneously with the notice of dishonor; for honored-against-NSF items,
-   within **five banking days** (SCR 78.5(3)–(4)).
+   within **five banking days** (SCR 78(3)–(4)). The reporting duty is the **bank's**, not the firm's.
 
-10. **Electronic/credit-card payments to trust (fee handling).** Not specifically addressed in the fetched rule
-    text. **Unknown / needs verification** — check State Bar of Nevada ethics opinions and the IOLTA guidance
-    at nvbar.org. (General principle: processor fees must not be charged against client funds.)
+10. **Electronic/credit-card payments to trust (fee handling).** Not addressed in NRPC 1.15, SCR 78,
+    SCR 216–221, or the State Bar's trust-accounting handbook (all searched 2026-08-07 for `credit card`,
+    `processing fee`, `merchant`, `surcharge`, `processor`). The State Bar ethics-opinions index has **not**
+    been worked through, so this is **unresearched beyond those sources rather than a settled silence** —
+    still **needs verification**. (The platform enforces fees-never-touch-trust structurally for every firm
+    regardless.)
 
 11. **Separate interest-bearing account thresholds.** SCR 219: on client request, **when economically
     feasible**, earnings shall be made available to the client on deposited trust funds that are **neither
@@ -92,19 +132,32 @@
     - **IOLTA minimum interest/comparability rate is codified at 0.70%** (SCR 217(2)(a)), reviewed/set **twice
       annually** by the Nevada Supreme Court Access to Justice Commission; higher rates permitted if no
       impairment of immediate withdrawal.
-    - **Unclaimed/unidentified trust funds:** RPC 1.15(f) — after reasonable efforts (regular + certified mail,
-      phone, email) over **five years**, funds may be remitted to the **Clients' Security Fund**; good-faith
-      remittance is not misconduct.
+    - **Unclaimed/unidentified trust funds go to the Clients' Security Fund, not the state.** RPC 1.15(f) —
+      after reasonable efforts (**no less than** regular **and** certified mail, telephone, **and** email,
+      certified with supporting documentary evidence), a firm that cannot locate the owner **within five years
+      of receipt of the property** (a from-receipt clock, not a dormancy clock) **may** — permissive, never a
+      duty — remit the funds to the **Clients' Security Fund**; good-faith remittance is not misconduct, and
+      the Fund "shall not hold funds for future recovery" (the remittance is terminal).
+    - **Designated client trust accounts do not escheat under Nevada's Uniform Unclaimed Property Act.**
+      NRS 120A.500(6)(f) exempts "a trust account established on behalf of a client," clearly designated as
+      such, from the presumption of abandonment — so the three-year dormancy machinery never engages, and the
+      State Treasurer's Holder Reporting Manual confirms IOLTA funds "can no longer be reported to Unclaimed
+      Property." The firm remains an ordinary NRS 120A holder for **non-trust** property (uncashed payroll or
+      vendor checks). Full record:
+      [`../2026-08-07-nevada-unclaimed-client-funds-escheat.md`](../2026-08-07-nevada-unclaimed-client-funds-escheat.md).
     - **20-mile exception** (SCR 217(5)): if the firm has no office within 20 miles of a complying institution,
       the minimum-rate and some reporting requirements are waived (with annual notice).
     - **Annual IOLTA verification** required on the annual membership-fee statement (SCR 217(4)(b)).
-    - Trust accounts must be in **state-bar-approved** institutions only (SCR 78.5(1)(a)).
+    - Trust accounts must be in **state-bar-approved** institutions only (SCR 78(1)(a)).
 
 13. **Source URLs.**
     - RPC 1.15: https://www.leg.state.nv.us/courtrules/RPC.html
-    - SCR 78.5, 216, 217, 219, 220, 221: https://www.leg.state.nv.us/courtrules/SCR.html
+    - SCR 78, 216, 217, 219, 220, 221: https://www.leg.state.nv.us/courtrules/SCR.html
     - State Bar of Nevada IOLTA (program admin / approved institutions): https://nvbar.org/ (search "IOLTA")
     - Nevada Bar Foundation / Access to Justice Commission (interest rate setting): verify via nvbar.org / nevadabarfoundation.org
+    - Primary-source research records in this repository:
+      [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md) and
+      [`../2026-08-07-nevada-unclaimed-client-funds-escheat.md`](../2026-08-07-nevada-unclaimed-client-funds-escheat.md)
 
 ---
 

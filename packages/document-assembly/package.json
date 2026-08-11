@@ -23,6 +23,8 @@
     "./catalog-facets": "./src/catalog/facets.ts",
     "./custom-field-bindings": "./src/custom-field-bindings.ts",
     "./directory-role-bindings": "./src/directory-role-bindings.ts",
+    "./staffing-bindings": "./src/staffing-bindings.ts",
+    "./asset-bindings": "./src/asset-bindings.ts",
     "./protected-bindings": "./src/protected-bindings.ts",
     "./custom-field-statements": "./src/custom-field-statements.ts",
     "./ooxml-image": "./src/ooxml/image.ts",

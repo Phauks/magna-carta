@@ -39,14 +39,42 @@ export type CalendarValidationCode =
   | "calendar-platform-type-immutable"
   | "calendar-event-type-name-taken"
   | "calendar-event-type-code-taken"
+  // A catalog type from the wrong scope: the two scopes share one catalog and its category column is
+  // the only thing separating them, so a firm meeting typed "Hearing" would read as procedural
+  // history everywhere the category is what a surface groups by.
+  | "calendar-event-type-category-mismatch"
   // The requested window or horizon is wider than a single read is allowed to be. A REFUSAL and
   // never a silent clamp: a caller that asked for three years and quietly received one cannot tell
   // that from a firm with nothing recorded in years two and three.
   | "calendar-window-too-wide"
+  // A booking against a resource that has been deactivated. Existing bookings keep resolving; new
+  // ones are refused, which is what soft-deactivation means.
+  | "calendar-resource-inactive"
+  // A resource name the firm already uses. Two rooms called the same thing are one room nobody can
+  // book on purpose.
+  | "calendar-resource-name-taken"
+  // A continuance asked of an event that cannot take one: it is already cancelled, or it already
+  // has a successor. The partial unique index would refuse the second anyway; the service refuses
+  // first with a name.
+  | "calendar-event-not-continuable"
+  // A second related link between the same pair of events, in either direction. Refused by the
+  // service rather than the schema, because directionality makes a schema-level uniqueness
+  // statement more subtle than the fact deserves.
+  | "calendar-duplicate-link"
+  // A continuance link addressed through the general link routes. Only the continuance operation
+  // mints one, and nothing deletes one: the chain is history.
+  | "calendar-continuance-link-immutable"
+  // A continuance chain deeper than the walk's bound — corrupt data, not a hearing anybody
+  // continued a hundred times.
+  | "calendar-continuance-chain-too-deep"
   // Ordinary lookups.
   | "calendar-unknown-event"
   | "calendar-unknown-event-type"
   | "calendar-unknown-deadline"
+  | "calendar-unknown-firm-event"
+  | "calendar-unknown-resource"
+  | "calendar-unknown-booking"
+  | "calendar-unknown-link"
   // A kind filter naming a source the registry does not carry. Refused rather than ignored: a
   // silently-dropped filter returns MORE than the caller asked for, which on a calendar spanning
   // every matter is the wrong direction to fail in.

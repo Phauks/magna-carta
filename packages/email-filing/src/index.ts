@@ -11,6 +11,7 @@ export type { ThreadLookup, ThreadLinkDecision } from "./thread.ts";
 export { toRecordRows, normalizeAddress } from "./record.ts";
 export { captureEmail } from "./capture.ts";
 export type {
+  AutoFileEvaluationRequest,
   CapturePorts,
   CaptureRequest,
   CaptureResult,
@@ -38,9 +39,11 @@ export type {
 } from "./matter-suggestion.ts";
 export {
   resolveAutoFileDecision,
+  AUTO_FILE_ACTIVITY_WINDOW_LIMIT,
   AUTO_FILE_MAX_FIRES_PER_WINDOW,
   AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES,
   AUTO_FILE_RECENT_FIRE_WINDOW,
+  NO_AUTO_FILE_RULE_MATCHED,
 } from "./auto-file-rules.ts";
 export type {
   AutoFileCandidateRule,

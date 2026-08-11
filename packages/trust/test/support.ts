@@ -54,6 +54,14 @@ export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
         "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, 'active', ?3)",
       )
       .bind(memberUserId, "Responsible Attorney", clock.now()),
+    // The fixture member is the firm's ONE genuine trust:manage holder — the lone-holder exception
+    // belongs to the counted member, so a fixture with zero holders could never move money alone.
+    // Suites that want the multi-holder posture seed more via seedTrustManager.
+    database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:manage', NULL, ?2, ?3)",
+      )
+      .bind(newIdentifier("grant"), memberUserId, clock.now()),
   ]);
   const opened = await openTrustAccount(
     database,
@@ -158,6 +166,37 @@ export async function seedTrustManager(
       )
       .bind(newIdentifier("grant"), userId, clock.now()),
   ]);
+  return userId;
+}
+
+// The authority capability, granted directly to an existing member. The authority triggers count
+// exactly these rows (plus role-held grants no fixture seeds), so a suite that exercises the
+// approver-authority option controls who holds it.
+export async function grantTrustAuthority(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  userId: UserId,
+): Promise<void> {
+  await fixture.database
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:authorize', NULL, ?2, ?3)",
+    )
+    .bind(newIdentifier("grant"), userId, clock.now())
+    .run();
+}
+
+// A bare active member row — the roster the authority triggers check membership against. The
+// authority option needs members who hold nothing, which seedTrustManager cannot provide.
+export async function seedActiveMember(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  displayName: string,
+): Promise<UserId> {
+  const userId = newIdentifier("user");
+  await fixture.database
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, 'active', ?3)",
+    )
+    .bind(userId, displayName, clock.now())
+    .run();
   return userId;
 }
 

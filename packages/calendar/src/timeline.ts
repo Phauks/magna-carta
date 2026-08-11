@@ -8,7 +8,7 @@ import {
   type TimelineSource,
   type TimelineSourceRegistry,
 } from "./sources/registry.ts";
-import { DEFAULT_TIMELINE_PAGE_SIZE, MAX_TIMELINE_PAGE_SIZE } from "./types.ts";
+import { DEFAULT_TIMELINE_PAGE_SIZE, MAX_TIMELINE_PAGE_SIZE, type CalendarScope } from "./types.ts";
 import { CalendarValidationError } from "./validation.ts";
 import type { VisibleMatterPredicate } from "./visibility.ts";
 
@@ -27,8 +27,11 @@ export interface TimelineReadOptions {
   readonly scope: TimelineScope;
   readonly visibility: VisibleMatterPredicate;
   // Narrows the REGISTRY before any statement is built: a request filtered to one source issues one
-  // statement, not thirteen.
+  // statement, not fourteen.
   readonly sourceKeys?: readonly string[];
+  // Which side of the calendar to read — matter-anchored sources, firm-anchored sources, or both
+  // (the default). Narrows the registry exactly as sourceKeys does, before any statement is built.
+  readonly anchorScope?: CalendarScope;
   readonly cursor?: TimelineCursor;
   readonly pageSize?: number;
   readonly ascending?: boolean;
@@ -70,6 +73,12 @@ export async function readTimelinePage(options: TimelineReadOptions): Promise<Ti
   const pageSize = resolvePageSize(options.pageSize);
   const ascending = options.ascending ?? false;
   let selected = options.registry.select(options.sourceKeys);
+
+  // The anchor scope narrows the registry too: `scope=firm` reads the firm-anchored sources only,
+  // `scope=matter` the matter-anchored ones, and the default reads both interleaved.
+  if (options.anchorScope !== undefined && options.anchorScope !== "all") {
+    selected = selected.filter((source) => source.visibilityAnchor === options.anchorScope);
+  }
 
   // A member filter narrows the registry too. A source that cannot answer "is this member on it" is
   // DROPPED rather than returning everything it has: silently ignoring the filter would put other

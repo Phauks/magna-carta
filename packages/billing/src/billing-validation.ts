@@ -17,7 +17,38 @@ export type BillingValidationCode =
   | "invoice-total-not-positive"
   | "invoice-matter-total-negative"
   | "invoice-line-currency-mismatch"
-  | "unknown-number-scope";
+  | "unknown-number-scope"
+  // The one application door, and the five conditions that let money leave a client's trust ledger
+  // for the firm. Each names exactly which of them failed, because "the transfer was refused" is not
+  // something a member can act on and "this invoice is still a draft" is.
+  | "application-kind-not-built"
+  | "application-amount-not-positive"
+  | "application-currency-mismatch"
+  | "earned-fee-invoice-not-final"
+  | "earned-fee-invoice-client-mismatch"
+  | "earned-fee-invoice-does-not-bill-matter"
+  | "earned-fee-exceeds-unpaid-balance"
+  | "earned-fee-amount-mismatch"
+  | "earned-fee-node-mismatch"
+  | "earned-fee-no-applications"
+  | "earned-fee-too-many-invoices"
+  // The pending earned-fee application — billing's side of the shared authorization queue
+  | "request-not-an-earned-fee-application"
+  | "application-request-malformed"
+  // The fee models: the agreement, its shape, and the compositions each kind permits
+  | "billing-arrangement-invalid"
+  | "billing-arrangement-kind-mismatch"
+  | "matter-not-billed-hourly"
+  | "matter-recovery-invalid"
+  | "unknown-matter-recovery"
+  | "contingency-no-recovery"
+  | "contingency-currency-mismatch"
+  | "contingency-base-not-positive"
+  | "contingency-fee-already-on-draft"
+  | "contingency-nothing-unbilled"
+  | "retainer-not-below-floor"
+  | "retainer-replenishment-already-open"
+  | "retainer-replenishment-not-open";
 
 export class BillingValidationError extends Error {
   constructor(

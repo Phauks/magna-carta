@@ -72,6 +72,56 @@ export function boundedSelect(database: SqlDatabase, spec: BoundedSelectSpec): S
   return database.prepare(sql).bind(...bindings);
 }
 
+// The bounded select for a FIRM-anchored source — the one shape that composes no visible-matter
+// predicate, because its rows have no matter to compose one over. It is deliberately a separate
+// builder rather than an option on boundedSelect: a matter-anchored source CANNOT reach this code
+// path by flipping a flag, and a firm-anchored source using it must sit on the reviewed allowlist
+// the source-fitness pass asserts (see VisibilityAnchor in registry.ts). The LIMIT and the shared
+// keyset predicate are composed exactly as boundedSelect composes them.
+export interface BoundedFirmScopedSelectSpec {
+  readonly request: SourceReadRequest;
+  readonly from: string;
+  readonly sortColumn: string;
+  readonly idColumn: string;
+  readonly kindExpression: string;
+  readonly actorExpression: string;
+  readonly labelExpression: string;
+  readonly conditions: readonly string[];
+  readonly bindings: readonly unknown[];
+}
+
+export function boundedFirmScopedSelect(
+  database: SqlDatabase,
+  spec: BoundedFirmScopedSelectSpec,
+): SqlStatement {
+  const { request } = spec;
+  const conditions: string[] = [...spec.conditions];
+  const bindings: unknown[] = [...spec.bindings];
+
+  if (request.cursor !== undefined) {
+    const comparison = request.ascending ? ">" : "<";
+    conditions.push(
+      `(${spec.sortColumn} ${comparison} ? OR (${spec.sortColumn} = ? AND ${spec.idColumn} ${comparison} ?))`,
+    );
+    bindings.push(request.cursor.sortKey, request.cursor.sortKey, request.cursor.id);
+  }
+
+  // A windowless, cursorless read is still valid SQL: the bound is the LIMIT.
+  if (conditions.length === 0) conditions.push("1 = 1");
+
+  const order = request.ascending ? "ASC" : "DESC";
+  const sql =
+    `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
+    `NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
+    `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
+    `FROM ${spec.from} ` +
+    `WHERE ${conditions.join(" AND ")} ` +
+    `ORDER BY ${spec.sortColumn} ${order}, ${spec.idColumn} ${order} ` +
+    `LIMIT ?`;
+  bindings.push(request.limit);
+  return database.prepare(sql).bind(...bindings);
+}
+
 // The civil-date window, applied to a source whose time column is a civil date. Both bounds are
 // inclusive, which is what a person means by "the 1st to the 31st".
 export function civilDateWindowConditions(

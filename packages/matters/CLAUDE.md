@@ -22,6 +22,17 @@ list/consultations queries. Validates in memory and composes statements into @ma
   separate mechanism, not a precondition with a softer flag — one boolean away from each other, a
   subsystem that only meant to inform starts blocking closes
 - `src/matter-type-service.ts` — types CRUD (soft-deactivate)
+- `src/matter-assignment.ts` — staffing beyond the responsible attorney: list + compose-create/end.
+  The responsible attorney's one home stays `matter.responsible_member_id`; an assignment role that
+  normalizes to it (the letters-and-digits rule party roles use) is refused. Ending an assignment
+  stamps `valid_to` and keeps the row — who carried a file is the matter's record.
+- `src/matter-court-case.ts` / `src/matter-estate.ts` — the matter's court-and-case and estate
+  identity records: one live record per matter (partial unique index), upserted as facts accrete,
+  every person/organisation a Directory reference validated live before the write. The estate's
+  styles are STORED court-fixed designations, never composed.
+- `src/member-professional-profile.ts` — the whole-record profile upsert keyed by the member's own
+  user id; the one home for that write (route and fixtures share it). A bar number is deliberately
+  NOT a column here — it is a protected Directory identifier.
 - `src/queries.ts` — `listMatters` (excludes prospective by default) + `listConsultations` (with the stale flag)
 
 ## Invariants that apply here

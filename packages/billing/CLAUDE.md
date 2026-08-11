@@ -17,12 +17,28 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/draft.ts` — `createInvoiceDraft` / `addClaimsToDraft` / `removeClaim` / `updateDraftLine` /
   `voidDraft`, and `MAXIMUM_CLAIMS_PER_INVOICE` (the measured batch ceiling)
 - `src/finalize.ts` — `finalizeInvoice`: **the** batch, and the whole point of the subsystem
+- `src/application.ts` — `composeInvoiceApplication`: **the** door any value reaches an invoice
+  through, and the one place the no-ledger-entry-for-a-trust-application rule lives
+- `src/earned-fee.ts` — `resolveEarnedFeeApplications` + `invoiceBackedEarnedFeePrecondition`: the
+  satisfier for the port at `packages/trust/src/transfer.ts` that refuses every transfer by default,
+  and `MAXIMUM_INVOICES_PER_TRUST_APPLICATION` (the per-transfer bound)
+- `src/apply-trust-funds.ts` — `applyTrustFundsToInvoices`: trust's transfer and the applications
+  merged into ONE batch
 - `src/account-roles.ts` — the `firm_account_role` map, its configuration composer, and the resolver
   that refuses by name when a role is unmapped
 - `src/numbering.ts` — the invoice sequence's tables, start value, scope convention, and renderer
 - `src/line-amounts.ts` — `invoiceLineAmountMinor` (through `roundInvoiceLine`) and `aggregateMinor`
 - `src/queries.ts` — the unbilled work-in-progress read (the hot one), the invoice list and detail,
   the per-matter receivable, and the aging read
+- `src/arrangements.ts` — the fee agreement: `setBillingArrangement` (a fee change is a NEW
+  version), the in-force/history reads, and `requireArrangementOfKind`
+- `src/flat-fee.ts` — `addFlatFeeToDraft`: one `flat_fee` line, contributing time claimed at ZERO
+- `src/contingency.ts` — `matter_recovery` record/void, `deriveContingencyFee` (always computed at
+  composition, never stored), and `addContingencyFeeToDraft`
+- `src/retainer.ts` — `readRetainerStatus` + the replenishment request record, and the
+  `billing.retainer.replenishment_requested` topic (the notifications seam)
+- `src/render-shape.ts` — the multi-matter render-shape firm setting and `readInvoiceRenderModel`
+  (per-matter pages + summary), the model the PDF tail consumes
 - `src/statements.ts` / `src/types.ts` / `src/billing-validation.ts` / `src/fitness.ts`
 
 ## Invariants that apply here
@@ -51,7 +67,28 @@ ADR-0072, ADR-0079.) **Invariants:**
 - **The bounds CHECK is the guarantee, not a pre-check.** The `applied_minor` bounds on
   `invoice_matter_balance` are the only mechanism that can abort a whole D1 batch on a business
   condition, which is what makes "this invoice has enough unpaid balance" structural rather than
-  hopeful. Same arrangement as `account_balance`, for the same reason.
+  hopeful. Same arrangement as `account_balance`, for the same reason. The delta statement is
+  deliberately UNGUARDED: `... WHERE total_minor - applied_minor >= ?` would look safer and be
+  strictly worse, because a zero-row UPDATE aborts nothing and the losing batch would commit with its
+  trust entries — real client money — beside a balance that never moved.
+- **BILLING COMPOSES NO LEDGER ENTRY FOR A TRUST APPLICATION.** Trust's transfer is two linked
+  entries and its operating leg has already posted `Dr Operating Bank / Cr Accounts Receivable`. A
+  second credit composed here leaves the ledger balanced, every entry valid, and nothing failing —
+  while the receivable control account drifts below the invoice subledger by the total of every
+  trust-funded fee the firm has ever taken. It is the single most likely bug in the subsystem, so it
+  is structural (the one arm in `composeInvoiceApplication`), has its own test asserting the
+  subledger still equals the control account, and is re-proved over stored rows by
+  `trustApplicationsWithoutExactlyOneReceivableCreditStatement`.
+- **The earned-fee precondition is billing's, the transfer is trust's.** Billing implements the port;
+  `@magna-carta/trust` never learns what an invoice is, and no trust file changed to close this. The
+  port's context (node, matter, amount, currency) is enough precisely because the precondition is
+  constructed per request from applications billing already resolved — it is a re-check that trust is
+  composing what billing authorized, not a fresh lookup. Never widen the port with an invoice
+  reference.
+- **Every application is append-only and its direction is its KIND.** Amounts are positive; a
+  reversal subtracts because it is a reversal. A mistaken application is corrected by a new linked row
+  (UNIQUE `reverses_application_id`), never an edit — an edit would move a balance whose money has
+  already moved, with no record of having done so.
 - **The number is drawn at finalize, inside the batch.** A number drawn at draft is burned by every
   abandoned draft, and gaps are the first thing an auditor asks about. The mechanism is
   `@magna-carta/sequence-numbering`; the allocation's composite primary key is the load-bearing
@@ -84,6 +121,39 @@ ADR-0072, ADR-0079.) **Invariants:**
   being repaid for money it advanced, not earning. `cost_entry.disbursement_class` already carries
   the distinction. That account runs negative until operating disbursements land — a documented open
   position, not a bug.
+- **The fee agreement is append-only and versioned; invoice lines pin the version.** A fee change is
+  a NEW `matter_billing_arrangement` version — dense per matter by trigger, one in force by partial
+  unique index, and the ONLY update a version ever takes is the one-time close of its `valid_to`
+  when superseded. Lines an arrangement composes (flat fee, contingency) carry
+  `billing_arrangement_id`, so what a finalized bill was computed under is permanent. Absence of an
+  arrangement means hourly; never backfill one.
+- **A contingency fee is DERIVED at composition, never stored as a decided number — and it is
+  OFFSET, never re-billed.** The stored facts are the agreement (share + costs-before-or-after
+  election) and the `matter_recovery` rows (void-with-reason their only edit);
+  `deriveContingencyFee` recomputes the WHOLE entitlement from them on every call, and the line
+  charges the entitlement minus every contingency fee already on a FINALIZED bill across the
+  MATTER'S WHOLE CONTINGENCY-AGREEMENT CHAIN — never scoped to the version, because an amendment
+  (even at the same share) mints a new version without minting a new recovery — so a later recovery
+  bills exactly its own increment, a re-compose after finalize refuses
+  (`contingency-nothing-unbilled`), and a draft carries at most one contingency line
+  (`contingency-fee-already-on-draft`). A share change re-levels to the in-force share: a raise
+  bills the difference, a cut that leaves billed above entitlement refuses and is a fitness
+  finding. Net-after-costs deducts the matter's advanced (hard)
+  costs, never soft costs, and only `approved`/`billed` entries — a draft cost is a claim nobody
+  confirmed. A basis that SHRINKS after billing (a voided recovery, a late cost) cannot be caught on
+  the write path; `contingencyBilledBeyondEntitlementStatement` is the mechanism that surfaces it.
+- **A non-hourly matter refuses hourly time claims by name** (`matter-not-billed-hourly`) — charging
+  a flat-fee or contingency client by the hour would bill the same agreement twice. Costs stay
+  claimable on every matter, and a retainer matter still bills hourly: a retainer FUNDS work, it
+  does not price it.
+- **The retainer floor is business configuration, never trust's floor.** `retainer_threshold_minor`
+  is the replenishment ask; the trust leaf's `min_balance_minor` is the structural no-negative floor
+  and is never repurposed. Retainer reads use trust's AVAILABLE figure (holds excluded) through
+  trust's own reads, and the replenishment request moves no money and writes no trust table.
+- **The render shape is SNAPSHOT at finalize, like the letterhead.** `invoice.render_shape` is
+  resolved (per-invoice override, else the firm setting in `render-shape.ts`) inside
+  `finalizeInvoice` and never read live afterwards; a null column (drafts, invoices finalized before
+  the column) derives as `combined`. The derivation is a read; no PDF machinery lives here.
 - **Money discipline.** Integer minor units everywhere; rounding only through the named helpers.
   `roundInvoiceLine` is half-AWAY-from-zero because an invoice line may be negative (a discount, a
   write-down); `roundTax` is half-up; `roundLedger` is banker's. Aggregating already-collapsed
@@ -101,9 +171,11 @@ ADR-0072, ADR-0079.) **Invariants:**
 - **`billing-core`'s `IllegalTransitionError` never reaches an HTTP boundary from here.** The
   finalize claim loop catches it and rethrows `BillingValidationError("work-in-progress-not-billable")`
   naming the entry and the state it is in — the same contract timekeeping and costs hold.
-- **It does NOT depend on `@magna-carta/trust`, and must not compose a trust statement.** When the
-  application path lands, trust entries are composed only by `composeTrustToOperatingTransfer` and
-  billing merges the returned statements into its own batch. Billing never reimplements a trust rule.
+- **It depends on `@magna-carta/trust` for the transfer composer and its types, and must not compose
+  a trust statement itself.** Trust entries come only from `composeTrustToOperatingTransfer`; billing
+  merges the returned statements into its own batch and reimplements no trust rule — not the
+  composition guard, not the available-not-balance ceiling, not one-client-per-entry, not the
+  jurisdiction refusals. A source scan asserts that no file here composes a `trust_*` statement.
 - Pure and synchronous: returns `EffectWrite` for the caller to commit.
 
 ## Gotchas

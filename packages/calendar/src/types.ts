@@ -17,6 +17,41 @@ export type MatterEventTypeOrigin = (typeof MATTER_EVENT_TYPE_ORIGINS)[number];
 export const MATTER_EVENT_PARTICIPANT_KINDS = ["member", "entity", "external"] as const;
 export type MatterEventParticipantKind = (typeof MATTER_EVENT_PARTICIPANT_KINDS)[number];
 
+// A firm event shares the event shape (dates, times, zone, status) but answers the other half of
+// "whose calendar is this on": the firm's, not any matter's. Same status vocabulary, same
+// discipline — the status says what the firm asserts, nothing derives one.
+export const FIRM_EVENT_STATUSES = MATTER_EVENT_STATUSES;
+export type FirmEventStatus = MatterEventStatus;
+
+// The firm-wide switch. An 'all_members' event is on everyone's calendar without enumerating
+// everyone — a participant list decays with every hire, and a firm holiday that silently misses the
+// newest associate is worse than none. A 'participants' event is on the calendars of the people
+// listed.
+export const FIRM_EVENT_AUDIENCES = ["all_members", "participants"] as const;
+export type FirmEventAudience = (typeof FIRM_EVENT_AUDIENCES)[number];
+
+// A closed platform enum, not a firm catalog: unlike event types, no jurisdiction-specific
+// vocabulary exists for rooms and vehicles, and nothing branches on the kind beyond grouping and
+// iconography. 'other' is the pressure valve.
+export const FIRM_RESOURCE_KINDS = ["room", "vehicle", "equipment", "other"] as const;
+export type FirmResourceKind = (typeof FIRM_RESOURCE_KINDS)[number];
+
+// Closed and small, because the engine branches on 'continuance_of' (the chain rules) and on
+// nothing else; everything a firm means beyond that goes in the note. 'related' is undirected in
+// meaning though stored directed; readers render it symmetrically.
+export const CALENDAR_EVENT_LINK_KINDS = ["continuance_of", "related"] as const;
+export type CalendarEventLinkKind = (typeof CALENDAR_EVENT_LINK_KINDS)[number];
+
+// Which side of the calendar a federated read covers: matter-anchored sources, firm-anchored
+// sources, or both. The filter narrows the REGISTRY before any statement is built, exactly as a
+// kind filter does.
+export const CALENDAR_SCOPES = ["matter", "firm", "all"] as const;
+export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
+
+// The continuance-chain walk's bound. A chain deeper than this is not a hearing anybody continued
+// a hundred times — it is corrupt data, and the read refuses rather than walking it.
+export const MAX_CONTINUANCE_CHAIN_DEPTH = 100;
+
 // Where a deadline came from. `statutory_catalog` is reserved and unreachable: no verified
 // jurisdiction-keyed catalog exists, so no caller can supply the entry key and version its shape
 // check requires, and the create path refuses the source outright. The vocabulary lands now because

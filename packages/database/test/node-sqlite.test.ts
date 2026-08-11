@@ -71,6 +71,17 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .sort(),
     ).toEqual(roles.map((row) => row.id).sort());
+    // notifications:read is likewise seeded onto EVERY default role, Read-only included — the
+    // deliberate contrast with trust:read, which stops short of that seat. A member reading their
+    // own feed is not a privilege: the read is scoped to the session's own user id and every row is
+    // filtered by matter visibility at read time, so the key reveals nothing the member could not
+    // already reach.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "notifications:read")
+        .map((grant) => grant.role_id)
+        .sort(),
+    ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
@@ -85,6 +96,20 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Attorney")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Paralegal")).not.toContain("magnus:readAllConversations");
     expect(grantsFor("Attorney")).toContain("magnus:converse");
+    // The authority to act on client money — what the firm's authorization policy can require of
+    // whoever lets a disbursement or an earned-fee application go, and the key that changes that
+    // policy. Owner/Admin and Attorney by seed, deliberately narrower than trust:manage (which also
+    // reaches Billing): holding it does nothing until a firm turns the approver-authority option
+    // on, and a firm that wants its billing manager to carry authority grants the key.
+    expect(grantsFor("Owner/Admin")).toContain("trust:authorize");
+    expect(grantsFor("Attorney")).toContain("trust:authorize");
+    expect(grantsFor("Paralegal")).not.toContain("trust:authorize");
+    // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
+    // a matter reaches no review set on it. Billing and Read-only carry none of the three keys —
+    // material produced by another party may be attorney's-eyes-only under a protective order.
+    expect(grantsFor("Attorney")).toContain("discovery:load");
+    expect(grantsFor("Billing")).not.toContain("discovery:read");
+    expect(grantsFor("Read-only")).not.toContain("discovery:read");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -111,6 +136,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // both custody keys; Billing and Read-only get custody:read alone.
         "custody:manage",
         "custody:read",
+        // All three discovery keys reach the seats that do case work, and none of them reaches
+        // Billing or Read-only. They are three keys rather than one so a firm can take two away —
+        // a contract reviewer under a protective order holds discovery:read alone — and the
+        // namespace is what carries the access rule: a review set is reachable from a discovery
+        // grant and from nothing else, never from matters:* or files:*.
+        "discovery:load",
+        "discovery:manageReviewSets",
+        "discovery:read",
         "documents:assemble",
         "emails:file",
         "emails:manageLinks",
@@ -130,6 +163,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        "notifications:read",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
@@ -169,6 +203,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
+        "notifications:read",
         "support:request",
         "trust:manage",
         "trust:read",
@@ -197,6 +232,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
+        // Read-only carries it, where trust:read deliberately stops one seat short. The two are not
+        // the same kind of read: a trust ledger is the record of money the firm holds for other
+        // people, where a notification feed is the member's own, scoped to their own user id and
+        // filtered by matter visibility before it returns a row.
+        "notifications:read",
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",

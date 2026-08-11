@@ -1,18 +1,26 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  BillingArrangementId,
+  InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
+  InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
   LocationId,
   MatterId,
+  TrustDisbursementRequestId,
+  TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import type {
+  InvoiceApplicationKind,
+  InvoiceApplicationSnapshot,
   InvoiceClaimSnapshot,
   InvoiceLineKind,
   InvoiceLineSnapshot,
   InvoiceMatterBalanceSnapshot,
+  InvoiceRenderShape,
   InvoiceSnapshot,
   InvoiceStatus,
   InvoiceTaxTreatment,
@@ -72,6 +80,9 @@ export interface FinalizeInvoiceInput {
   readonly letterheadFooter: string | null;
   readonly remitTo: string | null;
   readonly clientBillingName: string | null;
+  // How a bill spanning several matters is presented — SNAPSHOT here like the letterhead, so a
+  // later change to the firm's default never re-shapes a document already given to a client.
+  readonly renderShape: InvoiceRenderShape;
   readonly finalizedBy: UserId | null;
   readonly now: string;
 }
@@ -101,6 +112,7 @@ export function finalizeInvoiceStatement(
               letterhead_footer = ?9,
               remit_to = ?10,
               client_billing_name = ?11,
+              render_shape = ?14,
               finalized_at = ?12,
               finalized_by = ?13,
               updated_at = ?12
@@ -120,6 +132,7 @@ export function finalizeInvoiceStatement(
       input.clientBillingName,
       input.now,
       input.finalizedBy,
+      input.renderShape,
     );
 }
 
@@ -153,6 +166,9 @@ export interface InsertInvoiceLineInput {
   readonly utbmsActivityCode: string | null;
   readonly utbmsExpenseCode: string | null;
   readonly taxTreatment: InvoiceTaxTreatment;
+  // The fee-agreement version that composed this line, for the lines an arrangement produces (a
+  // flat fee, a contingency fee); null on hourly and cost lines.
+  readonly billingArrangementId?: BillingArrangementId | null;
   readonly now: string;
 }
 
@@ -162,8 +178,8 @@ export function insertInvoiceLineStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, quantity_e4, rate_e4, amount_minor, currency, utbms_task_code, utbms_activity_code, utbms_expense_code, tax_treatment, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)`,
+      `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, quantity_e4, rate_e4, amount_minor, currency, utbms_task_code, utbms_activity_code, utbms_expense_code, tax_treatment, billing_arrangement_id, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
     )
     .bind(
       input.id,
@@ -180,6 +196,7 @@ export function insertInvoiceLineStatement(
       input.utbmsActivityCode,
       input.utbmsExpenseCode,
       input.taxTreatment,
+      input.billingArrangementId ?? null,
       input.now,
     );
 }
@@ -399,6 +416,114 @@ export function insertInvoiceMatterBalanceStatement(
     .bind(invoiceId, matterId, totalMinor, currency, now);
 }
 
+export interface InsertInvoiceApplicationInput {
+  readonly id: InvoiceApplicationId;
+  readonly invoiceId: InvoiceId;
+  readonly matterId: MatterId;
+  readonly kind: InvoiceApplicationKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly trustTransferId: TrustTransferId | null;
+  readonly reversesApplicationId: InvoiceApplicationId | null;
+  readonly effectiveDate: string;
+  readonly appliedBy: UserId | null;
+  readonly now: string;
+}
+
+// One unit of value reaching an invoice. Append-only by trigger: an application that could be edited
+// would let money that reached a bill be quietly un-reached, because the balance delta it rode with
+// has already moved and an edit here would desynchronize the subledger from the control account with
+// no record of having done so. A mistaken application is corrected by a reversal row.
+export function insertInvoiceApplicationStatement(
+  database: SqlDatabase,
+  input: InsertInvoiceApplicationInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO invoice_application (id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, effective_date, applied_by, applied_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+    )
+    .bind(
+      input.id,
+      input.invoiceId,
+      input.matterId,
+      input.kind,
+      input.amountMinor,
+      input.currency,
+      input.trustTransferId,
+      input.reversesApplicationId,
+      input.effectiveDate,
+      input.appliedBy,
+      input.now,
+    );
+}
+
+// THE GUARANTEE, and the reason the balance table exists at all.
+//
+// This is an unguarded delta on purpose. D1 has no interactive transactions, so a bounds CHECK is the
+// only mechanism that can abort a whole batch on a business condition — and
+// `applied_minor >= 0 AND applied_minor <= total_minor` is that CHECK. A concurrent transfer,
+// payment, or credit note that consumed the balance between the pre-check's read and this commit
+// pushes the sum past `total_minor` and aborts the ENTIRE batch: the trust entries, the transfer
+// link, this application, and the idempotency record together.
+//
+// Writing it as `... WHERE total_minor - applied_minor >= ?` instead would look safer and be
+// strictly worse: a zero-row UPDATE is not an error in SQLite, so the losing batch would commit
+// happily having moved no balance while its trust entries — real money out of a client's ledger —
+// committed beside it. Same arrangement, for the same reason, as the trust leaf's account_balance
+// floor: a domain pre-check that names a refusal a person can act on, standing in front of a
+// database constraint that is the actual guarantee.
+export function applyToInvoiceMatterBalanceStatement(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+  matterId: MatterId,
+  deltaMinor: number,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE invoice_matter_balance SET applied_minor = applied_minor + ?3, updated_at = ?4
+        WHERE invoice_id = ?1 AND matter_id = ?2`,
+    )
+    .bind(invoiceId, matterId, deltaMinor, now);
+}
+
+interface InvoiceApplicationRow {
+  id: string;
+  invoice_id: string;
+  matter_id: string;
+  kind: InvoiceApplicationKind;
+  amount_minor: number;
+  currency: string;
+  trust_transfer_id: string | null;
+  reverses_application_id: string | null;
+  effective_date: string;
+}
+
+export async function readInvoiceApplications(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<InvoiceApplicationSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, effective_date
+         FROM invoice_application WHERE invoice_id = ?1 ORDER BY applied_at, id`,
+    )
+    .bind(invoiceId)
+    .all<InvoiceApplicationRow>();
+  return results.map((row) => ({
+    id: row.id,
+    invoiceId: row.invoice_id,
+    matterId: row.matter_id,
+    kind: row.kind,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    trustTransferId: row.trust_transfer_id,
+    reversesApplicationId: row.reverses_application_id,
+    effectiveDate: row.effective_date,
+  }));
+}
+
 interface InvoiceRow {
   id: string;
   client_entity_id: string;
@@ -589,3 +714,63 @@ export async function readInvoiceMatterBalances(
 // `packages/matters/src/matter-party.ts` — the matter shell owns `matter_party`, and billing, trust,
 // and their fitness suites all read the link from that one place so they cannot drift into two
 // answers about whose matter this is.
+
+// The invoice-and-amount lines of a PENDING earned-fee application — billing's side of the shared
+// authorization queue (the queue row itself is trust's trust_disbursement_request). Written in the
+// same batch as the request, frozen with it by triggers, and re-resolved at approval against the
+// invoices as they stand THEN.
+export const INVOICE_TRUST_APPLICATION_LINE_TABLE = "invoice_trust_application_line";
+
+export interface InsertInvoiceTrustApplicationLineRow {
+  readonly id: InvoiceTrustApplicationLineId;
+  readonly requestId: TrustDisbursementRequestId;
+  readonly invoiceId: InvoiceId;
+  readonly amountMinor: number;
+  readonly currency: string;
+}
+
+export function insertInvoiceTrustApplicationLineStatement(
+  database: SqlDatabase,
+  row: InsertInvoiceTrustApplicationLineRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${INVOICE_TRUST_APPLICATION_LINE_TABLE} (id, request_id, invoice_id, amount_minor, currency) VALUES (?1, ?2, ?3, ?4, ?5)`,
+    )
+    .bind(row.id, row.requestId, row.invoiceId, row.amountMinor, row.currency);
+}
+
+export interface InvoiceTrustApplicationLineSnapshot {
+  readonly id: InvoiceTrustApplicationLineId;
+  readonly requestId: TrustDisbursementRequestId;
+  readonly invoiceId: InvoiceId;
+  readonly amountMinor: number;
+  readonly currency: string;
+}
+
+interface InvoiceTrustApplicationLineRow {
+  id: string;
+  request_id: string;
+  invoice_id: string;
+  amount_minor: number;
+  currency: string;
+}
+
+export async function readInvoiceTrustApplicationLines(
+  database: SqlDatabase,
+  requestId: TrustDisbursementRequestId,
+): Promise<InvoiceTrustApplicationLineSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, request_id, invoice_id, amount_minor, currency FROM ${INVOICE_TRUST_APPLICATION_LINE_TABLE} WHERE request_id = ?1 ORDER BY invoice_id`,
+    )
+    .bind(requestId)
+    .all<InvoiceTrustApplicationLineRow>();
+  return results.map((row) => ({
+    id: row.id as InvoiceTrustApplicationLineId,
+    requestId: row.request_id as TrustDisbursementRequestId,
+    invoiceId: row.invoice_id as InvoiceId,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+  }));
+}

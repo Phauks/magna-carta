@@ -26,6 +26,36 @@ import {
   type MatterEventRow,
 } from "@magna-carta/calendar/event-statements";
 import {
+  createFirmResourceBooking,
+  deleteFirmResourceBooking,
+  readResourceAvailability,
+  updateFirmResourceBooking,
+  type BookingConflict,
+} from "@magna-carta/calendar/booking-service";
+import {
+  continueMatterEvent,
+  readContinuanceChain,
+} from "@magna-carta/calendar/continuance-service";
+import {
+  cancelFirmEvent,
+  createFirmEvent,
+  updateFirmEvent,
+} from "@magna-carta/calendar/firm-event-service";
+import {
+  readFirmEvent,
+  readFirmEventParticipants,
+  selectFirmEventsStatement,
+  type FirmEventRow,
+} from "@magna-carta/calendar/firm-event-statements";
+import { createRelatedLink, deleteRelatedLink } from "@magna-carta/calendar/link-service";
+import { readContinuanceLinksForEvents, type LinkEnd } from "@magna-carta/calendar/link-statements";
+import { createFirmResource, updateFirmResource } from "@magna-carta/calendar/resource-service";
+import {
+  readFirmResource,
+  selectFirmResourcesStatement,
+  type FirmResourceRow,
+} from "@magna-carta/calendar/resource-statements";
+import {
   createMatterEventType,
   deactivateMatterEventType,
   updateMatterEventType,
@@ -37,6 +67,9 @@ import { isOverdue, overdueCutoffFor, type OverdueCutoff } from "@magna-carta/ca
 import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
 import { readTimelinePage } from "@magna-carta/calendar/timeline";
 import {
+  CALENDAR_SCOPES,
+  FIRM_EVENT_AUDIENCES,
+  FIRM_RESOURCE_KINDS,
   MATTER_DEADLINE_STATES,
   MATTER_EVENT_CATEGORIES,
   MATTER_EVENT_PARTICIPANT_KINDS,
@@ -52,7 +85,15 @@ import {
 } from "@magna-carta/calendar/validation";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MatterDeadlineId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  CalendarEventLinkId,
+  FirmEventId,
+  FirmResourceBookingId,
+  FirmResourceId,
+  MatterDeadlineId,
+  MatterEventId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -128,6 +169,9 @@ const EventDetail = z
     title: z.string(),
     description: z.string().nullable(),
     status: z.enum(MATTER_EVENT_STATUSES),
+    // Why this setting is no longer happening, when it is not — set by cancellation and by a
+    // continuance, null otherwise.
+    statusReason: z.string().nullable(),
     startsOn: z.string(),
     startsAtTime: z.string().nullable(),
     endsOn: z.string().nullable(),
@@ -137,6 +181,10 @@ const EventDetail = z
     courtReference: z.string().nullable(),
     recordedAt: z.string(),
     recordedBy: z.string().nullable(),
+    // The immediate continuance neighbors, resolved from the link table in the same page's bounded
+    // join — enough to badge "continued from Mar 14" without walking the chain.
+    continuedFromEventId: z.string().nullable(),
+    continuedToEventId: z.string().nullable(),
   })
   .openapi("MatterEventDetail");
 
@@ -259,6 +307,246 @@ const UpdateEventTypeRequest = CreateEventTypeRequest.partial().openapi(
 const CreatedResponse = z.object({ id: z.string() }).openapi("CalendarCreatedResponse");
 const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("CalendarAckResponse");
 
+// ---- firm events ----
+
+const CreateFirmEventRequest = z
+  .object({
+    eventTypeId: identifierField("matterEventType").nullable().optional(),
+    title: z.string().min(1).max(300),
+    description: z.string().max(4000).nullable().optional(),
+    status: z.enum(MATTER_EVENT_STATUSES).optional(),
+    startsOn: z.string().regex(CIVIL_DATE),
+    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    timeZone: z.string().min(1).max(120),
+    // all_members puts the entry on every member's calendar without enumerating anybody; a
+    // participants event is on the calendars of the people listed. Defaults to participants.
+    audience: z.enum(FIRM_EVENT_AUDIENCES).optional(),
+    locationId: identifierField("location").nullable().optional(),
+    locationText: z.string().max(300).nullable().optional(),
+    participants: z.array(ParticipantRequest).max(50).optional(),
+  })
+  .openapi("CreateFirmEventRequest");
+
+const UpdateFirmEventRequest = CreateFirmEventRequest.partial().openapi("UpdateFirmEventRequest");
+
+const CancelEventRequest = z
+  .object({
+    // Optional on a firm event (a cancelled staff meeting does not always deserve a paragraph) and
+    // on a matter event alike; the continuance path sets its own.
+    statusReason: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("CancelEventRequest");
+
+const FirmEventDetail = z
+  .object({
+    id: z.string(),
+    eventTypeId: z.string().nullable(),
+    title: z.string(),
+    description: z.string().nullable(),
+    status: z.enum(MATTER_EVENT_STATUSES),
+    statusReason: z.string().nullable(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    audience: z.enum(FIRM_EVENT_AUDIENCES),
+    locationId: z.string().nullable(),
+    locationText: z.string().nullable(),
+    recordedAt: z.string(),
+    recordedBy: z.string().nullable(),
+  })
+  .openapi("FirmEventDetail");
+
+const firmEventsQuery = cursorQuery.extend({
+  // Required and capped, exactly as the firm calendar's window is: a wider window is refused, never
+  // silently narrowed.
+  from: z.string().regex(CIVIL_DATE),
+  to: z.string().regex(CIVIL_DATE),
+  status: z.enum(MATTER_EVENT_STATUSES).optional(),
+  eventTypeId: identifierField("matterEventType").optional(),
+});
+
+// ---- resources and bookings ----
+
+const CreateResourceRequest = z
+  .object({
+    name: z.string().min(1).max(200),
+    kind: z.enum(FIRM_RESOURCE_KINDS),
+    locationId: identifierField("location").nullable().optional(),
+    // Rendered on the picker so a person can decide; nothing enforces it — the platform does not
+    // refuse a twelve-person meeting in a ten-seat room.
+    capacity: z.number().int().positive().max(100000).nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("CreateFirmResourceRequest");
+
+const UpdateResourceRequest = CreateResourceRequest.partial()
+  .extend({
+    // Soft-deactivate: a retired room keeps its history and takes no new bookings.
+    active: z.boolean().optional(),
+  })
+  .openapi("UpdateFirmResourceRequest");
+
+const ResourceDetail = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.enum(FIRM_RESOURCE_KINDS),
+    locationId: z.string().nullable(),
+    capacity: z.number().int().nullable(),
+    notes: z.string().nullable(),
+    active: z.boolean(),
+  })
+  .openapi("FirmResourceDetail");
+
+const resourcesQuery = z.object({
+  kind: z.enum(FIRM_RESOURCE_KINDS).optional(),
+  locationId: identifierField("location").optional(),
+  includeInactive: z.enum(["true", "false"]).optional(),
+});
+
+const BookingConflictDetail = z
+  .object({
+    bookingId: z.string(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    eventKind: z.enum(["matterEvent", "firmEvent"]),
+    eventId: z.string(),
+    // The deep link into the owning read, behind its own access gate; a filtered target is a 404.
+    link: z.string(),
+  })
+  .openapi("BookingConflict");
+
+const CreateBookingRequest = z
+  .object({
+    resourceId: identifierField("firmResource"),
+    // Exactly one of the two: a booking is never freestanding — "book the pool car Friday" is a
+    // Reservation-type firm event with the booking attached.
+    matterEventId: identifierField("matterEvent").nullable().optional(),
+    firmEventId: identifierField("firmEvent").nullable().optional(),
+    // Defaulted from the event where omitted; editable per booking, because the room is booked from
+    // half past eight for a nine o'clock deposition.
+    startsOn: z.string().regex(CIVIL_DATE).optional(),
+    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    // The explicit-override path; where omitted, the zone freezes from the resource's office.
+    timeZone: z.string().min(1).max(120).optional(),
+  })
+  .openapi("CreateBookingRequest");
+
+const UpdateBookingRequest = z
+  .object({
+    startsOn: z.string().regex(CIVIL_DATE).optional(),
+    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    timeZone: z.string().min(1).max(120).optional(),
+  })
+  .openapi("UpdateBookingRequest");
+
+const BookingCreatedResponse = z
+  .object({ id: z.string(), conflicts: z.array(BookingConflictDetail) })
+  .openapi("BookingCreatedResponse");
+
+const BookingUpdatedResponse = z
+  .object({ ok: z.literal(true), conflicts: z.array(BookingConflictDetail) })
+  .openapi("BookingUpdatedResponse");
+
+const AvailabilityEntryDetail = z
+  .object({
+    bookingId: z.string(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    eventKind: z.enum(["matterEvent", "firmEvent"]),
+    eventId: z.string(),
+    // The catalog term ("Deposition"), never the event's title — a room's schedule spans every
+    // matter, so the grid renders windows and kinds and the detail lives behind the deep link.
+    eventTypeName: z.string().nullable(),
+    link: z.string(),
+    // Pre-paired overlaps, so the grid paints conflicts without a second request.
+    overlappingBookingIds: z.array(z.string()),
+  })
+  .openapi("ResourceAvailabilityEntry");
+
+const availabilityQuery = z.object({
+  from: z.string().regex(CIVIL_DATE),
+  to: z.string().regex(CIVIL_DATE),
+});
+
+// ---- event links and continuance ----
+
+const CreateEventLinkRequest = z
+  .object({
+    // Exactly one column per end, the schema's shape restated on the wire.
+    fromMatterEventId: identifierField("matterEvent").nullable().optional(),
+    fromFirmEventId: identifierField("firmEvent").nullable().optional(),
+    toMatterEventId: identifierField("matterEvent").nullable().optional(),
+    toFirmEventId: identifierField("firmEvent").nullable().optional(),
+    note: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("CreateEventLinkRequest");
+
+const ContinueEventRequest = z
+  .object({
+    // The new setting, as the court made it. Every date here is one a person supplied: nothing
+    // computes a date from another date.
+    startsOn: z.string().regex(CIVIL_DATE),
+    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    timeZone: z.string().min(1).max(120).optional(),
+    locationText: z.string().max(300).nullable().optional(),
+    courtReference: z.string().max(120).nullable().optional(),
+    // Why the old setting is not happening ("Continued on defendant's motion").
+    statusReason: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("ContinueMatterEventRequest");
+
+const ContinuanceDeadlineReference = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    dueOn: z.string(),
+    dueAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    state: z.enum(MATTER_DEADLINE_STATES),
+  })
+  .openapi("ContinuanceDeadlineReference");
+
+const ContinueEventResponse = z
+  .object({
+    newEventId: z.string(),
+    oldEventId: z.string(),
+    // Purely informational, in the person's hand while they hold the order: the open deadlines
+    // whose trigger named the continued setting (a lookup — nothing moved, because what a
+    // continuance does to a briefing schedule is a legal judgement), and the bookings the status
+    // change just released by derivation.
+    triggerLinkedOpenDeadlines: z.array(ContinuanceDeadlineReference),
+    releasedBookings: z.array(BookingConflictDetail),
+  })
+  .openapi("ContinueMatterEventResponse");
+
+const ContinuanceChainNodeDetail = z
+  .object({
+    eventId: z.string(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    status: z.string(),
+    statusReason: z.string().nullable(),
+  })
+  .openapi("ContinuanceChainNode");
+
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 const eventIdParam = z.object({ eventId: identifierPathParam("matterEvent", "eventId") });
 const deadlineIdParam = z.object({
@@ -266,6 +554,18 @@ const deadlineIdParam = z.object({
 });
 const eventTypeIdParam = z.object({
   eventTypeId: identifierPathParam("matterEventType", "eventTypeId"),
+});
+const firmEventIdParam = z.object({
+  firmEventId: identifierPathParam("firmEvent", "firmEventId"),
+});
+const firmResourceIdParam = z.object({
+  firmResourceId: identifierPathParam("firmResource", "firmResourceId"),
+});
+const firmResourceBookingIdParam = z.object({
+  firmResourceBookingId: identifierPathParam("firmResourceBooking", "firmResourceBookingId"),
+});
+const calendarEventLinkIdParam = z.object({
+  calendarEventLinkId: identifierPathParam("calendarEventLink", "calendarEventLinkId"),
 });
 
 const timelineQuery = cursorQuery.extend({
@@ -287,8 +587,14 @@ const firmCalendarQuery = cursorQuery.extend({
   from: z.string().regex(CIVIL_DATE),
   to: z.string().regex(CIVIL_DATE),
   matterId: identifierField("matter").optional(),
+  // Matches a matter event's participants (or the matter's responsible member) and a firm event
+  // when the member is a participant OR the event's audience is all_members — a firm holiday is on
+  // everyone's answer to "what is on my calendar".
   memberId: identifierField("user").optional(),
   kind: z.union([z.string(), z.array(z.string())]).optional(),
+  // Which side of the calendar to read: matter-anchored sources, firm-anchored sources, or both.
+  // Narrows the registry before any statement is built, exactly as kind does.
+  scope: z.enum(CALENDAR_SCOPES).optional(),
 });
 
 const deadlineQuery = cursorQuery.extend({
@@ -347,6 +653,10 @@ function calendarErrorResponse(
     case "calendar-unknown-event":
     case "calendar-unknown-event-type":
     case "calendar-unknown-deadline":
+    case "calendar-unknown-firm-event":
+    case "calendar-unknown-resource":
+    case "calendar-unknown-booking":
+    case "calendar-unknown-link":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",
@@ -358,6 +668,48 @@ function calendarErrorResponse(
         type: "calendar-deadline-settled",
         title: "Deadline already settled",
         status: 409,
+        detail: caught.message,
+      });
+    case "calendar-event-not-continuable":
+      return problemJson(c, {
+        type: "calendar-event-not-continuable",
+        title: "Setting cannot be continued",
+        status: 409,
+        detail: caught.message,
+      });
+    case "calendar-resource-inactive":
+      return problemJson(c, {
+        type: "calendar-resource-inactive",
+        title: "Resource deactivated",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-resource-name-taken":
+      return problemJson(c, {
+        type: "calendar-resource-name-taken",
+        title: "Resource name taken",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-duplicate-link":
+      return problemJson(c, {
+        type: "calendar-duplicate-link",
+        title: "Already related",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-continuance-link-immutable":
+      return problemJson(c, {
+        type: "calendar-continuance-link-immutable",
+        title: "Continuance link is history",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-continuance-chain-too-deep":
+      return problemJson(c, {
+        type: "calendar-continuance-chain-too-deep",
+        title: "Continuance chain too deep",
+        status: 422,
         detail: caught.message,
       });
     case "calendar-window-too-wide":
@@ -378,6 +730,13 @@ function calendarErrorResponse(
       return problemJson(c, {
         type: "calendar-platform-type-immutable",
         title: "Platform event type",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-event-type-category-mismatch":
+      return problemJson(c, {
+        type: "calendar-event-type-category-mismatch",
+        title: "Event type is from another category",
         status: 422,
         detail: caught.message,
       });
@@ -653,9 +1012,15 @@ const cancelEventRoute = defineOpenAPIRoute(mutationMeta("cancelEvent", "matter"
   method: "post",
   path: "/api/v1/events/{eventId}/cancel",
   description:
-    "Marks an event cancelled. The record stays: a hearing that was taken off is a fact about the " +
-    "case, and a firm that has to show it was vacated cannot do that from a row that is gone.",
-  request: { headers: idempotencyKeyHeader, params: eventIdParam },
+    "Marks an event cancelled, with an optional reason the record keeps. The record stays: a " +
+    "hearing that was taken off is a fact about the case, and a firm that has to show it was " +
+    "vacated cannot do that from a row that is gone. A hearing the court moved is continued, not " +
+    "cancelled — the continue operation records both settings.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: eventIdParam,
+    body: { content: { "application/json": { schema: CancelEventRequest } }, required: false },
+  },
   responses: {
     200: {
       description: "The event was cancelled",
@@ -880,6 +1245,430 @@ const deactivateEventTypeRoute = defineOpenAPIRoute(mutationMeta("deactivateEven
   },
 });
 
+// ---- firm-event routes ----
+
+const listFirmEventsRoute = defineOpenAPIRoute(readMeta("listFirmEvents", "firm"), {
+  method: "get",
+  path: "/api/v1/firm-events",
+  description:
+    `The firm's own events — meetings, closures, training, holidays, reservations — over a date ` +
+    `window that is required and capped at ${MAX_CALENDAR_WINDOW_DAYS} days, newest first. These ` +
+    `belong to the firm rather than to any case: they appear on the firm calendar beside matter ` +
+    `events and never on a matter's timeline.`,
+  request: { query: firmEventsQuery },
+  responses: {
+    200: {
+      description: "One page of firm events",
+      content: {
+        "application/json": { schema: paginated(FirmEventDetail).openapi("FirmEventPage") },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const getFirmEventRoute = defineOpenAPIRoute(readMeta("getFirmEvent", "firm"), {
+  method: "get",
+  path: "/api/v1/firm-events/{firmEventId}",
+  description:
+    "One firm event with everybody on it. An all-members event lists no participants because it " +
+    "needs none: it is on every member's calendar by construction.",
+  request: { params: firmEventIdParam },
+  responses: {
+    200: {
+      description: "The firm event and its participants",
+      content: {
+        "application/json": {
+          schema: z
+            .object({ event: FirmEventDetail, participants: z.array(ParticipantDetail) })
+            .openapi("FirmEventWithParticipants"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const createFirmEventRoute = defineOpenAPIRoute(mutationMeta("createFirmEvent", "firm"), {
+  method: "post",
+  path: "/api/v1/firm-events",
+  description:
+    "Records something the firm schedules for itself: a meeting, an office closure, training, a " +
+    "firm holiday, a reservation. An all-members audience puts it on everyone's calendar without " +
+    "keeping a list that goes stale with every hire; a participants audience puts it on the " +
+    "calendars of the people named.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateFirmEventRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The recorded firm event",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateFirmEventRoute = defineOpenAPIRoute(mutationMeta("updateFirmEvent", "firm"), {
+  method: "patch",
+  path: "/api/v1/firm-events/{firmEventId}",
+  description:
+    "Edits a firm event in place. A moved staff meeting is not procedural history — firm events " +
+    "keep simple edit semantics, and the audit trail carries the move. Supplying participants " +
+    "replaces the whole list; omitting them leaves it alone.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: firmEventIdParam,
+    body: { content: { "application/json": { schema: UpdateFirmEventRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The firm event was updated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const cancelFirmEventRoute = defineOpenAPIRoute(mutationMeta("cancelFirmEvent", "firm"), {
+  method: "post",
+  path: "/api/v1/firm-events/{firmEventId}/cancel",
+  description:
+    "Marks a firm event cancelled, with an optional reason. The record stays, and any room or " +
+    "vehicle booked for it frees itself: a booking blocks a resource only while its event is live, " +
+    "so cancelling releases the bookings with nothing further to do.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: firmEventIdParam,
+    body: { content: { "application/json": { schema: CancelEventRequest } }, required: false },
+  },
+  responses: {
+    200: {
+      description: "The firm event was cancelled",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// ---- resource routes ----
+
+const listResourcesRoute = defineOpenAPIRoute(readMeta("listResources", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/resources",
+  description:
+    "The firm's bookable resources — rooms, vehicles, equipment — for the picker. Capacity is " +
+    "shown so a person can decide; nothing refuses a twelve-person meeting in a ten-seat room.",
+  request: { query: resourcesQuery },
+  responses: {
+    200: {
+      description: "The resource catalog",
+      content: {
+        "application/json": {
+          schema: z.object({ data: z.array(ResourceDetail) }).openapi("FirmResourceList"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const createResourceRoute = defineOpenAPIRoute(mutationMeta("createResource", "firm"), {
+  method: "post",
+  path: "/api/v1/calendar/resources",
+  description:
+    "Adds a bookable resource. Curating the resource list is calendar administration, exactly as " +
+    "curating the event-type catalog is.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateResourceRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The resource",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateResourceRoute = defineOpenAPIRoute(mutationMeta("updateResource", "firm"), {
+  method: "patch",
+  path: "/api/v1/calendar/resources/{firmResourceId}",
+  description:
+    "Edits a resource, including deactivating it. A deactivated resource keeps its history and its " +
+    "existing bookings and simply takes no new ones.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: firmResourceIdParam,
+    body: { content: { "application/json": { schema: UpdateResourceRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The resource was updated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const resourceAvailabilityRoute = defineOpenAPIRoute(readMeta("resourceAvailability", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/resources/{firmResourceId}/availability",
+  description:
+    `A resource's live bookings over a required window capped at ${MAX_CALENDAR_WINDOW_DAYS} days, ` +
+    `with overlapping pairs marked in the same response so a grid can paint conflicts without a ` +
+    `second request. A booking blocks the resource only while its event is live — cancelled events ` +
+    `free their rooms by definition, with no separate release. Entries carry windows and kinds, ` +
+    `never titles: the detail lives behind each entry's own access-checked link.`,
+  request: { params: firmResourceIdParam, query: availabilityQuery },
+  responses: {
+    200: {
+      description: "The window's bookings",
+      content: {
+        "application/json": {
+          schema: z
+            .object({ data: z.array(AvailabilityEntryDetail) })
+            .openapi("ResourceAvailability"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// ---- booking routes ----
+
+const createBookingRoute = defineOpenAPIRoute(mutationMeta("createBooking", "firm"), {
+  method: "post",
+  path: "/api/v1/resource-bookings",
+  description:
+    "Books a resource for exactly one event — a matter event or a firm event, never neither: " +
+    "'book the pool car Friday' is a Reservation-type firm event with the booking attached. The " +
+    "window defaults from the event and is editable (the room from half past eight for a nine " +
+    "o'clock deposition); the zone freezes from the resource's office. A double-booking succeeds " +
+    "and the response reports the conflicts it created: rooms are double-booked on purpose, the " +
+    "front desk referees them, and a taken room must never be the reason a hearing cannot be " +
+    "recorded.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateBookingRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The booking, with any conflicts it created",
+      content: { "application/json": { schema: BookingCreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateBookingRoute = defineOpenAPIRoute(mutationMeta("updateBooking", "firm"), {
+  method: "patch",
+  path: "/api/v1/resource-bookings/{firmResourceBookingId}",
+  description:
+    "Moves a booking's window or zone. The response reports any conflicts the move created, on the " +
+    "same warn-and-allow posture as creation.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: firmResourceBookingIdParam,
+    body: { content: { "application/json": { schema: UpdateBookingRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The booking was updated, with any conflicts the move created",
+      content: { "application/json": { schema: BookingUpdatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deleteBookingRoute = defineOpenAPIRoute(mutationMeta("deleteBooking", "firm"), {
+  method: "delete",
+  path: "/api/v1/resource-bookings/{firmResourceBookingId}",
+  description:
+    "Removes a booking outright. A booking is a claim on a room, not history — the event it served " +
+    "remains the record.",
+  request: { headers: idempotencyKeyHeader, params: firmResourceBookingIdParam },
+  responses: {
+    200: {
+      description: "The booking was removed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// ---- event-link and continuance routes ----
+
+const createEventLinkRoute = defineOpenAPIRoute(mutationMeta("createEventLink", "firm"), {
+  method: "post",
+  path: "/api/v1/event-links",
+  description:
+    "Relates two events — a prep session to its deposition, a meeting to the closure it plans for. " +
+    "Links here are the 'related' kind only: a continuance link is minted by the continue " +
+    "operation and by nothing else, because it is procedural history rather than an annotation.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateEventLinkRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The link",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deleteEventLinkRoute = defineOpenAPIRoute(mutationMeta("deleteEventLink", "firm"), {
+  method: "delete",
+  path: "/api/v1/event-links/{calendarEventLinkId}",
+  description:
+    "Removes a related link — a true delete, because a link is an annotation, not history. A " +
+    "continuance link is history and is refused.",
+  request: { headers: idempotencyKeyHeader, params: calendarEventLinkIdParam },
+  responses: {
+    200: {
+      description: "The link was removed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const continueEventRoute = defineOpenAPIRoute(mutationMeta("continueEvent", "matter"), {
+  method: "post",
+  path: "/api/v1/events/{eventId}/continue",
+  description:
+    "Continues a setting to a new date the way the court did: the old setting stays on the record " +
+    "with every historical detail untouched, marked cancelled with the reason; a new setting is " +
+    "recorded as it now stands, with the participants carried over; and one continuance link ties " +
+    "new to old, so the full history of the hearing is walkable in order. Correcting a typo is a " +
+    "different act — edit the event instead. The response lists the open deadlines that referenced " +
+    "the continued setting and the bookings the change released, for a person to act on: no " +
+    "deadline moves, because what a continuance does to a briefing schedule is a legal judgement.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: eventIdParam,
+    body: { content: { "application/json": { schema: ContinueEventRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The new setting, the vacated one, and what referenced them",
+      content: { "application/json": { schema: ContinueEventResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const continuanceChainRoute = defineOpenAPIRoute(readMeta("continuanceChain", "matter"), {
+  method: "get",
+  path: "/api/v1/events/{eventId}/continuance-chain",
+  description:
+    "The full procedural history of one hearing: every setting in order — dates, statuses, and " +
+    "reasons — walked in both directions from any setting in the chain.",
+  request: { params: eventIdParam },
+  responses: {
+    200: {
+      description: "The chain, oldest setting first",
+      content: {
+        "application/json": {
+          schema: z
+            .object({ data: z.array(ContinuanceChainNodeDetail) })
+            .openapi("ContinuanceChain"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 // ---- handler helpers ----
 
 type CalendarApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
@@ -914,7 +1703,42 @@ function directionBounds(
   return { fromDate: from, toDate: to };
 }
 
-function eventDetail(row: MatterEventRow): z.infer<typeof EventDetail> {
+// The continuance neighbors an event read embeds: enough to badge "continued from Mar 14" without
+// a chain walk.
+interface ContinuanceNeighbors {
+  readonly continuedFromEventId: string | null;
+  readonly continuedToEventId: string | null;
+}
+
+const NO_NEIGHBORS: ContinuanceNeighbors = { continuedFromEventId: null, continuedToEventId: null };
+
+// One bounded query for a whole page of events, never one per row.
+async function continuanceNeighborsFor(
+  database: SqlDatabase,
+  eventIds: readonly MatterEventId[],
+): Promise<Map<string, ContinuanceNeighbors>> {
+  const links = await readContinuanceLinksForEvents(database, eventIds);
+  const neighbors = new Map<string, ContinuanceNeighbors>();
+  const entryFor = (id: string): ContinuanceNeighbors =>
+    neighbors.get(id) ?? { continuedFromEventId: null, continuedToEventId: null };
+  for (const link of links) {
+    // A continuance link points new setting -> old setting.
+    const newId = link.from_matter_event_id;
+    const oldId = link.to_matter_event_id;
+    if (newId !== null) {
+      neighbors.set(newId, { ...entryFor(newId), continuedFromEventId: oldId });
+    }
+    if (oldId !== null) {
+      neighbors.set(oldId, { ...entryFor(oldId), continuedToEventId: newId });
+    }
+  }
+  return neighbors;
+}
+
+function eventDetail(
+  row: MatterEventRow,
+  neighbors: ContinuanceNeighbors = NO_NEIGHBORS,
+): z.infer<typeof EventDetail> {
   return {
     id: row.id,
     matterId: row.matter_id,
@@ -922,6 +1746,7 @@ function eventDetail(row: MatterEventRow): z.infer<typeof EventDetail> {
     title: row.title,
     description: row.description,
     status: row.status,
+    statusReason: row.status_reason,
     startsOn: row.starts_on,
     startsAtTime: row.starts_at_time,
     endsOn: row.ends_on,
@@ -931,6 +1756,55 @@ function eventDetail(row: MatterEventRow): z.infer<typeof EventDetail> {
     courtReference: row.court_reference,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,
+    continuedFromEventId: neighbors.continuedFromEventId,
+    continuedToEventId: neighbors.continuedToEventId,
+  };
+}
+
+function firmEventDetail(row: FirmEventRow): z.infer<typeof FirmEventDetail> {
+  return {
+    id: row.id,
+    eventTypeId: row.event_type_id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    statusReason: row.status_reason,
+    startsOn: row.starts_on,
+    startsAtTime: row.starts_at_time,
+    endsOn: row.ends_on,
+    endsAtTime: row.ends_at_time,
+    timeZone: row.time_zone,
+    audience: row.audience,
+    locationId: row.location_id,
+    locationText: row.location_text,
+    recordedAt: row.recorded_at,
+    recordedBy: row.recorded_by,
+  };
+}
+
+function resourceDetail(row: FirmResourceRow): z.infer<typeof ResourceDetail> {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    locationId: row.location_id,
+    capacity: row.capacity,
+    notes: row.notes,
+    active: row.active === 1,
+  };
+}
+
+function bookingConflictDetail(conflict: BookingConflict): z.infer<typeof BookingConflictDetail> {
+  return {
+    bookingId: conflict.bookingId,
+    startsOn: conflict.startsOn,
+    startsAtTime: conflict.startsAtTime,
+    endsOn: conflict.endsOn,
+    endsAtTime: conflict.endsAtTime,
+    timeZone: conflict.timeZone,
+    eventKind: conflict.eventKind,
+    eventId: conflict.eventId,
+    link: conflict.link,
   };
 }
 
@@ -1012,6 +1886,57 @@ async function commitCalendarEffect(
   return { ok: true, id: body.id, replayed: result.kind === "replayed" };
 }
 
+type RichCalendarEffectOutcome<Body> =
+  | { ok: true; body: Body; replayed: boolean }
+  | {
+      ok: false;
+      problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422>;
+    };
+
+// The same idempotent commit for the mutations whose response is more than an id — a booking's
+// conflicts, a continuance's informational lists. The stored body IS the wire body, so a retried
+// request replays exactly what the original commit reported (its conflicts as they were then), not
+// a recomputation.
+async function commitRichCalendarEffect<Body>(
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  responseCode: number,
+  call: () => Promise<{ body: Body; effect: EffectWrite }>,
+): Promise<RichCalendarEffectOutcome<Body>> {
+  const now = () => new Date().toISOString();
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const { body, effect } = await call();
+        return {
+          write: effect,
+          responseCode,
+          responseBody: canonicalJsonStringify(body),
+        };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof CalendarValidationError) {
+      return { ok: false, problem: calendarErrorResponse(c, caught) };
+    }
+    throw caught;
+  }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  }
+  return {
+    ok: true,
+    body: JSON.parse(result.responseBody ?? "{}") as Body,
+    replayed: result.kind === "replayed",
+  };
+}
+
 const DEFAULT_PAGE = 50;
 
 // How many distinct zones the overdue narrowing will compose a clause for. A firm keeps deadlines in
@@ -1063,8 +1988,14 @@ async function readEventsPage(
   const hasMore = results.length > DEFAULT_PAGE;
   const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
   const last = rows.at(-1);
+  // The continuance neighbors for the whole page in one bounded query, so a list can badge
+  // "continued from" without a per-row walk.
+  const neighbors = await continuanceNeighborsFor(
+    database,
+    rows.map((row) => row.id),
+  );
   return {
-    data: rows.map(eventDetail),
+    data: rows.map((row) => eventDetail(row, neighbors.get(row.id))),
     // The platform's cursor encoding, imported rather than re-spelled: the calendar mints no wire
     // contract of its own, and a hand-rolled copy is a site that will not move when the encoding does.
     nextCursor: hasMore && last !== undefined ? encodeCursor(last.starts_on, last.id) : null,
@@ -1143,9 +2074,12 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
         firm.firmDatabase,
         eventId as MatterEventId,
       );
+      const neighbors = await continuanceNeighborsFor(firm.firmDatabase, [
+        eventId as MatterEventId,
+      ]);
       return c.json(
         {
-          event: eventDetail(event),
+          event: eventDetail(event, neighbors.get(eventId)),
           participants: participants.map((row) => ({
             id: row.id,
             participantKind: row.participant_kind,
@@ -1181,6 +2115,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             memberUserId: query.memberId,
           },
           sourceKeys: repeatable(query.kind),
+          anchorScope: query.scope,
           cursor: decodeTimelineCursor(query.cursor),
           pageSize: DEFAULT_PAGE,
         });
@@ -1335,6 +2270,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const { eventId } = c.req.valid("param");
+      const request = c.req.valid("json");
       const outcome = await commitCalendarEffect(
         c,
         firm.firmDatabase,
@@ -1345,6 +2281,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
             firm.firmDatabase,
             eventId as MatterEventId,
             serviceOptions(userId),
+            request?.statusReason ?? null,
           );
           return { id: eventId, effect };
         },
@@ -1606,4 +2543,569 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       return c.json({ ok: true } as const, 200);
     },
   );
+
+  // GET /api/v1/firm-events
+  app.openapi(
+    { ...listFirmEventsRoute, middleware: chokepointMiddleware(chokepoint, listFirmEventsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      try {
+        assertCalendarWindow(query.from, query.to);
+        const decoded = decodeTimelineCursor(query.cursor);
+        const { results } = await selectFirmEventsStatement(firm.firmDatabase, {
+          fromDate: query.from,
+          toDate: query.to,
+          status: query.status,
+          eventTypeId: query.eventTypeId as never,
+          cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
+          limit: DEFAULT_PAGE + 1,
+        }).all<FirmEventRow>();
+        const hasMore = results.length > DEFAULT_PAGE;
+        const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
+        const last = rows.at(-1);
+        return c.json(
+          {
+            data: rows.map(firmEventDetail),
+            nextCursor:
+              hasMore && last !== undefined ? encodeCursor(last.starts_on, last.id) : null,
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/firm-events/{firmEventId}
+  app.openapi(
+    { ...getFirmEventRoute, middleware: chokepointMiddleware(chokepoint, getFirmEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { firmEventId } = c.req.valid("param");
+      const event = await readFirmEvent(firm.firmDatabase, firmEventId as FirmEventId);
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such firm event in this firm.",
+        });
+      }
+      const participants = await readFirmEventParticipants(
+        firm.firmDatabase,
+        firmEventId as FirmEventId,
+      );
+      return c.json(
+        {
+          event: firmEventDetail(event),
+          participants: participants.map((row) => ({
+            id: row.id,
+            participantKind: row.participant_kind,
+            memberUserId: row.member_user_id,
+            entityId: row.entity_id,
+            participantName: row.participant_name,
+            role: row.role,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/firm-events
+  app.openapi(
+    { ...createFirmEventRoute, middleware: chokepointMiddleware(chokepoint, createFirmEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createFirmEvent(
+            firm.firmDatabase,
+            { ...request, locationId: request.locationId as never },
+            serviceOptions(userId),
+          );
+          return { id: created.firmEventId, effect: created.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/firm-events/{firmEventId}
+  app.openapi(
+    { ...updateFirmEventRoute, middleware: chokepointMiddleware(chokepoint, updateFirmEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { firmEventId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await updateFirmEvent(
+            firm.firmDatabase,
+            firmEventId as FirmEventId,
+            { ...request, locationId: request.locationId as never },
+            serviceOptions(userId),
+          );
+          return { id: firmEventId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/firm-events/{firmEventId}/cancel
+  app.openapi(
+    { ...cancelFirmEventRoute, middleware: chokepointMiddleware(chokepoint, cancelFirmEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { firmEventId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await cancelFirmEvent(
+            firm.firmDatabase,
+            firmEventId as FirmEventId,
+            serviceOptions(userId),
+            request?.statusReason ?? null,
+          );
+          return { id: firmEventId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // GET /api/v1/calendar/resources
+  app.openapi(
+    { ...listResourcesRoute, middleware: chokepointMiddleware(chokepoint, listResourcesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const { results } = await selectFirmResourcesStatement(firm.firmDatabase, {
+        kind: query.kind,
+        locationId: query.locationId as never,
+        includeInactive: query.includeInactive === "true",
+        limit: 500,
+      }).all<FirmResourceRow>();
+      return c.json({ data: results.map(resourceDetail) }, 200);
+    },
+  );
+
+  // POST /api/v1/calendar/resources
+  app.openapi(
+    { ...createResourceRoute, middleware: chokepointMiddleware(chokepoint, createResourceRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createFirmResource(
+            firm.firmDatabase,
+            { ...request, locationId: request.locationId as never },
+            serviceOptions(userId),
+          );
+          return { id: created.firmResourceId, effect: created.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/calendar/resources/{firmResourceId}
+  app.openapi(
+    { ...updateResourceRoute, middleware: chokepointMiddleware(chokepoint, updateResourceRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { firmResourceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await updateFirmResource(
+            firm.firmDatabase,
+            firmResourceId as FirmResourceId,
+            { ...request, locationId: request.locationId as never },
+            serviceOptions(userId),
+          );
+          return { id: firmResourceId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // GET /api/v1/calendar/resources/{firmResourceId}/availability
+  app.openapi(
+    {
+      ...resourceAvailabilityRoute,
+      middleware: chokepointMiddleware(chokepoint, resourceAvailabilityRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { firmResourceId } = c.req.valid("param");
+      const query = c.req.valid("query");
+      try {
+        assertCalendarWindow(query.from, query.to);
+        const resource = await readFirmResource(
+          firm.firmDatabase,
+          firmResourceId as FirmResourceId,
+        );
+        if (resource === undefined) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Not found",
+            status: 404,
+            detail: "No such resource in this firm.",
+          });
+        }
+        const entries = await readResourceAvailability(firm.firmDatabase, {
+          resourceId: firmResourceId as FirmResourceId,
+          fromDate: query.from,
+          toDate: query.to,
+        });
+        return c.json(
+          {
+            data: entries.map((entry) => ({
+              bookingId: entry.bookingId,
+              startsOn: entry.startsOn,
+              startsAtTime: entry.startsAtTime,
+              endsOn: entry.endsOn,
+              endsAtTime: entry.endsAtTime,
+              timeZone: entry.timeZone,
+              eventKind: entry.eventKind,
+              eventId: entry.eventId,
+              eventTypeName: entry.eventTypeName,
+              link: entry.link,
+              overlappingBookingIds: [...entry.overlappingBookingIds],
+            })),
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // POST /api/v1/resource-bookings
+  app.openapi(
+    { ...createBookingRoute, middleware: chokepointMiddleware(chokepoint, createBookingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const outcome = await commitRichCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createFirmResourceBooking(
+            firm.firmDatabase,
+            {
+              resourceId: request.resourceId as FirmResourceId,
+              matterEventId: request.matterEventId as never,
+              firmEventId: request.firmEventId as never,
+              startsOn: request.startsOn,
+              startsAtTime: request.startsAtTime,
+              endsOn: request.endsOn,
+              endsAtTime: request.endsAtTime,
+              timeZone: request.timeZone,
+            },
+            serviceOptions(userId),
+          );
+          return {
+            body: {
+              id: created.firmResourceBookingId as string,
+              conflicts: created.conflicts.map(bookingConflictDetail),
+            },
+            effect: created.effect,
+          };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // PATCH /api/v1/resource-bookings/{firmResourceBookingId}
+  app.openapi(
+    { ...updateBookingRoute, middleware: chokepointMiddleware(chokepoint, updateBookingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { firmResourceBookingId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitRichCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const updated = await updateFirmResourceBooking(
+            firm.firmDatabase,
+            firmResourceBookingId as FirmResourceBookingId,
+            request,
+            serviceOptions(userId),
+          );
+          return {
+            body: { ok: true as const, conflicts: updated.conflicts.map(bookingConflictDetail) },
+            effect: updated.effect,
+          };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json(outcome.body, 200);
+    },
+  );
+
+  // DELETE /api/v1/resource-bookings/{firmResourceBookingId}
+  app.openapi(
+    { ...deleteBookingRoute, middleware: chokepointMiddleware(chokepoint, deleteBookingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { firmResourceBookingId } = c.req.valid("param");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await deleteFirmResourceBooking(
+            firm.firmDatabase,
+            firmResourceBookingId as FirmResourceBookingId,
+            serviceOptions(userId),
+          );
+          return { id: firmResourceBookingId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/event-links
+  app.openapi(
+    { ...createEventLinkRoute, middleware: chokepointMiddleware(chokepoint, createEventLinkRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const from = linkEndFrom(request.fromMatterEventId, request.fromFirmEventId);
+      const to = linkEndFrom(request.toMatterEventId, request.toFirmEventId);
+      if (from === undefined || to === undefined) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Calendar request invalid",
+          status: 422,
+          detail:
+            "each end of a link names exactly one event: a matter event or a firm event, never both and never neither",
+        });
+      }
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createRelatedLink(
+            firm.firmDatabase,
+            { from, to, note: request.note },
+            serviceOptions(userId),
+          );
+          return { id: created.calendarEventLinkId, effect: created.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // DELETE /api/v1/event-links/{calendarEventLinkId}
+  app.openapi(
+    { ...deleteEventLinkRoute, middleware: chokepointMiddleware(chokepoint, deleteEventLinkRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { calendarEventLinkId } = c.req.valid("param");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await deleteRelatedLink(
+            firm.firmDatabase,
+            calendarEventLinkId as CalendarEventLinkId,
+            serviceOptions(userId),
+          );
+          return { id: calendarEventLinkId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/events/{eventId}/continue
+  app.openapi(
+    { ...continueEventRoute, middleware: chokepointMiddleware(chokepoint, continueEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { eventId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitRichCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const continued = await continueMatterEvent(
+            firm.firmDatabase,
+            eventId as MatterEventId,
+            request,
+            serviceOptions(userId),
+          );
+          return {
+            body: {
+              newEventId: continued.newEventId as string,
+              oldEventId: continued.oldEventId as string,
+              triggerLinkedOpenDeadlines: continued.triggerLinkedOpenDeadlines.map((row) => ({
+                id: row.id as string,
+                title: row.title,
+                dueOn: row.due_on,
+                dueAtTime: row.due_at_time,
+                timeZone: row.time_zone,
+                state: row.state,
+              })),
+              releasedBookings: continued.releasedBookings.map((row) =>
+                bookingConflictDetail({
+                  bookingId: row.id,
+                  startsOn: row.starts_on,
+                  startsAtTime: row.starts_at_time,
+                  endsOn: row.ends_on,
+                  endsAtTime: row.ends_at_time,
+                  timeZone: row.time_zone,
+                  eventKind: row.event_kind,
+                  eventId: (row.matter_event_id ?? row.firm_event_id ?? "") as string,
+                  link:
+                    row.event_kind === "matterEvent"
+                      ? `/events/${row.matter_event_id ?? ""}`
+                      : `/firm-events/${row.firm_event_id ?? ""}`,
+                }),
+              ),
+            },
+            effect: continued.effect,
+          };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  // GET /api/v1/events/{eventId}/continuance-chain
+  app.openapi(
+    {
+      ...continuanceChainRoute,
+      middleware: chokepointMiddleware(chokepoint, continuanceChainRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { eventId } = c.req.valid("param");
+      try {
+        const chain = await readContinuanceChain(
+          firm.firmDatabase,
+          eventId as MatterEventId,
+          serviceOptions(requireChokepointUserId(c)),
+        );
+        return c.json(
+          {
+            data: chain.map((node) => ({
+              eventId: node.eventId as string,
+              startsOn: node.startsOn,
+              startsAtTime: node.startsAtTime,
+              timeZone: node.timeZone,
+              status: node.status,
+              statusReason: node.statusReason,
+            })),
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+}
+
+// One end of a link from the wire's two optional columns: exactly one, or nothing.
+function linkEndFrom(
+  matterEventId: string | null | undefined,
+  firmEventId: string | null | undefined,
+): LinkEnd | undefined {
+  const matter = matterEventId ?? null;
+  const firm = firmEventId ?? null;
+  if ((matter === null) === (firm === null)) return undefined;
+  if (matter !== null) return { matterEventId: matter as MatterEventId };
+  return { firmEventId: firm as FirmEventId };
 }

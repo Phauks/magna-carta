@@ -13,11 +13,14 @@ test.beforeAll(() => {
   ({ email, password } = readSeededTenant().credentials);
 });
 
+// Sign-in is identifier-first: the email step hands off to the password step in the SAME route, so
+// every sign-in walks both steps and the URL never moves.
 async function fillAndSubmit(
   page: Page,
   values: { email: string; password: string },
 ): Promise<void> {
   await page.locator("#login-email").fill(values.email);
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.locator("#login-password").fill(values.password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
@@ -29,7 +32,7 @@ test("an unauthenticated visit to an (app) route redirects to /login carrying th
   // The guard (apps/web/src/routes/(app)/+layout.ts) sees a 401 from /api/v1/me and redirects to
   // /login with the attempted path url-encoded as `next` (encodeURIComponent("/home") === "%2Fhome").
   await expect(page).toHaveURL(/\/login\?next=%2Fhome$/);
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
 });
 
 test("valid credentials sign in, land in the app, and set the session cookie", async ({ page }) => {
@@ -44,15 +47,23 @@ test("valid credentials sign in, land in the app, and set the session cookie", a
   ).toBeTruthy();
 });
 
-test("a wrong password keeps the user on /login and shows the credentials error", async ({
+test("a wrong password keeps the user on /login and shows the unspecific credentials error", async ({
   page,
 }) => {
   await page.goto("/login");
   await fillAndSubmit(page, { email, password: `${password}-wrong` });
   await expect(
-    page.getByText("That email and password do not match", { exact: false }),
+    page.getByText("That email and password combination doesn't match our records", {
+      exact: false,
+    }),
   ).toBeVisible();
+  // The URL never moves between steps, so it cannot report which step the visitor reached.
   await expect(page).toHaveURL(/\/login$/);
+  // The message says to check both, so both halves of the credential are marked invalid — the
+  // password here, and the email when the visitor steps back to it.
+  await expect(page.locator("#login-password")).toHaveAttribute("aria-invalid", "true");
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  await expect(page.locator("#login-email")).toHaveAttribute("aria-invalid", "true");
 });
 
 test("an off-origin `next` is rejected — sign-in lands on a local path, never off-origin", async ({
@@ -67,4 +78,11 @@ test("an off-origin `next` is rejected — sign-in lands on a local path, never 
   const landed = new URL(page.url());
   expect(landed.host).toBe("localhost:8787");
   expect(landed.pathname).toBe("/home");
+});
+
+test("there is no way to register — the door says so and offers no link", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByText("Access is provisioned by your firm's administrator.")).toBeVisible();
+  await expect(page.getByText("No self-service registration.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /sign up|register|create account/i })).toHaveCount(0);
 });

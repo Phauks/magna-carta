@@ -68,6 +68,31 @@ export const MATTER_ASSET_VALUATION_BASES = [
 ] as const;
 export type MatterAssetValuationBasis = (typeof MATTER_ASSET_VALUATION_BASES)[number];
 
+// What is secured against an asset. Closed, like the basis vocabulary and for the same reason: a
+// schedule groups by it and a reader has to be able to compare two firms' schedules. Which of these
+// takes priority over which is jurisdiction-specific and deliberately NOT encoded — nothing here
+// computes a payoff order, a remedy, or a redemption period.
+export const MATTER_ASSET_ENCUMBRANCE_KINDS = [
+  "mortgage",
+  "deedOfTrust",
+  "lien",
+  "judgment",
+  "securityInterest",
+  "taxLien",
+  "pledge",
+  "other",
+] as const;
+export type MatterAssetEncumbranceKind = (typeof MATTER_ASSET_ENCUMBRANCE_KINDS)[number];
+
+// How custody of a digital asset is arranged. `selfCustodied` is the one that matters: reaching a
+// self-custodied wallet needs a key, and this register refuses to hold one.
+export const MATTER_ASSET_DIGITAL_CUSTODY_MODELS = [
+  "custodial",
+  "selfCustodied",
+  "unknown",
+] as const;
+export type MatterAssetDigitalCustodyModel = (typeof MATTER_ASSET_DIGITAL_CUSTODY_MODELS)[number];
+
 // What a linked document IS, for the firm's own filing. Nothing branches on it.
 export const MATTER_ASSET_DOCUMENT_KINDS = [
   "deed",
@@ -138,5 +163,12 @@ export const MAX_MATTER_ASSET_BATCH = 50;
 // Four, because "account ending 4417" is what a letter needs and anything longer starts to be the
 // number itself.
 export const MAX_IDENTIFIER_DISPLAY_SUFFIX = 4;
+
+// The largest number of assets one schedule read returns. A schedule is read WHOLE — it is a
+// document's worth of rows and a cursor over it would let a firm file half an inventory without
+// noticing — so the bound is a refusal rather than a page. An estate of forty is large and one of two
+// hundred is remarkable; a matter past this is a register being used for something a schedule cannot
+// answer, and saying so is better than truncating.
+export const MAX_MATTER_ASSET_SCHEDULE = 500;
 
 export const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

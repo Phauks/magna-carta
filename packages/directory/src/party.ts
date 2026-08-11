@@ -13,6 +13,11 @@ export interface LinkMatterPartyInput {
   readonly matterId: string;
   readonly entityId: string;
   readonly role: string;
+  // The capacity the entity acts in on this matter — "Administrator", "Trustee",
+  // "Attorney-in-fact". A fact about the LINK, not the entity: the same person is an administrator
+  // on one matter and a beneficiary on the next. Recorded by the firm, never inferred; documents
+  // that name a capacity read this column and report an honest absence where none was recorded.
+  readonly capacity?: string | null;
 }
 
 // One party row read back from a matter — the link id, the entity it points at, and the role it
@@ -45,6 +50,7 @@ export async function linkMatterParty(
         matterId: input.matterId,
         entityId: input.entityId,
         role: input.role,
+        capacity: input.capacity ?? null,
         createdAt: now,
       }),
       directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),

@@ -202,6 +202,14 @@
   adrs: ADR-0009, ADR-0072
   evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
 
+- id: financial.trust.authorization-policy
+  name: Disbursement authorization policy (per-firm)
+  scope: Whether money leaving a client ledger takes a second person as firm configuration — off, threshold-based, or always (the strict shipped default) — plus an approver-authority option requiring the trust:authorize capability of whoever lets money go; the earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under.
+  status: shipped
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion); policy-aware decision and transfer triggers in the per-firm migration; billing's application queue in packages/billing/src/apply-authorization.ts; routes for the policy read/change and the application submit/approve
+  notes: Owner-directed override of the always-two-person default. Flagged, not decided - whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
+
 - id: financial.trust.no-commingling
   name: No commingling
   scope: Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
@@ -259,31 +267,40 @@
 - id: financial.billing.fee-models
   name: Fee models
   scope: The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen
-  status: not-started
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/arrangements.ts (the versioned append-only per-matter fee agreement; a fee change is a new version and invoice lines record the version that composed them)
+  notes: Built all at once per the owner's docket override of the staged default.
 
 - id: financial.billing.fee-models.hourly
   name: Hourly billing
   scope: Hourly bills from billable WIP time at resolved rates.
-  status: not-started
-  evidence: WIP and rate inputs shipped upstream; no bill generation exists
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/draft.ts (lines composed from each entry's own rate snapshot; billing never re-resolves a rate; a flat-fee or contingency matter refuses hourly time claims by name)
 
 - id: financial.billing.fee-models.flat-fee
   name: Flat/fixed fee
   scope: Flat and fixed-fee billing.
-  status: not-started
-  evidence: no fee-model code in tree
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/flat-fee.ts (one flat_fee line from the agreement; contributing time claimed at zero for realization; instalments representable with over-billing reported by flatFeeBilledBeyondArrangementStatement)
 
 - id: financial.billing.fee-models.contingency
   name: Contingency and settlement statements
-  scope: Settlement disbursement statements splitting client share, fee, costs, and liens.
-  status: not-started
-  evidence: no settlement-statement code in tree
+  scope: Contingency agreements (share, costs-before-or-after election), recorded recoveries, and the fee derived at invoice time; settlement disbursement statements splitting client share, fee, costs, and liens.
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/contingency.ts (matter_recovery records the fact; the fee is always derived at composition, never stored as a decided number)
+  notes: The fee model is shipped; settlement disbursement statements and lien handling stay deferred to a later financial slice, once a real matter demands them.
 
 - id: financial.billing.fee-models.retainer
   name: Retainer/evergreen
   scope: Retainer and evergreen billing with auto-replenishment alerts below threshold.
-  status: not-started
-  evidence: no retainer code; the alert layer belongs to the billing-automations slice in the phase-3 slice map, also unstarted
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/retainer.ts (target and floor on the agreement; floor status from trust's available figure; retainer_replenishment_request with the billing.retainer.replenishment_requested topic)
+  notes: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event.
 
 - id: financial.billing.invoice-composition
   name: Invoice composition

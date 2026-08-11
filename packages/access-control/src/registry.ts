@@ -127,6 +127,13 @@ export const PERMISSIONS = [
   // matter, and its sub-ledger spans every matter a client has.
   "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
   "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
+  // The authority to act on client money — the capability a firm's authorization policy can require
+  // of whoever lets a disbursement or an earned-fee application go (the approver, or the sole actor
+  // when the policy exempts the amount). A separate key from trust:manage because "may keep the
+  // trust books" and "may authorize money to leave" are the two capabilities the owner's policy
+  // exists to separate; changing the policy itself also takes this key, since relaxing the firm's
+  // money-movement posture IS an act of authority over client money.
+  "trust:authorize", // authorize money leaving a client ledger when policy requires authority; change the authorization policy
   // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
   // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
   // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and
@@ -172,6 +179,35 @@ export const PERMISSIONS = [
   // know about is how a feature ends up enforced by discipline in a route handler.
   "magnus:converse", // start conversations, submit turns, read and delete one's OWN conversations
   "magnus:readAllConversations", // read any member's conversation in the firm (the audited supervision read)
+  // Discovery — the corpus of documents under review on a matter. Its OWN namespace, and that is the
+  // load-bearing part: material produced by another party may be attorney's-eyes-only under a
+  // protective order, so reaching a review set must never follow from holding matters:* or files:*.
+  // A member with full access to the matter and no discovery grant cannot read a review set, cannot
+  // see what was loaded into it, and cannot load anything more.
+  //
+  // Three keys rather than the house read/manage pair, because the third capability is genuinely
+  // different: LOADING is the act that brings another party's untrusted material into the firm's own
+  // corpus, consumes the review set's document ceiling, and is the one discovery operation whose cost
+  // is set from outside the firm. A contract reviewer working under a protective order holds
+  // discovery:read and neither of the others, and that configuration has to be expressible.
+  // All three bind resource: "matter" — a review set IS one matter's corpus and cannot exist without
+  // one, the matterAssets:* binding rather than custody:*'s firm binding.
+  "discovery:read", // read review sets, record custodians, loads, review documents, and exception reports
+  "discovery:manageReviewSets", // create, rename, lock and close review sets; create and edit record custodians
+  "discovery:load", // declare a load and put material into a review set
+  // Notifications — a member's own feed of things the platform noticed. ONE key, seeded to every
+  // default role including Read-only, which is the deliberate contrast with trust:read. A member
+  // reading their own feed is not a privilege: the read is scoped to the session's own user id and
+  // every row is filtered by matter visibility at read time, so holding the key grants sight of
+  // nothing the member could not already reach — and a firm whose staff cannot see their own
+  // deadlines is a firm this feature has failed. There is deliberately no notifications:manage
+  // beside it: marking one's own item read is the same capability as reading it, and preference
+  // writes ride the settings capability that already exists.
+  //
+  // Binds resource: "firm". A feed spans every matter a member touches and firm-scoped kinds that
+  // have no matter at all, so binding it to "matter" would name a resource half the rows do not
+  // have — the same reasoning custody:* and trust:* carry.
+  "notifications:read", // read one's own notification feed, unread counts, and mark items read or dismissed
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

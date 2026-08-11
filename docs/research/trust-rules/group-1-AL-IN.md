@@ -3,6 +3,17 @@
 > **STATUS: DRAFT FOR ATTORNEY REVIEW.** Compiled 2026-05-30 from official primary sources fetched directly (state supreme court rule pages, state bar handbooks, IOLTA foundation rules). Items marked **[LOW CONFIDENCE]** could not be confirmed against a directly-fetched primary source in this pass and reflect the researcher's general knowledge of the rule; the authoritative URL to verify is provided. Rule text quoted/paraphrased from sources captured 2026-05-30. Verify effective dates and recent amendments before relying on any item.
 >
 > **Confidence legend:** ✅ = confirmed from directly-fetched primary source; ⚠️ = partially confirmed / inferred; ❓ = unverified, needs check.
+>
+> **RE-VERIFICATION NOTE (2026-08-07).** A primary-source sweep found that this catalog's home-jurisdiction
+> entry (Nevada, group 2) — compiled as "verified in full" in the same research pass as this file — cited
+> **SCR 78.5, a rule repealed in 2019**, and carried it into five of its thirteen fields; the corrections are
+> recorded in [`../2026-08-07-nevada-trust-accounting-rules.md`](../2026-08-07-nevada-trust-accounting-rules.md).
+> Nevada is the only jurisdiction with a primary-source research record in this repository, so no entry in
+> THIS file could be swept the same way. **Every entry below is therefore NOT VERIFIED, whatever its
+> per-field confidence marker**: the markers record the compiler's claims from the 2026-05-30 pass, not a
+> check against any primary source held in this repository. Treat each entry as a research lead, not a
+> finding, until it has its own dated primary-source research record under `docs/research/`. The encoding
+> gate in `@magna-carta/trust-jurisdictions` refuses every jurisdiction in this file by construction.
 
 Jurisdictions in this file: Alabama, Alaska, Arizona, Arkansas, California, Colorado, Connecticut, Delaware, Florida, Georgia, Hawaii, Idaho, Illinois, Indiana.
 

@@ -10,6 +10,7 @@
     "./file-statements": "./src/file-statements.ts",
     "./checkout-statements": "./src/checkout-statements.ts",
     "./file-service": "./src/file-service.ts",
+    "./topics": "./src/topics.ts",
     "./document-type-statements": "./src/document-type-statements.ts",
     "./document-type-service": "./src/document-type-service.ts",
     "./metering-statements": "./src/metering-statements.ts",
@@ -41,6 +42,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/object-dimensions": "workspace:*",
     "client-zip": "catalog:",
     "file-type": "catalog:",
     "zod": "catalog:"

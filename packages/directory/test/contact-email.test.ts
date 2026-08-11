@@ -8,7 +8,9 @@ import {
   addEmail,
   DirectoryEmailNotFoundError,
   findEntitiesByEmailAddress,
+  findEntitiesByEmailAddresses,
   InvalidEmailAddressError,
+  MAXIMUM_BATCHED_EMAIL_LOOKUPS,
   readEmails,
   removeEmail,
   updateEmail,
@@ -192,6 +194,87 @@ test("addEmail rejects a malformed address; lookup of one returns empty", async 
   ).rejects.toBeInstanceOf(InvalidEmailAddressError);
 
   expect(await findEntitiesByEmailAddress(database, "not-an-email")).toEqual([]);
+});
+
+// The batched twin the email-capture path uses. Same semantics as the single-address form — the point
+// of these cases is that batching did not quietly change any of them.
+
+test("findEntitiesByEmailAddresses resolves many addresses in one call, keyed as the caller passed them", async () => {
+  const database = freshDatabase();
+  const alan = await seedPerson(database, "batch-alan", "Alan");
+  const grace = await seedPerson(database, "batch-grace", "Grace");
+  await addEmail(database, { entityId: alan, address: "alan@example.com" }, writeOptions("b-1"));
+  await addEmail(database, { entityId: grace, address: "grace@example.com" }, writeOptions("b-2"));
+
+  const matches = await findEntitiesByEmailAddresses(database, [
+    "  ALAN@Example.com ",
+    "grace@example.com",
+    "nobody@example.com",
+  ]);
+
+  expect(matches.get("  ALAN@Example.com ")?.[0]?.entityId).toBe(alan);
+  expect(matches.get("grace@example.com")?.[0]?.entityId).toBe(grace);
+  // An address with no match is absent rather than present-and-empty, so membership reads as "resolved".
+  expect(matches.has("nobody@example.com")).toBe(false);
+});
+
+test("findEntitiesByEmailAddresses agrees with the single-address form on merges and deletions", async () => {
+  const database = freshDatabase();
+  const master = await seedPerson(database, "batch-master", "Master");
+  const subordinate = await seedPerson(database, "batch-sub", "Sub");
+  const deletedOwner = await seedPerson(database, "batch-del", "Del");
+  await addEmail(
+    database,
+    { entityId: subordinate, address: "merged@example.com" },
+    writeOptions("b-3"),
+  );
+  const removedId = await addEmail(
+    database,
+    { entityId: master, address: "removed@example.com" },
+    writeOptions("b-4"),
+  );
+  await addEmail(
+    database,
+    { entityId: deletedOwner, address: "deleted-owner@example.com" },
+    writeOptions("b-5"),
+  );
+  await database
+    .prepare(
+      `UPDATE directory_person SET status = 'merged_into', merged_into_id = ?2, updated_at = ?3 WHERE id = ?1`,
+    )
+    .bind(subordinate, master, clock.now())
+    .run();
+  await removeEmail(database, removedId, writeOptions("b-6"));
+  await database
+    .prepare(`UPDATE directory_person SET deleted_at = ?2 WHERE id = ?1`)
+    .bind(deletedOwner, clock.now())
+    .run();
+
+  const addresses = ["merged@example.com", "removed@example.com", "deleted-owner@example.com"];
+  const batched = await findEntitiesByEmailAddresses(database, addresses);
+  for (const address of addresses) {
+    const single = await findEntitiesByEmailAddress(database, address);
+    expect(batched.get(address) ?? []).toEqual(single);
+  }
+  expect(batched.get("merged@example.com")?.[0]?.entityId).toBe(master);
+});
+
+test("findEntitiesByEmailAddresses bounds the address list it will resolve", async () => {
+  const database = freshDatabase();
+  const personId = await seedPerson(database, "batch-bound", "Bound");
+  await addEmail(
+    database,
+    { entityId: personId, address: "bounded@example.com" },
+    writeOptions("b-7"),
+  );
+
+  // The address set comes from a captured message's recipients, so its size is not this platform's
+  // choice. The bounded prefix is resolved and the rest is simply not asked about — never an
+  // unbounded IN list built from a message.
+  const flood = Array.from({ length: 500 }, (_unused, index) => `filler${index}@example.com`);
+  const matches = await findEntitiesByEmailAddresses(database, [...flood, "bounded@example.com"]);
+
+  expect(matches.size).toBeLessThanOrEqual(MAXIMUM_BATCHED_EMAIL_LOOKUPS);
 });
 
 test("updateEmail and removeEmail reject an unknown email id", async () => {

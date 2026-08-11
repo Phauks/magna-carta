@@ -276,6 +276,14 @@ describe("end-to-end", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        // The three discovery keys reach Owner/Admin, Attorney, and Paralegal, and none of them
+        // reaches Billing or Read-only (20260806T080000_discovery-5-1-2). Its OWN namespace is the
+        // access rule: a review set is reachable from a discovery grant and from nothing else, never
+        // from matters:* or files:*, because material produced by another party may be
+        // attorney's-eyes-only under a protective order.
+        "discovery:load",
+        "discovery:manageReviewSets",
+        "discovery:read",
         "documents:assemble",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
@@ -320,6 +328,10 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        // Seeded onto every default role, Read-only included — the deliberate contrast with
+        // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
+        // scoped to their own user id and filtered by matter visibility before it returns a row.
+        "notifications:read",
         "shipping:manage",
         "support:cosign",
         "support:manage",
@@ -346,7 +358,10 @@ describe("end-to-end", () => {
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Owner/Admin, Attorney, and Billing
-        // (20260805T120001_seed-trust-permissions). Read-only carries neither.
+        // (20260805T120001_seed-trust-permissions). Read-only carries neither. trust:authorize —
+        // the authority to act on client money under the firm's authorization policy — reaches
+        // Owner/Admin and Attorney only (20260807T050000_trust-authorization-policy).
+        "trust:authorize",
         "trust:manage",
         "trust:read",
       ],
@@ -524,6 +539,13 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
       // Nothing is stored; the separate, audited import route is what records anything.
       "trust.previewStatementImport",
+      // A member settling their OWN notification feed row. These write, on the aiDetection.detect
+      // reasoning rather than the pure-computation one: the write records nothing about the firm's
+      // conduct, only that one member cleared one badge, and auditing every clear would flood
+      // audit_log with rows that outlive the notifications they described.
+      "notifications.markRead",
+      "notifications.dismiss",
+      "notifications.markAllRead",
     ]);
 
     for (const { operation, label } of mutatingV1) {

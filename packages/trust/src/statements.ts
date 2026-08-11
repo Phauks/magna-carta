@@ -4,6 +4,7 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustAuthorizationPolicyId,
   TrustBankStatementId,
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
@@ -24,11 +25,13 @@ import {
 } from "@magna-carta/ledger/statements";
 import { assertSafeInteger } from "@magna-carta/money/money";
 import type {
+  TrustAuthorizationPolicyKind,
   TrustBankStatementLineDirection,
   TrustBankStatementSource,
   TrustDisbursementAuthorizationBasis,
   TrustDisbursementDecisionKind,
   TrustDisbursementMethod,
+  TrustDisbursementRequestKind,
   TrustFrozenProof,
   TrustMovementKind,
   TrustMovementMethod,
@@ -43,6 +46,7 @@ export const TRUST_TRANSFER_TABLE = "trust_transfer";
 export const TRUST_MOVEMENT_TABLE = "trust_movement";
 export const TRUST_DISBURSEMENT_REQUEST_TABLE = "trust_disbursement_request";
 export const TRUST_DISBURSEMENT_DECISION_TABLE = "trust_disbursement_decision";
+export const TRUST_AUTHORIZATION_POLICY_TABLE = "trust_authorization_policy";
 export const TRUST_BANK_STATEMENT_TABLE = "trust_bank_statement";
 export const TRUST_BANK_STATEMENT_LINE_TABLE = "trust_bank_statement_line";
 export const TRUST_RECONCILIATION_TABLE = "trust_reconciliation";
@@ -54,6 +58,12 @@ export const TRUST_RECONCILIATION_MATCH_TABLE = "trust_reconciliation_match";
 // registry by packages/database/test/trust-disbursement-authorization.test.ts and by this package's
 // test/schema-name-sync.test.ts.
 export const TRUST_MANAGE_PERMISSION = "trust:manage";
+
+// The authority to act on client money — the capability the firm's authorization policy can require
+// of whoever lets a disbursement or an earned-fee application go. Spelled here as a literal for the
+// same reason as TRUST_MANAGE_PERMISSION: the value must agree with the authority triggers baked
+// into the per-firm migration, which cannot import anything.
+export const TRUST_AUTHORIZE_PERMISSION = "trust:authorize";
 
 // SQLite stores a float or NaN in an INTEGER column without complaint, silently corrupting an
 // amount. Every minor-unit number is asserted at the last boundary before SQL through the money
@@ -318,7 +328,10 @@ export interface InsertTrustTransferRow {
   readonly currency: string;
   readonly trustEntryId: LedgerEntryId;
   readonly operatingEntryId: LedgerEntryId;
-  readonly authorizedBy: UserId | null;
+  readonly authorizedBy: UserId;
+  readonly recordedBy: UserId;
+  readonly policyId: TrustAuthorizationPolicyId | null;
+  readonly approvedRequestId: TrustDisbursementRequestId | null;
   readonly effectiveDate: string;
   readonly recordedAt: string;
 }
@@ -329,7 +342,7 @@ export function insertTrustTransferStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TRUST_TRANSFER_TABLE} (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, effective_date, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+      `INSERT INTO ${TRUST_TRANSFER_TABLE} (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
     )
     .bind(
       row.id,
@@ -340,6 +353,9 @@ export function insertTrustTransferStatement(
       row.trustEntryId,
       row.operatingEntryId,
       row.authorizedBy,
+      row.recordedBy,
+      row.policyId,
+      row.approvedRequestId,
       row.effectiveDate,
       row.recordedAt,
     );
@@ -441,6 +457,9 @@ export interface InsertTrustDisbursementRequestRow {
   readonly effectiveDate: string;
   readonly requestedBy: UserId;
   readonly requestedAt: string;
+  readonly kind: TrustDisbursementRequestKind;
+  readonly operatingDescription: string | null;
+  readonly policyId: TrustAuthorizationPolicyId | null;
 }
 
 // The pending request. Nothing else in this batch touches the ledger, the balances, or
@@ -451,7 +470,7 @@ export function insertTrustDisbursementRequestStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TRUST_DISBURSEMENT_REQUEST_TABLE} (id, trust_account_id, node_id, amount_minor, currency, method, reference, payee, purpose, description, effective_date, requested_by, requested_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+      `INSERT INTO ${TRUST_DISBURSEMENT_REQUEST_TABLE} (id, trust_account_id, node_id, amount_minor, currency, method, reference, payee, purpose, description, effective_date, requested_by, requested_at, kind, operating_description, policy_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
     )
     .bind(
       row.id,
@@ -467,11 +486,14 @@ export function insertTrustDisbursementRequestStatement(
       row.effectiveDate,
       row.requestedBy,
       row.requestedAt,
+      row.kind,
+      row.operatingDescription,
+      row.policyId,
     );
 }
 
-const DISBURSEMENT_REQUEST_COLUMNS = `r.id, r.trust_account_id, r.node_id, r.amount_minor, r.currency, r.method, r.reference, r.payee, r.purpose, r.description, r.effective_date, r.requested_by, r.requested_at`;
-const DISBURSEMENT_DECISION_COLUMNS = `d.id AS decision_id, d.decision, d.decided_by, d.decided_at, d.reason, d.authorization_basis, d.movement_id`;
+const DISBURSEMENT_REQUEST_COLUMNS = `r.id, r.trust_account_id, r.node_id, r.amount_minor, r.currency, r.method, r.reference, r.payee, r.purpose, r.description, r.effective_date, r.requested_by, r.requested_at, r.kind, r.operating_description, r.policy_id`;
+const DISBURSEMENT_DECISION_COLUMNS = `d.id AS decision_id, d.decision, d.decided_by, d.decided_at, d.reason, d.authorization_basis, d.movement_id, d.transfer_id`;
 
 // One request and whatever settled it. The decision arrives as a LEFT JOIN rather than a column on
 // the request, so "pending" is the absence of a decision row and never a stored state that could
@@ -510,6 +532,7 @@ export interface InsertTrustDisbursementDecisionRow {
   readonly reason: string | null;
   readonly authorizationBasis: TrustDisbursementAuthorizationBasis | null;
   readonly movementId: TrustMovementId | null;
+  readonly transferId: TrustTransferId | null;
 }
 
 // The decision, and — on an approval — the row that ties it to the movement it posted. The shape
@@ -522,7 +545,7 @@ export function insertTrustDisbursementDecisionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TRUST_DISBURSEMENT_DECISION_TABLE} (id, request_id, decision, decided_by, decided_at, reason, authorization_basis, movement_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+      `INSERT INTO ${TRUST_DISBURSEMENT_DECISION_TABLE} (id, request_id, decision, decided_by, decided_at, reason, authorization_basis, movement_id, transfer_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
     )
     .bind(
       row.id,
@@ -533,6 +556,7 @@ export function insertTrustDisbursementDecisionStatement(
       row.reason,
       row.authorizationBasis,
       row.movementId,
+      row.transferId,
     );
 }
 
@@ -550,6 +574,82 @@ export function insertTrustDisbursementDecisionStatement(
 export function selectActiveTrustManagersStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
     `SELECT user_id, display_name FROM (SELECT mr.member_user_id AS user_id, m.display_name AS display_name FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id, m.display_name FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active') ORDER BY display_name, user_id`,
+  );
+}
+
+// WHICH ACTIVE MEMBERS hold the authority capability, selected the way the authority triggers in the
+// per-firm migration test membership: role-held and directly granted, unioned by member. Like the
+// trust-manager read above, it exists to turn a trigger's abort into a refusal naming who CAN act —
+// the trigger is the guarantee.
+export function selectActiveTrustAuthorityHoldersStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT user_id, display_name FROM (SELECT mr.member_user_id AS user_id, m.display_name AS display_name FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_AUTHORIZE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id, m.display_name FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_AUTHORIZE_PERMISSION}' AND m.status = 'active') ORDER BY display_name, user_id`,
+  );
+}
+
+export interface InsertTrustAuthorizationPolicyRow {
+  readonly id: TrustAuthorizationPolicyId;
+  readonly version: number;
+  readonly policy: TrustAuthorizationPolicyKind;
+  readonly thresholdAmountMinor: number | null;
+  readonly requireAuthorizedApprover: boolean;
+  readonly setBy: UserId;
+  readonly setAt: string;
+}
+
+// One new immutable policy version. The version-dense trigger and the UNIQUE index are what settle a
+// race between two concurrent posture changes: both compute the same next version and the loser's
+// batch aborts, so "the current policy" is always MAX(version) with no tie to break.
+export function insertTrustAuthorizationPolicyStatement(
+  database: SqlDatabase,
+  row: InsertTrustAuthorizationPolicyRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_AUTHORIZATION_POLICY_TABLE} (id, version, policy, threshold_amount_minor, require_authorized_approver, set_by, set_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    )
+    .bind(
+      row.id,
+      row.version,
+      row.policy,
+      row.thresholdAmountMinor === null
+        ? null
+        : assertMinorUnits(row.thresholdAmountMinor, "authorization policy threshold_amount_minor"),
+      row.requireAuthorizedApprover ? 1 : 0,
+      row.setBy,
+      row.setAt,
+    );
+}
+
+const AUTHORIZATION_POLICY_COLUMNS = `id, version, policy, threshold_amount_minor, require_authorized_approver, set_by, set_at`;
+
+export function selectCurrentTrustAuthorizationPolicyStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database.prepare(
+    `SELECT ${AUTHORIZATION_POLICY_COLUMNS} FROM ${TRUST_AUTHORIZATION_POLICY_TABLE} ORDER BY version DESC LIMIT 1`,
+  );
+}
+
+export function selectTrustAuthorizationPolicyStatement(
+  database: SqlDatabase,
+  policyId: TrustAuthorizationPolicyId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${AUTHORIZATION_POLICY_COLUMNS} FROM ${TRUST_AUTHORIZATION_POLICY_TABLE} WHERE id = ?1`,
+    )
+    .bind(policyId);
+}
+
+// Every version the firm has ever written, newest first — the history a firm answers "who changed
+// our money-movement posture, when, from what to what" out of, read directly from the append-only
+// rows rather than reconstructed from audit metadata.
+export function selectTrustAuthorizationPolicyHistoryStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database.prepare(
+    `SELECT ${AUTHORIZATION_POLICY_COLUMNS} FROM ${TRUST_AUTHORIZATION_POLICY_TABLE} ORDER BY version DESC`,
   );
 }
 

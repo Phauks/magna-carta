@@ -70,10 +70,24 @@ describe("schema conformance (fitness functions)", () => {
       // handle would add a unique lookup on every read that already arrives holding the asset.
       matter_asset_real_property: "asset_id",
       matter_asset_financial_account: "asset_id",
+      matter_asset_vehicle: "asset_id",
+      matter_asset_firearm: "asset_id",
+      matter_asset_business_interest: "asset_id",
+      matter_asset_insurance_policy: "asset_id",
+      matter_asset_receivable: "asset_id",
+      matter_asset_digital_asset: "asset_id",
       // One acknowledgement per member, and the member IS the row: a second handle would let two
       // acceptances exist for one person, which is precisely the state the version comparison must
       // never have to disambiguate.
       magnus_member_acknowledgement: "user_id",
+      // One professional profile per member, and the member IS the row — a second handle would let
+      // two profiles exist for one person, and every read already arrives holding the user id.
+      member_professional_profile: "member_user_id",
+      // One running tally per member of how many notifications aged out of their feed while still
+      // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
+      // event anybody appends, and a handle would let two tallies exist for one person — which is
+      // exactly the state the unread count must never have to reconcile.
+      notification_swept_unread: "recipient_user_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.

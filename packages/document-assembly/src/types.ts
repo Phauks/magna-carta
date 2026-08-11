@@ -179,7 +179,20 @@ export type MergeSource =
   | "firm"
   | "customField"
   | "protectedIdentifier"
-  | "system";
+  | "system"
+  // The matter's asset register. ONE read fills all eleven asset subjects — every class plus the
+  // aggregate — because a subject is a pass over rows already in memory. Adding a class adds a left
+  // join and no read.
+  | "asset"
+  // The matter's staffing: one read joining the matter's responsible attorney and its assignment
+  // rows to the member table, the professional profile, and the member's mapped Directory person.
+  // Every member subject is a pass over the rows it returns.
+  | "staffing"
+  // The matter's court-case record joined to the court organisation and the judge — the `court`
+  // and `case` subjects share it.
+  | "court"
+  // The matter's estate record joined to the decedent's Directory person.
+  | "estate";
 
 export type MergeValueType =
   | "text"

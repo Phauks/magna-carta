@@ -1,5 +1,6 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
+import { assetSubjectValues, assetSubjectsIn } from "./asset-bindings.ts";
 import {
   customFieldHandleOf,
   customMergeKeyFor,
@@ -19,22 +20,37 @@ import { lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
 import { directoryRoleSourcesIn, directoryRoleValues } from "./directory-role-bindings.ts";
 import { heightForWidth, readImageFacts } from "./ooxml/image.ts";
 import {
+  memberProtectedSourcesIn,
+  memberProtectedValues,
   protectedIdentifierSourcesIn,
   protectedIdentifierValues,
   type ProtectedIdentifierReader,
 } from "./protected-bindings.ts";
+import { staffingSourcesIn, staffingValues, type StaffingSlot } from "./staffing-bindings.ts";
 import {
   selectLocationForMergeStatement,
+  selectMatterAssetsForMergeStatement,
+  selectMatterCourtCaseForMergeStatement,
+  selectMatterEstateForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
+  selectMatterStaffingForMergeStatement,
   toLocationMergeRow,
+  toMatterCourtCaseMergeRow,
+  toMatterEstateMergeRow,
   toMatterMergeRow,
   toMatterPartyMergeRow,
+  toMatterStaffingMergeRow,
   type LocationMergeColumns,
   type LocationMergeRow,
+  type MatterAssetMergeRow,
+  type MatterCourtCaseMergeColumns,
+  type MatterEstateMergeColumns,
+  type MatterEstateMergeRow,
   type MatterMergeColumns,
   type MatterMergeRow,
   type MatterPartyMergeColumns,
+  type MatterStaffingMergeColumns,
 } from "./merge-statements.ts";
 import {
   manifestKeys,
@@ -104,7 +120,17 @@ export interface ResolutionInput {
   // needs a firm key, an acting member, and that member's permissions, none of which this package holds.
   // Absent makes every protected key a declared absence, exactly as an absent image reader does.
   readonly readProtectedIdentifier?: ProtectedIdentifierReader;
+  // The date every asset figure is resolved as of. For an estate this is the date of death, which is
+  // the estate record's own fact — supplied here rather than read, because this package stores no
+  // second copy of a date and the register never invents one. Absent falls back to the assembly's own
+  // date, which is a schedule as of today: still explicit, and never a figure with no date at all.
+  readonly assetsAsOfDate?: string;
 }
+
+// The largest number of assets one assembly walks. A repeating block over a register is bounded like
+// every other repeat, and the bound is generous — an estate of forty is large — because the failure it
+// guards against is a runaway document rather than a firm with a big inventory.
+const MAX_ASSETS_PER_ASSEMBLY = 500;
 
 export type ResolutionFailureReason = "matter-not-found";
 
@@ -196,6 +222,61 @@ function valuesFromMatter(matter: MatterMergeRow, into: Map<string, MergeValue>)
   set("client.code", textValue(matter.clientCode));
 }
 
+// A name value from a display string plus separately recorded parts, or undefined when even the
+// display half is unrecorded. Shared by the judge and the decedent, whose parts arrive on their
+// sources' own reads exactly as a party's do.
+function nameValueFromParts(
+  display: string | null,
+  parts: {
+    readonly prefix: string | null;
+    readonly given: string | null;
+    readonly middle: string | null;
+    readonly family: string | null;
+    readonly suffix: string | null;
+  },
+): MergeValue | undefined {
+  if (display === null || display === "") return undefined;
+  const part = (value: string | null): string | undefined =>
+    value === null || value === "" ? undefined : value;
+  return {
+    kind: "name",
+    display,
+    isOrganisation: false,
+    ...(part(parts.prefix) === undefined ? {} : { prefix: parts.prefix as string }),
+    ...(part(parts.given) === undefined ? {} : { given: parts.given as string }),
+    ...(part(parts.middle) === undefined ? {} : { middle: parts.middle as string }),
+    ...(part(parts.family) === undefined ? {} : { family: parts.family as string }),
+    ...(part(parts.suffix) === undefined ? {} : { suffix: parts.suffix as string }),
+  };
+}
+
+function dateValue(isoDate: string | null): MergeValue | undefined {
+  return isoDate === null || isoDate === "" ? undefined : { kind: "date", isoDate };
+}
+
+// The estate record supplies the `estate` subject. The styles are stored designations printed as
+// recorded; the decedent is a name with parts, so every name format applies.
+function valuesFromEstate(estate: MatterEstateMergeRow, into: Map<string, MergeValue>): void {
+  const set = (key: string, value: MergeValue | undefined): void => {
+    if (value !== undefined) into.set(key, value);
+  };
+  set("estate.style", textValue(estate.estateStyle));
+  set("estate.shortStyle", textValue(estate.shortStyle));
+  set("estate.dateOfDeath", dateValue(estate.dateOfDeath));
+  set("estate.proceedingType", textValue(estate.proceedingType));
+  set("estate.lettersIssuedOn", dateValue(estate.lettersIssuedOn));
+  set(
+    "estate.decedent",
+    nameValueFromParts(estate.decedentDisplayName, {
+      prefix: estate.decedentNamePrefix,
+      given: estate.decedentNameGiven,
+      middle: estate.decedentNameMiddle,
+      family: estate.decedentNameFamily,
+      suffix: estate.decedentNameSuffix,
+    }),
+  );
+}
+
 function valuesFromLocation(location: LocationMergeRow, into: Map<string, MergeValue>): void {
   const set = (key: string, value: MergeValue | undefined): void => {
     if (value !== undefined) into.set(key, value);
@@ -271,6 +352,25 @@ export async function resolveMergeContext(
     valuesFromMatter(matter, values);
   }
 
+  // The matter's estate record: ONE read for the whole `estate` subject — and for the capacity
+  // line, which composes over the estate's stored style. It runs BEFORE the party pass because a
+  // party's capacity line is composed there, from a style this read supplies; a matter with no
+  // estate record returns no row, which is the conditional absence every estate key declares.
+  const wantsCapacityLine = [...wantedKeys].some((key) => key.endsWith(".capacityLine"));
+  let estate: MatterEstateMergeRow | undefined;
+  if (sources.has("estate") || wantsCapacityLine) {
+    reads.push("estate");
+    const { results } = await selectMatterEstateForMergeStatement(
+      database,
+      input.matterId,
+    ).all<MatterEstateMergeColumns>();
+    const row = results[0];
+    if (row !== undefined) {
+      estate = toMatterEstateMergeRow(row);
+      valuesFromEstate(estate, values);
+    }
+  }
+
   // The matter's parties: ONE read for the whole collection, never one per item, and never one per role.
   //
   // Every Directory role source is answered from THIS read. `opposingParty.displayName` is a pass over
@@ -284,6 +384,10 @@ export async function resolveMergeContext(
   // and the party links are what say which entity is this matter's client. Reading the client's link is
   // therefore free here and would be a second query anywhere else.
   const protectedSources = protectedIdentifierSourcesIn(wantedKeys);
+  // The member subjects' bar numbers resolve against the STAFFING read's slots, below; declared
+  // here so the one `protectedIdentifier` entry in the read record covers both passes.
+  const memberProtectedSources = memberProtectedSourcesIn(wantedKeys);
+  let protectedRecorded = false;
   if (wantedKeys.has("matter.parties") || roleSources.length > 0 || protectedSources.length > 0) {
     reads.push("party");
     const { results } = await selectMatterPartiesForMergeStatement(
@@ -303,7 +407,14 @@ export async function resolveMergeContext(
       });
       values.set("matter.parties", { kind: "list", items });
     }
-    const roles = directoryRoleValues(parties, roleSources, wantedKeys);
+    const roles = directoryRoleValues(
+      parties,
+      roleSources,
+      wantedKeys,
+      estate?.estateStyle == null || estate.estateStyle === ""
+        ? {}
+        : { estateStyle: estate.estateStyle },
+    );
     for (const [key, value] of roles.values) values.set(key, value);
     for (const [key, reason] of roles.reasons) absenceReasons.set(key, reason);
 
@@ -314,6 +425,7 @@ export async function resolveMergeContext(
     // plaintext exists on this path for anyone who was refused.
     if (protectedSources.length > 0) {
       reads.push("protectedIdentifier");
+      protectedRecorded = true;
       const sealed = await protectedIdentifierValues(
         protectedSources,
         parties,
@@ -321,6 +433,119 @@ export async function resolveMergeContext(
       );
       for (const [key, value] of sealed.values) values.set(key, value);
       for (const [key, reason] of sealed.reasons) absenceReasons.set(key, reason);
+    }
+  }
+
+  // The matter's staffing: ONE read for every member subject a manifest names — the responsible
+  // attorney off the matter row's own column, and the rest off the current assignment rows, all
+  // joined to the member table, the professional profile, and the member's mapped Directory person.
+  // Five subjects are five passes over the rows this returns, exactly as the party subjects ride
+  // the party read.
+  const staffingSources = staffingSourcesIn(wantedKeys);
+  let staffingSlots: ReadonlyMap<string, StaffingSlot> = new Map();
+  if (staffingSources.length > 0 || memberProtectedSources.length > 0) {
+    reads.push("staffing");
+    const { results } = await selectMatterStaffingForMergeStatement(
+      database,
+      input.matterId,
+      input.assembledAt,
+    ).all<MatterStaffingMergeColumns>();
+    const rows = results.map(toMatterStaffingMergeRow);
+    // The protected pass needs every subject's slot even when no ordinary staffing key named it, so
+    // the slot resolution runs over the union of the two source lists' subjects.
+    const slotSources = new Map(staffingSources.map((source) => [source.key, source]));
+    for (const protectedSource of memberProtectedSources) {
+      for (const source of staffingSourcesIn([`${protectedSource.subjectKey}.displayName`])) {
+        slotSources.set(source.key, source);
+      }
+    }
+    const staffing = staffingValues(rows, [...slotSources.values()], wantedKeys);
+    staffingSlots = staffing.slots;
+    for (const [key, value] of staffing.values) {
+      if (wantedKeys.has(key)) values.set(key, value);
+    }
+    for (const [key, reason] of staffing.reasons) {
+      if (wantedKeys.has(key)) absenceReasons.set(key, reason);
+    }
+
+    // The firm's own people's bar numbers, through the same chokepoint reader the client's sealed
+    // identifiers use — and only for a slot that RESOLVED. An ambiguous slot is an absence before
+    // any decryption is attempted, so an assembly cannot generate a decrypt audit trail for a
+    // member the document never names.
+    if (memberProtectedSources.length > 0) {
+      if (!protectedRecorded) {
+        reads.push("protectedIdentifier");
+        protectedRecorded = true;
+      }
+      const sealed = await memberProtectedValues(
+        memberProtectedSources,
+        staffingSlots,
+        input.readProtectedIdentifier,
+      );
+      for (const [key, value] of sealed.values) values.set(key, value);
+      for (const [key, reason] of sealed.reasons) absenceReasons.set(key, reason);
+    }
+  }
+
+  // The matter's court-case record: ONE read shared by the `court` and `case` subjects, joined to
+  // the court's Directory organisation and the judge's Directory person. A matter with no court
+  // case returns no row — the conditional absence every court key declares, not a defect.
+  if (sources.has("court")) {
+    reads.push("court");
+    const { results } = await selectMatterCourtCaseForMergeStatement(
+      database,
+      input.matterId,
+    ).all<MatterCourtCaseMergeColumns>();
+    const row = results[0];
+    if (row !== undefined) {
+      const courtCase = toMatterCourtCaseMergeRow(row);
+      const set = (key: string, value: MergeValue | undefined): void => {
+        if (value !== undefined) values.set(key, value);
+      };
+      set("court.name", textValue(courtCase.courtName));
+      set(
+        "court.judge",
+        nameValueFromParts(courtCase.judgeDisplayName, {
+          prefix: courtCase.judgeNamePrefix,
+          given: courtCase.judgeNameGiven,
+          middle: courtCase.judgeNameMiddle,
+          family: courtCase.judgeNameFamily,
+          suffix: courtCase.judgeNameSuffix,
+        }),
+      );
+      set("case.number", textValue(courtCase.caseNumber));
+      set("case.filedOn", dateValue(courtCase.filedOn));
+      set("case.division", textValue(courtCase.division));
+      set("case.department", textValue(courtCase.department));
+      set("case.clientDesignation", textValue(courtCase.clientDesignation));
+      set("case.opposingDesignation", textValue(courtCase.opposingDesignation));
+    }
+  }
+
+  // The matter's asset register: ONE read for every asset subject a manifest names, never one per
+  // class and never one per asset. Eleven subjects are eleven passes over the rows this returns, so a
+  // template walking every class costs exactly what a template walking one costs — and adding the
+  // twelfth class costs nothing at all, which is the property the catalogue's shape exists to
+  // preserve.
+  //
+  // THE DATE. Every figure this source returns is resolved as of one date and travels with the date
+  // it actually speaks to. Where that date comes from is not this subsystem's fact: for an estate it
+  // is the date of death, which belongs to the estate record alone, and the caller supplies it here
+  // (`assetsAsOfDate`) so the register is read and no second copy of a date is stored. Absent, the
+  // assembly's own date stands in — a schedule assembled today, as of today, which is the only
+  // defensible default and is still an explicit one.
+  const assetSubjects = assetSubjectsIn(wantedKeys);
+  if (assetSubjects.length > 0) {
+    reads.push("asset");
+    const asOfDate = input.assetsAsOfDate ?? input.assembledAt.slice(0, 10);
+    const { results } = await selectMatterAssetsForMergeStatement(
+      database,
+      input.matterId,
+      asOfDate,
+      MAX_ASSETS_PER_ASSEMBLY,
+    ).all<MatterAssetMergeRow>();
+    for (const [key, value] of assetSubjectValues(results, assetSubjects)) {
+      values.set(key, value);
     }
   }
 

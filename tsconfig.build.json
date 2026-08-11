@@ -89,6 +89,9 @@
       "path": "packages/directory/tsconfig.build.json"
     },
     {
+      "path": "packages/discovery/tsconfig.build.json"
+    },
+    {
       "path": "packages/document-assembly/tsconfig.build.json"
     },
     {
@@ -155,6 +158,12 @@
       "path": "packages/money/tsconfig.build.json"
     },
     {
+      "path": "packages/notifications/tsconfig.build.json"
+    },
+    {
+      "path": "packages/object-dimensions/tsconfig.build.json"
+    },
+    {
       "path": "packages/pdf/tsconfig.build.json"
     },
     {
@@ -186,6 +195,9 @@
     },
     {
       "path": "packages/tools/tsconfig.build.json"
+    },
+    {
+      "path": "packages/trust-jurisdictions/tsconfig.build.json"
     },
     {
       "path": "packages/trust/tsconfig.build.json"

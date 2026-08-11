@@ -18,15 +18,14 @@ import {
   updateMatterEventStatement,
   type MatterEventRow,
 } from "./event-statements.ts";
-import type { MatterEventParticipantKind, MatterEventStatus } from "./types.ts";
-import type { VisibleMatterPredicate } from "./visibility.ts";
 import {
-  CalendarValidationError,
-  assertCivilDate,
-  assertNonEmptyTitle,
-  assertTimeZone,
-  assertWallClockTime,
-} from "./validation.ts";
+  assertEventShape,
+  assertParticipantShape,
+  type EventParticipantInput,
+} from "./event-shape.ts";
+import type { MatterEventStatus } from "./types.ts";
+import type { VisibleMatterPredicate } from "./visibility.ts";
+import { CalendarValidationError } from "./validation.ts";
 
 // Recording what happens in a case. The service validates in memory, composes statements into an
 // effect batch, and holds no binding and no clock of its own — the caller supplies the firm-scoped
@@ -44,13 +43,7 @@ export interface CalendarServiceOptions {
   readonly visibility: VisibleMatterPredicate;
 }
 
-export interface MatterEventParticipantInput {
-  readonly participantKind: MatterEventParticipantKind;
-  readonly memberUserId?: UserId | null;
-  readonly entityId?: string | null;
-  readonly participantName?: string | null;
-  readonly role?: string | null;
-}
+export type MatterEventParticipantInput = EventParticipantInput;
 
 export interface CreateMatterEventInput {
   readonly matterId: MatterId;
@@ -66,65 +59,6 @@ export interface CreateMatterEventInput {
   readonly locationText?: string | null;
   readonly courtReference?: string | null;
   readonly participants?: readonly MatterEventParticipantInput[];
-}
-
-// The shape rules, stated once and applied on both the create and the update path. The schema
-// carries the same checks; these exist so a caller gets a named refusal it can act on instead of a
-// database abort it cannot read.
-function assertEventShape(input: {
-  title: string;
-  startsOn: string;
-  startsAtTime?: string | null;
-  endsOn?: string | null;
-  endsAtTime?: string | null;
-  timeZone: string;
-}): void {
-  assertNonEmptyTitle(input.title);
-  assertCivilDate(input.startsOn, "startsOn");
-  assertWallClockTime(input.startsAtTime, "startsAtTime");
-  if (input.endsOn !== null && input.endsOn !== undefined) {
-    assertCivilDate(input.endsOn, "endsOn");
-    if (input.endsOn < input.startsOn) {
-      throw new CalendarValidationError(
-        "calendar-invalid-range",
-        "an event cannot end before it starts",
-      );
-    }
-  }
-  assertWallClockTime(input.endsAtTime, "endsAtTime");
-  if (
-    input.endsAtTime !== null &&
-    input.endsAtTime !== undefined &&
-    (input.startsAtTime === null || input.startsAtTime === undefined)
-  ) {
-    throw new CalendarValidationError(
-      "calendar-invalid-range",
-      "an end time needs a start time: an all-day event that ends at half past four is not a shape anybody can act on",
-    );
-  }
-  // Validated at the WRITE and never at the read: a row whose zone no runtime can resolve is a
-  // hearing nobody can display and nobody can correct without a migration.
-  assertTimeZone(input.timeZone);
-}
-
-function assertParticipantShape(participant: MatterEventParticipantInput): void {
-  const named =
-    (participant.participantKind === "member" &&
-      participant.memberUserId !== null &&
-      participant.memberUserId !== undefined) ||
-    (participant.participantKind === "entity" &&
-      participant.entityId !== null &&
-      participant.entityId !== undefined) ||
-    (participant.participantKind === "external" &&
-      participant.participantName !== null &&
-      participant.participantName !== undefined &&
-      participant.participantName.trim().length > 0);
-  if (!named) {
-    throw new CalendarValidationError(
-      "calendar-invalid-participant",
-      `a ${participant.participantKind} participant must name one: a member, a directory entity, or a name`,
-    );
-  }
 }
 
 function participantStatements(
@@ -267,6 +201,7 @@ export async function cancelMatterEvent(
   database: SqlDatabase,
   eventId: MatterEventId,
   options: CalendarServiceOptions,
+  statusReason: string | null = null,
 ): Promise<{ effect: EffectWrite }> {
   const existing = await readMatterEvent(database, eventId, options.visibility);
   if (existing === undefined) {
@@ -276,7 +211,7 @@ export async function cancelMatterEvent(
   return {
     effect: {
       statements: [
-        cancelMatterEventStatement(database, eventId, now),
+        cancelMatterEventStatement(database, eventId, now, statusReason),
         domainAuditStatement(database, {
           event: "calendar.event.cancelled",
           subjectId: eventId,

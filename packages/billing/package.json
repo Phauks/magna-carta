@@ -13,8 +13,17 @@
     "./line-amounts": "./src/line-amounts.ts",
     "./draft": "./src/draft.ts",
     "./finalize": "./src/finalize.ts",
+    "./application": "./src/application.ts",
+    "./earned-fee": "./src/earned-fee.ts",
+    "./apply-authorization": "./src/apply-authorization.ts",
+    "./apply-trust-funds": "./src/apply-trust-funds.ts",
     "./queries": "./src/queries.ts",
-    "./fitness": "./src/fitness.ts"
+    "./fitness": "./src/fitness.ts",
+    "./arrangements": "./src/arrangements.ts",
+    "./flat-fee": "./src/flat-fee.ts",
+    "./contingency": "./src/contingency.ts",
+    "./retainer": "./src/retainer.ts",
+    "./render-shape": "./src/render-shape.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -27,6 +36,7 @@
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/sequence-numbering": "workspace:*",
+    "@magna-carta/trust": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

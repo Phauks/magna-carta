@@ -911,6 +911,9 @@ export interface IndexableVersion {
   readonly matterId: MatterId;
   readonly versionNumber: number;
   readonly r2Key: string;
+  // The committed size, so the enqueue seam can decide whether extraction can hold this document at all
+  // before a consumer tries to. Null for a row that predates the column being populated.
+  readonly sizeBytes: number | null;
   readonly contentType: string | null;
 }
 
@@ -920,7 +923,7 @@ export async function loadIndexableVersion(
 ): Promise<IndexableVersion | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT v.id, v.file_id, f.matter_id, v.version_number, v.r2_key, v.sniffed_content_type, v.declared_content_type FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id WHERE v.id = ?1 AND v.status = 'clean' AND f.deleted_at IS NULL`,
+      `SELECT v.id, v.file_id, f.matter_id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.declared_content_type FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id WHERE v.id = ?1 AND v.status = 'clean' AND f.deleted_at IS NULL`,
     )
     .bind(versionId)
     .all<{
@@ -929,6 +932,7 @@ export async function loadIndexableVersion(
       matter_id: MatterId;
       version_number: number;
       r2_key: string;
+      size_bytes: number | null;
       sniffed_content_type: string | null;
       declared_content_type: string | null;
     }>();
@@ -940,6 +944,7 @@ export async function loadIndexableVersion(
     matterId: row.matter_id,
     versionNumber: row.version_number,
     r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
     // The sniffed type is what the bytes actually are; the declared one is only what the uploader
     // claimed. Prefer the sniff and fall back, so the extract stage is told the truth when we know it.
     contentType: row.sniffed_content_type ?? row.declared_content_type,
@@ -960,33 +965,95 @@ export async function loadIndexableVersion(
 // forever and never converge.
 //
 // Bounded by `limit` so one pass never enqueues an unbounded backlog; the next pass takes the next
-// batch. fitness:allow-no-status
+// batch.
+//
+// A KEYSET CURSOR, NOT AN OFFSET. Two of the terminal outcomes a candidate can reach — `deferred` (the
+// extraction engine is not bound, the documented default) and `failed` (bytes nothing can read) — leave
+// no split row behind, so those documents stay candidates forever. Ordered by `committed_at` alone and
+// restarted from the top every pass, a firm whose oldest documents are all scans would re-read the same
+// head on every run and never reach the rest of its catalogue. The cursor is what lets the caller
+// advance past a candidate it has already dealt with, whatever the outcome was, so the walk is over the
+// WHOLE catalogue rather than over its head repeatedly.
+//
+// (committed_at, id) as the key, because `committed_at` is not unique — two versions committed in the
+// same millisecond would otherwise let the cursor skip one or loop on it. fitness:allow-no-status
 export function listVersionsMissingFromSearchIndexStatement(
   database: SqlDatabase,
   limit: number,
+  after?: SearchIndexCandidateCursor,
 ): SqlStatement {
-  return database
-    .prepare(
-      `SELECT v.id ` +
-        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
-        `WHERE v.status = 'clean' AND v.committed_at IS NOT NULL ` +
-        `AND f.deleted_at IS NULL AND f.current_version_id = v.id ` +
-        `AND NOT EXISTS (` +
-        `SELECT 1 FROM ${INDEX_SPLIT_TABLE} s ` +
-        `WHERE s.document_id = v.file_id AND s.version = v.version_number AND s.superseded_at IS NULL` +
-        `) ` +
-        `ORDER BY v.committed_at ` +
-        `LIMIT ?1`,
-    )
-    .bind(limit);
+  const cursorPredicate = after === undefined ? "" : `AND (v.committed_at, v.id) > (?2, ?3) `;
+  const statement = database.prepare(
+    `SELECT v.id, v.committed_at ` +
+      `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+      `WHERE v.status = 'clean' AND v.committed_at IS NOT NULL ` +
+      `AND f.deleted_at IS NULL AND f.current_version_id = v.id ` +
+      `AND NOT EXISTS (` +
+      `SELECT 1 FROM ${INDEX_SPLIT_TABLE} s ` +
+      `WHERE s.document_id = v.file_id AND s.version = v.version_number AND s.superseded_at IS NULL` +
+      `) ` +
+      cursorPredicate +
+      `ORDER BY v.committed_at, v.id ` +
+      `LIMIT ?1`,
+  );
+  return after === undefined
+    ? statement.bind(limit)
+    : statement.bind(limit, after.committedAt, after.versionId);
+}
+
+/** Where a sweep left off, so the next page resumes rather than restarting at the catalogue's head. */
+export interface SearchIndexCandidateCursor {
+  readonly committedAt: string;
+  readonly versionId: FileVersionId;
+}
+
+export interface SearchIndexCandidate {
+  readonly versionId: FileVersionId;
+  readonly committedAt: string;
 }
 
 export async function listVersionsMissingFromSearchIndex(
   database: SqlDatabase,
   limit: number,
-): Promise<FileVersionId[]> {
-  const { results } = await listVersionsMissingFromSearchIndexStatement(database, limit).all<{
+  after?: SearchIndexCandidateCursor,
+): Promise<SearchIndexCandidate[]> {
+  const { results } = await listVersionsMissingFromSearchIndexStatement(
+    database,
+    limit,
+    after,
+  ).all<{
     id: FileVersionId;
+    committed_at: string;
   }>();
-  return results.map((row) => row.id);
+  return results.map((row) => ({ versionId: row.id, committedAt: row.committed_at }));
+}
+
+// The matter each of a set of files belongs to. The repair pass that stamps object metadata after the
+// fact starts from R2 keys — which carry a file id and deliberately no matter — so it needs exactly
+// this mapping, for a page of keys at a time rather than one query per object.
+//
+// SOFT-DELETED FILES ARE INCLUDED, and that is the point: a deleted file's objects are still in the
+// bucket, still cost storage, and still belong to the matter they were filed under. Excluding them
+// would leave precisely the objects nobody looks at as the ones nothing can scope.
+//
+// The ids are asked for in bounded groups because a bound-parameter list is not unbounded and a listing
+// page can carry a thousand keys — a single IN over the whole page would work locally and fail against
+// a real database on the size of firm that most needs the repair.
+const MATTER_LOOKUP_GROUP_SIZE = 90;
+
+export async function listMatterIdsByFileIds(
+  database: SqlDatabase,
+  fileIds: readonly FileId[],
+): Promise<Map<FileId, MatterId>> {
+  const found = new Map<FileId, MatterId>();
+  for (let start = 0; start < fileIds.length; start += MATTER_LOOKUP_GROUP_SIZE) {
+    const group = fileIds.slice(start, start + MATTER_LOOKUP_GROUP_SIZE);
+    const placeholders = group.map(() => "?").join(", ");
+    const { results } = await database
+      .prepare(`SELECT id, matter_id FROM ${FILE_TABLE} WHERE id IN (${placeholders})`)
+      .bind(...group)
+      .all<{ id: FileId; matter_id: MatterId }>();
+    for (const row of results) found.set(row.id, row.matter_id);
+  }
+  return found;
 }

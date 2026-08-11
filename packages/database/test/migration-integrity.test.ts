@@ -84,6 +84,46 @@ export function journalStructureViolations(art: Artifacts): string[] {
   return violations;
 }
 
+interface SnapshotHeader {
+  readonly idx: number;
+  readonly id: string;
+  readonly prevId: string;
+}
+
+function loadSnapshotHeaders(lineage: Lineage): SnapshotHeader[] {
+  const dir = join(DRIZZLE, lineage, "meta");
+  return readdirSync(dir)
+    .filter((file) => /^\d{4}_snapshot\.json$/.test(file))
+    .map((file) => {
+      const parsed = JSON.parse(readFileSync(join(dir, file), "utf8")) as {
+        id: string;
+        prevId: string;
+      };
+      return { idx: Number(file.slice(0, 4)), id: parsed.id, prevId: parsed.prevId };
+    });
+}
+
+// PURE — drizzle's ancestry chain: each snapshot's prevId must name the id of the snapshot emitted
+// before it (before it among the EMITTED snapshots — a seed-only migration emits none, so the chain
+// legitimately skips its idx; and the oldest committed snapshot may descend from one a baseline
+// collapse removed, so only the links between existing snapshots are checked). A prevId that names
+// nothing changes no generate today, which is exactly why it would otherwise sit wrong in the
+// lineage metadata indefinitely.
+export function snapshotLineageViolations(snapshots: readonly SnapshotHeader[]): string[] {
+  const violations: string[] = [];
+  const ordered = [...snapshots].sort((a, b) => a.idx - b.idx);
+  for (let position = 1; position < ordered.length; position += 1) {
+    const previous = ordered[position - 1];
+    const current = ordered[position];
+    if (previous !== undefined && current !== undefined && current.prevId !== previous.id) {
+      violations.push(
+        `snapshot ${current.idx} prevId ${current.prevId} does not name snapshot ${previous.idx} (id ${previous.id})`,
+      );
+    }
+  }
+  return violations;
+}
+
 // PURE — unreviewed destructive table-rebuilds, given a tag -> SQL map.
 export function rebuildViolations(
   sqlByTag: Record<string, string>,
@@ -128,6 +168,10 @@ describe("migration integrity — committed lineages", () => {
 
     it(`${lineage}: no UNREVIEWED destructive table-rebuild`, () => {
       expect(rebuildViolations(sqlByTagFor(lineage), REVIEWED_REBUILDS)).toEqual([]);
+    });
+
+    it(`${lineage}: the snapshot prevId chain is unbroken`, () => {
+      expect(snapshotLineageViolations(loadSnapshotHeaders(lineage))).toEqual([]);
     });
   }
 });
@@ -192,6 +236,23 @@ describe("migration-integrity validators reject known-bad inputs", () => {
       snapshotIdx: [0],
     });
     expect(violations).toEqual([]);
+  });
+
+  it("flags a snapshot whose prevId names something other than its predecessor", () => {
+    const violations = snapshotLineageViolations([
+      { idx: 0, id: "id-zero", prevId: "id-collapsed-away" },
+      { idx: 1, id: "id-one", prevId: "id-zero" },
+      { idx: 3, id: "id-three", prevId: "id-from-nowhere" },
+    ]);
+    expect(violations.join(" ")).toContain("prevId id-from-nowhere");
+    // The oldest snapshot's own prevId is exempt (its ancestor was collapsed away), and a gap for a
+    // seed-only migration is fine as long as the ids still chain across it.
+    expect(
+      snapshotLineageViolations([
+        { idx: 0, id: "id-zero", prevId: "id-collapsed-away" },
+        { idx: 2, id: "id-two", prevId: "id-zero" },
+      ]),
+    ).toEqual([]);
   });
 
   it("flags an unreviewed table-rebuild but passes a reviewed or non-rebuild one", () => {

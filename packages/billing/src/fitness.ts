@@ -110,6 +110,67 @@ export function invoiceNumberSequenceGapsStatement(database: SqlDatabase): SqlSt
     .bind();
 }
 
+// A TRUST APPLICATION IS ACCOMPANIED BY EXACTLY ONE ACCOUNTS-RECEIVABLE CREDIT, AND IT IS TRUST'S.
+//
+// This is the query behind the slice's most dangerous detail. A transfer out of a client's trust
+// ledger is two linked entries composed by @magna-carta/trust, and the operating leg already credits
+// accounts receivable. Billing therefore composes NO ledger entry for a trust application — and if a
+// future caller ever adds one, the ledger still balances, every entry is still valid, nothing fails,
+// and the receivable control account simply drifts below the invoice subledger by the total of every
+// trust-funded fee the firm has ever taken.
+//
+// So it is re-proved over stored rows rather than trusted: for each trust application, count the
+// ledger lines crediting the receivable account on the transfer's own operating entry, and report any
+// application whose transfer does not carry exactly one. Zero means the credit went missing; more
+// than one means somebody composed a second.
+export function trustApplicationsWithoutExactlyOneReceivableCreditStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS application_id,
+              a.invoice_id AS invoice_id,
+              a.trust_transfer_id AS trust_transfer_id,
+              (SELECT COUNT(*)
+                 FROM ledger_line l
+                 JOIN firm_account_role r ON r.role = 'accounts_receivable'
+                WHERE l.entry_id = t.operating_entry_id
+                  AND l.account_id = r.ledger_account_id
+                  AND l.direction = 'credit') AS receivable_credit_count
+         FROM invoice_application a
+         JOIN trust_transfer t ON t.id = a.trust_transfer_id
+        WHERE a.kind = 'trust_transfer'
+          AND (SELECT COUNT(*)
+                 FROM ledger_line l
+                 JOIN firm_account_role r ON r.role = 'accounts_receivable'
+                WHERE l.entry_id = t.operating_entry_id
+                  AND l.account_id = r.ledger_account_id
+                  AND l.direction = 'credit') <> 1`,
+    )
+    .bind();
+}
+
+// A BALANCE'S applied_minor IS THE SUM OF THE APPLICATIONS THAT PRODUCED IT. The two are written in
+// one batch by the one application door, so a row here means value reached invoice_matter_balance
+// without going through that door — the same class of finding as trust's book-to-client
+// disagreement, and the reason `composeInvoiceApplication` composes both statements or neither.
+export function invoiceMatterBalancesDisagreeingWithApplicationsStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT b.invoice_id AS invoice_id,
+              b.matter_id AS matter_id,
+              b.applied_minor AS applied_minor,
+              COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END), 0) AS application_sum_minor
+         FROM invoice_matter_balance b
+         LEFT JOIN invoice_application a ON a.invoice_id = b.invoice_id AND a.matter_id = b.matter_id
+        GROUP BY b.invoice_id, b.matter_id, b.applied_minor
+       HAVING b.applied_minor <> COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END), 0)`,
+    )
+    .bind();
+}
+
 // EVERY FINALIZED INVOICE HAS ITS BALANCE ROWS. The bounds CHECK is the mechanism that makes
 // over-application structurally impossible, and an invoice with no balance row has no such ceiling —
 // value could reach it with nothing to abort the batch.
@@ -119,6 +180,112 @@ export function finalizedInvoicesWithoutBalanceRowsStatement(database: SqlDataba
       `SELECT i.id AS invoice_id FROM invoice i
         WHERE i.status = 'final'
           AND NOT EXISTS (SELECT 1 FROM invoice_matter_balance b WHERE b.invoice_id = i.id)`,
+    )
+    .bind();
+}
+
+// A FLAT FEE IS NOT BILLED PAST ITS AGREEMENT. Instalments are ordinary — several flat-fee lines
+// across several finalized invoices against one agreement — and no scheduler polices them, so this
+// is the report that says when the finalized lines under one arrangement version sum past the
+// amount that version agreed. Drafts are excluded: a draft asserts nothing yet and bill review is
+// where it gets fixed.
+export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS arrangement_id,
+              a.matter_id AS matter_id,
+              a.flat_fee_amount_minor AS agreed_minor,
+              SUM(l.amount_minor) AS billed_minor
+         FROM matter_billing_arrangement a
+         JOIN invoice_line l ON l.billing_arrangement_id = a.id AND l.kind = 'flat_fee'
+         JOIN invoice i ON i.id = l.invoice_id
+        WHERE a.kind = 'flat_fee' AND i.status = 'final'
+        GROUP BY a.id, a.matter_id, a.flat_fee_amount_minor
+       HAVING SUM(l.amount_minor) > a.flat_fee_amount_minor`,
+    )
+    .bind();
+}
+
+// A MATTER IS NOT BILLED PAST ITS CONTINGENCY ENTITLEMENT. The entitlement ceiling is the IN-FORCE
+// contingency version's share against the basis as it survives NOW — the non-voided recoveries,
+// minus (under the net-after-costs election) the matter's approved or billed advanced costs — and
+// what is billed is summed across the matter's WHOLE agreement chain: every finalized contingency
+// fee line under ANY version, because the recoveries are the matter's and an amendment mints a new
+// version without minting a new recovery. A version-scoped comparison would pass a matter whose
+// every version individually looks clean while the matter as a whole is double-billed. Three
+// findings surface as one shape: an offset the write path missed, a basis that SHRANK after billing
+// (a recovery voided, or a late advanced cost — no write-path guard can catch either, because the
+// bill was true when it finalized), and a share LOWERED by amendment below what the old share
+// already billed. A matter amended off contingency entirely carries no in-force ceiling and is not
+// reported here — the agreement moved on, and its old bills answer to the versions that issued
+// them. The half-up CAST matches the line boundary's half-away-from-zero exactly, because the base
+// here is never negative.
+export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT matter_id, in_force_arrangement_id, billed_minor, entitlement_minor
+         FROM (SELECT a.matter_id AS matter_id,
+                      a.id AS in_force_arrangement_id,
+                      (SELECT COALESCE(SUM(l.amount_minor), 0)
+                         FROM invoice_line l
+                         JOIN invoice i ON i.id = l.invoice_id
+                         JOIN matter_billing_arrangement v ON v.id = l.billing_arrangement_id
+                        WHERE v.matter_id = a.matter_id AND v.kind = 'contingency'
+                          AND l.kind = 'fee' AND i.status = 'final') AS billed_minor,
+                      CAST(MAX((SELECT COALESCE(SUM(r.amount_minor), 0)
+                                  FROM matter_recovery r
+                                 WHERE r.matter_id = a.matter_id AND r.voided_at IS NULL)
+                               - CASE WHEN a.contingency_basis = 'net_after_costs'
+                                      THEN (SELECT COALESCE(SUM(c.amount_minor), 0)
+                                              FROM cost_entry c
+                                             WHERE c.matter_id = a.matter_id
+                                               AND c.disbursement_class = 'hard'
+                                               AND c.status IN ('approved', 'billed'))
+                                      ELSE 0 END,
+                               0) * a.contingency_share_e4 / 10000.0 + 0.5 AS INTEGER) AS entitlement_minor
+                 FROM matter_billing_arrangement a
+                WHERE a.kind = 'contingency' AND a.valid_to IS NULL)
+        WHERE billed_minor > entitlement_minor`,
+    )
+    .bind();
+}
+
+// EVERY LINE'S RECORDED AGREEMENT VERSION WAS IN FORCE WHEN ITS BILL ISSUED. The composer reads the
+// in-force version and the finalize batch freezes the line, but nothing holds the two instants
+// together — an amendment can land between the read and the commit. Rather than a batch guard (a
+// zero-row guarded write aborts nothing, and aiming a CHECK violation at the arrangement row would
+// entangle the finalize batch with a table it does not own), the binding is re-proved here: a
+// finalized line whose version started after the bill's issue date, or ended before it, is a line
+// billed under an agreement that did not govern that bill. A version closed ON the issue date is
+// tolerated — that is the ordinary same-day amendment, where the old version governed the morning.
+export function invoiceLinesUnderArrangementsNotInForceStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT l.id AS invoice_line_id, l.invoice_id AS invoice_id, l.billing_arrangement_id AS billing_arrangement_id
+         FROM invoice_line l
+         JOIN invoice i ON i.id = l.invoice_id
+         JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
+        WHERE i.status = 'final'
+          AND (a.valid_from > i.issue_date OR (a.valid_to IS NOT NULL AND a.valid_to < i.issue_date))`,
+    )
+    .bind();
+}
+
+// FEE-AGREEMENT VERSIONS DO NOT OVERLAP. The service closes the superseded version's valid_to at the
+// new version's valid_from and refuses a back-dated amendment, but SQLite has no range-exclusion
+// constraint (the same gap the rate engine documents), so which agreement governed a date must be
+// re-provable to have exactly one answer: a row here is two versions of one matter's agreement both
+// claiming the same day.
+export function billingArrangementOverlapsStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS arrangement_id, b.id AS overlapping_arrangement_id, a.matter_id AS matter_id
+         FROM matter_billing_arrangement a
+         JOIN matter_billing_arrangement b
+           ON b.matter_id = a.matter_id AND b.version > a.version
+        WHERE a.valid_to IS NULL OR b.valid_from < a.valid_to`,
     )
     .bind();
 }

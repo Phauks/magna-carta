@@ -41,6 +41,16 @@ import mergeFieldCatalogSql from "@magna-carta/database/drizzle/per-firm/2026080
 import matterAssetsSql from "@magna-carta/database/drizzle/per-firm/20260806T020000_matter-assets.sql";
 import operationalFixesSql from "@magna-carta/database/drizzle/per-firm/20260806T040000_operational-fixes.sql";
 import magnusConversationsSql from "@magna-carta/database/drizzle/per-firm/20260806T050000_magnus-conversations.sql";
+import billingTrustApplicationSql from "@magna-carta/database/drizzle/per-firm/20260806T060000_billing-trust-application.sql";
+import matterAssetClassesAndEncumbrancesSql from "@magna-carta/database/drizzle/per-firm/20260806T070000_matter-asset-classes-and-encumbrances.sql";
+import discoveryReviewSetModelSql from "@magna-carta/database/drizzle/per-firm/20260806T080000_discovery-5-1-2.sql";
+import notificationsDeliverySql from "@magna-carta/database/drizzle/per-firm/20260807T020000_notifications-delivery.sql";
+import matterStaffingSql from "@magna-carta/database/drizzle/per-firm/20260807T040000_matter-staffing.sql";
+import matterCourtCaseSql from "@magna-carta/database/drizzle/per-firm/20260807T041000_matter-court-case.sql";
+import matterEstateAndCapacitySql from "@magna-carta/database/drizzle/per-firm/20260807T042000_matter-estate-and-capacity.sql";
+import trustAuthorizationPolicySql from "@magna-carta/database/drizzle/per-firm/20260807T050000_trust-authorization-policy.sql";
+import billingFeeModelsSql from "@magna-carta/database/drizzle/per-firm/20260807T060000_billing-fee-models.sql";
+import calendarFirmEventsResourcesLinksSql from "@magna-carta/database/drizzle/per-firm/20260807T070000_calendar-firm-events-resources-links.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -92,6 +102,16 @@ export function perFirmMigrations(): Migration[] {
     "20260806T020000_matter-assets": matterAssetsSql,
     "20260806T040000_operational-fixes": operationalFixesSql,
     "20260806T050000_magnus-conversations": magnusConversationsSql,
+    "20260806T060000_billing-trust-application": billingTrustApplicationSql,
+    "20260806T070000_matter-asset-classes-and-encumbrances": matterAssetClassesAndEncumbrancesSql,
+    "20260806T080000_discovery-5-1-2": discoveryReviewSetModelSql,
+    "20260807T020000_notifications-delivery": notificationsDeliverySql,
+    "20260807T040000_matter-staffing": matterStaffingSql,
+    "20260807T041000_matter-court-case": matterCourtCaseSql,
+    "20260807T042000_matter-estate-and-capacity": matterEstateAndCapacitySql,
+    "20260807T050000_trust-authorization-policy": trustAuthorizationPolicySql,
+    "20260807T060000_billing-fee-models": billingFeeModelsSql,
+    "20260807T070000_calendar-firm-events-resources-links": calendarFirmEventsResourcesLinksSql,
   });
 }
 

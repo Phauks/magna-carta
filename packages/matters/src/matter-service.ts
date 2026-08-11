@@ -18,6 +18,14 @@ import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { matterAuditStatement } from "./audit.ts";
 import {
+  MATTER_CLOSED_TOPIC,
+  MATTER_CREATED_TOPIC,
+  MATTER_OPENED_TOPIC,
+  MATTER_RENUMBERED_TOPIC,
+  MATTER_REOPENED_TOPIC,
+  MATTER_UPDATED_TOPIC,
+} from "./topics.ts";
+import {
   closePreconditionGuardStatements,
   runClosePreconditions,
   ClosePreconditionError,
@@ -392,7 +400,7 @@ export async function createMatter(
           }),
           auditStatement(database, options, "matter.created", matterId),
         ],
-        outboxMessages: [{ topic: "matter.created", payload: { matterId } }],
+        outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
         value: { matterId, matterNumber: null },
       };
     });
@@ -418,8 +426,8 @@ export async function createMatter(
         auditStatement(database, options, "matter.created", matterId),
       ],
       outboxMessages: [
-        { topic: "matter.created", payload: { matterId } },
-        { topic: "matter.opened", payload: { matterId, matterNumber: number } },
+        { topic: MATTER_CREATED_TOPIC, payload: { matterId } },
+        { topic: MATTER_OPENED_TOPIC, payload: { matterId, matterNumber: number } },
       ],
       value: { matterId, matterNumber: number },
     }),
@@ -463,7 +471,7 @@ export async function openMatter(
         openMatterStatement(database, matterId, number, now),
         auditStatement(database, options, "matter.opened", matterId),
       ],
-      outboxMessages: [{ topic: "matter.opened", payload: { matterId, matterNumber: number } }],
+      outboxMessages: [{ topic: MATTER_OPENED_TOPIC, payload: { matterId, matterNumber: number } }],
       value: { matterId, matterNumber: number },
     }),
     200,
@@ -534,7 +542,7 @@ export async function closeMatter(
           closeMatterStatement(database, matterId, now),
           auditStatement(database, options, "matter.closed", matterId),
         ],
-        outboxMessages: [{ topic: "matter.closed", payload: { matterId } }],
+        outboxMessages: [{ topic: MATTER_CLOSED_TOPIC, payload: { matterId } }],
         value: { matterId, notices },
       };
     });
@@ -581,7 +589,7 @@ export async function reopenMatter(
         reopenMatterStatement(database, matterId, status, now),
         auditStatement(database, options, "matter.reopened", matterId),
       ],
-      outboxMessages: [{ topic: "matter.reopened", payload: { matterId } }],
+      outboxMessages: [{ topic: MATTER_REOPENED_TOPIC, payload: { matterId } }],
       value: { matterId },
     };
   });
@@ -606,7 +614,7 @@ export async function updateMatter(
         updateMatterFieldsStatement(database, matterId, merged, now),
         auditStatement(database, options, "matter.updated", matterId),
       ],
-      outboxMessages: [{ topic: "matter.updated", payload: { matterId } }],
+      outboxMessages: [{ topic: MATTER_UPDATED_TOPIC, payload: { matterId } }],
       value: { matterId },
     };
   });
@@ -645,7 +653,7 @@ export async function renumberMatter(
         ],
         outboxMessages: [
           {
-            topic: "matter.renumbered",
+            topic: MATTER_RENUMBERED_TOPIC,
             payload: { matterId, matterNumber, previousMatterNumber: matter.matterNumber },
           },
         ],

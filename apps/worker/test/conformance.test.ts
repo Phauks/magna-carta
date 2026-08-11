@@ -107,6 +107,19 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
   "trust.previewStatementImport":
     "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
+  // The three notification-settling routes. They DO write — a read receipt on the member's own feed
+  // row — and are exempt on the aiDetection.detect reasoning rather than the pure-computation one:
+  // the write records nothing about the firm's conduct, only that one member cleared one badge, and
+  // it fires once per item cleared. Auditing it would put a row in audit_log every time somebody
+  // glanced at their notifications, flooding the one table a firm actually needs to be able to read.
+  // The rows are also swept on the firm's retention window, so an audit trail would outlive the fact
+  // it described.
+  "notifications.markRead":
+    "A member's read receipt on their own feed row — no firm-domain state changes, and auditing every badge clear would flood audit_log.",
+  "notifications.dismiss":
+    "As notifications.markRead: the member settling their own feed row, which records nothing about the firm's conduct.",
+  "notifications.markAllRead":
+    "As notifications.markRead, bounded by a cursor from a page the member actually read — one member clearing their own backlog.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -252,6 +265,20 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // matter's file a transcript belongs to; it is not the resource the capability governs, and it puts
   // none of that matter's content into anything the assistant is sent.
   magnus: "firm",
+  // discovery:* governs the corpus of documents under review. It binds the MATTER, on the
+  // matterAssets reasoning rather than custody:*'s: a review set IS one matter's corpus and cannot
+  // exist without one, where a custody packet may have no matter at all by construction. The
+  // namespace being separate from matters:* and files:* is the load-bearing part — a review set is
+  // reachable from a discovery grant and from nothing else, because material produced by another
+  // party may be attorney's-eyes-only under a protective order and matter access must not carry it.
+  discovery: "matter",
+  // notifications:* governs a member's own feed of things the platform noticed. It binds the FIRM,
+  // on the custody/magnus reasoning: a feed spans every matter a member touches AND firm-scoped
+  // kinds that have no matter at all — an incident filed against the firm, a trust posting whose
+  // entry belongs to the firm's own chart of accounts — so binding it to "matter" would name a
+  // resource half the rows do not have. The matter each row DOES name is the visibility anchor the
+  // read filters on, not the resource the capability governs.
+  notifications: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -702,32 +729,64 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "assemblies.submit",
       "billing.accountRoles",
       "billing.addClaims",
+      "billing.addContingencyFee",
+      "billing.addFlatFee",
+      "billing.applyTrustFunds",
+      "billing.approveTrustApplication",
+      "billing.arrangement",
       "billing.createInvoice",
       "billing.finalizeInvoice",
       "billing.invoiceDetail",
+      "billing.invoiceRenderModel",
       "billing.listInvoices",
+      "billing.listRecoveries",
       "billing.matterUnbilled",
       "billing.receivablesAging",
+      "billing.recordRecovery",
       "billing.releaseClaim",
+      "billing.renderShapeDefault",
+      "billing.requestReplenishment",
+      "billing.resolveReplenishment",
+      "billing.retainerStatus",
       "billing.setAccountRoles",
+      "billing.setArrangement",
+      "billing.setRenderShapeDefault",
+      "billing.submitTrustApplication",
       "billing.updateLine",
       "billing.voidDraft",
+      "billing.voidRecovery",
       "calendar.cancelEvent",
+      "calendar.cancelFirmEvent",
+      "calendar.continuanceChain",
+      "calendar.continueEvent",
+      "calendar.createBooking",
       "calendar.createDeadline",
       "calendar.createEvent",
+      "calendar.createEventLink",
       "calendar.createEventType",
+      "calendar.createFirmEvent",
+      "calendar.createResource",
       "calendar.deactivateEventType",
+      "calendar.deleteBooking",
+      "calendar.deleteEventLink",
       "calendar.firmCalendar",
       "calendar.getEvent",
+      "calendar.getFirmEvent",
       "calendar.listDeadlines",
       "calendar.listEventTypes",
       "calendar.listEvents",
+      "calendar.listFirmEvents",
+      "calendar.listResources",
       "calendar.matterTimeline",
+      "calendar.resourceAvailability",
       "calendar.satisfyDeadline",
       "calendar.supersedeDeadline",
+      "calendar.updateBooking",
       "calendar.updateDeadline",
       "calendar.updateEvent",
       "calendar.updateEventType",
+      "calendar.updateFirmEvent",
+      "calendar.updateResource",
       "calendar.vacateDeadline",
       "conflicts.getCheck",
       "conflicts.recordDisposition",
@@ -824,6 +883,18 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.merge",
       "directory.readIdentifier",
       "directory.search",
+      "discovery.createRecordCustodian",
+      "discovery.createReviewSet",
+      "discovery.declareLoad",
+      "discovery.getLoad",
+      "discovery.getReviewSet",
+      "discovery.listLoads",
+      "discovery.listRecordCustodians",
+      "discovery.listReviewSets",
+      "discovery.runInternalLoad",
+      "discovery.transitionReviewSet",
+      "discovery.updateRecordCustodian",
+      "discovery.updateReviewSet",
       "documentTypes.create",
       "documentTypes.deactivate",
       "documentTypes.list",
@@ -844,6 +915,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.file",
       "emails.filingContext",
       "emails.get",
+      "emails.getAutoFilePolicy",
       "emails.list",
       "emails.listCaptureAddresses",
       "emails.mintCaptureAddress",
@@ -853,6 +925,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.rotateCaptureAddress",
       "emails.suggestMatters",
       "emails.unlink",
+      "emails.updateAutoFilePolicy",
       "esign.seal",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
@@ -910,8 +983,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matterAssets.listAssetTypes",
       "matterAssets.listAssets",
       "matterAssets.listValuations",
+      "matterAssets.readAssetSchedule",
       "matterAssets.readIdentifierValue",
+      "matterAssets.recordEncumbrance",
       "matterAssets.recordIdentifier",
+      "matterAssets.releaseEncumbrance",
       "matterAssets.unlinkDocument",
       "matterAssets.updateAsset",
       "matterTypes.create",
@@ -919,16 +995,25 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matterTypes.list",
       "matterTypes.update",
       "matters.close",
+      "matters.courtCase",
       "matters.create",
+      "matters.createAssignment",
+      "matters.endAssignment",
+      "matters.estate",
       "matters.get",
       "matters.list",
+      "matters.listAssignments",
       "matters.listConsultations",
       "matters.open",
       "matters.renumber",
       "matters.reopen",
+      "matters.setCourtCase",
+      "matters.setEstate",
       "matters.update",
       "me.get",
       "members.invite",
+      "members.professionalProfile",
+      "members.setProfessionalProfile",
       "metadata.inspect",
       "metadata.scrub",
       "myDay.get",
@@ -939,6 +1024,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "nonBillableCategories.create",
       "nonBillableCategories.list",
       "nonBillableCategories.update",
+      "notifications.dismiss",
+      "notifications.list",
+      "notifications.markAllRead",
+      "notifications.markRead",
+      "notifications.unreadCount",
       "numbering.get",
       "numbering.preview",
       "numbering.set",
@@ -1004,6 +1094,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "toolsTurnCredentials.get",
       "trust.approveDisbursement",
       "trust.bankStatementLines",
+      "trust.changeAuthorizationPolicy",
       "trust.closeReconciliation",
       "trust.deposit",
       "trust.getReconciliation",
@@ -1014,6 +1105,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "trust.matterLedger",
       "trust.openReconciliation",
       "trust.previewStatementImport",
+      "trust.readAuthorizationPolicy",
       "trust.reconciliationSuggestions",
       "trust.recordBankStatement",
       "trust.recordReconciliationMatch",

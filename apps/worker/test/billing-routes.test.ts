@@ -2,8 +2,17 @@ import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  LocationId,
+  MatterId,
+  TrustAccountId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { createAccount } from "@magna-carta/ledger/create-account";
+import { currencyFromCode, money } from "@magna-carta/money/money";
+import { openTrustAccount } from "@magna-carta/trust/account-tree";
+import { composeTrustDeposit } from "@magna-carta/trust/movements";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -26,6 +35,9 @@ let ownerUserId: UserId;
 let noBillingCookie: string;
 let draftOnlyCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
+let trustAccountId: TrustAccountId;
+let operatingBankAccountId: string;
+let accountsReceivableAccountId: string;
 
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
 const todayInUtc = () => new Date().toISOString().slice(0, 10);
@@ -196,17 +208,57 @@ beforeAll(async () => {
     { name: "Fee Income", type: "income", currency: "USD" },
     { clock },
   );
+  // The firm's own bank — where fees taken out of trust land. An ordinary account outside every
+  // trust account, which is what the trust composer checks it is before it will compose the transfer.
+  const operatingBank = await createAccount(
+    firmDatabase,
+    { name: "Operating Bank Account", type: "asset", currency: "USD" },
+    { clock },
+  );
+  operatingBankAccountId = operatingBank.accountId;
+  accountsReceivableAccountId = accountsReceivable.accountId;
   await commitEffectBatch(
     firmDatabase,
     {
-      statements: [...accountsReceivable.effect.statements, ...feeIncome.effect.statements],
+      statements: [
+        ...accountsReceivable.effect.statements,
+        ...feeIncome.effect.statements,
+        ...operatingBank.effect.statements,
+      ],
       outboxMessages: [
         ...accountsReceivable.effect.outboxMessages,
         ...feeIncome.effect.outboxMessages,
+        ...operatingBank.effect.outboxMessages,
       ],
     },
     { now: () => clock.now() },
   );
+
+  // A trust account for the office, so a client's money has somewhere to sit. Composed through the
+  // trust package's own composer rather than by inserting rows: the point of the apply-funds tests is
+  // that billing merges what trust returns.
+  const locationId = newIdentifier("location");
+  await firmDatabase
+    .prepare(
+      "INSERT INTO location (id, name, status, created_at, updated_at) VALUES (?1, 'Main', 'active', ?2, ?2)",
+    )
+    .bind(locationId, clock.now())
+    .run();
+  const opened = await openTrustAccount(
+    firmDatabase,
+    {
+      name: "IOLTA — Main",
+      locationId: locationId as LocationId,
+      // A movement refuses outright on an account whose office recorded no jurisdiction; that
+      // refusal has its own home in the trust suite.
+      jurisdiction: "NV",
+      currency: "USD",
+      openedOn: todayInUtc(),
+    },
+    { clock },
+  );
+  await commitEffectBatch(firmDatabase, opened.effect, { now: () => clock.now() });
+  trustAccountId = opened.trustAccountId;
 
   // Deliberately AFTER the unmapped-role test's fixture would need it — the refusal test maps
   // nothing and runs first, so the order here is load-bearing for that one assertion.
@@ -214,6 +266,7 @@ beforeAll(async () => {
     assignments: [
       { role: "accounts_receivable", ledgerAccountId: accountsReceivable.accountId },
       { role: "fee_income", ledgerAccountId: feeIncome.accountId },
+      { role: "operating_bank", ledgerAccountId: operatingBank.accountId },
     ],
   });
 });
@@ -521,6 +574,295 @@ describe("the billing HTTP surface", () => {
   });
 
   it("serves the aging read, with overdue derived at read time", async () => {
+    const aging = await get(`/api/v1/billing/receivables/aging?asOfDate=${todayInUtc()}`);
+    expect(aging.status).toBe(200);
+    const body = (await aging.json()) as {
+      asOfDate: string;
+      buckets: { label: string; unpaidMinor: number }[];
+    };
+    expect(body.asOfDate).toBe(todayInUtc());
+    expect(body.buckets.map((bucket) => bucket.label)).toEqual([
+      "current",
+      "1-30",
+      "31-60",
+      "61-90",
+      "90+",
+    ]);
+    // Bills issued and due today are current, not overdue.
+    expect(body.buckets[0]?.unpaidMinor).toBeGreaterThan(0);
+  });
+});
+
+// The port that refused every transfer, satisfied end to end over HTTP. What these prove that the
+// domain suite cannot is the whole chain through the runtime edge: the chokepoint gating on
+// `billing:apply`, one idempotent batch carrying trust's ledger entries and billing's applications
+// together, and each refusal arriving as a status a client can act on.
+describe("applying trust funds to a finalized bill", () => {
+  // A funded matter with a finalized bill: seeds the client's money into trust, bills the work, and
+  // finalizes. Returns what an apply call needs.
+  async function billedAndFundedMatter(
+    billMinutes: number,
+    trustMinor: number,
+  ): Promise<{ matterId: string; invoiceId: string; totalMinor: number }> {
+    const matterId = await openMatterWithClient(`Trust-funded ${crypto.randomUUID()}`);
+    const deposit = await composeTrustDeposit(
+      firmDatabase,
+      {
+        trustAccountId,
+        to: { matterId: matterId as MatterId, clientNodeName: "Acme", matterLeafName: "Matter" },
+        amount: money(trustMinor, currencyFromCode("USD")),
+        effectiveDate: todayInUtc(),
+        description: "Retainer received",
+        method: "check",
+        reference: "1042",
+        source: "The client",
+        purpose: "Advance against fees",
+        recordedBy: ownerUserId,
+      },
+      { clock },
+    );
+    await commitEffectBatch(firmDatabase, deposit.effect, { now: () => clock.now() });
+
+    const entryId = await seedBillableTime(matterId, billMinutes);
+    const created = await post("/api/v1/billing/invoices", {
+      clientEntityId: ACME,
+      currency: "USD",
+    });
+    const { invoiceId } = (await created.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: entryId }],
+    });
+    const finalized = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+    });
+    expect(finalized.status).toBe(201);
+    const { totalMinor } = (await finalized.json()) as { totalMinor: number };
+    return { matterId, invoiceId, totalMinor };
+  }
+
+  function applyBody(
+    matterId: string,
+    applications: readonly { invoiceId: string; amountMinor: number }[],
+  ) {
+    return {
+      trustAccountId,
+      matterId,
+      currency: "USD",
+      effectiveDate: todayInUtc(),
+      applications,
+      trustDescription: "Earned fees transferred to operating",
+      operatingDescription: "Earned fees received from trust",
+    };
+  }
+
+  async function readBalanceMinor(accountId: string): Promise<number> {
+    const { results } = await firmDatabase
+      .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
+      .bind(accountId)
+      .all<{ balance_minor: number }>();
+    return results[0]?.balance_minor ?? 0;
+  }
+
+  it("refuses the route to a member who may draft but may not apply", async () => {
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody("matter_x", [{ invoiceId: "invoice_x", amountMinor: 100 }]),
+      draftOnlyCookie,
+    );
+    // Assembling a bill and taking a client's money against it are different capabilities, and the
+    // clerk who does the first deliberately cannot do the second.
+    expect(response.status).toBe(403);
+  });
+
+  it("moves the money and pays the bill down in one batch", async () => {
+    const { matterId, invoiceId, totalMinor } = await billedAndFundedMatter(120, 2_000_00);
+    const receivableBefore = await readBalanceMinor(accountsReceivableAccountId);
+    const operatingBefore = await readBalanceMinor(operatingBankAccountId);
+
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: totalMinor }]),
+    );
+    expect(response.status).toBe(201);
+    const applied = (await response.json()) as {
+      transferId: string;
+      trustEntryId: string;
+      operatingEntryId: string;
+      applicationIds: string[];
+      totalMinor: number;
+    };
+    expect(applied.totalMinor).toBe(totalMinor);
+    expect(applied.applicationIds).toHaveLength(1);
+    // Two linked entries, never one: the two sides clear on different bank statements.
+    expect(applied.trustEntryId).not.toBe(applied.operatingEntryId);
+
+    const detail = await get(`/api/v1/billing/invoices/${invoiceId}`);
+    const body = (await detail.json()) as { appliedMinor: number; unpaidMinor: number };
+    expect(body.appliedMinor).toBe(totalMinor);
+    expect(body.unpaidMinor).toBe(0);
+
+    // The receivable moved DOWN by the bill exactly once — trust's operating leg credited it, and
+    // billing composed no second credit. The firm's bank moved up by the same amount.
+    expect(await readBalanceMinor(accountsReceivableAccountId)).toBe(receivableBefore - totalMinor);
+    expect(await readBalanceMinor(operatingBankAccountId)).toBe(operatingBefore + totalMinor);
+  });
+
+  it("applies part of a bill and leaves the rest owing", async () => {
+    const { matterId, invoiceId, totalMinor } = await billedAndFundedMatter(120, 2_000_00);
+    const partMinor = 100_00;
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: partMinor }]),
+    );
+    expect(response.status).toBe(201);
+
+    const detail = await get(`/api/v1/billing/invoices/${invoiceId}`);
+    const body = (await detail.json()) as { appliedMinor: number; unpaidMinor: number };
+    expect(body.appliedMinor).toBe(partMinor);
+    // Integer minor units, so the remainder is exact rather than an approximation.
+    expect(body.unpaidMinor).toBe(totalMinor - partMinor);
+  });
+
+  it("replays a retried Idempotency-Key without moving the money twice", async () => {
+    const { matterId, invoiceId, totalMinor } = await billedAndFundedMatter(120, 2_000_00);
+    const key = crypto.randomUUID();
+    const first = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: totalMinor }]),
+      ownerCookie,
+      key,
+    );
+    expect(first.status).toBe(201);
+    const second = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: totalMinor }]),
+      ownerCookie,
+      key,
+    );
+    expect(second.status).toBe(201);
+    expect(second.headers.get("Idempotency-Replayed")).toBe("true");
+    // A retried request that posted a second transfer would be a second real movement of somebody
+    // else's money.
+    expect((await first.json()).transferId).toBe((await second.json()).transferId);
+    const detail = await get(`/api/v1/billing/invoices/${invoiceId}`);
+    expect((await detail.json()).appliedMinor).toBe(totalMinor);
+  });
+
+  it("refuses a transfer against a bill that is still a draft, with a 422 naming why", async () => {
+    const matterId = await openMatterWithClient(`Draft only ${crypto.randomUUID()}`);
+    const deposit = await composeTrustDeposit(
+      firmDatabase,
+      {
+        trustAccountId,
+        to: { matterId: matterId as MatterId, clientNodeName: "Acme", matterLeafName: "Matter" },
+        amount: money(1_000_00, currencyFromCode("USD")),
+        effectiveDate: todayInUtc(),
+        description: "Retainer received",
+        method: "check",
+        source: "The client",
+        purpose: "Advance against fees",
+        recordedBy: ownerUserId,
+      },
+      { clock },
+    );
+    await commitEffectBatch(firmDatabase, deposit.effect, { now: () => clock.now() });
+    const entryId = await seedBillableTime(matterId, 60);
+    const created = await post("/api/v1/billing/invoices", {
+      clientEntityId: ACME,
+      currency: "USD",
+    });
+    const { invoiceId } = (await created.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: entryId }],
+    });
+
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: 100_00 }]),
+    );
+    expect(response.status).toBe(422);
+    const problem = (await response.json()) as { type: string; detail: string };
+    expect(problem.type).toContain("billing-earned-fee-refused");
+    expect(problem.detail).toContain("not finalized");
+
+    // Nothing moved. The client's money is still in trust and no application exists.
+    const applications = await firmDatabase
+      .prepare("SELECT id FROM invoice_application WHERE invoice_id = ?1")
+      .bind(invoiceId)
+      .all();
+    expect(applications.results).toEqual([]);
+  });
+
+  it("refuses more than the matter still owes on the bill, with a 409", async () => {
+    const { matterId, invoiceId, totalMinor } = await billedAndFundedMatter(120, 5_000_00);
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: totalMinor + 1_00 }]),
+    );
+    // The money is there; the DEBT is not. Retrying against the balance as it now stands is the
+    // remedy, which is what makes it a 409.
+    expect(response.status).toBe(409);
+    expect((await response.json()).type).toContain("billing-exceeds-unpaid-balance");
+  });
+
+  it("passes trust's own refusal through when the funds are under a disputed-funds hold", async () => {
+    const { matterId, invoiceId, totalMinor } = await billedAndFundedMatter(120, 2_000_00);
+    const { results } = await firmDatabase
+      .prepare("SELECT id FROM trust_ledger_node WHERE matter_id = ?1")
+      .bind(matterId)
+      .all<{ id: string }>();
+    await firmDatabase
+      .prepare(
+        `INSERT INTO trust_hold (id, node_id, amount_minor, currency, reason, placed_by, placed_at)
+         VALUES (?1, ?2, 2000000, 'USD', 'Fee dispute', ?3, ?4)`,
+      )
+      .bind(newIdentifier("trustHold"), results[0]!.id, ownerUserId, clock.now())
+      .run();
+
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: totalMinor }]),
+    );
+    // Available, not balance, is the ceiling — and that rule is trust's, restated nowhere in billing.
+    expect(response.status).toBe(409);
+    expect((await response.json()).type).toContain("trust-insufficient-available");
+  });
+
+  it("refuses paying one client's bill out of another client's trust ledger", async () => {
+    const { matterId } = await billedAndFundedMatter(60, 2_000_00);
+    // A bill for a different client entirely.
+    const strayMatterId = await openMatterWithClient(`Stray ${crypto.randomUUID()}`);
+    await firmDatabase
+      .prepare("UPDATE matter_party SET entity_id = ?2 WHERE matter_id = ?1")
+      .bind(strayMatterId, "directoryOrganization_borealis")
+      .run();
+    const entryId = await seedBillableTime(strayMatterId, 60);
+    const created = await post("/api/v1/billing/invoices", {
+      clientEntityId: "directoryOrganization_borealis",
+      currency: "USD",
+    });
+    const { invoiceId } = (await created.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: entryId }],
+    });
+    const finalized = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+    });
+    expect(finalized.status).toBe(201);
+
+    const response = await post(
+      "/api/v1/billing/trust-applications",
+      applyBody(matterId, [{ invoiceId, amountMinor: 100_00 }]),
+    );
+    expect(response.status).toBe(422);
+    expect((await response.json()).type).toContain("billing-earned-fee-refused");
+  });
+});
+
+describe("the aging read", () => {
+  it("still reports after money has been applied", async () => {
     const aging = await get(`/api/v1/billing/receivables/aging?asOfDate=${todayInUtc()}`);
     expect(aging.status).toBe(200);
     const body = (await aging.json()) as {

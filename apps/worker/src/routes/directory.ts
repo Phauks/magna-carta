@@ -292,6 +292,17 @@ const LinkMatterPartyRequest = z
     matterId: identifierField("matter"),
     entityId: z.string().regex(directoryEntityIdPattern),
     role: z.string().min(1),
+    capacity: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .openapi({
+        description:
+          "The capacity the entity acts in on this matter — Administrator, Trustee, " +
+          "Attorney-in-fact. Recorded by the firm, never inferred; documents that name a capacity " +
+          "read this value and show an honest gap where none was recorded.",
+      }),
   })
   .openapi("LinkMatterPartyRequest");
 
@@ -1072,7 +1083,12 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       try {
         const id = await linkMatterParty(
           firm.firmDatabase,
-          { matterId: request.matterId, entityId: request.entityId, role: request.role },
+          {
+            matterId: request.matterId,
+            entityId: request.entityId,
+            role: request.role,
+            capacity: request.capacity ?? null,
+          },
           writeOptions(userId, idempotency),
         );
         return c.json({ id } as z.infer<typeof MatterPartyResponse>, 201);

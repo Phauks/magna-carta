@@ -30,6 +30,14 @@ export type TrustValidationCode =
   | "trust-disbursement-request-already-decided"
   | "trust-disbursement-decider-is-requester"
   | "trust-disbursement-withdrawal-not-by-requester"
+  | "trust-request-not-a-disbursement"
+  // The firm's authorization policy — the per-firm posture both money-out paths are decided under
+  | "unknown-trust-authorization-policy"
+  | "trust-authorization-policy-malformed"
+  | "trust-authorization-policy-threshold-required"
+  | "trust-authorization-policy-threshold-forbidden"
+  | "trust-authorization-policy-unchanged"
+  | "trust-authorization-authority-required"
   // Holds and available balance
   | "hold-exceeds-available"
   | "unknown-hold"
@@ -38,11 +46,17 @@ export type TrustValidationCode =
   | "hold-currency-mismatch"
   // Transfers out of trust
   | "transfer-exceeds-available"
+  | "transfer-requires-second-person"
   | "operating-side-is-trust-account"
   | "earned-fee-precondition-unavailable"
-  // Jurisdiction
+  // Jurisdiction — four distinct refusals, each fixed by a different person doing a different thing:
+  // record the office's state; research a jurisdiction; have an attorney review one that IS
+  // researched; research the one field that was missed. Collapsing any two of them tells a firm
+  // something about its obligations that nobody has stood behind.
   | "jurisdiction-not-recorded"
   | "jurisdiction-not-encoded"
+  | "jurisdiction-not-verified"
+  | "jurisdiction-requirement-not-encoded"
   // Bank statements — the one external input
   | "unknown-trust-bank-statement"
   | "unknown-trust-bank-statement-line"

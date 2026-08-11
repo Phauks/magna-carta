@@ -1,4 +1,9 @@
 import {
+  calendarEventLink,
+  firmEvent,
+  firmEventParticipant,
+  firmResource,
+  firmResourceBooking,
   matterDeadline,
   matterEvent,
   matterEventParticipant,
@@ -37,6 +42,26 @@ import {
   selectMatterEventTypesStatement,
   updateMatterEventTypeStatement,
 } from "../src/event-type-statements.ts";
+import {
+  FIRM_RESOURCE_BOOKING_TABLE,
+  insertFirmResourceBookingStatement,
+} from "../src/booking-statements.ts";
+import {
+  FIRM_EVENT_PARTICIPANT_TABLE,
+  FIRM_EVENT_TABLE,
+  insertFirmEventParticipantStatement,
+  insertFirmEventStatement,
+  selectFirmEventsStatement,
+} from "../src/firm-event-statements.ts";
+import {
+  CALENDAR_EVENT_LINK_TABLE,
+  insertCalendarEventLinkStatement,
+} from "../src/link-statements.ts";
+import {
+  FIRM_RESOURCE_TABLE,
+  insertFirmResourceStatement,
+  selectFirmResourcesStatement,
+} from "../src/resource-statements.ts";
 import { visibleMatterPredicate } from "../src/visibility.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
@@ -118,6 +143,11 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
     expect(getTableConfig(matterEventType).name).toBe(MATTER_EVENT_TYPE_TABLE);
     expect(getTableConfig(matterEventParticipant).name).toBe(MATTER_EVENT_PARTICIPANT_TABLE);
     expect(getTableConfig(matterDeadline).name).toBe(MATTER_DEADLINE_TABLE);
+    expect(getTableConfig(firmEvent).name).toBe(FIRM_EVENT_TABLE);
+    expect(getTableConfig(firmEventParticipant).name).toBe(FIRM_EVENT_PARTICIPANT_TABLE);
+    expect(getTableConfig(firmResource).name).toBe(FIRM_RESOURCE_TABLE);
+    expect(getTableConfig(firmResourceBooking).name).toBe(FIRM_RESOURCE_BOOKING_TABLE);
+    expect(getTableConfig(calendarEventLink).name).toBe(CALENDAR_EVENT_LINK_TABLE);
   });
 
   it("every column the event SQL names exists in the schema", () => {
@@ -298,6 +328,121 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       sql,
       new Set([MATTER_DEADLINE_TABLE, ...columnsOf(matterDeadline), ...VISIBILITY_IDENTIFIERS]),
       "deadline",
+    );
+  });
+
+  it("every column the firm-scope SQL names exists in the schema", () => {
+    const FIRM_EVENT_ID = "firmEvent_x" as never;
+    const firmEventSql = [
+      sqlOf(
+        insertFirmEventStatement(stub, {
+          id: FIRM_EVENT_ID,
+          eventTypeId: null,
+          title: "t",
+          description: null,
+          status: "scheduled",
+          startsOn: "2026-09-10",
+          startsAtTime: null,
+          endsOn: null,
+          endsAtTime: null,
+          timeZone: "UTC",
+          audience: "participants",
+          locationId: null,
+          locationText: null,
+          recordedAt: "t",
+          recordedBy: null,
+          now: "t",
+        }),
+      ),
+      sqlOf(
+        selectFirmEventsStatement(stub, {
+          fromDate: "2026-01-01",
+          toDate: "2026-12-31",
+          limit: 10,
+        }),
+      ),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      firmEventSql,
+      new Set([FIRM_EVENT_TABLE, ...columnsOf(firmEvent)]),
+      "firm event",
+    );
+
+    const participantSql = sqlOf(
+      insertFirmEventParticipantStatement(stub, {
+        id: "firmEventParticipant_x" as never,
+        firmEventId: FIRM_EVENT_ID,
+        participantKind: "member",
+        memberUserId: USER_ID,
+        entityId: null,
+        participantName: null,
+        role: null,
+        now: "t",
+      }),
+    );
+    expectOnlyKnownIdentifiers(
+      participantSql,
+      new Set([FIRM_EVENT_PARTICIPANT_TABLE, ...columnsOf(firmEventParticipant)]),
+      "firm event participant",
+    );
+
+    const resourceSql = [
+      sqlOf(
+        insertFirmResourceStatement(stub, {
+          id: "firmResource_x" as never,
+          name: "n",
+          kind: "room",
+          locationId: null,
+          capacity: null,
+          notes: null,
+          now: "t",
+        }),
+      ),
+      sqlOf(selectFirmResourcesStatement(stub, { limit: 10 })),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      resourceSql,
+      new Set([FIRM_RESOURCE_TABLE, ...columnsOf(firmResource)]),
+      "resource",
+    );
+
+    const bookingSql = sqlOf(
+      insertFirmResourceBookingStatement(stub, {
+        id: "firmResourceBooking_x" as never,
+        resourceId: "firmResource_x" as never,
+        matterEventId: EVENT_ID,
+        firmEventId: null,
+        startsOn: "2026-09-10",
+        startsAtTime: null,
+        endsOn: null,
+        endsAtTime: null,
+        timeZone: "UTC",
+        recordedAt: "t",
+        recordedBy: null,
+        now: "t",
+      }),
+    );
+    expectOnlyKnownIdentifiers(
+      bookingSql,
+      new Set([FIRM_RESOURCE_BOOKING_TABLE, ...columnsOf(firmResourceBooking)]),
+      "booking",
+    );
+
+    const linkSql = sqlOf(
+      insertCalendarEventLinkStatement(stub, {
+        id: "calendarEventLink_x" as never,
+        from: { matterEventId: EVENT_ID },
+        to: { matterEventId: "matterEvent_y" as never },
+        kind: "continuance_of",
+        note: null,
+        recordedBy: null,
+        now: "t",
+      }),
+    );
+    expectOnlyKnownIdentifiers(
+      linkSql,
+      new Set([CALENDAR_EVENT_LINK_TABLE, ...columnsOf(calendarEventLink)]),
+      "link",
     );
   });
 });

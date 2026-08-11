@@ -212,8 +212,8 @@ overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.1.24
   vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
   brace-expansion@1: 1.1.18
-  js-yaml@3: 3.15.0
-  js-yaml@4: 4.3.0
+  js-yaml@3: 3.15.1
+  js-yaml@4: 4.3.1
   undici: 7.29.0
   fast-uri: 3.1.5
   sharp: 0.35.0
@@ -247,6 +247,9 @@ importers:
       '@cloudflare/containers':
         specifier: 'catalog:'
         version: 0.3.7
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -325,6 +328,9 @@ importers:
       '@magna-carta/email-filing':
         specifier: workspace:*
         version: link:../../packages/email-filing
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -546,6 +552,9 @@ importers:
       '@magna-carta/tools':
         specifier: workspace:*
         version: link:../../packages/tools
+      better-auth:
+        specifier: 'catalog:'
+        version: 1.6.22(@cloudflare/workers-types@5.20260713.1)(@sveltejs/kit@2.69.3(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0))(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.2)
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
@@ -625,6 +634,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory
+      '@magna-carta/discovery':
+        specifier: workspace:*
+        version: link:../../packages/discovery
       '@magna-carta/document-assembly':
         specifier: workspace:*
         version: link:../../packages/document-assembly
@@ -682,6 +694,12 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@magna-carta/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -854,6 +872,9 @@ importers:
       '@magna-carta/sequence-numbering':
         specifier: workspace:*
         version: link:../sequence-numbering
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../trust
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1317,6 +1338,34 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  packages/discovery:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/document-assembly:
     dependencies:
       '@magna-carta/custom-fields':
@@ -1442,6 +1491,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../object-dimensions
       client-zip:
         specifier: 'catalog:'
         version: 2.5.0
@@ -1832,6 +1884,68 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  packages/notifications:
+    dependencies:
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
+      '@magna-carta/billing':
+        specifier: workspace:*
+        version: link:../billing
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../calendar
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/file-manager':
+        specifier: workspace:*
+        version: link:../file-manager
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      '@magna-carta/ledger':
+        specifier: workspace:*
+        version: link:../ledger
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/object-dimensions:
+    dependencies:
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/pdf:
     devDependencies:
       '@magna-carta/signing':
@@ -2088,6 +2202,22 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/trust-jurisdictions:
+    dependencies:
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../trust
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.1)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
@@ -5942,12 +6072,12 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@3.15.0:
-    resolution: {integrity: sha512-ttBQIIQPDeLjpPOohtUdXuXUVoA2uIB6fEH9HyJ7234s5mBJ5wTx20njxplLZQgLaOfpmPQA7X2t5AX6tIPbog==}
+  js-yaml@3.15.1:
+    resolution: {integrity: sha512-S99WuO3HlhO3XN41EtYUNl9zzXjoJx7QvmipxsJVxtCBT0YHEFy+iOJhjSvrmV12nYhWpZaM8lPHkJm0yUMbag==}
     hasBin: true
 
-  js-yaml@4.3.0:
-    resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
+  js-yaml@4.3.1:
+    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
     hasBin: true
 
   jsep@1.4.0:
@@ -7937,7 +8067,7 @@ snapshots:
     dependencies:
       '@jsdevtools/ono': 7.1.3
       '@types/json-schema': 7.0.15
-      js-yaml: 4.3.0
+      js-yaml: 4.3.1
 
   '@hey-api/openapi-ts@0.98.2(typescript@6.0.3)':
     dependencies:
@@ -10784,12 +10914,12 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@3.15.0:
+  js-yaml@3.15.1:
     dependencies:
       argparse: 1.0.10
       esprima: 4.0.1
 
-  js-yaml@4.3.0:
+  js-yaml@4.3.1:
     dependencies:
       argparse: 2.0.1
 
@@ -10822,7 +10952,7 @@ snapshots:
   json-schema-ref-parser@6.1.0:
     dependencies:
       call-me-maybe: 1.0.2
-      js-yaml: 3.15.0
+      js-yaml: 3.15.1
       ono: 4.0.11
 
   json-schema-to-ts@3.1.1:

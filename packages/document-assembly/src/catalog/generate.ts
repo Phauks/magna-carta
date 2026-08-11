@@ -1,4 +1,12 @@
-import { PROTECTED_DICTIONARY_ENTRIES } from "../protected-bindings.ts";
+import {
+  ASSET_AGGREGATE_SUBJECT,
+  ASSET_LIST_FIELD,
+  assetItemFieldsFor,
+} from "../asset-bindings.ts";
+import {
+  MEMBER_PROTECTED_DICTIONARY_ENTRIES,
+  PROTECTED_DICTIONARY_ENTRIES,
+} from "../protected-bindings.ts";
 import type {
   AbsenceBehaviour,
   MergeSource,
@@ -356,6 +364,236 @@ const FIRM_FACETS: readonly NamedFacet[] = [
   },
 ];
 
+// The invented judge every judge example renders — a name with parts, so the picker's format
+// chooser shows what each rendering does to the same person.
+const EXAMPLE_JUDGE: MergeValue = {
+  kind: "name",
+  display: "Mira Calloway",
+  prefix: "Hon.",
+  given: "Mira",
+  family: "Calloway",
+  isOrganisation: false,
+};
+
+// The invented decedent every estate example renders.
+const EXAMPLE_DECEDENT: MergeValue = {
+  kind: "name",
+  display: "Rowan Ashcroft",
+  prefix: "Dr.",
+  given: "Rowan",
+  middle: "Tobias",
+  family: "Ashcroft",
+  suffix: "Jr.",
+  isOrganisation: false,
+};
+
+// WHERE the case is: the courthouse and the judge, both Directory records the court-case record
+// points at, so the court's own identity comes from the Directory rather than from columns restated
+// on the matter. The court's structured address facet arrives with the structured address value
+// type; until then a court key set that cannot render an address honestly carries none.
+const COURT_FACETS: readonly NamedFacet[] = [
+  {
+    name: "name",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Court name",
+    description: "The name of the court the matter's case is before.",
+    synonyms: ["court name", "district court", "tribunal"],
+    example: { kind: "text", text: "Second Judicial District Court" },
+  },
+  {
+    name: "judge",
+    source: "court",
+    valueType: "name",
+    defaultFormat: "full",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Assigned judge",
+    description: "The judge assigned to the matter's case, in any name rendering.",
+    synonyms: ["judge", "justice", "judicial officer"],
+    example: EXAMPLE_JUDGE,
+  },
+];
+
+// WHAT the case is: its number, its dates, and the two designation words this court's captions use.
+// Side is a caption FACT recorded here, never a key axis — a fixed plaintiff/defendant pair would be
+// wrong for every petition, appeal, and probate proceeding, so the caption prints the words the
+// firm recorded for this court.
+const CASE_FACETS: readonly NamedFacet[] = [
+  {
+    name: "number",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    // A case not yet filed has no number, and the caption's "Case No. [CASE NUMBER]" marker is the
+    // honest state of a draft prepared for filing — so a marker, not a stopped assembly.
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Case number",
+    description: "The case number as the court issued it.",
+    synonyms: ["case number", "cause number", "docket number", "case no"],
+    example: { kind: "text", text: "CV26-01482" },
+  },
+  {
+    name: "filedOn",
+    source: "court",
+    valueType: "date",
+    defaultFormat: "long",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Date filed",
+    description: "The date the case was filed, as recorded on the court-case record.",
+    synonyms: ["filing date", "filed", "commenced"],
+    example: { kind: "date", isoDate: "2026-04-09" },
+  },
+  {
+    name: "division",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Court division",
+    description: "The division the case is assigned to, where the court has divisions.",
+    synonyms: ["division"],
+    example: { kind: "text", text: "Family Division" },
+  },
+  {
+    name: "department",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Court department",
+    description: "The department the case is assigned to, where the court has departments.",
+    synonyms: ["department", "dept"],
+    example: { kind: "text", text: "Department 6" },
+  },
+  {
+    name: "clientDesignation",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Client's designation",
+    description:
+      "What this court's caption calls the client's side — recorded on the case, never guessed.",
+    synonyms: ["plaintiff", "petitioner", "designation", "side"],
+    example: { kind: "text", text: "Petitioner" },
+  },
+  {
+    name: "opposingDesignation",
+    source: "court",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Opposing designation",
+    description:
+      "What this court's caption calls the other side — recorded on the case, never guessed.",
+    synonyms: ["defendant", "respondent", "designation", "side"],
+    example: { kind: "text", text: "Respondent" },
+  },
+];
+
+// The estate's several names, each used in a different place: the decedent's (a Directory person,
+// so every name format applies), the style a caption and a bank account use, and the short style a
+// letter's second reference uses. THE STYLES ARE STORED, NOT COMPOSED — a legal designation a court
+// has fixed is not a string a template may invent.
+const ESTATE_FACETS: readonly NamedFacet[] = [
+  {
+    name: "style",
+    source: "estate",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Estate style",
+    description: "The estate's style exactly as the court has it — stored, never composed.",
+    synonyms: ["estate name", "estate of", "in the matter of"],
+    example: { kind: "text", text: "the Estate of Rowan Ashcroft, Deceased" },
+  },
+  {
+    name: "shortStyle",
+    source: "estate",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Estate short style",
+    description: "The estate's short style, for a letter's second reference.",
+    synonyms: ["short name", "short style"],
+    example: { kind: "text", text: "the Ashcroft Estate" },
+  },
+  {
+    name: "decedent",
+    source: "estate",
+    valueType: "name",
+    defaultFormat: "full",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Decedent's name",
+    description: "The decedent's name, in any name rendering, from their Directory record.",
+    synonyms: ["decedent", "deceased", "the departed"],
+    example: EXAMPLE_DECEDENT,
+  },
+  {
+    name: "dateOfDeath",
+    source: "estate",
+    valueType: "date",
+    defaultFormat: "long",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: "Date of death",
+    description: "The decedent's date of death, as recorded on the estate record.",
+    synonyms: ["DOD", "died", "date of death"],
+    example: { kind: "date", isoDate: "2026-01-17" },
+  },
+  {
+    name: "proceedingType",
+    source: "estate",
+    valueType: "text",
+    defaultFormat: "plain",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Proceeding type",
+    description: "Whether the proceeding is testate, intestate, a small estate, or ancillary.",
+    synonyms: ["testate", "intestate", "small estate", "ancillary"],
+    example: { kind: "text", text: "intestate" },
+  },
+  {
+    name: "lettersIssuedOn",
+    source: "estate",
+    valueType: "date",
+    defaultFormat: "long",
+    absence: "placeholder",
+    sensitivity: ORDINARY,
+    prominence: "secondary",
+    label: "Letters issued",
+    description: "The date the court issued letters, as recorded on the estate record.",
+    synonyms: ["letters", "letters testamentary", "letters of administration"],
+    example: { kind: "date", isoDate: "2026-03-02" },
+  },
+];
+
 const SYSTEM_FACETS: readonly NamedFacet[] = [
   {
     name: "today",
@@ -374,6 +612,35 @@ const SYSTEM_FACETS: readonly NamedFacet[] = [
   },
 ];
 
+// The asset register's subjects. Each one declares EXACTLY ONE facet — its collection — and the
+// generator below is what makes that structural rather than a convention: an `assetClass` subject
+// gets this list and nothing else, and `test/asset-subjects.test.ts` asserts no scalar ever appears
+// under one. A scalar `realProperty.parcelNumber` would resolve to an absence naming the count on any
+// estate with two houses, which is a slot that should not exist rather than a slot that refuses.
+function assetCollectionFacet(subject: MergeSubject): NamedFacet {
+  return {
+    name: ASSET_LIST_FIELD,
+    source: "asset",
+    valueType: "list",
+    // A list is never rendered — a repeating block walks it — so its default format is the empty
+    // rendering the format table declares for the type.
+    defaultFormat: "",
+    // AN EMPTY LIST IS A CORRECT DOCUMENT. A matter with no vehicles produces nothing where the
+    // repeating block sits, which is the catalogue's declared rule for collections and the honest
+    // answer for a firm whose client owns no car.
+    absence: "blank",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: `${subject.label}, for a repeating block`,
+    description:
+      subject.key === ASSET_AGGREGATE_SUBJECT
+        ? "Everything on the matter's asset register, for a repeating block to walk. Every value prints with the date it speaks to."
+        : `Every ${subject.proseLabel} on the matter's asset register, for a repeating block to walk. Every value prints with the date it speaks to.`,
+    synonyms: [],
+    itemFields: assetItemFieldsFor(subject.key),
+  };
+}
+
 // The written-out facets, per subject key. A subject with no row here carries only its generated facet
 // set; a subject with no generated facets and no row here would carry nothing, which the fitness test
 // refuses.
@@ -382,7 +649,16 @@ const NAMED_FACETS: Readonly<Record<string, readonly NamedFacet[]>> = {
   client: CLIENT_FACETS,
   location: LOCATION_FACETS,
   firm: FIRM_FACETS,
+  court: COURT_FACETS,
+  case: CASE_FACETS,
+  estate: ESTATE_FACETS,
   system: SYSTEM_FACETS,
+  ...Object.fromEntries(
+    MERGE_SUBJECTS.filter((subject) => subject.kind === "assetClass").map((subject) => [
+      subject.key,
+      [assetCollectionFacet(subject)],
+    ]),
+  ),
 };
 
 // The client's sealed identifiers. Every one is `sensitivity: protected`, which is not a label on the
@@ -390,6 +666,11 @@ const NAMED_FACETS: Readonly<Record<string, readonly NamedFacet[]>> = {
 // permission-gated, audited decrypt and through nothing else — see protected-bindings.ts.
 const PROTECTED_BY_SUBJECT: Readonly<Record<string, readonly DictionaryEntry[]>> = {
   client: PROTECTED_DICTIONARY_ENTRIES,
+  // Each member subject carries the one protected fact a pleading actually states about the firm's
+  // own people: the bar number, read through the same chokepoint the client's identifiers use.
+  ...Object.fromEntries(
+    MEMBER_PROTECTED_DICTIONARY_ENTRIES.map((entry) => [entry.subject, [entry]]),
+  ),
 };
 
 // The whole platform catalogue, in the order a picker would walk it: subject by subject, and within a

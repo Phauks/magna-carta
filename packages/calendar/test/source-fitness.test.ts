@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { TIMELINE_SOURCES } from "../src/sources/all.ts";
+import { FIRM_ANCHORED_SOURCE_KEYS, TIMELINE_SOURCES } from "../src/sources/all.ts";
 import type { SourceReadRequest } from "../src/sources/registry.ts";
 import { VISIBLE_MATTER_MARKER, visibleMatterPredicate } from "../src/visibility.ts";
 import { MATTER, migratedDatabase } from "./support.ts";
@@ -22,7 +22,12 @@ function statementsFor(
   const { database } = migratedDatabase();
   const request: SourceReadRequest = {
     database,
-    scope: { matterId: MATTER, fromDate: "2026-01-01", toDate: "2026-12-31" },
+    scope:
+      // A firm-anchored source has no matter to scope by and builds nothing on a matter timeline —
+      // its statements are inspected on the firm-wide window, which is the read it exists for.
+      source.visibilityAnchor === "firm"
+        ? { fromDate: "2026-01-01", toDate: "2026-12-31" }
+        : { matterId: MATTER, fromDate: "2026-01-01", toDate: "2026-12-31" },
     visibility: visibleMatterPredicate(),
     cursor: { sortKey: "2026-06-01", id: "row_seed" },
     limit: 51,
@@ -35,25 +40,66 @@ function statementsFor(
   return source.buildStatements(request) as unknown as InspectableStatement[];
 }
 
-describe("every registered source composes the visible-matter predicate before its LIMIT", () => {
-  for (const source of TIMELINE_SOURCES) {
-    it(`${source.key} composes the predicate into SQL, ahead of the LIMIT`, () => {
+// The declaration, asserted both ways: every matter-anchored source's statement carries the
+// predicate marker, and every firm-anchored source is one of a REVIEWED ALLOWLIST — absence of the
+// predicate is a declared decision with a named reviewer, never an oversight. The declaresLabel
+// idiom, applied to visibility.
+describe("every registered source declares its visibility anchor honestly", () => {
+  it("every firm-anchored source is on the reviewed allowlist, and the allowlist names only firm anchors", () => {
+    const firmAnchored = TIMELINE_SOURCES.filter((source) => source.visibilityAnchor === "firm");
+    expect(firmAnchored.map((source) => source.key).sort()).toEqual(
+      [...FIRM_ANCHORED_SOURCE_KEYS].sort(),
+    );
+    expect(Object.isFrozen(FIRM_ANCHORED_SOURCE_KEYS)).toBe(true);
+  });
+
+  it("a firm-anchored source composes NO matter predicate and projects a NULL matter", () => {
+    for (const source of TIMELINE_SOURCES.filter((entry) => entry.visibilityAnchor === "firm")) {
       const statements = statementsFor(source);
       expect(statements.length).toBeGreaterThan(0);
       for (const statement of statements) {
-        const markerIndex = statement.sql.indexOf(VISIBLE_MATTER_MARKER);
-        const limitIndex = statement.sql.lastIndexOf("LIMIT");
-        // Composed at all: a source that skips it is a leak.
-        expect(markerIndex, `${source.key} does not compose the predicate`).toBeGreaterThan(-1);
-        // Composed BEFORE the LIMIT: a predicate applied after the rows come back would under-fill
-        // the page and turn the page size into an existence oracle for what it removed.
-        expect(limitIndex, `${source.key} has no LIMIT`).toBeGreaterThan(-1);
-        expect(markerIndex, `${source.key} filters after its LIMIT`).toBeLessThan(limitIndex);
-        // In the WHERE clause, not in a projection or an ORDER BY.
-        const whereIndex = statement.sql.indexOf("WHERE");
-        expect(markerIndex).toBeGreaterThan(whereIndex);
+        // The marker's ABSENCE is the declared behavior here — a firm event has no matter, and a
+        // predicate over a NULL expression would silently match nothing.
+        expect(statement.sql).not.toContain(VISIBLE_MATTER_MARKER);
+        expect(statement.sql).toContain("NULL AS matter_id");
+        expect(statement.sql).toContain("LIMIT");
       }
-    });
+    }
+  });
+
+  it("a firm-anchored source contributes nothing to a matter timeline", () => {
+    for (const source of TIMELINE_SOURCES.filter((entry) => entry.visibilityAnchor === "firm")) {
+      expect(
+        statementsFor(source, {
+          scope: { matterId: MATTER, fromDate: "2026-01-01", toDate: "2026-12-31" },
+        }),
+      ).toHaveLength(0);
+    }
+  });
+});
+
+describe("every registered source composes the visible-matter predicate before its LIMIT", () => {
+  for (const source of TIMELINE_SOURCES) {
+    if (source.visibilityAnchor === "matter") {
+      it(`${source.key} composes the predicate into SQL, ahead of the LIMIT`, () => {
+        const statements = statementsFor(source);
+        expect(statements.length).toBeGreaterThan(0);
+        for (const statement of statements) {
+          const markerIndex = statement.sql.indexOf(VISIBLE_MATTER_MARKER);
+          const limitIndex = statement.sql.lastIndexOf("LIMIT");
+          // Composed at all: a source that skips it is a leak.
+          expect(markerIndex, `${source.key} does not compose the predicate`).toBeGreaterThan(-1);
+          // Composed BEFORE the LIMIT: a predicate applied after the rows come back would
+          // under-fill the page and turn the page size into an existence oracle for what it
+          // removed.
+          expect(limitIndex, `${source.key} has no LIMIT`).toBeGreaterThan(-1);
+          expect(markerIndex, `${source.key} filters after its LIMIT`).toBeLessThan(limitIndex);
+          // In the WHERE clause, not in a projection or an ORDER BY.
+          const whereIndex = statement.sql.indexOf("WHERE");
+          expect(markerIndex).toBeGreaterThan(whereIndex);
+        }
+      });
+    }
 
     it(`${source.key} is bounded and keyset-paginated from the shared cursor`, () => {
       for (const statement of statementsFor(source)) {
@@ -107,7 +153,7 @@ describe("every registered source composes the visible-matter predicate before i
   }
 
   it("holds for a firm-wide window with no matter in scope", () => {
-    for (const source of TIMELINE_SOURCES) {
+    for (const source of TIMELINE_SOURCES.filter((entry) => entry.visibilityAnchor === "matter")) {
       const statements = statementsFor(source, {
         scope: { fromDate: "2026-08-01", toDate: "2026-08-31" },
         joinKeys: [],

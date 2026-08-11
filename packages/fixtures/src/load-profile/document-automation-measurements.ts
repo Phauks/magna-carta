@@ -16,8 +16,12 @@ import {
 import { mergeSubject } from "@magna-carta/document-assembly/catalog-subjects";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
 import {
+  selectMatterAssetsForMergeStatement,
+  selectMatterCourtCaseForMergeStatement,
+  selectMatterEstateForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
+  selectMatterStaffingForMergeStatement,
 } from "@magna-carta/document-assembly/merge-statements";
 import {
   mergeFieldCatalogRevision,
@@ -61,6 +65,9 @@ export interface DocumentAutomationMeasurementHandle {
   // The probe manifest as the version stores it, parsed once: the measurement resolves the SAME
   // manifest the row carries rather than a rebuilt one that could drift from it.
   readonly probeManifest: FieldManifest;
+  // The manifest carrying the expression constructs and the protected keys, so the read plan and the
+  // decrypt count are measured rather than assumed.
+  readonly expressionProbeManifest: FieldManifest;
   // The firm's dictionary — the shipped entries plus its own `custom.<handle>` bindings, derived from
   // the catalogue read exactly as the production path derives it.
   readonly firmDictionary: Awaited<ReturnType<typeof dictionaryForFirm>>;
@@ -88,10 +95,14 @@ export async function documentAutomationMeasurementHandle(
         .filter((handle): handle is string => handle !== undefined),
     ),
   ].sort();
+  const expressionProbeManifest = JSON.parse(
+    documentAutomationProbes.expressionProbeFieldManifestJson,
+  ) as FieldManifest;
   return {
     database: snapshot.database,
     snapshot,
     probeManifest,
+    expressionProbeManifest,
     firmDictionary,
     probeCustomHandles,
   };
@@ -142,6 +153,36 @@ export const documentAutomationMeasurements: readonly Measurement<
       });
       if (!result.ok) {
         throw new Error(`load-profile: merge context did not resolve: ${result.detail}`);
+      }
+    },
+  },
+  {
+    name: "assembly.merge-context-expressions",
+    operation: async (handle) => {
+      // The same resolution, over a manifest that carries a repeating block, an aggregate over the
+      // collection's items, and every protected key the dictionary offers.
+      //
+      // Two claims are under measurement here that the plain merge-context probe cannot reach. The
+      // first is that expression keys join the read plan — a block's or a computed field's keys are
+      // supposed to be planned with everything else, so an expression is never the reason a read
+      // happens late. The second is the protected read loop, which is deliberately NOT batched: one
+      // permission check, one audit row, and one decrypt per protected key, serial so a refused member
+      // commits one audit row rather than one per key. Its cost should be visible at a real firm's key
+      // count rather than argued about.
+      const result = await resolveMergeContext(handle.database, {
+        matterId: handle.snapshot.manifest.documentAutomationProbes.probeMatterId,
+        manifest: handle.expressionProbeManifest,
+        firmName: "Load Profile LLP",
+        assembledAt: "2026-01-01T00:00:00.000Z",
+        currencyCode: "USD",
+        dictionary: handle.firmDictionary,
+        // A stub reader, because the measurement is of the LOOP and the reads around it, not of AES.
+        // It answers every key, so the serial path is walked to its full length rather than
+        // short-circuiting on the first refusal.
+        readProtectedIdentifier: async () => "000-00-0000",
+      });
+      if (!result.ok) {
+        throw new Error(`load-profile: expression merge context did not resolve: ${result.detail}`);
       }
     },
   },
@@ -272,13 +313,15 @@ export function documentAutomationHotPathPlans(
         ),
       ),
     },
-    // The three reads the merge context actually issues, probed individually: the matter row, the whole
-    // party collection in one read, and every bound custom-field handle in one statement.
+    // The four reads the merge context actually issues, probed individually: the matter row, the whole
+    // party collection in one read, the matter's whole asset register in one read, and every bound
+    // custom-field handle in one statement.
     //
-    // There is no fourth probe for the Directory role sources on purpose: `opposingParty.displayName`
-    // and the rest are derived from the party rows THIS statement already returned, so a role costs a
-    // pass over an array rather than a query. If a role ever grows a read of its own, this list is where
-    // it has to appear — and the merge-context measurement above is where the cost would show.
+    // There is no probe for the Directory role sources or for the individual asset subjects, on
+    // purpose: `opposingParty.displayName` and `realProperty.all` alike are derived from rows the
+    // statements below already returned, so a role and a class each cost a pass over an array rather
+    // than a query. If either ever grows a read of its own, this list is where it has to appear — and
+    // the merge-context measurement above is where the cost would show.
     {
       label: "assembly.merge-context.matter",
       statement: capturedStatement(selectMatterForMergeStatement(handle.database, matterId)),
@@ -288,10 +331,45 @@ export function documentAutomationHotPathPlans(
       statement: capturedStatement(selectMatterPartiesForMergeStatement(handle.database, matterId)),
     },
     {
+      // The whole asset register for a matter, with every class's attributes left-joined and each
+      // asset's value resolved as of one date — ONE statement filling all eleven asset subjects. It is
+      // probed here because its plan is the least obvious in the register: the correlated as-of
+      // sub-select has to walk (asset_id, as_of_date, recorded_at) rather than scan a valuation table
+      // that grows without bound while the asset table does not.
+      label: "assembly.merge-context.assets",
+      statement: capturedStatement(
+        selectMatterAssetsForMergeStatement(handle.database, matterId, "2026-01-01", 500),
+      ),
+    },
+    {
       label: "assembly.merge-context.custom-field-values",
       statement: capturedStatement(
         selectCustomFieldValuesStatement(handle.database, matterId, handle.probeCustomHandles),
       ),
+    },
+    // The three record reads the widened catalogue added — the staffing, court-case, and estate
+    // sources. Each is one statement filling every subject of its kind: the staffing statement's two
+    // arms both seek (the matter by id, the assignments by matter_id), and the record reads seek the
+    // partial unique index on matter_id.
+    {
+      label: "assembly.merge-context.staffing",
+      statement: capturedStatement(
+        selectMatterStaffingForMergeStatement(
+          handle.database,
+          matterId,
+          "2026-01-01T00:00:00.000Z",
+        ),
+      ),
+    },
+    {
+      label: "assembly.merge-context.court-case",
+      statement: capturedStatement(
+        selectMatterCourtCaseForMergeStatement(handle.database, matterId),
+      ),
+    },
+    {
+      label: "assembly.merge-context.estate",
+      statement: capturedStatement(selectMatterEstateForMergeStatement(handle.database, matterId)),
     },
     {
       label: "templates.custom-field-catalog",

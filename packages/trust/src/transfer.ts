@@ -5,6 +5,8 @@ import type {
   LedgerAccountId,
   LedgerEntryId,
   MatterId,
+  TrustAuthorizationPolicyId,
+  TrustDisbursementRequestId,
   TrustLedgerNodeId,
   TrustTransferId,
   UserId,
@@ -14,10 +16,16 @@ import { currencyCode } from "@magna-carta/money/format";
 import type { Money } from "@magna-carta/money/money";
 import { assertTrustAccountOpen, loadTrustAccount, loadTrustNode } from "./account-tree.ts";
 import type { TrustServiceOptions } from "./account-tree.ts";
+import {
+  assertActorHoldsTrustAuthority,
+  loadTrustAuthorizationPolicy,
+  readCurrentTrustAuthorizationPolicy,
+  trustAuthorizationRequiresSecondPerson,
+} from "./authorization-policy.ts";
 import { composeTrustEntry, loadTrustAccountRoles } from "./composition-guard.ts";
 import { readTrustAvailableBalance } from "./holds.ts";
 import { assertMovementCurrency } from "./movements.ts";
-import { insertTrustTransferStatement } from "./statements.ts";
+import { insertTrustTransferStatement, selectActiveTrustManagersStatement } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 
 // Moving earned fees out of trust is where most real-world trust violations happen, so the shape
@@ -72,7 +80,19 @@ export interface TrustToOperatingTransferInput {
   // them if either turns out to belong to a trust account.
   readonly operatingBankAccountId: LedgerAccountId;
   readonly accountsReceivableAccountId: LedgerAccountId;
-  readonly authorizedBy?: UserId | null;
+  // Who entered the record and who let the money go — the same two facts a movement keeps apart.
+  // Distinct people when the governing policy requires a second person; the same person when it
+  // does not, or when the firm genuinely has nobody else (the recorded lone-manager posture).
+  readonly recordedBy: UserId;
+  readonly authorizedBy: UserId;
+  // Present when this transfer is the approval of a pending earned-fee application: the transfer is
+  // then governed by the policy version STAMPED ON THAT REQUEST — the in-flight rule — and records
+  // which request it came from. Absent on a directly composed transfer, which is governed by the
+  // current policy.
+  readonly approvedRequest?: {
+    readonly id: TrustDisbursementRequestId;
+    readonly policyId: TrustAuthorizationPolicyId | null;
+  };
 }
 
 export interface TrustToOperatingTransferOptions extends TrustServiceOptions {
@@ -110,6 +130,44 @@ export async function composeTrustToOperatingTransfer(
     amountMinor,
     currency,
   });
+
+  // THE FIRM'S AUTHORIZATION POLICY, applied to the other way money leaves a client ledger — the
+  // same predicate the disbursement approval runs, against the same policy rows, so the two paths
+  // can never disagree about when a second person is required. A transfer approving a pending
+  // application is governed by the version stamped on its request (the in-flight rule); a directly
+  // composed transfer is governed by the current version. The triggers on trust_transfer hold all of
+  // this at the database; these are the named refusals in front of them.
+  const policy = input.approvedRequest
+    ? await loadTrustAuthorizationPolicy(database, input.approvedRequest.policyId)
+    : await readCurrentTrustAuthorizationPolicy(database);
+  if (
+    input.recordedBy === input.authorizedBy &&
+    trustAuthorizationRequiresSecondPerson(policy, amountMinor)
+  ) {
+    // The same lone-holder posture the disbursement flow records: a firm with genuinely nobody else
+    // is not locked out of taking its earned fees — but the exception belongs to the one member the
+    // count found, so a sole actor who is not that member (a member who can apply but not authorize)
+    // is refused even while a lone holder exists. The count mirrors the trigger, over-counting
+    // lapsed grants deliberately — refusing the exception is the safe direction to be wrong in.
+    const { results: managers } = await selectActiveTrustManagersStatement(database).all<{
+      user_id: string;
+      display_name: string;
+    }>();
+    const actorIsHolder = managers.some((manager) => manager.user_id === input.authorizedBy);
+    if (managers.length > 1 || !actorIsHolder) {
+      const others = managers
+        .filter((manager) => manager.user_id !== input.authorizedBy)
+        .map((manager) => `${manager.display_name} (${manager.user_id})`)
+        .join(", ");
+      throw new TrustValidationError(
+        "transfer-requires-second-person",
+        others.length === 0
+          ? `this firm requires a second person to authorize money leaving a client ledger at this amount, and no active member holds trust:manage to approve it; grant the capability first`
+          : `this firm requires a second person to authorize money leaving a client ledger at this amount; submit it as a pending earned-fee application for one of these members to approve: ${others}`,
+      );
+    }
+  }
+  await assertActorHoldsTrustAuthority(database, policy, input.authorizedBy);
 
   const available = await readTrustAvailableBalance(database, input.fromNodeId);
   // The domain-level pre-check exists to turn a bounds-CHECK rollback into a named refusal a person
@@ -186,7 +244,12 @@ export async function composeTrustToOperatingTransfer(
           currency,
           trustEntryId: trustLeg.entryId,
           operatingEntryId: operatingLeg.entryId,
-          authorizedBy: input.authorizedBy ?? null,
+          authorizedBy: input.authorizedBy,
+          recordedBy: input.recordedBy,
+          // The stamp the triggers verify: the governing version resolved above — the request's for
+          // a queued approval, the current one for a direct composition.
+          policyId: policy.id,
+          approvedRequestId: input.approvedRequest?.id ?? null,
           effectiveDate: input.effectiveDate,
           recordedAt: options.clock.now(),
         }),

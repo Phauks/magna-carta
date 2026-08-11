@@ -11,6 +11,10 @@ import {
 import type { CustomFieldWriteOptions } from "@magna-carta/custom-fields/run-custom-field-effect";
 import type { CustomFieldKind } from "@magna-carta/custom-fields/types";
 import { linkMatterParty } from "@magna-carta/directory/party";
+import { composeCreateMatterAssignment } from "@magna-carta/matters/matter-assignment";
+import { composeSetMatterCourtCase } from "@magna-carta/matters/matter-court-case";
+import { composeSetMatterEstate } from "@magna-carta/matters/matter-estate";
+import { upsertMemberProfessionalProfileStatement } from "@magna-carta/matters/member-professional-profile";
 import { customMergeKeyFor } from "@magna-carta/document-assembly/custom-field-bindings";
 import { DICTIONARY } from "@magna-carta/document-assembly/dictionary";
 import { confirmFieldMappingStatements } from "@magna-carta/document-assembly/field-mapping-statements";
@@ -30,7 +34,12 @@ import {
   type TemplateServiceOptions,
 } from "@magna-carta/document-assembly/template-service";
 import type { TemplatePreparation } from "@magna-carta/document-assembly/register";
-import type { FieldManifest, ManifestField } from "@magna-carta/document-assembly/types";
+import type {
+  FieldManifest,
+  ManifestBlock,
+  ManifestComputedField,
+  ManifestField,
+} from "@magna-carta/document-assembly/types";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DocumentTemplateId,
@@ -38,6 +47,7 @@ import type {
   FileId,
   FileVersionId,
   MatterId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import type { FixtureContext } from "../context.ts";
 import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
@@ -132,6 +142,14 @@ export interface DocumentAutomationProbes {
   // The probe manifest, as stored, so the measurement resolves the SAME manifest the version carries
   // rather than rebuilding one that might drift from it.
   readonly probeFieldManifestJson: string;
+  // The SECOND probe manifest: a repeating block over a role collection, an aggregate over its items,
+  // and every protected key the dictionary offers. The plain manifest above leaves blocks and computed
+  // fields empty, which is right for an ordinary template — but it means the two things that make the
+  // batching claim non-trivial go unmeasured. Expression keys join the read plan precisely so an
+  // expression can never be the reason a read happens late, and protected keys are read one at a time
+  // by design (one permission check, one audit row, one decrypt each). Neither shows up in a profile
+  // unless a manifest actually carries them.
+  readonly expressionProbeFieldManifestJson: string;
   // The name of the first catalogue page's last row, and its id — the keyset cursor a second page
   // starts from, so the list measurement can be taken at a real page boundary rather than only at the
   // head of the table.
@@ -176,6 +194,85 @@ function manifestFor(
     unconvertedMergeFields: [],
     blocks: [],
     computedFields: [],
+  };
+}
+
+// A manifest that carries the constructs the plain one deliberately leaves out: a repeating block over
+// a collection, an aggregate computed over that collection's items, and every protected key.
+//
+// The point is not the microsecond number. It is that the READ PLAN and the DECRYPT COUNT appear in the
+// harness at the size a real firm produces: expression keys are supposed to join the plan so a
+// resolution still issues one read per source, and the protected read loop is supposed to be serial —
+// both are claims about shape that only a manifest carrying these constructs can exercise.
+function expressionManifestFor(
+  context: FixtureContext,
+  occurrences: { readonly min: number; readonly max: number },
+): FieldManifest {
+  const collection = DICTIONARY.find(
+    (entry) => entry.valueType === "list" && (entry.itemFields?.length ?? 0) > 0,
+  );
+  const protectedKeys = DICTIONARY.filter((entry) => entry.sensitivity === "protected").map(
+    (entry) => entry.key,
+  );
+
+  const fields: ManifestField[] = [];
+  let totalOccurrences = 0;
+  // The protected keys as ordinary placeholders: each one costs its own permission check, audit row,
+  // and decrypt, which is the serial cost this manifest exists to make visible.
+  for (const key of protectedKeys) {
+    const count = context.faker.number.int(occurrences);
+    totalOccurrences += count;
+    fields.push({
+      key,
+      format: null,
+      occurrences: count,
+      parts: ["word/document.xml"],
+      forms: ["brace"],
+    });
+  }
+
+  const blocks: ManifestBlock[] = [];
+  const computedFields: ManifestComputedField[] = [];
+  if (collection !== undefined) {
+    const itemField = collection.itemFields?.[0]?.name;
+    blocks.push({
+      kind: "each",
+      source: collection.key,
+      resultType: "list",
+      part: "word/document.xml",
+      keys: [collection.key],
+      depth: 0,
+    });
+    // An aggregate over the same collection: one computed field whose key set joins the read plan.
+    computedFields.push({
+      source: `count(${collection.key})`,
+      format: null,
+      resultType: "number",
+      part: "word/document.xml",
+      keys: [collection.key],
+      occurrences: 1,
+    });
+    totalOccurrences += 1;
+    if (itemField !== undefined) {
+      // A placeholder scoped INSIDE the repeat, which is the case that must not add a read: the
+      // collection was already read whole.
+      blocks.push({
+        kind: "if",
+        source: `has(${collection.key})`,
+        resultType: "boolean",
+        part: "word/document.xml",
+        keys: [collection.key],
+        depth: 1,
+      });
+    }
+  }
+
+  return {
+    fields,
+    totalOccurrences,
+    unconvertedMergeFields: [],
+    blocks,
+    computedFields,
   };
 }
 
@@ -271,11 +368,102 @@ export async function generateDocumentAutomationVolume(
         matterId: probeMatterId,
         entityId: person.id,
         role: partyRoleAt(index),
+        // The client acts in a recorded fiduciary capacity, so the composed capacity line resolves
+        // over real data — the phrase the probate measurements read.
+        capacity: index === 0 ? "Administrator" : null,
       },
       { clock, actorUserId: null, randomSource },
     );
     clock.advanceMinutes(1);
   }
+
+  // --- The probe matter's staffing beyond the responsible attorney, each member with a professional
+  // profile so the staffing read's joins return real facts. Distinct roles by construction: the
+  // measured context is the RESOLVED one, and a duplicated role would honestly resolve its subject
+  // to an absence — a correct answer that would leave the joins unmeasured. ---
+  const STAFFING_ROLES = [
+    "supervising_attorney",
+    "originating_attorney",
+    "assigned_paralegal",
+    "billing_attorney",
+  ] as const;
+  const { results: staffMemberRows } = await database
+    .prepare("SELECT user_id FROM member ORDER BY user_id LIMIT ?1")
+    .bind(Math.min(volume.staffingAssignmentsOnProbeMatter, STAFFING_ROLES.length))
+    .all<{ user_id: string }>();
+  for (const [index, member] of staffMemberRows.entries()) {
+    const memberUserId = member.user_id as UserId;
+    const assignment = await composeCreateMatterAssignment(
+      database,
+      {
+        matterId: probeMatterId,
+        memberUserId,
+        assignmentRole: STAFFING_ROLES[index]!,
+      },
+      { clock, actorUserId: null, randomSource },
+    );
+    await commit(assignment.statements);
+    clock.advanceMinutes(1);
+    await commit([
+      upsertMemberProfessionalProfileStatement(
+        database,
+        memberUserId,
+        {
+          title: index === 0 ? "Partner" : "Associate",
+          admissions: "Nevada, 2014",
+          directDial: faker.phone.number({ style: "national" }),
+          professionalEmail: faker.internet.email().toLowerCase(),
+          signatureBlock: null,
+        },
+        clock.now(),
+      ),
+    ]);
+    clock.advanceMinutes(1);
+  }
+
+  // --- The probe matter's court-case and estate records: one of each, so the court and estate
+  // sources resolve real rows and the merge-context measurement covers every statement-issuing
+  // source the catalogue declares. The court is a Directory organisation and the judge and decedent
+  // Directory persons, exactly as production records them. ---
+  const { results: courtOrganisationRows } = await database
+    .prepare("SELECT id FROM directory_organization ORDER BY id LIMIT 1")
+    .all<{ id: string }>();
+  const { results: judgeRows } = await database
+    .prepare("SELECT id FROM directory_person ORDER BY id DESC LIMIT 2")
+    .all<{ id: string }>();
+  const courtCase = await composeSetMatterCourtCase(
+    database,
+    probeMatterId,
+    {
+      courtEntityId: courtOrganisationRows[0]?.id ?? null,
+      judgeEntityId: judgeRows[0]?.id ?? null,
+      caseNumber: "PR26-00381",
+      division: "Probate Division",
+      department: "Department 6",
+      filedOn: "2025-11-04",
+      clientDesignation: "Petitioner",
+      opposingDesignation: "Respondent",
+    },
+    { clock, actorUserId: null, randomSource },
+  );
+  await commit(courtCase.statements);
+  clock.advanceMinutes(1);
+  const estate = await composeSetMatterEstate(
+    database,
+    probeMatterId,
+    {
+      decedentEntityId: judgeRows[1]?.id ?? null,
+      estateEntityId: null,
+      dateOfDeath: "2025-09-17",
+      estateStyle: "the Estate of Rowan Ashcroft, Deceased",
+      shortStyle: "the Ashcroft Estate",
+      proceedingType: "intestate",
+      lettersIssuedOn: "2025-12-02",
+    },
+    { clock, actorUserId: null, randomSource },
+  );
+  await commit(estate.statements);
+  clock.advanceMinutes(1);
 
   // --- The mapping library: confirmed Word-name-to-merge-key entries, read WHOLE once per
   // registration. Names are unique by construction (the table's unique index is on field_name). ---
@@ -403,6 +591,9 @@ export async function generateDocumentAutomationVolume(
     context,
     volume.occurrencesPerField,
   );
+  // Registered on the same probe template's version history, so it is stored rather than rebuilt at
+  // measurement time and cannot drift from what the measurement resolves.
+  const expressionProbeManifest = expressionManifestFor(context, volume.occurrencesPerField);
   const probeInput: RegisterTemplateInput = {
     name: "Zzz Probe Assembly Template",
     description: "The widest merge context this firm's dictionary can offer.",
@@ -510,6 +701,7 @@ export async function generateDocumentAutomationVolume(
       probeTemplateId: probeTemplate.templateId,
       probeTemplateVersionId: probeVersionId,
       probeFieldManifestJson: JSON.stringify(probeManifest),
+      expressionProbeFieldManifestJson: JSON.stringify(expressionProbeManifest),
       catalogueCursorName: cursor.name,
       catalogueCursorId: cursor.id,
     },

@@ -41,17 +41,28 @@ Do not restate the task board or ROADMAP here. They are the home for the queue
 
 ## 2. Current state — OVERWRITE THIS SECTION, never append
 
-*Last updated 2026-08-10, ~23:30 UTC.*
+*Last updated 2026-08-11, ~03:00 UTC.*
 
-- **Merged:** 147 pull requests. Head PR is **#191** (self-serve tier design).
-- **Open PRs:** **#186** `docs-sync/2026-08-10` — needs review and landing.
-- **Working tree:** clean at `0e352a44`.
-- **CI:** dead. Root jobs get no runners, all downstream skip. Confirmed against a
-  fresh run on #187, not a stale one. The austerity merge bar (section 3) applies.
-- **In flight:** one subagent (`a8750f38ef4c65a10`) iterating the sign-in mockup
-  artifact through owner feedback. UI mockup work only — no repo commits from it.
-- **Journal gap to close:** section 7 stops at #182. PRs #183–#191 landed without
-  entries. Reconstruct from git if their detail is ever needed.
+- **Merged:** 149 pull requests. Head PR is **#194**.
+- **Open PRs, both awaiting the owner:**
+  - **#192** status page — upstream severity scoping plus the 90-day bar's
+    accessibility. Verified and mergeable; carries three owner decisions (polling
+    host `www` vs `new`, the empty-store false green, per-tick vs run-length
+    screen-reader announcement). Public UI surface, so it waits.
+  - **#186** `docs-sync/2026-08-10` — propose-only by its own skill, six action
+    items, base six merges behind, and ONE modify/delete conflict caused by #193
+    (it reformatted a fragment this branch deletes). Resolution is to accept the
+    deletion; commented on the PR.
+- **CI:** still dead. Root jobs get no runners, all downstream skip. The austerity
+  merge bar (section 3) applies.
+- **In flight:** nothing.
+- **Main's own gates were both red and are now green.** #193 fixed the format gate
+  (six files failing on main itself) and #194 fixed typecheck (thirteen ES2023
+  call sites against an ES2022 `lib` pin). Both had the same shape: a branch
+  inherited a red gate regardless of its own diff. Worth re-checking periodically —
+  `pnpm exec vp fmt --check` and `pnpm exec vp run typecheck` answer it in minutes.
+- **Journal gap:** section 7 covers through #194 at the summary level. Per-PR detail
+  for #183–#191 was never written; reconstruct from git if it is ever needed.
 
 ---
 
@@ -244,6 +255,7 @@ Detail lives in the PR and the commit. Do not write paragraphs here.
 
 | Date (UTC) | Merged | What landed |
 | --- | --- | --- |
+| 08-11 | 149 | #193 formatted the six files failing the format gate on main; #194 raised the TypeScript `lib` to ES2023, fixing thirteen call sites that the repo's own `.sort()` autofix had written against an ES2022 pin. Both were main-is-red fixes, not feature work |
 | 08-10 | 147 | #187 calendar slice 2 (fork guard: partial indexes were missing from the drizzle schema behind a false comment), #188 translation design, #189 trust authority design, #190 Kitesurf assessment, #191 self-serve tier + free tier design |
 | 08-08 | 142 | Owner returned; translation services researched. Usage incident: work paused, heartbeat disabled, later restored at 3 hours |
 | 08-07 ~14:10 | 139 | #179 calendar design, #180 test-race pair — worker suite 214 files / 1569 tests green under parallelism for the first time, #181 escheat research, #182 catalog follow-ups |

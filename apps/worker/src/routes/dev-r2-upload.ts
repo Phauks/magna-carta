@@ -5,6 +5,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { objectDimensionsFromHeaders } from "@magna-carta/object-dimensions/dimensions";
 import { problemJson } from "../contracts/problem.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
@@ -108,7 +109,12 @@ export function registerDevR2UploadRoute(app: DevUploadApp, chokepoint: Chokepoi
       // because Miniflare's R2 put stores nothing for an unknown-length stream; a dev upload is small
       // and this is not a production write path.
       const { bucket, bucketName } = resolveFirmBucket(c.env, firm.bucketName);
-      await bucket.put(key, bytes);
+      // The stamp travels the way it travels in production: as the metadata headers the presigner
+      // signed and the client echoed back. Reading them off the request rather than rebuilding them
+      // here is what makes this route exercise a client that sends them.
+      await bucket.put(key, bytes, {
+        customMetadata: objectDimensionsFromHeaders(c.req.raw.headers),
+      });
       await enqueueDevIngestEvent(c.env, bucketName, key, bytes.byteLength);
       return c.body(null, 200);
     },
@@ -153,6 +159,9 @@ export function registerDevR2UploadRoute(app: DevUploadApp, chokepoint: Chokepoi
         });
       }
       const bytes = await c.req.arrayBuffer();
+      // fitness:allow-no-dimensions — a staged part is not an object: it lives under the development
+      // staging prefix, is never enqueued for ingest, and is deleted when the completion assembles the
+      // real object (which carries the stamp its multipart create was given).
       const stored = await c.env.R2.put(`__dev-multipart/${uploadId}/${partNumberRaw}`, bytes);
       // The part ETag (R2 returns one; the client reads it to build the complete manifest). Same-origin,
       // so the header is readable with no CORS exposure — which is exactly why this route cannot prove

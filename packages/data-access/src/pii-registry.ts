@@ -106,6 +106,23 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
+  // A record custodian is whose ELECTRONIC RECORDS were loaded into a review set — a person or an
+  // organization named by the firm or by a production. It is the one discovery table with a
+  // structured subject column: the optional Directory link, which resolves the custodian to an
+  // entity when the firm has a record of them (a production may name somebody the firm has never
+  // met, and that row carries no id at all).
+  //
+  // Retained under the matter, on the matter_party line: whose records a corpus was drawn from is
+  // itself a matter record, and a review set whose attribution had been scrubbed could not answer
+  // "which custodians held this document" — which is asked under oath. The subject-side scrub
+  // happens at the Directory entity, as it does for matter_party; the display_name frozen here is
+  // the same as-at-collection record email_message.from_address is, for the same reason.
+  {
+    table: "record_custodian",
+    subjectKey: "directory_entity_id",
+    action: "retain-under-matter",
+    note: "whose records a corpus was drawn from is a matter record; the frozen display name is the as-at-collection attribution, which is content-level residue",
+  },
   // Email filing — a captured message is correspondence on the matter file, so the retention basis is
   // the matter corpus and the subject-side scrub happens at the Directory entity, as with matter_party.
   // These rows resolve to a subject by frozen address VALUE as well as by resolved entity id, the only
@@ -333,6 +350,30 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
+  // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
+  // matter event's, for the same three shapes — but the retention basis differs: attendance at the
+  // all-hands or a training session is the firm's operational record, not a matter's litigation
+  // record, so there is no Art. 17(3) ground to retain a name against its subject's request.
+  // Anonymize scrubs the reference and keeps the row: the meeting happened and the headcount
+  // stands, but nothing ties the erased person to it.
+  {
+    table: "firm_event_participant",
+    subjectKey: "entity_id",
+    action: "anonymize",
+    note: "a Directory contact at a firm meeting; the subject-side scrub happens at the entity, and the attendance row itself carries no retention obligation",
+  },
+  {
+    table: "firm_event_participant",
+    subjectKey: "participant_name",
+    action: "anonymize",
+    note: "an external attendee (a visiting CLE speaker) with no Directory record — the only handle erasure has on them",
+  },
+  {
+    table: "firm_event_participant",
+    subjectKey: "member_user_id",
+    action: "anonymize",
+    note: "a firm member's attendance at the firm's own event — activity, with no matter retention basis behind it",
+  },
   // The matter asset register. Its METADATA alone is a disclosure: "this person owns these eleven
   // things" needs no document attached to be sensitive. Four of its tables carry a structured
   // reference to a person or that person's home; the rest of the group is catalog, structure, and
@@ -371,10 +412,121 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "a sealed account or tax number on a scheduled asset; crypto-shred reaches the sealed value",
   },
+  // A business interest optionally points at the Directory organization the company already is.
+  {
+    table: "matter_asset_business_interest",
+    subjectKey: "entity_organization_id",
+    action: "retain-under-matter",
+    note: "the company a scheduled interest is held in, where the firm linked a Directory organization",
+  },
+  // Whose life the policy covers — a named person, on the same reasoning the interest link takes:
+  // whose property this is IS the matter's record, and the subject-side scrub happens at the Directory
+  // entity. The carrier organization is keyed at the same grain rather than as a second row, because
+  // one table takes one subject key and the insured is the personal half of it.
+  {
+    table: "matter_asset_insurance_policy",
+    subjectKey: "insured_entity_id",
+    action: "retain-under-matter",
+    note: "whose life or property a scheduled policy covers is itself that matter's record",
+  },
+  {
+    table: "matter_asset_receivable",
+    subjectKey: "debtor_entity_id",
+    action: "retain-under-matter",
+    note: "who owes money to the estate is a fact of the schedule, not a fact about the firm",
+  },
+  // Who holds the charge. `holder_name` is free text where no Directory record exists — the custody
+  // borrower precedent — so the row is keyed on the handle and the free-text name travels with it as
+  // matter residue rather than being left unattributed.
+  {
+    table: "matter_asset_encumbrance",
+    subjectKey: "holder_entity_id",
+    action: "retain-under-matter",
+    note: "the lender or lienholder secured against a scheduled asset, named on the matter's record",
+  },
   // The valuation history is append-only by trigger, so its one subject reference — the firm member
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
   { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
+  // Matter staffing: which firm member carried a matter, in which role, over which dates. Retained
+  // as the matter's record on the same line time_entry.timekeeper_user_id sits on — who worked a
+  // file is that file's history, not current operational state.
+  {
+    table: "matter_assignment",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "who was staffed on a matter, and in what role, is that matter's record",
+  },
+  // A member's professional identity as documents state it — title, admissions, direct dial,
+  // professional email, signature block. The member's own current-state data with no matter
+  // retention basis, so it is deletable outright at the subject.
+  { table: "member_professional_profile", subjectKey: "member_user_id", action: "hard-delete" },
+  // The court-case record names two people-adjacent Directory references: the court organisation
+  // and the assigned judge. Both are the matter's own identity facts — which court a case is before
+  // is the caption — and the subject-side scrub happens at the Directory entity, as matter_party.
+  {
+    table: "matter_court_case",
+    subjectKey: "judge_entity_id",
+    action: "retain-under-matter",
+    note: "which judge a matter's case is assigned to is the case's own identity",
+  },
+  {
+    table: "matter_court_case",
+    subjectKey: "court_entity_id",
+    action: "retain-under-matter",
+    note: "which court a matter's case is before is the caption's own fact",
+  },
+  // The estate record names the decedent (a Directory person) and, where the firm keeps one, the
+  // estate's own Directory organisation. A probate matter IS about the decedent; the record of whom
+  // it administered is the matter's record, and the subject-side scrub happens at the Directory
+  // entity. The stored styles repeat the decedent's name as free text fixed by a court — surfaced
+  // by the residue report on the same basis as other frozen legal designations.
+  {
+    table: "matter_estate",
+    subjectKey: "decedent_entity_id",
+    action: "retain-under-matter",
+    note: "whose estate a probate matter administers is that matter's own identity",
+  },
+  {
+    table: "matter_estate",
+    subjectKey: "estate_entity_id",
+    action: "retain-under-matter",
+    note: "the estate's own Directory record, where the firm keeps one",
+  },
+  // Notifications. Four of the five tables key to a member — not as provenance on somebody else's
+  // record, but as the member's OWN feed: what they were told, whether they dealt with it, whether
+  // a copy was mailed to them, and how much aged out unread while they were away. That is activity
+  // about the subject, the line time_entry.timekeeper_user_id sits on.
+  //
+  // The action is HARD-DELETE, and it is the one place in this registry where that is the easy call
+  // rather than the aggressive one. A notification is a POINTER and never a record: the thing it
+  // points at — the ledger entry, the invoice, the deadline, the audit_log row — is the record, is
+  // registered here in its own right, and stays exactly where it is. Erasing a member's feed
+  // therefore removes no evidence and breaks no reconciliation; it removes stale pointers to
+  // evidence that is still there. These rows are already deleted wholesale by the retention sweep
+  // on the firm's configured window, so erasure is doing early and by subject what the platform
+  // already does on a clock.
+  {
+    table: "notification_recipient",
+    subjectKey: "recipient_user_id",
+    action: "hard-delete",
+    note: "the member's own feed — pointers to records that are retained and registered separately",
+  },
+  // The outbound-channel row resolves to its subject through the recipient row it belongs to
+  // (notification_recipient_id -> notification_recipient.recipient_user_id), a two-hop rather than a
+  // direct column, exactly as directory_name_phonetic_code resolves through directory_name.
+  {
+    table: "notification_delivery",
+    subjectKey: "notification_recipient_id",
+    action: "hard-delete",
+  },
+  { table: "notification_digest_run", subjectKey: "recipient_user_id", action: "hard-delete" },
+  {
+    table: "notification_swept_unread",
+    subjectKey: "recipient_user_id",
+    action: "hard-delete",
+    note: "a per-member tally of how many pointers aged out unread; carries a count and two instants and nothing about what they pointed at",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -552,6 +704,13 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance about a firm control, the line custody_destruction_request sits on. The payee the
   // request named is registered above; nothing about a data subject is repeated here.
   "trust_disbursement_decision",
+  // The firm's disbursement-authorization posture, one immutable row per version: a policy kind, a
+  // threshold, a flag, and firm-member provenance (set_by) — configuration about a firm control,
+  // the line firm_account_role sits on.
+  "trust_authorization_policy",
+  // One invoice-and-amount a pending earned-fee application proposes to settle: two handles and an
+  // amount. Whose bill it is resolves through the invoice, never through a column here.
+  "invoice_trust_application_line",
   // A bank statement is the institution's report about the FIRM's own bank account — a period, two
   // balances, and the firm's reference for it. It is the same line `trust_account` sits on; the one
   // column about anybody else is the line's counterparty, registered above.
@@ -572,6 +731,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // A derived balance: an invoice, a matter, and two integers. It is the line account_balance sits
   // on, and whose money it concerns resolves through the invoice.
   "invoice_matter_balance",
+  // One unit of value reaching an invoice: two handles, a kind, an amount, the trust transfer or the
+  // earlier application it came from, an effective date, and firm-member provenance (applied_by).
+  // The member who applied client money to a bill is administrative provenance on a money record —
+  // the line trust_transfer.authorized_by sits on — and whose money it was resolves through the
+  // invoice and the trust transfer, never through a column here.
+  "invoice_application",
   // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
   // value. Nothing about any person.
   "invoice_number_counter",
@@ -579,6 +744,17 @@ export const NO_PII_TABLES: readonly string[] = [
   // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
   // by another name, and configuration rather than personal data (the line `rate_card` sits on).
   "firm_account_role",
+  // The fee agreement: how a matter is billed — a kind, its amounts, and a validity window, in the
+  // effective-dated shape `rate` sits on. Business configuration about a MATTER; whose matter it is
+  // resolves through matter_party, never through a column here.
+  "matter_billing_arrangement",
+  // A recorded recovery: a matter handle, an amount, a date, and firm-member provenance. Its
+  // description is the firm's own narrative of a settlement or judgment — free text with no
+  // structured subject, the residue class matter.description established.
+  "matter_recovery",
+  // A replenishment ask: a matter, an arrangement version, two observed integers, and firm-member
+  // provenance on who raised and who resolved it. Nothing about a person of its own.
+  "retainer_replenishment_request",
   // The case calendar. The one table that references a person (matter_event_participant) is
   // registered in PII_TABLES above; these three carry no structured personal-data column.
   // The event-type catalog is a classification vocabulary (hearing, deposition, filing), the line
@@ -596,6 +772,24 @@ export const NO_PII_TABLES: readonly string[] = [
   // reason, and satisfaction note are the same free-text residue class the event's title sits in;
   // recorded_by / satisfied_by are firm-member provenance on a control row about a date.
   "matter_deadline",
+  // The firm's own calendar scope. The one table that references a person (firm_event_participant)
+  // is registered in PII_TABLES above; these four carry no structured personal-data column.
+  // A firm event describes something the FIRM scheduled: its type, when and where, its audience,
+  // and firm-member provenance (recorded_by). Its title and description are free text that can name
+  // a person ("Retirement lunch for J. Alvarez") — the residue class matter.description
+  // established, handled by the residue report. Who attended IS keyed, on firm_event_participant.
+  "firm_event",
+  // A resource is a THING the firm owns — a room's name, kind, office, and capacity. Nothing about
+  // any person; the notes column is the ordinary free-text residue class.
+  "firm_resource",
+  // A booking is a claim on a room for an event's sake: two handles, a window, a zone, and
+  // firm-member provenance (recorded_by). Whose proceeding occupies the room resolves through the
+  // event, never through a column here.
+  "firm_resource_booking",
+  // A link is two event handles, a closed kind, a note, and firm-member provenance (recorded_by).
+  // The note is free text in the ordinary residue class; the events on its ends carry their own
+  // entries.
+  "calendar_event_link",
   // The matter asset register. The five tables that reference a person or a person's home are
   // registered in PII_TABLES above; these two carry no structured personal-data column.
   // The asset-type catalog is a classification vocabulary under a platform class (single-family
@@ -613,4 +807,53 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
+  // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
+  // digital asset's platform, its public handle, and who holds it. Every identifier on them is public
+  // record — a title, a registration, a bill of sale — and none of them names an owner, because who
+  // owns the thing is matter_asset_interest's fact and is keyed there. The digital-asset row carries no
+  // credential column at all, by design and by the schema.
+  "matter_asset_vehicle",
+  "matter_asset_firearm",
+  "matter_asset_digital_asset",
+  // Discovery — the corpus under review. The one table that names a data subject
+  // (record_custodian) is registered in PII_TABLES above; these five carry no structured
+  // personal-data column of their own.
+  //
+  // A review set is a matter's named corpus: its name, its lifecycle, its ceiling, and firm-member
+  // provenance (created_by). Its name is free text and can name a person ("Smith mailbox
+  // collection"), which is the residue class matter.description and custody_item.description
+  // established — content with no structured subject column to resolve.
+  "review_set",
+  // A load is one recorded act: its lane, its counts, where the loader said it came from, and
+  // firm-member provenance (initiated_by). The source description is the same free-text residue
+  // class. Whose records the load carried IS keyed, on record_custodian above.
+  "discovery_load",
+  // A REVIEW DOCUMENT IS A POINTER, and this is the entry that says so. It holds no content and
+  // copies none: what it points at is a `file_version` or an `email_message`, and the retention of
+  // the thing pointed at is expressed by THAT row's entry (file, email_message), exactly as for
+  // custody_scan and matter_asset_document. The columns of its own are digests, an R2 key, a page
+  // count, a format name, and a date — facts about bytes, resolving to no data subject. Whose
+  // records the document was resolves through record_custodian, which is keyed.
+  //
+  // The consequence worth stating: erasing a data subject does not reach into a review set, and
+  // must not. The corpus under review is a matter record retained under the same basis as the
+  // matter file, and a discovery corpus that quietly lost documents when somebody exercised an
+  // erasure right would be a corpus a firm could not certify.
+  "review_document",
+  // A named reason a document did not process: a stage, a closed code, and a detail that is
+  // explicitly never file content. Nothing about any person.
+  "review_document_exception",
+  // One further copy of a deduplicated document — five handles and a timestamp. It exists precisely
+  // to PRESERVE attribution, and whose attribution resolves through record_custodian.
+  "review_document_occurrence",
+  // Notifications. The four tables keyed to a member are registered in PII_TABLES above; the event
+  // row itself carries no column about anybody. It is a kind, a category, a severity, the handle of
+  // the record it points at, the matter that anchors its visibility, two instants, and a `facts`
+  // blob whose values are restricted BY A VALIDATED GRAMMAR to identifiers, integers, booleans,
+  // declared enum labels, and dates. There is deliberately no free-text residue class here at all —
+  // unlike matter.description or custody_item.description, this row cannot hold a string a person
+  // typed, which is the property the whole subsystem is built around. Who was told about it is
+  // notification_recipient's fact and is keyed there.
+  "notification_event",
 ];

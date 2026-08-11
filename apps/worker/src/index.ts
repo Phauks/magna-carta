@@ -15,9 +15,15 @@ import { magnusQueue } from "./magnus/magnus-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
+import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
-import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
+import {
+  runNotificationRetentionSweep,
+  runScheduledSweep,
+  runStatusSnapshot,
+  runStorageReconciliation,
+} from "./scheduled.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
@@ -54,6 +60,11 @@ export { SearchIndexJob } from "./search/index-coordinator.ts";
 // NO conversation content — it reads turn state back from the firm's own database and pushes it.
 // Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { MagnusConversation } from "./magnus/magnus-conversation.ts";
+
+// One discovery load's fan-out coordinator, keyed firmId:loadId. It holds the load's cursor and chunk
+// state in durable storage and nothing on the instance, so an eviction mid-fan-out resumes where the
+// load actually got to. Exported so the runtime can instantiate the class named in wrangler.jsonc.
+export { DiscoveryLoadCoordinator } from "./discovery/discovery-load-coordinator.ts";
 
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
@@ -123,11 +134,18 @@ export default {
             run: async () => {
               await runStorageReconciliation(env);
               await runTieringSweep(env);
+              // After tiering, because both rewrite objects and this one carries across whatever
+              // storage class it finds — so it repairs what tiering has already settled rather than
+              // racing it, and the next day's reconciliation backstops both.
+              await runDimensionBackfillSweep(env);
               await runIdleCheckoutSweep(env);
               // Last: it only enqueues, so its cost lands on the search-index queue rather than on
               // this pass, and running it after the storage work means a firm whose bytes were just
               // reconciled is swept against the corrected picture.
               await runReextractionSweep(env);
+              // Last on the daily pass, and cheap: a bounded delete per firm over pointers whose
+              // records are all still where their own subsystems keep them.
+              await runNotificationRetentionSweep(env);
             },
           }
         : controller.cron === STATUS_SNAPSHOT_CRON

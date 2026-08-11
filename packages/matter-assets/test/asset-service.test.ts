@@ -13,6 +13,7 @@ import {
   readMatterAssetRealProperty,
 } from "@magna-carta/matter-assets/asset-statements";
 import { readMatterAssetTypes } from "@magna-carta/matter-assets/asset-type-statements";
+import { MATTER_ASSET_CLASS_REGISTRY } from "@magna-carta/matter-assets/classes";
 import { readMatterAssetPage } from "@magna-carta/matter-assets/queries";
 import { MAX_MATTER_ASSET_BATCH } from "@magna-carta/matter-assets/types";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -91,14 +92,86 @@ describe("recording an asset", () => {
     ).rejects.toMatchObject({ code: "matter-asset-type-class-mismatch" });
   });
 
-  it("refuses a class whose structured attributes have not shipped yet, by name", async () => {
+  it("records an asset of every class the registry declares", async () => {
+    // The register's classes are now complete: each of the ten either has its attribute table or is
+    // deliberately structureless. A class the registry declares but the write path refuses is the
+    // state slice 4·3·1 shipped in and is what this asserts we have left.
+    for (const declaration of MATTER_ASSET_CLASS_REGISTRY) {
+      const created = await createMatterAsset(
+        database,
+        {
+          matterId: MATTER,
+          assetClass: declaration.key,
+          description: `A thing of class ${declaration.key}`,
+        },
+        options,
+      );
+      expect(created.assetId, declaration.key).toMatch(/^matterAsset_/);
+    }
+  });
+
+  it("refuses a class the registry does not declare at all", async () => {
     await expect(
       createMatterAsset(
         database,
-        { matterId: MATTER, assetClass: "firearm", description: "Shotgun in the safe" },
+        { matterId: MATTER, assetClass: "spaceship", description: "Not a class" },
         options,
       ),
-    ).rejects.toMatchObject({ code: "matter-asset-class-unavailable" });
+    ).rejects.toMatchObject({ code: "matter-asset-unknown-class" });
+  });
+
+  it("refuses one class's attributes on another class's asset, for every pairing", async () => {
+    // A vehicle field quietly dropped on a firearm is data a person believes they recorded, and they
+    // do not find out until the schedule is short a column on the one occasion it matters.
+    await expect(
+      createMatterAsset(
+        database,
+        {
+          matterId: MATTER,
+          assetClass: "firearm",
+          description: "Shotgun in the safe",
+          vehicle: { vehicleIdentificationNumber: "1HGCM82633A004352" },
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "matter-asset-type-class-mismatch" });
+  });
+
+  it("writes a firearm's serial and a vehicle's identification number as plaintext columns", async () => {
+    // The line this register draws: an identifier on a PUBLIC RECORD is an ordinary searchable column,
+    // and an identifier that functions as a credential-adjacent secret is sealed. A serial is on the
+    // bill of sale and a vehicle identification number is etched in the windscreen.
+    const firearm = await createMatterAsset(
+      database,
+      {
+        matterId: MATTER,
+        assetClass: "firearm",
+        description: "Shotgun",
+        firearm: { make: "Beretta", serialNumber: "A1234567" },
+      },
+      options,
+    );
+    const firearmStatements = firearm.effect.statements as unknown as { sql: string }[];
+    const firearmWrite = firearmStatements.find((statement) =>
+      statement.sql.includes("matter_asset_firearm"),
+    );
+    expect(firearmWrite?.sql).toContain("serial_number");
+
+    const vehicle = await createMatterAsset(
+      database,
+      {
+        matterId: MATTER,
+        assetClass: "vehicle",
+        description: "Truck",
+        vehicle: { vehicleIdentificationNumber: "1HGCM82633A004352", modelYear: 2019 },
+      },
+      options,
+    );
+    const vehicleStatements = vehicle.effect.statements as unknown as { sql: string }[];
+    const vehicleWrite = vehicleStatements.find((statement) =>
+      statement.sql.includes("matter_asset_vehicle"),
+    );
+    expect(vehicleWrite?.sql).toContain("vehicle_identification_number");
   });
 
   it("refuses an empty description", async () => {

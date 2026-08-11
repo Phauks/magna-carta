@@ -1,5 +1,9 @@
 import { AwsClient } from "aws4fetch";
 import { BULK_PREFIX } from "@magna-carta/file-manager/file-statements";
+import {
+  objectDimensionHeaders,
+  type ObjectDimensions,
+} from "@magna-carta/object-dimensions/dimensions";
 import type { R2EventMessage } from "./ingest-consumer.ts";
 
 // The R2 presigner: every byte of an upload or download flows DIRECTLY between the client and R2's
@@ -8,16 +12,28 @@ import type { R2EventMessage } from "./ingest-consumer.ts";
 // client uses directly and the server-side multipart create/complete/abort calls — the narrowest
 // credential that still lets the bytes bypass the Worker.
 //
-// presignPut/presignUploadPart return a query-signed URL string (the client uploads to it).
+// presignPut returns a query-signed URL plus the headers the client must send with it;
+// presignUploadPart returns a query-signed URL string (the client uploads to it).
 // createMultipartUpload/completeMultipartUpload/abortMultipartUpload are server-side S3 calls the
 // Worker makes itself (header-signed), so they take an injectable fetch for testing.
+
+// What a presigned PUT returns: the URL, and the headers the client MUST send with it. The metadata
+// headers are part of the signature, so a client that drops one gets a rejected upload rather than an
+// object nothing can scope — the stamp cannot be silently lost on the one write path the Worker does
+// not perform itself.
+export interface PresignedPut {
+  readonly url: string;
+  readonly headers: Record<string, string>;
+}
+
 export interface R2Presigner {
   presignPut(
     bucket: string,
     key: string,
     contentType: string,
     expiresSeconds: number,
-  ): Promise<string>;
+    dimensions: ObjectDimensions,
+  ): Promise<PresignedPut>;
   // A query-signed GET URL the client downloads the object directly from — the download-path twin of
   // presignPut. No content-type is signed (a GET sends no body), so the signed header set is just host.
   presignGet(bucket: string, key: string, expiresSeconds: number): Promise<string>;
@@ -32,6 +48,7 @@ export interface R2Presigner {
     bucket: string,
     key: string,
     contentType: string,
+    dimensions: ObjectDimensions,
   ): Promise<{ uploadId: string }>;
   completeMultipartUpload(
     bucket: string,
@@ -72,19 +89,23 @@ export function createR2Presigner(options: R2PresignerOptions): R2Presigner {
   const objectUrl = (bucket: string, key: string) => `${endpoint}/${bucket}/${encodeKey(key)}`;
 
   return {
-    async presignPut(bucket, key, contentType, expiresSeconds) {
+    async presignPut(bucket, key, contentType, expiresSeconds, dimensions) {
       const url = `${objectUrl(bucket, key)}?X-Amz-Expires=${expiresSeconds}`;
       // The Content-Type header is signed (X-Amz-SignedHeaders), binding the upload to the declared
       // type — the client must send a matching Content-Type, and the ingest gate re-sniffs the bytes.
       // allHeaders is required because aws4fetch treats content-type as unsignable by default (a
-      // browser-mutable header); the only header signed here is the one we set, so the signed set is
-      // exactly content-type;host.
+      // browser-mutable header); the only headers signed here are the ones we set, so the signed set is
+      // exactly content-type;host plus one entry per stamped dimension.
+      //
+      // Signing the metadata headers is what makes the stamp non-optional on the one write path whose
+      // bytes never touch the Worker: an upload missing one of them fails the signature check at R2.
+      const headers = { "content-type": contentType, ...objectDimensionHeaders(dimensions) };
       const signed = await client.sign(url, {
         method: "PUT",
-        headers: { "content-type": contentType },
+        headers,
         aws: { signQuery: true, allHeaders: true },
       });
-      return signed.url;
+      return { url: signed.url, headers };
     },
 
     async presignGet(bucket, key, expiresSeconds) {
@@ -101,10 +122,12 @@ export function createR2Presigner(options: R2PresignerOptions): R2Presigner {
       return signed.url;
     },
 
-    async createMultipartUpload(bucket, key, contentType) {
+    async createMultipartUpload(bucket, key, contentType, dimensions) {
+      // Object metadata is fixed at create for a multipart upload — the parts carry none and the
+      // completion carries none — so the stamp rides this call or it never lands at all.
       const signed = await client.sign(`${objectUrl(bucket, key)}?uploads`, {
         method: "POST",
-        headers: { "content-type": contentType },
+        headers: { "content-type": contentType, ...objectDimensionHeaders(dimensions) },
       });
       const response = await doFetch(signed);
       if (!response.ok) {
@@ -205,9 +228,21 @@ export async function enqueueDevIngestEvent(
 export function createDevR2Presigner(env: DevUploadEnv): R2Presigner {
   const stagingKey = (uploadId: string, partNumber: number): string =>
     `${DEV_MULTIPART_STAGING_PREFIX}/${uploadId}/${partNumber}`;
+  // Where this session's object metadata waits between create and complete. R2 holds that state on its
+  // own side of a real multipart upload; here the assembly is ours, so the state is ours too — and it
+  // goes to storage rather than to an in-process map because create and complete are separate requests
+  // with separate presigner instances. The staging prefix ends in a name no part number can take, so it
+  // is skipped by the part loop and swept by the abort listing like everything else.
+  const dimensionsKey = (uploadId: string): string =>
+    `${DEV_MULTIPART_STAGING_PREFIX}/${uploadId}/dimensions`;
   return {
-    presignPut(_bucket, key) {
-      return Promise.resolve(`/api/__dev/r2/object?key=${encodeURIComponent(key)}`);
+    presignPut(_bucket, key, _contentType, _expiresSeconds, dimensions) {
+      // The same headers the production presigner signs, returned the same way — so the development
+      // path exercises a client that sends the stamp rather than one that never had to.
+      return Promise.resolve({
+        url: `/api/__dev/r2/object?key=${encodeURIComponent(key)}`,
+        headers: objectDimensionHeaders(dimensions),
+      });
     },
     // Download/preview is out of scope for the development upload path (its player needs a bound
     // FILES_ORIGIN), so the GET presigner keeps the deterministic non-network stub the local download
@@ -222,11 +257,17 @@ export function createDevR2Presigner(env: DevUploadEnv): R2Presigner {
           `&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
       );
     },
-    createMultipartUpload(_bucket, _key) {
-      // No R2 state is created here — parts are staged lazily as they arrive and complete assembles
+    async createMultipartUpload(_bucket, _key, _contentType, dimensions) {
+      // No object is created here — parts are staged lazily as they arrive and complete assembles
       // them, so a lost idempotency race can leave no orphaned upload. The synthetic id namespaces
-      // this session's staged parts; it stands in for R2's UploadId.
-      return Promise.resolve({ uploadId: `dev-multipart-${crypto.randomUUID()}` });
+      // this session's staged parts; it stands in for R2's UploadId. Only the session's own metadata is
+      // parked, under that same id, so completion stamps what creation was told.
+      const uploadId = `dev-multipart-${crypto.randomUUID()}`;
+      // fitness:allow-no-dimensions — this object IS the parked stamp, not a firm object: it lives
+      // under the development staging prefix, is never enqueued for ingest, and is deleted by the
+      // completion or the abort that follows it.
+      await env.R2.put(dimensionsKey(uploadId), JSON.stringify(dimensions));
+      return { uploadId };
     },
     async completeMultipartUpload(bucket, key, uploadId, parts) {
       // Assemble the staged parts in ascending part-number order into the final object — written where
@@ -252,10 +293,13 @@ export function createDevR2Presigner(env: DevUploadEnv): R2Presigner {
         combined.set(chunk, offset);
         offset += chunk.byteLength;
       }
-      await env.R2.put(key, combined);
+      const parked = await env.R2.get(dimensionsKey(uploadId));
+      const dimensions = parked === null ? {} : ((await parked.json()) as Record<string, string>);
+      await env.R2.put(key, combined, { customMetadata: dimensions });
       for (const part of ordered) {
         await env.R2.delete(stagingKey(uploadId, part.partNumber));
       }
+      await env.R2.delete(dimensionsKey(uploadId));
       await enqueueDevIngestEvent(env, bucket, key, total);
     },
     async abortMultipartUpload(_bucket, _key, uploadId) {

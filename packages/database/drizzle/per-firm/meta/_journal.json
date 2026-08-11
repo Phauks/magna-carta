@@ -288,6 +288,76 @@
       "when": 1785992400000,
       "tag": "20260806T050000_magnus-conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1785996000000,
+      "tag": "20260806T060000_billing-trust-application",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1785999600000,
+      "tag": "20260806T070000_matter-asset-classes-and-encumbrances",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1786003200000,
+      "tag": "20260806T080000_discovery-5-1-2",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1786068000000,
+      "tag": "20260807T020000_notifications-delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1786075200000,
+      "tag": "20260807T040000_matter-staffing",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1786075800000,
+      "tag": "20260807T041000_matter-court-case",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1786076400000,
+      "tag": "20260807T042000_matter-estate-and-capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1786078800000,
+      "tag": "20260807T050000_trust-authorization-policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1786082400000,
+      "tag": "20260807T060000_billing-fee-models",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1786086000000,
+      "tag": "20260807T070000_calendar-firm-events-resources-links",
+      "breakpoints": true
     }
   ]
 }

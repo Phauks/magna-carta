@@ -2,6 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { findPath } from "@magna-carta/conversion/pathfinding";
 import { getFormat } from "@magna-carta/conversion/registry";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -43,7 +44,14 @@ const conversionMeta: RouteMeta = {
 };
 
 const ConversionUploadResponse = z
-  .object({ jobId: z.string(), uploadUrl: z.string(), sourceKey: z.string() })
+  .object({
+    jobId: z.string(),
+    uploadUrl: z.string(),
+    // The headers the upload must carry. They are covered by the URL's signature, so an upload that
+    // sends anything less is rejected by storage rather than landing an object nothing can classify.
+    uploadHeaders: z.record(z.string(), z.string()),
+    sourceKey: z.string(),
+  })
   .openapi("ConversionUploadResponse");
 
 const conversionUploadRoute = defineOpenAPIRoute(conversionMeta, {
@@ -255,13 +263,17 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
       const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       const jobId = newIdentifier("conversionJob");
       const sourceKey = `conversions/${firmId}/${jobId}/source`;
-      const uploadUrl = await presignerForEnv(c.env).presignPut(
+      const presigned = await presignerForEnv(c.env).presignPut(
         bucketName,
         sourceKey,
         "application/octet-stream",
         PRESIGN_TTL_SECONDS,
+        firmScopedObjectDimensions("conversion-artifact"),
       );
-      return c.json({ jobId, uploadUrl, sourceKey }, 200);
+      return c.json(
+        { jobId, uploadUrl: presigned.url, uploadHeaders: presigned.headers, sourceKey },
+        200,
+      );
     },
   );
 

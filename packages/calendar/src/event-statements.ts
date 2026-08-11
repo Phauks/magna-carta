@@ -21,6 +21,9 @@ export interface MatterEventRow {
   readonly title: string;
   readonly description: string | null;
   readonly status: MatterEventStatus;
+  // Why this setting is no longer happening, when it is not — set by the cancel and continuance
+  // paths, null otherwise.
+  readonly status_reason: string | null;
   readonly starts_on: string;
   readonly starts_at_time: string | null;
   readonly ends_on: string | null;
@@ -45,7 +48,7 @@ export interface MatterEventParticipantRow {
 }
 
 const EVENT_COLUMNS =
-  "id, matter_id, event_type_id, title, description, status, starts_on, starts_at_time, ends_on, " +
+  "id, matter_id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
   "ends_at_time, time_zone, location_text, court_reference, recorded_at, recorded_by, created_at, updated_at";
 
 export interface InsertMatterEventInput {
@@ -73,7 +76,7 @@ export function insertMatterEventStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_EVENT_TABLE} (${EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16)`,
+      `INSERT INTO ${MATTER_EVENT_TABLE} (${EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?17)`,
     )
     .bind(
       input.id,
@@ -82,6 +85,9 @@ export function insertMatterEventStatement(
       input.title,
       input.description,
       input.status,
+      // A new setting starts with no status reason: the column belongs to cancellation and
+      // continuance, which are the only paths that write it.
+      null,
       input.startsOn,
       input.startsAtTime,
       input.endsOn,
@@ -143,12 +149,18 @@ export function cancelMatterEventStatement(
   database: SqlDatabase,
   id: MatterEventId,
   updatedAt: string,
+  statusReason: string | null = null,
 ): SqlStatement {
   // Cancelled, never deleted: a hearing that was taken off is a fact about the case, and a firm that
-  // has to prove it was vacated cannot do so from a row that is gone.
+  // has to prove it was vacated cannot do so from a row that is gone. The reason is optional — an
+  // outright cancellation does not always deserve a paragraph — and this statement touches ONLY the
+  // status, its reason, and updated_at: the continuance path relies on every historical column of
+  // the vacated setting staying byte-identical.
   return database
-    .prepare(`UPDATE ${MATTER_EVENT_TABLE} SET status = 'cancelled', updated_at = ?2 WHERE id = ?1`)
-    .bind(id, updatedAt);
+    .prepare(
+      `UPDATE ${MATTER_EVENT_TABLE} SET status = 'cancelled', status_reason = ?3, updated_at = ?2 WHERE id = ?1`,
+    )
+    .bind(id, updatedAt, statusReason);
 }
 
 // The single-event read. It resolves by identifier, which is exactly why it takes the predicate: an
@@ -211,6 +223,25 @@ export function selectMatterEventsStatement(
         `ORDER BY starts_on DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings);
+}
+
+// The chain read's bulk resolve: the settings of one continuance chain by their identifiers, under
+// the same predicate every read of this table carries. The projection is the chain node's shape —
+// dates, status, and reason — and deliberately not the full row: the chain is procedural history,
+// not an edit surface.
+export function selectMatterEventChainNodesStatement(
+  database: SqlDatabase,
+  ids: readonly MatterEventId[],
+  visibility: VisibleMatterPredicate,
+): SqlStatement {
+  const placeholders = ids.map(() => "?").join(", ");
+  return database
+    .prepare(
+      `SELECT id, starts_on, starts_at_time, time_zone, status, status_reason FROM ${MATTER_EVENT_TABLE} ` +
+        `WHERE id IN (${placeholders}) AND ` +
+        visibility.fragmentFor(`${MATTER_EVENT_TABLE}.matter_id`),
+    )
+    .bind(...ids, ...visibility.bindings);
 }
 
 export function insertMatterEventParticipantStatement(

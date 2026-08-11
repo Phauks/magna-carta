@@ -187,6 +187,11 @@ export const ENTITY_PREFIXES = {
   trustMovement: "trustMovement",
   trustDisbursementRequest: "trustDisbursementRequest",
   trustDisbursementDecision: "trustDisbursementDecision",
+  // A `trustAuthorizationPolicy` is one immutable version of the firm's disbursement-authorization
+  // posture — off, threshold, or always, plus whether the deciding member must hold the authority
+  // capability. The current policy is the highest version; a pending request keeps the version it
+  // was created under.
+  trustAuthorizationPolicy: "trustAuthorizationPolicy",
   trustBankStatement: "trustBankStatement",
   trustBankStatementLine: "trustBankStatementLine",
   trustReconciliation: "trustReconciliation",
@@ -205,12 +210,23 @@ export const ENTITY_PREFIXES = {
   invoiceLine: "invoiceLine",
   invoiceWipClaim: "invoiceWipClaim",
   invoiceApplication: "invoiceApplication",
+  // An `invoiceTrustApplicationLine` is one invoice-and-amount a pending earned-fee application
+  // request proposes to settle — the particulars an approving member is approving, stored beside
+  // the shared trust_disbursement_request row the queue and its decision discipline live on.
+  invoiceTrustApplicationLine: "invoiceTrustApplicationLine",
   creditNote: "creditNote",
   creditNoteLine: "creditNoteLine",
   clientCredit: "clientCredit",
   invoiceDelivery: "invoiceDelivery",
   billingArrangement: "billingArrangement",
   taxRate: "taxRate",
+  // A `matterRecovery` is one recorded recovery on a matter — a settlement, judgment, or award — the
+  // amount a contingency fee is computed FROM at invoice time; the fee itself is always derived,
+  // never stored on the recovery. A `retainerReplenishmentRequest` records that a matter's trust
+  // balance fell below the retainer arrangement's floor and by how much, so the ask is a record the
+  // firm can act on rather than a number somebody once noticed.
+  matterRecovery: "matterRecovery",
+  retainerReplenishmentRequest: "retainerReplenishmentRequest",
   // The case calendar. A `matterEvent` is one thing that happened or will happen in the case that no
   // other subsystem records — a hearing, a filing, service, an order, a deposition; a
   // `matterEventType` is the per-firm classification catalog behind it; a `matterEventParticipant`
@@ -221,6 +237,20 @@ export const ENTITY_PREFIXES = {
   matterEventType: "matterEventType",
   matterEventParticipant: "matterEventParticipant",
   matterDeadline: "matterDeadline",
+  // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
+  // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
+  // its own table rather than a null where a case should be; a `firmEventParticipant` is one person
+  // on it, in the same three shapes a matter event's participants take. A `firmResource` is a
+  // bookable thing the firm owns (a conference room, a pool car, a projector); a
+  // `firmResourceBooking` occupies one resource for one event's sake, with its own window because
+  // the room is booked from half past eight for a nine o'clock deposition. A `calendarEventLink` is
+  // a typed relation between two events — `related`, or the `continuance_of` chain that shows what
+  // a continued hearing was continued from.
+  firmEvent: "firmEvent",
+  firmEventParticipant: "firmEventParticipant",
+  firmResource: "firmResource",
+  firmResourceBooking: "firmResourceBooking",
+  calendarEventLink: "calendarEventLink",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one
@@ -236,6 +266,14 @@ export const ENTITY_PREFIXES = {
   matterAssetEncumbrance: "matterAssetEncumbrance",
   matterAssetDocument: "matterAssetDocument",
   matterAssetIdentifier: "matterAssetIdentifier",
+  // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
+  // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
+  // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
+  // number, and the designation words a caption prints; a `matterEstate` is the estate a probate
+  // matter administers — the decedent, the date of death, and the styles a court has fixed.
+  matterAssignment: "matterAssignment",
+  matterCourtCase: "matterCourtCase",
+  matterEstate: "matterEstate",
   // Magnus — the conversational assistant a firm member talks to. A `magnusConversation` is one
   // thread a member started, kept as a firm record; a `magnusTurn` is one message inside it, from
   // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The
@@ -243,6 +281,35 @@ export const ENTITY_PREFIXES = {
   // handle of its own.
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
+  // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
+  // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records
+  // the material was (two words, always — the physical safekeeping register keeps `custody*`, and
+  // tooling/lint-custodian-vocabulary.mjs enforces both directions). A `discoveryLoad` is one
+  // recorded act of putting material into a review set — the unit of provenance and of resumability.
+  // A `reviewDocument` is the reviewable unit: a pointer to a file version or an email message plus
+  // the discovery facts about it, never a copy of content. A `reviewDocumentException` is one named
+  // reason a document did not process, and a `reviewDocumentOccurrence` is one further copy of a
+  // deduplicated document, kept rather than deleted so the attribution survives.
+  reviewSet: "reviewSet",
+  recordCustodian: "recordCustodian",
+  discoveryLoad: "discoveryLoad",
+  reviewDocument: "reviewDocument",
+  reviewDocumentException: "reviewDocumentException",
+  reviewDocumentOccurrence: "reviewDocumentOccurrence",
+  // Notifications — how a thing the platform noticed reaches a person. A `notificationEvent` is the
+  // fact ONCE, however many people hear about it: a kind, the record it points at, the matter that
+  // anchors its visibility, and a closed set of non-privileged facts. A `notificationRecipient` is
+  // one person's copy of it and the only home of whether they have dealt with it, which is why read
+  // state lives here and not on a channel — "has this person seen it" must not depend on which
+  // channel you ask. A `notificationDelivery` is one attempt to push that copy OUT of the platform
+  // (email today; push, SMS and desktop are seeded values), with attempts, a failure state, and a
+  // closed suppression reason; the in-app feed deliberately gets none, because the recipient row's
+  // existence IS the delivery. A `notificationDigest` is one composed outbound summary and the
+  // watermark that says where the next one starts.
+  notificationEvent: "notificationEvent",
+  notificationRecipient: "notificationRecipient",
+  notificationDelivery: "notificationDelivery",
+  notificationDigest: "notificationDigest",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

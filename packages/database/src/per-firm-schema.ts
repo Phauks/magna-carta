@@ -13,6 +13,8 @@ import { sql } from "drizzle-orm";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BillingArrangementId,
+  CalendarEventLinkId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
@@ -40,6 +42,7 @@ import type {
   DirectoryPartyRoleId,
   DirectoryPersonId,
   DirectoryPhoneId,
+  DiscoveryLoadId,
   DocumentAssemblyId,
   DocumentTemplateFieldMappingId,
   DocumentTemplateId,
@@ -57,6 +60,10 @@ import type {
   EntityMergeId,
   FileId,
   FileVersionId,
+  FirmEventId,
+  FirmEventParticipantId,
+  FirmResourceBookingId,
+  FirmResourceId,
   FirmSecretId,
   FolderId,
   GrantId,
@@ -64,8 +71,10 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
+  InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
   LedgerAccountId,
   LedgerEntryId,
@@ -75,28 +84,43 @@ import type {
   MagnusConversationId,
   MagnusTurnId,
   MatterAssetDocumentId,
+  MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetIdentifierId,
   MatterAssetInterestId,
   MatterAssetTypeId,
   MatterAssetValuationId,
+  MatterAssignmentId,
+  MatterCourtCaseId,
   MatterDeadlineId,
+  MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
   MatterEventTypeId,
   MatterId,
   MatterPartyId,
+  MatterRecoveryId,
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
   NonBillableCategoryId,
+  NotificationDeliveryId,
+  NotificationDigestId,
+  NotificationEventId,
+  NotificationRecipientId,
   NumberingSchemeId,
   OutboxId,
   PicklistOptionId,
   RateCardId,
   RateId,
+  RecordCustodianId,
   RepairProvenanceId,
+  RetainerReplenishmentRequestId,
+  ReviewDocumentExceptionId,
+  ReviewDocumentId,
+  ReviewDocumentOccurrenceId,
+  ReviewSetId,
   RoleId,
   RolePermissionId,
   ShipmentId,
@@ -104,6 +128,7 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TrustAccountId,
+  TrustAuthorizationPolicyId,
   TrustBankStatementId,
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
@@ -243,6 +268,29 @@ export const directGrant = sqliteTable(
     index("direct_grant_member_user_id_index").on(table.memberUserId),
   ],
 );
+
+// A member's professional identity as documents and letterhead state it — title, bar admissions,
+// direct dial, professional email, and the signature block a pleading signs off with. One row per
+// member, keyed by the member's own user id (the profile IS the member's, so a second handle would
+// only be a second name for the same fact). A member's bar number is deliberately NOT a column
+// here: it is a sensitive identifier and lives encrypted in directory_identifier on the member's
+// mapped Directory person, read only through the protected-field chokepoint.
+export const memberProfessionalProfile = sqliteTable("member_professional_profile", {
+  memberUserId: text("member_user_id")
+    .primaryKey()
+    .$type<UserId>()
+    .references(() => member.userId),
+  title: text("title"), // "Partner", "Associate", "Senior Paralegal"
+  admissions: text("admissions"), // "Nevada, 2014; California, 2016" — running prose, not a catalog
+  directDial: text("direct_dial"),
+  professionalEmail: text("professional_email"),
+  // The multi-line block a pleading signs off with, stored with its line breaks. Rendered into a
+  // document only once the assembly engine emits real line breaks (w:br) — a literal newline in a
+  // w:t renders as a space, so the merge facet waits for that machinery.
+  signatureBlock: text("signature_block"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 // Append-only double-entry ledger. Structure only — the posting
 // service, validation, and balance composition live in @magna-carta/ledger.
@@ -592,6 +640,119 @@ export const matterNumberAllocation = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
     index("matter_number_allocation_matter_id_index").on(table.matterId),
+  ],
+);
+
+// The matter's staffing beyond the single responsible attorney: who originated it, who supervises,
+// who bills it, which paralegal carries it. Wanted well beyond documents — caseload views, billing
+// attribution, conflicts imputation, and workload reporting all ask the same question — and until
+// this table every one of them was answered by matter.responsible_member_id or not at all. The
+// responsible attorney deliberately STAYS on the matter row (one home per fact); the write path
+// refuses an assignment_role that normalizes to it. assignment_role is free text matched the way
+// matter_party.role is: lowercased with every non-alphanumeric character removed, so a merge
+// subject and a firm's own spelling of the same role meet without a mapping table.
+export const matterAssignment = sqliteTable(
+  "matter_assignment",
+  {
+    id: text("id").primaryKey().$type<MatterAssignmentId>(), // matterAssignment_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    memberUserId: text("member_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    assignmentRole: text("assignment_role").notNull(), // e.g. 'originating_attorney', 'assigned_paralegal'
+    // A bound recorded at creation is a civil date (YYYY-MM-DD, inclusive of its whole day);
+    // ending an assignment stamps valid_to with the ending instant instead. The staffing read
+    // (packages/document-assembly/src/merge-statements.ts) tells the two forms apart by length.
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"), // null = current; set = the assignment ended
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The staffing read is WHERE matter_id = ? — lead with it. The member index narrows the
+    // caseload question ("what is this member staffed on") to that member's rows; it is
+    // single-column, so the row fetch follows the index rather than being answered from it.
+    index("matter_assignment_matter_id_index").on(table.matterId),
+    index("matter_assignment_member_user_id_index").on(table.memberUserId),
+    check("matter_assignment_role_nonempty_check", sql`length(${table.assignmentRole}) > 0`),
+  ],
+);
+
+// The matter's court-and-case identity — the record a caption reads and rules-based docketing will
+// later hang off. The court and the judge are Directory references (an organisation and a person),
+// so a court's own address and a judge's name formats come from the Directory rather than from
+// columns restated here; both are plain entity ids (no cross-domain FK, exactly as matter_party).
+// The two designation words are what make a caption read correctly in its own jurisdiction's
+// vocabulary — "Plaintiff"/"Defendant", "Petitioner"/"Respondent" — recorded once rather than baked
+// into key names. One live record per matter: a matter is before one court at a time, and the
+// partial unique index is what makes a second live record structurally impossible.
+export const matterCourtCase = sqliteTable(
+  "matter_court_case",
+  {
+    id: text("id").primaryKey().$type<MatterCourtCaseId>(), // matterCourtCase_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    courtEntityId: text("court_entity_id"), // FK to directory_organization.id (the court)
+    judgeEntityId: text("judge_entity_id"), // FK to directory_person.id (the assigned judge)
+    caseNumber: text("case_number"),
+    division: text("division"),
+    department: text("department"),
+    filedOn: text("filed_on"), // civil date, YYYY-MM-DD
+    clientDesignation: text("client_designation"), // e.g. 'Plaintiff', 'Petitioner'
+    opposingDesignation: text("opposing_designation"), // e.g. 'Defendant', 'Respondent'
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("matter_court_case_matter_id_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  ],
+);
+
+// The estate a probate matter administers — a first-class identity on the matter, because an estate
+// has SEVERAL names and a document uses each in a different place: the decedent's (a Directory
+// person, so every name format applies), the style a caption and a bank account use, and the short
+// style a letter's second reference uses. THE STYLE IS STORED, NOT COMPOSED: "the Estate of Rowan
+// Ashcroft, Deceased" is a legal designation a firm may need to state exactly as the court has it,
+// and a composed string would be right most of the time — which is the worst frequency. The
+// estate's own Directory record (estate_entity_id, an organisation) is where its tax identifier
+// lives, through the same encrypted directory_identifier mechanism every entity uses — never a
+// ciphertext column here. One live record per matter, as the court case is.
+export const matterEstate = sqliteTable(
+  "matter_estate",
+  {
+    id: text("id").primaryKey().$type<MatterEstateId>(), // matterEstate_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    decedentEntityId: text("decedent_entity_id"), // FK to directory_person.id
+    estateEntityId: text("estate_entity_id"), // FK to directory_organization.id (the estate's own record)
+    dateOfDeath: text("date_of_death"), // civil date, YYYY-MM-DD
+    estateStyle: text("estate_style"), // "the Estate of Rowan Ashcroft, Deceased" — as the court has it
+    shortStyle: text("short_style"), // "the Ashcroft Estate"
+    proceedingType: text("proceeding_type"), // 'testate' | 'intestate' | 'small_estate' | 'ancillary'
+    lettersIssuedOn: text("letters_issued_on"), // civil date, YYYY-MM-DD
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("matter_estate_matter_id_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    check(
+      "matter_estate_proceeding_type_check",
+      sql`${table.proceedingType} IS NULL OR ${table.proceedingType} IN ('testate', 'intestate', 'small_estate', 'ancillary')`,
+    ),
   ],
 );
 
@@ -1072,6 +1233,11 @@ export const directoryPerson = sqliteTable(
     deletedAt: text("deleted_at"),
   },
   (table) => [
+    // The member mapping, sought by the staffing merge read (a member's name parts and bar number
+    // live on their mapped Directory person). Partial: most Directory persons map to no member.
+    index("directory_person_member_id_index")
+      .on(table.memberId)
+      .where(sql`${table.memberId} IS NOT NULL`),
     check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
     check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
   ],
@@ -1390,6 +1556,11 @@ export const matterParty = sqliteTable(
       .references(() => matter.id),
     entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
     role: text("role").notNull(), // e.g. 'client', 'opposing_party', 'witness'
+    // The capacity the party acts in on THIS matter — "Administrator", "Trustee",
+    // "Attorney-in-fact". A fact about the link, not about the entity: the same person is an
+    // administrator on one matter and a beneficiary on the next. Free text the firm records;
+    // never inferred, so an unrecorded capacity is an honest absence wherever a document asks.
+    capacity: text("capacity"),
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
     createdAt: text("created_at").notNull(),
@@ -3513,12 +3684,33 @@ export const trustTransfer = sqliteTable(
     authorizedBy: text("authorized_by").$type<UserId>(),
     effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
     recordedAt: text("recorded_at").notNull(), // UTC instant
+    // Who entered the record, beside who let the money go — the same two facts trust_movement keeps
+    // apart, for the same reason: a rule requiring a second person is worth nothing if the record
+    // cannot tell them apart. Null only on rows older than the authorization policy; triggers in the
+    // migration require both on every new row.
+    recordedBy: text("recorded_by").$type<UserId>(),
+    // The authorization-policy version governing this transfer: the current version for a transfer
+    // composed directly, or the version stamped on the approved request it rides with — which is how
+    // an in-flight application keeps the rules it was submitted against. Triggers refuse any other
+    // stamp.
+    policyId: text("policy_id")
+      .$type<TrustAuthorizationPolicyId>()
+      .references(() => trustAuthorizationPolicy.id),
+    // The earned-fee application request this transfer was approved from, when it came through the
+    // authorization queue; null on a transfer the policy allowed to be composed directly.
+    approvedRequestId: text("approved_request_id")
+      .$type<TrustDisbursementRequestId>()
+      .references(() => trustDisbursementRequest.id),
   },
   (table) => [
     // Each entry participates in at most one transfer, on one side: a second row claiming either
     // entry would double-count the movement in every report that joins through this table.
     uniqueIndex("trust_transfer_trust_entry_unique_index").on(table.trustEntryId),
     uniqueIndex("trust_transfer_operating_entry_unique_index").on(table.operatingEntryId),
+    // One transfer per approved request, ever — without this a settled request could be named by a
+    // second transfer under its old stamp. SQLite UNIQUE permits many NULLs, so directly composed
+    // transfers are unaffected.
+    uniqueIndex("trust_transfer_approved_request_unique_index").on(table.approvedRequestId),
     index("trust_transfer_from_node_index").on(table.fromNodeId),
     index("trust_transfer_account_effective_date_index").on(
       table.trustAccountId,
@@ -3624,6 +3816,53 @@ export const trustMovement = sqliteTable(
   ],
 );
 
+// The firm's disbursement-authorization posture — whether money leaving a client ledger takes a
+// second person — one immutable row per version, current = highest version. Three postures: `off`
+// (the deciding member may act alone), `threshold` (a second person is required for amounts strictly
+// above `threshold_amount_minor`), `always` (a second person is required for every amount). The
+// independent `require_authorized_approver` flag adds that whoever lets the money go — the approver,
+// or the sole actor when the posture exempts — must hold the `trust:authorize` capability.
+//
+// NO ROW IS THE SHIPPED DEFAULT, AND THE DEFAULT IS THE STRICT ONE: always two-person, no authority
+// requirement — exactly the behavior firms had before this table existed, so a migration never
+// silently relaxes anybody's posture. A firm relaxes only by writing a version, which records who
+// changed the posture, when, and (against the previous row) from what.
+//
+// APPEND-ONLY AND DENSELY VERSIONED, enforced by triggers in the migration: a posture change is a
+// new version, never an edit, so the history of how a firm's money-movement controls evolved is
+// itself an evidentiary record. Requests and transfers stamp the version they were created under,
+// which is what lets an in-flight request keep the rules it was submitted against.
+export const trustAuthorizationPolicy = sqliteTable(
+  "trust_authorization_policy",
+  {
+    id: text("id").primaryKey().$type<TrustAuthorizationPolicyId>(), // trustAuthorizationPolicy_ handle
+    version: integer("version").notNull(),
+    policy: text("policy", { enum: ["off", "threshold", "always"] }).notNull(),
+    // Set exactly when the posture is `threshold`: amounts strictly above it take a second person,
+    // amounts at or below it do not.
+    thresholdAmountMinor: integer("threshold_amount_minor"),
+    requireAuthorizedApprover: integer("require_authorized_approver").notNull(),
+    setBy: text("set_by").notNull().$type<UserId>(),
+    setAt: text("set_at").notNull(), // UTC instant
+  },
+  (table) => [
+    uniqueIndex("trust_authorization_policy_version_unique_index").on(table.version),
+    check(
+      "trust_authorization_policy_policy_check",
+      sql`${table.policy} IN ('off', 'threshold', 'always')`,
+    ),
+    check(
+      "trust_authorization_policy_threshold_shape_check",
+      sql`(${table.policy} = 'threshold' AND ${table.thresholdAmountMinor} IS NOT NULL AND ${table.thresholdAmountMinor} >= 0) OR (${table.policy} <> 'threshold' AND ${table.thresholdAmountMinor} IS NULL)`,
+    ),
+    check(
+      "trust_authorization_policy_authority_flag_check",
+      sql`${table.requireAuthorizedApprover} IN (0, 1)`,
+    ),
+    check("trust_authorization_policy_version_positive_check", sql`${table.version} > 0`),
+  ],
+);
+
 // A proposed payment out of a client ledger, before any money has moved. THIS IS NOT A MOVEMENT: no
 // ledger entry, no balance, no trust_movement row exists while a request is pending, so a request
 // that is never approved leaves the client ledger exactly as it found it. The row carries the full
@@ -3663,6 +3902,23 @@ export const trustDisbursementRequest = sqliteTable(
     effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
     requestedBy: text("requested_by").notNull().$type<UserId>(),
     requestedAt: text("requested_at").notNull(), // UTC instant
+    // What the approval will post. A `disbursement` posts a trust movement; an
+    // `earned_fee_application` posts a trust-to-operating transfer whose invoice particulars live in
+    // invoice_trust_application_line — one queue, one decision discipline, two postings.
+    kind: text("kind", { enum: ["disbursement", "earned_fee_application"] })
+      .notNull()
+      .default("disbursement"),
+    // The operating leg's ledger-entry description, set exactly on an earned-fee application (a
+    // disbursement has no operating leg). Enforced by the kind-shape trigger in the migration.
+    operatingDescription: text("operating_description"),
+    // The authorization-policy version this request was submitted under — the rules the approver
+    // decides by, HOWEVER the firm's posture has changed since. Null only on rows older than the
+    // policy table (or in a firm that has never written a version), which is the shipped default:
+    // always two-person, no authority requirement. A trigger refuses a new request whose stamp is
+    // not the current version, so a caller can never revive a superseded posture.
+    policyId: text("policy_id")
+      .$type<TrustAuthorizationPolicyId>()
+      .references(() => trustAuthorizationPolicy.id),
   },
   (table) => [
     // The approval queue: what is outstanding on one trust account, oldest first.
@@ -3713,31 +3969,46 @@ export const trustDisbursementDecision = sqliteTable(
     // reasoning is the request's own purpose.
     reason: text("reason"),
     // On what footing the approval was given. `second_person` is the rule; `sole_trust_manager`
-    // records, on the face of the record, that the firm had nobody else who could approve and the
-    // submitter authorized their own disbursement.
+    // records, on the face of the record, that a second person was required and the firm had nobody
+    // else who could approve; `policy_exempt` records that the firm's authorization policy — the
+    // version stamped on the request — did not require a second person for this amount, and the
+    // submitter acted alone under it.
     authorizationBasis: text("authorization_basis", {
-      enum: ["second_person", "sole_trust_manager"],
+      enum: ["second_person", "sole_trust_manager", "policy_exempt"],
     }),
     // The movement the approval posted, in the same batch as this row. Null on every other decision,
     // which is the whole point: nothing reached the ledger.
     movementId: text("movement_id")
       .$type<TrustMovementId>()
       .references(() => trustMovement.id),
+    // The trust-to-operating transfer an approved earned-fee application posted, in the same batch.
+    // An approval posts exactly one of the two: a movement for a disbursement request, a transfer
+    // for an earned-fee application — which is what lets one queue and one decision discipline
+    // govern both ways money leaves a client ledger.
+    transferId: text("transfer_id")
+      .$type<TrustTransferId>()
+      .references(() => trustTransfer.id),
   },
   (table) => [
     uniqueIndex("trust_disbursement_decision_request_unique_index").on(table.requestId),
     uniqueIndex("trust_disbursement_decision_movement_unique_index").on(table.movementId),
+    uniqueIndex("trust_disbursement_decision_transfer_unique_index").on(table.transferId),
     check(
       "trust_disbursement_decision_decision_check",
       sql`${table.decision} IN ('approved', 'rejected', 'withdrawn')`,
     ),
+    check(
+      "trust_disbursement_decision_basis_check",
+      sql`${table.authorizationBasis} IS NULL OR ${table.authorizationBasis} IN ('second_person', 'sole_trust_manager', 'policy_exempt')`,
+    ),
     // Each outcome's shape stated once, so a decision cannot misdescribe itself: an approval with no
-    // movement and no basis, a rejection that claims to have posted one, or an unexplained refusal.
+    // posting and no basis, an approval claiming both a movement and a transfer, a rejection that
+    // claims to have posted one, or an unexplained refusal.
     check(
       "trust_disbursement_decision_shape_check",
-      sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.movementId} IS NOT NULL AND ${table.reason} IS NULL)
-        OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND length(${table.reason}) > 0)
-        OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
+      sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.reason} IS NULL AND ((${table.movementId} IS NOT NULL AND ${table.transferId} IS NULL) OR (${table.transferId} IS NOT NULL AND ${table.movementId} IS NULL)))
+        OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND ${table.transferId} IS NULL AND length(${table.reason}) > 0)
+        OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND ${table.transferId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
     ),
   ],
 );
@@ -4027,6 +4298,12 @@ export const invoice = sqliteTable(
     letterheadFooter: text("letterhead_footer"),
     remitTo: text("remit_to"),
     clientBillingName: text("client_billing_name"),
+    // How a bill spanning several matters is presented, SNAPSHOT at finalize like the letterhead:
+    // `per_matter_pages` renders one page per matter plus a summary page, `combined` renders one
+    // flowing document. The firm's default lives in the setting table and a later change to it must
+    // not silently re-shape a document the firm already gave somebody. Null on drafts and on
+    // invoices finalized before the column existed, which the render derivation reads as `combined`.
+    renderShape: text("render_shape", { enum: ["combined", "per_matter_pages"] }),
     finalizedAt: text("finalized_at"),
     finalizedBy: text("finalized_by").$type<UserId>(),
     voidedAt: text("voided_at"),
@@ -4045,6 +4322,10 @@ export const invoice = sqliteTable(
       .where(sql`${table.invoiceNumber} IS NOT NULL`),
     check("invoice_status_check", sql`${table.status} IN ('draft', 'final', 'void')`),
     check("invoice_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_render_shape_check",
+      sql`${table.renderShape} IS NULL OR ${table.renderShape} IN ('combined', 'per_matter_pages')`,
+    ),
     check(
       "invoice_number_paired_check",
       sql`(${table.status} = 'final') = (${table.invoiceNumber} IS NOT NULL)`,
@@ -4110,6 +4391,13 @@ export const invoiceLine = sqliteTable(
     taxTreatment: text("tax_treatment", { enum: ["taxable", "exempt"] })
       .notNull()
       .default("exempt"),
+    // The fee-agreement version that produced this line, for the lines an arrangement composes — a
+    // flat fee or a contingency fee. The line's amount is still its own snapshot; this is the record
+    // of WHICH version of the agreement was in force, so an amended agreement never orphans the
+    // question of what a finalized bill was computed under. Null on hourly and cost lines.
+    billingArrangementId: text("billing_arrangement_id")
+      .$type<BillingArrangementId>()
+      .references(() => matterBillingArrangement.id),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -4270,6 +4558,278 @@ export const firmAccountRole = sqliteTable(
   ],
 );
 
+// Every unit of value that reaches an invoice, and the ONLY way any does. A finalized invoice is
+// frozen by trigger, so value arriving at it is never an edit: it is a row here plus a delta on
+// invoice_matter_balance.applied_minor, and the bounds CHECK on that balance — riding the same batch
+// — is what makes over-application structurally impossible rather than hopefully pre-checked.
+//
+// THE TRUST KIND IS THE ONE THAT COMPOSES NO LEDGER ENTRY. Trust's transfer out of a client ledger
+// already posts Dr Operating Bank / Cr Accounts Receivable on its operating leg, so a second credit
+// composed here would leave the invoice subledger and the receivable control account disagreeing by
+// the total of every trust-funded fee, silently and forever. Every other kind brings its own posting.
+//
+// Amounts are positive and direction is the row's KIND, never a sign — the ledger's own rule applied
+// to the subledger. A reversal carries a positive amount and subtracts because it is a reversal, and
+// its UNIQUE link makes a double reversal structurally impossible (the reverses_entry_id precedent).
+export const invoiceApplication = sqliteTable(
+  "invoice_application",
+  {
+    id: text("id").primaryKey().$type<InvoiceApplicationId>(), // invoiceApplication_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    // Which matter's share of the invoice this pays down. A trust transfer draws on exactly one
+    // matter leaf, so the ceiling it must respect is that matter's balance row, not the invoice's
+    // total.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["trust_transfer", "payment", "credit_note", "client_credit", "write_off", "reversal"],
+    }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    trustTransferId: text("trust_transfer_id")
+      .$type<TrustTransferId>()
+      .references(() => trustTransfer.id),
+    reversesApplicationId: text("reverses_application_id").$type<InvoiceApplicationId>(),
+    effectiveDate: text("effective_date").notNull(), // civil date
+    appliedBy: text("applied_by").$type<UserId>(),
+    appliedAt: text("applied_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("invoice_application_reverses_unique_index").on(table.reversesApplicationId),
+    index("invoice_application_invoice_matter_index").on(table.invoiceId, table.matterId),
+    index("invoice_application_matter_index").on(table.matterId),
+    index("invoice_application_trust_transfer_index").on(table.trustTransferId),
+    // The whole closed set, including the four kinds no code writes yet: SQLite cannot widen a CHECK
+    // without a destructive table rebuild, so narrowing it to what ships today would mean the
+    // credit-note and payment paths could never be added additively.
+    check(
+      "invoice_application_kind_check",
+      sql`${table.kind} IN ('trust_transfer', 'payment', 'credit_note', 'client_credit', 'write_off', 'reversal')`,
+    ),
+    check("invoice_application_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("invoice_application_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_application_trust_transfer_paired_check",
+      sql`(${table.kind} = 'trust_transfer') = (${table.trustTransferId} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_application_reversal_paired_check",
+      sql`(${table.kind} = 'reversal') = (${table.reversesApplicationId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One invoice-and-amount a PENDING earned-fee application proposes to settle — the particulars an
+// approving member is approving, which is why they are structured rows rather than prose in the
+// request's description. The queue row itself is a trust_disbursement_request with
+// kind = 'earned_fee_application' (one approval queue, one decision discipline for every way money
+// leaves a client ledger); these lines are billing's side of that request, and the approval
+// re-resolves every one of them against the invoices as they stand THEN, exactly as a disbursement
+// approval re-reads the available balance.
+//
+// APPEND-ONLY, enforced by triggers in the migration, with the request they belong to: what was
+// proposed is part of the record whether or not it was approved. No status column — the request's
+// decision row settles the whole proposal.
+export const invoiceTrustApplicationLine = sqliteTable(
+  "invoice_trust_application_line",
+  {
+    id: text("id").primaryKey().$type<InvoiceTrustApplicationLineId>(), // invoiceTrustApplicationLine_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<TrustDisbursementRequestId>()
+      .references(() => trustDisbursementRequest.id),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+  },
+  (table) => [
+    // One line per invoice per request: a request naming the same invoice twice would make "what is
+    // being approved" ambiguous where a single larger line says it plainly.
+    uniqueIndex("invoice_trust_application_line_request_invoice_unique_index").on(
+      table.requestId,
+      table.invoiceId,
+    ),
+    check("invoice_trust_application_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("invoice_trust_application_line_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// The fee agreement: how a matter is billed, per matter, versioned append-only. A fee change is a
+// NEW version — the old one stays, its valid_to closed by the version that superseded it — because
+// an invoice records which version was in force and an edited agreement would rewrite what a
+// finalized bill was computed under. Absence of any row means hourly, so matters that predate this
+// table need no backfill. The kind-specific columns are shaped by CHECK per kind: a flat fee carries
+// its amount, a contingency carries its share and its costs-before-or-after election, a retainer
+// carries its target and its floor. The advance-fee deposit destination — trust or operating — is
+// RECORDED and never defaulted: jurisdictions genuinely differ on where an advance fee must sit, and
+// a wrong silence here states a wrong fact about real client money.
+export const matterBillingArrangement = sqliteTable(
+  "matter_billing_arrangement",
+  {
+    id: text("id").primaryKey().$type<BillingArrangementId>(), // billingArrangement_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Dense per matter, enforced by trigger: "the version in force" is MAX(version) among open rows
+    // with no timestamp tie to break, and two members amending concurrently converge on one winner.
+    version: integer("version").notNull(),
+    kind: text("kind", { enum: ["hourly", "flat_fee", "contingency", "retainer"] }).notNull(),
+    flatFeeAmountMinor: integer("flat_fee_amount_minor"),
+    // The share as a dimensionless decimal at the rate scale (3333 = 33.33%), never Money: a share
+    // of an unknown future recovery has no currency until it multiplies one.
+    contingencyShareE4: integer("contingency_share_e4"),
+    // The costs-before-or-after election: `gross_recovery` computes the fee on the recovery before
+    // advanced costs come off; `net_after_costs` deducts the matter's advanced (hard) costs first.
+    contingencyBasis: text("contingency_basis", { enum: ["gross_recovery", "net_after_costs"] }),
+    retainerTargetMinor: integer("retainer_target_minor"),
+    // The replenishment floor — a BUSINESS configuration, emphatically not the trust leaf's
+    // min_balance_minor, which is the structural no-negative floor and is never repurposed.
+    retainerThresholdMinor: integer("retainer_threshold_minor"),
+    advanceDepositDestination: text("advance_deposit_destination", {
+      enum: ["trust", "operating"],
+    }),
+    currency: text("currency").notNull(),
+    validFrom: text("valid_from").notNull(), // civil PlainDate
+    validTo: text("valid_to"), // null = in force; set once, by the version that superseded it
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("matter_billing_arrangement_version_unique_index").on(
+      table.matterId,
+      table.version,
+    ),
+    uniqueIndex("matter_billing_arrangement_open_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.validTo} IS NULL`),
+    check(
+      "matter_billing_arrangement_kind_check",
+      sql`${table.kind} IN ('hourly', 'flat_fee', 'contingency', 'retainer')`,
+    ),
+    check("matter_billing_arrangement_version_positive_check", sql`${table.version} > 0`),
+    check("matter_billing_arrangement_currency_check", sql`length(${table.currency}) = 3`),
+    // Each kind carries exactly its own fields — a flat-fee row with a contingency share is a row
+    // whose meaning nobody can state.
+    check(
+      "matter_billing_arrangement_kind_shape_check",
+      sql`(${table.kind} = 'flat_fee') = (${table.flatFeeAmountMinor} IS NOT NULL)
+        AND (${table.kind} = 'contingency') = (${table.contingencyShareE4} IS NOT NULL)
+        AND (${table.kind} = 'contingency') = (${table.contingencyBasis} IS NOT NULL)
+        AND (${table.kind} = 'retainer') = (${table.retainerTargetMinor} IS NOT NULL)
+        AND (${table.kind} = 'retainer') = (${table.retainerThresholdMinor} IS NOT NULL)`,
+    ),
+    check(
+      "matter_billing_arrangement_flat_fee_positive_check",
+      sql`${table.flatFeeAmountMinor} IS NULL OR ${table.flatFeeAmountMinor} > 0`,
+    ),
+    // A share is a fraction of the recovery: above zero, at most the whole of it.
+    check(
+      "matter_billing_arrangement_share_bounds_check",
+      sql`${table.contingencyShareE4} IS NULL OR (${table.contingencyShareE4} > 0 AND ${table.contingencyShareE4} <= 10000)`,
+    ),
+    check(
+      "matter_billing_arrangement_retainer_bounds_check",
+      sql`${table.retainerTargetMinor} IS NULL OR (${table.retainerTargetMinor} > 0 AND ${table.retainerThresholdMinor} >= 0 AND ${table.retainerThresholdMinor} <= ${table.retainerTargetMinor})`,
+    ),
+    check(
+      "matter_billing_arrangement_destination_check",
+      sql`${table.advanceDepositDestination} IS NULL OR ${table.advanceDepositDestination} IN ('trust', 'operating')`,
+    ),
+  ],
+);
+
+// One recorded recovery on a matter — a settlement, a judgment, an award. The contingency fee is
+// computed FROM these at invoice time and is never stored here: what is recorded is the fact of the
+// recovery, and the fee is always a derivation of the agreement's share against the recoveries as
+// they stand when the bill is composed. Append-only apart from the void transition (a recovery
+// entered in error is voided with a reason, never edited or deleted), enforced by triggers in the
+// migration.
+export const matterRecovery = sqliteTable(
+  "matter_recovery",
+  {
+    id: text("id").primaryKey().$type<MatterRecoveryId>(), // matterRecovery_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    recoveredDate: text("recovered_date").notNull(), // civil PlainDate
+    description: text("description").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by").$type<UserId>(),
+    voidReason: text("void_reason"),
+  },
+  (table) => [
+    index("matter_recovery_matter_index").on(table.matterId),
+    check("matter_recovery_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("matter_recovery_currency_check", sql`length(${table.currency}) = 3`),
+    check("matter_recovery_description_nonempty_check", sql`length(${table.description}) > 0`),
+    check(
+      "matter_recovery_void_paired_check",
+      sql`(${table.voidedAt} IS NULL) = (${table.voidReason} IS NULL)`,
+    ),
+  ],
+);
+
+// A record that a retainer matter's trust balance fell below the arrangement's floor, and by how
+// much. The request is the RECORD of the ask — the observed available balance, the shortfall against
+// the target, and who raised it — so the replenishment conversation has a row a person can point to
+// rather than a number somebody once noticed on a dashboard. It moves no money and writes no trust
+// table; the client's deposit arrives through trust's own deposit path, and slice 3·7 wires the
+// below-floor alert onto the same topic this emits. Mutable only for its resolution, by trigger; one
+// OPEN request per matter by partial unique index.
+export const retainerReplenishmentRequest = sqliteTable(
+  "retainer_replenishment_request",
+  {
+    id: text("id").primaryKey().$type<RetainerReplenishmentRequestId>(), // retainerReplenishmentRequest_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The retainer arrangement version the floor came from — the target and threshold live there.
+    arrangementId: text("arrangement_id")
+      .notNull()
+      .$type<BillingArrangementId>()
+      .references(() => matterBillingArrangement.id),
+    // The available trust balance OBSERVED when the request was raised — evidence of why, not a live
+    // figure. The live balance is trust's to answer.
+    observedBalanceMinor: integer("observed_balance_minor").notNull(),
+    requestedAmountMinor: integer("requested_amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    requestedAt: text("requested_at").notNull(),
+    requestedBy: text("requested_by").$type<UserId>(),
+    resolvedAt: text("resolved_at"),
+    resolvedBy: text("resolved_by").$type<UserId>(),
+  },
+  (table) => [
+    uniqueIndex("retainer_replenishment_request_open_unique_index")
+      .on(table.matterId)
+      .where(sql`${table.resolvedAt} IS NULL`),
+    index("retainer_replenishment_request_matter_index").on(table.matterId),
+    check(
+      "retainer_replenishment_request_amount_positive_check",
+      sql`${table.requestedAmountMinor} > 0`,
+    ),
+    check(
+      "retainer_replenishment_request_observed_not_negative_check",
+      sql`${table.observedBalanceMinor} >= 0`,
+    ),
+    check("retainer_replenishment_request_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
 // ---- Case calendar: litigation events and deadlines ----
 //
 // Two structural positions govern this group. First, only facts BORN here get a row: a hearing, a
@@ -4362,6 +4922,11 @@ export const matterEvent = sqliteTable(
     status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
       .notNull()
       .default("scheduled"),
+    // Why this setting is no longer happening, when it is not — set by the cancel and continuance
+    // paths, optional because an outright cancellation does not always deserve a paragraph. What
+    // distinguishes a continuance from a cancellation is not this column but the existence of a
+    // successor, which is calendar_event_link's fact.
+    statusReason: text("status_reason"),
     startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
     startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day, which is what a filing is
     endsOn: text("ends_on"), // null on a point event; set on a range, which is what a three-day trial is
@@ -4600,6 +5165,335 @@ export const matterDeadline = sqliteTable(
   ],
 );
 
+// What the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a
+// reservation. Its own table and NOT a nullable matter_id on matter_event, twice over: every read of
+// matter_event is "what happened on this case" and the visibility predicate keys off the matter — a
+// null matter would put a does-not-apply branch inside the one seam whose value is having no
+// branches — and mechanically, dropping a NOT NULL on a shipped SQLite table is a rebuild the
+// additive-only lineage forbids. The two tables are the two answers to "whose calendar is this on".
+//
+// The event SHAPE is matter_event's (civil dates, separate optional times, a required per-row IANA
+// zone, the same status vocabulary and record-versus-appearance instants); the scope is the firm's.
+// The type catalog is SHARED deliberately: matter_event_type's category column already carries
+// 'firm', its rows are vocabulary rather than matter facts, and a second catalog would mean the firm
+// curating "Meeting" twice — the table's matter_ name prefix is an accepted naming wart, cheaper
+// than a second home for one vocabulary.
+//
+// `audience` is what makes a firm-wide entry possible without enumerating members: an 'all_members'
+// event is on everyone's calendar by construction — a participant list decays with every hire, and a
+// firm holiday that silently misses the newest associate is worse than none. A 'participants' event
+// is on the calendars of the people listed. There is deliberately no personal-appointment shape
+// here: a firm event is readable by every member by construction, and "dentist, Thursday 3pm" has an
+// audience of one and a privacy posture the trusted-insider model does not cover.
+//
+// location_id is a real foreign key where matter_event's location_text is free text, because a firm
+// event — unlike a hearing — usually IS at one of the firm's offices; nullable because an offsite
+// retreat is real, with location_text beside it for the venue or the detail within an office.
+export const firmEvent = sqliteTable(
+  "firm_event",
+  {
+    id: text("id").primaryKey().$type<FirmEventId>(), // firmEvent_ handle
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
+      .notNull()
+      .default("scheduled"),
+    // Why this is no longer happening, when it is not. Optional: a cancelled staff meeting does not
+    // always deserve a paragraph.
+    statusReason: text("status_reason"),
+    startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
+    startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day
+    endsOn: text("ends_on"),
+    endsAtTime: text("ends_at_time"),
+    // Required, per row. Defaulted by the interface from the hosting office; a firm retreat in
+    // another state overrides it per row, exactly as a hearing in another state's court does.
+    timeZone: text("time_zone").notNull(),
+    audience: text("audience", { enum: ["all_members", "participants"] })
+      .notNull()
+      .default("participants"),
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    locationText: text("location_text"),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The firm calendar's date-ranged read: filter, sort, and keyset out of one composite.
+    index("firm_event_starts_on_id_index").on(table.startsOn, table.id),
+    // "What is still scheduled" — filtered before it is sorted, so the filter column leads.
+    index("firm_event_status_starts_on_index").on(table.status, table.startsOn),
+    index("firm_event_location_index").on(table.locationId),
+    check("firm_event_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "firm_event_status_check",
+      sql`${table.status} IN ('scheduled', 'occurred', 'cancelled')`,
+    ),
+    check("firm_event_audience_check", sql`${table.audience} IN ('all_members', 'participants')`),
+    check("firm_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "firm_event_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_event_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_event_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_event_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_event_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    check(
+      "firm_event_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// Who is at a firm meeting: mostly members, sometimes a Directory entity (the bank's relationship
+// manager), sometimes an external who belongs in nobody's conflicts corpus (a visiting CLE speaker).
+// A second table rather than a nullable firm_event_id on matter_event_participant, because that
+// table's event_id is NOT NULL and shipped, and "exactly one of two columns" cannot be retrofitted
+// without a rebuild. The duplication is the schema's, not the code's — the participant replace-set
+// logic in @magna-carta/calendar is written once and parameterized over the table.
+export const firmEventParticipant = sqliteTable(
+  "firm_event_participant",
+  {
+    id: text("id").primaryKey().$type<FirmEventParticipantId>(), // firmEventParticipant_ handle
+    firmEventId: text("firm_event_id")
+      .notNull()
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key
+    // (the matter_event_participant precedent).
+    entityId: text("entity_id"),
+    participantName: text("participant_name"),
+    role: text("role"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("firm_event_participant_event_index").on(table.firmEventId),
+    // "What is on my calendar" — the member filter, resolved as a predicate in SQL.
+    index("firm_event_participant_member_index").on(table.memberUserId),
+    check(
+      "firm_event_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "firm_event_participant_shape_check",
+      sql`(${table.participantKind} = 'member' AND ${table.memberUserId} IS NOT NULL)
+        OR (${table.participantKind} = 'entity' AND ${table.entityId} IS NOT NULL)
+        OR (${table.participantKind} = 'external' AND ${table.participantName} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A bookable thing the firm owns: a conference room, a pool car, the video rig. Its own table — NOT
+// a Directory entity (the Directory is the conflicts corpus, and "Conference Room A" beside opposing
+// counsel in the same search index is the forced-judge problem with none of the judge's dignity),
+// and NOT a custody_location node (that tree answers "where is the original will"; entangling what
+// can be reserved with where things are kept couples two subsystems that change for different
+// reasons). Its natural foreign key is `location` — the same office table the custody tree's roots
+// bind to, so the two views of the building agree on what an office is without sharing rows.
+//
+// `kind` is a closed platform enum, not a firm catalog: unlike event types, no
+// jurisdiction-specific vocabulary exists here and nothing branches on it beyond grouping and
+// iconography (the custody_location.kind discipline); 'other' is the pressure valve. `capacity` is
+// nullable and NOTHING enforces it — the platform does not refuse a twelve-person meeting in a
+// ten-seat room; capacity renders on the picker so a person can decide.
+export const firmResource = sqliteTable(
+  "firm_resource",
+  {
+    id: text("id").primaryKey().$type<FirmResourceId>(), // firmResource_ handle
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ["room", "vehicle", "equipment", "other"] }).notNull(),
+    // The home office; null for a resource assigned to none.
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    capacity: integer("capacity"),
+    notes: text("notes"),
+    // Soft-deactivate, the catalog discipline: a deactivated room keeps its history and takes no
+    // new bookings.
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("firm_resource_name_unique_index").on(table.name),
+    check("firm_resource_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "firm_resource_kind_check",
+      sql`${table.kind} IN ('room', 'vehicle', 'equipment', 'other')`,
+    ),
+    check("firm_resource_capacity_check", sql`${table.capacity} IS NULL OR ${table.capacity} > 0`),
+  ],
+);
+
+// One resource occupied for one event's sake. Its own row because the two facts genuinely diverge:
+// one event can occupy several resources, and a booking's window is not always the event's window —
+// the room is booked from half past eight for a nine o'clock deposition because somebody has to set
+// up. But a booking is NEVER freestanding: every booking belongs to exactly one event (matter or
+// firm — the participant-kind exactly-one idiom), because "a room is busy because something is
+// happening in it" is the one rule that keeps who-booked-it, who-is-going, cancellation, and the
+// calendar's read surfaces from being reinvented per booking. "Book the pool car Friday" with no
+// event is a firm event of the seeded Reservation type with the booking attached.
+//
+// A booking's LIVENESS IS DERIVED from its event, never stored: it blocks the resource if and only
+// if its event's status is not 'cancelled'. There is no released flag and no second write when an
+// event is cancelled or continued — a fact that is a join cannot drift from the row it joins, and
+// releasing is not an action at all.
+//
+// time_zone is THE RESOURCE'S zone: defaulted from the resource's office (location.time_zone) and
+// frozen on the row at the write (the rate-snapshot idiom), so an office zone change never silently
+// reinterprets an existing booking.
+export const firmResourceBooking = sqliteTable(
+  "firm_resource_booking",
+  {
+    id: text("id").primaryKey().$type<FirmResourceBookingId>(), // firmResourceBooking_ handle
+    resourceId: text("resource_id")
+      .notNull()
+      .$type<FirmResourceId>()
+      .references(() => firmResource.id),
+    matterEventId: text("matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    firmEventId: text("firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    // Defaulted from the event at the write, editable per booking (the setup-time case), and never
+    // silently re-derived afterward. Null times mean all day (a vehicle taken for the day).
+    startsOn: text("starts_on").notNull(),
+    startsAtTime: text("starts_at_time"),
+    endsOn: text("ends_on"),
+    endsAtTime: text("ends_at_time"),
+    timeZone: text("time_zone").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The availability read's filter, sort, and keyset.
+    index("firm_resource_booking_resource_starts_index").on(
+      table.resourceId,
+      table.startsOn,
+      table.id,
+    ),
+    index("firm_resource_booking_matter_event_index").on(table.matterEventId),
+    index("firm_resource_booking_firm_event_index").on(table.firmEventId),
+    check(
+      "firm_resource_booking_event_shape_check",
+      sql`(${table.matterEventId} IS NOT NULL AND ${table.firmEventId} IS NULL)
+        OR (${table.matterEventId} IS NULL AND ${table.firmEventId} IS NOT NULL)`,
+    ),
+    check("firm_resource_booking_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "firm_resource_booking_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "firm_resource_booking_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    check(
+      "firm_resource_booking_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// A typed, directed relation between two events — the calendar linking to itself, so integrity is
+// enforceable and is enforced with real foreign keys (events are never hard-deleted, so a link never
+// dangles). Four nullable end columns with an exactly-one shape check per end. `kind` is closed and
+// small because the engine branches on 'continuance_of' (the chain rules) and on nothing else;
+// everything a firm means beyond that goes in the note. 'related' is undirected in meaning though
+// stored directed; readers render it symmetrically.
+export const calendarEventLink = sqliteTable(
+  "calendar_event_link",
+  {
+    id: text("id").primaryKey().$type<CalendarEventLinkId>(), // calendarEventLink_ handle
+    fromMatterEventId: text("from_matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    fromFirmEventId: text("from_firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    toMatterEventId: text("to_matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    toFirmEventId: text("to_firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    kind: text("kind", { enum: ["continuance_of", "related"] }).notNull(),
+    note: text("note"),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // One per end column: "links touching this event", from either side.
+    index("calendar_event_link_from_matter_index").on(table.fromMatterEventId),
+    index("calendar_event_link_from_firm_index").on(table.fromFirmEventId),
+    index("calendar_event_link_to_matter_index").on(table.toMatterEventId),
+    index("calendar_event_link_to_firm_index").on(table.toFirmEventId),
+    // What makes a continuance chain a CHAIN: at most one predecessor and at most one successor per
+    // setting, so a hearing continued three times is a path walkable in both directions and a fork
+    // is refused by the database even under racing writes — never by a service invariant somebody
+    // forgets. Matter ends only, which the continuance check below already guarantees.
+    uniqueIndex("calendar_event_link_continuance_from_unique")
+      .on(table.fromMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
+    uniqueIndex("calendar_event_link_continuance_to_unique")
+      .on(table.toMatterEventId)
+      .where(sql`${table.kind} = 'continuance_of'`),
+    check("calendar_event_link_kind_check", sql`${table.kind} IN ('continuance_of', 'related')`),
+    check(
+      "calendar_event_link_from_shape_check",
+      sql`(${table.fromMatterEventId} IS NOT NULL AND ${table.fromFirmEventId} IS NULL)
+        OR (${table.fromMatterEventId} IS NULL AND ${table.fromFirmEventId} IS NOT NULL)`,
+    ),
+    check(
+      "calendar_event_link_to_shape_check",
+      sql`(${table.toMatterEventId} IS NOT NULL AND ${table.toFirmEventId} IS NULL)
+        OR (${table.toMatterEventId} IS NULL AND ${table.toFirmEventId} IS NOT NULL)`,
+    ),
+    check(
+      "calendar_event_link_continuance_matter_check",
+      sql`${table.kind} <> 'continuance_of' OR (${table.fromMatterEventId} IS NOT NULL AND ${table.toMatterEventId} IS NOT NULL)`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Matter assets — the register of what a client or an estate owns.
 //
@@ -4829,6 +5723,258 @@ export const matterAssetFinancialAccount = sqliteTable(
   ],
 );
 
+// A vehicle's structured attributes, one-to-one on the asset. THE IDENTIFIERS HERE ARE PLAINTEXT AND
+// INDEXED, and the line is the same one matter_asset_real_property draws: a vehicle identification
+// number is stamped on the title, etched into the windscreen, and readable through the glass from the
+// kerb, and a plate number is displayed to the public by law. Neither is a secret, and searching by
+// them — "which of these forty estate assets is the truck on the driveway" — is the whole point of the
+// column. A full account number is the opposite kind of thing and lives sealed in
+// matter_asset_identifier.
+export const matterAssetVehicle = sqliteTable(
+  "matter_asset_vehicle",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    make: text("make"),
+    model: text("model"),
+    modelYear: integer("model_year"),
+    vehicleIdentificationNumber: text("vehicle_identification_number"),
+    plateNumber: text("plate_number"),
+    plateRegion: text("plate_region"),
+  },
+  (table) => [
+    index("matter_asset_vehicle_identification_number_index").on(table.vehicleIdentificationNumber),
+    index("matter_asset_vehicle_plate_index").on(table.plateNumber),
+    // A year outside this window is a typo, not a vehicle. The floor is before any motor vehicle was
+    // registered anywhere and the ceiling is generous enough for a model year that runs ahead of the
+    // calendar, so the check catches a transposed digit without ever refusing a real car.
+    check(
+      "matter_asset_vehicle_model_year_check",
+      sql`${table.modelYear} IS NULL OR (${table.modelYear} >= 1885 AND ${table.modelYear} <= 2200)`,
+    ),
+  ],
+);
+
+// A firearm's structured attributes, one-to-one on the asset. THE SERIAL NUMBER IS PLAINTEXT AND
+// INDEXED for the same reason a vehicle identification number is: it appears on the bill of sale and
+// on every piece of transfer paperwork, it is the identifier a firm searches by, and treating it as a
+// secret would break the search while protecting nothing.
+//
+// `regulated_category` is FREE TEXT A PERSON ASSERTED and is read by nothing. No code classifies an
+// item under any regulatory schedule, determines who may receive one, decides whether a transfer needs
+// a licensed dealer, checks a prohibited-person status, or computes a deadline: federal and state law
+// vary on every one of those points, they vary by the recipient as well as by the item, and a rule
+// that is ninety percent right is worse than no rule because it will be trusted. The class registry's
+// standing handling note in packages/matter-assets/src/classes.ts says exactly that to a person, and
+// nothing branches on it.
+export const matterAssetFirearm = sqliteTable(
+  "matter_asset_firearm",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    make: text("make"),
+    model: text("model"),
+    caliberOrGauge: text("caliber_or_gauge"),
+    serialNumber: text("serial_number"),
+    regulatedCategory: text("regulated_category"),
+  },
+  (table) => [index("matter_asset_firearm_serial_index").on(table.serialNumber)],
+);
+
+// A business interest's structured attributes, one-to-one on the asset. The company OPTIONALLY IS a
+// Directory organization: the firm probably already has it as an entity, and pointing at it brings its
+// address, its registered agent, and its relationships for free. Optional, because a client's
+// twelve-percent interest in a company the firm has never dealt with does not deserve a Directory row,
+// and requiring one would push a firm into creating throwaway entities that then pollute the conflicts
+// corpus.
+export const matterAssetBusinessInterest = sqliteTable(
+  "matter_asset_business_interest",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    entityName: text("entity_name"),
+    // An optional directoryOrganization_ handle, by value with no cross-domain foreign key.
+    entityOrganizationId: text("entity_organization_id"),
+    jurisdictionOfOrganization: text("jurisdiction_of_organization"),
+    // Free text — "limited liability company", "S corporation", "general partnership". Not an enum:
+    // entity forms are jurisdiction-specific and unevenly named, and no engine here consumes them.
+    entityForm: text("entity_form"),
+  },
+  (table) => [
+    index("matter_asset_business_interest_organization_index").on(table.entityOrganizationId),
+  ],
+);
+
+// An insurance policy's structured attributes, one-to-one on the asset.
+//
+// THE FACE AMOUNT IS A TERM OF THE CONTRACT, NOT A VALUATION, which is why it sits here rather than in
+// the valuation history. What the policy is WORTH — its cash surrender value — is a valuation row like
+// any other, dated and on a stated basis. Collapsing the two would make every term-life policy look
+// like a liquid asset worth its death benefit, which is the single most consequential category error
+// available in an estate inventory. A schedule reports them in two different columns.
+//
+// The POLICY NUMBER is not here: a full policy number is a credential-adjacent secret and lives sealed
+// in matter_asset_identifier with its last four characters beside it.
+export const matterAssetInsurancePolicy = sqliteTable(
+  "matter_asset_insurance_policy",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    carrierName: text("carrier_name"),
+    // An optional directoryOrganization_ handle, by value with no cross-domain foreign key.
+    carrierOrganizationId: text("carrier_organization_id"),
+    faceAmountMinor: integer("face_amount_minor"),
+    // The companion currency, named `face_currency` and not `face_amount_currency` because the
+    // storage-encoding rule reserves an `amount`-shaped name for the *_minor integer itself — the
+    // `declared_value_currency` / `principal_currency` shape, reused.
+    faceCurrency: text("face_currency"),
+    // Whose life or property the policy covers — a directoryPerson_/directoryOrganization_ handle, by
+    // value with no cross-domain foreign key (the matter_party and custody_owner precedent).
+    insuredEntityId: text("insured_entity_id"),
+  },
+  (table) => [
+    index("matter_asset_insurance_policy_carrier_index").on(table.carrierOrganizationId),
+    index("matter_asset_insurance_policy_insured_index").on(table.insuredEntityId),
+    // An amount with no currency cannot be interpreted, and a currency with no amount says nothing.
+    check(
+      "matter_asset_insurance_policy_face_amount_check",
+      sql`(${table.faceAmountMinor} IS NULL) = (${table.faceCurrency} IS NULL)`,
+    ),
+  ],
+);
+
+// Money owed to the estate, one-to-one on the asset. The PRINCIPAL is a term of the obligation and
+// sits here; what the receivable is worth today — after a partial repayment, or discounted because the
+// debtor cannot pay — is a valuation row, dated and on a stated basis. A rate is rate_e4 and never a
+// float, the same encoding the ledger uses.
+export const matterAssetReceivable = sqliteTable(
+  "matter_asset_receivable",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    // Who owes it — a directoryPerson_/directoryOrganization_ handle, by value with no cross-domain
+    // foreign key.
+    debtorEntityId: text("debtor_entity_id"),
+    principalAmountMinor: integer("principal_amount_minor"),
+    principalCurrency: text("principal_currency"),
+    rateE4: integer("rate_e4"),
+    maturityOn: text("maturity_on"), // civil date
+    // Whether anything secures it, asserted by a person. Nothing derives it from an encumbrance row on
+    // some other asset, and nothing infers a priority or a remedy from it.
+    secured: integer("secured", { mode: "boolean" }),
+  },
+  (table) => [
+    index("matter_asset_receivable_debtor_index").on(table.debtorEntityId),
+    check(
+      "matter_asset_receivable_principal_check",
+      sql`(${table.principalAmountMinor} IS NULL) = (${table.principalCurrency} IS NULL)`,
+    ),
+  ],
+);
+
+// A digital asset's structured attributes, one-to-one on the asset.
+//
+// THERE IS NO CREDENTIAL COLUMN HERE AND THERE NEVER WILL BE. No seed phrase, no recovery phrase, no
+// private key, no password, no personal identification number — not in plaintext and not sealed. For a
+// self-custodied digital asset the seed phrase IS the asset: whoever reads it can take it,
+// irreversibly, with no record, and a sealed column is decryptable by any member holding the decrypt
+// permission. Storing one would convert a records system into a bearer instrument. The correct home
+// for a secret whose disclosure IS a transfer of the asset is a sealed envelope in the custody
+// register, where a physical object has a location, a hold, and an append-only record of every hand it
+// has passed through. The write path in packages/matter-assets/src/validation.ts refuses a request
+// that names one BY NAME, with its own explainable refusal, before anything is written.
+//
+// `custody_model` records WHO HOLDS IT, which is the fact an administrator actually needs: a custodial
+// account is reached by writing to the platform, and a self-custodied wallet is reached only through a
+// key the firm must never hold.
+export const matterAssetDigitalAsset = sqliteTable(
+  "matter_asset_digital_asset",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    platformName: text("platform_name"),
+    // The public handle on the platform, not a login. A username is not a credential.
+    accountHandle: text("account_handle"),
+    custodyModel: text("custody_model", { enum: ["custodial", "selfCustodied", "unknown"] }),
+  },
+  (table) => [
+    check(
+      "matter_asset_digital_asset_custody_model_check",
+      sql`${table.custodyModel} IS NULL OR ${table.custodyModel} IN ('custodial', 'selfCustodied', 'unknown')`,
+    ),
+  ],
+);
+
+// What is secured against an asset. A mortgage, a deed of trust, a lien, a judgment, a security
+// interest, a tax lien, a pledge.
+//
+// AN ENCUMBRANCE'S BALANCE IS A VALUATION ROW — matter_asset_valuation.encumbrance_id, set, means the
+// row is that encumbrance's balance as of a date rather than the asset's value as of a date. One
+// append-only table, one trigger set, one as-of query shape, and net equity as of any date is one read
+// over one table with a sign flip. Two tables differing only in what the number means would have been
+// two of everything, and the second one would have drifted.
+//
+// `holder_name` is free text where no Directory record exists — the custody borrower precedent, and
+// for the same reason: writing every lender a firm ever sees into the Directory pollutes the conflicts
+// corpus with counterparties nobody is conflicted against.
+//
+// A released encumbrance keeps its row and gains a date. Nothing disappears, because "was this
+// property clear on the date of death" is a question a schedule has to answer years later.
+export const matterAssetEncumbrance = sqliteTable(
+  "matter_asset_encumbrance",
+  {
+    id: text("id").primaryKey().$type<MatterAssetEncumbranceId>(), // matterAssetEncumbrance_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    kind: text("kind", {
+      enum: [
+        "mortgage",
+        "deedOfTrust",
+        "lien",
+        "judgment",
+        "securityInterest",
+        "taxLien",
+        "pledge",
+        "other",
+      ],
+    }).notNull(),
+    // An optional directoryPerson_/directoryOrganization_ handle, by value with no cross-domain
+    // foreign key.
+    holderEntityId: text("holder_entity_id"),
+    holderName: text("holder_name"),
+    recordedReference: text("recorded_reference"),
+    releasedOn: text("released_on"), // civil date; null while the charge is in force
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The schedule's read: every unreleased charge on one asset. released_on rides the index so "what
+    // is still in force" is a seek rather than a filter over the asset's whole history.
+    index("matter_asset_encumbrance_asset_released_index").on(table.assetId, table.releasedOn),
+    index("matter_asset_encumbrance_holder_index").on(table.holderEntityId),
+    check(
+      "matter_asset_encumbrance_kind_check",
+      sql`${table.kind} IN ('mortgage', 'deedOfTrust', 'lien', 'judgment', 'securityInterest', 'taxLien', 'pledge', 'other')`,
+    ),
+  ],
+);
+
 // The append-only valuation history — the register's second structural invariant. A VALUATION IS
 // APPENDED, NEVER UPDATED AND NEVER DELETED, and there is no current-value column anywhere.
 //
@@ -4903,6 +6049,14 @@ export const matterAssetValuation = sqliteTable(
     // backwards at the same cost, so one composite serves both directions.
     index("matter_asset_valuation_asset_as_of_index").on(
       table.assetId,
+      table.asOfDate,
+      table.recordedAt,
+    ),
+    // The same characteristic read for an ENCUMBRANCE's balance — the one query net equity is. Without
+    // it the balance resolution scans the whole valuation history of the firm, which is the table this
+    // subsystem expects to grow without bound while the asset table does not.
+    index("matter_asset_valuation_encumbrance_as_of_index").on(
+      table.encumbranceId,
       table.asOfDate,
       table.recordedAt,
     ),
@@ -5197,3 +6351,773 @@ export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledg
   disclosureVersion: integer("disclosure_version").notNull(),
   acknowledgedAt: text("acknowledged_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// Discovery — the corpus of documents under review on a matter.
+//
+// Six tables, and the shape of them is the defensibility posture. Nothing enters without a record
+// (every review document names its load; every load names its source, its operator, and its time).
+// Nothing is dropped silently (two terminal processing states, a named code for every non-success,
+// and counts that must reconcile before a load may complete). Nothing is altered (a review document
+// is a POINTER — it holds no bytes and copies none). Attribution survives deduplication (a duplicate
+// keeps its row and gains an occurrence naming its record custodian and its load).
+//
+// `review_set_id` leads the index on every one of them, because every read is "within this review
+// set" and the review-document table is about to be the largest in the firm's database by an order of
+// magnitude — the only table in the platform whose size is set by an outside party.
+//
+// The word "custodian" is never alone here. The physical safekeeping register keeps `custody*`; this
+// is the RECORD CUSTODIAN — whose electronic records these were — and the two appear in the same
+// matter. Two words, always.
+
+// One named corpus under review, belonging to one matter. A matter may have several: the firm's own
+// collection, a production received in March, a second request.
+export const reviewSet = sqliteTable(
+  "review_set",
+  {
+    id: text("id").primaryKey().$type<ReviewSetId>(), // reviewSet_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    name: text("name").notNull(),
+    // Forward-only, enforced by trigger as well as by this CHECK: `locked` refuses new loads and
+    // serves every read, `closed` additionally releases the derived artifacts for collection. There
+    // is no reopen. Closing destroys a derived cache and never a record.
+    state: text("state", { enum: ["open", "locked", "closed"] })
+      .notNull()
+      .default("open"),
+    // Snapshotted from the firm's setting at creation rather than read live, so a firm that lowers
+    // its ceiling does not retroactively make an existing review set invalid.
+    documentCeiling: integer("document_ceiling").notNull(),
+    // The maintained count the ceiling is checked against. A COUNT(*) over a quarter-million review
+    // documents on the hot path of every load declaration is not a read; this is written in the same
+    // batch as the rows it counts.
+    documentCount: integer("document_count").notNull().default(0),
+    // Embedding a large corpus is a real metered cost incurred whether or not anyone ever runs a
+    // semantic query, so it is OFF until a firm chooses it for this corpus. The keyword half is
+    // always on — exact terms, phrases, proximity and boolean are what e-discovery actually runs on.
+    semanticIndexEnabled: integer("semantic_index_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    createdBy: text("created_by").notNull().$type<UserId>(), // not an FK — the record outlives the member row
+    lockedAt: text("locked_at"),
+    closedAt: text("closed_at"),
+    // When the derived artifacts were released for collection. Distinct from closed_at because the
+    // sweep is asynchronous, and "closed but not yet swept" is a real state a firm can be in.
+    derivedArtifactsReleasedAt: text("derived_artifacts_released_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("review_set_matter_name_unique_index").on(table.matterId, table.name),
+    index("review_set_matter_created_index").on(table.matterId, table.createdAt, table.id),
+    check("review_set_state_check", sql`${table.state} IN ('open', 'locked', 'closed')`),
+    check("review_set_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("review_set_ceiling_positive_check", sql`${table.documentCeiling} > 0`),
+    check("review_set_document_count_nonnegative_check", sql`${table.documentCount} >= 0`),
+  ],
+);
+
+// Whose records these were. Review-set-scoped rather than firm-scoped on purpose: "John Smith,
+// custodian" in one matter is not assertably the same person as in another, and asserting it wrongly
+// is a defensibility problem rather than a data-modelling inconvenience.
+export const recordCustodian = sqliteTable(
+  "record_custodian",
+  {
+    id: text("id").primaryKey().$type<RecordCustodianId>(), // recordCustodian_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    displayName: text("display_name").notNull(),
+    // Usually a Directory entity — but a production may name a person the firm has never met, so the
+    // link is nullable and FK-free (the matter_party precedent: it points into the Directory graph by
+    // value, with no cross-domain foreign key).
+    directoryEntityId: text("directory_entity_id"),
+    // `unattributed` is a first-class kind rather than a null: a production that arrives with no
+    // custodial attribution is a fact about the production, and recording it is a different statement
+    // from leaving a column empty.
+    kind: text("kind", { enum: ["person", "organization", "unattributed"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("record_custodian_review_set_name_unique_index").on(
+      table.reviewSetId,
+      table.displayName,
+    ),
+    index("record_custodian_directory_entity_index").on(table.directoryEntityId),
+    check(
+      "record_custodian_kind_check",
+      sql`${table.kind} IN ('person', 'organization', 'unattributed')`,
+    ),
+    check("record_custodian_name_nonempty_check", sql`length(${table.displayName}) > 0`),
+  ],
+);
+
+// One recorded act of putting material into a review set — the unit of provenance, the unit of
+// resumability, and what the manifest describes. Loads are append-only: a load is never edited, only
+// superseded or reversed by an explicit removal that is itself recorded.
+export const discoveryLoad = sqliteTable(
+  "discovery_load",
+  {
+    id: text("id").primaryKey().$type<DiscoveryLoadId>(), // discoveryLoad_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    lane: text("lane", {
+      enum: ["internal-files", "internal-email", "received-production", "direct-collection"],
+    }).notNull(),
+    state: text("state", {
+      enum: ["declared", "loading", "processing", "complete", "failed", "reversed"],
+    })
+      .notNull()
+      .default("declared"),
+    // WHETHER ASSISTANT TRANSCRIPTS WERE IN SCOPE, stated by a person at declaration. Required, with
+    // no default in the column and none in the contract above it: a transcript is the firm's own work
+    // product, and whether the firm's own reasoning about a matter belongs in a corpus is a decision
+    // somebody makes visibly. It is recorded here rather than inferred from what arrived, so the
+    // manifest can state what the corpus was DRAWN FROM and not only what landed in it.
+    transcriptScope: text("transcript_scope", { enum: ["exclude", "include"] }).notNull(),
+    // The reconciliation. `loaded_document_count` must equal `processed_count + exception_count`
+    // before a load may reach `complete`, and the CHECK below is what makes that structural rather
+    // than a convention a second write path could miss.
+    declaredDocumentCount: integer("declared_document_count").notNull().default(0),
+    loadedDocumentCount: integer("loaded_document_count").notNull().default(0),
+    processedCount: integer("processed_count").notNull().default(0),
+    exceptionCount: integer("exception_count").notNull().default(0),
+    // Set when one load carries one custodian's material. Null means attribution is per document,
+    // which is the ordinary case for a production carrying several custodians' records.
+    defaultRecordCustodianId: text("default_record_custodian_id")
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    sourceDescription: text("source_description"),
+    initiatedBy: text("initiated_by").notNull().$type<UserId>(), // not an FK — provenance outlives the member row
+    initiatedAt: text("initiated_at").notNull(),
+    completedAt: text("completed_at"),
+    // Written at completion and never regenerated: a re-processing writes a new processing record,
+    // while the manifest describes what arrived, which does not change.
+    manifestR2Key: text("manifest_r2_key"),
+    exceptionReportR2Key: text("exception_report_r2_key"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("discovery_load_review_set_initiated_index").on(
+      table.reviewSetId,
+      table.initiatedAt,
+      table.id,
+    ),
+    index("discovery_load_review_set_state_index").on(table.reviewSetId, table.state),
+    check(
+      "discovery_load_lane_check",
+      sql`${table.lane} IN ('internal-files', 'internal-email', 'received-production', 'direct-collection')`,
+    ),
+    check(
+      "discovery_load_state_check",
+      sql`${table.state} IN ('declared', 'loading', 'processing', 'complete', 'failed', 'reversed')`,
+    ),
+    check(
+      "discovery_load_transcript_scope_check",
+      sql`${table.transcriptScope} IN ('exclude', 'include')`,
+    ),
+    check(
+      "discovery_load_counts_nonnegative_check",
+      sql`${table.declaredDocumentCount} >= 0 AND ${table.loadedDocumentCount} >= 0 AND ${table.processedCount} >= 0 AND ${table.exceptionCount} >= 0`,
+    ),
+    // The reconciliation invariant, as a row constraint. A load cannot reach `complete` while its
+    // counts do not add up — which is the difference between a report that reconciles and a report
+    // that says it does.
+    check(
+      "discovery_load_reconciliation_check",
+      sql`${table.state} <> 'complete' OR ${table.loadedDocumentCount} = ${table.processedCount} + ${table.exceptionCount}`,
+    ),
+  ],
+);
+
+// The reviewable unit, and the row whose size the scale arithmetic budgets. A POINTER plus discovery
+// facts — never a copy of content, never bulk text. Every deferred discovery feature (filters,
+// tagging, threading, near-duplicates, the privilege log, production) is a function over this table.
+export const reviewDocument = sqliteTable(
+  "review_document",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentId>(), // reviewDocument_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    discoveryLoadId: text("discovery_load_id")
+      .notNull()
+      .$type<DiscoveryLoadId>()
+      .references(() => discoveryLoad.id),
+    recordCustodianId: text("record_custodian_id")
+      .notNull()
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    sourceKind: text("source_kind", {
+      enum: ["file_version", "email_message", "email_attachment"],
+    }).notNull(),
+    // LOADING IS A SNAPSHOT OF A VERSION, NOT A SUBSCRIPTION TO A FILE. The version is pinned here; a
+    // new version of the underlying file does not change the review set, because the corpus under
+    // review is what was reviewed. A newer version enters only through a new load, which is a
+    // recorded act.
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    emailMessageId: text("email_message_id")
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    // The family: a self-reference plus a role, not a junction table. A standalone document is its own
+    // family, so every document has one and no read has a special case. An email and its attachments
+    // must stay together — a responsive attachment makes its parent responsive, a privileged parent
+    // taints its attachments, and a production that breaks a family will be challenged.
+    familyId: text("family_id").notNull().$type<ReviewDocumentId>(),
+    familyRole: text("family_role", {
+      enum: ["standalone", "parent", "attachment", "container-child"],
+    })
+      .notNull()
+      .default("standalone"),
+    familySequence: integer("family_sequence").notNull().default(0),
+    // The name and path AS RECEIVED, for the manifest. Evidence, never authority: identification reads
+    // bytes, and a production's file names are wrong often enough that routing on one is how a
+    // spreadsheet gets read as a picture.
+    sourceName: text("source_name"),
+    sourcePath: text("source_path"),
+    sizeBytes: integer("size_bytes"),
+    // Three of the five digests e-discovery load files ask for, promoted to columns because they are
+    // filtered and grouped on; the full five-algorithm set rides the manifest. MD5 and SHA-1 are
+    // carried as legacy interop exactly as @magna-carta/file-integrity already labels them — opposing
+    // tooling and load-file specifications still ask for them.
+    contentSha256: text("content_sha256"),
+    contentMd5: text("content_md5"),
+    contentSha1: text("content_sha1"),
+    // Derived artifacts by reference. A 50,000-document review set averaging 30 KB of text is 1.5 GB;
+    // that number alone settles where extracted text lives.
+    textR2Key: text("text_r2_key"),
+    metadataR2Key: text("metadata_r2_key"),
+    // Recorded at extraction because Bates numbering will need it and it cannot be recovered later
+    // without re-reading every byte of the corpus.
+    pageCount: integer("page_count"),
+    // The deterministic near-duplicate fingerprint, computed where the text is already in memory.
+    // Clustering over it is a later slice; retrofitting the fingerprint would be a second full
+    // processing run rather than a migration.
+    textFingerprint: text("text_fingerprint"),
+    // Deduplication KEEPS the duplicate: the row survives, marked non-primary, and its occurrence row
+    // names the record custodian and the load it came from. "Which custodians held this document" is
+    // asked under oath, and "we deleted that" is not an answer. What dedup buys is that only the
+    // primary is extracted, indexed, and embedded.
+    dedupGroupId: text("dedup_group_id"),
+    isDedupPrimary: integer("is_dedup_primary", { mode: "boolean" }).notNull().default(true),
+    // EXACTLY TWO TERMINAL STATES, and no third. A document that ends in neither has fallen out of the
+    // corpus with nobody able to tell.
+    processingState: text("processing_state", {
+      enum: ["pending", "processing", "processed", "excepted"],
+    })
+      .notNull()
+      .default("pending"),
+    // What the bytes actually were, recorded even when they could not be read: "we could not read
+    // this, and it was a legacy WordPerfect document" is a defensible sentence and "extraction
+    // failed" is not.
+    formatIdentified: text("format_identified"),
+    // The date the corpus sorts and filters on, with the source of the choice recorded beside it —
+    // for email the sent time, for a document the best available internal date, with the file-system
+    // date as the last resort. A privilege log is a function over exactly these fields.
+    sortDate: text("sort_date"),
+    sortDateSource: text("sort_date_source"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The read every future review surface sits on: one review set's documents, newest first, with
+    // the filters the reviewer actually uses. review_set_id leads every one of these.
+    index("review_document_review_set_sort_index").on(table.reviewSetId, table.sortDate, table.id),
+    index("review_document_review_set_load_index").on(table.reviewSetId, table.discoveryLoadId),
+    index("review_document_review_set_record_custodian_index").on(
+      table.reviewSetId,
+      table.recordCustodianId,
+    ),
+    index("review_document_review_set_state_index").on(table.reviewSetId, table.processingState),
+    // A family is ONE indexed read.
+    index("review_document_family_index").on(
+      table.reviewSetId,
+      table.familyId,
+      table.familySequence,
+    ),
+    // Exact-duplicate grouping, and the "which custodians held this" answer behind it.
+    index("review_document_review_set_dedup_index").on(table.reviewSetId, table.dedupGroupId),
+    index("review_document_review_set_sha256_index").on(table.reviewSetId, table.contentSha256),
+    // Two PARTIAL unique indexes — one per source column — live only in the migration, because
+    // drizzle cannot express a WHERE on a unique index. They are what makes a load structurally
+    // idempotent: a version and a message each appear in a review set exactly once, so a redelivered
+    // or retried fan-out converges on the rows it already wrote instead of allocating a second set.
+    check(
+      "review_document_source_kind_check",
+      sql`${table.sourceKind} IN ('file_version', 'email_message', 'email_attachment')`,
+    ),
+    // A review document points at exactly one thing. Both null is a row about nothing; both set is a
+    // row about two things, and a reader would have to guess which.
+    check(
+      "review_document_exactly_one_source_check",
+      sql`(${table.fileVersionId} IS NOT NULL) + (${table.emailMessageId} IS NOT NULL) = 1`,
+    ),
+    check(
+      "review_document_processing_state_check",
+      sql`${table.processingState} IN ('pending', 'processing', 'processed', 'excepted')`,
+    ),
+    // A success nobody can describe is not a success: a processed document names the format it was
+    // read as.
+    check(
+      "review_document_processed_names_format_check",
+      sql`${table.processingState} <> 'processed' OR ${table.formatIdentified} IS NOT NULL`,
+    ),
+    check(
+      "review_document_family_role_check",
+      sql`${table.familyRole} IN ('standalone', 'parent', 'attachment', 'container-child')`,
+    ),
+    // A standalone document IS its own family. Without this a standalone row could point its family
+    // at somebody else's and quietly join a family it does not belong to.
+    check(
+      "review_document_standalone_family_check",
+      sql`${table.familyRole} <> 'standalone' OR ${table.familyId} = ${table.id}`,
+    ),
+  ],
+);
+
+// One named reason a document did not process. Several per document is normal — a container can be
+// both encrypted and oversize — and the presence of a row is what makes the document `excepted`.
+export const reviewDocumentException = sqliteTable(
+  "review_document_exception",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentExceptionId>(), // reviewDocumentException_ handle
+    // Carried on the row rather than reached through the document, because the exception report is a
+    // read across the whole review set and joining a quarter-million rows to get there is the read
+    // this column exists to avoid.
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    reviewDocumentId: text("review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    stage: text("stage", {
+      enum: ["load", "identify", "extract", "deduplicate", "family", "index"],
+    }).notNull(),
+    code: text("code").notNull(),
+    // A human-readable amplification, and NEVER file content: the whole pipeline handles privileged
+    // material, so a detail that could carry a fragment of a document is a redaction failure wearing
+    // an error message.
+    detail: text("detail"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("review_document_exception_review_set_code_index").on(table.reviewSetId, table.code),
+    index("review_document_exception_document_index").on(table.reviewDocumentId),
+    check(
+      "review_document_exception_stage_check",
+      sql`${table.stage} IN ('load', 'identify', 'extract', 'deduplicate', 'family', 'index')`,
+    ),
+    check(
+      "review_document_exception_code_check",
+      sql`${table.code} IN ('unsupported-format', 'corrupt', 'encrypted', 'password-protected', 'encrypted-container-entry', 'container-not-expanded', 'container-guard-tripped', 'oversize', 'extraction-timeout', 'no-text-extracted', 'malware-flagged', 'conversion-failed', 'recognition-failed', 'load-file-metadata-mismatch', 'source-bytes-missing')`,
+    ),
+  ],
+);
+
+// One further copy of a deduplicated document, kept rather than deleted. The two columns are named
+// for what they hold rather than for the relation, because "duplicate_of" on the row that IS the
+// duplicate reads backwards to half of everyone: `primary_review_document_id` is the group's primary,
+// `duplicate_review_document_id` is the copy this row accounts for.
+export const reviewDocumentOccurrence = sqliteTable(
+  "review_document_occurrence",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentOccurrenceId>(), // reviewDocumentOccurrence_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    primaryReviewDocumentId: text("primary_review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    duplicateReviewDocumentId: text("duplicate_review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    // The attribution deduplication must not destroy: whose records this copy was, and which load
+    // brought it in.
+    recordCustodianId: text("record_custodian_id")
+      .notNull()
+      .$type<RecordCustodianId>()
+      .references(() => recordCustodian.id),
+    discoveryLoadId: text("discovery_load_id")
+      .notNull()
+      .$type<DiscoveryLoadId>()
+      .references(() => discoveryLoad.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // "Which custodians held this document" is ONE indexed query, which is the entire reason the row
+    // exists rather than a deletion.
+    index("review_document_occurrence_primary_index").on(
+      table.reviewSetId,
+      table.primaryReviewDocumentId,
+    ),
+    uniqueIndex("review_document_occurrence_duplicate_unique_index").on(
+      table.duplicateReviewDocumentId,
+    ),
+    // A document is not a duplicate of itself; a row saying so would inflate every custodian count.
+    check(
+      "review_document_occurrence_distinct_check",
+      sql`${table.primaryReviewDocumentId} <> ${table.duplicateReviewDocumentId}`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Notifications — the delivery half.
+//
+// A notification is a POINTER, never a record. The thing it points at — the ledger entry, the
+// invoice, the quarantined version, the matter's own lifecycle row — is the record, and each of
+// those carries its own retention posture set by its own subsystem. That is what makes a retention
+// window defensible here and what makes these rows deletable at all: sweeping one destroys no
+// evidence, because the audit_log row and the source row it pointed at are still there. Nothing in
+// this subsystem is ever the only record of the fact it describes.
+//
+// THREE LIFETIMES, THREE TABLES. What happened happens once however many people hear about it;
+// whether one person has dealt with it is one fact per recipient and the thing the feed sorts and
+// counts on; whether a copy left the platform is one fact per recipient per outbound channel, with
+// attempts, a failure state, and a retry the other two do not have. One table holding all three
+// would be a null-heavy row meaning something different in each of its states.
+
+// What happened. Written ONCE per occurrence, whatever the size of the audience.
+//
+// The redaction rule is the whole design of this table: it carries identifiers, enum labels,
+// integers, and instants, and NO STRING A PERSON TYPED. No matter title, no client name, no
+// filename, no email subject line, no deadline description, no free-text note. Three reasons, in
+// the order they bind. The row OUTLIVES THE ACCESS CHECK that justified it — it is read next week
+// and swept months later, and access can be revoked in between, so a row holding a title holds it
+// after the reader stops being entitled to it. A stored title is a STALE title — a matter
+// renumbered or an invoice voided leaves every notification about it wrong, and wrong invisibly,
+// because the row still looks authoritative. And resolving at read costs nothing, because the feed
+// read already joins `matter` to enforce visibility. The reader sees "a deadline you are
+// responsible for is due today — matter 8181-3", assembled at read time from the kind plus that
+// join, and never a stored sentence naming the motion and the parties.
+export const notificationEvent = sqliteTable(
+  "notification_event",
+  {
+    id: text("id").primaryKey().$type<NotificationEventId>(), // notificationEvent_ handle
+    // A registry key from @magna-carta/notifications. A WIRE CONTRACT once shipped: it appears in
+    // responses and in the feed's `kind` filter.
+    kind: text("kind").notNull(),
+    // Denormalized from the registry so a category filter and the per-category digest counts are an
+    // index walk rather than a code-side join against a table that does not exist.
+    category: text("category", {
+      enum: [
+        "deadlines",
+        "calendar",
+        "trust",
+        "billing",
+        "documents",
+        "custody",
+        "email",
+        "conflicts",
+        "jobs",
+        "security",
+        "system",
+      ],
+    }).notNull(),
+    severity: text("severity", { enum: ["informational", "attention", "critical"] }).notNull(),
+    // The kind of record this points at. Seeded with every subject the inventoried emission points
+    // name, not only the ones wired today: this is a SQLite CHECK, and widening one rebuilds a
+    // growing table (the same reasoning the channel column below states at length).
+    subjectKind: text("subject_kind", {
+      enum: [
+        "matter",
+        "matterEvent",
+        "matterDeadline",
+        "matterAsset",
+        "invoice",
+        "ledgerEntry",
+        "trustMovement",
+        "file",
+        "fileVersion",
+        "documentCheckout",
+        "directoryEntity",
+        "location",
+        "shipment",
+        "emailMessage",
+        "emailCaptureAddress",
+        "custodyPacket",
+        "custodyItem",
+        "custodyMovement",
+        "conflictsCheck",
+        "incident",
+        "magnusConversation",
+        "reviewSet",
+        "discoveryLoad",
+        "conversionJob",
+        "documentAssembly",
+        "bundleBuild",
+        "searchIndexJob",
+        "recoveryJob",
+        "member",
+      ],
+    }).notNull(),
+    // The record's own handle. A LINK, never a copy, and deliberately no cross-domain foreign key —
+    // the matter_party precedent. The subject is resolved when the member follows the deep link,
+    // through the owning subsystem's own access-checked read, so a subject that has since been
+    // removed degrades to a dead link rather than to a broken constraint on this table.
+    subjectId: text("subject_id").notNull(),
+    // THE VISIBILITY ANCHOR, and the single column that makes the wall a join rather than a per-kind
+    // rule — the difference between one enforcement point and thirty. Non-null for every
+    // matter-rooted kind (the registry declares which, and a fitness test holds the materializers to
+    // it); null only for genuinely firm-scoped kinds, which are the ones a matter filter must not
+    // hide. Unlike subject_id this IS a foreign key: every read joins it to enforce the wall, and a
+    // dangling anchor would be a row the predicate cannot decide about.
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // When the thing HAPPENED, not when this row was written. The retention sweep and the digest
+    // watermark both order on it, so a message that sat in the queue for an hour still ages and
+    // digests from the moment it describes.
+    occurredAt: text("occurred_at").notNull(),
+    // The declared non-privileged slot: canonical JSON whose keys are declared by the registry type
+    // and whose values are drawn from a closed grammar — an identifier, an integer, a boolean, an
+    // enum label the type itself declares, a canonical instant, or a civil date. A declared string
+    // field is a validation failure rather than a review comment, which is what makes the redaction
+    // rule above structural instead of aspirational.
+    facts: text("facts"),
+    // The idempotency floor, and the reason neither production path needs a check-then-insert.
+    // Queues are at-least-once and sweeps overlap, so both paths converge here: the insert is
+    // attempted and the UNIQUE constraint refuses the duplicate. The event-driven path keys on the
+    // originating outbox row id, which is stable across every redelivery of that message; the
+    // comparison-driven path keys on a CIVIL DATE, so a condition that is continuously true (a
+    // deadline that is overdue) raises once a day rather than once a sweep.
+    dedupeKey: text("dedupe_key").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_event_dedupe_key_unique_index").on(table.dedupeKey),
+    index("notification_event_matter_id_index").on(table.matterId),
+    // The retention sweep's own walk: oldest first, bounded, resumable.
+    index("notification_event_occurred_at_index").on(table.occurredAt, table.id),
+    check(
+      "notification_event_category_check",
+      sql`${table.category} IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
+    ),
+    check(
+      "notification_event_severity_check",
+      sql`${table.severity} IN ('informational', 'attention', 'critical')`,
+    ),
+    check(
+      "notification_event_subject_kind_check",
+      sql`${table.subjectKind} IN ('matter', 'matterEvent', 'matterDeadline', 'matterAsset', 'invoice', 'ledgerEntry', 'trustMovement', 'file', 'fileVersion', 'documentCheckout', 'directoryEntity', 'location', 'shipment', 'emailMessage', 'emailCaptureAddress', 'custodyPacket', 'custodyItem', 'custodyMovement', 'conflictsCheck', 'incident', 'magnusConversation', 'reviewSet', 'discoveryLoad', 'conversionJob', 'documentAssembly', 'bundleBuild', 'searchIndexJob', 'recoveryJob', 'member')`,
+    ),
+  ],
+);
+
+// One person's copy, and the ONLY home of whether they have dealt with it.
+//
+// Read state belongs to the recipient rather than to a channel: marking an item read in the feed
+// must also settle it for a push notification nobody tapped, whenever push arrives. Putting read_at
+// on a channel row would make the answer to "has this person dealt with it" depend on which channel
+// you ask.
+export const notificationRecipient = sqliteTable(
+  "notification_recipient",
+  {
+    id: text("id").primaryKey().$type<NotificationRecipientId>(), // notificationRecipient_ handle
+    notificationEventId: text("notification_event_id")
+      .notNull()
+      .$type<NotificationEventId>()
+      .references(() => notificationEvent.id),
+    // The same global user_ handle member.user_id carries. Not a foreign key: a row addressed to a
+    // person must never be the thing that blocks removing their membership, and the read path never
+    // needs the join — every read is scoped to the SESSION's user id, never to a path parameter, so
+    // a member cannot reach another member's feed by guessing a handle.
+    recipientUserId: text("recipient_user_id").notNull().$type<UserId>(),
+    state: text("state", { enum: ["unread", "read", "dismissed"] })
+      .notNull()
+      .default("unread"),
+    readAt: text("read_at"),
+    dismissedAt: text("dismissed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // A redelivered queue message must not produce a second feed entry, and a partially-failed
+    // fan-out that retries must top up the recipients it missed without duplicating the ones it
+    // already wrote. Both fall out of this one constraint.
+    uniqueIndex("notification_recipient_event_user_unique_index").on(
+      table.notificationEventId,
+      table.recipientUserId,
+    ),
+    // TWO indexes, because the feed has two shapes and they cannot share one.
+    //
+    // The state-filtered read and the unread count lead with (recipient_user_id, state) — two
+    // equality columns — and then walk the (created_at, id) keyset pair. That is the calendar's
+    // source shape: filter columns first, ordering pair last.
+    index("notification_recipient_user_state_created_index").on(
+      table.recipientUserId,
+      table.state,
+      table.createdAt,
+      table.id,
+    ),
+    // The DEFAULT feed — no state filter, which is what the bell opens on — cannot use the index
+    // above for ordering: `state` sits between the equality column and the ordering pair, so SQLite
+    // answers it by sorting the member's ENTIRE retained history into a temp B-tree. That is
+    // correct, invisible, and gets slower every week, which is the worst combination a read can
+    // have. This index puts the ordering pair directly after the equality column so the default
+    // page is a bounded walk whose cost is the page size rather than the firm's accumulated data.
+    // Both plans are pinned by test/read-bounds.test.ts in @magna-carta/notifications.
+    index("notification_recipient_user_created_index").on(
+      table.recipientUserId,
+      table.createdAt,
+      table.id,
+    ),
+    check(
+      "notification_recipient_state_check",
+      sql`${table.state} IN ('unread', 'read', 'dismissed')`,
+    ),
+    // A settled row names when it settled, and an unread one cannot claim to have been. The state
+    // column and its instant are two spellings of one fact, and a row where they disagree is a feed
+    // entry whose badge and whose history contradict each other.
+    check(
+      "notification_recipient_read_at_check",
+      sql`(${table.state} = 'read') = (${table.readAt} IS NOT NULL)`,
+    ),
+    check(
+      "notification_recipient_dismissed_at_check",
+      sql`(${table.state} = 'dismissed') = (${table.dismissedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One attempt to push a copy OUT of the platform. The in-app feed deliberately gets no row here:
+// it is not delivered, it is READ — the recipient row's existence IS the delivery, and there is no
+// attempt, no transport failure, no retry, and no address to fail against. Inventing a
+// permanently-`sent` in-app row to make the schema look symmetric would store a fact no code could
+// ever branch on.
+export const notificationDelivery = sqliteTable(
+  "notification_delivery",
+  {
+    id: text("id").primaryKey().$type<NotificationDeliveryId>(), // notificationDelivery_ handle
+    notificationRecipientId: text("notification_recipient_id")
+      .notNull()
+      .$type<NotificationRecipientId>()
+      .references(() => notificationRecipient.id),
+    // Seeded with the full set from the first migration even though only `email` is ever written
+    // today. This is a SQLite CHECK: widening one rebuilds the whole table, and by the time a push
+    // or SMS channel lands this table grows with every notification the platform has ever mailed. A
+    // value nothing writes costs a byte in a constraint; a rebuild costs a migration that copies
+    // every row. `in_app` is present for the same reason and is deliberately never written — see
+    // the header above.
+    channel: text("channel", { enum: ["in_app", "email", "push", "sms", "desktop"] }).notNull(),
+    state: text("state", { enum: ["pending", "sent", "failed", "suppressed"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    // `suppressed` is a real state rather than an absent row, because "we decided not to email you
+    // about this" is a fact a support conversation needs and an absent row cannot express. The
+    // reason is a CLOSED LABEL and never a sentence — and `not-visible` records that something was
+    // withheld without recording what, which is the difference between an audit trail and an
+    // existence oracle.
+    suppressedReason: text("suppressed_reason", {
+      enum: ["preference", "not-visible", "no-address", "policy"],
+    }),
+    // Which composed summary carried it. Null for a send that was not part of one.
+    digestId: text("digest_id").$type<NotificationDigestId>(),
+    dispatchedAt: text("dispatched_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_delivery_recipient_channel_unique_index").on(
+      table.notificationRecipientId,
+      table.channel,
+    ),
+    // A retry pass walks the not-yet-settled rows.
+    index("notification_delivery_state_index").on(table.state, table.createdAt, table.id),
+    // A suppression must always name its reason, and a settled non-suppressed row must not carry
+    // one. A constraint rather than a convention because the reason is what a support conversation
+    // reads, and a null one answers nothing.
+    check(
+      "notification_delivery_suppressed_reason_check",
+      sql`(${table.state} = 'suppressed') = (${table.suppressedReason} IS NOT NULL)`,
+    ),
+    check("notification_delivery_attempts_nonnegative_check", sql`${table.attempts} >= 0`),
+    check(
+      "notification_delivery_channel_check",
+      sql`${table.channel} IN ('in_app', 'email', 'push', 'sms', 'desktop')`,
+    ),
+    check(
+      "notification_delivery_state_check",
+      sql`${table.state} IN ('pending', 'sent', 'failed', 'suppressed')`,
+    ),
+    check(
+      "notification_delivery_suppressed_reason_value_check",
+      sql`${table.suppressedReason} IS NULL OR ${table.suppressedReason} IN ('preference', 'not-visible', 'no-address', 'policy')`,
+    ),
+  ],
+);
+
+// Where the next composed summary starts, per recipient per cadence.
+//
+// The watermark is a KEYSET CURSOR — an instant AND the event id that instant belongs to — never a
+// bare timestamp. Two events sharing an instant would straddle a bare-timestamp boundary: one is
+// carried and the other silently is not, or both are carried twice. The pair is total.
+export const notificationDigestRun = sqliteTable(
+  "notification_digest_run",
+  {
+    id: text("id").primaryKey().$type<NotificationDigestId>(), // notificationDigest_ handle
+    recipientUserId: text("recipient_user_id").notNull().$type<UserId>(),
+    cadence: text("cadence", { enum: ["daily", "weekly"] }).notNull(),
+    lastOccurredAt: text("last_occurred_at"),
+    lastEventId: text("last_event_id").$type<NotificationEventId>(),
+    lastRunAt: text("last_run_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_digest_run_user_cadence_unique_index").on(
+      table.recipientUserId,
+      table.cadence,
+    ),
+    check("notification_digest_run_cadence_check", sql`${table.cadence} IN ('daily', 'weekly')`),
+    // The watermark is a pair or it is nothing. Half a keyset cursor cannot be walked, and a run
+    // that stored only the instant would carry or skip every event sharing it.
+    check(
+      "notification_digest_run_watermark_pair_check",
+      sql`(${table.lastOccurredAt} IS NULL) = (${table.lastEventId} IS NULL)`,
+    ),
+  ],
+);
+
+// What the retention sweep took while it was still unread, per member.
+//
+// This table exists to keep one promise honest. A notification is a pointer and sweeping one
+// destroys no evidence — but a member who was away while thirty deadlines aged out of their feed
+// would otherwise open the app to a badge of zero, which is a different claim from "there is
+// nothing you missed" and not one the platform is in a position to make. So the sweep records what
+// it took from each member instead of dropping the fact on the floor, the unread count surfaces it
+// beside the live count, and what it points back at — the matter timeline, the deadline itself, the
+// audit log — is all still there, because a notification never was the record. Clearing the tally
+// is the same act as marking the live feed read: the member saying they have dealt with what they
+// missed.
+//
+// One row per member, updated in place. It is a TALLY, not a copy of anything swept: a count and
+// two instants, and nothing about which notifications they were.
+export const notificationSweptUnread = sqliteTable(
+  "notification_swept_unread",
+  {
+    recipientUserId: text("recipient_user_id").primaryKey().$type<UserId>(),
+    unreadCount: integer("unread_count").notNull().default(0),
+    // The oldest occurrence still represented in the tally, so the member is told how far back the
+    // gap reaches rather than only how big it is.
+    oldestSweptOccurredAt: text("oldest_swept_occurred_at"),
+    lastSweptAt: text("last_swept_at").notNull(),
+  },
+  (table) => [
+    check("notification_swept_unread_count_nonnegative_check", sql`${table.unreadCount} >= 0`),
+  ],
+);

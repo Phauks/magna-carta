@@ -31,12 +31,14 @@ import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
 import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
 import { registerMagnusRoutes } from "./routes/magnus.ts";
+import { registerDiscoveryRoutes } from "./routes/discovery.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -58,6 +60,8 @@ import type { PluginRuntime } from "./plugins/runtime.ts";
 import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
+import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
+import { registerMemberProfilesRoutes } from "./routes/member-profiles.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
@@ -72,6 +76,7 @@ import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
 import { registerEmailAddInRoutes } from "./routes/email-add-in.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
+import { registerAutoFilePolicyRoutes } from "./routes/auto-file-policy.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -163,6 +168,13 @@ export type Bindings = {
   // selects the real gateway port. The firm-level consent settings still gate every request on top of
   // this — turning the assistant on is two deliberate acts, not one.
   MAGNUS_INFERENCE_ADAPTER?: string;
+  // One discovery load's fan-out coordinator, keyed firmId:loadId. It holds the load's CURSOR in
+  // durable storage and nothing on the instance, so eviction, deploy, and hibernation are lossless —
+  // a load at the ceiling is a quarter of a million documents, and one that had to start over would
+  // be hours of repeated work.
+  DISCOVERY_LOAD_JOB: DurableObjectNamespace<
+    import("./discovery/discovery-load-coordinator.ts").DiscoveryLoadCoordinator
+  >;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
@@ -520,6 +532,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // The writer for the forward/CC token index: minting an address is what makes a capture token
   // resolve to a firm and a matter. Registered beside the emails surface it feeds.
   registerCaptureAddressRoutes(app, chokepoint);
+  // The firm ceiling on unattended filing, in the same administrative lane as the catch-all address.
+  registerAutoFilePolicyRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerDocumentSealRoutes(app, chokepoint, options.sealPort);
@@ -535,6 +549,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the
   // numbering-scheme surface — each composed through the same chokepoint.
   registerMattersRoutes(app, chokepoint);
+  // The matter's identity records beyond the shell — staffing assignments, the court-case record,
+  // and the estate record — plus the member professional profile documents read from.
+  registerMatterRecordsRoutes(app, chokepoint);
+  registerMemberProfilesRoutes(app, chokepoint);
   registerMatterTypesRoutes(app, chokepoint);
   registerDocumentTypesRoutes(app, chokepoint);
   registerLocationsRoutes(app, chokepoint);
@@ -585,6 +603,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // consent gates, the submit-and-watch path, and the transcript reads. Every route here refuses
   // unless the firm has opened both gates, and the default adapter reaches no provider.
   registerMagnusRoutes(app, chokepoint);
+  // Discovery — the corpus of documents under review on a matter: the review set, whose records are
+  // in it, what was loaded and when, and the internal load lanes that resolve the firm's own files
+  // and filed email into review documents without moving a byte. Its own permission namespace, so
+  // matter access alone reaches nothing here.
+  registerDiscoveryRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
@@ -611,6 +634,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerNarrativeTemplatesRoutes(app, chokepoint);
   // My Day: daily headline totals (billable, non-billable, target, shortfall).
   registerMyDayRoutes(app, chokepoint);
+  // The member's own notification feed: one page, the unread counts, and settling an item. Every
+  // read is scoped to the session's user and filtered by matter visibility in SQL.
+  registerNotificationsRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

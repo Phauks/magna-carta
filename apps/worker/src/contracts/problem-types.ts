@@ -129,6 +129,34 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // A firm event given an event type from another category (HTTP 422). The two calendar scopes share
+  // one type catalog and `category` is the only thing separating them, so typing the all-hands as a
+  // "Hearing" would file a staff meeting as procedural history everywhere a surface groups by
+  // category. Fixed by choosing a firm-category type, never by the caller rephrasing the request.
+  "calendar-event-type-category-mismatch": "calendar-event-type-category-mismatch",
+  // A booking against a resource that has been deactivated (HTTP 422). Soft-deactivation's meaning:
+  // existing bookings keep resolving and the history stands; new bookings are refused. Fixed by
+  // reactivating the resource or booking another one. DISTINCT from `validation` — the request is
+  // well formed and the resource is real; it has been retired.
+  "calendar-resource-inactive": "calendar-resource-inactive",
+  // A resource name the firm already uses (HTTP 422). Two rooms called the same thing are one room
+  // nobody can book on purpose, so the catalog holds names unique and this refusal names the
+  // collision before the unique index aborts it.
+  "calendar-resource-name-taken": "calendar-resource-name-taken",
+  // A continuance asked of a setting that cannot take one (HTTP 409): it is already cancelled, or it
+  // already has a successor in the chain. Continue the LATEST setting instead — the chain holds one
+  // predecessor and one successor per setting, refused by the schema itself under racing writes.
+  "calendar-event-not-continuable": "calendar-event-not-continuable",
+  // A second related link between the same pair of events, in either direction (HTTP 422). 'related'
+  // is undirected in meaning though stored directed, so A-to-B and B-to-A are the same fact twice.
+  "calendar-duplicate-link": "calendar-duplicate-link",
+  // An attempt to delete a continuance link through the link routes (HTTP 422). A continuance link
+  // is the record of what was continued from what — procedural history, minted only by the continue
+  // operation and never removed; a related link is the only deletable kind.
+  "calendar-continuance-link-immutable": "calendar-continuance-link-immutable",
+  // A continuance chain deeper than the walk's bound (HTTP 422). A hearing continued a hundred
+  // times is corrupt data, not litigation; the read refuses rather than walking it.
+  "calendar-continuance-chain-too-deep": "calendar-continuance-chain-too-deep",
   // An asset given a type declared under a different class (HTTP 422). A firm filing a retirement
   // account under `vehicle` has made a data-entry error, not expressed a preference — the class
   // decides which structured columns exist, so the pairing has to hold. Also raised when a class's
@@ -163,6 +191,19 @@ export const PROBLEM_TYPES = {
   // does not carry (HTTP 422). A cross-matter link would put a deed in a case nobody could find it
   // from, and would show one matter's file in another matter's asset detail.
   "matter-asset-document-matter-mismatch": "matter-asset-document-matter-mismatch",
+  // A balance recorded against a charge that secures a DIFFERENT asset (HTTP 422). A mortgage balance
+  // filed under a house the mortgage does not charge makes the net equity of two assets wrong, and
+  // neither of them looks wrong on its own — which is why this is refused at the write rather than
+  // reported at the schedule.
+  "matter-asset-encumbrance-not-on-asset": "matter-asset-encumbrance-not-on-asset",
+  // A schedule asked for on a matter carrying more assets than one read returns (HTTP 422). A schedule
+  // is read WHOLE — it is a document's worth of rows — so the answer is a refusal naming the register
+  // list, which pages, rather than a truncation a firm could file without noticing.
+  "matter-asset-schedule-too-large": "matter-asset-schedule-too-large",
+  // A link to a safekeeping item that does not exist in this firm (HTTP 422). The link is what says
+  // the firm holds the physical original of a scheduled thing, so a link to nothing asserts something
+  // false rather than nothing at all.
+  "matter-asset-unknown-custody-item": "matter-asset-unknown-custody-item",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
@@ -243,6 +284,12 @@ export const PROBLEM_TYPES = {
   // is the point of the control, so this is not a permission failure — the member holds the
   // capability; they are the wrong person for this particular act.
   "trust-disbursement-authorization-refused": "trust-disbursement-authorization-refused",
+  // A posture change that lost to the posture already standing (HTTP 409): the firm's authorization
+  // policy is already what the caller asked for, or a concurrent change wrote the next version
+  // first. Nothing is broken — the caller re-reads the current policy and decides whether a change
+  // is still wanted against it. DISTINCT from `conflict` in carrying the policy vocabulary in its
+  // detail.
+  "trust-authorization-policy-conflict": "trust-authorization-policy-conflict",
   // A write against a reconciliation that has already closed (HTTP 409): a second close, a match, or
   // a withdrawal. Closing a reconciliation freezes the proof it attested to, and the frozen figures
   // never change afterwards — so a period redone later is a NEW reconciliation superseding the old
@@ -297,6 +344,27 @@ export const PROBLEM_TYPES = {
   // time, an empty invoice, or more claimed work than one finalize batch can carry. DISTINCT from
   // `validation` — the request is well-formed; what it asks for is not a bill the rules permit.
   "billing-refused": "billing-refused",
+  // A transfer of earned fees out of a client's trust ledger that the invoice evidence does not
+  // permit (HTTP 422): the bill named is still a draft, it bills a different client than the one
+  // whose money this is, it does not bill the matter the money sits against, or the amounts named do
+  // not add up to the transfer. Money leaves trust for the firm only against a finalized bill, with
+  // no override path — this is the operation where real-world trust violations happen and the
+  // friction is the point. DISTINCT from `trust-movement-refused`, which is trust's own rules about
+  // the movement (commingling, one client per entry, a forbidden method); this is the billing side
+  // saying the fee has not been shown to be earned.
+  "billing-earned-fee-refused": "billing-earned-fee-refused",
+  // A transfer or payment larger than what that matter still owes on that bill (HTTP 409). The
+  // per-(invoice, matter) balance is the ceiling, not the invoice total and not the money available
+  // in trust: the ceiling a client ledger's funds must respect is that matter's own share. The
+  // mirror of `trust-insufficient-available` on the other side of the same operation — there the
+  // money is not there, here the debt is not — and it is a 409 for the same reason: a credit note or
+  // another payment may have consumed the balance since the caller last looked.
+  "billing-exceeds-unpaid-balance": "billing-exceeds-unpaid-balance",
+  // A retainer replenishment ask raised while one is already open for the matter (HTTP 409). One
+  // open ask per matter is the rule — a floor that stays crossed must not stack a new request on
+  // every look — and the remedy is to resolve the open one, which is why this is a conflict rather
+  // than a refusal on the merits.
+  "billing-replenishment-already-open": "billing-replenishment-already-open",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.
@@ -323,6 +391,42 @@ export const PROBLEM_TYPES = {
   // request limit that says nothing about cost): this is the firm's own spend ceiling, and it is
   // named so the firm knows which limit it reached and that it resets.
   "magnus-daily-ceiling-reached": "magnus-daily-ceiling-reached",
+  // A load that would carry a review set past its document ceiling (HTTP 422). DISTINCT from
+  // `validation` (request-shape) — the request is well-formed and the refusal carries two numbers a
+  // caller acts on: how many documents the set holds and what its ceiling is. It is a REFUSAL rather
+  // than a degradation on purpose: the alternative is a firm discovering at four hundred thousand
+  // documents that its database is at its hard limit, which is an outage with no good exit.
+  "discovery-ceiling-exceeded": "discovery-ceiling-exceeded",
+  // A review set that no longer takes material (HTTP 409). A locked set still serves every read, and
+  // a closed one has released its derived index for collection; neither is a request-shape problem
+  // and neither is fixed by retrying.
+  "discovery-review-set-closed": "discovery-review-set-closed",
+  // A request to reopen a closed review set (HTTP 422). Its OWN type rather than a generic refusal,
+  // because it is the request a firm will actually make and the answer has to explain itself: the
+  // corpus under review is what was reviewed, and a set that could be reopened is a corpus whose
+  // contents depend on when you looked at it.
+  "discovery-review-set-reopen-refused": "discovery-review-set-reopen-refused",
+  // A source a load names that the platform knows about and has not built (HTTP 422). Covers the
+  // direct-collection lane and, until its lane lands, assistant transcripts. Named rather than
+  // absent, because "we know exactly what you mean and have not built it" is a different answer from
+  // "no such thing" and sends a firm somewhere different.
+  "discovery-load-source-not-built": "discovery-load-source-not-built",
+  // A load declared without saying whether assistant transcripts are in scope (HTTP 422). Its own
+  // type because there is NO DEFAULT and there is deliberately not going to be one: a transcript is
+  // the firm's own work product, and whether the firm's reasoning about a matter belongs in a corpus
+  // is a decision a person makes visibly. A silent exclusion would be as much a decision made for
+  // somebody as a silent inclusion.
+  "discovery-transcript-scope-unstated": "discovery-transcript-scope-unstated",
+  // Material a load selected that cannot enter a review set (HTTP 422): a version that is
+  // quarantined or still pending its scan, or a selection reaching outside the review set's matter.
+  // Refused BY NAME rather than skipped — a firm that selected fifty files and silently received
+  // forty-eight review documents has a corpus it cannot certify the contents of.
+  "discovery-selection-refused": "discovery-selection-refused",
+  // A load asked to complete while its counts do not add up (HTTP 409): loaded is not processed plus
+  // excepted. The reconciliation is the whole point of the exception report, so a load does not
+  // reach `complete` while a document is in neither column — that document has fallen out of the
+  // corpus with nobody able to tell.
+  "discovery-load-not-reconciled": "discovery-load-not-reconciled",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

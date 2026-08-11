@@ -19,7 +19,33 @@
 // the firm's own people share one facet vocabulary and one resolution shape, so the kinds that arrive
 // with their owning records — the firm's members, a court case, an estate, the financial surfaces — are
 // rows here rather than a second mechanism.
-export type SubjectKind = "matter" | "party" | "office" | "firm" | "system" | "firmDefined";
+// `assetClass` is the one kind whose subjects are COLLECTION-ONLY, and it is the one place the
+// catalogue's rules produce a different answer than they do for parties. A party subject has a
+// singular slot (`client.displayName`) because a matter has one client. An asset subject has no
+// singular slot at all: an estate with two houses is the NORMAL case, so a scalar
+// `realProperty.parcelNumber` would resolve to an absence naming the count on most real matters —
+// the ambiguity rule producing a technically correct answer that is useless every time. So the
+// register declares `realProperty.all`, `vehicle.all`, `assets.all` and no scalars, and the
+// ambiguity rule is honoured by not creating slots it would have to refuse. Asserted in
+// test/asset-subjects.test.ts.
+export type SubjectKind =
+  | "matter"
+  | "party"
+  // The firm's own people, staffed onto the matter. Our side of "attorneys and types of attorneys":
+  // a `member` subject and a `party` subject share one facet vocabulary and one resolution shape,
+  // and differ in which batched read fills them — the staffing read, joining assignments to the
+  // member table and the professional profile — and in the few facets each carries.
+  | "member"
+  | "office"
+  | "firm"
+  // The matter's court-and-case identity. Two one-of-a-kind subjects (`court`, `case`) whose facts
+  // are written out and answered by the one court-case read.
+  | "court"
+  // The estate a probate matter administers — one one-of-a-kind subject over the estate read.
+  | "estate"
+  | "system"
+  | "firmDefined"
+  | "assetClass";
 
 // Whether a subject is a fact every matter carries, or one only some matters have. This is what the
 // entry's availability is DERIVED from rather than declared on three hundred rows: a matter that belongs
@@ -108,6 +134,59 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     presence: "conditional",
     synonyms: ["deponent"],
   },
+  // The firm's own people. The responsible attorney resolves from the matter row's own
+  // responsible_member_id column — its one home — and the other four from matter_assignment rows
+  // whose assignment_role normalizes to the subject key, exactly as a party subject matches
+  // matter_party.role. All five ride the ONE staffing read. Two members in one role is the level-1
+  // ambiguity answer every party subject already gives: an absence naming the count, with the
+  // subject's `.all` collection as the way out.
+  {
+    key: "responsibleAttorney",
+    kind: "member",
+    label: "Responsible attorney",
+    proseLabel: "responsible attorney",
+    group: "ourPeople",
+    // Every matter carries a responsible member — the column is required — so the one member
+    // subject a matter always has is this one.
+    presence: "always",
+    synonyms: ["attorney", "lawyer", "matter attorney", "handling attorney"],
+  },
+  {
+    key: "originatingAttorney",
+    kind: "member",
+    label: "Originating attorney",
+    proseLabel: "originating attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["originator", "source attorney"],
+  },
+  {
+    key: "supervisingAttorney",
+    kind: "member",
+    label: "Supervising attorney",
+    proseLabel: "supervising attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["supervisor", "supervising partner", "partner in charge"],
+  },
+  {
+    key: "billingAttorney",
+    kind: "member",
+    label: "Billing attorney",
+    proseLabel: "billing attorney",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["billing partner", "biller"],
+  },
+  {
+    key: "assignedParalegal",
+    kind: "member",
+    label: "Assigned paralegal",
+    proseLabel: "assigned paralegal",
+    group: "ourPeople",
+    presence: "conditional",
+    synonyms: ["paralegal", "legal assistant"],
+  },
   {
     key: "location",
     kind: "office",
@@ -126,6 +205,41 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     presence: "always",
     synonyms: ["practice"],
   },
+  // The matter's court-and-case identity, from its court-case record. `court` is WHERE the case is
+  // (the courthouse — a Directory organisation, plus the assigned judge); `case` is WHAT the case
+  // is (its number, its dates, and the designation words this court's captions use). Side is a
+  // caption fact recorded on the case, never a key axis — `case.clientDesignation` prints
+  // "Plaintiff" or "Petitioner" as this court has it, rather than doubling every key per side.
+  {
+    key: "court",
+    kind: "court",
+    label: "The court",
+    proseLabel: "court case",
+    group: "courtCase",
+    presence: "conditional",
+    synonyms: ["courthouse", "tribunal", "judge", "venue"],
+  },
+  {
+    key: "case",
+    kind: "court",
+    label: "The case",
+    proseLabel: "court case",
+    group: "courtCase",
+    presence: "conditional",
+    synonyms: ["cause", "docket", "caption", "action"],
+  },
+  // The estate a probate matter administers. Its style and short style are STORED legal
+  // designations, and its decedent is a Directory person, so every name format applies to
+  // `estate.decedent` with no new machinery.
+  {
+    key: "estate",
+    kind: "estate",
+    label: "The estate",
+    proseLabel: "estate",
+    group: "estate",
+    presence: "conditional",
+    synonyms: ["probate", "decedent", "deceased"],
+  },
   {
     key: "system",
     kind: "system",
@@ -143,6 +257,114 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     group: "custom",
     presence: "always",
     synonyms: ["custom field"],
+  },
+  // The asset register's eleven subjects: one per platform class, plus the aggregate. ELEVEN
+  // SUBJECTS RIDE ONE READ — a subject is a pass over rows already in memory, so adding the twelfth
+  // class adds no read at all. That is the property the catalogue's whole shape exists to preserve,
+  // and this is the first outside subsystem to test it.
+  //
+  // Every one is `conditional`: a matter with no asset register is the ordinary case for most of a
+  // firm's work, and a template naming an asset field on a contract dispute is showing a conditional
+  // absence rather than a broken binding. The collection resolves to an EMPTY list rather than an
+  // absence, which is why a repeating block over one simply produces nothing.
+  {
+    key: "assets",
+    kind: "assetClass",
+    label: "Everything on the register",
+    proseLabel: "asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["asset", "inventory", "schedule", "estate", "property"],
+  },
+  {
+    key: "realProperty",
+    kind: "assetClass",
+    label: "Real property",
+    proseLabel: "property",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["land", "house", "real estate", "parcel"],
+  },
+  {
+    key: "financialAccount",
+    kind: "assetClass",
+    label: "Financial accounts",
+    proseLabel: "account",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["bank account", "brokerage", "checking", "savings"],
+  },
+  {
+    key: "vehicle",
+    kind: "assetClass",
+    label: "Vehicles",
+    proseLabel: "vehicle",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["car", "truck", "boat", "motorcycle"],
+  },
+  {
+    key: "firearm",
+    kind: "assetClass",
+    label: "Firearms",
+    proseLabel: "firearm",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["gun", "rifle", "shotgun", "handgun"],
+  },
+  {
+    key: "businessInterest",
+    kind: "assetClass",
+    label: "Business interests",
+    proseLabel: "business interest",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["company", "shares", "partnership", "membership interest"],
+  },
+  {
+    key: "insurancePolicy",
+    kind: "assetClass",
+    label: "Insurance policies",
+    proseLabel: "policy",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["life insurance", "annuity", "carrier"],
+  },
+  {
+    key: "receivable",
+    kind: "assetClass",
+    label: "Money owed to the estate",
+    proseLabel: "receivable",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["note", "loan", "debt owed", "promissory note"],
+  },
+  {
+    key: "digitalAsset",
+    kind: "assetClass",
+    label: "Digital assets",
+    proseLabel: "digital asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["cryptocurrency", "online account", "domain"],
+  },
+  {
+    key: "personalProperty",
+    kind: "assetClass",
+    label: "Personal property",
+    proseLabel: "personal property item",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["contents", "furniture", "jewellery", "chattels"],
+  },
+  {
+    key: "otherAssets",
+    kind: "assetClass",
+    label: "Other assets",
+    proseLabel: "other asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["miscellaneous", "unclassified"],
   },
 ];
 

@@ -33,6 +33,13 @@ ADR-0008, ADR-0081.)
   files; no bytes, ever
 - `src/identifier-statements.ts` / `src/identifier-service.ts` — the sealed identifier, its one
   audited read path, and the credential refusal
+- `src/encumbrance-statements.ts` / `src/encumbrance-service.ts` — what is secured against an asset.
+  **There is no balance column and no balance argument**: a balance is an ordinary valuation row
+  naming the encumbrance
+- `src/equity.ts` — value minus what is in force against it, per currency, computed and never stored
+- `src/schedule.ts` — the grouped estate schedule as of a date; five batched reads for a whole matter
+- `src/custody-link-statements.ts` — the only file here that touches Custodian's tables, and the one
+  place the who-owns-which-fact table is written down
 - `src/queries.ts` — the matter's register list and the cross-matter interests-by-entity read
 
 ## Invariants that apply here
@@ -79,6 +86,22 @@ ciphertext` is a registered protected column; the only reader is `readMatterAsse
   the write path checks it.
 - **No money as a float.** Every amount is `amount_minor` plus a currency, the schema refuses one
   without the other, and no total is computed across two currencies.
+- **An encumbrance's balance is a valuation row naming it, never a column.** `matter_asset_valuation.
+encumbrance_id`, set, means the row is that charge's balance as of a date — one append-only table,
+  one trigger set, one as-of shape, and net equity as one read with a sign flip. A
+  `balance_amount_minor` column would be a second, mutable, undated number answering the same
+  question worse. The write path refuses a balance naming a charge on a DIFFERENT asset, because that
+  makes the equity of two assets wrong and neither of them looks wrong on its own.
+- **Equity is computed, never stored, and withheld rather than approximated.** No equity column
+  exists, for the same reason no current-value column does. Three things make it unavailable rather
+  than wrong: no value at or before the date, a charge in force whose balance nobody recorded (nil
+  would overstate exactly the assets a firm must be careful about), and a balance in a different
+  currency from the value (the exchange rate on a past date is not a fact the firm's data carries).
+  Negative equity is a real answer and is reported as negative.
+- **A schedule's as-of date is required and never defaulted.** `readMatterAssetSchedule` takes one and
+  validates it; a schedule with an implied date is the failure this subsystem most wants to avoid,
+  and the whole point is that the date of death and today give different answers over the same rows.
+  The unvalued count is stated rather than hidden and `undetermined` is its own group.
 - **Nothing identifying is a telemetry dimension or an audit-metadata field.** No description, no
   address, no parcel number, no entity name, no amount, no suffix. Identifiers, the class, and the
   basis, and nothing else.
@@ -93,6 +116,14 @@ neither copies a fact from the other: the asset row carries no location, status,
 and Custodian carries no valuation. `custody_item.declared_value_amount_minor` and this history
 answer different questions (a replacement value for the firm's own exposure, against a fair-market
 value to the estate as of a date), so nothing syncs them and nothing derives one from the other.
+
+`src/custody-link-statements.ts` is the ONLY file here that names a custody table, and it holds two
+reads and no writes: does this item exist (the write path's whole check), and what does Custodian say
+about it right now (the detail view's composition). `test/custody-link.test.ts` scans the package's
+source in both directions — no file may name `declared_value_amount_minor`, `declared_value_currency`,
+or `declaredValue` at all, because reading one is the first half of copying it, and no file may issue
+an `INSERT`, `UPDATE`, or `DELETE` against any `custody_*` table. Direction is deliberate: the column
+is on the asset, so Custodian never grows a matter-scoped column and never learns what an estate is.
 
 ## Dependencies & contracts
 
@@ -116,10 +147,9 @@ value to the estate as of a date), so nothing syncs them and nothing derives one
 - **Unlinking a document is allowed; correcting a valuation is not.** A link is a filing decision and
   a deed attached to the wrong house should be detachable. A recorded figure is an assertion somebody
   may have filed.
-- **`encumbrance_id` on the valuation row is declared and unused.** It lands now because adding it
-  later means rebuilding a table whose append-only triggers have to be dropped to do it; the
-  encumbrance table itself arrives in slice 4·3·2, and until then every as-of read filters
-  `encumbrance_id IS NULL`.
+- **The asset's own as-of read filters `encumbrance_id IS NULL`, and always must.** The two kinds of
+  number share a table and mean different things; drop the filter and a mortgage balance resolves as
+  the house's value.
 - **The type catalog's class is written by a follow-up statement, not by the insert.** The shared
   classification-type shape owns the `(id, name, code)` insert, so this catalog's extra column rides
   beside it — the custody item type's intrinsic-value default precedent. There is deliberately no
@@ -128,6 +158,13 @@ value to the estate as of a date), so nothing syncs them and nothing derives one
   catalog constrains nothing, and the comparison is case-insensitive and trimmed, because a firm
   writing "Trustee" against an entry of "trustee" has made no mistake and refusing it teaches people
   to stop using the field.
-- **The five classes with no attribute table yet are declared and refused by name.** A caller asking
-  for a firearm gets "arrives in slice 4·3·2", not "no such thing" — the class spine, the labels, and
-  the handling note are settled once rather than twice.
+- **`ATTRIBUTE_BUILDERS` in `asset-service.ts` is the whole table of classes-with-structure.** Adding
+  a class is a row there plus a row in `ATTRIBUTE_TABLE_BY_CLASS`, not a ninth `if` somebody has to
+  remember to write in the same shape as the eight before it. The class-mismatch refusal falls out of
+  the same loop, so it cannot be forgotten for the new class.
+- **A schedule is read WHOLE and refuses past its bound rather than paging.** `MAX_MATTER_ASSET_
+SCHEDULE` is a refusal, not a page size: a firm that filed the first five hundred rows of an inventory
+  could not tell that from an inventory of five hundred. The register list is what pages.
+- **`ORDER BY` does the selecting in every batched as-of read.** `readMatterAssetValuationsAsOf` and
+  `readEncumbranceBalancesAsOf` order so the winning row per subject sorts first and take the first
+  row seen — no window function, no correlated sub-select per row, and no sort in memory.

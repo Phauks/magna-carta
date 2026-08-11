@@ -107,6 +107,15 @@ describe("GET /api/v1/me", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        // The three discovery keys reach Owner/Admin, Attorney, and Paralegal, and none of them
+        // reaches Billing or Read-only (20260806T080000_discovery-5-1-2). Its OWN namespace is the
+        // access rule: a review set is reachable from a discovery grant and from nothing else, never
+        // from matters:* or files:*, because material produced by another party may be
+        // attorney's-eyes-only under a protective order. Three keys rather than a read/manage pair so
+        // a firm can grant discovery:read alone to a contract reviewer.
+        "discovery:load",
+        "discovery:manageReviewSets",
+        "discovery:read",
         "documents:assemble",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
@@ -151,6 +160,12 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        // Seeded onto EVERY default role including Read-only — the deliberate contrast with
+        // trust:read (20260807T020000_notifications-delivery). Reading one's own feed is not a
+        // privilege: it is scoped to the session's own user id and every row is filtered by matter
+        // visibility at read time, so the key grants sight of nothing the member could not already
+        // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
+        "notifications:read",
         "shipping:manage",
         "support:cosign",
         "support:manage",
@@ -177,7 +192,13 @@ describe("GET /api/v1/me", () => {
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Owner/Admin, Attorney, and Billing
-        // (20260805T120001_seed-trust-permissions). Read-only carries neither.
+        // (20260805T120001_seed-trust-permissions). Read-only carries neither. trust:authorize is
+        // the authority to act on client money — what the firm's authorization policy can require
+        // of whoever lets a disbursement or an earned-fee application go, and the key that changes
+        // that policy — and it reaches Owner/Admin and Attorney only
+        // (20260807T050000_trust-authorization-policy): deliberately narrower than trust:manage,
+        // which also reaches Billing.
+        "trust:authorize",
         "trust:manage",
         "trust:read",
       ],

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { assemble } from "../src/assemble.ts";
 import { DICTIONARY, lookupDictionaryEntry } from "../src/dictionary.ts";
 import {
+  MEMBER_PROTECTED_SOURCES,
   PROTECTED_IDENTIFIER_SOURCES,
   protectedIdentifierSourcesIn,
 } from "../src/protected-bindings.ts";
@@ -158,7 +159,12 @@ describe("the protected merge sources", () => {
     const protectedKeys = DICTIONARY.filter((entry) => entry.sensitivity === "protected").map(
       (entry) => entry.key,
     );
-    expect(protectedKeys.sort()).toEqual(PROTECTED_IDENTIFIER_SOURCES.map((s) => s.key).sort());
+    expect(protectedKeys.sort()).toEqual(
+      [
+        ...PROTECTED_IDENTIFIER_SOURCES.map((source) => source.key),
+        ...MEMBER_PROTECTED_SOURCES.map((source) => source.key),
+      ].sort(),
+    );
   });
 
   it("recognises only the keys it declares, deduplicated", () => {
