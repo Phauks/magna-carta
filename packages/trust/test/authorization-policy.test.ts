@@ -142,14 +142,36 @@ async function submitDisbursement(fixture: Fixture, nodeId: string, minor: numbe
   return composed.requestId;
 }
 
-describe("the policy itself: versioned, audited, append-only, strict by default", () => {
-  it("ships strict: no row means always two-person with no authority requirement", async () => {
+describe("the policy itself: versioned, audited, append-only, seeded authority-based", () => {
+  it("a fresh firm database starts authority-based, as version 1 a firm can read", async () => {
     const { fixture } = await fundedFixture(500000);
     const current = await readCurrentTrustAuthorizationPolicy(fixture.database);
-    expect(current).toEqual(SHIPPED_TRUST_AUTHORIZATION_POLICY);
-    expect(current.policy).toBe("always");
-    expect(current.requireAuthorizedApprover).toBe(false);
-    expect(trustAuthorizationRequiresSecondPerson(current, 1)).toBe(true);
+    expect(current).toMatchObject({
+      version: 1,
+      policy: "off",
+      thresholdAmountMinor: null,
+      requireAuthorizedApprover: true,
+    });
+    expect(current.id).not.toBeNull();
+    // A holder acts alone at any amount under this posture — nothing here requires a second person.
+    expect(trustAuthorizationRequiresSecondPerson(current, 100_000_000)).toBe(false);
+    // It is a real row in the firm's own history, not a platform reading of an absent one.
+    const history = await readTrustAuthorizationPolicyHistory(fixture.database);
+    expect(history.map((version) => version.version)).toEqual([1]);
+  });
+
+  it("a NULL stamp still resolves to the strict posture the platform shipped before any version", async () => {
+    // The absent-row reading is untouched by the seed, deliberately: it is what governs requests
+    // submitted before any posture existed, and re-reading it would change what those rows mean.
+    expect(SHIPPED_TRUST_AUTHORIZATION_POLICY).toMatchObject({
+      id: null,
+      version: 0,
+      policy: "always",
+      requireAuthorizedApprover: false,
+    });
+    expect(trustAuthorizationRequiresSecondPerson(SHIPPED_TRUST_AUTHORIZATION_POLICY, 1)).toBe(
+      true,
+    );
   });
 
   it("a change is a dense new version with an audit row naming from and to", async () => {
@@ -159,11 +181,12 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
 
     const history = await readTrustAuthorizationPolicyHistory(fixture.database);
     expect(history.map((version) => [version.version, version.policy])).toEqual([
-      [2, "off"],
-      [1, "threshold"],
+      [3, "off"],
+      [2, "threshold"],
+      [1, "off"],
     ]);
     const current = await readCurrentTrustAuthorizationPolicy(fixture.database);
-    expect(current.version).toBe(2);
+    expect(current.version).toBe(3);
     expect(current.setBy).toBe(fixture.memberUserId);
 
     const { results } = await fixture.database
@@ -175,18 +198,23 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
     // Identified by content rather than position: the fixture clock is frozen, so the two audit
     // rows share created_at and no stored order between them is meaningful.
     const metadatas = results.map((row) => JSON.parse(row.metadata) as Record<string, unknown>);
-    const second = metadatas.find((metadata) => metadata["toPolicy"] === "off");
+    const second = metadatas.find((metadata) => metadata["fromPolicy"] === "threshold");
     expect(second).toMatchObject({
       fromPolicy: "threshold",
       toPolicy: "off",
       fromThresholdAmountMinor: 100000,
-      fromVersion: 1,
-      toVersion: 2,
+      fromVersion: 2,
+      toVersion: 3,
     });
   });
 
   it("refuses a re-statement, a threshold without an amount, and an amount without threshold", async () => {
     const { fixture } = await fundedFixture(500000);
+    // Re-stating the SEEDED posture is itself a re-statement, which is the check working: the seed
+    // is an ordinary version, not a special case the composer has to know about.
+    await expect(
+      setPolicy(fixture, "off", { requireAuthorizedApprover: true }),
+    ).rejects.toMatchObject({ code: "trust-authorization-policy-unchanged" });
     await setPolicy(fixture, "off");
     await expect(setPolicy(fixture, "off")).rejects.toMatchObject({
       code: "trust-authorization-policy-unchanged",
@@ -219,7 +247,7 @@ describe("the policy itself: versioned, audited, append-only, strict by default"
       expectRefusal(() =>
         insertTrustAuthorizationPolicyStatement(fixture.database, {
           id: newIdentifier("trustAuthorizationPolicy"),
-          version: 2 + 1,
+          version: 3 + 1,
           policy: "always",
           thresholdAmountMinor: null,
           requireAuthorizedApprover: false,
@@ -287,10 +315,11 @@ describe("the posture applied: off, threshold, always", () => {
     await commit(fixture.database, approved.effect);
   });
 
-  it("always (the default) still refuses a self-approval in a multi-manager firm, composer or no composer", async () => {
+  it("always refuses a self-approval in a multi-manager firm, composer or no composer", async () => {
     const { fixture, node } = await fundedFixture(500000);
     await seedTrustManager(fixture, "Second Manager");
     await seedTrustManager(fixture, "Third Manager");
+    await setPolicy(fixture, "always");
 
     const submitter = "user_submitter" as UserId;
     const requestId = await submitDisbursement(fixture, node.id, 120000, submitter);
@@ -328,8 +357,9 @@ describe("an in-flight request keeps the policy it was created under", () => {
     await seedTrustManager(fixture, "Second Manager");
     await seedTrustManager(fixture, "Third Manager");
 
+    await setPolicy(fixture, "always");
     const submitter = "user_submitter" as UserId;
-    // Submitted under the shipped default: always two-person.
+    // Submitted under the strict posture the firm chose: always two-person.
     const requestId = await submitDisbursement(fixture, node.id, 120000, submitter);
     // The firm then relaxes its posture entirely.
     await setPolicy(fixture, "off");
@@ -417,10 +447,12 @@ describe("an in-flight request keeps the policy it was created under", () => {
 
 describe("the approver-authority option", () => {
   it("binds whoever lets money go, and names who can act", async () => {
+    // No setPolicy: the seeded version 1 IS this posture — off, authority required — which is the
+    // point of the seed. A member without the authority cannot release even an amount no second
+    // person is needed for.
     const { fixture, node } = await fundedFixture(500000);
     const partner = await seedActiveMember(fixture, "Named Partner");
     await grantTrustAuthority(fixture, partner);
-    await setPolicy(fixture, "off", { requireAuthorizedApprover: true });
 
     const submitter = "user_submitter" as UserId;
     const requestId = await submitDisbursement(fixture, node.id, 120000, submitter);
@@ -479,10 +511,11 @@ describe("the earned-fee transfer runs the same policy", () => {
     authorizedBy,
   });
 
-  it("under the default policy a single actor is refused in a multi-manager firm, and at the database", async () => {
+  it("under an always policy a single actor is refused in a multi-manager firm, and at the database", async () => {
     const { fixture, node } = await fundedFixture(500000);
     await seedTrustManager(fixture, "Second Manager");
     await seedTrustManager(fixture, "Third Manager");
+    await setPolicy(fixture, "always");
     const actor = "user_biller" as UserId;
 
     await expect(
@@ -502,12 +535,15 @@ describe("the earned-fee transfer runs the same policy", () => {
     );
     await commit(fixture.database, transfer.effect);
 
-    // Bypassing the composer: the trigger refuses the single-actor row on its own.
+    // Bypassing the composer: the trigger refuses the single-actor row on its own. The stamp is the
+    // CURRENT version, because a direct transfer carrying anything else is refused by a different
+    // trigger and would prove nothing about this one.
+    const current = await readCurrentTrustAuthorizationPolicy(fixture.database);
     await expect(
       expectRefusal(() =>
         fixture.database
           .prepare(
-            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 100, 'USD', ?4, ?5, 'user_same', 'user_same', NULL, NULL, '2026-08-05', ?6)",
+            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 100, 'USD', ?4, ?5, 'user_same', 'user_same', ?6, NULL, '2026-08-05', ?7)",
           )
           .bind(
             newIdentifier("trustTransfer"),
@@ -515,6 +551,7 @@ describe("the earned-fee transfer runs the same policy", () => {
             node.id,
             transfer.trustEntryId,
             transfer.operatingEntryId,
+            current.id,
             clock.now(),
           )
           .run(),
@@ -523,10 +560,11 @@ describe("the earned-fee transfer runs the same policy", () => {
   });
 
   it("the authority option binds the transfer's authorizer too", async () => {
+    // Again the seeded posture, unchanged: the authority requirement reaches the OTHER way money
+    // leaves a client ledger without the firm having to configure anything.
     const { fixture, node } = await fundedFixture(500000);
     const partner = await seedActiveMember(fixture, "Named Partner");
     await grantTrustAuthority(fixture, partner);
-    await setPolicy(fixture, "off", { requireAuthorizedApprover: true });
     const biller = "user_biller" as UserId;
 
     await expect(
@@ -579,7 +617,10 @@ describe("the earned-fee transfer runs the same policy", () => {
 describe("the lone-holder exception belongs to the counted member", () => {
   it("refuses a member who is not the holder acting alone, composer and database alike", async () => {
     const { fixture, node } = await fundedFixture(500000);
-    // The firm's ONE trust:manage holder is the fixture member; the clerk holds nothing.
+    // The exception only arises where a second person is required at all, so the firm writes the
+    // strict posture. The firm's ONE trust:manage holder is the fixture member; the clerk holds
+    // nothing — and the exception is the holder's, not the room's.
+    await setPolicy(fixture, "always");
     const clerk = "user_clerk" as UserId;
     const requestId = await submitDisbursement(fixture, node.id, 120000, clerk);
 
@@ -619,6 +660,7 @@ describe("the lone-holder exception belongs to the counted member", () => {
 
   it("refuses a non-holder single-actor transfer while the genuine lone holder may still act alone", async () => {
     const { fixture, node } = await fundedFixture(500000);
+    await setPolicy(fixture, "always");
     const clerk = "user_clerk" as UserId;
     const transferInput = (actor: UserId, minor: number) => ({
       fromNodeId: node.id as never,
@@ -649,12 +691,14 @@ describe("the lone-holder exception belongs to the counted member", () => {
     );
     await commit(fixture.database, byHolder.effect);
 
-    // And the DATABASE refuses the clerk's row with the composer bypassed.
+    // And the DATABASE refuses the clerk's row with the composer bypassed, stamped with the current
+    // version so nothing but the lone-holder half of the second-person trigger can be what refuses.
+    const current = await readCurrentTrustAuthorizationPolicy(fixture.database);
     await expect(
       expectRefusal(() =>
         fixture.database
           .prepare(
-            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 100, 'USD', ?4, ?5, 'user_clerk', 'user_clerk', NULL, NULL, '2026-08-05', ?6)",
+            "INSERT INTO trust_transfer (id, trust_account_id, from_node_id, amount_minor, currency, trust_entry_id, operating_entry_id, authorized_by, recorded_by, policy_id, approved_request_id, effective_date, recorded_at) VALUES (?1, ?2, ?3, 100, 'USD', ?4, ?5, 'user_clerk', 'user_clerk', ?6, NULL, '2026-08-05', ?7)",
           )
           .bind(
             newIdentifier("trustTransfer"),
@@ -662,6 +706,7 @@ describe("the lone-holder exception belongs to the counted member", () => {
             node.id,
             byHolder.trustEntryId,
             byHolder.operatingEntryId,
+            current.id,
             clock.now(),
           )
           .run(),

@@ -13,8 +13,8 @@ import {
   voidDraft,
 } from "@magna-carta/billing/draft";
 import {
+  applyEarnedFeesUnderAuthorizationPolicy,
   composeTrustApplicationApproval,
-  submitTrustApplicationRequest,
 } from "@magna-carta/billing/apply-authorization";
 import { applyTrustFundsToInvoices } from "@magna-carta/billing/apply-trust-funds";
 import { MAXIMUM_INVOICES_PER_TRUST_APPLICATION } from "@magna-carta/billing/earned-fee";
@@ -238,11 +238,27 @@ const TrustApplicationRequestSubmission = z
   })
   .openapi("BillingTrustApplicationRequestSubmission");
 
+// A member the firm has given the authority to act on client money, named so a pending application
+// can say who is able to release it rather than only that somebody must.
+const AuthorizedMember = z
+  .object({ userId: z.string(), displayName: z.string() })
+  .openapi("BillingAuthorizedMember");
+
+// What became of a proposed earned-fee application. `applied` means the submitting member held the
+// authority the firm requires and the amount needed no second person, so the fees moved in the same
+// atomic write and no queue row exists at all. `pending` means somebody else has to release it, and
+// `eligibleApprovers` says who; nothing has reached the ledger.
 const TrustApplicationRequestAck = z
   .object({
-    trustDisbursementRequestId: z.string(),
+    trustDisbursementRequestId: z.string().nullable(),
     totalMinor: z.number().int(),
-    status: z.literal("pending"),
+    currency: z.string(),
+    status: z.enum(["pending", "applied"]),
+    transferId: z.string().nullable(),
+    trustEntryId: z.string().nullable(),
+    operatingEntryId: z.string().nullable(),
+    applicationIds: z.array(z.string()),
+    eligibleApprovers: z.array(AuthorizedMember),
   })
   .openapi("BillingTrustApplicationRequestAck");
 
@@ -835,7 +851,7 @@ const submitTrustApplicationRoute = defineOpenAPIRoute(
     method: "post",
     path: "/api/v1/billing/trust-application-requests",
     description:
-      "Proposes taking earned fees out of a client's trust ledger against named finalized invoices, as a pending request for another member to approve. NO MONEY MOVES: the request and its invoice lines are a proposal, checked now so the submitter learns of a problem immediately, and re-checked in full at approval. This is the path a firm whose authorization policy requires a second person takes its fees by; the request is decided under the policy version in force when it is submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
+      "Takes earned fees out of a client's trust ledger against named finalized invoices, under the firm's own posture — which decides whether this member may take them now or has to ask. A member holding the authority to act on client money, for an amount that needs no second person, takes them in one atomic write and the response says `applied`. Anybody else leaves a pending request with its invoice lines beside it; the response says `pending`, names who can release it, and nothing reaches the ledger. A pending request is checked now so the submitter learns of a problem immediately and re-checked in full at approval, and it is decided under the policy version in force when it was submitted, however the posture changes while it is pending. Rejection and withdrawal use the trust disbursement-request endpoints — the queue is shared.",
     request: {
       headers: idempotencyKeyHeader,
       body: {
@@ -845,7 +861,8 @@ const submitTrustApplicationRoute = defineOpenAPIRoute(
     },
     responses: {
       201: {
-        description: "The application request is recorded and awaiting approval",
+        description:
+          "The earned fees were applied by the submitting member, or the request is recorded and awaiting approval",
         content: { "application/json": { schema: TrustApplicationRequestAck } },
       },
       400: errorResponses[400],
@@ -1665,7 +1682,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
         c,
         201,
         async (requestedBy) => {
-          const submitted = await submitTrustApplicationRequest(
+          const outcome = await applyEarnedFeesUnderAuthorizationPolicy(
             firm.firmDatabase,
             {
               trustAccountId: request.trustAccountId,
@@ -1683,13 +1700,38 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
             },
             clockOptions(),
           );
+          // Who could release it if this member could not. Empty when the fees moved, because
+          // nobody is waiting on anybody.
+          const eligibleApprovers = outcome.disposition.eligibleApprovers.map((approver) => ({
+            userId: approver.userId,
+            displayName: approver.displayName,
+          }));
           return {
-            write: submitted.effect,
-            body: {
-              trustDisbursementRequestId: submitted.requestId,
-              totalMinor: submitted.totalMinor,
-              status: "pending" as const,
-            },
+            write: outcome.effect,
+            body:
+              outcome.outcome === "applied"
+                ? {
+                    trustDisbursementRequestId: null,
+                    totalMinor: outcome.totalMinor,
+                    currency: request.currency,
+                    status: "applied" as const,
+                    transferId: outcome.transferId,
+                    trustEntryId: outcome.trustEntryId,
+                    operatingEntryId: outcome.operatingEntryId,
+                    applicationIds: [...outcome.applicationIds],
+                    eligibleApprovers,
+                  }
+                : {
+                    trustDisbursementRequestId: outcome.requestId,
+                    totalMinor: outcome.totalMinor,
+                    currency: request.currency,
+                    status: "pending" as const,
+                    transferId: null,
+                    trustEntryId: null,
+                    operatingEntryId: null,
+                    applicationIds: [],
+                    eligibleApprovers,
+                  },
           };
         },
       );

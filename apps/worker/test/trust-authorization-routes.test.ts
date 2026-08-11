@@ -137,10 +137,14 @@ async function pendingRequest(
     submitterCookie,
   );
   expect(requested.status).toBe(201);
-  const { trustDisbursementRequestId } = (await requested.json()) as {
+  const ack = (await requested.json()) as {
     trustDisbursementRequestId: string;
+    status: string;
   };
-  return { matterId, requestId: trustDisbursementRequestId };
+  // Under this firm's posture nothing is ever released by the submitter alone, so a submission that
+  // came back `approved` would mean the suite is testing a different firm than it says it is.
+  expect(ack.status).toBe("pending");
+  return { matterId, requestId: ack.trustDisbursementRequestId };
 }
 
 const ledgerOf = async (matterId: string) => {
@@ -222,6 +226,23 @@ beforeAll(async () => {
   );
   await commitEffectBatch(firmDatabase, opened.effect, { now: () => clock.now() });
   trustAccountId = opened.trustAccountId;
+
+  // This firm chooses the strict posture, through the route a firm administrator would use. Every
+  // per-firm database is seeded with the authority-based one — a holder acts alone — so a suite
+  // about the TWO-PERSON shape has to state what it is testing rather than inherit it. Authority is
+  // left off here because who holds it is a separate axis, exercised in the trust package's own
+  // authority suite; the approver below holds the bookkeeping capability only.
+  const posture = await SELF.fetch("https://example.com/api/v1/trust/authorization-policy", {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      cookie: submitterCookie,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({ policy: "always", requireAuthorizedApprover: false }),
+  });
+  expect(posture.status).toBe(201);
 });
 
 describe("two-person disbursement authorization", () => {

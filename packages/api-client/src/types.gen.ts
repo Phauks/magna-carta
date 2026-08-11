@@ -3266,7 +3266,17 @@ export type TrustDepositRequest = {
 
 export type TrustDisbursementRequestAck = {
     trustDisbursementRequestId: string;
-    status: 'pending';
+    status: 'pending' | 'approved';
+    authorizationBasis: 'second_person' | 'sole_trust_manager' | 'policy_exempt' | null;
+    trustMovementId: string | null;
+    ledgerEntryId: string | null;
+    trustLedgerNodeId: string;
+    eligibleApprovers: Array<TrustAuthorizedMember>;
+};
+
+export type TrustAuthorizedMember = {
+    userId: string;
+    displayName: string;
 };
 
 export type TrustDisbursementRequestSubmission = {
@@ -3704,9 +3714,20 @@ export type BillingTrustApplicationTarget = {
 };
 
 export type BillingTrustApplicationRequestAck = {
-    trustDisbursementRequestId: string;
+    trustDisbursementRequestId: string | null;
     totalMinor: number;
-    status: 'pending';
+    currency: string;
+    status: 'pending' | 'applied';
+    transferId: string | null;
+    trustEntryId: string | null;
+    operatingEntryId: string | null;
+    applicationIds: Array<string>;
+    eligibleApprovers: Array<BillingAuthorizedMember>;
+};
+
+export type BillingAuthorizedMember = {
+    userId: string;
+    displayName: string;
 };
 
 export type BillingTrustApplicationRequestSubmission = {
@@ -18086,7 +18107,7 @@ export type TrustRequestDisbursementError = TrustRequestDisbursementErrors[keyof
 
 export type TrustRequestDisbursementResponses = {
     /**
-     * The disbursement request is recorded and awaiting approval
+     * The disbursement was released by the submitting member, or recorded and awaiting approval
      */
     201: TrustDisbursementRequestAck;
 };
@@ -19493,7 +19514,7 @@ export type BillingSubmitTrustApplicationError = BillingSubmitTrustApplicationEr
 
 export type BillingSubmitTrustApplicationResponses = {
     /**
-     * The application request is recorded and awaiting approval
+     * The earned fees were applied by the submitting member, or the request is recorded and awaiting approval
      */
     201: BillingTrustApplicationRequestAck;
 };

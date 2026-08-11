@@ -4,6 +4,7 @@ import { composeTrustAuthorizationPolicyChange } from "@magna-carta/trust/author
 import { composeTrustDisbursementWithdrawal } from "@magna-carta/trust/disbursement-authorization";
 import { describe, expect, it } from "vitest";
 import {
+  applyEarnedFeesUnderAuthorizationPolicy,
   composeTrustApplicationApproval,
   readTrustApplicationRequestLines,
   submitTrustApplicationRequest,
@@ -28,8 +29,8 @@ import {
 } from "./support.ts";
 
 // The earned-fee application under the firm's authorization policy — billing's side of the shared
-// queue. Proved here: under the shipped always-two-person default a multi-manager firm cannot take
-// its fees single-handed on the direct path and CAN through submit-then-approve; the approval
+// queue. Proved here: under a firm-written always-two-person posture a multi-manager firm cannot
+// take its fees single-handed on the direct path and CAN through submit-then-approve; the approval
 // re-resolves the invoices and posts through the one apply path; the record ties the decision, the
 // transfer, and the request together; an in-flight application keeps the policy it was submitted
 // under; and a firm that relaxes its posture gets the single-actor path back.
@@ -37,6 +38,17 @@ import {
 const ACME = "directoryOrganization_acme";
 const FINALIZE_DATES = { issueDate: "2026-08-05", dueDate: "2026-09-04" } as const;
 const APPLY_ROLES = ["accounts_receivable", "fee_income", "operating_bank"] as const;
+
+// Every per-firm database is seeded with the authority-based posture — a holder acts alone — so a
+// suite about the TWO-PERSON shape writes that posture rather than leaning on a default.
+async function requireTwoPeople(fixture: BillingFixture): Promise<void> {
+  const change = await composeTrustAuthorizationPolicyChange(
+    fixture.database,
+    { policy: "always", requireAuthorizedApprover: false, setBy: fixture.memberUserId },
+    options,
+  );
+  await commit(fixture.database, change.effect);
+}
 
 async function seedTrustManager(fixture: BillingFixture, displayName: string): Promise<UserId> {
   const userId = newIdentifier("user");
@@ -63,10 +75,11 @@ interface ApplicationFixture {
   readonly approver: UserId;
 }
 
-// A multi-manager firm under the shipped default: a finalized 500.00 bill, 800.00 of the client's
+// A multi-manager firm that requires two people: a finalized 500.00 bill, 800.00 of the client's
 // money in trust against the matter, and a second member who can approve.
 async function applicationFixture(): Promise<ApplicationFixture> {
   const fixture = await billingFixture();
+  await requireTwoPeople(fixture);
   await mapAccountRoles(fixture, [...APPLY_ROLES]);
   const matterId = await seedMatter(fixture, ACME, "Acme");
   const timeEntryId = await seedTimeEntry(fixture, matterId, { amountMinor: 500_00 });
@@ -112,7 +125,7 @@ function submitInput(context: ApplicationFixture, amountMinor: number) {
   } as const;
 }
 
-describe("the earned-fee application under the always-two-person default", () => {
+describe("the earned-fee application under an always-two-person posture", () => {
   it("refuses the single-actor direct path in a multi-manager firm, naming the queue", async () => {
     const context = await applicationFixture();
     await expect(
@@ -151,7 +164,7 @@ describe("the earned-fee application under the always-two-person default", () =>
       [context.invoiceId, 500_00],
     ]);
 
-    // The submitter may not approve their own application under the default policy.
+    // The submitter may not approve their own application under this policy.
     await expect(
       composeTrustApplicationApproval(
         fixture.database,
@@ -328,6 +341,7 @@ describe("the lone-holder exception is not borrowable through the application fl
   // the batch committed with a sole_trust_manager basis nobody had.
   async function clerkFixture() {
     const fixture = await billingFixture();
+    await requireTwoPeople(fixture);
     await mapAccountRoles(fixture, [...APPLY_ROLES]);
     const matterId = await seedMatter(fixture, ACME, "Acme");
     const timeEntryId = await seedTimeEntry(fixture, matterId, { amountMinor: 500_00 });
@@ -419,5 +433,114 @@ describe("the lone-holder exception is not borrowable through the application fl
           .run(),
       ),
     ).rejects.toThrow(/request nobody has decided|UNIQUE/);
+  });
+});
+
+// UNDER THE POSTURE EVERY FIRM IS SEEDED WITH, the one entrance decides for itself: an authorized
+// member takes the fees now, anybody else leaves a proposal for one who can. No posture is written
+// here — that IS the case under test.
+describe("taking earned fees under the seeded authority-based posture", () => {
+  async function seededFixture() {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, [...APPLY_ROLES]);
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const timeEntryId = await seedTimeEntry(fixture, matterId, { amountMinor: 500_00 });
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: ACME, currency: "USD", createdBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+    const claimed = await addClaimsToDraft(
+      fixture.database,
+      draft.invoiceId,
+      [{ sourceKind: "time_entry", sourceId: timeEntryId }],
+      options,
+    );
+    await commit(fixture.database, claimed.effect);
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+    const trustAccountId = await seedTrustAccount(fixture);
+    await depositToMatterTrustLeaf(fixture, trustAccountId, matterId, 800_00);
+    return { fixture, trustAccountId, matterId, invoiceId: draft.invoiceId };
+  }
+
+  const feeInput = (context: Awaited<ReturnType<typeof seededFixture>>, requestedBy: UserId) => ({
+    trustAccountId: context.trustAccountId,
+    matterId: context.matterId,
+    applications: [{ invoiceId: context.invoiceId, amountMinor: 500_00 }],
+    currency: "USD",
+    effectiveDate: "2026-08-05",
+    trustDescription: "Earned fees transferred to operating",
+    operatingDescription: "Earned fees received from trust",
+    method: "electronic_transfer" as const,
+    payee: "The Firm — operating account",
+    purpose: "Earned fees on finalized invoice",
+    requestedBy,
+  });
+
+  it("applies for a member holding the authority, in one batch", async () => {
+    const context = await seededFixture();
+    const outcome = await applyEarnedFeesUnderAuthorizationPolicy(
+      context.fixture.database,
+      feeInput(context, context.fixture.memberUserId),
+      options,
+    );
+    expect(outcome.outcome).toBe("applied");
+    expect(outcome.disposition).toMatchObject({
+      mode: "solo",
+      authorizationBasis: "policy_exempt",
+    });
+    await commit(context.fixture.database, outcome.effect);
+
+    const [balance] = await readInvoiceMatterBalances(context.fixture.database, context.invoiceId);
+    expect(balance?.appliedMinor).toBe(500_00);
+  });
+
+  it("queues for a member without it, names who can release it, and moves nothing", async () => {
+    const context = await seededFixture();
+    const clerk = "user_clerk_billing_only" as UserId;
+    const outcome = await applyEarnedFeesUnderAuthorizationPolicy(
+      context.fixture.database,
+      feeInput(context, clerk),
+      options,
+    );
+    expect(outcome.outcome).toBe("queued");
+    expect(outcome.disposition).toMatchObject({
+      mode: "route",
+      routeReason: "authority-required",
+      authorizationBasis: null,
+    });
+    expect(outcome.disposition.eligibleApprovers.map((approver) => approver.userId)).toEqual([
+      context.fixture.memberUserId,
+    ]);
+    await commit(context.fixture.database, outcome.effect);
+
+    const [balance] = await readInvoiceMatterBalances(context.fixture.database, context.invoiceId);
+    expect(balance?.appliedMinor).toBe(0);
+
+    // And the guard behind the routing agrees: the clerk attempting the direct path anyway is
+    // refused by trust's own composer, so the disposition never becomes the only thing standing
+    // between a member and client money.
+    await expect(
+      applyTrustFundsToInvoices(
+        context.fixture.database,
+        {
+          trustAccountId: context.trustAccountId,
+          matterId: context.matterId,
+          applications: [{ invoiceId: context.invoiceId, amountMinor: 500_00 }],
+          currency: "USD",
+          effectiveDate: "2026-08-05",
+          trustDescription: "Earned fees transferred to operating",
+          operatingDescription: "Earned fees received from trust",
+          appliedBy: clerk,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "trust-authorization-authority-required" });
   });
 });

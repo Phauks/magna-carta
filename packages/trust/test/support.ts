@@ -6,6 +6,10 @@ import type { LedgerAccountId, LocationId, MatterId, UserId } from "@magna-carta
 import { createAccount } from "@magna-carta/ledger/create-account";
 import type { ClockPort } from "@magna-carta/ledger/types";
 import { ensureMatterTrustLeaf, openTrustAccount } from "../src/account-tree.ts";
+import {
+  composeTrustAuthorizationPolicyChange,
+  type ComposedTrustAuthorizationPolicyChange,
+} from "../src/authorization-policy.ts";
 
 export const clock: ClockPort = {
   now: () => "2026-08-05T15:00:00.000Z",
@@ -60,6 +64,16 @@ export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
     database
       .prepare(
         "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:manage', NULL, ?2, ?3)",
+      )
+      .bind(newIdentifier("grant"), memberUserId, clock.now()),
+    // And holds the AUTHORITY too, which the platform's seeded posture requires of whoever lets
+    // money go. That matches how a real firm arrives: the seed puts trust:authorize on the Owner and
+    // Attorney roles, so the responsible attorney a fixture stands for holds both capabilities. A
+    // fixture member holding only the bookkeeping one could not move a cent under the shipped
+    // posture, which would make every suite here exercise a firm nobody has.
+    database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:authorize', NULL, ?2, ?3)",
       )
       .bind(newIdentifier("grant"), memberUserId, clock.now()),
   ]);
@@ -145,6 +159,33 @@ export async function seedMatterClientParty(
     )
     .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
     .run();
+}
+
+// THE FIRM'S POSTURE, STATED. Every per-firm database is seeded with the authority-based posture
+// (`off` plus the authority requirement: a holder acts alone, anybody else routes to one), so a
+// suite proving TWO-PERSON behaviour has to write that posture rather than lean on an absent row —
+// the absent row is now only what a pre-policy stamp resolves to, and no fresh database has one.
+export async function setTrustAuthorizationPolicy(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  input: {
+    readonly policy: "off" | "threshold" | "always";
+    readonly thresholdAmountMinor?: number | null;
+    readonly requireAuthorizedApprover?: boolean;
+    readonly setBy?: UserId;
+  },
+): Promise<ComposedTrustAuthorizationPolicyChange> {
+  const change = await composeTrustAuthorizationPolicyChange(
+    fixture.database,
+    {
+      policy: input.policy,
+      thresholdAmountMinor: input.thresholdAmountMinor ?? null,
+      requireAuthorizedApprover: input.requireAuthorizedApprover ?? false,
+      setBy: input.setBy ?? fixture.memberUserId,
+    },
+    options,
+  );
+  await commit(fixture.database, change.effect);
+  return change;
 }
 
 // A member who holds the trust capability, granted directly. The sole-authorizer trigger counts
