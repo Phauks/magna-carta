@@ -120,6 +120,11 @@ import type {
   ReviewDocumentExceptionId,
   ReviewDocumentId,
   ReviewDocumentOccurrenceId,
+  ReviewDocumentTagId,
+  ReviewSetAccessId,
+  ReviewTagEventId,
+  ReviewTagGroupId,
+  ReviewTagId,
   ReviewSetId,
   RoleId,
   RolePermissionId,
@@ -6772,6 +6777,291 @@ export const reviewDocumentOccurrence = sqliteTable(
     check(
       "review_document_occurrence_distinct_check",
       sql`${table.primaryReviewDocumentId} <> ${table.duplicateReviewDocumentId}`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Discovery — who may reach a corpus, and what a reviewer decides about a document in it.
+//
+// TWO IDEAS, ONE MIGRATION, because neither is safe without the other. The access list is the wall:
+// holding a discovery permission says a member may review SOMETHING, and this list says WHICH corpora
+// — material another party produced may be attorney's-eyes-only under a protective order, and an
+// attorneys'-eyes-only production is nothing more than a review set whose list is two people. Coding
+// is what a reviewer then does, and every coding read and write sits behind the list.
+//
+// THE LIST IS FAIL-CLOSED. A review set with no rows is reachable by nobody, not by everybody. The
+// alternative — empty meaning open — makes the wall opt-in, so a bug in the seeding path silently
+// discloses a corpus instead of silently hiding one, and only one of those two failures is
+// recoverable by a person noticing they cannot see something.
+
+// One person's membership of one review set's corpus. Membership is a live list rather than an
+// event journal: it answers "who may look right now", and the record of how it came to say that is
+// the audit log's, written in the same batch as every grant and revoke.
+export const reviewSetAccess = sqliteTable(
+  "review_set_access",
+  {
+    id: text("id").primaryKey().$type<ReviewSetAccessId>(), // reviewSetAccess_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    // Not a foreign key to `member`, matching `review_set.created_by`: the grant is a record that
+    // outlives the member row, and a deactivated member is refused at the session rather than by a
+    // dangling reference.
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+    grantedBy: text("granted_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The predicate every discovery read composes is "does a row exist for this review set and this
+    // member", so the unique index that keeps membership single IS the index that answers it.
+    uniqueIndex("review_set_access_member_unique_index").on(table.reviewSetId, table.memberUserId),
+    // The other direction: which corpora may this member reach. That is the list read, and without
+    // this index it is a scan of every grant in the firm.
+    index("review_set_access_member_index").on(table.memberUserId, table.reviewSetId),
+  ],
+);
+
+// One ordered question on the coding panel. Two levels — groups containing tags — with the
+// cardinality on the GROUP, because that is what review coding is actually made of: a single-choice
+// group is a radio row (Responsiveness), a multi-choice group is a flag set (issue codes), and a flat
+// bag is the degenerate case of one multi-choice group. Independent boolean flags cannot express a
+// mutually exclusive choice, and a corpus where some documents are both responsive and non-responsive
+// is a corpus that cannot be produced from without a cleanup pass. Deeper nesting is refused by
+// shape rather than deferred by omission.
+export const reviewTagGroup = sqliteTable(
+  "review_tag_group",
+  {
+    id: text("id").primaryKey().$type<ReviewTagGroupId>(), // reviewTagGroup_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    name: text("name").notNull(),
+    // A `system` group is seeded at creation and is not deletable, because production logic stands on
+    // its existence. It is freely RENAMABLE — nothing ever matches a group by its name.
+    kind: text("kind", { enum: ["system", "custom"] }).notNull(),
+    cardinality: text("cardinality", { enum: ["single", "multi"] }).notNull(),
+    // Whether a document with no answer in this group counts as uncoded. That arithmetic is the whole
+    // of progress reporting, and later the staging refusal that keeps an uncoded document out of a
+    // production.
+    requiredForCompletion: integer("required_for_completion", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("review_tag_group_review_set_name_unique_index").on(table.reviewSetId, table.name),
+    index("review_tag_group_review_set_order_index").on(table.reviewSetId, table.sortOrder),
+    check("review_tag_group_kind_check", sql`${table.kind} IN ('system', 'custom')`),
+    check("review_tag_group_cardinality_check", sql`${table.cardinality} IN ('single', 'multi')`),
+    check("review_tag_group_name_nonempty_check", sql`length(${table.name}) > 0`),
+  ],
+);
+
+// One answer within a group.
+//
+// SEMANTICS, NOT NAMES, DRIVE THE MACHINE. Privilege-log generation, production membership, redaction
+// checks and completion arithmetic read only `semantic`, so a firm may rename "Privileged" to
+// "Withhold — AC privilege" and nothing breaks, because nothing ever matched the string. A custom tag
+// carries no semantic and drives no machinery — it filters, groups and exports, which is what custom
+// tags are for.
+export const reviewTag = sqliteTable(
+  "review_tag",
+  {
+    id: text("id").primaryKey().$type<ReviewTagId>(), // reviewTag_ handle
+    reviewTagGroupId: text("review_tag_group_id")
+      .notNull()
+      .$type<ReviewTagGroupId>()
+      .references(() => reviewTagGroup.id),
+    // Redundant with the path through the group, and carried for the same reason
+    // `review_document_exception` carries it: the review-set-wide tag read must not join to get here.
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    name: text("name").notNull(),
+    semantic: text("semantic", {
+      enum: [
+        "responsive",
+        "non-responsive",
+        "needs-further-review",
+        "privileged",
+        "privileged-redact",
+        "not-privileged",
+        "confidential",
+      ],
+    }),
+    // A design-token NAME, never a raw colour value: the coding panel styles through the design
+    // system, and a hex string stored here would be an off-token value the UI could not refuse.
+    colorToken: text("color_token").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    // A tag that has ever been applied is DEACTIVATED, never deleted. Deleting one would orphan the
+    // coding history that is the entire point of the journal below.
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("review_tag_group_name_unique_index").on(table.reviewTagGroupId, table.name),
+    index("review_tag_review_set_index").on(table.reviewSetId, table.reviewTagGroupId),
+    check(
+      "review_tag_semantic_check",
+      sql`${table.semantic} IS NULL OR ${table.semantic} IN ('responsive', 'non-responsive', 'needs-further-review', 'privileged', 'privileged-redact', 'not-privileged', 'confidential')`,
+    ),
+    check("review_tag_name_nonempty_check", sql`length(${table.name}) > 0`),
+  ],
+);
+
+// ONE ROW PER HUMAN ACT of coding, however many documents it touched. Together with the per-document
+// rows that point back at it, this answers in indexed reads and without reconstruction: who coded this
+// document, as what, when, one at a time or in bulk, under what criteria, and who reversed it. That
+// is the record a court asks for when a production is challenged, and it is richer than the generic
+// audit row would be — which is why coding does not also write one, since two homes for one fact
+// drift.
+//
+// NOTHING HERE IS CONTENT. Tag names live in the tag table; `criteria` holds field names and
+// identifiers, never free text, refused at the service boundary.
+export const reviewTagEvent = sqliteTable(
+  "review_tag_event",
+  {
+    id: text("id").primaryKey().$type<ReviewTagEventId>(), // reviewTagEvent_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    kind: text("kind", {
+      enum: ["apply", "remove", "bulk-apply", "bulk-remove", "undo"],
+    }).notNull(),
+    reviewTagId: text("review_tag_id")
+      .notNull()
+      .$type<ReviewTagId>()
+      .references(() => reviewTag.id),
+    scope: text("scope", { enum: ["document", "family", "selection"] }).notNull(),
+    documentCount: integer("document_count").notNull().default(0),
+    // The filter that drove a bulk selection, as typed — recorded for HUMANS. It is never re-run: the
+    // materialized selection below is what executed.
+    criteria: text("criteria"),
+    // The frozen selection, resolved once at initiation. A bulk operation that re-ran its criteria per
+    // chunk would apply a tag to documents the operator never saw, because the corpus moves under a
+    // long operation.
+    selectionR2Key: text("selection_r2_key"),
+    state: text("state", { enum: ["running", "complete", "undone"] })
+      .notNull()
+      .default("running"),
+    reversesEventId: text("reverses_event_id").$type<ReviewTagEventId>(),
+    actorUserId: text("actor_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("review_tag_event_review_set_created_index").on(
+      table.reviewSetId,
+      table.createdAt,
+      table.id,
+    ),
+    index("review_tag_event_review_set_actor_index").on(table.reviewSetId, table.actorUserId),
+    // At most one undo per event: history never shortens, and a second reversal of the same act would
+    // remove rows a first reversal already attributed. Partial, because every non-undo row is NULL
+    // here and NULLs do not collide in SQLite's unique indexes anyway — stating it keeps the intent
+    // legible and the index narrow.
+    uniqueIndex("review_tag_event_reverses_unique_index")
+      .on(table.reversesEventId)
+      .where(sql`${table.reversesEventId} IS NOT NULL`),
+    check(
+      "review_tag_event_kind_check",
+      sql`${table.kind} IN ('apply', 'remove', 'bulk-apply', 'bulk-remove', 'undo')`,
+    ),
+    check(
+      "review_tag_event_scope_check",
+      sql`${table.scope} IN ('document', 'family', 'selection')`,
+    ),
+    check("review_tag_event_state_check", sql`${table.state} IN ('running', 'complete', 'undone')`),
+    check("review_tag_event_document_count_check", sql`${table.documentCount} >= 0`),
+    // An undo names what it reverses; nothing else does.
+    check(
+      "review_tag_event_reverses_check",
+      sql`(${table.kind} = 'undo') = (${table.reversesEventId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// THE UNIT OF TAG STORAGE IS ONE ROW PER (DOCUMENT, TAG) APPLICATION, whatever gesture applied it.
+// Applying a tag "to the family" writes a row per family member; a bulk application writes a row per
+// selected document. The tempting alternative — a family-level row that members inherit at read time
+// — makes production membership a join over inheritance rules executed years after the coding pass,
+// which is exactly where an inheritance bug becomes a produced privileged document. The EVENT records
+// the gesture; the ROWS record the result, and a production reads rows and only rows.
+//
+// Rows are never deleted. Removal is a state with an actor and an instant, which is what makes the
+// coding history of one document one indexed read years later.
+export const reviewDocumentTag = sqliteTable(
+  "review_document_tag",
+  {
+    id: text("id").primaryKey().$type<ReviewDocumentTagId>(), // reviewDocumentTag_ handle
+    reviewSetId: text("review_set_id")
+      .notNull()
+      .$type<ReviewSetId>()
+      .references(() => reviewSet.id),
+    reviewDocumentId: text("review_document_id")
+      .notNull()
+      .$type<ReviewDocumentId>()
+      .references(() => reviewDocument.id),
+    reviewTagId: text("review_tag_id")
+      .notNull()
+      .$type<ReviewTagId>()
+      .references(() => reviewTag.id),
+    // Both denormalized from the tag and its group, and load-bearing rather than convenient: they are
+    // what make the partial unique index below expressible at all. An index cannot reach through a
+    // join, so without these columns the single-choice rule would be a service-layer guard that two
+    // concurrent writers could walk straight past.
+    reviewTagGroupId: text("review_tag_group_id")
+      .notNull()
+      .$type<ReviewTagGroupId>()
+      .references(() => reviewTagGroup.id),
+    singleChoice: integer("single_choice", { mode: "boolean" }).notNull(),
+    appliedByEventId: text("applied_by_event_id")
+      .notNull()
+      .$type<ReviewTagEventId>()
+      .references(() => reviewTagEvent.id),
+    appliedAt: text("applied_at").notNull(),
+    removedByEventId: text("removed_by_event_id").$type<ReviewTagEventId>(),
+    removedAt: text("removed_at"),
+  },
+  (table) => [
+    // SINGLE CHOICE IS STRUCTURAL, NOT GUARDED. Changing a single-choice answer is remove-plus-apply
+    // in one batch; two concurrent writers cannot leave a document both responsive and non-responsive,
+    // because the index refuses the second row.
+    uniqueIndex("review_document_tag_single_choice_unique_index")
+      .on(table.reviewDocumentId, table.reviewTagGroupId)
+      .where(sql`${table.removedAt} IS NULL AND ${table.singleChoice} = 1`),
+    // And at most one LIVE row per (document, tag) in any group, so a double-apply converges instead
+    // of accumulating rows a later removal would only half-clear.
+    uniqueIndex("review_document_tag_live_unique_index")
+      .on(table.reviewDocumentId, table.reviewTagId)
+      .where(sql`${table.removedAt} IS NULL`),
+    // "What is coded on this document" — the read the coding panel makes on every document a reviewer
+    // opens, and the one the family-conflict read makes per family member.
+    index("review_document_tag_document_index").on(table.reviewDocumentId, table.removedAt),
+    // "Which documents carry this tag" — the progress counts, the filters, and later the resolution of
+    // a production's membership.
+    index("review_document_tag_review_set_tag_index").on(
+      table.reviewSetId,
+      table.reviewTagId,
+      table.removedAt,
+    ),
+    // What an undo reverses: precisely the rows one event wrote. Indexed because an undo over a
+    // ceiling-sized bulk apply is otherwise a full scan of the largest table this slice adds.
+    index("review_document_tag_applied_event_index").on(table.appliedByEventId),
+    index("review_document_tag_removed_event_index").on(table.removedByEventId),
+    // A removal is an instant AND an attribution, or it is neither. Half a removal is a row nobody can
+    // explain.
+    check(
+      "review_document_tag_removal_check",
+      sql`(${table.removedAt} IS NULL) = (${table.removedByEventId} IS NULL)`,
     ),
   ],
 );

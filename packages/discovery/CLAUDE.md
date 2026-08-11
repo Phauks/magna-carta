@@ -30,6 +30,14 @@ ADR-0039.)
 - `src/internal-lane.ts` — resolving a selection of files or filed email; no bytes move
 - `src/external-lane.ts` — the destination and the reconciliation for a received production
 - `src/allocation.ts` — planning rows and chunks, pure and deterministic
+- `src/review-set-visibility.ts` — **the access seam**: the one predicate every review-set statement
+  composes, and the marker the fitness pass proves it by
+- `src/review-set-access-statements.ts` / `src/review-set-access-service.ts` — the access list itself
+- `src/coding-statements.ts` — every coding read and write, and `ACCESS_SCOPED_BUILDERS`, the registry
+  the visibility fitness pass enumerates
+- `src/coding-panel-service.ts` — the seeded panel, and creating/renaming/deactivating questions and
+  tags
+- `src/coding-service.ts` — applying, removing, family and bulk gestures, and exact undo
 
 ## Invariants that apply here
 
@@ -71,6 +79,37 @@ ADR-0039.)
   a person's name into.
 - **An exception `detail` is never file content.** The whole pipeline handles privileged material, so
   a detail carrying a fragment of a document is a redaction failure wearing an error message.
+- **The review-set access predicate is a REQUIRED argument to every statement that touches review-set
+  content, composed into the `WHERE` clause before the `LIMIT`.** Required rather than optional so the
+  omission is a type error first and a fitness failure second. Composed in SQL and never applied in
+  the Worker after the rows come back: a post-filter under-fills the page and turns the page size into
+  an existence oracle for the rows it removed, which on a corpus that may be attorneys'-eyes-only is
+  the difference between a wall and a hint. `test/review-set-visibility-fitness.test.ts` proves it for
+  every builder in `ACCESS_SCOPED_BUILDERS` from one table-driven pass, scans the source so the
+  registry cannot fall behind the file, and asserts behaviourally that the predicate excludes.
+- **The access list is FAIL-CLOSED and never empty.** No row means no access, so a bug in the seeding
+  path hides a corpus rather than disclosing one — and only one of those two failures gets noticed. A
+  new list is seeded in the same batch as the review set's insert, and the last member cannot be
+  removed, because under fail-closed an empty list is permanent short of a migration.
+- **The unit of tag storage is one row per (document, tag) application** — never an inherited one.
+  Family and bulk are SCOPES, not storage: the event records the gesture, the rows record the result,
+  and a production reads rows and only rows. Inheritance resolved years later at production time is
+  where a bug becomes a produced privileged document.
+- **Single choice is structural, not guarded.** A partial unique index on
+  `(review_document_id, review_tag_group_id) WHERE removed_at IS NULL AND single_choice = 1`. The
+  denormalized `review_tag_group_id` and `single_choice` columns exist so that index can be written at
+  all — an index cannot reach through a join, so without them the rule would be a service guard two
+  concurrent writers walk straight past.
+- **Coding rows are never deleted; removal is a state with an actor and an instant.** That is what
+  makes the coding history of one document one indexed read years later, and it is held by a CHECK
+  that refuses half a removal.
+- **Semantics drive the machine, names never do.** Production membership, privilege logging and
+  completion arithmetic read `review_tag.semantic` only. A tag created through the API carries none,
+  so a renamed label can never change what a production withholds; a tag that carries one cannot be
+  deactivated, because hiding "Privileged" would remove the only way to withhold anything.
+- **Coding writes NO generic audit row.** The `review_tag_event` journal is the audit and is richer
+  than the generic row — scope, criteria, frozen selection, reversal. Two homes for one fact drift.
+  Panel edits and access-list changes are not coding decisions and DO write one.
 
 ## The transcript control — required, and with no default
 
@@ -123,6 +162,17 @@ produced it forbids.
   duplicate.
 - **`assertVersionsAreClean` refuses, it does not filter.** A firm that selected fifty files and
   silently received forty-eight review documents has a corpus it cannot certify the contents of.
+- **A bulk coding selection DOES filter, and that is the opposite rule for the opposite reason.** A
+  document id naming another corpus vanishes from the selection rather than being refused by name:
+  refusing it by name confirms the id exists to somebody who cannot see it. The load rule protects a
+  corpus a firm must certify; this one protects a corpus somebody must not learn about.
+- **A bulk coding operation is several batches, not one transaction.** A ceiling-sized selection
+  cannot be one atomic write anywhere, which is what the event's `running` state is for: a run that
+  dies part-way leaves exactly the rows it wrote attributed to it, and an undo reverses exactly those.
+- **Bulk selections live under `discovery/<reviewSetId>/selections/` and are RECORDS, not caches** —
+  deliberately outside `reviewSetDerivedPrefixes`, so "which documents did that act touch" survives
+  the review set closing. That is the question asked when a production drawn from this coding is
+  challenged.
 - **A message with no extracted attachments is `standalone`, not `parent`.** A `parent` role on a
   one-member family would make every family read ask "is this a real family", which is the question
   the role exists to answer.

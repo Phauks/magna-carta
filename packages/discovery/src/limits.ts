@@ -30,6 +30,39 @@ export const LOAD_CHUNK_SIZE = 1000;
 // own recorded act with its own manifest — which is a better record anyway.
 export const MAX_SELECTION_SIZE = 5000;
 
+// How many documents one bulk coding operation writes per committed batch. Each application binds
+// well under twenty parameters and the access predicate adds one, so a chunk of this size sits inside
+// the per-statement parameter ceiling with room to spare — the REVIEW_DOCUMENT_INSERT_BATCH_SIZE
+// reasoning, applied to the other table this subsystem writes at scale.
+//
+// A bulk operation commits several of these, not one transaction: a ceiling-sized selection cannot be
+// one atomic write anywhere. That is what the event's `running` state is for — an operation that dies
+// part-way leaves its event running with exactly the rows it did write attributed to it, which is a
+// recoverable and honest record rather than a silent partial.
+export const BULK_CODING_CHUNK_SIZE = 100;
+
+// The most documents one bulk coding request may name. The same wall and the same reasoning as
+// MAX_SELECTION_SIZE above: a selection is a request body, not a corpus.
+//
+// Bulk over a whole corpus — "everything matching this search" at the ceiling — is a different shape
+// of operation: it needs the criteria resolved against the corpus index, and it needs a coordinator
+// walking the frozen list across turns rather than one request holding the work. Both arrive with the
+// corpus index read; the materialized-selection contract here is written so the criteria source is
+// opaque to the executor, which is what lets that land without changing anything below it.
+export const BULK_CODING_MAX_DOCUMENTS = MAX_SELECTION_SIZE;
+
+// A coding panel is a handful of questions and a few dozen answers. The cap exists so a read is
+// bounded rather than because a firm is expected to approach it; a firm that does has a taxonomy
+// problem the platform should not silently absorb.
+export const MAX_TAG_GROUPS_PER_REVIEW_SET = 50;
+export const MAX_TAGS_PER_REVIEW_SET = 500;
+
+// The recorded criteria of a bulk gesture — field names and identifiers, as typed. Bounded small
+// because it is a note for humans and never re-executed, and because free text is refused in it: a
+// criteria blob that could carry a sentence could carry privileged content into a journal that has no
+// redaction story.
+export const CODING_CRITERIA_MAX_LENGTH = 2000;
+
 // The per-review-set document ceiling, as a per-firm setting rather than a constant. It is refused
 // above rather than degraded, and it is re-derived against the measured per-firm database size rather
 // than defended by argument.

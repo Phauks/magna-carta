@@ -157,6 +157,8 @@ leaves a record of when you did and who decided to.
 
 ## Related features
 
+- [Coding documents in review](coding-documents-in-review.md) — deciding what each document in the
+  set is, and the record of who decided it.
 - [Filing email to a matter](filing-email-to-a-matter.md) — how email gets onto the matter in the
   first place, which is what the filed-email load draws from.
 - [Safe custody register](safe-custody-register.md) — physical originals the firm holds. Different

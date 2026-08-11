@@ -427,6 +427,22 @@ export const PROBLEM_TYPES = {
   // reach `complete` while a document is in neither column — that document has fallen out of the
   // corpus with nobody able to tell.
   "discovery-load-not-reconciled": "discovery-load-not-reconciled",
+  // A coding act asked to be taken back that will not be (HTTP 409): it has already been reversed, it
+  // is still running, or it is itself an undo. Its own type because an undo is EXACT — it reverses
+  // precisely the rows one act wrote — and "already reversed" and "still moving" are different
+  // situations a caller resolves differently. Reversing twice would remove rows the first reversal
+  // already attributed to somebody.
+  "discovery-coding-act-not-undoable": "discovery-coding-act-not-undoable",
+  // The last member being removed from a review set's access list (HTTP 422). The list is
+  // fail-closed, so an empty one is a corpus nobody can reach — including whoever would repair it,
+  // which makes it permanent short of a migration. Named rather than generic because the fix is
+  // specific: add whoever should hold the corpus first.
+  "discovery-access-list-would-be-empty": "discovery-access-list-would-be-empty",
+  // A change to the coding panel that is refused (HTTP 422): deactivating a tag whose meaning
+  // production and privilege logging resolve through, or deleting a seeded question. Neither is a
+  // request-shape problem, and both have the same answer — rename it, because nothing ever matched
+  // it by name.
+  "discovery-coding-panel-refused": "discovery-coding-panel-refused",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
