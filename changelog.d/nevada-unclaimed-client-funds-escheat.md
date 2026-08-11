@@ -11,7 +11,7 @@ client trust accounts do not escheat to the State at all** — NRS 120A.500(6)(f
 trust account established on behalf of a client" from the abandonment presumption continuously
 since 2009, and the State Treasurer's own holder manual declines IOLTA funds. The operative path
 is NRPC 1.15(f) (effective April 19, 2021): a continuing duty of reasonable efforts to locate and
-distribute — floored at regular *and* certified mail, telephone, and email — and, five years **from
+distribute — floored at regular _and_ certified mail, telephone, and email — and, five years **from
 receipt of the property**, a **permissive** option to remit to the State Bar's Clients' Security
 Fund with a certification and documentary evidence of the search; the remittance is terminal, with
 a good-faith safe harbor against discipline. The firm remains an ordinary NRS 120A holder for

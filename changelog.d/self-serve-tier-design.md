@@ -42,7 +42,7 @@ the product, because there is only one number.
 not allow this. There is now a second, and the difference is not cosmetic â€” telling the owner of a firm that
 their role is insufficient, when they hold every role there is, is both unhelpful and untrue. The new
 refusal says the workspace's plan does not include this and points at how to change that. Underneath, this
-is deliberately *not* a second set of rules running alongside the existing one: the same list of
+is deliberately _not_ a second set of rules running alongside the existing one: the same list of
 capabilities the product has always used is simply narrowed for a free workspace before the one existing
 check runs. There is still exactly one place in the product that decides whether you may do something.
 
@@ -56,7 +56,7 @@ a declined card must not lock a lawyer out of a calendar full of hearing dates â
 workspace becomes read-only with everything still there and exportable, indefinitely. It is never
 downgraded to the free limits, because squeezing forty gigabytes into a free allowance would mean either
 deleting somebody's files or leaving them permanently stuck; the files simply stay. Reading trust and
-billing records survives all of it: a firm is never shut out of *seeing* its own records of client money,
+billing records survives all of it: a firm is never shut out of _seeing_ its own records of client money,
 whatever it owes. Paying again restores everything by changing one thing.
 
 **An abandoned free workspace is wound down slowly, loudly, and on the record.** Nothing is deleted quietly
