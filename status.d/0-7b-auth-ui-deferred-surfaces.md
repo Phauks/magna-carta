@@ -9,13 +9,14 @@ built: in-progress
 ui: in-progress
 load-profile: n/a
 tested: in-progress
-branch: claude/sign-in-screen
-active-work: docs/active-work/claude/sign-in-screen.md
-next: Password reset and recovery-code entry, then the appearance-settings surface
+branch: claude/sign-in-transposition
+active-work: docs/active-work/claude/sign-in-transposition.md
+next: Registration and invitation redemption, the two-factor enrolment screens, and reset-password as one progressively-disclosed screen — each behind a server route that does not exist yet
 link-spec:
 link-plan:
 adrs:
 blocked-by:
 ---
 
-Sign-in is built — identifier-first credentials + authenticator code over Better Auth, one route.
+Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry
+and real recovery-code entry. Every state renders on the developer console's screen-state page.
