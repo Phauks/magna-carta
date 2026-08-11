@@ -163,10 +163,7 @@ describe("creating a review set seeds its panel and its access list", () => {
 // on no access list. A 403 anywhere below would be a bug of its own — it would name the corpus.
 describe("a member holding every discovery permission but not on the access list", () => {
   it("cannot read the coding panel, and is told the review set does not exist", async () => {
-    const response = await get(
-      `/api/v1/review-sets/${reviewSetId}/coding-panel`,
-      strangerCookie,
-    );
+    const response = await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`, strangerCookie);
     expect(response.status).toBe(404);
   });
 
@@ -187,9 +184,9 @@ describe("a member holding every discovery permission but not on the access list
     );
     expect(response.status).toBe(404);
     // And the list did not move.
-    const listed = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/access`)
-    ).json()) as { data: { memberUserId: string }[] };
+    const listed = (await (await get(`/api/v1/review-sets/${reviewSetId}/access`)).json()) as {
+      data: { memberUserId: string }[];
+    };
     expect(listed.data.map((member) => member.memberUserId)).toEqual([ownerUserId]);
   });
 
@@ -219,10 +216,12 @@ describe("a member holding every discovery permission but not on the access list
   });
 
   it("granting somebody already listed is a no-op rather than a conflict", async () => {
-    expect((await put(`/api/v1/review-sets/${reviewSetId}/access/${ownerUserId}`)).status).toBe(204);
-    const listed = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/access`)
-    ).json()) as { data: unknown[] };
+    expect((await put(`/api/v1/review-sets/${reviewSetId}/access/${ownerUserId}`)).status).toBe(
+      204,
+    );
+    const listed = (await (await get(`/api/v1/review-sets/${reviewSetId}/access`)).json()) as {
+      data: unknown[];
+    };
     expect(listed.data).toHaveLength(1);
   });
 
@@ -251,9 +250,9 @@ describe("the coding panel", () => {
     );
     expect(tagResponse.status).toBe(201);
 
-    const panel = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)
-    ).json()) as { tags: { name: string; semantic: string | null }[] };
+    const panel = (await (await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)).json()) as {
+      tags: { name: string; semantic: string | null }[];
+    };
     const created = panel.tags.find((tag) => tag.name === "Notice");
     // A tag a firm created carries NO meaning, so a renamed label can never change what a production
     // withholds.
@@ -275,9 +274,9 @@ describe("the coding panel", () => {
   });
 
   it("refuses to deactivate a tag whose meaning production resolves through", async () => {
-    const panel = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)
-    ).json()) as { tags: { id: string; semantic: string | null }[] };
+    const panel = (await (await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)).json()) as {
+      tags: { id: string; semantic: string | null }[];
+    };
     const privileged = panel.tags.find((tag) => tag.semantic === "privileged");
     expect(privileged).toBeDefined();
     const response = await SELF.fetch(
@@ -292,9 +291,9 @@ describe("the coding panel", () => {
   });
 
   it("renames a seeded question freely, because nothing matches it by name", async () => {
-    const panel = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)
-    ).json()) as { groups: { id: string; name: string }[] };
+    const panel = (await (await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)).json()) as {
+      groups: { id: string; name: string }[];
+    };
     const privilege = panel.groups.find((group) => group.name === "Privilege");
     const response = await SELF.fetch(
       `https://example.com/api/v1/review-sets/${reviewSetId}/coding-panel/questions/${privilege?.id}`,
@@ -305,9 +304,10 @@ describe("the coding panel", () => {
       },
     );
     expect(response.status).toBe(204);
-    const after = (await (
-      await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)
-    ).json()) as { groups: { name: string }[]; tags: { semantic: string | null }[] };
+    const after = (await (await get(`/api/v1/review-sets/${reviewSetId}/coding-panel`)).json()) as {
+      groups: { name: string }[];
+      tags: { semantic: string | null }[];
+    };
     expect(after.groups.map((group) => group.name)).toContain("Withholding");
     // The meanings are untouched — that is the whole point of renaming being free.
     expect(after.tags.some((tag) => tag.semantic === "privileged")).toBe(true);
