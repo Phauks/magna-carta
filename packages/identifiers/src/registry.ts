@@ -296,6 +296,18 @@ export const ENTITY_PREFIXES = {
   reviewDocument: "reviewDocument",
   reviewDocumentException: "reviewDocumentException",
   reviewDocumentOccurrence: "reviewDocumentOccurrence",
+  // Review coding, and who may reach a corpus at all. A `reviewSetAccess` is one person's membership
+  // of one review set's access list — reaching a review set never follows from reaching its matter,
+  // because material produced under a protective order may be attorney's-eyes-only. A
+  // `reviewTagGroup` is one ordered question on the coding panel (single- or multi-choice) and a
+  // `reviewTag` is one answer to it; a `reviewDocumentTag` is one application of one tag to one
+  // document, never deleted — removal is a state with an actor and an instant. A `reviewTagEvent` is
+  // one human act of coding, however many documents it touched, and is what an undo reverses.
+  reviewSetAccess: "reviewSetAccess",
+  reviewTagGroup: "reviewTagGroup",
+  reviewTag: "reviewTag",
+  reviewDocumentTag: "reviewDocumentTag",
+  reviewTagEvent: "reviewTagEvent",
   // Notifications — how a thing the platform noticed reaches a person. A `notificationEvent` is the
   // fact ONCE, however many people hear about it: a kind, the record it points at, the matter that
   // anchors its visibility, and a closed set of non-privileged facts. A `notificationRecipient` is

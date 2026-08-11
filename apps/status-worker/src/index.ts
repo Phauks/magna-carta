@@ -63,7 +63,7 @@ async function publicSnapshot(env: Bindings, now: string): Promise<PublishedSnap
 const FALLBACK_HTML =
   "<!doctype html><meta charset=utf-8><title>Magna Carta Status</title>" +
   "<p>The status system is temporarily unavailable. See the Cloudflare status page at " +
-  '<a href="https://www.cloudflarestatus.com/">cloudflarestatus.com</a>.</p>';
+  '<a href="https://new.cloudflarestatus.com/">new.cloudflarestatus.com</a>.</p>';
 
 // Named (rather than inlined in the catch) so its headers are directly assertable: a KV failure
 // cannot be provoked through the test pool, and the one thing that must never regress here is that

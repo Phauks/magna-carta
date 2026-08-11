@@ -20,10 +20,46 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
 
+## Behaviour changes the next deploy carries (no dashboard step)
+
+- **Discovery review sets narrow to their creator on migration.** The
+  review-coding migration
+  (`20260808T000000_discovery-review-coding-and-access`) introduces the
+  per-review-set access list, which is **fail-closed**: a review set nobody is
+  listed on is reachable by nobody. The migration backfills exactly one row per
+  existing review set, for the member who created it, so no corpus becomes
+  orphaned — but anyone else who was reviewing one must be added back through
+  `PUT /api/v1/review-sets/{reviewSetId}/access/{memberUserId}`
+  (`discovery:produce`). That is deliberate rather than a gap: inferring who was
+  cleared for a corpus from who was staffed on the matter would assert something
+  nobody decided, and a protective order is exactly where that assertion
+  matters. Worth a heads-up to any firm already using discovery before the push.
+  No new binding, no new secret, no queue: the migration runs itself on the
+  per-firm Durable Object's next wake, and the bulk-selection objects go to the
+  already-bound `R2` bucket under the existing `discovery/` prefix.
+
 ## Position
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
   commits ahead and growing; everything below rides the next push.
+
+## Status page — the upstream-severity fix needs BOTH workers deployed
+
+No new binding, no new secret, no dashboard step. But the fix spans the two
+sides of `STATUS_KV` and only shows once both have shipped:
+
+- **`apps/worker`** (the cron) computes the provider severity and writes
+  `status:derived`. Until it redeploys, the stored snapshot still carries the
+  old whole-page reading and the page will keep rendering Cloudflare as
+  degraded no matter how current the status worker is.
+- **`apps/status-worker`** (the page) renders the provider link and the
+  uptime bar's spoken record. It is a **separate deployable with its own
+  Workers Build** — deliberately not part of `vp run build-all` — so it does
+  not ride along with the app worker's deploy and needs its own step.
+
+Order does not matter; both are needed. The page corrects itself within one
+cron cycle (10 minutes) of the app worker deploying, plus the 30-second edge
+cache window.
 
 ## Order-sensitive deploy hazards
 

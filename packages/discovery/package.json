@@ -19,7 +19,13 @@
     "./review-document-statements": "./src/review-document-statements.ts",
     "./internal-lane": "./src/internal-lane.ts",
     "./external-lane": "./src/external-lane.ts",
-    "./allocation": "./src/allocation.ts"
+    "./allocation": "./src/allocation.ts",
+    "./review-set-visibility": "./src/review-set-visibility.ts",
+    "./review-set-access-statements": "./src/review-set-access-statements.ts",
+    "./review-set-access-service": "./src/review-set-access-service.ts",
+    "./coding-statements": "./src/coding-statements.ts",
+    "./coding-panel-service": "./src/coding-panel-service.ts",
+    "./coding-service": "./src/coding-service.ts"
   },
   "scripts": {
     "test": "vp test run"

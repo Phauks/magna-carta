@@ -2,6 +2,7 @@ import type {
   DiscoveryLoadId,
   ReviewDocumentId,
   ReviewSetId,
+  ReviewTagEventId,
 } from "@magna-carta/identifiers/types";
 
 // The R2 layout for everything discovery derives, under the firm's own bucket.
@@ -63,8 +64,21 @@ export function reviewDocumentMetadataKey(
   return `${DISCOVERY_R2_PREFIX}/${reviewSetId}/metadata/${reviewDocumentId}.json`;
 }
 
+// The frozen selection a bulk coding gesture executed against, written once at initiation and never
+// re-derived. The criteria that produced it are recorded on the event for humans; THIS is what ran.
+// The distinction is not bookkeeping: the corpus moves under a long operation, and a selection
+// re-resolved per chunk applies a tag to documents the operator never saw.
+//
+// A record rather than a cache, so it is NOT under reviewSetDerivedPrefixes: "which documents did
+// that bulk act touch" must still be answerable after the review set closes, because that is exactly
+// the question asked when a production drawn from this coding is challenged.
+export function codingSelectionKey(reviewSetId: ReviewSetId, eventId: ReviewTagEventId): string {
+  return `${DISCOVERY_R2_PREFIX}/${reviewSetId}/selections/${eventId}.json`;
+}
+
 // The prefix a review set's derived objects live under — what a close sweeps for collection. The
-// manifests and exception reports under `loads/` are deliberately NOT under it: they are records.
+// manifests and exception reports under `loads/`, and the bulk selections under `selections/`, are
+// deliberately NOT under it: they are records.
 export function reviewSetDerivedPrefixes(reviewSetId: ReviewSetId): readonly string[] {
   return [
     `${DISCOVERY_R2_PREFIX}/${reviewSetId}/text/`,

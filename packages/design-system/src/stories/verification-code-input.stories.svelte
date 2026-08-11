@@ -1,9 +1,11 @@
 <script module lang="ts">
   /*
    * VerificationCodeInput — Compound Inputs (segmented one-time-code entry over Bits UI PinInput).
-   * No variant axis, so ONE showcase story; `length` and `disabled` are Controls. Bits components
-   * whitelist controls (see CLAUDE.md) — its prop type materialises every HTML attribute otherwise.
-   * The typing, backspace and paste behaviours ride a hidden test-only story. svelte-csf v5.
+   * `charset` IS a variant axis and gets a story each: the two settings raise different keyboards
+   * and accept different characters, because they model two different issuers. `length` and
+   * `disabled` stay Controls. Bits components whitelist controls (see CLAUDE.md) — its prop type
+   * materialises every HTML attribute otherwise. The typing, backspace and paste behaviours ride a
+   * hidden test-only story. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -16,6 +18,9 @@
     args: { length: 6, disabled: false },
     parameters: {
       controls: { include: ["length", "disabled", "value"] },
+    },
+    argTypes: {
+      charset: { control: "select", options: ["numeric", "alphanumeric"] },
     },
   });
 
@@ -49,6 +54,30 @@
     await step("Backspace clears the last cell", async () => {
       await userEvent.keyboard("{Backspace}");
       await expect(field).toHaveValue("49");
+    });
+  }}
+/>
+
+{#snippet alphanumericTemplate()}
+  <VerificationCodeInput aria-label="Emailed code" charset="alphanumeric" length={8} />
+{/snippet}
+
+<!--
+  The setting for a code this platform generates and sends. A numeric-only field would reject a
+  code we issued ourselves, which reads to the holder as "the code is wrong".
+-->
+<Story
+  name="Alphanumeric"
+  template={alphanumericTemplate}
+  play={async ({ canvas, step }) => {
+    const field = canvas.getByLabelText("Emailed code");
+    await step("Raises a text keyboard, and accepts letters", async () => {
+      await expect(field).toHaveAttribute("inputmode", "text");
+      await userEvent.click(field);
+      await userEvent.keyboard("k7f2");
+    });
+    await step("Uppercases as it is typed, so a transcription cannot be mangled", async () => {
+      await expect(field).toHaveValue("K7F2");
     });
   }}
 />

@@ -3,6 +3,8 @@
 // produces. Every stage returns a tagged result rather than throwing, so a caller in a queue consumer
 // can classify a failure without a try/catch ladder.
 
+import type { PronounDeclension } from "./expression/pronoun.ts";
+
 // ---------------------------------------------------------------------------------------------
 // Typed outcomes
 // ---------------------------------------------------------------------------------------------
@@ -291,5 +293,12 @@ export interface MergeContext {
   // an ordinary missing value, where the marker already says everything there is to say. A reason names
   // counts and roles only — never a value, which is the thing resolution refused to choose between.
   readonly absenceReasons: ReadonlyMap<string, string>;
+  // The pronouns each person subject stated, keyed by SUBJECT ("client", "responsibleAttorney").
+  // Kept out of `values` on purpose: a merge value is a fact a document prints and whose gap a
+  // marker can stand in for, while a declension is the raw material the pronoun helpers spend, and
+  // its gap is answered by the neutral set instead of by an absence. A subject with no entry is a
+  // subject whose pronouns nobody stated, who is an organisation, or whom the matter does not
+  // resolve to one person — all three get the neutral set, which is wrong about nobody.
+  readonly pronouns?: ReadonlyMap<string, PronounDeclension>;
   readonly timeZone: string;
 }

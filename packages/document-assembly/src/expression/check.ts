@@ -7,6 +7,7 @@ import {
 import { expressionSucceeded, type ExpressionFailure, type ExpressionOutcome } from "./errors.ts";
 import { splitListFieldPath } from "./lex.ts";
 import { EXPRESSION_LIMITS } from "./limits.ts";
+import { isPronounForm, PRONOUN_FORMS } from "./pronoun.ts";
 import { parse, type ExpressionNode } from "./parse.ts";
 
 // Name resolution and static typing — the stage that turns "this parses" into "this means something,
@@ -168,8 +169,92 @@ function parameterAccepts(specification: ParameterSpecification, type: Expressio
   if (specification === "integer") return type === "number";
   if (specification === "mergeKey") return true; // shape-checked separately: it must be a NAME
   if (specification === "listField") return true; // likewise: it must be a NAME naming a collection field
+  if (specification === "personSubject") return true; // likewise: it must be a NAME naming a person subject
+  if (specification === "pronounForm") return true; // likewise: it must be a text LITERAL
   if (specification === "sameAsFirst" || specification === "sameAsSecond") return true;
   return specification === type;
+}
+
+// The dictionary key whose presence DEFINES a subject as one the document can speak about as a
+// person. A subject gains it when the read behind it joins a Directory person, so the set of legal
+// first arguments to a pronoun helper is derived from the firm's own field catalogue rather than
+// listed a second time here.
+export const PRONOUN_SUBJECT_FACET = "pronouns";
+
+export function pronounSubjectKey(subject: string): string {
+  return `${subject}.${PRONOUN_SUBJECT_FACET}`;
+}
+
+// Every subject a pronoun helper will accept, in the order the catalogue declares them — the list a
+// failure message shows an author who named something else.
+function personSubjectsIn(scope: ExpressionScope): string[] {
+  const subjects: string[] = [];
+  const suffix = `.${PRONOUN_SUBJECT_FACET}`;
+  for (const [key, binding] of scope) {
+    if (binding.origin === "dictionary" && key.endsWith(suffix)) {
+      subjects.push(key.slice(0, key.length - suffix.length));
+    }
+  }
+  return subjects;
+}
+
+// A pronoun helper's first argument, resolved at REGISTRATION. The atom names a SUBJECT, not a
+// value: there is no value in this language that carries a person, and a pronoun is a fact about
+// whose it is. Resolving it here means an author who writes `pronoun(defendant, "subject")` on a
+// firm whose catalogue has no defendant subject learns it while looking at the template.
+function resolvePersonSubject(
+  helper: HelperSignature,
+  argument: ExpressionNode,
+  state: CheckState,
+): void {
+  if (argument.kind !== "name") {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `${helper.name} takes the name of a person on the matter, written out — as in ${helper.name}(client, "subject") — rather than a calculation.`,
+    );
+    return;
+  }
+  const key = pronounSubjectKey(argument.name);
+  const binding = state.scope.get(key);
+  if (binding === undefined) {
+    const available = personSubjectsIn(state.scope);
+    state.failure ??= failure(
+      "expression-unknown-key",
+      argument.offset,
+      available.length === 0
+        ? `"${argument.name}" is not someone this firm's fields can name.`
+        : `"${argument.name}" is not someone this firm's fields can name. Write one of: ${available.join(", ")}.`,
+    );
+    return;
+  }
+  // The pronoun set travels with the subject's own read, so recording the key is what puts that read
+  // in the manifest's plan — the same accounting every other dictionary name gets.
+  state.keys.add(key);
+}
+
+// A pronoun helper's form argument. A LITERAL by requirement, so "subjekt" is a registration error
+// with a character offset rather than a word missing from a filed document.
+function resolvePronounForm(
+  helper: HelperSignature,
+  argument: ExpressionNode,
+  state: CheckState,
+): void {
+  if (argument.kind !== "text") {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `${helper.name} takes the grammatical position written out in quotes, as in ${helper.name}(client, "subject").`,
+    );
+    return;
+  }
+  if (!isPronounForm(argument.value)) {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `"${argument.value}" is not a grammatical position. Write one of: ${PRONOUN_FORMS.join(", ")}.`,
+    );
+  }
 }
 
 // An aggregate's argument, resolved at REGISTRATION: the atom has to name a field that one item of a
@@ -255,6 +340,10 @@ function describeParameter(specification: ParameterSpecification): string {
       return "the name of a merge field";
     case "listField":
       return "the name of a field on a list";
+    case "personSubject":
+      return "the name of a person on the matter";
+    case "pronounForm":
+      return "a grammatical position in quotes";
     case "sameAsFirst":
     case "sameAsSecond":
       return "a value of the same kind as the one before it";
@@ -437,6 +526,23 @@ function typeOf(node: ExpressionNode, state: CheckState): ExpressionType {
           }
           resolveName(argument, state);
           argumentTypes.push("boolean");
+          continue;
+        }
+
+        // A pronoun helper's subject is likewise a NAME, and its form a LITERAL — neither is
+        // evaluated. Both push `text` so the arity and result accounting below stay uniform, and
+        // both are settled here rather than at assembly, where a typo would be a wrong word on a
+        // filed page instead of a message under a template an author is still editing.
+        if (specification === "personSubject") {
+          resolvePersonSubject(helper, argument, state);
+          argumentTypes.push("text");
+          if (state.failure !== undefined) break;
+          continue;
+        }
+        if (specification === "pronounForm") {
+          resolvePronounForm(helper, argument, state);
+          argumentTypes.push("text");
+          if (state.failure !== undefined) break;
           continue;
         }
 

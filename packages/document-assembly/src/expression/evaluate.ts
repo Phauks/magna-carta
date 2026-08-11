@@ -12,6 +12,12 @@ import { titleCase } from "../format.ts";
 import { refusal, type Refusal } from "./errors.ts";
 import { splitListFieldPath } from "./lex.ts";
 import { EXPRESSION_LIMITS } from "./limits.ts";
+import {
+  isPronounForm,
+  NEUTRAL_PRONOUNS,
+  pronounFormOf,
+  type PronounDeclension,
+} from "./pronoun.ts";
 import type { ComparisonOperator, ExpressionNode } from "./parse.ts";
 import type { CheckedExpression } from "./check.ts";
 
@@ -91,6 +97,12 @@ export interface EvaluationContext {
   // Every name in scope: the resolved dictionary values plus the enclosing repeating block's frame.
   // A Map, so a template-supplied name is never a JavaScript property key.
   readonly values: ReadonlyMap<string, ExpressionValue>;
+  // The pronouns each person subject stated, keyed by the SUBJECT ("client", "opposingParty"), and
+  // present only for a subject that resolved to exactly one person who stated a set. Deliberately
+  // not merge values: a value in `values` is a fact a document can print and an absence a marker can
+  // stand in for, while a declension is neither — it is the raw material the pronoun helpers spend,
+  // and its missing case is answered by the neutral set rather than by an absence.
+  readonly pronouns?: ReadonlyMap<string, PronounDeclension>;
   readonly budget: EvaluationBudget;
 }
 
@@ -643,6 +655,13 @@ function evaluateCall(
     return evaluateAggregate(name, argumentNodes[0], context);
   }
 
+  // The pronoun helpers, likewise before the walk: their first argument is a SUBJECT name that is not
+  // a value, and — uniquely in this language — they never go unresolved. A person whose record states
+  // no pronouns is written with the neutral set, because "they" is correct for anyone and a marker
+  // mid-sentence is not.
+  if (name === "pronoun") return evaluatePronoun(argumentNodes, context);
+  if (name === "pronounVerb") return evaluatePronounVerb(argumentNodes, context);
+
   if (name === "default") {
     const primary = evaluateNode(argumentNodes[0] as ExpressionNode, context);
     if (primary.kind !== "unresolved") return primary;
@@ -822,6 +841,67 @@ function evaluateCall(
       // Kept as a refusal rather than a throw because nothing in this folder throws.
       return refused("invalid-operand", `${name} is not a calculation this system knows.`);
   }
+}
+
+// The declension a subject's pronouns resolve to — the recorded set, or the neutral one.
+//
+// THE FALLBACK IS THE POINT, and it covers three different silences with one answer: the person
+// stated no pronouns, the subject is an organisation rather than a person, or the matter links no
+// single person in that role. All three mean "we do not know whose pronouns to use", and in all
+// three the neutral set names nobody and reads correctly. A template that needs to distinguish them
+// has the ordinary means: the subject's own `pronouns` field is an absence when unrecorded, and
+// `<subject>.kind` says whether a party is a person or an organisation.
+function declensionFor(subject: string, context: EvaluationContext): PronounDeclension {
+  return context.pronouns?.get(subject) ?? NEUTRAL_PRONOUNS;
+}
+
+function evaluatePronoun(
+  argumentNodes: readonly ExpressionNode[],
+  context: EvaluationContext,
+): Evaluation {
+  const subject = argumentNodes[0];
+  const form = argumentNodes[1];
+  if (subject === undefined || subject.kind !== "name") {
+    return refused("invalid-operand", "pronoun was not given the name of a person on the matter.");
+  }
+  if (form === undefined || form.kind !== "text" || !isPronounForm(form.value)) {
+    return refused("invalid-operand", "pronoun was not given a grammatical position.");
+  }
+  const text = pronounFormOf(declensionFor(subject.name, context), form.value);
+  const overflow = chargeText(context, text.length);
+  return overflow ?? valued({ kind: "text", text });
+}
+
+// VERB AGREEMENT IS A CHOICE BETWEEN TWO FORMS THE AUTHOR WROTE, never an inflection this code
+// performs. Singular "they" takes plural verb forms — "they are", "they have", "they sign" — and no
+// rule short of a dictionary turns "signs" into "sign" and "is" into "are" and leaves "shall" alone.
+// So the author supplies both, in the order they read them: the form that follows "he" or "she"
+// first, the form that follows "they" second. That is total for every verb in English, including the
+// irregular ones, and it keeps the choice visible in the template rather than hidden in a grammar
+// engine that would eventually be wrong about a word nobody tested.
+function evaluatePronounVerb(
+  argumentNodes: readonly ExpressionNode[],
+  context: EvaluationContext,
+): Evaluation {
+  const subject = argumentNodes[0];
+  if (subject === undefined || subject.kind !== "name") {
+    return refused(
+      "invalid-operand",
+      "pronounVerb was not given the name of a person on the matter.",
+    );
+  }
+  const agreement = declensionFor(subject.name, context).agreement;
+  // Only the arm that agrees is evaluated, exactly as `choose` evaluates only the arm it takes.
+  const arm = agreement === "singular" ? argumentNodes[1] : argumentNodes[2];
+  if (arm === undefined) {
+    return refused("invalid-operand", "pronounVerb needs both verb forms.");
+  }
+  const evaluated = evaluateNode(arm, context);
+  if (evaluated.kind !== "value") return evaluated;
+  if (evaluated.value.kind !== "text") {
+    return refused("invalid-operand", "pronounVerb works on text.");
+  }
+  return evaluated;
 }
 
 // ONE bounded pass over an already-resolved collection — the same bound a repeating block runs under,

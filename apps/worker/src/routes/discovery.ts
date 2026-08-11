@@ -7,7 +7,9 @@ import {
   discoveryDocumentCeilingDefinition,
   MAX_SELECTION_SIZE,
 } from "@magna-carta/discovery/limits";
+import { seedCodingPanel } from "@magna-carta/discovery/coding-panel-service";
 import { declareLoad, reconcileLoad, transitionLoad } from "@magna-carta/discovery/load-service";
+import { seedReviewSetAccess } from "@magna-carta/discovery/review-set-access-service";
 import { readDiscoveryLoad, readDiscoveryLoads } from "@magna-carta/discovery/load-statements";
 import { TRANSCRIPT_SCOPES } from "@magna-carta/discovery/load-source";
 import {
@@ -62,6 +64,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { discoveryLoadJobName } from "../discovery/discovery-load-types.ts";
 import { runInternalLoadTurn } from "../discovery/run-internal-load.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { registerDiscoveryCodingRoutes } from "./discovery-coding.ts";
 
 // The discovery surface: create a corpus, name whose records are in it, declare what is coming, and
 // put the firm's own material in. The review surfaces themselves — the document list, the filters,
@@ -728,6 +731,10 @@ function reviewSetPayload(row: ReviewSetRow) {
 }
 
 export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoint): void {
+  // The review half — the access list, the coding panel, and coding itself — registered from here
+  // rather than from the app so that everything under the discovery namespace arrives together.
+  registerDiscoveryCodingRoutes(app, chokepoint);
+
   app.openapi(
     { ...listReviewSetsRoute, middleware: chokepointMiddleware(chokepoint, listReviewSetsRoute) },
     async (c) => {
@@ -764,6 +771,7 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
           fingerprint: idempotency.fingerprint,
           now,
           effect: async () => {
+            const options = serviceOptions(c);
             const { reviewSetId, effect } = await createReviewSet(
               firm.firmDatabase,
               {
@@ -772,10 +780,31 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
                 documentCeiling,
                 semanticIndexEnabled: body.semanticIndexEnabled ?? false,
               },
-              serviceOptions(c),
+              options,
             );
+            // The access list and the coding panel are seeded in the SAME batch as the review set's
+            // own insert. A corpus that existed for even one commit with an empty access list would
+            // be one nobody could reach, and repairing it would need exactly the access the list is
+            // refusing; a review set with no panel is one nobody can code against.
+            //
+            // The list starts with the creating member alone. Widening it to the matter team is a
+            // recorded act somebody performs on purpose — inferring a wall's membership from staffing
+            // would assert something about who is cleared that nobody decided.
+            const access = seedReviewSetAccess(
+              firm.firmDatabase,
+              { reviewSetId, memberUserIds: [options.actorUserId] },
+              options,
+            );
+            const panel = seedCodingPanel(firm.firmDatabase, reviewSetId, options);
             return {
-              write: effect,
+              write: {
+                statements: [...effect.statements, ...access.statements, ...panel.statements],
+                outboxMessages: [
+                  ...effect.outboxMessages,
+                  ...access.outboxMessages,
+                  ...panel.outboxMessages,
+                ],
+              },
               responseCode: 201,
               responseBody: canonicalJsonStringify({ id: reviewSetId }),
             };

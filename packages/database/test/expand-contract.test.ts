@@ -10,7 +10,11 @@ const CONTRACT_MARKER = "-- contract:";
 // destructive only without a DEFAULT (existing rows cannot satisfy it); plain
 // CREATE TABLE ... NOT NULL is fine.
 function destructiveReason(statement: string): string | null {
-  const sql = statement.toUpperCase();
+  // `IS NOT NULL` is a PREDICATE — it appears inside CHECK constraints and partial-index WHERE
+  // clauses — and is never a column's nullability. Left in, it makes any additive column add whose
+  // constraint tests another column read as a NOT NULL add, and the "fix" a reader reaches for is
+  // the `-- contract:` marker, which switches the guard off for the whole file.
+  const sql = statement.toUpperCase().replaceAll(/\bIS\s+NOT\s+NULL\b/g, "");
   if (/\bDROP\s+TABLE\b/.test(sql)) return "DROP TABLE";
   if (/\bDROP\s+COLUMN\b/.test(sql)) return "DROP COLUMN";
   if (
@@ -36,6 +40,13 @@ describe("destructiveReason (the detector itself)", () => {
     expect(destructiveReason("ALTER TABLE firm ADD COLUMN tier text;")).toBeNull();
     expect(
       destructiveReason("ALTER TABLE firm ADD COLUMN tier text NOT NULL DEFAULT 'standard';"),
+    ).toBeNull();
+    // A nullable add whose CHECK tests another column for presence: additive, and the predicate is
+    // not a nullability declaration.
+    expect(
+      destructiveReason(
+        "ALTER TABLE firm ADD COLUMN tier text CHECK (tier IS NULL OR name IS NOT NULL);",
+      ),
     ).toBeNull();
   });
 });

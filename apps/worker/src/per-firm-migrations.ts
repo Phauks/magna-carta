@@ -51,6 +51,8 @@ import matterEstateAndCapacitySql from "@magna-carta/database/drizzle/per-firm/2
 import trustAuthorizationPolicySql from "@magna-carta/database/drizzle/per-firm/20260807T050000_trust-authorization-policy.sql";
 import billingFeeModelsSql from "@magna-carta/database/drizzle/per-firm/20260807T060000_billing-fee-models.sql";
 import calendarFirmEventsResourcesLinksSql from "@magna-carta/database/drizzle/per-firm/20260807T070000_calendar-firm-events-resources-links.sql";
+import discoveryReviewCodingAndAccessSql from "@magna-carta/database/drizzle/per-firm/20260808T000000_discovery-review-coding-and-access.sql";
+import directoryPronounsSql from "@magna-carta/database/drizzle/per-firm/20260808T010000_directory-pronouns.sql";
 import trustAuthorityDefaultPostureSql from "@magna-carta/database/drizzle/per-firm/20260808T020000_trust-authority-default-posture.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
@@ -113,6 +115,8 @@ export function perFirmMigrations(): Migration[] {
     "20260807T050000_trust-authorization-policy": trustAuthorizationPolicySql,
     "20260807T060000_billing-fee-models": billingFeeModelsSql,
     "20260807T070000_calendar-firm-events-resources-links": calendarFirmEventsResourcesLinksSql,
+    "20260808T000000_discovery-review-coding-and-access": discoveryReviewCodingAndAccessSql,
+    "20260808T010000_directory-pronouns": directoryPronounsSql,
     "20260808T020000_trust-authority-default-posture": trustAuthorityDefaultPostureSql,
   });
 }
