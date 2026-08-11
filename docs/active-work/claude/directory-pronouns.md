@@ -6,7 +6,7 @@ status: building
 touches: >
   packages/database/src/per-firm-schema.ts,
   packages/database/drizzle/per-firm/20260808T010000_directory-pronouns.sql (new) +
-  meta/_journal.json + meta/0051_snapshot.json,
+  meta/_journal.json + meta/0052_snapshot.json,
   apps/worker/src/per-firm-migrations.ts,
   packages/directory/src/{pronouns(new),statements,person,index}.ts,
   packages/directory/test/pronouns.test.ts (new),
@@ -29,9 +29,10 @@ title, or a gender attribute. The unrecorded case is the common case and renders
 the helper rather than throwing, blanking, or guessing. No gender field ships; the question is
 flagged for the owner in the decision fragment.
 
-**Migration idx 51** (`20260808T010000_directory-pronouns`). `claude/discovery-5-2-1` (PR #195,
-unmerged) also holds idx 51 with tag `20260808T000000_discovery-review-coding-and-access`; the
-timestamp here deliberately sorts AFTER theirs, so whichever branch merges second renumbers its own
-journal entry to 52 with no reordering of the chain.
+**Migration idx 52** (`20260808T010000_directory-pronouns`). `claude/discovery-5-2-1` (PR #195)
+merged first and kept idx 51 with tag `20260808T000000_discovery-review-coding-and-access`; the
+timestamp here deliberately sorts AFTER theirs, so this branch renumbered its own journal entry to
+52 on the merge with no reordering of the chain, and `0052_snapshot.json` was regenerated from the
+merged schema so it chains from theirs.
 
 **UI is deferred to the owner** — no Svelte in this branch.
