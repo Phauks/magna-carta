@@ -2,65 +2,66 @@
 category: Added
 ---
 
-The design for the **community surfaces** — a public changelog, feature voting, and forums — treated as
-three separable things with different audiences, different risks, and different answers. Design and
-five decision records only; no product code, no schema, no package.
+The design for the **community surfaces** — a public changelog, feature voting, and a community board —
+modelled on ClickUp at the owner's direction and studied against ClickUp's live surfaces rather than
+from memory. Design and five decision records only; no product code, no schema, no package.
 
 **The public changelog renders from the source that already exists, once that source can say who it is
-for.** Every notable change in this repository is already written as a fragment in plain user-facing
-prose, so a second hand-written public changelog would be a second home for the same fact and would
-drift within a month. What stops the existing fragments being published as they stand is that a
-quarter of them are design documents, at least fourteen say in their own words that they ship no
-product code, and one is a build-platform evaluation ending "research only — no configuration
-changed." Publishing those would advertise features that do not exist, which breaks the one property
-the bundled-changelog model was chosen to guarantee, in the opposite direction from the one it guarded.
-So the fragment contract gains a required `audience` key with **no default in either direction** —
-defaulting to public publishes a research note the first time someone forgets, and defaulting to
-internal means the public changelog quietly stops being written and nobody notices — plus a public
-prose block in the same file for entries that are public, and a fitness function that fails the build
-on either omission. The eighty-seven existing fragments migrate in one mechanical pass, which is an
-hour now and a judgement call per file at eight hundred. Entries publish dated rather than versioned,
-because no releases have been cut yet.
+for.** Every notable change here is already written as a fragment in plain user-facing prose, so a
+second hand-written public changelog would be a second home for the same fact and would drift within a
+month. What stops the fragments being published as they stand is that a quarter of them are design
+documents, at least fourteen say in their own words that they ship no product code, and one is a
+build-platform evaluation ending "research only — no configuration changed." Publishing those would
+advertise features that do not exist, breaking the one property the bundled-changelog model was chosen
+to guarantee, in the opposite direction from the one it guarded. So the fragment contract gains a
+required `audience` key with **no default in either direction** — public publishes a research note the
+first time someone forgets, and internal fails silently and the changelog quietly dies — plus a public
+prose block in the same file, and a fitness function that fails the build on either omission. The
+eighty-seven existing fragments migrate in one pass, an hour now and a per-file judgement call at eight
+hundred. Entries publish dated and curated into thematic roll-ups, two-level as ClickUp does, with
+likes and a feed — but self-hosted rather than on Canny, category-filterable rather than carrying a
+single label, free of the emoji prefixes ClickUp uses, and **linking back to the request that asked for
+each shipped item, which ClickUp does not do**.
 
-**Feature voting moves inside the application, behind the login.** A logged-out board would be a page
-full of member content that must never be indexed, an anonymous abuse surface, and a complete public
-list of everything customers wish the product did — competitive intelligence given away for an
-acquisition benefit that the indexing rule has already removed. Behind a session it has none of those
-problems. The public gets a curated three-column roadmap projection instead, with **no date field in
-the schema at all** — not nullable, absent, because a nullable date column gets populated by someone in
-a moment of optimism and after that it is a promise. Every vote carries the firm that cast it and the
-board ranks by **distinct firms** rather than by votes, so a hundred ballots from one firm rank exactly
-as high as one; a firm's own client is excluded from the community structurally rather than by a
-permission check, since a client appearing in a cross-firm list would disclose the firm-client
-relationship, and that failure would be ours rather than the lawyer's. Declining a request becomes a
-first-class public act that requires a reason, on a thirty-day triage clock, because the silent
-four-year-old post with three hundred votes is worse than a no.
+**The forum question resolved in an unexpected direction: ClickUp does not have one.** Its community
+page lists a Facebook group, a subreddit and a university; users asked for a real forum in 2018 and
+again in 2023, and the second request was closed "Not on the roadmap" in August 2025 after staff pointed
+to Facebook — the poster objecting that those are "social media walls you have to scroll through rather
+than an organised searchable forum with different boards." What ClickUp runs under the word forum is a
+category-structured, status-tracked, publicly readable board with comment threads that stay alive for
+years. That shape sits outside the confidentiality analysis that made an earlier draft of this design
+recommend against a forum, because the subject is the software rather than a representation — so the
+design builds it, as **one board with two post kinds**: votable requests with a status pipeline, and
+threaded questions with votable answers, where a question that turns out to be a missing capability
+converts to a request in one action and carries its thread. **The scoping is held by structure rather
+than by rules:** every category is a product area and there is no general category, no off-topic, no
+practice-management and no ask-a-lawyer, so a question seeking legal advice has nowhere to go and the
+composer asks which part of the software this is about before accepting a word. Three failure modes are
+named rather than absorbed — the question that is bivalent depending on whether the facts come with it,
+the long tail of specificity that no rule separates, and **screenshots, which is the serious one**,
+because a screen capture of legal software carries a client name, a matter number and a ledger balance
+and defeats every text-based control at once. Attachments are therefore off at launch, with a "send this
+to support instead" control taking their place.
 
-**The forum is recommended against, and the reasons are the interesting part.** A lawyer asking a
-practical question can disclose the existence of a matter, a client relationship, or a dispute, and the
-duty attaches to far more than privileged content. ABA Formal Opinion 511R holds that a lawyer may not
-post about a representation to a listserv **even hypothetically** where a reader could infer the client
-or the situation, then or later — and it says that about closed, membership-verified lists, so a
-public, indexed, permanent forum is the same hazard with an unbounded audience. The test is about the
-client rather than the lawyer, so a pseudonym mitigates and does not cure, and presenting one as a safe
-harbour would be worse than offering nothing because it invites the post that would not otherwise have
-been made. Beneath that, the demand splits in two and neither half is forum-shaped: product questions
-have one correct answer and belong in a knowledge base, and practice questions are already served by
-bar-association listservs that verify membership and bound the audience, which we cannot do and have no
-standing to replace. The venue that is actually safe already exists and is called support — the
-platform is already the firm's data processor, so a lawyer can tell us what they cannot tell the
-internet. The dormant discussion seam stays dormant, and waking it is a decision to be re-taken against
-three named conditions rather than inherited.
+**Identity moved toward ClickUp's and away from an earlier recommendation of forced pseudonymity:** real
+display names by default with an account-level pseudonym permitted, because with the subject scoped to
+software a name discloses nothing, and because the firm — never displayed, here or on ClickUp — was
+always the sharper edge, since firm plus practice area plus question is the inference path. The board is
+public to read and login-to-write as ClickUp's is, but **never indexed and with the voter list never
+rendered**, because ClickUp's public voter list of real names was located through a web search, which is
+the harm demonstrated rather than theorised. Votes carry the firm that cast them and the board ranks by
+**distinct firms**, so a hundred ballots from one firm rank as high as one. ClickUp's six statuses are
+adopted, with a mandatory reasoned decline and a thirty-day triage clock added — ClickUp's own board
+demonstrates both failures, a 2018 request marked Completed for something never built and a 2022 thread
+still accumulating comments in 2026.
 
-Also settled: what the platform does at 3am, which is that it **degrades rather than moderates** — a
-read-only kill switch in KV, one operator write and no deploy, built with the first write endpoint
-rather than retrofitted across every route during the incident that needed it; first-post
-pre-moderation so nothing from a brand-new account is publicly visible before a human sees it; and
-removal treated as the real protection rather than warnings, which means a post body has exactly one
-home, notification emails link and never quote, member content is never indexed, and edit history is
-never public. A confidentiality modal on every post is rejected as patronising and legally worthless; a
-single first-post notice that cites the opinion by name and states the actual test is not. A table of
-twelve decisions that are cheap today and impossible or painful later closes the spec, and one question
-is left open for the owner: whether the public changelog lives on the marketing domain or beside the
-status page on the product domain, which the owner's description and the white paper's hosts table
-currently answer differently.
+Also settled: two moderation postures rather than one, because the failures are not alike. Spam
+**degrades** — a read-only kill switch in KV, one operator write and no deploy, built with the first
+write endpoint rather than retrofitted during the incident that needed it. Confidentiality **removes
+first and asks later**, inverting normal moderation because a false positive costs a lawyer an
+eight-hour wait and a false negative is permanent: one-click instant author delete, a single reader flag
+that hides a post, and a format-only detector that never touches firm data because doing so would cross
+the boundary the package isolation exists to hold. So at 3am the post is already hidden, and a human
+decides at 9am. Fourteen decisions that are cheap today and impossible later close the spec, and one
+question stays open for the owner: whether these live on the marketing domain or beside the status page
+on the product domain.
