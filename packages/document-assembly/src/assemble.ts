@@ -414,7 +414,11 @@ function expandBlock(
     return [];
   }
 
-  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  const evaluation = evaluate(checked.value, {
+    values: frame.values,
+    pronouns: state.context.pronouns,
+    budget: state.budget,
+  });
   if (evaluation.kind === "refusal") {
     tally(state, "condition", "refused");
     fail(state, "expression-refused", `the condition "${source}" ${evaluation.refusal.detail}`);
@@ -459,7 +463,11 @@ function expandRepeat(
     return [];
   }
 
-  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  const evaluation = evaluate(checked.value, {
+    values: frame.values,
+    pronouns: state.context.pronouns,
+    budget: state.budget,
+  });
   if (evaluation.kind === "refusal") {
     tally(state, "repeat", "refused");
     fail(
@@ -652,7 +660,11 @@ function renderComputedField(body: string, frame: Frame, state: AssemblyState): 
     return "";
   }
 
-  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  const evaluation = evaluate(checked.value, {
+    values: frame.values,
+    pronouns: state.context.pronouns,
+    budget: state.budget,
+  });
   if (evaluation.kind === "refusal") {
     tally(state, "computedField", "refused");
     fail(state, "expression-refused", `the calculation "${source}" ${evaluation.refusal.detail}`);

@@ -18,6 +18,7 @@ import {
 } from "./custom-field-statements.ts";
 import { lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
 import { directoryRoleSourcesIn, directoryRoleValues } from "./directory-role-bindings.ts";
+import type { PronounDeclension } from "./expression/pronoun.ts";
 import { heightForWidth, readImageFacts } from "./ooxml/image.ts";
 import {
   memberProtectedSourcesIn,
@@ -331,6 +332,10 @@ export async function resolveMergeContext(
   const wantedKeys = manifestKeySet(input.manifest);
   const values = new Map<string, MergeValue>();
   const absenceReasons = new Map<string, string>();
+  // The stated pronouns behind each person subject, filled by the party pass and the staffing pass
+  // from rows they already read. Keyed by SUBJECT rather than merge key — it is what the pronoun
+  // helpers spend, not a value the page prints.
+  const pronouns = new Map<string, PronounDeclension>();
   const reads: MergeSource[] = [];
 
   // The location is the matter's, so a manifest that names a location field needs the matter row too —
@@ -417,6 +422,7 @@ export async function resolveMergeContext(
     );
     for (const [key, value] of roles.values) values.set(key, value);
     for (const [key, reason] of roles.reasons) absenceReasons.set(key, reason);
+    for (const [subject, declension] of roles.pronouns) pronouns.set(subject, declension);
 
     // The client's sealed identifiers, decrypted through the caller's chokepoint reader — the permission
     // gate, the audit row, and the AAD decrypt, in that order and inseparable, all of them the
@@ -467,6 +473,7 @@ export async function resolveMergeContext(
     for (const [key, reason] of staffing.reasons) {
       if (wantedKeys.has(key)) absenceReasons.set(key, reason);
     }
+    for (const [subject, declension] of staffing.pronouns) pronouns.set(subject, declension);
 
     // The firm's own people's bar numbers, through the same chokepoint reader the client's sealed
     // identifiers use — and only for a slot that RESOLVED. An ambiguous slot is an absence before
@@ -613,5 +620,5 @@ export async function resolveMergeContext(
     if (values.has(key)) absenceReasons.delete(key);
   }
 
-  return { ok: true, context: { values, absentKeys, absenceReasons, timeZone }, reads };
+  return { ok: true, context: { values, absentKeys, absenceReasons, pronouns, timeZone }, reads };
 }

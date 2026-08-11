@@ -45,6 +45,14 @@
   evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts
   notes: Backend shipped including phonetic codes on every name row; UI not built.
 
+- id: directory.pronouns
+  name: Pronouns on a person
+  scope: Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute.
+  status: partial
+  slices: 1-3-directory, 2-6-document-automation
+  evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
+  notes: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner.
+
 - id: directory.edges
   name: Typed edges
   scope: First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to.

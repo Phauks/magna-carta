@@ -119,10 +119,16 @@ describe("the Directory role sources as dictionary entries", () => {
   });
 
   it("declares the singular keys as visible markers and each collection as a blank", () => {
+    // Pronouns are the one deliberate exception, and it is named rather than folded into the loop.
+    // Most people never state a set, so a marker would put "[CLIENT PRONOUNS]" on the face of every
+    // ordinary letter and teach a firm that markers are noise — which is the failure the marker rule
+    // exists to prevent, arrived at from the other side. The pronoun helpers, not this key, are
+    // where an unstated set gets an answer.
+    const BLANK_BY_DESIGN = new Set(["pronouns"]);
     for (const source of DIRECTORY_ROLE_SOURCES) {
       for (const facet of source.scalarFacets) {
         expect(lookupDictionaryEntry(`${source.key}.${facet}`)?.absence, source.key).toBe(
-          "placeholder",
+          BLANK_BY_DESIGN.has(facet) ? "blank" : "placeholder",
         );
       }
       // An empty collection is the correct document, not a hole in one: a repeat over no opposing

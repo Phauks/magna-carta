@@ -46,6 +46,15 @@ export interface MatterStaffingMergeRow {
   readonly nameMiddle: string | null;
   readonly nameFamily: string | null;
   readonly nameSuffix: string | null;
+  // The member's pronouns, from the mapped Directory person — the same row the name parts come from,
+  // so a member's pronouns are recorded once, in the Directory, rather than a second time on the
+  // professional profile.
+  readonly pronounSubject: string | null;
+  readonly pronounObject: string | null;
+  readonly pronounPossessiveDeterminer: string | null;
+  readonly pronounPossessivePronoun: string | null;
+  readonly pronounReflexive: string | null;
+  readonly pronounVerbNumber: string | null;
 }
 
 export interface MatterStaffingMergeColumns {
@@ -61,13 +70,23 @@ export interface MatterStaffingMergeColumns {
   name_middle: string | null;
   name_family: string | null;
   name_suffix: string | null;
+  pronoun_subject: string | null;
+  pronoun_object: string | null;
+  pronoun_possessive_determiner: string | null;
+  pronoun_possessive_pronoun: string | null;
+  pronoun_reflexive: string | null;
+  pronoun_verb_number: string | null;
 }
 
 const STAFFING_MEMBER_PROJECTION =
   `${MEMBER_TABLE}.user_id AS member_user_id, ${MEMBER_TABLE}.display_name AS display_name, ` +
   `profile.title AS title, profile.professional_email AS professional_email, profile.direct_dial AS direct_dial, ` +
   `person.id AS entity_id, person.name_prefix AS name_prefix, person.name_given AS name_given, ` +
-  `person.name_middle AS name_middle, person.name_family AS name_family, person.name_suffix AS name_suffix`;
+  `person.name_middle AS name_middle, person.name_family AS name_family, person.name_suffix AS name_suffix, ` +
+  `person.pronoun_subject AS pronoun_subject, person.pronoun_object AS pronoun_object, ` +
+  `person.pronoun_possessive_determiner AS pronoun_possessive_determiner, ` +
+  `person.pronoun_possessive_pronoun AS pronoun_possessive_pronoun, ` +
+  `person.pronoun_reflexive AS pronoun_reflexive, person.pronoun_verb_number AS pronoun_verb_number`;
 
 const STAFFING_MEMBER_JOINS =
   `LEFT JOIN ${MEMBER_PROFESSIONAL_PROFILE_TABLE} AS profile ON profile.member_user_id = ${MEMBER_TABLE}.user_id ` +
@@ -130,6 +149,12 @@ export function toMatterStaffingMergeRow(row: MatterStaffingMergeColumns): Matte
     nameMiddle: row.name_middle ?? null,
     nameFamily: row.name_family ?? null,
     nameSuffix: row.name_suffix ?? null,
+    pronounSubject: row.pronoun_subject ?? null,
+    pronounObject: row.pronoun_object ?? null,
+    pronounPossessiveDeterminer: row.pronoun_possessive_determiner ?? null,
+    pronounPossessivePronoun: row.pronoun_possessive_pronoun ?? null,
+    pronounReflexive: row.pronoun_reflexive ?? null,
+    pronounVerbNumber: row.pronoun_verb_number ?? null,
   };
 }
 
@@ -537,6 +562,17 @@ export interface MatterPartyMergeRow {
   readonly nameMiddle: string | null;
   readonly nameFamily: string | null;
   readonly nameSuffix: string | null;
+  // The pronouns the Directory records for this person, riding the read that already joins their
+  // row. All six travel together or none does — the table's own CHECK guarantees it — and the
+  // resolution side treats anything short of the whole set as no set, because a sentence mixing one
+  // set's subject with another's object is wrong in a way nobody catches by reading it. An
+  // organisation party carries none, which is not a gap: an organisation has no pronouns to state.
+  readonly pronounSubject: string | null;
+  readonly pronounObject: string | null;
+  readonly pronounPossessiveDeterminer: string | null;
+  readonly pronounPossessivePronoun: string | null;
+  readonly pronounReflexive: string | null;
+  readonly pronounVerbNumber: string | null;
   // The Directory entity the link points at. Read because a protected merge field has to name WHOSE
   // sealed identifier it wants, and the client's link is the fact that says so — one column on a read
   // that already happens, rather than a second query to find out who the client is. It is never a merge
@@ -560,6 +596,12 @@ export function selectMatterPartiesForMergeStatement(
               directory_person.name_middle AS name_middle,
               directory_person.name_family AS name_family,
               directory_person.name_suffix AS name_suffix,
+              directory_person.pronoun_subject AS pronoun_subject,
+              directory_person.pronoun_object AS pronoun_object,
+              directory_person.pronoun_possessive_determiner AS pronoun_possessive_determiner,
+              directory_person.pronoun_possessive_pronoun AS pronoun_possessive_pronoun,
+              directory_person.pronoun_reflexive AS pronoun_reflexive,
+              directory_person.pronoun_verb_number AS pronoun_verb_number,
               CASE
                 WHEN directory_person.id IS NOT NULL THEN 'person'
                 WHEN directory_organization.id IS NOT NULL THEN 'organisation'
@@ -587,6 +629,12 @@ export interface MatterPartyMergeColumns {
   name_middle: string | null;
   name_family: string | null;
   name_suffix: string | null;
+  pronoun_subject?: string | null;
+  pronoun_object?: string | null;
+  pronoun_possessive_determiner?: string | null;
+  pronoun_possessive_pronoun?: string | null;
+  pronoun_reflexive?: string | null;
+  pronoun_verb_number?: string | null;
   kind: string;
 }
 
@@ -601,6 +649,12 @@ export function toMatterPartyMergeRow(row: MatterPartyMergeColumns): MatterParty
     nameMiddle: row.name_middle ?? null,
     nameFamily: row.name_family ?? null,
     nameSuffix: row.name_suffix ?? null,
+    pronounSubject: row.pronoun_subject ?? null,
+    pronounObject: row.pronoun_object ?? null,
+    pronounPossessiveDeterminer: row.pronoun_possessive_determiner ?? null,
+    pronounPossessivePronoun: row.pronoun_possessive_pronoun ?? null,
+    pronounReflexive: row.pronoun_reflexive ?? null,
+    pronounVerbNumber: row.pronoun_verb_number ?? null,
     kind:
       row.kind === "person" ? "person" : row.kind === "organisation" ? "organisation" : "unknown",
   };

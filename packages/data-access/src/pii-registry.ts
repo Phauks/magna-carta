@@ -46,8 +46,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Edges reference a subject on both endpoints (mirrors the merge repoint set).
   { table: "directory_edge", subjectKey: "from_entity_id", action: "hard-delete" },
   { table: "directory_edge", subjectKey: "to_entity_id", action: "hard-delete" },
-  // The node itself: anonymize to a tombstone, keep the id for matter-link / audit integrity.
-  { table: "directory_person", subjectKey: "self", action: "anonymize" },
+  // The node itself: anonymize to a tombstone, keep the id for matter-link / audit integrity. The
+  // scrub set is every personal column on the row, which now includes the six pronoun columns. They
+  // are ORDINARY personal data on purpose and deliberately NOT protected(): a pronoun is printed in
+  // the body of documents the firm assembles all day, so routing it through the decrypt chokepoint
+  // would put a permission gate and an audit row on every ordinary letter, and the practical effect
+  // of a field too expensive to read is a firm that goes back to guessing — which is the harm the
+  // field exists to prevent. What the classification does buy is that erasure reaches them and that
+  // they are covered by the standing redaction default: a pronoun set is never a log field.
+  {
+    table: "directory_person",
+    subjectKey: "self",
+    action: "anonymize",
+    note: "name parts, display name, and the stated pronoun set are all scrubbed at the node",
+  },
   { table: "directory_organization", subjectKey: "self", action: "anonymize" },
   // Matter-corpus references — retained under GDPR Art. 17(3); PII is scrubbed at the entity.
   {

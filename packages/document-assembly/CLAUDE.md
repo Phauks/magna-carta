@@ -213,6 +213,36 @@ computed fields alike — because "which templates break if this key goes away" 
 - **The asset register's as-of date is the estate's date of death** when the matter records one —
   supplied by the caller (`assetsAsOfDate`), read in the assembly consumer, never stored twice.
 
+## Pronouns (`pronoun`, `pronounVerb`, and `<subject>.pronouns`)
+
+- **Recorded, never inferred.** The five forms and the verb-agreement number come off the
+  `directory_person` row the party read and the staffing read already join. Nothing here derives a
+  pronoun from a name, a prefix, or a party kind, and nothing must start.
+- **THE HELPERS ARE THE ONE PLACE ABSENCE IS ANSWERED RATHER THAN REPORTED.** `pronoun()` never goes
+  unresolved: an unstated set, an organisation, and a role the matter does not resolve to one person
+  all render the neutral they/them (`NEUTRAL_PRONOUNS` in `src/expression/pronoun.ts`). That inverts
+  the visible-marker bias on purpose — the sentence is grammatical either way, and a marker mid-clause
+  would put "[CLIENT PRONOUNS]" on every ordinary letter and teach a firm to ignore markers. The
+  `<subject>.pronouns` KEY keeps the ordinary contract: it states a fact, so it is blank when
+  unrecorded and never invents one.
+- **A declension is not a merge value.** It travels on `MergeContext.pronouns`, keyed by SUBJECT, not
+  in `values`: a merge value is something a document prints and whose gap a marker stands in for, and
+  a declension is neither. `src/pronoun-bindings.ts` is the one projection from columns to declension,
+  shared by both reads so they cannot disagree about what a half-recorded row means — and it re-checks
+  all-or-nothing rather than trusting the table CHECK, because the failure is invisible on the page.
+- **`personSubject` is the only place the grammar takes a bare word.** `pronoun(client, "subject")`
+  reads `client` straight off the token in `parse.ts`, confined to that declared parameter position;
+  the checker resolves it by looking `client.pronouns` up in the scope, so the set of legal subjects is
+  derived from the firm's own catalogue rather than listed twice. Still one atom and one `Map.get` —
+  the structural property the language rests on is untouched. Do not widen the position.
+- **NO VERB IS EVER INFLECTED.** `pronounVerb(person, singularForm, pluralForm)` picks between two
+  forms the author wrote, by the agreement the set declares — singular they takes plural verbs, and no
+  rule short of a dictionary turns "signs" into "sign" and leaves "shall" alone. A verb table here
+  would be the name-guessing failure one part of speech over.
+- **Pronouns are a PERSON fact.** Party and member subjects carry them; the court, case, and estate
+  subjects deliberately do not yet, and a list item inside `{{#each}}` does not — the helper works on
+  the singular subjects only.
+
 ## The firm's own fields (`custom.<handle>`)
 
 - **Bound by HANDLE, never by name.** `src/custom-field-bindings.ts` derives one dictionary entry per

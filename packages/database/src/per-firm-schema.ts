@@ -1225,6 +1225,25 @@ export const directoryPerson = sqliteTable(
     nameSuffix: text("name_suffix"),
     displayName: text("display_name"),
     memberId: text("member_id").$type<UserId>(), // nullable; set if this person maps to a firm member
+    // The person's pronouns, as the person states them and the firm records them. NEVER derived —
+    // not from a given name, not from a courtesy title, not from any other column — because a
+    // guessed pronoun misgenders a real person in a document that gets filed.
+    //
+    // THE WHOLE DECLENSION IS STORED, not a label and not a code. A two-form label ("she/her") does
+    // not determine the possessive, the possessive pronoun, or the reflexive for a set nobody here
+    // has seen, so a label would need a lookup table — which is a closed enum in disguise, and the
+    // sets it lacks are exactly the ones a person is most often asked to accept a wrong rendering
+    // of. Five columns let a template render every grammatical position for any set, including one
+    // this platform has never heard of, with no code change.
+    pronounSubject: text("pronoun_subject"), // "she", "he", "they", "xe"
+    pronounObject: text("pronoun_object"), // "her", "him", "them", "xem"
+    pronounPossessiveDeterminer: text("pronoun_possessive_determiner"), // "her book", "their book"
+    pronounPossessivePronoun: text("pronoun_possessive_pronoun"), // "the book is hers"
+    pronounReflexive: text("pronoun_reflexive"), // "she represented herself"
+    // Which verb form the set takes — "she is" against "they are". Stored rather than derived
+    // because nothing in the five forms says it: "they" agrees plurally and "xe" singularly, and
+    // no rule over the letters tells them apart.
+    pronounVerbNumber: text("pronoun_verb_number"), // 'singular' | 'plural'
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryPersonId>(), // set when status = 'merged_into'
     needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
@@ -1240,6 +1259,22 @@ export const directoryPerson = sqliteTable(
       .where(sql`${table.memberId} IS NOT NULL`),
     check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
     check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
+    check(
+      "directory_person_pronoun_verb_number_check",
+      sql`${table.pronounVerbNumber} IS NULL OR ${table.pronounVerbNumber} IN ('singular', 'plural')`,
+    ),
+    // A PRONOUN SET IS ONE VALUE, so a half-recorded one must not be storable: a row holding "she"
+    // and nothing else is what renders "she … them" in the same sentence, which is the exact defect
+    // this field exists to prevent. All six together or all six absent — the constraint that makes
+    // "partial" unrepresentable rather than merely discouraged.
+    check(
+      "directory_person_pronoun_complete_check",
+      sql`(${table.pronounObject} IS NULL) = (${table.pronounSubject} IS NULL)
+        AND (${table.pronounPossessiveDeterminer} IS NULL) = (${table.pronounSubject} IS NULL)
+        AND (${table.pronounPossessivePronoun} IS NULL) = (${table.pronounSubject} IS NULL)
+        AND (${table.pronounReflexive} IS NULL) = (${table.pronounSubject} IS NULL)
+        AND (${table.pronounVerbNumber} IS NULL) = (${table.pronounSubject} IS NULL)`,
+    ),
   ],
 );
 

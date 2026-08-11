@@ -138,6 +138,12 @@ describe("the party read supplies the parts", () => {
         nameMiddle: null,
         nameFamily: "Ashcroft",
         nameSuffix: null,
+        pronounSubject: null,
+        pronounObject: null,
+        pronounPossessiveDeterminer: null,
+        pronounPossessivePronoun: null,
+        pronounReflexive: null,
+        pronounVerbNumber: null,
       }),
     ).toEqual({
       kind: "name",
@@ -161,6 +167,12 @@ describe("the party read supplies the parts", () => {
       nameMiddle: null,
       nameFamily: null,
       nameSuffix: null,
+      pronounSubject: null,
+      pronounObject: null,
+      pronounPossessiveDeterminer: null,
+      pronounPossessivePronoun: null,
+      pronounReflexive: null,
+      pronounVerbNumber: null,
     });
     expect(value).toEqual({ kind: "name", display: "A name the link still carries" });
   });

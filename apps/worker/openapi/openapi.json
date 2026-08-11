@@ -5346,6 +5346,9 @@
               "string",
               "null"
             ]
+          },
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
           }
         },
         "required": [
@@ -5357,7 +5360,80 @@
           "suffix",
           "displayName",
           "status",
-          "mergedIntoId"
+          "mergedIntoId",
+          "pronouns"
+        ]
+      },
+      "DirectoryPronounSet": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she signed."
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: we served her."
+          },
+          "possessiveDeterminer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: her signature."
+          },
+          "possessivePronoun": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: the signature is hers."
+          },
+          "reflexive": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she represented herself."
+          },
+          "verbNumber": {
+            "type": "string",
+            "enum": [
+              "singular",
+              "plural"
+            ],
+            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
+          }
+        },
+        "required": [
+          "subject",
+          "object",
+          "possessiveDeterminer",
+          "possessivePronoun",
+          "reflexive",
+          "verbNumber"
+        ],
+        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
+      },
+      "DirectoryAckResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SetDirectoryPersonPronounsRequest": {
+        "type": "object",
+        "properties": {
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
+          }
+        },
+        "required": [
+          "pronouns"
         ]
       },
       "CreateDirectoryOrganizationRequest": {
@@ -5412,17 +5488,6 @@
           "displayName",
           "status",
           "mergedIntoId"
-        ]
-      },
-      "DirectoryAckResponse": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok"
         ]
       },
       "AddDirectoryNameRequest": {
@@ -32947,6 +33012,139 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/persons/{id}/pronouns": {
+      "put": {
+        "description": "Records the pronouns a person stated, or removes the set on file. Every form is supplied together: a partly recorded set is refused, because a document that renders one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it. Pronouns are never worked out from a name, a courtesy title, or any other field.",
+        "operationId": "directory.setPersonPronouns",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.setPersonPronouns",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^directoryPerson_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectoryPersonPronounsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryAckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
