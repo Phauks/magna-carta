@@ -26,6 +26,13 @@ export const CREDENTIALS_REJECTED =
 /** A rejected authenticator code. */
 export const VERIFICATION_CODE_REJECTED = `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds — enter the current one.`;
 
+/*
+ * A rejected recovery code. This one names WHY a code that was once valid may not be — each works
+ * exactly once — because the commonest failure here is re-entering a code already spent, and
+ * saying so is not an enumeration risk: the visitor has already proven the password.
+ */
+export const RECOVERY_CODE_REJECTED = "That code didn't match. Each code works once.";
+
 /** Server-side rate limiting — not a verdict on what was entered. */
 export const TOO_MANY_ATTEMPTS = "Too many attempts. Wait a minute, then try again.";
 

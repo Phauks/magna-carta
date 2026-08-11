@@ -1,0 +1,94 @@
+@layer components {
+  /*
+   * ChoiceRow (Tier 2). A field-surface row bounded by a hairline, laid out as icon · body ·
+   * trailing, with the body's own name-over-detail stack. The row is a control, so it takes the
+   * house focus shape: border and outline both in focus-ring at zero offset, reading as one
+   * merged edge exactly as .mc-input:focus-visible does.
+   *
+   * The trailing part is pushed to the inline-end edge with `margin-inline-start: auto` rather
+   * than `justify-content: space-between`, so a row with no trailing part leaves the body flush
+   * against the icon instead of stretching a gap across the row.
+   *
+   * The row's full width is a `w-full` utility on the component, not a declaration here: a
+   * percentage is not tokenizable, and layout width is the consumer's concern while this recipe
+   * owns visual design only.
+   */
+  .mc-choice-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-12);
+    text-align: start;
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-12);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    cursor: pointer;
+    transition-property: background-color, border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-choice-row:hover:not(:disabled) {
+    background-color: var(--mc-surface-raised);
+    border-color: var(--mc-border-strong);
+  }
+  .mc-choice-row:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-choice-row[aria-pressed="true"] {
+    background-color: var(--mc-surface-selected);
+    border-color: var(--mc-border-focus);
+  }
+  .mc-choice-row:disabled {
+    background-color: var(--mc-action-disabled);
+    border-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  /* The icon tile: a brand-tinted square so a heterogeneous list still reads as one column. */
+  .mc-choice-row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-accent-subtle);
+    color: var(--mc-accent-subtle-foreground);
+  }
+  .mc-choice-row-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-0);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-choice-row-name {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-choice-row-detail {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-subtle);
+  }
+  .mc-choice-row-trailing {
+    display: flex;
+    align-items: center;
+    flex: none;
+    margin-inline-start: auto;
+  }
+}
