@@ -185,16 +185,31 @@ export const PERMISSIONS = [
   // A member with full access to the matter and no discovery grant cannot read a review set, cannot
   // see what was loaded into it, and cannot load anything more.
   //
-  // Three keys rather than the house read/manage pair, because the third capability is genuinely
-  // different: LOADING is the act that brings another party's untrusted material into the firm's own
-  // corpus, consumes the review set's document ceiling, and is the one discovery operation whose cost
-  // is set from outside the firm. A contract reviewer working under a protective order holds
-  // discovery:read and neither of the others, and that configuration has to be expressible.
-  // All three bind resource: "matter" — a review set IS one matter's corpus and cannot exist without
-  // one, the matterAssets:* binding rather than custody:*'s firm binding.
-  "discovery:read", // read review sets, record custodians, loads, review documents, and exception reports
-  "discovery:manageReviewSets", // create, rename, lock and close review sets; create and edit record custodians
+  // Five keys rather than the house read/manage pair, because three of the capabilities are
+  // genuinely different from reading. LOADING is the act that brings another party's untrusted
+  // material into the firm's own corpus, consumes the review set's document ceiling, and is the one
+  // discovery operation whose cost is set from outside the firm. REVIEWING is the coding gesture
+  // itself. PRODUCING is the consequential gate — the point at which a coding decision reaches the
+  // outside world — and it is also what manages the access list, because widening who may see a
+  // corpus is the same order of decision as deciding what leaves the firm. A contract reviewer
+  // working under a protective order holds discovery:read and discovery:review and none of the other
+  // three, and that configuration has to be expressible.
+  //
+  // Privilege DESIGNATION deliberately has no tier of its own: it rides discovery:review with the
+  // rest of coding, and discovery:produce is where a designation becomes consequential. Gating the
+  // coding gesture itself would make privilege review a bottleneck in exactly the small firms this
+  // platform serves, for no defensibility gain.
+  //
+  // All five bind resource: "matter" — a review set IS one matter's corpus and cannot exist without
+  // one, the matterAssets:* binding rather than custody:*'s firm binding. And holding any of them is
+  // NOT sufficient on its own: every discovery route additionally checks the review set's own access
+  // list (packages/discovery/src/review-set-visibility.ts), because an attorneys'-eyes-only
+  // production is a review set whose list is two people.
+  "discovery:read", // read review sets, record custodians, loads, review documents, exception reports, and coding
+  "discovery:manageReviewSets", // create, rename, lock and close review sets; create and edit record custodians; edit the coding panel
   "discovery:load", // declare a load and put material into a review set
+  "discovery:review", // apply and remove coding on documents, run bulk coding operations, and undo them
+  "discovery:produce", // manage a review set's access list (and, later, stage and cut productions)
   // Notifications — a member's own feed of things the platform noticed. ONE key, seeded to every
   // default role including Read-only, which is the deliberate contrast with trust:read. A member
   // reading their own feed is not a privilege: the read is scoped to the session's own user id and

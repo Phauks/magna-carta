@@ -20,6 +20,24 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
 
+## Behaviour changes the next deploy carries (no dashboard step)
+
+- **Discovery review sets narrow to their creator on migration.** The
+  review-coding migration
+  (`20260808T000000_discovery-review-coding-and-access`) introduces the
+  per-review-set access list, which is **fail-closed**: a review set nobody is
+  listed on is reachable by nobody. The migration backfills exactly one row per
+  existing review set, for the member who created it, so no corpus becomes
+  orphaned — but anyone else who was reviewing one must be added back through
+  `PUT /api/v1/review-sets/{reviewSetId}/access/{memberUserId}`
+  (`discovery:produce`). That is deliberate rather than a gap: inferring who was
+  cleared for a corpus from who was staffed on the matter would assert something
+  nobody decided, and a protective order is exactly where that assertion
+  matters. Worth a heads-up to any firm already using discovery before the push.
+  No new binding, no new secret, no queue: the migration runs itself on the
+  per-firm Durable Object's next wake, and the bulk-selection objects go to the
+  already-bound `R2` bucket under the existing `discovery/` prefix.
+
 ## Position
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred

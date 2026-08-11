@@ -105,11 +105,15 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Attorney")).toContain("trust:authorize");
     expect(grantsFor("Paralegal")).not.toContain("trust:authorize");
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
-    // a matter reaches no review set on it. Billing and Read-only carry none of the three keys —
+    // a matter reaches no review set on it. Billing and Read-only carry none of the five keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.
     expect(grantsFor("Attorney")).toContain("discovery:load");
+    expect(grantsFor("Attorney")).toContain("discovery:review");
+    expect(grantsFor("Attorney")).toContain("discovery:produce");
     expect(grantsFor("Billing")).not.toContain("discovery:read");
+    expect(grantsFor("Billing")).not.toContain("discovery:review");
     expect(grantsFor("Read-only")).not.toContain("discovery:read");
+    expect(grantsFor("Read-only")).not.toContain("discovery:review");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -136,14 +140,17 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // both custody keys; Billing and Read-only get custody:read alone.
         "custody:manage",
         "custody:read",
-        // All three discovery keys reach the seats that do case work, and none of them reaches
-        // Billing or Read-only. They are three keys rather than one so a firm can take two away —
-        // a contract reviewer under a protective order holds discovery:read alone — and the
-        // namespace is what carries the access rule: a review set is reachable from a discovery
-        // grant and from nothing else, never from matters:* or files:*.
+        // All five discovery keys reach the seats that do case work, and none of them reaches
+        // Billing or Read-only. They are five keys rather than one so a firm can take four away —
+        // a contract reviewer under a protective order holds discovery:read and discovery:review —
+        // and the namespace is what carries the access rule: a review set is reachable from a
+        // discovery grant and from nothing else, never from matters:* or files:*. Even then the
+        // grant is not sufficient on its own: the review set's own access list is checked beside it.
         "discovery:load",
         "discovery:manageReviewSets",
+        "discovery:produce",
         "discovery:read",
+        "discovery:review",
         "documents:assemble",
         "emails:file",
         "emails:manageLinks",

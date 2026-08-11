@@ -2943,6 +2943,142 @@ export type MagnusTurnProgress = {
     truncatedContext?: boolean;
 };
 
+export type ReviewSetAccessList = {
+    data: Array<ReviewSetAccessMember>;
+};
+
+export type ReviewSetAccessMember = {
+    memberUserId: string;
+    grantedBy: string;
+    createdAt: string;
+};
+
+export type CodingPanel = {
+    groups: Array<ReviewTagGroup>;
+    tags: Array<ReviewTag>;
+};
+
+export type ReviewTagGroup = {
+    id: string;
+    reviewSetId: string;
+    name: string;
+    kind: 'system' | 'custom';
+    cardinality: 'single' | 'multi';
+    requiredForCompletion: boolean;
+    sortOrder: number;
+};
+
+export type ReviewTag = {
+    id: string;
+    reviewTagGroupId: string;
+    reviewSetId: string;
+    name: string;
+    /**
+     * The meaning the machine reads, where the tag has one. Production membership, privilege logging and completion arithmetic resolve through this and never through the name, so a firm may rename a tag freely without changing what anything does. A tag a firm created carries none and drives no machinery — it filters, groups and exports.
+     */
+    semantic: 'responsive' | 'non-responsive' | 'needs-further-review' | 'privileged' | 'privileged-redact' | 'not-privileged' | 'confidential' | null;
+    colorToken: string;
+    sortOrder: number;
+    active: boolean;
+};
+
+export type CreateCodingQuestionRequest = {
+    name: string;
+    cardinality: 'single' | 'multi';
+    /**
+     * Whether a document with no answer here counts as uncoded. That arithmetic is the progress figure, so turning it on for a question most documents will not answer makes the figure mean something else.
+     */
+    requiredForCompletion?: boolean;
+};
+
+export type CreateCodingTagRequest = {
+    name: string;
+    /**
+     * The NAME of a design token, never a colour value — the coding panel styles through the design system, and a raw value would be an off-token colour no theme could correct.
+     */
+    colorToken: string;
+};
+
+export type UpdateCodingQuestionRequest = {
+    name: string;
+};
+
+export type UpdateCodingTagRequest = {
+    name?: string;
+    active?: boolean;
+};
+
+export type DocumentCoding = {
+    data: Array<ReviewDocumentTag>;
+};
+
+export type ReviewDocumentTag = {
+    reviewTagId: string;
+    reviewTagGroupId: string;
+    appliedByEventId: string;
+    appliedAt: string;
+};
+
+export type CodingActResult = {
+    reviewTagEventId: string;
+    documentCount: number;
+};
+
+export type ApplyCodingRequest = {
+    reviewTagId: string;
+    action: 'apply' | 'remove';
+    scope?: 'document' | 'family';
+};
+
+export type BulkCodingResult = {
+    reviewTagEventId: string;
+    documentCount: number;
+};
+
+export type BulkCodingRequest = {
+    reviewTagId: string;
+    action: 'apply' | 'remove';
+    reviewDocumentIds: Array<string>;
+    /**
+     * The filter this selection came from, as a note for whoever reads the history. Field names and identifiers only — it is never re-run, and free text here would put content into a record that has no way to redact it.
+     */
+    criteria?: string;
+};
+
+export type UndoCodingResult = {
+    reviewTagEventId: string;
+};
+
+export type CodingHistory = {
+    data: Array<ReviewTagEvent>;
+};
+
+export type ReviewTagEvent = {
+    id: string;
+    kind: 'apply' | 'remove' | 'bulk-apply' | 'bulk-remove' | 'undo';
+    reviewTagId: string;
+    scope: 'document' | 'family' | 'selection';
+    documentCount: number;
+    criteria: string | null;
+    state: 'running' | 'complete' | 'undone';
+    reversesEventId: string | null;
+    actorUserId: string;
+    createdAt: string;
+    completedAt: string | null;
+};
+
+export type CodingProgress = {
+    documentCount: number;
+    completedCount: number;
+    tagCounts: Array<{
+        reviewTagId: string;
+        reviewTagGroupId: string;
+        documentCount: number;
+    }>;
+    uncodedDocumentIds: Array<string>;
+    splitFamilyIds: Array<string>;
+};
+
 export type ReviewSetList = {
     data: Array<ReviewSet>;
 };
@@ -15782,6 +15918,703 @@ export type MagnusEventsErrors = {
 };
 
 export type MagnusEventsError = MagnusEventsErrors[keyof MagnusEventsErrors];
+
+export type DiscoveryGetReviewSetAccessData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/access';
+};
+
+export type DiscoveryGetReviewSetAccessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewSetAccessError = DiscoveryGetReviewSetAccessErrors[keyof DiscoveryGetReviewSetAccessErrors];
+
+export type DiscoveryGetReviewSetAccessResponses = {
+    /**
+     * The review set's access list
+     */
+    200: ReviewSetAccessList;
+};
+
+export type DiscoveryGetReviewSetAccessResponse = DiscoveryGetReviewSetAccessResponses[keyof DiscoveryGetReviewSetAccessResponses];
+
+export type DiscoveryRevokeReviewSetAccessData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        memberUserId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/access/{memberUserId}';
+};
+
+export type DiscoveryRevokeReviewSetAccessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryRevokeReviewSetAccessError = DiscoveryRevokeReviewSetAccessErrors[keyof DiscoveryRevokeReviewSetAccessErrors];
+
+export type DiscoveryRevokeReviewSetAccessResponses = {
+    /**
+     * The member is off the list
+     */
+    204: void;
+};
+
+export type DiscoveryRevokeReviewSetAccessResponse = DiscoveryRevokeReviewSetAccessResponses[keyof DiscoveryRevokeReviewSetAccessResponses];
+
+export type DiscoveryGrantReviewSetAccessData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        memberUserId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/access/{memberUserId}';
+};
+
+export type DiscoveryGrantReviewSetAccessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGrantReviewSetAccessError = DiscoveryGrantReviewSetAccessErrors[keyof DiscoveryGrantReviewSetAccessErrors];
+
+export type DiscoveryGrantReviewSetAccessResponses = {
+    /**
+     * The member is on the list
+     */
+    204: void;
+};
+
+export type DiscoveryGrantReviewSetAccessResponse = DiscoveryGrantReviewSetAccessResponses[keyof DiscoveryGrantReviewSetAccessResponses];
+
+export type DiscoveryGetCodingPanelData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding-panel';
+};
+
+export type DiscoveryGetCodingPanelErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetCodingPanelError = DiscoveryGetCodingPanelErrors[keyof DiscoveryGetCodingPanelErrors];
+
+export type DiscoveryGetCodingPanelResponses = {
+    /**
+     * The coding panel
+     */
+    200: CodingPanel;
+};
+
+export type DiscoveryGetCodingPanelResponse = DiscoveryGetCodingPanelResponses[keyof DiscoveryGetCodingPanelResponses];
+
+export type DiscoveryCreateCodingQuestionData = {
+    body: CreateCodingQuestionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding-panel/questions';
+};
+
+export type DiscoveryCreateCodingQuestionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryCreateCodingQuestionError = DiscoveryCreateCodingQuestionErrors[keyof DiscoveryCreateCodingQuestionErrors];
+
+export type DiscoveryCreateCodingQuestionResponses = {
+    /**
+     * The coding question was created
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type DiscoveryCreateCodingQuestionResponse = DiscoveryCreateCodingQuestionResponses[keyof DiscoveryCreateCodingQuestionResponses];
+
+export type DiscoveryCreateCodingTagData = {
+    body: CreateCodingTagRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        reviewTagGroupId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding-panel/questions/{reviewTagGroupId}/tags';
+};
+
+export type DiscoveryCreateCodingTagErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryCreateCodingTagError = DiscoveryCreateCodingTagErrors[keyof DiscoveryCreateCodingTagErrors];
+
+export type DiscoveryCreateCodingTagResponses = {
+    /**
+     * The tag was created
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type DiscoveryCreateCodingTagResponse = DiscoveryCreateCodingTagResponses[keyof DiscoveryCreateCodingTagResponses];
+
+export type DiscoveryUpdateCodingQuestionData = {
+    body: UpdateCodingQuestionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        reviewTagGroupId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding-panel/questions/{reviewTagGroupId}';
+};
+
+export type DiscoveryUpdateCodingQuestionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryUpdateCodingQuestionError = DiscoveryUpdateCodingQuestionErrors[keyof DiscoveryUpdateCodingQuestionErrors];
+
+export type DiscoveryUpdateCodingQuestionResponses = {
+    /**
+     * The question was renamed
+     */
+    204: void;
+};
+
+export type DiscoveryUpdateCodingQuestionResponse = DiscoveryUpdateCodingQuestionResponses[keyof DiscoveryUpdateCodingQuestionResponses];
+
+export type DiscoveryUpdateCodingTagData = {
+    body: UpdateCodingTagRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        reviewTagId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding-panel/tags/{reviewTagId}';
+};
+
+export type DiscoveryUpdateCodingTagErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryUpdateCodingTagError = DiscoveryUpdateCodingTagErrors[keyof DiscoveryUpdateCodingTagErrors];
+
+export type DiscoveryUpdateCodingTagResponses = {
+    /**
+     * The tag was updated
+     */
+    204: void;
+};
+
+export type DiscoveryUpdateCodingTagResponse = DiscoveryUpdateCodingTagResponses[keyof DiscoveryUpdateCodingTagResponses];
+
+export type DiscoveryGetDocumentCodingData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/coding';
+};
+
+export type DiscoveryGetDocumentCodingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetDocumentCodingError = DiscoveryGetDocumentCodingErrors[keyof DiscoveryGetDocumentCodingErrors];
+
+export type DiscoveryGetDocumentCodingResponses = {
+    /**
+     * The document's live coding
+     */
+    200: DocumentCoding;
+};
+
+export type DiscoveryGetDocumentCodingResponse = DiscoveryGetDocumentCodingResponses[keyof DiscoveryGetDocumentCodingResponses];
+
+export type DiscoveryApplyCodingData = {
+    body: ApplyCodingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/coding';
+};
+
+export type DiscoveryApplyCodingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryApplyCodingError = DiscoveryApplyCodingErrors[keyof DiscoveryApplyCodingErrors];
+
+export type DiscoveryApplyCodingResponses = {
+    /**
+     * The coding act, as recorded
+     */
+    200: CodingActResult;
+};
+
+export type DiscoveryApplyCodingResponse = DiscoveryApplyCodingResponses[keyof DiscoveryApplyCodingResponses];
+
+export type DiscoveryBulkCodingData = {
+    body: BulkCodingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding/bulk';
+};
+
+export type DiscoveryBulkCodingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryBulkCodingError = DiscoveryBulkCodingErrors[keyof DiscoveryBulkCodingErrors];
+
+export type DiscoveryBulkCodingResponses = {
+    /**
+     * The bulk act, as recorded
+     */
+    200: BulkCodingResult;
+};
+
+export type DiscoveryBulkCodingResponse = DiscoveryBulkCodingResponses[keyof DiscoveryBulkCodingResponses];
+
+export type DiscoveryUndoCodingActData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+        reviewTagEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding/acts/{reviewTagEventId}/undo';
+};
+
+export type DiscoveryUndoCodingActErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryUndoCodingActError = DiscoveryUndoCodingActErrors[keyof DiscoveryUndoCodingActErrors];
+
+export type DiscoveryUndoCodingActResponses = {
+    /**
+     * The reversal, as recorded
+     */
+    200: UndoCodingResult;
+};
+
+export type DiscoveryUndoCodingActResponse = DiscoveryUndoCodingActResponses[keyof DiscoveryUndoCodingActResponses];
+
+export type DiscoveryGetCodingHistoryData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding/acts';
+};
+
+export type DiscoveryGetCodingHistoryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetCodingHistoryError = DiscoveryGetCodingHistoryErrors[keyof DiscoveryGetCodingHistoryErrors];
+
+export type DiscoveryGetCodingHistoryResponses = {
+    /**
+     * The coding history
+     */
+    200: CodingHistory;
+};
+
+export type DiscoveryGetCodingHistoryResponse = DiscoveryGetCodingHistoryResponses[keyof DiscoveryGetCodingHistoryResponses];
+
+export type DiscoveryGetCodingProgressData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/coding/progress';
+};
+
+export type DiscoveryGetCodingProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetCodingProgressError = DiscoveryGetCodingProgressErrors[keyof DiscoveryGetCodingProgressErrors];
+
+export type DiscoveryGetCodingProgressResponses = {
+    /**
+     * Review progress and the quality-control reads
+     */
+    200: CodingProgress;
+};
+
+export type DiscoveryGetCodingProgressResponse = DiscoveryGetCodingProgressResponses[keyof DiscoveryGetCodingProgressResponses];
 
 export type DiscoveryListReviewSetsData = {
     body?: never;
