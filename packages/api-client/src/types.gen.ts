@@ -1312,6 +1312,45 @@ export type DirectoryPersonDetail = {
     displayName: string | null;
     status: string;
     mergedIntoId: string | null;
+    pronouns: DirectoryPronounSet;
+};
+
+/**
+ * The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it.
+ */
+export type DirectoryPronounSet = {
+    /**
+     * As in: she signed.
+     */
+    subject: string;
+    /**
+     * As in: we served her.
+     */
+    object: string;
+    /**
+     * As in: her signature.
+     */
+    possessiveDeterminer: string;
+    /**
+     * As in: the signature is hers.
+     */
+    possessivePronoun: string;
+    /**
+     * As in: she represented herself.
+     */
+    reflexive: string;
+    /**
+     * Which verb form the set takes: "singular" for she is / he is, "plural" for they are. Recorded rather than worked out — nothing about the forms themselves says which.
+     */
+    verbNumber: 'singular' | 'plural';
+} | null;
+
+export type DirectoryAckResponse = {
+    ok: boolean;
+};
+
+export type SetDirectoryPersonPronounsRequest = {
+    pronouns: DirectoryPronounSet;
 };
 
 export type CreateDirectoryOrganizationRequest = {
@@ -1325,10 +1364,6 @@ export type DirectoryOrganizationDetail = {
     displayName: string | null;
     status: string;
     mergedIntoId: string | null;
-};
-
-export type DirectoryAckResponse = {
-    ok: boolean;
 };
 
 export type AddDirectoryNameRequest = {
@@ -10282,6 +10317,60 @@ export type DirectoryGetPersonResponses = {
 };
 
 export type DirectoryGetPersonResponse = DirectoryGetPersonResponses[keyof DirectoryGetPersonResponses];
+
+export type DirectorySetPersonPronounsData = {
+    body: SetDirectoryPersonPronounsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/persons/{id}/pronouns';
+};
+
+export type DirectorySetPersonPronounsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetPersonPronounsError = DirectorySetPersonPronounsErrors[keyof DirectorySetPersonPronounsErrors];
+
+export type DirectorySetPersonPronounsResponses = {
+    /**
+     * Recorded
+     */
+    200: DirectoryAckResponse;
+};
+
+export type DirectorySetPersonPronounsResponse = DirectorySetPersonPronounsResponses[keyof DirectorySetPersonPronounsResponses];
 
 export type DirectoryCreateOrganizationData = {
     body: CreateDirectoryOrganizationRequest;

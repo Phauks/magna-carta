@@ -533,6 +533,28 @@ class Parser {
       this.advance();
     } else {
       for (;;) {
+        // A `personSubject` parameter takes a BARE SUBJECT WORD — `pronoun(client, "subject")` —
+        // and nothing else. It is read here, from the token, rather than parsed as an expression,
+        // because `client` alone is not a merge field and must not become one: the atom names WHOSE
+        // pronouns are wanted, and the checker resolves it against the subjects the firm's field
+        // catalogue actually carries. Confined to this one declared position, so no other place in
+        // the grammar gains a bare word, and it is still one atom looked up in a Map — the property
+        // that makes `__proto__` here uninteresting rather than dangerous.
+        const specification = helper.parameters[argumentNodes.length];
+        if (specification === "personSubject" && this.peek().kind === "identifier") {
+          const subject = this.advance();
+          argumentNodes.push({ kind: "name", name: subject.text, offset: subject.offset });
+          const separator = this.advance();
+          if (separator.kind === "closeParenthesis") break;
+          if (separator.kind !== "comma") {
+            this.leave();
+            return this.fail(
+              separator.offset,
+              `${nameToken.text}'s inputs are comma-separated and end with ")".`,
+            );
+          }
+          continue;
+        }
         const argument = this.parseOr();
         if (argument === undefined) {
           this.leave();

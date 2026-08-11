@@ -822,5 +822,85 @@
     "defaultFormat": "long",
     "absence": "placeholder",
     "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.pronouns",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.pronouns",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.pronouns",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.pronouns",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.pronouns",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "responsibleAttorney.pronouns",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "originatingAttorney.pronouns",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "supervisingAttorney.pronouns",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "billingAttorney.pronouns",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "assignedParalegal.pronouns",
+    "valueType": "text",
+    "source": "staffing",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
   }
 ]

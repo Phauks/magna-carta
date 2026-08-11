@@ -1,6 +1,11 @@
 import { facetsForKind } from "./catalog/facets.ts";
 import { MERGE_SUBJECTS, normalizedRoleToken, type MergeSubject } from "./catalog/subjects.ts";
 import type { MatterStaffingMergeRow } from "./merge-statements.ts";
+import {
+  declensionFromColumns,
+  pronounLabelValue,
+  type PronounDeclension,
+} from "./pronoun-bindings.ts";
 import type { MergeListItem, MergeValue } from "./types.ts";
 
 // The matter's staffing, as merge fields — our side of "attorneys and types of attorneys".
@@ -107,6 +112,10 @@ export interface StaffingResolution {
   // never a candidate's name.
   readonly reasons: ReadonlyMap<string, string>;
   readonly slots: ReadonlyMap<string, StaffingSlot>;
+  // The declension behind each member subject that resolved to exactly one member whose mapped
+  // Directory person states a set — keyed by SUBJECT, the same channel the party read fills, and
+  // spent by the pronoun helpers rather than printed.
+  readonly pronouns: ReadonlyMap<string, PronounDeclension>;
 }
 
 // A member's name, as parts. The display half is the member row's own display name — always
@@ -145,6 +154,8 @@ function facetValue(facet: string, row: MatterStaffingMergeRow): MergeValue | un
       return textValue(row.professionalEmail);
     case "directDial":
       return textValue(row.directDial);
+    case "pronouns":
+      return pronounLabelValue(row);
     default:
       return undefined;
   }
@@ -171,6 +182,7 @@ export function staffingValues(
   const values = new Map<string, MergeValue>();
   const reasons = new Map<string, string>();
   const slots = new Map<string, StaffingSlot>();
+  const pronouns = new Map<string, PronounDeclension>();
 
   const byToken = new Map<string, MatterStaffingMergeRow[]>();
   for (const row of rows) {
@@ -190,6 +202,10 @@ export function staffingValues(
     const only = matched.length === 1 ? matched[0] : undefined;
     if (only !== undefined) {
       slots.set(source.key, { row: only });
+      // Recorded whether or not the manifest names the `pronouns` key: a template calling the
+      // pronoun helper never prints the key, and the checker already put it in the read plan.
+      const declension = declensionFromColumns(only);
+      if (declension !== undefined) pronouns.set(source.key, declension);
       for (const facet of source.scalarFacets) {
         const key = `${source.key}.${facet}`;
         const value = facetValue(facet, only);
@@ -227,5 +243,5 @@ export function staffingValues(
     for (const facet of source.scalarFacets) reasons.set(`${source.key}.${facet}`, reason);
   }
 
-  return { values, reasons, slots };
+  return { values, reasons, slots, pronouns };
 }

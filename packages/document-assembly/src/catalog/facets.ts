@@ -144,6 +144,30 @@ const PARTY_FACETS: readonly MergeFacet[] = [
     },
   },
   {
+    name: "pronouns",
+    kinds: ["party"],
+    source: "party",
+    valueType: "text",
+    defaultFormat: "plain",
+    // THE ONE FACET WHOSE ABSENCE IS BLANK RATHER THAN A MARKER. Everywhere else the bias is a
+    // visible hole, because a name silently missing is the worst thing this subsystem can produce.
+    // Pronouns invert it: most people never state any, so a marker here would put "[CLIENT
+    // PRONOUNS]" on the face of every ordinary letter and train a firm to ignore markers — and a
+    // stated pronoun set is a courtesy the person offered, not a field the record owes. The
+    // rendering helpers are where the unstated case gets an answer; this key states the fact.
+    absence: "blank",
+    sensitivity: "ordinary",
+    // A field a firm reaches for when a document PRINTS the pronouns — a cover sheet, a signature
+    // block. Writing a sentence about the person goes through the pronoun helper instead, so this
+    // sits behind the subject's disclosure.
+    prominence: "secondary",
+    labelTemplate: "{subject}'s pronouns",
+    descriptionTemplate:
+      "The {prose}'s pronouns as the record states them, written she/her, he/him, they/them. Blank when the record states none — never worked out from a name or a title.",
+    synonyms: ["pronoun", "she/her", "he/him", "they/them"],
+    example: { kind: "text", text: "they/them" },
+  },
+  {
     name: "all",
     kinds: ["party"],
     source: "party",
@@ -240,6 +264,22 @@ const MEMBER_FACETS: readonly MergeFacet[] = [
     descriptionTemplate: "The {prose}'s direct telephone line, from their profile.",
     synonyms: ["phone", "telephone", "direct line"],
     example: { kind: "text", text: "(775) 555-0114" },
+  },
+  {
+    name: "pronouns",
+    kinds: ["member"],
+    source: "staffing",
+    valueType: "text",
+    defaultFormat: "plain",
+    // Blank rather than a marker, for the reason the party twin states.
+    absence: "blank",
+    sensitivity: "ordinary",
+    prominence: "secondary",
+    labelTemplate: "{subject}'s pronouns",
+    descriptionTemplate:
+      "The {prose}'s pronouns as their Directory record states them, written she/her, he/him, they/them. Blank when the record states none — never worked out from a name or a title.",
+    synonyms: ["pronoun", "she/her", "he/him", "they/them"],
+    example: { kind: "text", text: "they/them" },
   },
   {
     name: "all",

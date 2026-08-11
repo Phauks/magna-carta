@@ -1,6 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
-import { createPerson, readPerson } from "@magna-carta/directory/person";
+import { createPerson, readPerson, setPersonPronouns } from "@magna-carta/directory/person";
+import { IncompletePronounSetError, PRONOUN_VERB_NUMBERS } from "@magna-carta/directory/pronouns";
 import { createOrganization, readOrganization } from "@magna-carta/directory/organization";
 import { addName } from "@magna-carta/directory/name-history";
 import {
@@ -131,6 +132,15 @@ const entityParam = z.object({
 });
 type EntityId = DirectoryPersonId | DirectoryOrganizationId;
 
+// A PERSON handle only. Pronouns are a fact about a person, and the generic entity param would let an
+// organisation handle through to a write that can only ever match a person row.
+const personParam = z.object({
+  id: z
+    .string()
+    .regex(/^directoryPerson_[A-Za-z0-9_-]+$/)
+    .openapi({ param: { name: "id", in: "path" } }),
+});
+
 // ---- request/response contracts ----
 
 const CreatePersonRequest = z
@@ -147,6 +157,33 @@ const CreatedEntityResponse = z
   .object({ id: z.string() })
   .openapi("CreatedDirectoryEntityResponse");
 
+// A person's pronouns, as the person states them. WHOLE OR NOT AT ALL: every form is required
+// together, because a half-recorded set is what puts one set's "she" and another's "them" in the
+// same sentence of a document that gets filed. Nothing here is derived from the name parts, and no
+// request may ask the platform to work a set out — it is stated or it is absent.
+//
+// ONE registered component, already nullable, used verbatim by both the read and the write. Applying
+// `.nullable()` or a second `.openapi()` at a use site re-registers the name under a different shape
+// — the contract conformance check rejects that, and the emitted component would be right for
+// neither caller.
+const PronounSetSchema = z
+  .object({
+    subject: z.string().min(1).openapi({ description: "As in: she signed." }),
+    object: z.string().min(1).openapi({ description: "As in: we served her." }),
+    possessiveDeterminer: z.string().min(1).openapi({ description: "As in: her signature." }),
+    possessivePronoun: z.string().min(1).openapi({ description: "As in: the signature is hers." }),
+    reflexive: z.string().min(1).openapi({ description: "As in: she represented herself." }),
+    verbNumber: z.enum(PRONOUN_VERB_NUMBERS).openapi({
+      description:
+        'Which verb form the set takes: "singular" for she is / he is, "plural" for they are. Recorded rather than worked out — nothing about the forms themselves says which.',
+    }),
+  })
+  .nullable()
+  .openapi("DirectoryPronounSet", {
+    description:
+      "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it.",
+  });
+
 const PersonDetail = z
   .object({
     id: z.string(),
@@ -158,8 +195,15 @@ const PersonDetail = z
     displayName: z.string().nullable(),
     status: z.string(),
     mergedIntoId: z.string().nullable(),
+    pronouns: PronounSetSchema,
   })
   .openapi("DirectoryPersonDetail");
+
+const SetPronounsRequest = z
+  .object({
+    pronouns: PronounSetSchema,
+  })
+  .openapi("SetDirectoryPersonPronounsRequest");
 
 const CreateOrganizationRequest = z
   .object({
@@ -467,6 +511,34 @@ const getPersonRoute = defineOpenAPIRoute(readMeta("getPerson", null), {
     429: authErrors[429],
   },
 });
+
+const setPersonPronounsRoute = defineOpenAPIRoute(
+  mutationMeta("setPersonPronouns", WRITE_PERMISSION),
+  {
+    method: "put",
+    path: "/api/v1/directory/persons/{id}/pronouns",
+    description:
+      "Records the pronouns a person stated, or removes the set on file. Every form is supplied together: " +
+      "a partly recorded set is refused, because a document that renders one set's pronoun in one clause " +
+      "and another's in the next is wrong in a way nobody catches by reading it. Pronouns are never " +
+      "worked out from a name, a courtesy title, or any other field.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: personParam,
+      body: { content: { "application/json": { schema: SetPronounsRequest } }, required: true },
+    },
+    responses: {
+      200: { description: "Recorded", content: { "application/json": { schema: AckResponse } } },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const createOrganizationRoute = defineOpenAPIRoute(
   mutationMeta("createOrganization", WRITE_PERMISSION),
@@ -813,6 +885,40 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
           status: 404,
           detail: "No such directory person in this firm.",
         });
+      }
+    },
+  );
+
+  // PUT /api/v1/directory/persons/{id}/pronouns
+  app.openapi(
+    {
+      ...setPersonPronounsRoute,
+      middleware: chokepointMiddleware(chokepoint, setPersonPronounsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        await setPersonPronouns(
+          firm.firmDatabase,
+          id as DirectoryPersonId,
+          request.pronouns,
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ ok: true } as z.infer<typeof AckResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof IncompletePronounSetError) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Directory request invalid",
+            status: 422,
+            detail: caught.message,
+          });
+        }
+        return directoryErrorResponse(c, caught);
       }
     },
   );

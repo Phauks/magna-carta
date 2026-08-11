@@ -205,6 +205,80 @@ where the block was.
 **A role you use that is not one of the four** is still reachable: `{{#each matter.parties}}` walks
 everyone linked to the matter, and each item carries `role` alongside `displayName` and `kind`.
 
+## Writing about a person without knowing their pronouns
+
+A sentence that says "he signed his declaration" has to be right about the person it is describing,
+and a template is written once and used for hundreds of people. So the template does not name a
+pronoun; it asks for one.
+
+```
+{{= pronoun(client, "subject")}} signed {{= pronoun(client, "possessiveDeterminer")}} declaration.
+```
+
+Against a client whose record says she/her, that prints "she signed her declaration". Against one who
+says they/them, "they signed their declaration". Against one whose record says nothing — which is most
+records — it prints "they signed their declaration" as well. You never write the fallback, and you
+never write a condition per pronoun set.
+
+The five positions you can ask for:
+
+| Write                                     | Example               |
+| ----------------------------------------- | --------------------- |
+| `pronoun(client, "subject")`              | she signed            |
+| `pronoun(client, "object")`               | served her            |
+| `pronoun(client, "possessiveDeterminer")` | her signature         |
+| `pronoun(client, "possessivePronoun")`    | the signature is hers |
+| `pronoun(client, "reflexive")`            | represented herself   |
+
+You can name any of the people the matter knows about — `client`, `opposingParty`, `opposingCounsel`,
+`guardian`, `witness`, and your own people like `responsibleAttorney`. Misspell one, or misspell a
+position, and the template is refused when you register it, not when someone assembles a document from
+it.
+
+### Verbs
+
+Here is the part that catches people out: "she signs" but "they sign". A pronoun set changes the verb,
+so the template gives both forms and the person's record picks:
+
+```
+{{= pronoun(client, "subject")}} {{= pronounVerb(client, "signs", "sign")}} below.
+{{= pronoun(client, "subject")}} {{= pronounVerb(client, "is", "are")}} the petitioner.
+```
+
+**Write the "he/she" form first and the "they" form second.** That is the whole rule. It works for
+every verb, including the awkward ones — `pronounVerb(client, "was", "were")`,
+`pronounVerb(client, "has", "have")` — because you supply the words rather than trusting the software
+to conjugate. A person with nothing recorded takes the "they" form, so it matches the pronoun.
+
+### When nothing is recorded
+
+The neutral wording is used for three different situations, and all three mean the same thing: nobody
+knows whose pronouns to use.
+
+- The person has stated none. Most people have not, and that is not a problem to fix.
+- The party is a company, an estate, or another organisation, which has no pronouns to state.
+- The matter links more than one person in that role, so there is no single person being described.
+
+In every case the document reads correctly and describes nobody wrongly. If your document needs to
+read differently for a company, write a condition on `{{opposingParty.kind}}` — that is a separate
+question from pronouns.
+
+### Printing someone's pronouns
+
+A cover sheet or a signature block sometimes prints the pronouns themselves rather than using them.
+Every person the matter names has a `pronouns` field for that:
+
+```
+{{responsibleAttorney.displayName}} ({{responsibleAttorney.pronouns}})
+```
+
+It prints "she/her". Unlike the helper, it prints **nothing at all** when the record states none — no
+marker — because a field that reports a fact should not invent one. If you need it to say something in
+that case, `{{= default(client.pronouns, "not stated")}}` does it.
+
+Recording pronouns on a person is covered in
+[Pronouns on a Directory record](pronouns.md).
+
 ## Your own people
 
 The attorneys and staff on your side of the file are merge fields too. The **responsible attorney**
@@ -540,5 +614,8 @@ is a report, not a template.
   identifiers and members' bar numbers, held in the Directory.
 - **A member editing their own professional profile** — today an administrator maintains profiles
   under Members.
+- **Pronouns for the judge, the decedent, or one item inside a repeat.** The pronoun helper works on
+  the people the matter names singly — the client, the other parties, your own staff. A sentence
+  inside `{{#each opposingParty.all}}` cannot yet ask for that item's pronouns.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

@@ -883,6 +883,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.merge",
       "directory.readIdentifier",
       "directory.search",
+      "directory.setPersonPronouns",
       "discovery.applyCoding",
       "discovery.bulkCoding",
       "discovery.createCodingQuestion",
