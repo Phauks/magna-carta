@@ -51,7 +51,13 @@ export type MatterScopedObjectClass =
   // nobody has saved it, and it is overwritten on every keystroke batch.
   | "working-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
-  | "shipping-label";
+  | "shipping-label"
+  // The frozen list of review documents one bulk coding act executed against, resolved once at
+  // initiation. It is a list of handles and nothing else — no content, no names — and it belongs to
+  // the one matter its review set does. A RECORD rather than a cache: "which documents did that act
+  // touch" is asked when a production drawn from that coding is challenged, so it outlives the
+  // derived artifacts a closing review set releases.
+  | "review-coding-selection";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -85,6 +91,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "working-document",
   "working-copy",
   "shipping-label",
+  "review-coding-selection",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [

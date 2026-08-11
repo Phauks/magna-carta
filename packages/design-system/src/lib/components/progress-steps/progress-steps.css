@@ -1,0 +1,68 @@
+@layer components {
+  /*
+   * ProgressSteps (Tier 2). A tight stack of marker · label rows on the sunken surface, so the
+   * sequence reads as one block the card is waiting on rather than four loose lines.
+   *
+   * The marker is one box at one size in every status — only its fill, border and glyph change —
+   * so the labels stay on a single inline axis as the sequence advances. A step that has not
+   * happened yet is muted rather than hidden: knowing what is still to come is the reason to
+   * render a sequence instead of a spinner.
+   */
+  .mc-progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-12);
+    background-color: var(--mc-surface-sunken);
+    border-radius: var(--mc-radius-md);
+    list-style: none;
+  }
+  .mc-progress-steps-step {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-subtle);
+  }
+  .mc-progress-steps-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+  }
+  .mc-progress-steps-step[data-status="active"] {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-progress-steps-step[data-status="active"] .mc-progress-steps-marker {
+    background-color: var(--mc-accent-strong);
+    border-color: var(--mc-accent-strong);
+  }
+  .mc-progress-steps-step[data-status="done"] {
+    color: var(--mc-text-default);
+  }
+  .mc-progress-steps-step[data-status="done"] .mc-progress-steps-marker {
+    background-color: var(--mc-status-success);
+    border-color: var(--mc-status-success);
+    color: var(--mc-status-success-foreground);
+  }
+  .mc-progress-steps-step[data-status="failed"] {
+    color: var(--mc-status-danger-subtle-foreground);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-progress-steps-step[data-status="failed"] .mc-progress-steps-marker {
+    background-color: var(--mc-status-danger);
+    border-color: var(--mc-status-danger);
+    color: var(--mc-status-danger-foreground);
+  }
+}

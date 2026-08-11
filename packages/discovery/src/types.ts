@@ -146,7 +146,138 @@ export const REVIEW_DOCUMENT_EXCEPTION_STAGES = [
 ] as const;
 export type ReviewDocumentExceptionStage = (typeof REVIEW_DOCUMENT_EXCEPTION_STAGES)[number];
 
+// ---------------------------------------------------------------------------------------------
+// Coding — the vocabularies a reviewer's decision is made of.
+
+// The cardinality of a coding question, carried on the GROUP. A single-choice group is a radio row
+// (Responsiveness); a multi-choice group is a flag set (issue codes). Independent booleans cannot
+// express a mutually exclusive choice, and a corpus where some documents are both responsive and
+// non-responsive cannot be produced from without a cleanup pass.
+export const REVIEW_TAG_GROUP_CARDINALITIES = ["single", "multi"] as const;
+export type ReviewTagGroupCardinality = (typeof REVIEW_TAG_GROUP_CARDINALITIES)[number];
+
+// A `system` group is seeded into every review set and is not deletable, because production logic
+// stands on its existence. It is freely renamable — nothing matches a group by name.
+export const REVIEW_TAG_GROUP_KINDS = ["system", "custom"] as const;
+export type ReviewTagGroupKind = (typeof REVIEW_TAG_GROUP_KINDS)[number];
+
+// SEMANTICS, NOT NAMES, DRIVE THE MACHINE. Privilege-log generation, production membership rules,
+// redaction checks and completion arithmetic read only this value, so a firm may rename "Privileged"
+// to "Withhold — AC privilege" and nothing breaks, because nothing ever matched the string. A custom
+// tag carries no semantic and drives no machinery — it filters, groups and exports, which is what
+// custom tags are for. The vocabulary is CLOSED: a semantic nothing reads is a semantic that lies.
+export const REVIEW_TAG_SEMANTICS = [
+  "responsive",
+  "non-responsive",
+  "needs-further-review",
+  "privileged",
+  "privileged-redact",
+  "not-privileged",
+  "confidential",
+] as const;
+export type ReviewTagSemantic = (typeof REVIEW_TAG_SEMANTICS)[number];
+
+// The semantics a production must never resolve to a produced document without a deliberate,
+// recorded decision. Named here rather than at the production writer so the coding layer and the
+// production layer read one list.
+export const WITHHOLDING_TAG_SEMANTICS: readonly ReviewTagSemantic[] = [
+  "privileged",
+  "privileged-redact",
+];
+
+// What a human did. One row per act, however many documents it touched.
+export const REVIEW_TAG_EVENT_KINDS = [
+  "apply",
+  "remove",
+  "bulk-apply",
+  "bulk-remove",
+  "undo",
+] as const;
+export type ReviewTagEventKind = (typeof REVIEW_TAG_EVENT_KINDS)[number];
+
+// The gesture's reach. `document` is one document; `family` is a document and everything sharing its
+// family identifier; `selection` is a materialized list resolved once at initiation.
+export const REVIEW_TAG_EVENT_SCOPES = ["document", "family", "selection"] as const;
+export type ReviewTagEventScope = (typeof REVIEW_TAG_EVENT_SCOPES)[number];
+
+// `undone` rather than a deletion: history never shortens, and an undone act stays in the journal
+// pointing at the act that reversed it.
+export const REVIEW_TAG_EVENT_STATES = ["running", "complete", "undone"] as const;
+export type ReviewTagEventState = (typeof REVIEW_TAG_EVENT_STATES)[number];
+
+// The three groups seeded into every review set at creation, with the semantics the machine reads.
+// Names and colour tokens are a starting point a firm edits freely; the SEMANTICS are what production
+// logic stands on, which is why a semantic-bearing tag is deactivated rather than deleted.
+//
+// Confidentiality is seeded from the common protective-order designations and carries only the one
+// `confidential` semantic — the finer tiers are label-only, because no machinery reads them yet and a
+// semantic nothing reads is a semantic that lies.
+export interface SeededTagDefinition {
+  readonly name: string;
+  readonly semantic: ReviewTagSemantic | null;
+  readonly colorToken: string;
+}
+
+export interface SeededTagGroupDefinition {
+  readonly name: string;
+  readonly cardinality: ReviewTagGroupCardinality;
+  readonly requiredForCompletion: boolean;
+  readonly tags: readonly SeededTagDefinition[];
+}
+
+export const SEEDED_TAG_GROUPS: readonly SeededTagGroupDefinition[] = [
+  {
+    name: "Responsiveness",
+    cardinality: "single",
+    // The one group a document must answer before anything counts it coded: responsiveness is what
+    // membership in a production is drawn from, so an unanswered document is one nobody has decided
+    // about rather than one decided against.
+    requiredForCompletion: true,
+    tags: [
+      { name: "Responsive", semantic: "responsive", colorToken: "status-success" },
+      { name: "Non-responsive", semantic: "non-responsive", colorToken: "status-neutral" },
+      {
+        name: "Needs further review",
+        semantic: "needs-further-review",
+        colorToken: "status-warning",
+      },
+    ],
+  },
+  {
+    name: "Privilege",
+    cardinality: "single",
+    // Not required for completion: on a large corpus most documents are simply not privileged, and
+    // forcing an explicit answer on every one of them would make the uncoded count meaningless.
+    requiredForCompletion: false,
+    tags: [
+      { name: "Privileged", semantic: "privileged", colorToken: "status-danger" },
+      { name: "Privileged — redact", semantic: "privileged-redact", colorToken: "status-warning" },
+      { name: "Not privileged", semantic: "not-privileged", colorToken: "status-neutral" },
+    ],
+  },
+  {
+    name: "Confidentiality",
+    cardinality: "single",
+    requiredForCompletion: false,
+    tags: [
+      { name: "Confidential", semantic: "confidential", colorToken: "status-info" },
+      {
+        name: "Highly confidential — attorneys' eyes only",
+        semantic: null,
+        colorToken: "status-danger",
+      },
+      { name: "Not confidential", semantic: null, colorToken: "status-neutral" },
+    ],
+  },
+];
+
 // Bounds. A name a person types, and a description of where a production came from.
 export const REVIEW_SET_NAME_MAX_LENGTH = 200;
 export const RECORD_CUSTODIAN_NAME_MAX_LENGTH = 200;
 export const LOAD_SOURCE_DESCRIPTION_MAX_LENGTH = 2000;
+export const REVIEW_TAG_GROUP_NAME_MAX_LENGTH = 120;
+export const REVIEW_TAG_NAME_MAX_LENGTH = 120;
+// A design-token NAME, never a raw colour value — the coding panel styles through the design system,
+// and a hex string here would be an off-token value the UI could not refuse. Bounded to the shape a
+// token name actually has, which also refuses anything that could be a CSS value.
+export const REVIEW_TAG_COLOR_TOKEN_PATTERN = /^[a-z][a-z0-9-]{0,48}$/;

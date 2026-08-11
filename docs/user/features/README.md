@@ -13,6 +13,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`document-templates-and-assembly.md`](document-templates-and-assembly.md) — Document templates and assembly: authoring a template in Word, registering it, and producing a document onto a matter (backend built, screens pending).
 - [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).
 - [`review-sets-and-loading.md`](review-sets-and-loading.md) — Review sets: gathering the documents in a case, saying whose records they are, and loading the firm's own files and filed email (backend built, screens pending).
+- [`coding-documents-in-review.md`](coding-documents-in-review.md) — Coding documents in review: deciding what each document is, coding families and in bulk with exact undo, seeing where the review has got to, and who can see a review set at all (backend built, screens pending).
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).

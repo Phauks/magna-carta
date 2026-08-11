@@ -15,14 +15,26 @@
    * bindable, `onComplete` fires once the last cell is filled, and every other input attribute
    * (`aria-label`, `aria-invalid`, `aria-describedby`, `name`, `autocomplete`, …) forwards to the
    * hidden input, so the control labels and validates like a single field.
+   *
+   * `charset` MATCHES THE CHANNEL THAT ISSUED THE CODE, and is not a styling choice. An
+   * authenticator app and a spoken telephone code are both six digits, so those stay numeric and
+   * raise a numeric keypad. A code this platform generates and sends is alphanumeric, and a
+   * numeric-only field would silently reject a code we ourselves issued — which reads to the
+   * person holding it as "the code is wrong". The alphanumeric setting therefore also uppercases
+   * as you type and suppresses autocapitalize/autocorrect, so a phone keyboard cannot quietly
+   * mangle a transcription.
    */
   import { PinInput } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithoutChildrenOrChild } from "../../internal/types.ts";
 
-  type Props = WithoutChildrenOrChild<Omit<PinInput.RootProps, "maxlength">> & {
+  type Props = WithoutChildrenOrChild<
+    Omit<PinInput.RootProps, "maxlength" | "pattern" | "inputmode">
+  > & {
     /** How many cells the code has. */
     length?: number;
+    /** Which characters the issuing channel can produce. */
+    charset?: "numeric" | "alphanumeric";
     /** Disables the control so it cannot be focused or typed into; renders muted. */
     disabled?: boolean;
   };
@@ -32,10 +44,15 @@
     inputRef = $bindable(null),
     value = $bindable(""),
     length = 6,
+    charset = "numeric",
     disabled = false,
     class: className,
     ...restProps
   }: Props = $props();
+
+  const alphanumeric = $derived(charset === "alphanumeric");
+  // Bits compiles this to a RegExp and rejects any keystroke or pasted character outside it.
+  const pattern = $derived(alphanumeric ? "^[a-zA-Z0-9]*$" : "^[0-9]*$");
 </script>
 
 <PinInput.Root
@@ -44,6 +61,11 @@
   bind:value
   maxlength={length}
   {disabled}
+  {pattern}
+  inputmode={alphanumeric ? "text" : "numeric"}
+  autocapitalize={alphanumeric ? "characters" : undefined}
+  autocorrect={alphanumeric ? "off" : undefined}
+  onValueChange={alphanumeric ? (next) => (value = next.toUpperCase()) : undefined}
   class={mergeClasses("mc-verification-code-input", className)}
   {...restProps}
 >
