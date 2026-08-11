@@ -13,6 +13,11 @@ import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { loadMatterTrustLeaf, loadTrustNode } from "@magna-carta/trust/account-tree";
 import {
+  readCurrentTrustAuthorizationPolicy,
+  resolveTrustAuthorizationDisposition,
+  type TrustAuthorizationDisposition,
+} from "@magna-carta/trust/authorization-policy";
+import {
   composeEarnedFeeApplicationApprovalDecision,
   composeEarnedFeeApplicationAuthorizationRequest,
   loadPendingTrustDisbursementRequest,
@@ -132,6 +137,82 @@ export async function submitTrustApplicationRequest(
     totalMinor: resolution.totalMinor,
     effect: { statements, outboxMessages: [...request.effect.outboxMessages] },
   };
+}
+
+export type AppliedOrQueuedEarnedFees =
+  | ({
+      readonly outcome: "applied";
+      readonly disposition: TrustAuthorizationDisposition;
+    } & AppliedTrustFunds)
+  | ({
+      readonly outcome: "queued";
+      readonly disposition: TrustAuthorizationDisposition;
+    } & SubmittedTrustApplicationRequest);
+
+// TAKING EARNED FEES, UNDER THE FIRM'S POSTURE — the one entrance, which decides for itself whether
+// this member may take them now or has to ask.
+//
+// The choice is made from the SAME disposition the guards enforce, before anything is composed,
+// rather than by attempting the direct application and catching its refusal. That refusal stays
+// exactly where it is: `composeTrustToOperatingTransfer` is the last guard before a posting and must
+// never turn into a route, or a composer meant to move money would start writing queue rows. What
+// changes is only that the caller no longer walks into it — a member without the firm's authority
+// raising fees for somebody else to release has done nothing wrong, and a refusal is the wrong face
+// for an ordinary outcome.
+//
+// The invoice resolution runs here to learn the AMOUNT the authorization question is about — the
+// same total the chosen path re-resolves and the trigger compares against the stamped threshold —
+// and then again inside that path, against the invoices as they stand at composition. Two reads of
+// the same rows, deliberately: the answer this function acts on must not become a fact the path it
+// delegates to trusts instead of re-deriving.
+export async function applyEarnedFeesUnderAuthorizationPolicy(
+  database: SqlDatabase,
+  input: SubmitTrustApplicationRequestInput,
+  options: BillingServiceOptions,
+): Promise<AppliedOrQueuedEarnedFees> {
+  const leaf = await loadMatterTrustLeaf(database, input.trustAccountId, input.matterId);
+  const clientEntityId = await readMatterClientEntityId(database, input.matterId);
+  if (!clientEntityId) {
+    throw new BillingValidationError(
+      "matter-has-no-client",
+      `matter ${input.matterId} has no client party, so there is nobody whose bill this money could be paying: record the client on the matter first`,
+    );
+  }
+  const resolution = await resolveEarnedFeeApplications(database, {
+    nodeId: leaf.id,
+    matterId: input.matterId,
+    clientEntityId,
+    currency: input.currency,
+    applications: input.applications,
+  });
+
+  const policy = await readCurrentTrustAuthorizationPolicy(database);
+  const disposition = await resolveTrustAuthorizationDisposition(database, {
+    policy,
+    amountMinor: resolution.totalMinor,
+    actor: input.requestedBy,
+  });
+
+  if (disposition.mode === "route") {
+    const submitted = await submitTrustApplicationRequest(database, input, options);
+    return { outcome: "queued", disposition, ...submitted };
+  }
+
+  const applied = await applyTrustFundsToInvoices(
+    database,
+    {
+      trustAccountId: input.trustAccountId,
+      matterId: input.matterId,
+      applications: input.applications,
+      currency: input.currency,
+      effectiveDate: input.effectiveDate,
+      trustDescription: input.trustDescription,
+      operatingDescription: input.operatingDescription,
+      appliedBy: input.requestedBy,
+    },
+    options,
+  );
+  return { outcome: "applied", disposition, ...applied };
 }
 
 export async function readTrustApplicationRequestLines(

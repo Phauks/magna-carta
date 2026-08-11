@@ -20,12 +20,13 @@ import {
   assertActorHoldsTrustAuthority,
   loadTrustAuthorizationPolicy,
   readCurrentTrustAuthorizationPolicy,
+  resolveLoneTrustManagerException,
   trustAuthorizationRequiresSecondPerson,
 } from "./authorization-policy.ts";
 import { composeTrustEntry, loadTrustAccountRoles } from "./composition-guard.ts";
 import { readTrustAvailableBalance } from "./holds.ts";
 import { assertMovementCurrency } from "./movements.ts";
-import { insertTrustTransferStatement, selectActiveTrustManagersStatement } from "./statements.ts";
+import { insertTrustTransferStatement } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 
 // Moving earned fees out of trust is where most real-world trust violations happen, so the shape
@@ -144,17 +145,15 @@ export async function composeTrustToOperatingTransfer(
     input.recordedBy === input.authorizedBy &&
     trustAuthorizationRequiresSecondPerson(policy, amountMinor)
   ) {
-    // The same lone-holder posture the disbursement flow records: a firm with genuinely nobody else
-    // is not locked out of taking its earned fees — but the exception belongs to the one member the
-    // count found, so a sole actor who is not that member (a member who can apply but not authorize)
-    // is refused even while a lone holder exists. The count mirrors the trigger, over-counting
-    // lapsed grants deliberately — refusing the exception is the safe direction to be wrong in.
-    const { results: managers } = await selectActiveTrustManagersStatement(database).all<{
-      user_id: string;
-      display_name: string;
-    }>();
-    const actorIsHolder = managers.some((manager) => manager.user_id === input.authorizedBy);
-    if (managers.length > 1 || !actorIsHolder) {
+    // The same lone-holder posture the disbursement flow records, through the same helper: a firm
+    // with genuinely nobody else is not locked out of taking its earned fees — but the exception
+    // belongs to the one member the count found, so a sole actor who is not that member (a member
+    // who can apply but not authorize) is refused even while a lone holder exists.
+    const { available, managers } = await resolveLoneTrustManagerException(
+      database,
+      input.authorizedBy,
+    );
+    if (!available) {
       const others = managers
         .filter((manager) => manager.user_id !== input.authorizedBy)
         .map((manager) => `${manager.display_name} (${manager.user_id})`)

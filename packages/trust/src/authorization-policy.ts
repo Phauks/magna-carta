@@ -7,12 +7,17 @@ import type { TrustServiceOptions } from "./account-tree.ts";
 import {
   insertTrustAuthorizationPolicyStatement,
   selectActiveTrustAuthorityHoldersStatement,
+  selectActiveTrustManagersStatement,
   selectCurrentTrustAuthorizationPolicyStatement,
   selectTrustAuthorizationPolicyHistoryStatement,
   selectTrustAuthorizationPolicyStatement,
 } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
-import type { TrustAuthorizationPolicyKind, TrustAuthorizationPolicySnapshot } from "./types.ts";
+import type {
+  TrustAuthorizationPolicyKind,
+  TrustAuthorizationPolicySnapshot,
+  TrustDisbursementAuthorizationBasis,
+} from "./types.ts";
 
 // THE FIRM'S DISBURSEMENT-AUTHORIZATION POLICY — whether money leaving a client ledger takes a
 // second person, and whether whoever lets it go must hold the authority capability. One policy, two
@@ -22,9 +27,22 @@ import type { TrustAuthorizationPolicyKind, TrustAuthorizationPolicySnapshot } f
 // the per-firm migration hold the same predicate at the database — a route is one code path among
 // several that reach those tables.
 //
-// THE SHIPPED DEFAULT IS THE STRICT ONE. A firm with no policy row has the posture the platform
-// shipped with before the policy existed: always two-person, no authority requirement. Nothing
-// relaxes on migrate; relaxing is an explicit, versioned, audited act.
+// AN ABSENT ROW IS THE STRICT POSTURE, AND EVERY FIRM DATABASE IS SEEDED WITH ONE. Two different
+// facts, deliberately kept apart. `SHIPPED_TRUST_AUTHORIZATION_POLICY` below is what a NULL stamp
+// resolves to — always two-person, no authority requirement — and it describes the requests
+// submitted before any posture existed, forever. What a new firm actually starts with is a seeded
+// version 1 (`off` plus the authority requirement: an authority holder acts alone, anybody else
+// routes to one), written by the per-firm migration
+// `20260808T020000_trust-authority-default-posture.sql` as an ordinary append-only version row a
+// firm can read, supersede, and audit. Keeping the default as DATA rather than as a re-reading of
+// the absent row is what leaves every trigger untouched and stops the NULL stamp changing meaning
+// underneath the history it records.
+//
+// THE AUTHORITY FLAG BINDS WHOEVER LETS MONEY GO, which is what makes an amount-only exemption
+// actor-conditional: with it set, an amount no second person is required for can still only be
+// released by a holder, and a non-holder's self-decision is refused — leaving the request pending
+// for somebody who holds the authority. Peer approval above a threshold is the same rule seen from
+// the other side: the decider IS the second person, and the flag binds the decider.
 //
 // A POSTURE CHANGE GOVERNS NEW AUTHORIZATIONS ONLY. Requests stamp the version current when they
 // were submitted and are decided under that stamp — the triggers read the stamp, never the latest
@@ -34,7 +52,10 @@ import type { TrustAuthorizationPolicyKind, TrustAuthorizationPolicySnapshot } f
 
 export const AUTHORIZATION_POLICY_CHANGED_AUDIT_EVENT = "trust.authorization_policy_changed";
 
-// Version 0, no row, no id: what every firm has until it deliberately writes a version.
+// Version 0, no row, no id: what a NULL policy stamp resolves to. A firm database provisioned since
+// the authority-based posture shipped is seeded with version 1 instead, so in practice this governs
+// the requests and transfers stamped before any version existed — and it stays the strict reading,
+// because that is what those rows were actually decided under.
 export const SHIPPED_TRUST_AUTHORIZATION_POLICY: TrustAuthorizationPolicySnapshot = {
   id: null,
   version: 0,
@@ -182,6 +203,163 @@ export async function assertActorHoldsTrustAuthority(
       ? `this firm requires trust money movement to be authorized by a member with the authority to act (trust:authorize), and no active member holds it: grant the capability before authorizing`
       : `this firm requires trust money movement to be authorized by a member with the authority to act (trust:authorize); ${actor} does not hold it — it must be decided by one of: ${named}`,
   );
+}
+
+// Which active members hold the bookkeeping capability. Read to turn the lone-holder triggers'
+// aborts into refusals naming who CAN act, and — like the authority read above — never the
+// guarantee: the triggers count the same rows the same way, and a read cannot be atomic with the
+// write it precedes. Deliberately counts a direct grant whether or not it has expired, because
+// over-counting holders REFUSES the lone-holder exception, which is the safe direction to be wrong
+// in.
+export async function readActiveTrustManagers(
+  database: SqlDatabase,
+): Promise<readonly { user_id: string; display_name: string }[]> {
+  const { results } = await selectActiveTrustManagersStatement(database).all<{
+    user_id: string;
+    display_name: string;
+  }>();
+  return results;
+}
+
+// THE LONE-HOLDER EXCEPTION, IN ONE PLACE. A firm with genuinely nobody else is not locked out of
+// moving client money — but the exception belongs to the ONE MEMBER THE COUNT FOUND, never to
+// whoever happens to reach the check while a lone holder exists. Both halves are required together:
+// a clerk who can submit but not authorize must not be able to borrow a lone manager's exception and
+// release money alone. The triggers in the per-firm migration hold exactly this pair; this is the
+// read in front of them, and the one place the pair is written in TypeScript so the two callers
+// cannot drift apart.
+export async function resolveLoneTrustManagerException(
+  database: SqlDatabase,
+  actor: UserId,
+): Promise<{
+  readonly available: boolean;
+  readonly managers: readonly { user_id: string; display_name: string }[];
+}> {
+  const managers = await readActiveTrustManagers(database);
+  const actorIsTheCountedManager = managers.some((manager) => manager.user_id === actor);
+  return { available: managers.length === 1 && actorIsTheCountedManager, managers };
+}
+
+export interface TrustAuthorityHolderSummary {
+  readonly userId: UserId;
+  readonly displayName: string;
+}
+
+// Why a member cannot release this money alone: they do not hold the authority the firm requires, or
+// the amount takes a second person and they are not the firm's lone holder. Two different remedies
+// (grant the capability, or ask a colleague), so they stay two different answers.
+export type TrustAuthorizationRouteReason = "authority-required" | "second-person-required";
+
+export interface TrustAuthorizationDisposition {
+  // `solo` means this member may release this amount by themselves, on the stated basis. `route`
+  // means somebody else has to settle it, and `eligibleApprovers` says who.
+  readonly mode: "solo" | "route";
+  // The footing a solo decision will record on its face. Null on a route, because a basis is a
+  // property of a decision and nobody has decided yet.
+  readonly authorizationBasis: TrustDisbursementAuthorizationBasis | null;
+  readonly routeReason: TrustAuthorizationRouteReason | null;
+  readonly policy: TrustAuthorizationPolicySnapshot;
+  readonly requiresSecondPerson: boolean;
+  // Who may settle this if the actor cannot — never the actor themselves on a route, so a caller
+  // rendering the list can never invite somebody to do the thing that was just refused.
+  readonly eligibleApprovers: readonly TrustAuthorityHolderSummary[];
+}
+
+export interface TrustAuthorizationDispositionInput {
+  // The policy that GOVERNS this decision: the current version for something being proposed now, the
+  // version stamped on a request for something already pending. Stated by the caller rather than
+  // read here, because which policy applies is the whole question the stamp exists to answer.
+  readonly policy: TrustAuthorizationPolicySnapshot;
+  readonly amountMinor: number;
+  readonly actor: UserId;
+}
+
+function toHolderSummaries(
+  rows: readonly { user_id: string; display_name: string }[],
+  excluding: UserId | null,
+): readonly TrustAuthorityHolderSummary[] {
+  return rows
+    .filter((row) => row.user_id !== excluding)
+    .map((row) => ({ userId: row.user_id as UserId, displayName: row.display_name }));
+}
+
+// THE SHARED DISPOSITION READ — asked BEFORE anything is composed: may this member release this
+// amount alone, on what footing, and if not, who can? Both money-out paths ask it, so the choice
+// between acting and queueing is made from the same answer the guards enforce, rather than by
+// composing something and catching the refusal. A refusal is the right face for a mistake and the
+// wrong face for an ordinary outcome — a member without the authority raising a payment for somebody
+// else to release has done nothing wrong.
+//
+// This adds no new rule. It calls the same predicate the guards call, over the same policy row, and
+// the same two membership reads the triggers count; it exists so a caller can see the answer in
+// advance, never so a caller can substitute its own. Every path out of it is a refusal or a
+// route — nothing here can widen what the composers and the triggers will accept, and an
+// unrecognized policy kind propagates the predicate's throw rather than resolving to "no second
+// person required".
+export async function resolveTrustAuthorizationDisposition(
+  database: SqlDatabase,
+  input: TrustAuthorizationDispositionInput,
+): Promise<TrustAuthorizationDisposition> {
+  const { policy, amountMinor, actor } = input;
+  const requiresSecondPerson = trustAuthorizationRequiresSecondPerson(policy, amountMinor);
+
+  // The authority gate is asked FIRST and on its own, because it binds whoever lets money go at any
+  // amount: a member the firm has not given the authority to can never be the one who releases,
+  // whether or not a second person is also required. Asking it first is also what makes the
+  // membership test unconditional — the answer is "is the ACTOR in the holder set", never "does the
+  // firm have one".
+  const authorityHolders = await readActiveTrustAuthorityHolders(database);
+  if (policy.requireAuthorizedApprover) {
+    const actorHoldsAuthority = authorityHolders.some((holder) => holder.user_id === actor);
+    if (!actorHoldsAuthority) {
+      return {
+        mode: "route",
+        authorizationBasis: null,
+        routeReason: "authority-required",
+        policy,
+        requiresSecondPerson,
+        eligibleApprovers: toHolderSummaries(authorityHolders, actor),
+      };
+    }
+  }
+
+  if (!requiresSecondPerson) {
+    return {
+      mode: "solo",
+      authorizationBasis: "policy_exempt",
+      routeReason: null,
+      policy,
+      requiresSecondPerson,
+      eligibleApprovers: [],
+    };
+  }
+
+  // A second person is required at this amount. The only way one member still acts is the
+  // lone-holder exception, and it is the actor's only if the actor IS the firm's one holder.
+  const exception = await resolveLoneTrustManagerException(database, actor);
+  if (exception.available) {
+    return {
+      mode: "solo",
+      authorizationBasis: "sole_trust_manager",
+      routeReason: null,
+      policy,
+      requiresSecondPerson,
+      eligibleApprovers: [],
+    };
+  }
+
+  // Who the second person may be: when the firm requires authority, exactly its holders (peer
+  // approval — two holders satisfy it, and there is no regress); otherwise the members who can reach
+  // the decision at all, which is the set the lone-holder rule counts.
+  const deciders = policy.requireAuthorizedApprover ? authorityHolders : exception.managers;
+  return {
+    mode: "route",
+    authorizationBasis: null,
+    routeReason: "second-person-required",
+    policy,
+    requiresSecondPerson,
+    eligibleApprovers: toHolderSummaries(deciders, actor),
+  };
 }
 
 export interface TrustAuthorizationPolicyChangeInput {

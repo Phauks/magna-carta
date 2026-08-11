@@ -24,6 +24,7 @@ let poolFirmId: FirmId;
 let ownerCookie: string;
 let ownerUserId: UserId;
 let noTrustCookie: string;
+let clerkCookie: string;
 let trustAccountId: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
@@ -104,6 +105,21 @@ beforeAll(async () => {
   });
   await mirrorMemberWithDirectGrant(noTrust.userId, "No Trust", "firm:reportIncident");
   noTrustCookie = await signInForSessionCookie("trust-none@example.com");
+
+  // A member who may do the bookkeeping but has NOT been given the authority to act on client
+  // money: exactly the member the firm's posture routes to somebody else.
+  const clerk = await seedCredentialedUser("trust-clerk@example.com", {
+    userName: "Trust Clerk",
+    firmId: poolFirmId,
+  });
+  await mirrorMemberWithDirectGrant(clerk.userId, "Trust Clerk", "trust:manage");
+  await firmDatabase
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, 'trust:read', ?2, NULL, ?3)",
+    )
+    .bind(newIdentifier("grant"), clerk.userId, clock.now())
+    .run();
+  clerkCookie = await signInForSessionCookie("trust-clerk@example.com");
 
   // A matter draws its number when it opens, so the firm needs a scheme before any matter exists.
   await SELF.fetch("https://example.com/api/v1/numbering-scheme", {
@@ -191,11 +207,13 @@ const disbursementBody = (matterId: string, amountMinor: number) => ({
   purpose: "Complaint filing fee",
 });
 
-// This firm has exactly one member holding trust:manage — the owner — which is the case the
-// two-person rule has to answer honestly rather than by making disbursement impossible. The
-// disbursement suite over a firm with several authorizers is trust-authorization-routes.test.ts.
+// This firm runs the posture every per-firm database is seeded with: a member holding the authority
+// to act on client money releases a payment alone, and a member without it raises one that waits.
+// The owner holds the authority through the Owner role; the clerk below holds only the bookkeeping
+// capability. The two-person suite, over a firm that has written the strict posture, is
+// trust-authorization-routes.test.ts.
 describe("trust movement routes", () => {
-  it("deposits, disburses through request and approval, and reads the client ledger back", async () => {
+  it("deposits, releases a disbursement in ONE call for an authorized member, and reads the client ledger back", async () => {
     const matterId = await openMatter("Trust Movement Matter");
 
     const deposited = await post("/api/v1/trust/deposits", depositBody(matterId, 500000));
@@ -211,26 +229,17 @@ describe("trust movement routes", () => {
     const requestAck = (await requested.json()) as {
       trustDisbursementRequestId: string;
       status: string;
+      authorizationBasis: string | null;
+      trustMovementId: string | null;
+      eligibleApprovers: { userId: string }[];
     };
     expect(requestAck.trustDisbursementRequestId).toMatch(/^trustDisbursementRequest_/);
-    expect(requestAck.status).toBe("pending");
-
-    // The request on its own moves nothing.
-    const beforeApproval = await get(
-      `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
-    );
-    expect((await beforeApproval.json()).balanceMinor).toBe(500000);
-
-    const approved = await post(
-      `/api/v1/trust/disbursement-requests/${requestAck.trustDisbursementRequestId}/approval`,
-      undefined,
-    );
-    expect(approved.status).toBe(201);
-    // The sole trust manager approving their own request is recorded as exactly that, rather than
-    // passing as an ordinary second-person approval.
-    expect(await approved.json()).toMatchObject({
-      authorizationBasis: "sole_trust_manager",
-    });
+    // One call: proposed and released, with the footing on the record rather than left for a reader
+    // to infer from two matching handles. Nobody is waiting on anybody, so nobody is named.
+    expect(requestAck.status).toBe("approved");
+    expect(requestAck.authorizationBasis).toBe("policy_exempt");
+    expect(requestAck.trustMovementId).toMatch(/^trustMovement_/);
+    expect(requestAck.eligibleApprovers).toEqual([]);
 
     const ledger = await get(
       `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
@@ -259,7 +268,58 @@ describe("trust movement routes", () => {
     expect(body.movements[1]?.authorizedBy).toBe(ownerUserId);
     expect(body.movements[1]?.counterpartyName).toBe("Second Judicial District Court");
     expect(body.movements[1]?.disbursementRequestId).toBe(requestAck.trustDisbursementRequestId);
-    expect(body.movements[1]?.authorizationBasis).toBe("sole_trust_manager");
+    expect(body.movements[1]?.authorizationBasis).toBe("policy_exempt");
+  });
+
+  it("routes a member WITHOUT the authority to one who has it, moving nothing and naming who can", async () => {
+    const matterId = await openMatter("Trust Routing Matter", "entity_routing");
+    expect((await post("/api/v1/trust/deposits", depositBody(matterId, 500000))).status).toBe(201);
+
+    // The clerk can reach the route — the chokepoint gates it on trust:manage, which they hold — and
+    // still cannot be the person who releases the money.
+    const requested = await post(
+      "/api/v1/trust/disbursement-requests",
+      disbursementBody(matterId, 120000),
+      clerkCookie,
+    );
+    expect(requested.status).toBe(201);
+    const ack = (await requested.json()) as {
+      trustDisbursementRequestId: string;
+      status: string;
+      authorizationBasis: string | null;
+      trustMovementId: string | null;
+      eligibleApprovers: { userId: string; displayName: string }[];
+    };
+    expect(ack.status).toBe("pending");
+    expect(ack.authorizationBasis).toBeNull();
+    expect(ack.trustMovementId).toBeNull();
+    // The refusal a member cannot act on is the one that says only that somebody must: this names
+    // the member who can.
+    expect(ack.eligibleApprovers.map((approver) => approver.userId)).toEqual([ownerUserId]);
+
+    const beforeApproval = await get(
+      `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
+    );
+    expect((await beforeApproval.json()).balanceMinor).toBe(500000);
+
+    // The clerk cannot settle their own request either, and the refusal is a status a client acts on.
+    const selfApproval = await post(
+      `/api/v1/trust/disbursement-requests/${ack.trustDisbursementRequestId}/approval`,
+      undefined,
+      clerkCookie,
+    );
+    expect(selfApproval.status).toBe(422);
+
+    const approved = await post(
+      `/api/v1/trust/disbursement-requests/${ack.trustDisbursementRequestId}/approval`,
+      undefined,
+    );
+    expect(approved.status).toBe(201);
+    expect(await approved.json()).toMatchObject({ authorizationBasis: "second_person" });
+    const after = await get(
+      `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
+    );
+    expect((await after.json()).balanceMinor).toBe(380000);
   });
 
   it("replays a repeated Idempotency-Key instead of moving the money twice", async () => {

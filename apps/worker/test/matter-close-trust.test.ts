@@ -190,16 +190,13 @@ describe("closing a matter against its trust ledger", () => {
       purpose: "Refund of unused retainer",
     });
     expect(requested.status).toBe(201);
-    const { trustDisbursementRequestId } = (await requested.json()) as {
-      trustDisbursementRequestId: string;
-    };
-    // This firm has one member holding trust:manage, so the submitter approves and the decision
-    // records that basis; the money only leaves the client ledger on this call.
-    const disbursed = await post(
-      `/api/v1/trust/disbursement-requests/${trustDisbursementRequestId}/approval`,
-      undefined,
-    );
-    expect(disbursed.status).toBe(201);
+    // This member holds the authority to act on client money, and the firm's posture asks for no
+    // second person, so the refund is proposed and paid in the one call — which is the only call
+    // that touches the client ledger.
+    expect(await requested.json()).toMatchObject({
+      status: "approved",
+      authorizationBasis: "policy_exempt",
+    });
 
     const closed = await post(`/api/v1/matters/${matterId}/close`);
 

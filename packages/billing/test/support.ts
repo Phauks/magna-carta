@@ -78,6 +78,14 @@ export async function billingFixture(): Promise<BillingFixture> {
         "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:manage', NULL, ?2, ?3)",
       )
       .bind(newIdentifier("grant"), memberUserId, clock.now()),
+    // And the AUTHORITY, which the posture every per-firm database is seeded with requires of
+    // whoever lets money go — the platform seeds trust:authorize onto the Owner and Attorney roles,
+    // so the responsible attorney this fixture stands for holds both.
+    database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:authorize', NULL, ?2, ?3)",
+      )
+      .bind(newIdentifier("grant"), memberUserId, clock.now()),
   ]);
 
   const accountsReceivable = await createAccount(
