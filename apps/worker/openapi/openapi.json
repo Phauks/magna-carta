@@ -48164,7 +48164,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "discovery:review",
         "x-mc-resource": "matter",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
@@ -48296,7 +48296,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "discovery:review",
         "x-mc-resource": "matter",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
@@ -48419,7 +48419,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "discovery:review",
         "x-mc-resource": "matter",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
