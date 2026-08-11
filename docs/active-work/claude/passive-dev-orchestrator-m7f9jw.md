@@ -35,13 +35,14 @@ Do not restate the task board or ROADMAP here. They are the home for the queue
    with no merge.
 4. Re-arm: PR subscriptions for every open PR you own, a `send_later` check-in if a
    gate is running, and confirm the heartbeat trigger's state matches section 4.
-5. Work the task board in order. Update section 2 and the artifact at each milestone.
+5. Work **section 8**, the execution order — it says what to do next and why. The task
+   board holds the items themselves. Update section 2 and the artifact at each milestone.
 
 ---
 
 ## 2. Current state — OVERWRITE THIS SECTION, never append
 
-*Last updated 2026-08-11, ~03:00 UTC.*
+_Last updated 2026-08-11, ~03:00 UTC._
 
 - **Merged:** 149 pull requests. Head PR is **#194**.
 - **Open PRs, both awaiting the owner:**
@@ -216,7 +217,7 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
   is the honest fallback.
 - **Test-pool live queue consumers race test bodies.** This was the root cause of both
   historical full-suite flakes. The product verdict machines are correct and
-  deliberately untouched — overwritable failed/deferred *is* the redelivery design.
+  deliberately untouched — overwritable failed/deferred _is_ the redelivery design.
 - Miniflare tests cannot read host fixtures — inline the strings. Register static
   routes before parameterized ones.
 - Contention flakes on shared cores are adjudicated by disjoint-sets plus an
@@ -224,7 +225,7 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
 - Mockup HTML gets headless-Chromium verification before every publish
   (`verify-mock.mjs` in the scratchpad; playwright-core under
   `node_modules/.pnpm/playwright-core@1.60.0/`, chromium at `/opt/pw-browsers/chromium`).
-  **Verify what the host actually renders.** Mermaid is *not* bundled in the mockup —
+  **Verify what the host actually renders.** Mermaid is _not_ bundled in the mockup —
   the artifact host renders it — so a local probe measures a `<pre>` and every
   assertion about diagram geometry or node clicks passes against the wrong element.
   Two features shipped "verified" and broken this way.
@@ -254,7 +255,7 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
   a background waiter and stopping burns the whole budget for nothing — one agent lost
   293k tokens this way. Tell them explicitly not to.
 - **A `pgrep`-based wait loop matches itself and never exits.** `until ! pgrep -f "vp
-  test"; do sleep 20; done` polls forever, because the waiter's own command line
+test"; do sleep 20; done` polls forever, because the waiter's own command line
   contains the pattern. Two agents have left these behind; each orphan then fires a
   task notification every time the harness reaps one, and every notification costs a
   turn in the parent session. Find them with `ps -eo pid,args | grep 'until ! pgrep'`
@@ -271,21 +272,95 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
 
 Detail lives in the PR and the commit. Do not write paragraphs here.
 
-| Date (UTC) | Merged | What landed |
-| --- | --- | --- |
-| 08-11 | 149 | #193 formatted the six files failing the format gate on main; #194 raised the TypeScript `lib` to ES2023, fixing thirteen call sites that the repo's own `.sort()` autofix had written against an ES2022 pin. Both were main-is-red fixes, not feature work |
-| 08-10 | 147 | #187 calendar slice 2 (fork guard: partial indexes were missing from the drizzle schema behind a false comment), #188 translation design, #189 trust authority design, #190 Kitesurf assessment, #191 self-serve tier + free tier design |
-| 08-08 | 142 | Owner returned; translation services researched. Usage incident: work paused, heartbeat disabled, later restored at 3 hours |
-| 08-07 ~14:10 | 139 | #179 calendar design, #180 test-race pair — worker suite 214 files / 1569 tests green under parallelism for the first time, #181 escheat research, #182 catalog follow-ups |
-| 08-07 ~12:50 | 135 | #177 catalog slices 2–4, #178 trust authorization policy — **review reproduced a money bug pre-merge** (lone-manager exception borrowable by a `billing:apply` clerk) |
-| 08-07 ~10:30 | 133 | #166 auto-file wiring, #174 Nevada corpus, #176 AI Search wall experiment, #175 notifications delivery. CI budget exhausted; austerity bar back |
-| 08-07 ~07:00 | 129 | Merge train: #167 discovery 5·1·2, **#173 sign-in — first UI in production code**, #168 R2 matter dimension, #169 docket record, #171 CI fail-fast |
-| 08-07 ~05:50 | 124 | Owner mega-session: all 92 docket questions answered (9 overrides became tasks 119–128), $5 Actions budget, UI opened for sign-in only, main verifiably green |
-| 08-07 ~00:20 | 123 | #164 assets 4·3·2/3, #165 R3 — **review campaign 2 closed 43/43** |
-| 08-06 ~22:40 | 121 | #161 billing trust application closed T4, completing the trust arc; #163 AI Search design (retrieval-only, opt-in, derived feed) |
-| 08-06 (earlier) | 118 | #159 Magnus slice 1 live; #154 R1 financial fixes; #156 Magnus design; F4b reframed — transcripts are work product |
-| 08-06 ~04:20 | 108 | Owner redirect: no phase 6/7, deepen 0–5 only; UI fully parked. #142 auto-file, #143 billing spine, #144 calendar, #146 catalog slice 1, #147 D3 widening |
-| 08-05 ~22:00 | 100 | #138 custodian destruction with Nevada catalog, #140 composite extraction (born-digital PDFs extracted natively) |
-| 08-05 ~17:40 | 93 | Owner session: three new subsystem designs, lint lever landed |
-| 08-05 | 60–90 | Trust foundation, trust movements, gate integrity restored, custodian counts, safe diff-scoped tooling |
-| 08-04 | 14 | Session start. Whole inherited backlog cleared, CI cost package, dependency refresh, fix batches B1–B10 triaged and begun |
+| Date (UTC)      | Merged | What landed                                                                                                                                                                                                                                                 |
+| --------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 08-11           | 149    | #193 formatted the six files failing the format gate on main; #194 raised the TypeScript `lib` to ES2023, fixing thirteen call sites that the repo's own `.sort()` autofix had written against an ES2022 pin. Both were main-is-red fixes, not feature work |
+| 08-10           | 147    | #187 calendar slice 2 (fork guard: partial indexes were missing from the drizzle schema behind a false comment), #188 translation design, #189 trust authority design, #190 Kitesurf assessment, #191 self-serve tier + free tier design                    |
+| 08-08           | 142    | Owner returned; translation services researched. Usage incident: work paused, heartbeat disabled, later restored at 3 hours                                                                                                                                 |
+| 08-07 ~14:10    | 139    | #179 calendar design, #180 test-race pair — worker suite 214 files / 1569 tests green under parallelism for the first time, #181 escheat research, #182 catalog follow-ups                                                                                  |
+| 08-07 ~12:50    | 135    | #177 catalog slices 2–4, #178 trust authorization policy — **review reproduced a money bug pre-merge** (lone-manager exception borrowable by a `billing:apply` clerk)                                                                                       |
+| 08-07 ~10:30    | 133    | #166 auto-file wiring, #174 Nevada corpus, #176 AI Search wall experiment, #175 notifications delivery. CI budget exhausted; austerity bar back                                                                                                             |
+| 08-07 ~07:00    | 129    | Merge train: #167 discovery 5·1·2, **#173 sign-in — first UI in production code**, #168 R2 matter dimension, #169 docket record, #171 CI fail-fast                                                                                                          |
+| 08-07 ~05:50    | 124    | Owner mega-session: all 92 docket questions answered (9 overrides became tasks 119–128), $5 Actions budget, UI opened for sign-in only, main verifiably green                                                                                               |
+| 08-07 ~00:20    | 123    | #164 assets 4·3·2/3, #165 R3 — **review campaign 2 closed 43/43**                                                                                                                                                                                           |
+| 08-06 ~22:40    | 121    | #161 billing trust application closed T4, completing the trust arc; #163 AI Search design (retrieval-only, opt-in, derived feed)                                                                                                                            |
+| 08-06 (earlier) | 118    | #159 Magnus slice 1 live; #154 R1 financial fixes; #156 Magnus design; F4b reframed — transcripts are work product                                                                                                                                          |
+| 08-06 ~04:20    | 108    | Owner redirect: no phase 6/7, deepen 0–5 only; UI fully parked. #142 auto-file, #143 billing spine, #144 calendar, #146 catalog slice 1, #147 D3 widening                                                                                                   |
+| 08-05 ~22:00    | 100    | #138 custodian destruction with Nevada catalog, #140 composite extraction (born-digital PDFs extracted natively)                                                                                                                                            |
+| 08-05 ~17:40    | 93     | Owner session: three new subsystem designs, lint lever landed                                                                                                                                                                                               |
+| 08-05           | 60–90  | Trust foundation, trust movements, gate integrity restored, custodian counts, safe diff-scoped tooling                                                                                                                                                      |
+| 08-04           | 14     | Session start. Whole inherited backlog cleared, CI cost package, dependency refresh, fix batches B1–B10 triaged and begun                                                                                                                                   |
+
+---
+
+## 8. Execution order — the forward queue
+
+_Owner-approved 2026-08-11._ Work this top to bottom. It holds **order and trigger
+conditions only**; the task board holds the items, so an entry here is a label, a next
+step, and what blocks it — never a restatement. Reorder when priorities change; delete
+an entry when its task closes. UI work is tracked separately and is owner-driven.
+
+### Tier 1 — finish the money subsystem
+
+The largest unstarted owner-directed work, in the area where a quiet bug is worst. Trust
+and billing share files, so these run **one at a time**, not in parallel.
+
+1. **Task 144 — authority-based trust authorization.** Design merged in #189. Authority
+   is a property of the person: whoever holds it acts alone, whoever lacks it raises a
+   request. Must reconcile with the two-person default (#137) and the per-firm policy
+   (#178) already shipped.
+2. **Task 146 — bank-charge carve-out, wired narrowly.** The one firm-funds-in-trust
+   exception. Nevada RPC 1.15(b) text came back verbatim in #174 and is deliberately not
+   yet wired. _Blocked by 144_ — same files.
+3. **Task 145 — unclaimed-funds workflow.** Escheat research (#181) settled the law:
+   Nevada trust funds do **not** escheat; the duty is NRPC 1.15(f)'s five-year permissive
+   remittance to the Clients' Security Fund. Owner requires **manual confirmation on any
+   money movement**. _Blocked by 144._
+4. **Task 143 — credit-note slice.** Carries the contingency shrunk-basis residual the
+   #185 review found. Independent of the three above.
+
+### Tier 2 — close the half-built subsystems
+
+Functional holes, not polish. Each is a subsystem that cannot complete its own job.
+
+5. **Task 96 — document automation 2·6·3 tail.** Assembly works; producing a final PDF
+   and handing it to e-sign does not. The subsystem cannot finish a document.
+6. **Discovery 5·2·2 and 5·2·4 — privilege claims, logs, productions.** #195 is
+   designation-as-tag only; the privilege machinery that makes a production defensible is
+   unbuilt. _Blocked by #195 merging._ Needs a task.
+7. **Task 117 — AI Search slice 1.** _Blocked on the owner_: the fenced live run needs
+   Cloudflare credentials. The non-retrieval halves may proceed.
+
+### Tier 3 — the designs the owner scoped
+
+8. **Task 112 — conflicts 4·1 deepening**, both gaps (trigger coverage and search depth).
+9. **Task 113 — financial reporting surface**, all four, bar-audit pack first.
+
+### Tier 4 — health debt
+
+10. **Task 150 — Turnstile.** A runbook item, not shipped code, and four merged designs
+    assume it exists.
+11. **Task 97 — load-profile gaps**, custodian and calendar. The convention says every
+    slice is perf-tested as built; these shipped without.
+12. **Task 90 — numbering consolidation** onto `@magna-carta/sequence-numbering`.
+13. **Task 61 — revert CI austerity.** _Trigger: Actions has runners again._ Re-check
+    `vp fmt --check` and `vp run typecheck` as part of it — both rotted unnoticed under
+    austerity precisely because nothing ran them.
+14. **Task 45 — condense the schema to a new baseline.** Owner-timed, pre-beta.
+
+### Parked by owner decision
+
+- **Visual regression.** 2026-08-11: _"I don't really care about visual-regression. Until
+  we have a product for end-users, that seems like we can revert away from that."_ The
+  harness has never had baselines (Docker was unavailable when it was built), so this
+  parks infrastructure with zero coverage rather than losing anything. Do not invest.
+  Revisit when there are end users. The code is left in place; removal is available on
+  the owner's word.
+
+### Waiting on an owner decision before it can be ordered
+
+- **Does the phase 6/7 hold still stand?** Client portal, payments, integrations and
+  exports are untouched under the 2026-08-06 directive to deepen 0–5 instead. That
+  deepening has now largely happened.
+- **The review ledger reads 59 of 173 findings re-verified**, while ROADMAP's `Now`
+  section calls the fix campaign "essentially clear". One of the two is wrong.
