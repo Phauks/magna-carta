@@ -282,13 +282,13 @@ Overlap detection is the one place a calendar is tempted to store midnight-as-UT
 does not. The check runs in two stages, both bounded:
 
 1. **A coarse SQL window** on the civil-date columns: bookings of this resource whose
-  `starts_on … coalesce(ends_on, starts_on)` range intersects the candidate's date range widened by
-  one day each side. Civil-date text comparison is zone-insensitive to within a day, which is what
-  the widening absorbs; the result is a handful of rows for any real resource.
+   `starts_on … coalesce(ends_on, starts_on)` range intersects the candidate's date range widened by
+   one day each side. Civil-date text comparison is zone-insensitive to within a day, which is what
+   the widening absorbs; the result is a handful of rows for any real resource.
 2. **A precise comparison in application code**: each row's wall-clock window resolved through its
-  own stored zone (`packages/calendar/src/time-zone.ts`, the package's one piece of calendar
-  arithmetic) to instants, then interval intersection. All-day bookings resolve to their civil day
-  in their zone.
+   own stored zone (`packages/calendar/src/time-zone.ts`, the package's one piece of calendar
+   arithmetic) to instants, then interval intersection. All-day bookings resolve to their civil day
+   in their zone.
 
 Because every booking of one resource carries that resource's zone by the write-path rule, stage 2
 almost never disagrees with a same-zone text comparison — but it stays correct across the one edge
@@ -478,18 +478,18 @@ everything — `calendar:read` for every read below, `calendar:manage` for every
 permission: curating the resource list is calendar administration exactly as curating the event-type
 catalog is, and slice 1's two-not-four argument was ratified with the rest.
 
-| Route | Shape |
-| --- | --- |
-| `GET /api/v1/firm-events` | Date-ranged, keyset; `from`/`to` required, 366-day refusal cap; `status`, `kind` filters |
-| `POST /api/v1/firm-events` · `PATCH /api/v1/firm-events/{firmEventId}` · `POST /api/v1/firm-events/{firmEventId}/cancel` | Writes, with the participant replace-set; cancel takes an optional reason |
-| `GET /api/v1/calendar/events` | **Extended:** gains `scope` = `matter` \| `firm` \| `all` (default `all`); firm events join the merged page via the `firmEvent` source; `memberId` matches participants and `all_members` audiences |
-| `GET /api/v1/matters/{matterId}/timeline` | Unchanged; the `firmEvent` source contributes nothing to a matter scope |
-| `GET /api/v1/calendar/resources` · `POST` · `PATCH /{firmResourceId}` (incl. deactivate) | The resource catalog |
-| `GET /api/v1/calendar/resources/{firmResourceId}/availability` | Section 3.6; `from`/`to` required and capped |
-| `POST /api/v1/resource-bookings` · `PATCH /{firmResourceBookingId}` · `DELETE /{firmResourceBookingId}` | Body names the resource and exactly one event; create and update responses carry `conflicts` |
-| `POST /api/v1/event-links` · `DELETE /api/v1/event-links/{calendarEventLinkId}` | `related` links; `continuance_of` is never written here — only the continuance operation mints one |
-| `POST /api/v1/events/{eventId}/continue` | Section 5.3 |
-| `GET /api/v1/events/{eventId}/continuance-chain` | Section 5.4 |
+| Route                                                                                                                    | Shape                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/firm-events`                                                                                                | Date-ranged, keyset; `from`/`to` required, 366-day refusal cap; `status`, `kind` filters                                                                                                            |
+| `POST /api/v1/firm-events` · `PATCH /api/v1/firm-events/{firmEventId}` · `POST /api/v1/firm-events/{firmEventId}/cancel` | Writes, with the participant replace-set; cancel takes an optional reason                                                                                                                           |
+| `GET /api/v1/calendar/events`                                                                                            | **Extended:** gains `scope` = `matter` \| `firm` \| `all` (default `all`); firm events join the merged page via the `firmEvent` source; `memberId` matches participants and `all_members` audiences |
+| `GET /api/v1/matters/{matterId}/timeline`                                                                                | Unchanged; the `firmEvent` source contributes nothing to a matter scope                                                                                                                             |
+| `GET /api/v1/calendar/resources` · `POST` · `PATCH /{firmResourceId}` (incl. deactivate)                                 | The resource catalog                                                                                                                                                                                |
+| `GET /api/v1/calendar/resources/{firmResourceId}/availability`                                                           | Section 3.6; `from`/`to` required and capped                                                                                                                                                        |
+| `POST /api/v1/resource-bookings` · `PATCH /{firmResourceBookingId}` · `DELETE /{firmResourceBookingId}`                  | Body names the resource and exactly one event; create and update responses carry `conflicts`                                                                                                        |
+| `POST /api/v1/event-links` · `DELETE /api/v1/event-links/{calendarEventLinkId}`                                          | `related` links; `continuance_of` is never written here — only the continuance operation mints one                                                                                                  |
+| `POST /api/v1/events/{eventId}/continue`                                                                                 | Section 5.3                                                                                                                                                                                         |
+| `GET /api/v1/events/{eventId}/continuance-chain`                                                                         | Section 5.4                                                                                                                                                                                         |
 
 Every mutating route is `audited` and idempotency-keyed through the chokepoint; every mutation
 composes its `audit_log` row in the same batch, metadata carrying identifiers only — never a title,
@@ -570,11 +570,11 @@ Assertions, not reports:
 
 Three, all confirmations of recommendations — the scope itself is already owner-directed.
 
-| Flag | Decision |
-| --- | --- |
-| **R1** | **Double-booking posture: warn-and-allow with visible conflicts** (section 3.5) — the platform records intent and reports collisions; it does not referee rooms, and SQLite could not hold a refusal invariant anyway. Confirm; a per-firm hard-refuse toggle stays a named seam. |
+| Flag   | Decision                                                                                                                                                                                                                                                                                            |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **R1** | **Double-booking posture: warn-and-allow with visible conflicts** (section 3.5) — the platform records intent and reports collisions; it does not referee rooms, and SQLite could not hold a refusal invariant anyway. Confirm; a per-firm hard-refuse toggle stays a named seam.                   |
 | **R2** | **Resource kinds as a closed enum** (`room` \| `vehicle` \| `equipment` \| `other`), not a firm catalog — nothing branches on it and `other` absorbs the rest. Confirm, on the understanding that widening the enum is a rebuild-shaped change and `other`-plus-name is the escape valve meanwhile. |
-| **R3** | **No freestanding bookings** — every booking hangs off an event; "book the car" is a Reservation-type firm event (section 3.3). Confirm; it is the rule that keeps one cancellation model and one calendar. |
+| **R3** | **No freestanding bookings** — every booking hangs off an event; "book the car" is a Reservation-type firm event (section 3.3). Confirm; it is the rule that keeps one cancellation model and one calendar.                                                                                         |
 
 ---
 

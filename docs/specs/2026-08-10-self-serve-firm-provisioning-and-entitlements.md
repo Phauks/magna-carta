@@ -59,15 +59,15 @@ permission registry rather than as a second gate).
 The costs are smaller than the phrase "per-firm D1 plus per-firm R2" suggests, because the first half of
 that phrase is no longer true. Provisioning a firm today does exactly this:
 
-| Step                              | Cost                                                                                                                                                                                    |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Per-firm database                 | **Nothing at provisioning time.** It is the firmId-addressed `FirmDatabase` Durable Object, which exists for every firm id and self-migrates the per-firm lineage on first access.       |
-| Per-firm R2 bucket                | One real account resource. A `GET` probe, then a `POST` create against the Cloudflare REST API.                                                                                         |
-| Bucket event notifications        | One `PUT` for the interactive ingest lane, a second when the bulk lane is configured. Idempotent, re-run on every resume.                                                               |
-| Firm data key                     | 32 random bytes, AES-KW-wrapped under the root key-encryption key; only the wrapped form is stored.                                                                                     |
-| Control-plane rows                | The `firm` row, the owner `user` row, a `firm.provisioned` audit row, one `member.provision` outbox row, one idempotency record. Five rows.                                             |
-| First access to the firm          | The whole per-firm migration lineage applied inside the Durable Object. This is the single largest unit of work and it happens lazily, on first use, not at provisioning.               |
-| Forever after                     | Enrolment in every fleet-wide sweep. See 2.3 — this is the cost that matters.                                                                                                            |
+| Step                       | Cost                                                                                                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-firm database          | **Nothing at provisioning time.** It is the firmId-addressed `FirmDatabase` Durable Object, which exists for every firm id and self-migrates the per-firm lineage on first access. |
+| Per-firm R2 bucket         | One real account resource. A `GET` probe, then a `POST` create against the Cloudflare REST API.                                                                                    |
+| Bucket event notifications | One `PUT` for the interactive ingest lane, a second when the bulk lane is configured. Idempotent, re-run on every resume.                                                          |
+| Firm data key              | 32 random bytes, AES-KW-wrapped under the root key-encryption key; only the wrapped form is stored.                                                                                |
+| Control-plane rows         | The `firm` row, the owner `user` row, a `firm.provisioned` audit row, one `member.provision` outbox row, one idempotency record. Five rows.                                        |
+| First access to the firm   | The whole per-firm migration lineage applied inside the Durable Object. This is the single largest unit of work and it happens lazily, on first use, not at provisioning.          |
+| Forever after              | Enrolment in every fleet-wide sweep. See 2.3 — this is the cost that matters.                                                                                                      |
 
 So the per-tenant footprint is: one R2 bucket, one Durable Object, five control-plane rows, three to four
 Cloudflare REST calls.
@@ -81,7 +81,7 @@ Cloudflare REST calls.
 - **R2 bucket management operations: 50 per second.** Signup rates do not approach this.
 - **R2 REST API: 1,200 requests per five minutes, account-wide.** This is the one real number. At three
   to four calls per provisioning it permits roughly 300–400 provisionings per five minutes, and the
-  budget is *shared* with every other REST consumer — lifecycle rules, bucket locks, notification
+  budget is _shared_ with every other REST consumer — lifecycle rules, bucket locks, notification
   reconfiguration. It bounds **burst throughput, not population**, and it is the concrete reason
   provisioning must be a rate-limited queue consumer rather than a request handler.
 - **D1: the 50,000-databases-per-account limit does not apply**, because only the control plane is D1.
@@ -105,7 +105,7 @@ R2 `LIST` per firm) and the notification-retention sweep on the same enumeration
 That design is entirely correct for a curated fleet. Self-serve replaces the curated fleet with an
 unbounded population of strangers, most of whom will sign in twice and never return, and the sweep cost
 is paid on every one of them forever. **This — not any Cloudflare limit — is what actually bounds
-self-serve tenancy**, and it is the reason dormancy in section 3 is defined as a *sweep-eligibility*
+self-serve tenancy**, and it is the reason dormancy in section 3 is defined as a _sweep-eligibility_
 state and not merely as a step on the road to deletion. A firm that goes dormant leaves the hot
 enumeration, and the platform recovers the recurring cost long before anything is destroyed.
 
@@ -143,10 +143,10 @@ documents its own expiry condition: "Platform-admin-controlled input on a fleet 
 self-serve signup ever exists."
 
 Self-serve breaks it three ways. Firm names are not unique in the world — there are a great many firms
-called *Smith Law*, and the second one to register would be told its name is taken. A globally unique
+called _Smith Law_, and the second one to register would be told its name is taken. A globally unique
 name column is a **tenant-enumeration oracle**: a stranger can probe for the existence of any firm by
 attempting to register its name, which is precisely the kind of existence leak ADR-0068 spends the 403/404
-split preventing everywhere else. And it is a squatting surface — registering *Cravath* costs one email
+split preventing everywhere else. And it is a squatting surface — registering _Cravath_ costs one email
 address.
 
 **Recommendation.** The firm id becomes the resume identity, minted once at registration and carried in
@@ -186,10 +186,10 @@ decided how it treats data it might destroy, twice, and both decisions bind here
 - **ADR-0049** made deletion a soft-delete with a trash window, a cold tier, and a hard-delete that is
   policy-driven, **blocked by any legal, discovery, or Custodian hold**, audited like any irreversible
   act — and it shipped the destruction machinery with retention **defaulting to indefinite**.
-- **The custodian design** went further and refused to ship retention *periods* at all: the destruction
+- **The custodian design** went further and refused to ship retention _periods_ at all: the destruction
   request/approval workflow exists, `retention_until` is a nullable column a firm sets, and there is
   deliberately **no automatic destruction sweep**, on the reasoning that "we have a scan" is exactly the
-  reasoning that destroys an original will. Its formulation — *the seams exist and the numbers do not* —
+  reasoning that destroys an original will. Its formulation — _the seams exist and the numbers do not_ —
   is the precedent this section follows rather than a new invention.
 
 So: nothing here destroys anything on a timer alone, every step is warned, every step is recorded, and
@@ -218,15 +218,15 @@ Two populations, and the distinction carries the whole design:
 
 Free tier only. A firm that has ever paid is never on this ladder (section 7).
 
-| Day (from last activity) | State                | What happens                                                                                                                                                                  |
-| ------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 60                       | `active`             | First notice, in-app and by email. No state change, nothing withheld.                                                                                                          |
-| 90                       | `active`             | Second notice, naming the exact dates ahead and the export path.                                                                                                               |
-| 120                      | **`dormant`**        | Drops out of the fleet-wide cron enumeration. **Signing in restores `active` immediately and is the only action required.** Nothing is withheld and nothing is destroyed.      |
-| 150                      | `dormant`            | Final notice to the owner **and every member**, 30 days ahead of suspension.                                                                                                   |
-| 180                      | **`suspended`**      | Sign-in permits export only. Still nothing destroyed; self-restore remains one click for 30 more days.                                                                         |
-| 210                      | **`closing`**        | An export bundle is built into the firm's own bucket and a time-limited link mailed to the owner. The link lives 30 days.                                                      |
-| 240                      | **destruction**      | Only via the recorded act in 3.4.                                                                                                                                              |
+| Day (from last activity) | State           | What happens                                                                                                                                                              |
+| ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 60                       | `active`        | First notice, in-app and by email. No state change, nothing withheld.                                                                                                     |
+| 90                       | `active`        | Second notice, naming the exact dates ahead and the export path.                                                                                                          |
+| 120                      | **`dormant`**   | Drops out of the fleet-wide cron enumeration. **Signing in restores `active` immediately and is the only action required.** Nothing is withheld and nothing is destroyed. |
+| 150                      | `dormant`       | Final notice to the owner **and every member**, 30 days ahead of suspension.                                                                                              |
+| 180                      | **`suspended`** | Sign-in permits export only. Still nothing destroyed; self-restore remains one click for 30 more days.                                                                    |
+| 210                      | **`closing`**   | An export bundle is built into the firm's own bucket and a time-limited link mailed to the owner. The link lives 30 days.                                                 |
+| 240                      | **destruction** | Only via the recorded act in 3.4.                                                                                                                                         |
 
 The recurring cost is recovered at day 120, six months before anything is destroyed. That ordering is
 deliberate: it means the platform is never under cost pressure to shorten the destruction clock.
@@ -356,7 +356,7 @@ Concretely:
 
 **Why this is not a second authorization system, stated plainly:** it has no vocabulary of its own, no
 enforcement point of its own, and no route-level declaration of its own. It is an intersection applied to
-the *input* of the one check the platform already makes. There remains exactly one place in the codebase
+the _input_ of the one check the platform already makes. There remains exactly one place in the codebase
 that decides whether a request proceeds. The only thing new on the wire is which problem document a
 denial renders.
 
@@ -399,7 +399,7 @@ from hard-coded copy. This endpoint is what the parallel sign-in mockup's placeh
 
 Two reasons to withhold, and they are not interchangeable — they unlock differently:
 
-- **Withheld for integrity.** An *unverified* firm should not do this. Unlocking requires **verification**,
+- **Withheld for integrity.** An _unverified_ firm should not do this. Unlocking requires **verification**,
   not payment (section 8).
 - **Withheld for cost.** It spends real money or a scarce account resource per use. Unlocking requires
   **payment**, and a paying firm gets it at once.
@@ -450,7 +450,7 @@ discovery operation whose cost is set from outside the firm." Container processi
 index build, all per byte of somebody else's production, all unbounded by anything on our side. Withhold
 the act that spends; leave the surface visible so the evaluation shows what the product does.
 
-### 5.5 Magnus and AI Search — withheld for cost *and* for a hard account limit
+### 5.5 Magnus and AI Search — withheld for cost _and_ for a hard account limit
 
 `magnus:converse`, `magnus:readAllConversations`, and the AI Search firm opt-in.
 
@@ -474,7 +474,7 @@ tier catalog. Flagged as F6.
 
 `emails:manageCaptureAddresses` (minting a platform-branded `@in.magnacarta.esq` inbound address for an
 anonymous stranger is handing out platform mail capacity), `shipping:manage` (postage is a payment
-instrument), and the client portal (it exposes an unverified workspace to *third parties* — the firm's
+instrument), and the client portal (it exposes an unverified workspace to _third parties_ — the firm's
 own clients — under our domain).
 
 ### 5.8 Quotas
@@ -521,7 +521,7 @@ than by being expensive-looking.
 ### 6.2 Theatre
 
 - **Blocking disposable email domains.** An arms race against a list that is always stale, and its false
-  positives are real lawyers at small domains. Require a *verified* address instead and count workspaces
+  positives are real lawyers at small domains. Require a _verified_ address instead and count workspaces
   per address.
 - **Phone or SMS verification.** Real cost, real friction, trivially defeated, and it excludes legitimate
   international users.
@@ -554,8 +554,8 @@ the codebase ever writes the column.
 1. **A subscription identity** on the firm row — `billing_customer_reference` and
    `billing_subscription_reference`, opaque provider-owned strings. Nothing else about the provider
    enters our schema.
-2. **An authoritative entitlement decision, not a payment event.** The integration must answer *"what
-   tier is this firm entitled to, as of now"*. Our side stores that answer; it never derives entitlement
+2. **An authoritative entitlement decision, not a payment event.** The integration must answer _"what
+   tier is this firm entitled to, as of now"_. Our side stores that answer; it never derives entitlement
    by replaying an event stream, because an event stream with one lost message produces a wrong answer
    that persists.
 3. **A paid-through instant** (`entitlement_paid_through`), so a webhook we never receive degrades safely
@@ -592,7 +592,7 @@ The lapse sequence:
   step. No destruction ever follows a payment lapse without an explicit owner-approved act going through
   the same recorded destruction-request workflow as everything else.
 - **Trust and billing on a lapsed firm: reads stay, writes stop.** A firm must never be locked out of
-  *seeing* its own client-money records, whatever it owes us. That is a line worth writing down.
+  _seeing_ its own client-money records, whatever it owes us. That is a line worth writing down.
 
 **Downgrading a lapsed firm to the free tier is refused, and this is the part most designs get wrong.**
 Applying free-tier quotas to a firm holding forty gigabytes and a trust ledger means either destroying
@@ -616,14 +616,14 @@ a real practice exists.
 
 Hence `firm.verification_status` beside `firm.entitlement_tier`, and the mask is the **intersection of
 both**. One extra column, no extra enforcement point, and the two states that must be expressible both
-are: *paid but unverified* (a real customer with the cost-withheld features unlocked and the
-integrity-withheld ones still closed) and *free but verified* (a real firm that proved itself before
+are: _paid but unverified_ (a real customer with the cost-withheld features unlocked and the
+integrity-withheld ones still closed) and _free but verified_ (a real firm that proved itself before
 paying, which is exactly the firm we want evaluating the product).
 
 **What verification should check, in the honest first version.** Two things, cheap and high-signal:
 control of a **domain** matching the firm (a DNS TXT record, or an email at the domain), and a **claimed
 bar number and jurisdiction for at least one attorney**, recorded and displayed. Note carefully: the
-platform's existing attorney-license capability is a set of *lookup links*, not an API. There is no
+platform's existing attorney-license capability is a set of _lookup links_, not an API. There is no
 national bar registry to call, and per-state scraping is a maintenance liability nobody should sign up
 for. So the first version is **attested and recorded, spot-checked by a human, revocable by a platform
 operator — and it must never be described in any user-facing string as though it were automatically
