@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ff1a22fa-9301-46ea-89d4-cd37123713a0",
+  "id": "53111585-bf6e-4dee-a31b-d60c211288e8",
   "prevId": "98e4db3a-e5c5-4978-9453-ddce225074b0",
   "tables": {
     "account_balance": {
@@ -3799,48 +3799,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "pronoun_subject": {
-          "name": "pronoun_subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pronoun_object": {
-          "name": "pronoun_object",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pronoun_possessive_determiner": {
-          "name": "pronoun_possessive_determiner",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pronoun_possessive_pronoun": {
-          "name": "pronoun_possessive_pronoun",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pronoun_reflexive": {
-          "name": "pronoun_reflexive",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pronoun_verb_number": {
-          "name": "pronoun_verb_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -3905,14 +3863,6 @@
         "directory_person_needs_review_check": {
           "name": "directory_person_needs_review_check",
           "value": "\"directory_person\".\"needs_review\" IN (0, 1)"
-        },
-        "directory_person_pronoun_verb_number_check": {
-          "name": "directory_person_pronoun_verb_number_check",
-          "value": "\"directory_person\".\"pronoun_verb_number\" IS NULL OR \"directory_person\".\"pronoun_verb_number\" IN ('singular', 'plural')"
-        },
-        "directory_person_pronoun_complete_check": {
-          "name": "directory_person_pronoun_complete_check",
-          "value": "(\"directory_person\".\"pronoun_object\" IS NULL) = (\"directory_person\".\"pronoun_subject\" IS NULL)\n        AND (\"directory_person\".\"pronoun_possessive_determiner\" IS NULL) = (\"directory_person\".\"pronoun_subject\" IS NULL)\n        AND (\"directory_person\".\"pronoun_possessive_pronoun\" IS NULL) = (\"directory_person\".\"pronoun_subject\" IS NULL)\n        AND (\"directory_person\".\"pronoun_reflexive\" IS NULL) = (\"directory_person\".\"pronoun_subject\" IS NULL)\n        AND (\"directory_person\".\"pronoun_verb_number\" IS NULL) = (\"directory_person\".\"pronoun_subject\" IS NULL)"
         }
       }
     },
@@ -14567,6 +14517,170 @@
         }
       }
     },
+    "review_document_tag": {
+      "name": "review_document_tag",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_set_id": {
+          "name": "review_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_document_id": {
+          "name": "review_document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_tag_id": {
+          "name": "review_tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_tag_group_id": {
+          "name": "review_tag_group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "single_choice": {
+          "name": "single_choice",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "applied_by_event_id": {
+          "name": "applied_by_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "applied_at": {
+          "name": "applied_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "removed_by_event_id": {
+          "name": "removed_by_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "review_document_tag_single_choice_unique_index": {
+          "name": "review_document_tag_single_choice_unique_index",
+          "columns": ["review_document_id", "review_tag_group_id"],
+          "isUnique": true,
+          "where": "\"review_document_tag\".\"removed_at\" IS NULL AND \"review_document_tag\".\"single_choice\" = 1"
+        },
+        "review_document_tag_live_unique_index": {
+          "name": "review_document_tag_live_unique_index",
+          "columns": ["review_document_id", "review_tag_id"],
+          "isUnique": true,
+          "where": "\"review_document_tag\".\"removed_at\" IS NULL"
+        },
+        "review_document_tag_document_index": {
+          "name": "review_document_tag_document_index",
+          "columns": ["review_document_id", "removed_at"],
+          "isUnique": false
+        },
+        "review_document_tag_review_set_tag_index": {
+          "name": "review_document_tag_review_set_tag_index",
+          "columns": ["review_set_id", "review_tag_id", "removed_at"],
+          "isUnique": false
+        },
+        "review_document_tag_applied_event_index": {
+          "name": "review_document_tag_applied_event_index",
+          "columns": ["applied_by_event_id"],
+          "isUnique": false
+        },
+        "review_document_tag_removed_event_index": {
+          "name": "review_document_tag_removed_event_index",
+          "columns": ["removed_by_event_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "review_document_tag_review_set_id_review_set_id_fk": {
+          "name": "review_document_tag_review_set_id_review_set_id_fk",
+          "tableFrom": "review_document_tag",
+          "tableTo": "review_set",
+          "columnsFrom": ["review_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_document_tag_review_document_id_review_document_id_fk": {
+          "name": "review_document_tag_review_document_id_review_document_id_fk",
+          "tableFrom": "review_document_tag",
+          "tableTo": "review_document",
+          "columnsFrom": ["review_document_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_document_tag_review_tag_id_review_tag_id_fk": {
+          "name": "review_document_tag_review_tag_id_review_tag_id_fk",
+          "tableFrom": "review_document_tag",
+          "tableTo": "review_tag",
+          "columnsFrom": ["review_tag_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_document_tag_review_tag_group_id_review_tag_group_id_fk": {
+          "name": "review_document_tag_review_tag_group_id_review_tag_group_id_fk",
+          "tableFrom": "review_document_tag",
+          "tableTo": "review_tag_group",
+          "columnsFrom": ["review_tag_group_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_document_tag_applied_by_event_id_review_tag_event_id_fk": {
+          "name": "review_document_tag_applied_by_event_id_review_tag_event_id_fk",
+          "tableFrom": "review_document_tag",
+          "tableTo": "review_tag_event",
+          "columnsFrom": ["applied_by_event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "review_document_tag_removal_check": {
+          "name": "review_document_tag_removal_check",
+          "value": "(\"review_document_tag\".\"removed_at\" IS NULL) = (\"review_document_tag\".\"removed_by_event_id\" IS NULL)"
+        }
+      }
+    },
     "review_set": {
       "name": "review_set",
       "columns": {
@@ -14706,6 +14820,460 @@
         "review_set_document_count_nonnegative_check": {
           "name": "review_set_document_count_nonnegative_check",
           "value": "\"review_set\".\"document_count\" >= 0"
+        }
+      }
+    },
+    "review_set_access": {
+      "name": "review_set_access",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_set_id": {
+          "name": "review_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "review_set_access_member_unique_index": {
+          "name": "review_set_access_member_unique_index",
+          "columns": ["review_set_id", "member_user_id"],
+          "isUnique": true
+        },
+        "review_set_access_member_index": {
+          "name": "review_set_access_member_index",
+          "columns": ["member_user_id", "review_set_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "review_set_access_review_set_id_review_set_id_fk": {
+          "name": "review_set_access_review_set_id_review_set_id_fk",
+          "tableFrom": "review_set_access",
+          "tableTo": "review_set",
+          "columnsFrom": ["review_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "review_tag": {
+      "name": "review_tag",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_tag_group_id": {
+          "name": "review_tag_group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_set_id": {
+          "name": "review_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "semantic": {
+          "name": "semantic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color_token": {
+          "name": "color_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "review_tag_group_name_unique_index": {
+          "name": "review_tag_group_name_unique_index",
+          "columns": ["review_tag_group_id", "name"],
+          "isUnique": true
+        },
+        "review_tag_review_set_index": {
+          "name": "review_tag_review_set_index",
+          "columns": ["review_set_id", "review_tag_group_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "review_tag_review_tag_group_id_review_tag_group_id_fk": {
+          "name": "review_tag_review_tag_group_id_review_tag_group_id_fk",
+          "tableFrom": "review_tag",
+          "tableTo": "review_tag_group",
+          "columnsFrom": ["review_tag_group_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_tag_review_set_id_review_set_id_fk": {
+          "name": "review_tag_review_set_id_review_set_id_fk",
+          "tableFrom": "review_tag",
+          "tableTo": "review_set",
+          "columnsFrom": ["review_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "review_tag_semantic_check": {
+          "name": "review_tag_semantic_check",
+          "value": "\"review_tag\".\"semantic\" IS NULL OR \"review_tag\".\"semantic\" IN ('responsive', 'non-responsive', 'needs-further-review', 'privileged', 'privileged-redact', 'not-privileged', 'confidential')"
+        },
+        "review_tag_name_nonempty_check": {
+          "name": "review_tag_name_nonempty_check",
+          "value": "length(\"review_tag\".\"name\") > 0"
+        }
+      }
+    },
+    "review_tag_event": {
+      "name": "review_tag_event",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_set_id": {
+          "name": "review_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_tag_id": {
+          "name": "review_tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_count": {
+          "name": "document_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "criteria": {
+          "name": "criteria",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "selection_r2_key": {
+          "name": "selection_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'running'"
+        },
+        "reverses_event_id": {
+          "name": "reverses_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "review_tag_event_review_set_created_index": {
+          "name": "review_tag_event_review_set_created_index",
+          "columns": ["review_set_id", "created_at", "id"],
+          "isUnique": false
+        },
+        "review_tag_event_review_set_actor_index": {
+          "name": "review_tag_event_review_set_actor_index",
+          "columns": ["review_set_id", "actor_user_id"],
+          "isUnique": false
+        },
+        "review_tag_event_reverses_unique_index": {
+          "name": "review_tag_event_reverses_unique_index",
+          "columns": ["reverses_event_id"],
+          "isUnique": true,
+          "where": "\"review_tag_event\".\"reverses_event_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "review_tag_event_review_set_id_review_set_id_fk": {
+          "name": "review_tag_event_review_set_id_review_set_id_fk",
+          "tableFrom": "review_tag_event",
+          "tableTo": "review_set",
+          "columnsFrom": ["review_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_tag_event_review_tag_id_review_tag_id_fk": {
+          "name": "review_tag_event_review_tag_id_review_tag_id_fk",
+          "tableFrom": "review_tag_event",
+          "tableTo": "review_tag",
+          "columnsFrom": ["review_tag_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "review_tag_event_kind_check": {
+          "name": "review_tag_event_kind_check",
+          "value": "\"review_tag_event\".\"kind\" IN ('apply', 'remove', 'bulk-apply', 'bulk-remove', 'undo')"
+        },
+        "review_tag_event_scope_check": {
+          "name": "review_tag_event_scope_check",
+          "value": "\"review_tag_event\".\"scope\" IN ('document', 'family', 'selection')"
+        },
+        "review_tag_event_state_check": {
+          "name": "review_tag_event_state_check",
+          "value": "\"review_tag_event\".\"state\" IN ('running', 'complete', 'undone')"
+        },
+        "review_tag_event_document_count_check": {
+          "name": "review_tag_event_document_count_check",
+          "value": "\"review_tag_event\".\"document_count\" >= 0"
+        },
+        "review_tag_event_reverses_check": {
+          "name": "review_tag_event_reverses_check",
+          "value": "(\"review_tag_event\".\"kind\" = 'undo') = (\"review_tag_event\".\"reverses_event_id\" IS NOT NULL)"
+        }
+      }
+    },
+    "review_tag_group": {
+      "name": "review_tag_group",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_set_id": {
+          "name": "review_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cardinality": {
+          "name": "cardinality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "required_for_completion": {
+          "name": "required_for_completion",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "review_tag_group_review_set_name_unique_index": {
+          "name": "review_tag_group_review_set_name_unique_index",
+          "columns": ["review_set_id", "name"],
+          "isUnique": true
+        },
+        "review_tag_group_review_set_order_index": {
+          "name": "review_tag_group_review_set_order_index",
+          "columns": ["review_set_id", "sort_order"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "review_tag_group_review_set_id_review_set_id_fk": {
+          "name": "review_tag_group_review_set_id_review_set_id_fk",
+          "tableFrom": "review_tag_group",
+          "tableTo": "review_set",
+          "columnsFrom": ["review_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "review_tag_group_kind_check": {
+          "name": "review_tag_group_kind_check",
+          "value": "\"review_tag_group\".\"kind\" IN ('system', 'custom')"
+        },
+        "review_tag_group_cardinality_check": {
+          "name": "review_tag_group_cardinality_check",
+          "value": "\"review_tag_group\".\"cardinality\" IN ('single', 'multi')"
+        },
+        "review_tag_group_name_nonempty_check": {
+          "name": "review_tag_group_name_nonempty_check",
+          "value": "length(\"review_tag_group\".\"name\") > 0"
         }
       }
     },

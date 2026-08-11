@@ -518,6 +518,33 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // evidence that is still there. These rows are already deleted wholesale by the retention sweep
   // on the firm's configured window, so erasure is doing early and by subject what the platform
   // already does on a clock.
+  // Who was cleared to see one review set's corpus. The matter_assignment shape and the same
+  // reasoning: who was permitted to look at what, and when, is that matter's record — and in
+  // discovery it is more than that, because "who had access to the production" is a question asked
+  // under a protective order. Erasing it would destroy the answer.
+  {
+    table: "review_set_access",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "who was cleared for a corpus is that matter's record, and the answer a protective-order question needs",
+  },
+  {
+    table: "review_set_access",
+    subjectKey: "granted_by",
+    action: "retain-under-matter",
+    note: "who widened the wall is the other half of that record, and is asked about as often as who was let in",
+  },
+  // One human act of coding, and the actor who performed it. This is the defensibility record the
+  // whole subsystem exists to produce — "who coded this document, as what, when" is what a court
+  // asks when a production is challenged — so it is retained rather than erasable, on the same
+  // basis as the matter file it belongs to. The per-document rows carry no person column of their
+  // own and resolve here (NO_PII_TABLES below).
+  {
+    table: "review_tag_event",
+    subjectKey: "actor_user_id",
+    action: "retain-under-matter",
+    note: "who coded what, when, and under what criteria — the record a challenged production is defended with",
+  },
   {
     table: "notification_recipient",
     subjectKey: "recipient_user_id",
@@ -859,6 +886,19 @@ export const NO_PII_TABLES: readonly string[] = [
   // One further copy of a deduplicated document — five handles and a timestamp. It exists precisely
   // to PRESERVE attribution, and whose attribution resolves through record_custodian.
   "review_document_occurrence",
+  // The coding panel: a question (a name, a cardinality, a sort position) and an answer (a name, a
+  // recorded meaning from a closed vocabulary, a design-token name). Neither references a person.
+  // The names are free text and a firm's issue codes can name one ("Smith emails"), which is the
+  // same residue class review_set.name and matter.description established — content with no
+  // structured subject column to resolve.
+  "review_tag_group",
+  "review_tag",
+  // One application of one tag to one document: five handles, two instants, and a denormalized
+  // flag. It holds no person column at all. WHO applied it resolves through the event that wrote it
+  // (applied_by_event_id -> review_tag_event.actor_user_id), a two-hop rather than a direct column,
+  // exactly as notification_delivery resolves through notification_recipient — and that event is
+  // registered in PII_TABLES above, retained under the matter.
+  "review_document_tag",
   // Notifications. The four tables keyed to a member are registered in PII_TABLES above; the event
   // row itself carries no column about anybody. It is a kind, a category, a severity, the handle of
   // the record it points at, the matter that anchors its visibility, two instants, and a `facts`

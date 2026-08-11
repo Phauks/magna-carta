@@ -138,6 +138,8 @@ describe("permission registry", () => {
       "discovery:read",
       "discovery:manageReviewSets",
       "discovery:load",
+      "discovery:review",
+      "discovery:produce",
     ]);
   });
 
@@ -153,7 +155,7 @@ describe("permission registry", () => {
     ]) {
       expect(discoveryKeys.has(key)).toBe(false);
     }
-    expect(discoveryKeys.size).toBe(3);
+    expect(discoveryKeys.size).toBe(5);
   });
 
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {

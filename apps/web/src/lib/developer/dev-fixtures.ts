@@ -23,6 +23,16 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
     })),
   },
   {
+    title: "Sign-in",
+    pages: [
+      {
+        label: "Screen states",
+        href: "/developer-console/sign-in-screens",
+        note: "Every signed-out screen and state",
+      },
+    ],
+  },
+  {
     title: "Document automation",
     pages: [
       {

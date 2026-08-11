@@ -13070,6 +13070,509 @@
           "status"
         ]
       },
+      "ReviewSetAccessList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewSetAccessMember"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReviewSetAccessMember": {
+        "type": "object",
+        "properties": {
+          "memberUserId": {
+            "type": "string"
+          },
+          "grantedBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "memberUserId",
+          "grantedBy",
+          "createdAt"
+        ]
+      },
+      "CodingPanel": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewTagGroup"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewTag"
+            }
+          }
+        },
+        "required": [
+          "groups",
+          "tags"
+        ]
+      },
+      "ReviewTagGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewSetId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "system",
+              "custom"
+            ]
+          },
+          "cardinality": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ]
+          },
+          "requiredForCompletion": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "reviewSetId",
+          "name",
+          "kind",
+          "cardinality",
+          "requiredForCompletion",
+          "sortOrder"
+        ]
+      },
+      "ReviewTag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewTagGroupId": {
+            "type": "string"
+          },
+          "reviewSetId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "semantic": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "responsive",
+              "non-responsive",
+              "needs-further-review",
+              "privileged",
+              "privileged-redact",
+              "not-privileged",
+              "confidential",
+              null
+            ],
+            "description": "The meaning the machine reads, where the tag has one. Production membership, privilege logging and completion arithmetic resolve through this and never through the name, so a firm may rename a tag freely without changing what anything does. A tag a firm created carries none and drives no machinery — it filters, groups and exports."
+          },
+          "colorToken": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "reviewTagGroupId",
+          "reviewSetId",
+          "name",
+          "semantic",
+          "colorToken",
+          "sortOrder",
+          "active"
+        ]
+      },
+      "CreateCodingQuestionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "cardinality": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ]
+          },
+          "requiredForCompletion": {
+            "type": "boolean",
+            "description": "Whether a document with no answer here counts as uncoded. That arithmetic is the progress figure, so turning it on for a question most documents will not answer makes the figure mean something else."
+          }
+        },
+        "required": [
+          "name",
+          "cardinality"
+        ]
+      },
+      "CreateCodingTagRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "colorToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The NAME of a design token, never a colour value — the coding panel styles through the design system, and a raw value would be an off-token colour no theme could correct."
+          }
+        },
+        "required": [
+          "name",
+          "colorToken"
+        ]
+      },
+      "UpdateCodingQuestionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateCodingTagRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DocumentCoding": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDocumentTag"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReviewDocumentTag": {
+        "type": "object",
+        "properties": {
+          "reviewTagId": {
+            "type": "string"
+          },
+          "reviewTagGroupId": {
+            "type": "string"
+          },
+          "appliedByEventId": {
+            "type": "string"
+          },
+          "appliedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewTagId",
+          "reviewTagGroupId",
+          "appliedByEventId",
+          "appliedAt"
+        ]
+      },
+      "CodingActResult": {
+        "type": "object",
+        "properties": {
+          "reviewTagEventId": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "reviewTagEventId",
+          "documentCount"
+        ]
+      },
+      "ApplyCodingRequest": {
+        "type": "object",
+        "properties": {
+          "reviewTagId": {
+            "type": "string",
+            "pattern": "^reviewTag_[A-Za-z0-9_-]{21}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "apply",
+              "remove"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "document",
+              "family"
+            ]
+          }
+        },
+        "required": [
+          "reviewTagId",
+          "action"
+        ]
+      },
+      "BulkCodingResult": {
+        "type": "object",
+        "properties": {
+          "reviewTagEventId": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "reviewTagEventId",
+          "documentCount"
+        ]
+      },
+      "BulkCodingRequest": {
+        "type": "object",
+        "properties": {
+          "reviewTagId": {
+            "type": "string",
+            "pattern": "^reviewTag_[A-Za-z0-9_-]{21}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "apply",
+              "remove"
+            ]
+          },
+          "reviewDocumentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "minItems": 1,
+            "maxItems": 5000
+          },
+          "criteria": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "The filter this selection came from, as a note for whoever reads the history. Field names and identifiers only — it is never re-run, and free text here would put content into a record that has no way to redact it."
+          }
+        },
+        "required": [
+          "reviewTagId",
+          "action",
+          "reviewDocumentIds"
+        ]
+      },
+      "UndoCodingResult": {
+        "type": "object",
+        "properties": {
+          "reviewTagEventId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewTagEventId"
+        ]
+      },
+      "CodingHistory": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewTagEvent"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReviewTagEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "apply",
+              "remove",
+              "bulk-apply",
+              "bulk-remove",
+              "undo"
+            ]
+          },
+          "reviewTagId": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "document",
+              "family",
+              "selection"
+            ]
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "criteria": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "running",
+              "complete",
+              "undone"
+            ]
+          },
+          "reversesEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "reviewTagId",
+          "scope",
+          "documentCount",
+          "criteria",
+          "state",
+          "reversesEventId",
+          "actorUserId",
+          "createdAt",
+          "completedAt"
+        ]
+      },
+      "CodingProgress": {
+        "type": "object",
+        "properties": {
+          "documentCount": {
+            "type": "number"
+          },
+          "completedCount": {
+            "type": "number"
+          },
+          "tagCounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reviewTagId": {
+                  "type": "string"
+                },
+                "reviewTagGroupId": {
+                  "type": "string"
+                },
+                "documentCount": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "reviewTagId",
+                "reviewTagGroupId",
+                "documentCount"
+              ]
+            }
+          },
+          "uncodedDocumentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "splitFamilyIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "documentCount",
+          "completedCount",
+          "tagCounts",
+          "uncodedDocumentIds",
+          "splitFamilyIds"
+        ]
+      },
       "ReviewSetList": {
         "type": "object",
         "properties": {
@@ -46758,6 +47261,1659 @@
           },
           "426": {
             "description": "The request did not ask to upgrade to a WebSocket",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/access": {
+      "get": {
+        "description": "Who may reach this review set's corpus. Reaching a review set never follows from reaching its matter: material another party produced may be attorney's-eyes-only under a protective order, so a member holding every matter and file permission and not listed here sees nothing of it. The list is fail-closed — a corpus nobody is listed on is reachable by nobody — and it never reaches empty, so the last member cannot be removed.",
+        "operationId": "discovery.getReviewSetAccess",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getReviewSetAccess",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:produce",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The review set's access list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSetAccessList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/access/{memberUserId}": {
+      "put": {
+        "description": "Adds a member to this review set's access list. Granting somebody who is already listed is a no-op rather than a conflict. Widening who may see a corpus is recorded, because it is the same order of decision as deciding what leaves the firm.",
+        "operationId": "discovery.grantReviewSetAccess",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.grantReviewSetAccess",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:produce",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "memberUserId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The member is on the list"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a member from this review set's access list. The last member is refused: because the list is fail-closed, removing them would leave a corpus nobody can reach or repair. Add whoever should hold it first.",
+        "operationId": "discovery.revokeReviewSetAccess",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.revokeReviewSetAccess",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:produce",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "memberUserId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The member is off the list"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding-panel": {
+      "get": {
+        "description": "This review set's coding questions and their answers, in the order a reviewer sees them. Every review set is seeded with Responsiveness, Privilege and Confidentiality; a firm renames them freely and adds its own issue codes beside them.",
+        "operationId": "discovery.getCodingPanel",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getCodingPanel",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The coding panel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingPanel"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding-panel/questions": {
+      "post": {
+        "description": "Adds a coding question to this review set. A single-choice question is a radio row and a multi-choice question is a flag set; the cardinality is what stops a document being coded two contradictory ways, and it is enforced by the database rather than by the surface.",
+        "operationId": "discovery.createCodingQuestion",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.createCodingQuestion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCodingQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The coding question was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding-panel/questions/{reviewTagGroupId}/tags": {
+      "post": {
+        "description": "Adds an answer to a coding question. A tag created here carries no machine meaning and drives no production behaviour — it filters, groups and exports. The answers production and privilege logging resolve through are the seeded ones, so that renaming a label can never change what a production withholds.",
+        "operationId": "discovery.createCodingTag",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.createCodingTag",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewTagGroup_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewTagGroupId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCodingTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The tag was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding-panel/questions/{reviewTagGroupId}": {
+      "patch": {
+        "description": "Renames a coding question. Renaming is the only edit it takes, and a seeded question renames as freely as one the firm added: nothing ever matched a question by its name.",
+        "operationId": "discovery.updateCodingQuestion",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.updateCodingQuestion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewTagGroup_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewTagGroupId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCodingQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The question was renamed"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding-panel/tags/{reviewTagId}": {
+      "patch": {
+        "description": "Renames a tag, or takes it out of use. A tag is never deleted: it is on every document anybody ever applied it to, and deleting it would erase the coding history those rows exist to keep. Deactivating hides it from the panel and leaves all of that readable. A tag carrying a machine meaning cannot be deactivated at all, because production and privilege logging resolve through it — rename it instead.",
+        "operationId": "discovery.updateCodingTag",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.updateCodingTag",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:manageReviewSets",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewTag_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewTagId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCodingTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The tag was updated"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/coding": {
+      "get": {
+        "description": "What is currently coded on one document, and which act put each answer there.",
+        "operationId": "discovery.getDocumentCoding",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getDocumentCoding",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewDocumentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document's live coding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCoding"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Applies or removes a tag on one document, or on its whole family. A family gesture writes a row per family member rather than one row the members inherit, so what a production later reads is the decision itself and not a rule about decisions. Answering a single-choice question again replaces the previous answer, which is kept — removal is a state with an actor and an instant, never a deletion.",
+        "operationId": "discovery.applyCoding",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.applyCoding",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:review",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewDocumentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyCodingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The coding act, as recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingActResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding/bulk": {
+      "post": {
+        "description": "Applies or removes a tag across a named set of documents. The selection is resolved ONCE and frozen before anything is written, and the operation walks that frozen list: a selection re-resolved as it went would tag documents the person who started it never saw. The criteria that produced it are recorded alongside for whoever reads the history later. Documents outside this review set are dropped from the selection rather than named.",
+        "operationId": "discovery.bulkCoding",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.bulkCoding",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:review",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCodingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The bulk act, as recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCodingResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding/acts/{reviewTagEventId}/undo": {
+      "post": {
+        "description": "Takes back one coding act, exactly. It reverses precisely the rows that act wrote and which are still current — a tag somebody applied independently afterwards is untouched, and a row already removed keeps its original attribution. Nothing is deleted: the reversed act stays in the history pointing at the act that reversed it. An undo is itself an act and is not undone.",
+        "operationId": "discovery.undoCodingAct",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.undoCodingAct",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:review",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewTagEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewTagEventId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reversal, as recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UndoCodingResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding/acts": {
+      "get": {
+        "description": "The coding history of this review set, newest first: who coded what, when, one document at a time or in bulk, under what criteria, and who reversed it. This is the record a challenge to a production is answered from.",
+        "operationId": "discovery.getCodingHistory",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getCodingHistory",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The coding history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/coding/progress": {
+      "get": {
+        "description": "How far the review has got: how many documents are coded in every question that requires one, how many each tag is on, which documents are still uncoded, and which families are split across the produce/withhold line. The split-family read is computed from the coding rather than stored, because a stored flag about two documents goes stale the moment either one is re-coded — and that is exactly how a privileged document rides a family into a production.",
+        "operationId": "discovery.getCodingProgress",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getCodingProgress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review progress and the quality-control reads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingProgress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, the record does not exist, or the member is not on this review set's access list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
             "content": {
               "application/problem+json": {
                 "schema": {

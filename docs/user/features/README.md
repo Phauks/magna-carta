@@ -14,6 +14,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`pronouns.md`](pronouns.md) — Pronouns on a Directory record: recording the pronouns a person stated, and how assembled documents refer to someone whose record states none (backend built, screens pending).
 - [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).
 - [`review-sets-and-loading.md`](review-sets-and-loading.md) — Review sets: gathering the documents in a case, saying whose records they are, and loading the firm's own files and filed email (backend built, screens pending).
+- [`coding-documents-in-review.md`](coding-documents-in-review.md) — Coding documents in review: deciding what each document is, coding families and in bulk with exact undo, seeing where the review has got to, and who can see a review set at all (backend built, screens pending).
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).
