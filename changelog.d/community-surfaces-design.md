@@ -62,6 +62,15 @@ first and asks later**, inverting normal moderation because a false positive cos
 eight-hour wait and a false negative is permanent: one-click instant author delete, a single reader flag
 that hides a post, and a format-only detector that never touches firm data because doing so would cross
 the boundary the package isolation exists to hold. So at 3am the post is already hidden, and a human
-decides at 9am. Fourteen decisions that are cheap today and impossible later close the spec, and one
-question stays open for the owner: whether these live on the marketing domain or beside the status page
-on the product domain.
+decides at 9am. Fourteen decisions that are cheap today and impossible later close the spec.
+
+**Where they live is settled: `magnacarta.esq`, with `magna-carta.com` staying marketing only.** The
+changelog takes up the reservation the hosts table already holds for the public product-updates pages —
+`magnacarta.esq/changelog`, on the one hostname that should accrue search authority, since it is the
+only surface here that wants to be indexed. The board gets its own host at `community.magnacarta.esq`,
+because it is permanently unindexed, serves user-authored content from its own worker, and is the
+surface most likely to need turning off; `community` rather than `feedback` because it carries questions
+as well as requests. Both sit beside the status page, so every operational-transparency surface is in
+one place. One consequence came free and was verified rather than assumed: `.esq` is HSTS-preloaded at
+the top level by its registry, so both pages are HTTPS-only in every major browser with no header from
+us and no configuration step for anyone to forget.

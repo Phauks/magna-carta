@@ -3,7 +3,7 @@ slug: community-surface-placement
 status: Proposed
 area: Community / Delivery model
 date: 2026-08-11
-summary: "The community board is PUBLIC TO READ and login-to-write, as ClickUp's is — a change from the first draft, which put it entirely behind the login and under-weighted the acquisition value of a prospect seeing an active board with staff replying in-thread. But public and INDEXED are different things: the board is `noindex` permanently, because ClickUp's public voter list with real names was located through a web search, which is the harm demonstrated rather than theorised. The board becomes its own deployable, `apps/community-worker`, because it is the only surface in the estate serving unauthenticated public reads of user-authored content, its availability is not load-bearing for billable work, and the `@magna-carta/community` package's no-per-firm-binding isolation is far stronger as a property of the deployment than as a lint rule. The public changelog needs no compute at all — static assets, no `main`, no bindings, more fate-isolated than the status worker, which at least reads KV. No Durable Object anywhere: vote counting is a unique constraint plus a counter, and the no-preview-URLs constraint is already priced in repo-wide since all thirteen workers in `apps/` set `preview_urls: false`. Recommended domain, now blocking: `changelog.magnacarta.esq` and `community.magnacarta.esq` beside the shipped status page — ClickUp likewise serves both product-side at `feedback.clickup.com`, not on a marketing microsite."
+summary: "The community board is PUBLIC TO READ and login-to-write, as ClickUp's is — a change from the first draft, which put it entirely behind the login and under-weighted the acquisition value of a prospect seeing an active board with staff replying in-thread. But public and INDEXED are different things: the board is `noindex` permanently, because ClickUp's public voter list with real names was located through a web search, which is the harm demonstrated rather than theorised. The board becomes its own deployable, `apps/community-worker`, because it is the only surface in the estate serving unauthenticated public reads of user-authored content, its availability is not load-bearing for billable work, and the `@magna-carta/community` package's no-per-firm-binding isolation is far stronger as a property of the deployment than as a lint rule. The public changelog needs no compute at all — static assets, no `main`, no bindings, more fate-isolated than the status worker, which at least reads KV. No Durable Object anywhere: vote counting is a unique constraint plus a counter, and the no-preview-URLs constraint is already priced in repo-wide since all thirteen workers in `apps/` set `preview_urls: false`. Domain settled by the owner on 2026-08-11: `magnacarta.esq` is the URL and `magna-carta.com` stays marketing only. The changelog takes up the apex reservation the white paper's hosts table ALREADY holds for the public product-updates pages — `magnacarta.esq/changelog`, indexed, on the one hostname search authority should accrue to — while the board gets its own host at `community.magnacarta.esq` because it is permanently noindex, serves user-authored content from its own worker, and is the surface most likely to need turning off. `community.` rather than `feedback.` because the board carries questions as well as requests and is already the word the package and the app's ecosystem-site registry use. A free consequence, re-verified live rather than assumed: `.esq` is HSTS-preloaded at the TLD by Google Registry, so both surfaces are HTTPS-only with no header from us and no configuration step to forget."
 ---
 
 **Public to read, login to write, `noindex` always; the board is its own worker and the changelog is
@@ -56,17 +56,45 @@ board is publicly readable — and studying it changed two of the three placemen
    `preview_urls: false`, so no workflow depends on them. The reason to avoid a Durable Object is that
    nothing needs one, not the preview URLs.
 
-7. **Recommended domain, now blocking on the owner: `changelog.magnacarta.esq` and
-   `community.magnacarta.esq`, beside the shipped `status.magnacarta.esq`.** The owner states
-   `magna-carta.com` is marketing and `magnacarta.esq` is the product, while the white paper's _Delivery
-   model_ hosts table puts marketing, the help center, intake **and the public product-updates pages** on
-   `magnacarta.esq`/`www`. Those are not the same plan and the changelog is the page they disagree about.
-   Status, changelog and board are one trust surface — a reader checking what broke, what changed, and
-   whether anyone else hit it is usually the same person in the same ten minutes — and splitting them
-   across two registrable domains halves the credibility of both while doubling the routing and
-   certificate surface. **ClickUp agrees in practice:** it serves its board at `feedback.clickup.com` and
-   its changelog on the same host, both product-side, not on a marketing microsite. **A published URL is
-   permanent, so this is settled before the first public page ships.**
+7. **`magnacarta.esq` is the URL — settled by the owner on 2026-08-11, and recorded here rather than
+   left open.** `magna-carta.com` stays marketing only and hosts none of these surfaces. A published URL
+   is permanent, these are product surfaces rather than marketing ones, and keeping them beside the
+   shipped `status.magnacarta.esq` puts every operational-transparency page in one place — a reader
+   checking what broke, what changed, and whether anyone else hit it is usually the same person in the
+   same ten minutes. **ClickUp agrees in practice:** it serves its board at `feedback.clickup.com` and its
+   changelog on the same host, both product-side, not on a marketing microsite.
+
+8. **The changelog is a path on the apex — `magnacarta.esq/changelog` — not a new subdomain.** The white
+   paper's _Delivery model_ hosts table **already reserves** the apex and `www` for "marketing + help
+   center + intake + the public product-updates pages," so this is the reservation being taken up rather
+   than a new host invented beside it, and consistency with the existing table beats a fresh guess. It is
+   also right on the merits: the changelog is the one surface here that **wants** to be indexed, and
+   search authority belongs on one hostname. The status page took a subdomain because it must survive an
+   outage of everything else; the changelog carries no such requirement and so does not pay that cost.
+
+9. **The board is `community.magnacarta.esq`, on its own host.** Three reasons it does not join the apex:
+   it is permanently `noindex`, and mixing an unindexed path into the indexed marketing hostname is a
+   configuration mistake waiting to be made once; it serves user-authored content from its own worker
+   with its own blast radius, which is easier to reason about and to firewall when the origin is its own;
+   and it is the surface most likely to need turning off, which is a routing change on a dedicated host
+   and a surgical excision on a shared one. **`community.` rather than `feedback.`** — the obvious
+   candidate, and ClickUp's own, but it names only half of this board, and a host called `feedback` is
+   wrong on the day questions ship. `community` is already the word the white paper section, the
+   `@magna-carta/community` package and the app's ecosystem-site registry use. Both names join the
+   maintained **reserved route namespace** the _Delivery model_ keeps, so no user-influenced segment can
+   shadow them. Existing hosts are terse, single-word and lowercase — `app`, `api`, `in`, `files`, `edit`,
+   `portal`, `status` — and `community` fits that shape.
+
+10. **A free consequence, verified rather than assumed: `.esq` is HSTS-preloaded at the top level**, so
+    both surfaces are HTTPS-only with no header from us and no configuration step to remember.
+    Re-queried live against the `hstspreload.org` API on 2026-08-11: `esq` returns
+    `{"name":"esq","status":"preloaded","preloadedDomain":"esq"}`, and `magnacarta.esq` returns
+    `preloaded` inheriting `preloadedDomain: "esq"` — Google Registry preloads its top-level domains, so
+    every second-level domain inherits forced HTTPS in every major browser without registering
+    individually. For a public unauthenticated page that means no plaintext first request to strip and no
+    downgrade path. It does **not** remove the reason to emit `Strict-Transport-Security` ourselves: the
+    preload list covers browsers, not the Tauri shell or SDK consumers, which stays an operations runbook
+    item and is not owed by this design.
 
 **Considered & rejected:** **A login-gated board** (the first draft's position — withdrawn: it discards
 the acquisition value, and `noindex` addresses the permanence problem that motivated it without

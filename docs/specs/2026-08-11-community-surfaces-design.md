@@ -227,15 +227,19 @@ This is a change from the first draft, which put the board in `apps/worker`. Pub
 
 **No Durable Object anywhere.** Vote counting is a unique constraint on `(postId, userId)` plus a denormalized counter; thread reads are ordinary queries. A Durable Object would add a migration lifecycle and a stateful deploy to a workload with neither coordination nor contention. **The preview-URL constraint the owner raised is real and costs nothing here** — all thirteen workers in `apps/` already set `preview_urls: false`, so no workflow depends on them. The reason to avoid a Durable Object is that nothing needs one, not the preview URLs.
 
-### 5.3 The domain question — recommendation, still needs the owner
+### 5.3 The domain — settled
 
-The owner states `magna-carta.com` is marketing and `magnacarta.esq` is the product. The white paper's _Delivery model_ hosts table puts marketing, the help center, intake **and the public product-updates pages** on `magnacarta.esq`/`www`. Those are not the same plan, and the changelog is the page they disagree about.
+**Settled by the owner, 2026-08-11: `magnacarta.esq` is the URL.** `magna-carta.com` stays marketing only and hosts none of these surfaces. This ratifies the recommendation and closes the open question the previous draft carried.
 
-**Recommendation, now firmer because it is blocking: both the changelog and the board go on `magnacarta.esq`** — `changelog.magnacarta.esq` and `community.magnacarta.esq`, beside the already-shipped `status.magnacarta.esq`.
+**The changelog is a path on the apex: `magnacarta.esq/changelog`.** The white paper's _Delivery model_ hosts table already reserves the apex and `www` for "marketing + help center + intake + **the public product-updates pages**" — so the changelog is not a new host at all, it is the reservation being taken up. Consistency with the existing table beats a fresh subdomain, and it is the right call on its own merits: the changelog is the one surface here that **wants** to be indexed, and search authority belongs on one hostname rather than scattered across several. The status page took a subdomain because it must survive an outage of everything else; the changelog carries no such requirement, so it does not pay a subdomain's cost.
 
-Three reasons. Status, changelog and board are one trust surface — a reader checking what broke, what changed, and whether anyone else has hit it is usually the same person in the same ten minutes. Splitting them across two registrable domains halves the credibility of both and doubles the routing and certificate surface. And the reference product agrees: ClickUp serves its board at `feedback.clickup.com` and its changelog on the same Canny host, both product-side, not on a marketing microsite.
+**The board is its own host: `community.magnacarta.esq`.** Three reasons it does not join the apex. It is permanently `noindex`, and mixing an unindexed path into the indexed marketing hostname is a configuration mistake waiting to be made once. It serves user-authored content from its own worker with its own blast radius, which is easier to reason about — and easier to firewall — when the origin is its own. And it is the surface most likely to need turning off, which is a routing change on a dedicated host and a surgical excision on a shared one.
 
-The cost is that search value accrues to the product domain — small, and smaller still given the board is `noindex` by design. **A published URL is permanent, so this is settled before the first public page ships.**
+**`community.`, not `feedback.`** — the obvious candidate, and the one ClickUp uses, but it names only half of this board. Questions ship alongside requests, and a host called `feedback` is wrong on the day they do. `community` is already the word the white paper section, the `@magna-carta/community` package, and the app's own ecosystem-site registry use, so it costs nothing in consistency and buys accuracy. Both names join the maintained **reserved route namespace** the _Delivery model_ already keeps, so no user-influenced segment can shadow them.
+
+Existing hosts are terse, single-word and lowercase — `app`, `api`, `in`, `files`, `edit`, `portal`, `status`. `community` fits that shape.
+
+**A free consequence worth recording: `.esq` is HSTS-preloaded at the top level by Google Registry, so both surfaces are HTTPS-only with no header from us.** Re-verified live against the `hstspreload.org` API on 2026-08-11: `esq` returns `{"name":"esq","status":"preloaded","preloadedDomain":"esq"}`, and `magnacarta.esq` returns `preloaded` inheriting `preloadedDomain: "esq"`. Every second-level domain in the zone inherits forced HTTPS in every major browser without registering individually. For a public, unauthenticated page this removes a configuration step someone would otherwise have to remember and get right: there is no plaintext first request to strip and no downgrade path. It does **not** remove the reason to emit `Strict-Transport-Security` ourselves — the preload list covers browsers, not the Tauri shell or SDK consumers — which remains an open runbook item rather than anything this design owes.
 
 ---
 
@@ -316,11 +320,12 @@ Four detectors, in descending order of how much work they actually do:
 
 ## 9. Open questions for the owner
 
-1. **Domain — blocking.** `magna-carta.com` or `magnacarta.esq` (section 5.3). Recommended: `magnacarta.esq`, beside status. Settle before the first public URL exists.
-2. **Whether questions launch with requests or a slice later.** They share everything; the argument for splitting is that the request board's moderation load is knowable and the question board's is not.
-3. **Verified badge granularity.** ClickUp badges staff only. A badge specific enough to be useful ("verified trusts and estates attorney") can reconstruct the identity a pseudonym exists to hide.
-4. **Whether declined requests can be re-opened by vote.** Recommended: no automatic mechanism; "not on the roadmap" with a stated condition handles it explicitly.
-5. **Attachments** (section 4.7) — the recommendation is off at launch, and it is the one recommendation here most likely to be wrong in practice.
+1. **Whether questions launch with requests or a slice later.** They share everything; the argument for splitting is that the request board's moderation load is knowable and the question board's is not.
+2. **Verified badge granularity.** ClickUp badges staff only. A badge specific enough to be useful ("verified trusts and estates attorney") can reconstruct the identity a pseudonym exists to hide.
+3. **Whether declined requests can be re-opened by vote.** Recommended: no automatic mechanism; "not on the roadmap" with a stated condition handles it explicitly.
+4. **Attachments** (section 4.7) — the recommendation is off at launch, and it is the one recommendation here most likely to be wrong in practice.
+
+_The domain question that stood here in the previous draft is settled — see section 5.3._
 
 ---
 
@@ -339,7 +344,8 @@ Four detectors, in descending order of how much work they actually do:
 11. **Spam degrades; confidentiality removes first and asks later.** One-click author delete, single-flag hide, a format-only detector that never touches firm data, and a read-only kill switch built with the first write endpoint.
 12. **No attachments at launch**, with "send this to support instead" on the composer.
 13. **Changelog is static assets with no bindings; the board is its own worker (`apps/community-worker`); no Durable Object.** The preview-URL constraint is already priced in repo-wide.
-14. **Still not built: a general discussion space.** ClickUp does not have one either, and closed the request for one in August 2025.
+14. **`magnacarta.esq` is the URL, settled by the owner.** The changelog takes up the apex reservation the hosts table already holds — `magnacarta.esq/changelog`, indexed. The board is `community.magnacarta.esq` — `noindex`, its own origin, its own blast radius. `magna-carta.com` stays marketing only. `.esq` is HSTS-preloaded at the top level, so both are HTTPS-only with no header from us.
+15. **Still not built: a general discussion space.** ClickUp does not have one either, and closed the request for one in August 2025.
 
 ---
 
