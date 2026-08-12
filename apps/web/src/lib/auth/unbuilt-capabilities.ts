@@ -60,12 +60,6 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
       "Nothing publishes the firms a signed-in person belongs to, and there is no route to record a default.",
   },
   {
-    id: "registration-screens",
-    label: "The registration and invitation screens themselves",
-    missing:
-      "The routes exist and work — the three-way role fork, invitation redemption and self-serve firm provisioning are all live. What is absent is the SCREENS: nothing in the app yet calls them, so a visitor cannot reach registration from here.",
-  },
-  {
     id: "reset-code",
     label: "Typing a reset code instead of opening the reset link",
     missing:

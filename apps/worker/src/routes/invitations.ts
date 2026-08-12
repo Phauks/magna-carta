@@ -4,7 +4,13 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import {
+  attemptLadderKey,
+  type AttemptBudget,
+  type AttemptLadder,
+} from "../auth-attempt-budget.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -27,7 +33,7 @@ import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
 } from "../idempotency-conflict-problems.ts";
-import { Problem, problemJson } from "../contracts/problem.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
@@ -50,6 +56,19 @@ import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 // someone walking a date of birth from a rented address range, so the invitation row spends its own
 // attempts and locks itself. The two limits compose: the caller-keyed one bounds breadth, the
 // invitation-keyed one bounds depth.
+//
+// BUT ONLY THE CALLER'S BUDGET IS EVER SPOKEN ALOUD. The invitation's own count is a fact ABOUT THE
+// INVITATION, and a refusal that publishes it answers the one question this route exists to refuse:
+// a probe submitting a guessed code with invented facts reads "four left" and knows the code is
+// live, "five left" and knows it is not, and the row lookup is keyed on the code alone, so the
+// combined digest never enters that answer. The number in the body is therefore read from the
+// CALLER's ladder — the same shared-ladder machinery the credential surfaces use
+// (../auth-attempt-budget.ts) — which the caller already knows and which is identical whatever the
+// lookup found. The invitation's ladder still runs; it is simply silent.
+//
+// The refusal is built in exactly one place (neutralRedemptionRefusal below) for the same reason
+// the three facts share one digest: a second construction site is how a neutral answer stops being
+// neutral. Nothing row-derived may enter it.
 
 const InvitationKind = z.enum(["firmMember", "clientOfFirm"]).openapi({
   description:
@@ -117,6 +136,32 @@ export const INVITATION_LOCKOUT_SECONDS = 900;
 const NEUTRAL_REDEMPTION_DETAIL =
   "That invitation could not be redeemed. Check the code, surname and date of birth against the " +
   "invitation, or ask the firm that invited you to send a new one.";
+
+// An invitation id no row can hold, for the balancing write below. Every id is a generated
+// identifier, so the empty string matches nothing — the same device as UNMATCHABLE_VERIFIER_HASH,
+// applied to a write instead of a comparison.
+const UNMATCHABLE_INVITATION_ID = "";
+
+/**
+ * THE refusal — the one and only construction of a failed redemption's answer.
+ *
+ * Everything in it is a constant except the budget, and the budget comes from the caller's own
+ * ladder, which the caller already knows and which does not move when the lookup finds something.
+ * Nothing read off an invitation row may be passed in here: a value that varies with what was found
+ * is an oracle whatever the sentence beside it says.
+ */
+function neutralRedemptionRefusal(c: Context, budget: AttemptBudget): ProblemResponse<422> {
+  return problemJson(c, {
+    type: "invitation-not-redeemable",
+    status: 422,
+    title: "That invitation could not be redeemed",
+    detail: NEUTRAL_REDEMPTION_DETAIL,
+    attemptsRemaining: budget.remaining,
+    ...(budget.lockoutSecondsRemaining !== null && {
+      retryAfterSeconds: budget.lockoutSecondsRemaining,
+    }),
+  });
+}
 
 export const issueInvitationMeta: RouteMeta = {
   operationId: "invitations.issue",
@@ -218,7 +263,9 @@ export const redeemInvitationRoute = defineOpenAPIRoute(redeemInvitationMeta, {
     422: {
       description:
         "The invitation could not be redeemed, or the request body is malformed. The refusal is " +
-        "identical for every unsuccessful combination and carries the remaining attempt budget",
+        "identical for every unsuccessful combination, including a code that matches no " +
+        "invitation at all; the attempt budget it carries counts the caller's own attempts, never " +
+        "any invitation's",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -246,6 +293,10 @@ export function registerInvitationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
+  // The caller-keyed ladder redemption spends and reports. Its lifetime belongs to the app (one per
+  // isolate, never one per request), which is why it arrives here rather than being built here —
+  // the same arrangement as the rate limiter and the credential ladder in app.ts.
+  redemptionAttemptLadder: AttemptLadder,
 ): void {
   app.openapi(
     {
@@ -347,6 +398,17 @@ export function registerInvitationRoutes(
       const request = c.req.valid("json");
       const nowInstant = new Date().toISOString();
 
+      // The caller's ladder, read before anything is looked up. A caller whose own budget is spent
+      // is refused here, and this return is decided ENTIRELY by caller state — no code has been
+      // hashed and no row has been read — so it cannot vary with what an invitation row would have
+      // said. Refusing before the lookup also stops a locked-out prober from continuing to burn a
+      // real invitation's attempts on the way past.
+      const ladderKey = attemptLadderKey(c);
+      const standing = redemptionAttemptLadder.read(ladderKey);
+      if (standing.lockoutSecondsRemaining !== null) {
+        return neutralRedemptionRefusal(c, standing);
+      }
+
       // BOTH digests are computed BEFORE anything is looked up, and both are computed on every
       // path. The point is that the work this handler does must not depend on what it finds: a
       // wrong code and a wrong birthday take the same two hashes and the same one comparison.
@@ -377,40 +439,32 @@ export function registerInvitationRoutes(
       const live = row !== null && row.status === "pending" && row.expires_at > nowInstant;
 
       if (!verifierMatches || !live || locked) {
-        // Spend an attempt when a real, live invitation was aimed at and missed. A miss against no
-        // invitation at all spends nothing here — there is no row to spend against — which is
-        // exactly why the caller-keyed limit exists beside this one and why the response below
-        // reports the same shape either way.
-        let attemptsRemaining = INVITATION_ATTEMPT_LIMIT;
-        if (row !== null && live && !locked) {
-          const spent = row.attempt_count + 1;
-          const lockedUntil =
-            spent >= INVITATION_ATTEMPT_LIMIT
-              ? new Date(Date.now() + INVITATION_LOCKOUT_SECONDS * 1000).toISOString()
-              : null;
-          await c.env.DB_CONTROL.prepare(
-            "UPDATE invitation SET attempt_count = ?2, locked_until = ?3 WHERE id = ?1",
-          )
-            .bind(row.id, spent, lockedUntil)
-            .run();
-          attemptsRemaining = Math.max(0, INVITATION_ATTEMPT_LIMIT - spent);
-        } else if (locked) {
-          attemptsRemaining = 0;
-        }
+        // The invitation's own ladder, spent when a real, live invitation was aimed at and missed.
+        // It is what bounds DEPTH against a code somebody genuinely holds, and it stays exactly as
+        // it was — the defect was never that this counter is kept, only that it was reported.
+        const spendingRow = row !== null && live && !locked ? row : null;
+        const spent = spendingRow !== null ? spendingRow.attempt_count + 1 : 0;
+        const lockedUntil =
+          spendingRow !== null && spent >= INVITATION_ATTEMPT_LIMIT
+            ? new Date(Date.now() + INVITATION_LOCKOUT_SECONDS * 1000).toISOString()
+            : null;
+        // ONE write on every refusal, whatever was found. When there is nothing to spend against
+        // the same statement runs against an id no row holds: zero rows changed, one round trip to
+        // the control plane, the same cost. A conditional write would leave the difference the body
+        // no longer carries sitting in a stopwatch instead — the same reasoning as comparing
+        // against the unmatchable digest rather than returning early.
+        await c.env.DB_CONTROL.prepare(
+          "UPDATE invitation SET attempt_count = ?2, locked_until = ?3 WHERE id = ?1",
+        )
+          .bind(spendingRow?.id ?? UNMATCHABLE_INVITATION_ID, spent, lockedUntil)
+          .run();
 
-        // ONE problem type, ONE title, ONE detail, ONE status — for a code that does not exist, a
-        // code aimed at the wrong person, a surname that does not match, a date of birth that does
-        // not match, an invitation already redeemed, revoked, expired or locked. The only thing
-        // that varies is the budget, which is a fact about the CALLER's own attempts and so reveals
-        // nothing about whether any invitation was found.
-        return problemJson(c, {
-          type: "invitation-not-redeemable",
-          status: 422,
-          title: "That invitation could not be redeemed",
-          detail: NEUTRAL_REDEMPTION_DETAIL,
-          attemptsRemaining,
-          ...(locked ? { retryAfterSeconds: INVITATION_LOCKOUT_SECONDS } : {}),
-        });
+        // ONE problem type, ONE title, ONE detail, ONE status, ONE budget — for a code that does
+        // not exist, a code aimed at the wrong person, a surname that does not match, a date of
+        // birth that does not match, an invitation already redeemed, revoked, expired or locked.
+        // The budget is the CALLER's, spent here and read back from their own ladder, so the answer
+        // to "was there an invitation behind this code" is not in it.
+        return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
       }
 
       // Past here the row is non-null and every fact matched.
@@ -471,18 +525,19 @@ export function registerInvitationRoutes(
         // The address is already a user — either this invitation was raced, or the firm invited
         // somebody who already has an account. Both answer the SAME neutral refusal as every other
         // failure: "that address is already registered" on an anonymous endpoint is precisely the
-        // account-existence oracle the rest of this handler is built to deny.
+        // account-existence oracle the rest of this handler is built to deny. The caller's ladder
+        // is spent here too, so this refusal is indistinguishable from a plain wrong guess at the
+        // same rung — leaving it unspent would mark out the one caller who had all three facts
+        // right.
         if (isUserEmailConflict(caught)) {
-          return problemJson(c, {
-            type: "invitation-not-redeemable",
-            status: 422,
-            title: "That invitation could not be redeemed",
-            detail: NEUTRAL_REDEMPTION_DETAIL,
-            attemptsRemaining: INVITATION_ATTEMPT_LIMIT,
-          });
+          return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
         }
         throw caught;
       }
+
+      // A redemption that worked clears the caller's ladder: they were who they said they were, and
+      // the mistypes that got them here should not follow them to a second invitation.
+      redemptionAttemptLadder.clear(ladderKey);
 
       // After the commit, by design and for the same accepted reason members.invite states: a send
       // that throws leaves a committed redemption whose recovery is requesting a fresh link.
