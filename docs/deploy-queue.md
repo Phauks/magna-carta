@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
+_Last updated: 2026-08-12 (the editor deploy now gates a reachable screen)._
 
 ## New configuration the next deploy must carry
 
@@ -42,6 +42,32 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
   commits ahead and growing; everything below rides the next push.
+
+## `magna-carta-edit` now gates a screen a person can reach
+
+This moved up the queue on 2026-08-12 and the reason is worth stating plainly:
+until now the Collabora editor was a capability nobody could get to, so its
+deploy was housekeeping. The matter document surface changed that. A person can
+open a matter, pick a document, and press the control that opens the editor —
+and the operation behind it is **entirely real**: the document moves to
+co-editing, the open is written to the audit log, and a signed token scoped to
+that one version is minted. Only the editor's own interface is missing, because
+it is served by a per-document container in the `magna-carta-edit` worker, which
+exists only once deployed.
+
+The screen does not pretend otherwise — it carries a badge saying the editor is
+a deployed-only step, and `apps/web/src/lib/documents/document-loop-availability.ts`
+records which steps are `live` and which are `deployed-only` so no consumer has
+to rediscover it. But the honest state is still an empty frame, and the deploy is
+what fills it. Two smaller things travel with it:
+
+- `dev-seed` registers no template, so **build-from-template is a real endpoint
+  with a genuinely empty list** on any fresh environment. Seeding one is queued
+  work, not a deploy step, but it is the other half of "the loop is clickable".
+- The registration confirmation mail sends the **bare token as its whole body**
+  with no link and no landing URL. The screen already accepts a typed code and
+  reads `?token=`, so it works the day the mail carries a link — until then the
+  only path through is copy-paste.
 
 ## Status page — the upstream-severity fix needs BOTH workers deployed
 
