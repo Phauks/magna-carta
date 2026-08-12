@@ -46,6 +46,8 @@ Your firm's name does not have to be unique. Plenty of firms share a name, and y
 
 **An invitation locks after five wrong attempts.** It unlocks by itself after a short wait. If you are locked out, the fastest route is a fresh invitation rather than waiting.
 
+**The attempts counter on screen is counting your tries, not the invitation's.** It is telling you how many more times you may submit the form before you are asked to pause, which is not the same as how many the invitation has left — that second number is deliberately never shown to anyone, because a stranger typing a stray code into the form could read it and learn that the code belongs to a real person at a real firm. So the counter may reach zero before the invitation does, or the invitation may lock while your own counter still has room. Either way the remedy is the same: wait out the pause, or ask for a fresh invitation.
+
 **Invitations expire.** They last two weeks unless the firm chose a shorter window. An expired invitation cannot be revived — ask for a new one.
 
 **Your surname is matched forgivingly.** Spaces, hyphens, apostrophes and capitalisation are ignored, so `O'Brien-Walsh`, `obrien walsh` and `OBrienWalsh` all match. Accents are not ignored — type your name the way it is spelled.

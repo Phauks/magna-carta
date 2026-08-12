@@ -9,8 +9,8 @@ built: in-progress
 ui: in-progress
 load-profile: n/a
 tested: in-progress
-branch: claude/registration-screens
-active-work: docs/active-work/claude/registration-screens.md
+branch: main
+active-work:
 next: The two-factor enrolment screens, reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
 link-spec:
 link-plan:

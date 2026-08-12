@@ -21,16 +21,19 @@
 
 - id: auth.first-party-login.invitation-only
   name: Invitation-only membership
-  scope: Open signup structurally off; invite activation through password reset with email-verified flip.
+  scope: Nobody adds themselves to an existing firm; Better Auth's own signup stays structurally off, and joining a firm goes through invitation redemption with an email-verified flip.
   status: shipped
-  evidence: apps/worker fitness-tested signup-off configuration
+  adrs: ADR-0280
+  evidence: apps/worker fitness-tested signup-off configuration (disableSignUp stays true); invitation redemption takes a code plus surname and date of birth against one digest over all three, so the handler cannot report which fact was wrong.
+  notes: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers.
 
 - id: auth.first-party-login.auth-ui
   name: Login and 2FA UI
   scope: The login/2FA surface over the auth backend — the design system's first consumer.
-  status: in-build
+  status: partial
   slices: 0-7b-auth-ui-deferred-surfaces
-  evidence: apps/web/src/routes/login, account/security; branch slice-0-7b-app-shell on origin
+  evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
+  notes: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection, the second-factor channel choice and Turnstile remain server-side gaps.
 
 - id: auth.two-factor
   name: Second factors

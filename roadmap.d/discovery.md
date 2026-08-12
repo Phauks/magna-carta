@@ -35,7 +35,7 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables exist and are filled by the processing sub-slice; the manifest and exception report are written there too.
-  notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list the design recommended is named for the review surface rather than built.
+  notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403.
 
 - id: discovery.pipeline.load-lanes
   name: Load source lanes
@@ -99,7 +99,10 @@
   name: Review workflow
   scope: Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
   status: partial
-  evidence: Redaction engine shipped; every review surface and workflow is unbuilt.
+  slices: 5-2-discovery-review-workflow
+  adrs: ADR-0262
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: Redaction engine shipped; tagging and coding plus the fail-closed per-review-set access list are built API-side (packages/discovery, fourteen routes); filters, threading, near-duplicate surfacing and every review UI are unbuilt.
 
 - id: discovery.review.filters
   name: Review filters
@@ -108,10 +111,14 @@
   evidence: No review UI or query surface exists.
 
 - id: discovery.review.tagging
-  name: Tagging
-  scope: Responsive/privileged/confidential document tagging.
-  status: not-started
-  evidence: No tagging model or UI on the tree.
+  name: Tagging and coding
+  scope: Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage.
+  status: partial
+  slices: 5-2-discovery-review-workflow
+  adrs: ADR-0262
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: packages/discovery coding services and statement builders over five per-firm tables (20260808T000000_discovery-review-coding-and-access), fourteen routes; single-choice enforced by a partial unique index, rows never deleted, undo exact to the rows one act wrote.
+  notes: Backend only — the coding panel, tag chips and viewer pane are deferred to the owner. Criteria-driven bulk at corpus scale waits on the corpus index read.
 
 - id: discovery.review.redaction
   name: Redaction
