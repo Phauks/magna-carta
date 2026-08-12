@@ -134,6 +134,15 @@ export const PERMISSIONS = [
   // exists to separate; changing the policy itself also takes this key, since relaxing the firm's
   // money-movement posture IS an act of authority over client money.
   "trust:authorize", // authorize money leaving a client ledger when policy requires authority; change the authorization policy
+  // The firm's OWN money inside a trust account — the narrow carve-out the conduct rules permit so
+  // that the institution's service charges are borne by the firm rather than by client funds. A
+  // third key rather than a corner of trust:manage, because it is the one deliberate exception to
+  // no-commingling: it is permitted for a single purpose, only in the amount necessary for it, and
+  // a firm should be able to say who may put firm money into a client trust account without also
+  // saying who may record a client receipt. It cannot reach client money — the movements it gates
+  // are structurally incapable of naming a client or a matter — so its whole job is to keep the
+  // exception in named hands.
+  "trust:firmFunds", // open the bank-charge carve-out on a trust account; deposit the firm's own cushion; record a bank service charge against it
   // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
   // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
   // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and

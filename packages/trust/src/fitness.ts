@@ -7,11 +7,14 @@ import {
   TRUST_ACCOUNT_TABLE,
   TRUST_BANK_STATEMENT_LINE_TABLE,
   TRUST_BANK_STATEMENT_TABLE,
+  TRUST_FIRM_FUNDS_MOVEMENT_TABLE,
   TRUST_HOLD_TABLE,
   TRUST_LEDGER_NODE_TABLE,
   TRUST_MOVEMENT_TABLE,
   TRUST_RECONCILIATION_MATCH_TABLE,
   TRUST_RECONCILIATION_TABLE,
+  TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE,
+  TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE,
 } from "./statements.ts";
 
 // Fitness queries: re-prove the trust invariants over the WHOLE table. Zero rows = healthy.
@@ -66,24 +69,97 @@ export function trustMatterNodesMisattributedStatement(database: SqlDatabase): S
     .bind();
 }
 
-// THE FLOOR IS ACTUALLY SET. min_balance_minor = 0 on every matter leaf is the whole no-negative
-// guarantee; a leaf created without it is a leaf that can be overdrawn, and nothing else in the
-// system would notice until it was.
+// THE FLOOR IS ACTUALLY SET. min_balance_minor = 0 on every leaf that carries a balance is the whole
+// no-negative guarantee; a leaf created without it is a leaf that can be overdrawn, and nothing else
+// in the system would notice until it was. The firm-funds leaf is included for a second reason on
+// top of that one: its floor is what stops a bank charge larger than the firm's own cushion being
+// borne by client money, so a firm-funds node without a floor silently converts the carve-out into a
+// path to client funds.
 export function trustLeavesWithoutZeroFloorStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT n.id AS node_id, b.min_balance_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.kind = 'matter' AND (b.min_balance_minor IS NULL OR b.min_balance_minor <> 0)`,
+      `SELECT n.id AS node_id, n.kind, b.min_balance_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.kind IN ('matter', 'firm_funds') AND (b.min_balance_minor IS NULL OR b.min_balance_minor <> 0)`,
     )
     .bind();
 }
 
-// POSTINGS LAND ON MATTER LEAVES. A client node carrying a line would sit outside the roll-up of the
+// POSTINGS LAND ON LEAVES. A client node carrying a line would sit outside the roll-up of the
 // matters beneath it, so the client's ledger total and the sum of that client's matters would
-// silently disagree — and the disagreement would be invisible on both reports.
+// silently disagree — and the disagreement would be invisible on both reports. The firm-funds node
+// is a leaf rather than a roll-up (nothing hangs under it) and is deliberately not counted here; the
+// query below is what polices what may touch IT.
 export function trustRollupNodesWithPostingsStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT DISTINCT n.id AS node_id, n.kind FROM ${TRUST_LEDGER_NODE_TABLE} n WHERE n.kind <> 'matter' AND EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l WHERE l.account_id = n.ledger_account_id)`,
+      `SELECT DISTINCT n.id AS node_id, n.kind FROM ${TRUST_LEDGER_NODE_TABLE} n WHERE n.kind = 'client' AND EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l WHERE l.account_id = n.ledger_account_id)`,
+    )
+    .bind();
+}
+
+// THE FIRM'S OWN MONEY NEVER SHARES AN ENTRY WITH A CLIENT'S. This is the re-proof of the whole
+// bank-charge carve-out: the narrower composition door admits only the firm-funds node paired with
+// its account's bank leaf, and a row here means something reached the ledger that pairs firm money
+// with a client ledger, a roll-up, or another trust account. It is the difference between a
+// carve-out and a second way to move client money, asserted over stored lines rather than trusted to
+// the composer that wrote them.
+export function firmFundsEntriesTouchingClientMoneyStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT DISTINCT l.entry_id AS entry_id FROM ${LEDGER_LINE_TABLE} l JOIN ${TRUST_LEDGER_NODE_TABLE} f ON f.ledger_account_id = l.account_id AND f.kind = 'firm_funds' WHERE EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} o LEFT JOIN ${TRUST_LEDGER_NODE_TABLE} n2 ON n2.ledger_account_id = o.account_id LEFT JOIN ${TRUST_ACCOUNT_TABLE} a2 ON a2.bank_ledger_account_id = o.account_id WHERE o.entry_id = l.entry_id AND o.account_id <> l.account_id AND (a2.id IS NULL OR a2.id <> f.trust_account_id OR n2.id IS NOT NULL))`,
+    )
+    .bind();
+}
+
+// EVERY FIRM-FUNDS ENTRY CARRIES ITS RECORD, AND EVERY SUCH RECORD ITS ENTRY. The two rows are
+// written by one composer and nothing in the schema ties them together. A bank charge with no
+// `trust_firm_funds_movement` beside it is money that left the account with no account of why, and a
+// record naming an entry that never touched the firm-funds node is a journal that disagrees with the
+// ledger it purports to describe.
+export function firmFundsMovementsDisagreeingWithLedgerStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS firm_funds_movement_id, v.amount_minor AS amount_minor FROM ${TRUST_FIRM_FUNDS_MOVEMENT_TABLE} v WHERE NOT EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.ledger_account_id = l.account_id AND n.kind = 'firm_funds' AND n.trust_account_id = v.trust_account_id WHERE l.entry_id = v.entry_id AND l.amount_minor = v.amount_minor)`,
+    )
+    .bind();
+}
+
+// AN UNCLAIMED-FUNDS CLOSURE NAMES THIS LEDGER'S OWN PAYMENT. The composer checks it, and the shape
+// CHECK proves a distribution carries a movement at all — but neither can prove the movement came
+// from the ledger under review. A row here is a diligence file recording a client as paid out of
+// somebody else's money, which reads on the certification as a search that succeeded.
+export function unclaimedFundsClosuresNamingAnotherLedgerStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT c.id AS closure_id, c.review_id AS review_id FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} c JOIN ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} r ON r.id = c.review_id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.id = c.movement_id WHERE c.movement_id IS NOT NULL AND (m.id IS NULL OR m.node_id <> r.node_id OR m.kind <> 'disbursement')`,
+    )
+    .bind();
+}
+
+// AN UNCLAIMED-FUNDS REVIEW IS ABOUT A CLIENT'S MATTER LEDGER. A review over a roll-up or over the
+// firm's own bank-charge cushion would be a diligence file about money no client is owed — and on
+// the firm-funds node it would be the firm searching for itself.
+export function unclaimedFundsReviewsOffMatterLeavesStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT r.id AS review_id, n.kind AS node_kind FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} r JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = r.node_id WHERE n.kind <> 'matter' OR n.trust_account_id <> r.trust_account_id`,
+    )
+    .bind();
+}
+
+// ONE OPEN DILIGENCE FILE PER CLIENT LEDGER. Open is derived from the absence of a closure row, so
+// the rule cannot be a UNIQUE index — the same arrangement the hold model and the match model use.
+// Two open reviews over one balance split the evidence trail in half, and the certification a firm
+// eventually signs is about the whole search.
+export function unclaimedFundsLedgersWithTwoOpenReviewsStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT node_id, open_reviews FROM (SELECT r.node_id AS node_id, COUNT(*) AS open_reviews FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} r WHERE NOT EXISTS (SELECT 1 FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} c WHERE c.review_id = r.id) GROUP BY r.node_id) WHERE open_reviews > 1`,
     )
     .bind();
 }
@@ -161,7 +237,7 @@ export function trustReconciliationsWithIncoherentProofStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT r.id AS reconciliation_id FROM ${TRUST_RECONCILIATION_TABLE} r WHERE r.status = 'closed' AND (r.frozen_adjusted_bank_minor <> r.frozen_statement_closing_minor + r.frozen_outstanding_deposits_minor - r.frozen_outstanding_disbursements_minor OR (r.frozen_balanced = 1 AND (r.frozen_adjusted_bank_minor <> r.frozen_book_balance_minor OR r.frozen_book_balance_minor <> r.frozen_client_total_minor)) OR (r.frozen_balanced = 0 AND r.frozen_adjusted_bank_minor = r.frozen_book_balance_minor AND r.frozen_book_balance_minor = r.frozen_client_total_minor))`,
+      `SELECT r.id AS reconciliation_id FROM ${TRUST_RECONCILIATION_TABLE} r WHERE r.status = 'closed' AND (r.frozen_adjusted_bank_minor <> r.frozen_statement_closing_minor + r.frozen_outstanding_deposits_minor - r.frozen_outstanding_disbursements_minor OR (r.frozen_balanced = 1 AND (r.frozen_adjusted_bank_minor <> r.frozen_book_balance_minor OR r.frozen_book_balance_minor <> r.frozen_client_total_minor + COALESCE(r.frozen_firm_funds_minor, 0))) OR (r.frozen_balanced = 0 AND r.frozen_adjusted_bank_minor = r.frozen_book_balance_minor AND r.frozen_book_balance_minor = r.frozen_client_total_minor + COALESCE(r.frozen_firm_funds_minor, 0)))`,
     )
     .bind();
 }
@@ -204,6 +280,23 @@ const FITNESS_STATEMENTS = [
   [
     "reconciliations whose statement belongs to another account",
     trustReconciliationsCrossingAccountsStatement,
+  ],
+  ["firm-funds entries touching client money", firmFundsEntriesTouchingClientMoneyStatement],
+  [
+    "firm-funds records disagreeing with the ledger",
+    firmFundsMovementsDisagreeingWithLedgerStatement,
+  ],
+  [
+    "unclaimed-funds closures naming another ledger's payment",
+    unclaimedFundsClosuresNamingAnotherLedgerStatement,
+  ],
+  [
+    "unclaimed-funds reviews that are not about a matter ledger",
+    unclaimedFundsReviewsOffMatterLeavesStatement,
+  ],
+  [
+    "client ledgers carrying two open unclaimed-funds reviews",
+    unclaimedFundsLedgersWithTwoOpenReviewsStatement,
   ],
 ] as const;
 

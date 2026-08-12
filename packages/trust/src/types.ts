@@ -8,21 +8,28 @@ import type {
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
+  TrustFirmFundsMovementId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
   TrustReconciliationId,
   TrustReconciliationMatchId,
   TrustTransferId,
+  TrustUnclaimedFundsContactAttemptId,
+  TrustUnclaimedFundsReviewClosureId,
+  TrustUnclaimedFundsReviewId,
   UserId,
 } from "@magna-carta/identifiers/types";
 
-// The three tiers of the sub-ledger tree, plus the permitted bank-charge carve-out. Postings land on
-// MATTER leaves only: a client node is a roll-up over its matters (the bar's "client ledger"), and
-// the trust account's liability root is a roll-up over its clients. `firmFunds` is reserved
-// vocabulary — nothing creates one and the composition guard refuses to post to one — because the
-// firm's own money in a trust account is a real, permitted category whose rules are not settled here
-// and whose absence from the schema would later cost a table rebuild.
+// The three tiers of the sub-ledger tree, plus the permitted bank-charge carve-out. Client money
+// lands on MATTER leaves only: a client node is a roll-up over its matters (the bar's "client
+// ledger"), and the trust account's liability root is a roll-up over its clients.
+//
+// `firm_funds` is the fourth thing and it is NOT a tier of that tree: it hangs off no parent, rolls
+// up into nothing, and holds the firm's own money kept in the account to bear the bank's service
+// charges. It carries postings — but only from `composeTrustFirmFundsEntry`, a door narrower than
+// the one client money goes through, and never from `composeTrustEntry`, which refuses it outright.
+// See composition-guard.ts for why that is two doors rather than one relaxed check.
 export const TRUST_NODE_KINDS = ["client", "matter", "firm_funds"] as const;
 export type TrustNodeKind = (typeof TRUST_NODE_KINDS)[number];
 
@@ -59,6 +66,12 @@ export interface TrustAccountSnapshot {
   readonly currency: string;
   readonly status: "open" | "closed";
   readonly jurisdiction: string | null;
+  // Whether this is the POOLED INTEREST-BEARING kind of trust account — the one a jurisdiction
+  // compels for nominal or short-term client funds. It is carried on the snapshot because the
+  // bank-charge carve-out turns on it: the researched corpus records the pooled account as exempt
+  // from service charges by rule, so an account of that kind has no charge for the firm's own funds
+  // to pay. Spelled `iolta` to match the column and the industry's own name for the arrangement.
+  readonly iolta: boolean;
   readonly bankLedgerAccountId: LedgerAccountId;
   readonly clientLiabilityAccountId: LedgerAccountId;
 }
@@ -232,6 +245,143 @@ export interface TrustMovementSnapshot {
   readonly recordedAt: string;
 }
 
+// THE BANK-CHARGE CARVE-OUT'S CLOSED CATEGORY. Two kinds and no more: the firm putting its own
+// cushion into the trust account, and the institution taking a service charge out of it. There is
+// deliberately no kind that pays a person — paying somebody out of a trust account is a
+// disbursement, and it goes through the disbursement queue like every other one.
+export const TRUST_FIRM_FUNDS_MOVEMENT_KINDS = ["firm_funds_deposit", "bank_charge"] as const;
+export type TrustFirmFundsMovementKind = (typeof TRUST_FIRM_FUNDS_MOVEMENT_KINDS)[number];
+
+// `bank_debit` is the institution helping itself, which is what a service charge IS: no member
+// released it and no instrument left the firm. It is the only method a charge may claim and the one
+// method a top-up may not, so the two directions cannot wear each other's face.
+export const TRUST_FIRM_FUNDS_MOVEMENT_METHODS = [
+  "check",
+  "wire",
+  "electronic_transfer",
+  "bank_debit",
+] as const;
+export type TrustFirmFundsMovementMethod = (typeof TRUST_FIRM_FUNDS_MOVEMENT_METHODS)[number];
+
+export interface TrustFirmFundsMovementSnapshot {
+  readonly id: TrustFirmFundsMovementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly kind: TrustFirmFundsMovementKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly entryId: LedgerEntryId;
+  readonly method: TrustFirmFundsMovementMethod;
+  readonly reference: string | null;
+  readonly description: string;
+  readonly recordedBy: UserId;
+  readonly effectiveDate: string;
+  readonly recordedAt: string;
+}
+
+// The firm's own money in one trust account: the node, and what is left of the cushion. There is no
+// `available` here and no hold model — a hold restricts a CLIENT's money pending a dispute, and the
+// firm disputing itself is not a shape worth expressing.
+export interface TrustFirmFundsPosition {
+  readonly trustAccountId: TrustAccountId;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly ledgerAccountId: LedgerAccountId;
+  readonly balanceMinor: number;
+  readonly currency: string;
+}
+
+// ---- unclaimed and dormant client funds ----
+
+// One matter ledger still holding money, with the two dates a firm's duty is measured from. NOTHING
+// HERE IS A VERDICT: there is no `dormant` boolean, no eligibility flag, and no jurisdiction clock.
+// The reader states the window they are asking about and gets back the facts; whether a balance is
+// dormant, and what the firm owes about it, is the firm's judgment over its own file — which may
+// include a conversation this platform never saw.
+export interface TrustDormantBalance {
+  readonly nodeId: TrustLedgerNodeId;
+  readonly trustAccountId: TrustAccountId;
+  readonly matterId: MatterId;
+  readonly clientEntityId: string;
+  readonly balanceMinor: number;
+  readonly currency: string;
+  // The effective date of the EARLIEST receipt still on this ledger. The rules' clocks run from
+  // receipt of the property, not from the last thing that happened on the matter, so this is the
+  // date the duty is measured from and it is deliberately a different question from the one below.
+  readonly earliestReceiptDate: string | null;
+  readonly lastActivityDate: string | null;
+  // Whether a review is currently open over this ledger — derived from the absence of a closure row,
+  // never a stored flag on the node.
+  readonly openReviewId: TrustUnclaimedFundsReviewId | null;
+}
+
+export const TRUST_UNCLAIMED_FUNDS_CONTACT_CHANNELS = [
+  "regular_mail",
+  "certified_mail",
+  "telephone",
+  "email",
+  "record_review",
+  "other",
+] as const;
+export type TrustUnclaimedFundsContactChannel =
+  (typeof TRUST_UNCLAIMED_FUNDS_CONTACT_CHANNELS)[number];
+
+export const TRUST_UNCLAIMED_FUNDS_CONTACT_OUTCOMES = [
+  "no_response",
+  "undeliverable",
+  "reached",
+  "declined",
+  "wrong_contact",
+  "other",
+] as const;
+export type TrustUnclaimedFundsContactOutcome =
+  (typeof TRUST_UNCLAIMED_FUNDS_CONTACT_OUTCOMES)[number];
+
+export const TRUST_UNCLAIMED_FUNDS_REVIEW_OUTCOMES = [
+  "distributed_to_owner",
+  "resolved_without_distribution",
+  "not_dormant",
+  "search_continues",
+] as const;
+export type TrustUnclaimedFundsReviewOutcome =
+  (typeof TRUST_UNCLAIMED_FUNDS_REVIEW_OUTCOMES)[number];
+
+export interface TrustUnclaimedFundsContactAttemptSnapshot {
+  readonly id: TrustUnclaimedFundsContactAttemptId;
+  readonly reviewId: TrustUnclaimedFundsReviewId;
+  readonly channel: TrustUnclaimedFundsContactChannel;
+  readonly attemptedOn: string;
+  readonly contactUsed: string | null;
+  readonly outcome: TrustUnclaimedFundsContactOutcome;
+  readonly note: string | null;
+  readonly recordedBy: UserId;
+  readonly recordedAt: string;
+}
+
+export interface TrustUnclaimedFundsReviewClosureSnapshot {
+  readonly id: TrustUnclaimedFundsReviewClosureId;
+  readonly outcome: TrustUnclaimedFundsReviewOutcome;
+  // The disbursement that already paid the owner — never a movement this closure composed.
+  readonly movementId: TrustMovementId | null;
+  readonly closedBy: UserId;
+  readonly closedAt: string;
+  readonly note: string | null;
+}
+
+export interface TrustUnclaimedFundsReviewSnapshot {
+  readonly id: TrustUnclaimedFundsReviewId;
+  readonly trustAccountId: TrustAccountId;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly observedBalanceMinor: number;
+  readonly currency: string;
+  readonly observedEarliestReceiptDate: string | null;
+  readonly observedLastActivityDate: string | null;
+  readonly openedBy: UserId;
+  readonly openedAt: string;
+  readonly note: string | null;
+  readonly attempts: readonly TrustUnclaimedFundsContactAttemptSnapshot[];
+  // Null while the review is open — the derived state, read from the absence of a closure row.
+  readonly closure: TrustUnclaimedFundsReviewClosureSnapshot | null;
+}
+
 // How a bank statement's figures reached the platform. `imported` means a file the firm supplied was
 // parsed, shown back, and confirmed by a person; it never means anything decided on its own to store
 // them.
@@ -324,6 +474,12 @@ export interface TrustThreeWayProof {
   readonly adjustedBankMinor: number;
   readonly bookBalanceMinor: number;
   readonly clientLedgerTotalMinor: number;
+  // The firm's own money in this account — the permitted bank-charge cushion, and zero on every
+  // account that has not enabled the carve-out. It is reported as its OWN figure and never folded
+  // into the client total: the whole point of the client leg is that it is what the firm owes other
+  // people, and a leg that silently included the firm's own cushion would tie out while asserting
+  // that firm money is client money.
+  readonly firmFundsMinor: number;
   // Lines on the statement nobody has tied to a recorded entry. A first-class outcome, not an
   // error state: an unmatched line is frequently the bank fee or returned deposit the firm never
   // recorded, which is the single most valuable thing a reconciliation finds.
@@ -339,6 +495,7 @@ export interface TrustFrozenProof {
   readonly adjustedBankMinor: number;
   readonly bookBalanceMinor: number;
   readonly clientLedgerTotalMinor: number;
+  readonly firmFundsMinor: number;
   readonly unmatchedLineCount: number;
   readonly unmatchedItemCount: number;
   readonly balanced: boolean;

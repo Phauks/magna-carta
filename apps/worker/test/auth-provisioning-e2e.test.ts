@@ -364,6 +364,11 @@ describe("end-to-end", () => {
         // the authority to act on client money under the firm's authorization policy — reaches
         // Owner/Admin and Attorney only (20260807T050000_trust-authorization-policy).
         "trust:authorize",
+        // Putting the FIRM'S own money into a client trust account — the one deliberate exception
+        // to no-commingling, permitted for a single purpose and only in the amount necessary for
+        // it — is narrower still: Owner/Admin alone by seed
+        // (20260812T000001_seed-trust-firm-funds-permission).
+        "trust:firmFunds",
         "trust:manage",
         "trust:read",
       ],

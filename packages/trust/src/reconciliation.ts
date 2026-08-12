@@ -56,6 +56,7 @@ interface ReconciliationRow {
   frozen_client_total_minor: number | null;
   frozen_unmatched_line_count: number | null;
   frozen_unmatched_movement_count: number | null;
+  frozen_firm_funds_minor: number | null;
   frozen_balanced: number | null;
   supersedes_reconciliation_id: string | null;
   note: string | null;
@@ -72,6 +73,10 @@ function frozenProofOf(row: ReconciliationRow): TrustFrozenProof | null {
     clientLedgerTotalMinor: row.frozen_client_total_minor ?? 0,
     unmatchedLineCount: row.frozen_unmatched_line_count ?? 0,
     unmatchedItemCount: row.frozen_unmatched_movement_count ?? 0,
+    // Zero for a reconciliation closed before the bank-charge carve-out existed: on those accounts
+    // there was no firm money in the trust account to freeze, so zero is the true figure and not a
+    // fallback.
+    firmFundsMinor: row.frozen_firm_funds_minor ?? 0,
     balanced: row.frozen_balanced === 1,
   };
 }
@@ -215,6 +220,7 @@ export async function closeTrustReconciliation(
     clientLedgerTotalMinor: proof.clientLedgerTotalMinor,
     unmatchedLineCount: proof.unmatchedStatementLines.length,
     unmatchedItemCount: proof.outstandingDeposits.length + proof.outstandingDisbursements.length,
+    firmFundsMinor: proof.firmFundsMinor,
     balanced: proof.balanced,
   };
 

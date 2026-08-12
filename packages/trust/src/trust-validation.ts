@@ -15,7 +15,6 @@ export type TrustValidationCode =
   | "commingled-entry"
   | "posting-to-liability-root"
   | "posting-to-client-node"
-  | "firm-funds-node-not-enabled"
   | "missing-client-line"
   | "multiple-clients-on-entry"
   | "single-node-reallocation"
@@ -82,7 +81,23 @@ export type TrustValidationCode =
   | "match-already-withdrawn"
   | "statement-line-already-matched"
   | "ledger-entry-already-matched"
-  | "entry-is-not-a-bank-item";
+  | "entry-is-not-a-bank-item"
+  // The bank-charge carve-out — the firm's OWN money in a trust account. Every code here refuses;
+  // none of them is a warning, and none has an override.
+  | "firm-funds-node-already-open"
+  | "firm-funds-node-not-open"
+  | "firm-funds-entry-touches-client-money"
+  | "firm-funds-entry-shape-invalid"
+  | "firm-funds-account-is-pooled-interest-bearing"
+  | "bank-charge-exceeds-firm-funds"
+  // Unclaimed and dormant client funds — the diligence file, which never moves money
+  | "unknown-trust-unclaimed-funds-review"
+  | "trust-unclaimed-funds-review-already-closed"
+  | "trust-unclaimed-funds-review-already-open"
+  | "trust-unclaimed-funds-node-holds-no-balance"
+  | "trust-unclaimed-funds-movement-is-not-this-ledger"
+  | "trust-unclaimed-funds-window-invalid"
+  | "trust-dormant-balances-truncated";
 
 export class TrustValidationError extends Error {
   constructor(

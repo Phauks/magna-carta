@@ -15,7 +15,9 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 
 - `src/account-tree.ts` — `openTrustAccount`, `ensureMatterTrustLeaf`, `loadTrustAccount`,
   `loadTrustNode`, and `TRUST_LEAF_MINIMUM_BALANCE_MINOR` (the floor)
-- `src/composition-guard.ts` — `composeTrustEntry` + `assertTrustComposition`; **the** door
+- `src/composition-guard.ts` — `composeTrustEntry` + `assertTrustComposition`; **the** door for client
+  money — plus `composeTrustFirmFundsEntry` + `assertTrustFirmFundsComposition`, the SECOND door,
+  which is narrower and admits only the firm's own bank-charge cushion beside its account's bank leaf
 - `src/holds.ts` — `placeTrustHold` / `releaseTrustHold` / `readTrustAvailableBalance`
 - `src/movements.ts` — `composeTrustDeposit` / `composeTrustDisbursement` /
   `composeMatterToMatterTransfer` + the `TrustDisbursementMethodPolicy` port, and
@@ -35,6 +37,12 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   row and decision (`composeEarnedFeeApplicationAuthorizationRequest` /
   `composeEarnedFeeApplicationApprovalDecision` — billing composes the transfer and the invoice
   side)
+- `src/firm-funds.ts` — the bank-charge carve-out: `openTrustFirmFundsNode` (the deliberate
+  enablement, per account), `composeTrustFirmFundsDeposit` / `composeTrustBankCharge`,
+  `loadTrustFirmFundsNode` / `readTrustFirmFundsPosition`
+- `src/unclaimed-funds.ts` — `readDormantTrustBalances` (the read-time comparison, and the only
+  definition of dormancy anywhere), the diligence file's three composers, and
+  `readTrustUnclaimedFundsReview`
 - `src/transfer.ts` — `composeTrustToOperatingTransfer` + the `EarnedFeePrecondition` port
 - `src/jurisdiction.ts` — the resolver contract and the refusing default
 - `src/close-precondition.ts` — `matterTrustClosePrecondition` + `readMatterTrustPositions`: the
@@ -77,11 +85,36 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   client money in an operating account, and a processor fee netted out of a trust deposit. This
   package is the structural owner: billing's apply-funds path and the payments card rail inherit it
   by calling `composeTrustEntry`, never by rebuilding the rule.
+- **THE BANK-CHARGE CARVE-OUT IS A SECOND DOOR, NEVER A RELAXED FIRST ONE.** The firm's own money may
+  sit in a trust account for one purpose — bearing the institution's service charges — and
+  `assertTrustComposition` still refuses a firm-funds line ABSOLUTELY. The carve-out lives in
+  `assertTrustFirmFundsComposition`, which admits strictly fewer shapes than the general door:
+  exactly two lines, the named firm-funds node and that same account's bank leaf, nothing else. A
+  flag on the general door would have put the exception inside the function billing and payments
+  inherit no-commingling from, leaving every future caller one boolean away from moving client money
+  on a firm-funds entry. Four further mechanisms carry the same weight and none of them is a comment:
+  `trust_firm_funds_movement` has **no client, matter, node, or payee column**, so a record of the
+  category cannot describe somebody else's money; the firm-funds node carries the same
+  `min_balance_minor = 0` a matter leaf carries, which is how "a charge is never borne by client
+  funds" becomes a database guarantee (a charge over the cushion aborts the batch, and the named
+  pre-check in front of it is only a better sentence); `trust:firmFunds` is a capability of its own,
+  seeded to Owner/Admin alone; and opening the carve-out is refused on a pooled interest-bearing
+  account, which the corpus records as exempt from the charges it would pay. There is deliberately no
+  movement in the category that pays a person, and none that withdraws surplus firm funds — the rule
+  text authorizes the deposit and is silent on taking it back out.
+- **The firm's cushion is its OWN leg of the three-way proof.** `book = client + firm funds`. Folding
+  it into the client total would tie out while asserting that firm money is client money; leaving it
+  out of the comparison would report `book-to-client` on every account that enabled the carve-out,
+  poisoning the one signal that means something reached the ledger without going through the guard.
+  The client-leg statement is therefore restricted to `kind = 'matter'` — that predicate is
+  load-bearing, not tidiness.
 - **One client per entry.** Client-to-client movement is unrepresentable; two matters of the same
   client are fine.
 - **Append-only around the ledger too.** `trust_hold`, `trust_transfer`, `trust_movement`,
   `trust_disbursement_request`, `trust_disbursement_decision`, `trust_bank_statement`,
-  `trust_bank_statement_line`, `trust_reconciliation`, and `trust_reconciliation_match` carry
+  `trust_bank_statement_line`, `trust_reconciliation`, `trust_reconciliation_match`,
+  `trust_firm_funds_movement`, `trust_unclaimed_funds_review`,
+  `trust_unclaimed_funds_contact_attempt`, and `trust_unclaimed_funds_review_closure` carry
   RAISE(ABORT) triggers (a reconciliation takes exactly one update — its close). A
   release is a new row linked by `releases_hold_id` (UNIQUE, so a double release loses at commit); a
   partial release is a release plus a new, smaller hold. A movement correction is a reversing entry
@@ -198,6 +231,23 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   preview returned still matches. A date format is STATED by the caller and never detected, because
   03/04/2026 is two different days on two sides of an ocean and a reconciliation built on the wrong
   one is wrong in a way nobody notices.
+- **DORMANCY IS A COMPARISON, NOT A COLUMN, and nothing in the unclaimed-funds path moves money.**
+  `readDormantTrustBalances` is the only definition of dormancy in the package: matter ledgers still
+  holding money whose last movement is on or before a date THE CALLER STATES. No stored flag, no
+  sweep, no default period — the periods differ by jurisdiction, several gate a permission rather
+  than an obligation, and a platform that writes "dormant" onto a client's ledger has asserted
+  something about the firm's conduct it cannot know. Same posture and same reasoning as
+  `packages/calendar/src/overdue.ts`. The read returns the EARLIEST receipt still on the ledger
+  alongside the last activity, because the rules' clocks run from receipt of the property and the two
+  are different questions. And the closure that ends a review takes a `trust_movement` that ALREADY
+  POSTED: `composeTrustUnclaimedFundsReviewClosure` receives no amount, payee, date, or method, so
+  there is nothing it could assemble into an entry — the manual-confirmation gate is the absence of
+  the inputs rather than a check that could be removed. A trigger independently refuses a closure
+  naming a payment out of another client's ledger.
+- **This is not an escheat feature.** In the researched jurisdiction, designated client trust accounts
+  are exempt from the state unclaimed-property presumption outright and the one onward destination
+  the rules name is permissive. Never surface a deadline, a countdown, or a "required by" date on
+  this path: it would assert an obligation no rule imposes, on a record a disciplinary body may read.
 - **Money discipline.** `Money` in, `toMinor` integers at the SQL boundary; no floats, no rounding.
   The one exception to "amounts are positive": a bank statement's opening and closing balances are
   signed, because a trust bank account really can be overdrawn and refusing to record that would

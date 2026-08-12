@@ -54,6 +54,8 @@ import calendarFirmEventsResourcesLinksSql from "@magna-carta/database/drizzle/p
 import discoveryReviewCodingAndAccessSql from "@magna-carta/database/drizzle/per-firm/20260808T000000_discovery-review-coding-and-access.sql";
 import directoryPronounsSql from "@magna-carta/database/drizzle/per-firm/20260808T010000_directory-pronouns.sql";
 import trustAuthorityDefaultPostureSql from "@magna-carta/database/drizzle/per-firm/20260808T020000_trust-authority-default-posture.sql";
+import trustFirmFundsAndUnclaimedFundsSql from "@magna-carta/database/drizzle/per-firm/20260812T000000_trust-firm-funds-and-unclaimed-funds.sql";
+import seedTrustFirmFundsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260812T000001_seed-trust-firm-funds-permission.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -118,6 +120,8 @@ export function perFirmMigrations(): Migration[] {
     "20260808T000000_discovery-review-coding-and-access": discoveryReviewCodingAndAccessSql,
     "20260808T010000_directory-pronouns": directoryPronounsSql,
     "20260808T020000_trust-authority-default-posture": trustAuthorityDefaultPostureSql,
+    "20260812T000000_trust-firm-funds-and-unclaimed-funds": trustFirmFundsAndUnclaimedFundsSql,
+    "20260812T000001_seed-trust-firm-funds-permission": seedTrustFirmFundsPermissionSql,
   });
 }
 

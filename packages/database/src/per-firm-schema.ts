@@ -138,12 +138,16 @@ import type {
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
+  TrustFirmFundsMovementId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
   TrustReconciliationId,
   TrustReconciliationMatchId,
   TrustTransferId,
+  TrustUnclaimedFundsContactAttemptId,
+  TrustUnclaimedFundsReviewClosureId,
+  TrustUnclaimedFundsReviewId,
   UploadSessionId,
   UserId,
   UtbmsCodeId,
@@ -4201,6 +4205,13 @@ export const trustReconciliation = sqliteTable(
     frozenClientTotalMinor: integer("frozen_client_total_minor"),
     frozenUnmatchedLineCount: integer("frozen_unmatched_line_count"),
     frozenUnmatchedMovementCount: integer("frozen_unmatched_movement_count"),
+    // The firm's own bank-charge cushion in this account as of the period end — zero on every
+    // account that never opened the carve-out, and the reason the book side can exceed the client
+    // side without that being a disagreement. Deliberately ABSENT from the shape check below: adding
+    // it there would rewrite a constraint on a table whose append-only triggers are the guarantee
+    // that a closed attestation never moves, and a nullable column read through COALESCE gives the
+    // same answer for the rows that predate it without touching those triggers at all.
+    frozenFirmFundsMinor: integer("frozen_firm_funds_minor"),
     // 1 when the three legs agreed at the moment of the close, 0 when they did not. Stored rather
     // than left to be re-derived from the totals so that "this period did not tie out" is a fact a
     // report filters on directly.
@@ -4289,6 +4300,250 @@ export const trustReconciliationMatch = sqliteTable(
     // unmatched lists are built from.
     index("trust_reconciliation_match_line_index").on(table.statementLineId),
     index("trust_reconciliation_match_entry_index").on(table.entryId),
+  ],
+);
+
+// THE BANK-CHARGE CARVE-OUT, AND THE REASON IT IS A SEPARATE TABLE RATHER THAN TWO MORE
+// `trust_movement` KINDS.
+//
+// A bank service charge is the one category of money that legitimately leaves a trust bank account
+// without a client-attributable disbursement authorization: the bank takes it, nobody at the firm
+// releases it, and no client owes it. The professional-conduct rules answer that by permitting the
+// firm to keep a small amount of its OWN money in the account to bear those charges, in the amount
+// necessary for that purpose and for no other purpose.
+//
+// "For no other purpose" is the whole design problem, and the answer here is structural rather than
+// procedural: THIS TABLE HAS NO COLUMN IN WHICH A CLIENT OR A MATTER COULD BE NAMED. There is no
+// node_id, no matter_id, no client_entity_id, and no payee. The one node these entries can touch is
+// the trust account's single `firm_funds` node, which is derived from `trust_account_id` and not
+// stated by a caller — so a row of this table cannot express a movement of client money even if
+// every check above it were removed. The ordinary `trust_movement` table keeps meaning exactly what
+// it meant before ("client money moved"), so no client-ledger read had to learn an exclusion.
+//
+// Two kinds, and only two. `firm_funds_deposit` puts the firm's own cushion in (bank up, firm-funds
+// up); `bank_charge` records the institution taking a service charge out of it (bank down,
+// firm-funds down). There is deliberately no kind that pays anybody: a payment out of a trust
+// account to a person is a disbursement, and it goes through the disbursement queue like every other
+// one.
+//
+// APPEND-ONLY, enforced by triggers in the migration, on the same reasoning as every other trust
+// record: a correction is a reversing entry with its own row.
+export const trustFirmFundsMovement = sqliteTable(
+  "trust_firm_funds_movement",
+  {
+    id: text("id").primaryKey().$type<TrustFirmFundsMovementId>(), // trustFirmFundsMovement_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    kind: text("kind", { enum: ["firm_funds_deposit", "bank_charge"] }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // How the money moved, on the same reasoning `trust_movement.method` carries one: a rule engine
+    // cannot refuse a method it cannot see. `bank_debit` is the institution helping itself, which is
+    // what a service charge IS and what no other movement in the subsystem can claim.
+    method: text("method", {
+      enum: ["check", "wire", "electronic_transfer", "bank_debit"],
+    }).notNull(),
+    reference: text("reference"),
+    // What the institution called the charge, or what the firm called the top-up. Free text, and the
+    // nearest thing this table has to a counterparty — the counterparty of a bank charge is the bank
+    // whose account this is, which `trust_account_id` already names.
+    description: text("description").notNull(),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // One record per entry, the same rule `trust_movement` holds: a second row would double the item
+    // in the trust journal and in the reconciliation's outstanding list.
+    uniqueIndex("trust_firm_funds_movement_entry_unique_index").on(table.entryId),
+    index("trust_firm_funds_movement_account_effective_date_index").on(
+      table.trustAccountId,
+      table.effectiveDate,
+    ),
+    check("trust_firm_funds_movement_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("trust_firm_funds_movement_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "trust_firm_funds_movement_description_nonempty_check",
+      sql`length(${table.description}) > 0`,
+    ),
+    check(
+      "trust_firm_funds_movement_kind_check",
+      sql`${table.kind} IN ('firm_funds_deposit', 'bank_charge')`,
+    ),
+    // `bank_debit` is what a service charge is and is refused on a deposit: the firm putting its own
+    // cushion in is an act the firm performs, never one the institution performs against it.
+    check(
+      "trust_firm_funds_movement_shape_check",
+      sql`(${table.kind} = 'bank_charge' AND ${table.method} = 'bank_debit')
+        OR (${table.kind} = 'firm_funds_deposit' AND ${table.method} <> 'bank_debit')`,
+    ),
+  ],
+);
+
+// UNCLAIMED CLIENT FUNDS — THE FIRM'S DILIGENCE RECORD, AND NOT A SWEEP.
+//
+// Money sitting on a matter ledger whose owner the firm cannot reach is a continuing safekeeping
+// duty: the firm must make reasonable efforts to locate the owner and distribute the funds, and it
+// must be able to evidence those efforts afterwards. What the platform can genuinely hold is the
+// evidence — attempt by attempt, at the time, in a form nobody can reconstruct two years later.
+//
+// WHAT IS DELIBERATELY ABSENT IS AS LOAD-BEARING AS WHAT IS HERE. There is no dormancy flag, no
+// dormancy date, and no eligibility column anywhere in these three tables. Dormancy is a COMPARISON
+// over the movement rows that already exist, made at read time against a window the reader states —
+// the same posture the calendar holds for an overdue deadline, and for the same reason: a stored
+// flag needs a sweep to maintain, can be stale, and asserts something about the firm's conduct the
+// platform is not in a position to assert. The firm may have spoken to the client this morning in a
+// way this platform never saw.
+//
+// And no row in this group moves money. A distribution to a located owner is an ordinary
+// disbursement through the ordinary queue; the closure below RECORDS which movement settled the
+// review and structurally cannot compose one.
+export const trustUnclaimedFundsReview = sqliteTable(
+  "trust_unclaimed_funds_review",
+  {
+    id: text("id").primaryKey().$type<TrustUnclaimedFundsReviewId>(), // trustUnclaimedFundsReview_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    // The matter leaf under review. A client node or the firm-funds node cannot be reviewed: a
+    // roll-up holds no balance, and the firm's own money in the account belongs to the firm.
+    nodeId: text("node_id")
+      .notNull()
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    // What the reader SAW when they opened the review, recorded as an observation with a timestamp
+    // rather than as a fact about the ledger. The ledger keeps moving; these three columns are the
+    // reason a person judged the balance dormant, which is exactly what a later reader needs and
+    // exactly what a live re-read cannot give them.
+    observedBalanceMinor: integer("observed_balance_minor").notNull(),
+    currency: text("currency").notNull(),
+    // The effective date of the EARLIEST receipt still sitting on this ledger, which is the datum
+    // the rules' clocks run from — not the last time anything happened on the matter.
+    observedEarliestReceiptDate: text("observed_earliest_receipt_date"),
+    observedLastActivityDate: text("observed_last_activity_date"),
+    openedBy: text("opened_by").notNull().$type<UserId>(),
+    openedAt: text("opened_at").notNull(), // UTC instant
+    note: text("note"),
+  },
+  (table) => [
+    index("trust_unclaimed_funds_review_account_index").on(table.trustAccountId, table.openedAt),
+    index("trust_unclaimed_funds_review_node_index").on(table.nodeId),
+    check(
+      "trust_unclaimed_funds_review_balance_positive_check",
+      sql`${table.observedBalanceMinor} > 0`,
+    ),
+    check("trust_unclaimed_funds_review_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// One locate attempt, recorded when it was made. The channels are the ones the rules enumerate as
+// the floor of a reasonable search — regular mail, certified mail, telephone, email — plus the
+// record review a firm performs over its own files, plus an escape for anything else a board or a
+// court adds later. APPEND-ONLY: an attempt that was made cannot be un-made, and correcting one is a
+// new row saying so in its note.
+export const trustUnclaimedFundsContactAttempt = sqliteTable(
+  "trust_unclaimed_funds_contact_attempt",
+  {
+    id: text("id").primaryKey().$type<TrustUnclaimedFundsContactAttemptId>(), // trustUnclaimedFundsContactAttempt_ handle
+    reviewId: text("review_id")
+      .notNull()
+      .$type<TrustUnclaimedFundsReviewId>()
+      .references(() => trustUnclaimedFundsReview.id),
+    channel: text("channel", {
+      enum: ["regular_mail", "certified_mail", "telephone", "email", "record_review", "other"],
+    }).notNull(),
+    attemptedOn: text("attempted_on").notNull(), // YYYY-MM-DD civil date
+    // The address, number, or mailbox the attempt actually used — the detail the certification has
+    // to reproduce, and personal data about the client, so it is registered as such.
+    contactUsed: text("contact_used"),
+    outcome: text("outcome", {
+      enum: ["no_response", "undeliverable", "reached", "declined", "wrong_contact", "other"],
+    }).notNull(),
+    note: text("note"),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    index("trust_unclaimed_funds_contact_attempt_review_index").on(
+      table.reviewId,
+      table.attemptedOn,
+    ),
+    check(
+      "trust_unclaimed_funds_contact_attempt_channel_check",
+      sql`${table.channel} IN ('regular_mail', 'certified_mail', 'telephone', 'email', 'record_review', 'other')`,
+    ),
+    check(
+      "trust_unclaimed_funds_contact_attempt_outcome_check",
+      sql`${table.outcome} IN ('no_response', 'undeliverable', 'reached', 'declined', 'wrong_contact', 'other')`,
+    ),
+    // A record review has no contact detail to name; every other channel used one.
+    check(
+      "trust_unclaimed_funds_contact_attempt_shape_check",
+      sql`(${table.channel} = 'record_review' AND ${table.contactUsed} IS NULL)
+        OR (${table.channel} <> 'record_review' AND ${table.contactUsed} IS NOT NULL AND length(${table.contactUsed}) > 0)`,
+    ),
+  ],
+);
+
+// How a review ended. A SEPARATE ROW rather than a status column on the review, on the same
+// derivation the hold release and the disbursement decision use: a review is open when no closure
+// names it, so there is no column anywhere that can disagree with the rows. `UNIQUE` on review_id is
+// what makes two concurrent closures produce one.
+//
+// THE MANUAL-CONFIRMATION GATE LIVES IN THIS TABLE'S SHAPE. `movement_id` points at a
+// `trust_movement` that ALREADY EXISTS — a disbursement somebody composed, authorized, and committed
+// through the ordinary path. Closing a review can therefore attach money that moved; it can never be
+// the thing that moved it. Nothing here sweeps, nothing fires on a timer, and no outcome is computed
+// and then acted on.
+export const trustUnclaimedFundsReviewClosure = sqliteTable(
+  "trust_unclaimed_funds_review_closure",
+  {
+    id: text("id").primaryKey().$type<TrustUnclaimedFundsReviewClosureId>(), // trustUnclaimedFundsReviewClosure_ handle
+    reviewId: text("review_id")
+      .notNull()
+      .$type<TrustUnclaimedFundsReviewId>()
+      .references(() => trustUnclaimedFundsReview.id),
+    // `distributed_to_owner`: the search worked and the money went where it belonged.
+    // `resolved_without_distribution`: the balance left this ledger some other legitimate way — an
+    // earned-fee application, a reallocation, a correction of a receipt that was never the client's.
+    // `not_dormant`: the reader was wrong, or the client turned up; the review closes with the money
+    // where it was. `search_continues` closes THIS round of diligence without pretending it
+    // concluded, which is the honest end of most of them and the one an evidence trail needs.
+    outcome: text("outcome", {
+      enum: [
+        "distributed_to_owner",
+        "resolved_without_distribution",
+        "not_dormant",
+        "search_continues",
+      ],
+    }).notNull(),
+    movementId: text("movement_id")
+      .$type<TrustMovementId>()
+      .references(() => trustMovement.id),
+    closedBy: text("closed_by").notNull().$type<UserId>(),
+    closedAt: text("closed_at").notNull(), // UTC instant
+    note: text("note"),
+  },
+  (table) => [
+    uniqueIndex("trust_unclaimed_funds_review_closure_review_unique_index").on(table.reviewId),
+    check(
+      "trust_unclaimed_funds_review_closure_outcome_check",
+      sql`${table.outcome} IN ('distributed_to_owner', 'resolved_without_distribution', 'not_dormant', 'search_continues')`,
+    ),
+    // A distribution names the movement that made it; nothing else may name one. Without this, an
+    // outcome of "not dormant" could carry a payment nobody reading the review would expect.
+    check(
+      "trust_unclaimed_funds_review_closure_shape_check",
+      sql`(${table.outcome} = 'distributed_to_owner' AND ${table.movementId} IS NOT NULL)
+        OR (${table.outcome} <> 'distributed_to_owner' AND ${table.movementId} IS NULL)`,
+    ),
   ],
 );
 
