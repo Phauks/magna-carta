@@ -144,6 +144,11 @@ heartbeat now runs at a 3-hour cadence rather than hourly.
 - **Infrastructure the owner must do:** install the Renovate app; optionally enable a
   merge queue; delete stale remote branches (the git proxy 403s ref deletions, so
   branch cleanup is manual); the bot self-merge setting.
+- **Actions minutes are exhausted, and it is costing more than the gate.** Every run
+  since **2026-08-07T08:08Z** dies at runner assignment. That takes `assemble-docs`
+  down with the gate, so committed fragments stop folding: by 2026-08-12 roughly a
+  hundred `changelog.d/` fragments had piled up unrendered. Restoring the budget
+  restores both; until then a docs-sync pass is the only thing folding them.
 - **Build stamp:** "PST" is hardcoded, but August in Los Angeles is PDT. Owner's call
   whether the label should track the real offset.
 
@@ -237,6 +242,12 @@ Append here, grouped. Keep entries to the mechanism, not the incident.
 - Jobs failing at runner assignment — `runner_id 0`, about 3 seconds, **no logs** —
   means the budget is exhausted, not that the code is broken. A real gate job produces
   logs. Probe a **fresh** run before diagnosing; a stale run tells you nothing.
+  `get_job_logs` returns HTTP 404 for these, which reads like a tool fault and is not;
+  the tell is `runner_name: ""` in `list_workflow_jobs`.
+- The exhausted budget silently stops `assemble-docs` too, so `changelog.d/`,
+  `docs/decisions/pending/`, and `status.d/` fragments accumulate unrendered with
+  nothing announcing it. Check the newest `docs/maintenance/reports/` date against
+  `main` before assuming the trackers are current.
 - Workers Builds' production branch is `release`, not `main`.
 - osv gate: severity keys on CVSS >= 7.0; accepted advisories live only in the root
   `osv-scanner.toml` (lockfiles via explicit `-L`). Kept for the mechanism, not the
