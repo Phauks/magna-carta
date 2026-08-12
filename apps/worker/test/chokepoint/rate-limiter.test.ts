@@ -1,6 +1,11 @@
 // The rate-limiter seam — named buckets as data, an in-memory sliding-window limiter behind the
 // RateLimiter interface. The chokepoint owns the 429 problem reply; this module only returns the
 // check verdict.
+//
+// Every verdict carries the BUDGET as well as the allow/deny: the bucket's ceiling and what is left
+// of it after this request. A caller that only learns it has been refused cannot warn anyone before
+// the wall — the sign-in ladder is the surface that made that a real problem — so `limit` and
+// `remaining` are part of the verdict rather than something the chokepoint reconstructs.
 import { describe, expect, it } from "vitest";
 import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
 
@@ -32,8 +37,14 @@ describe("createInMemoryRateLimiter", () => {
   it("allows requests under the bucket limit", () => {
     const clock = controllableClock();
     const rateLimiter = createInMemoryRateLimiter({ now: clock.now });
+    // The remaining count walks down with each allowed request, which is the whole point of
+    // publishing it: nine left after the first of ten, zero left after the last one still allowed.
     for (let request = 0; request < BUCKETS.auth.limit; request++) {
-      expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+      expect(rateLimiter.check("auth", "user-1")).toEqual({
+        allowed: true,
+        limit: BUCKETS.auth.limit,
+        remaining: BUCKETS.auth.limit - request - 1,
+      });
     }
   });
 
@@ -45,7 +56,12 @@ describe("createInMemoryRateLimiter", () => {
     }
     clock.advanceTo(10_000);
     // Oldest timestamp is at t=0; it exits the 60s window at t=60_000 — 50s from now.
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: false, retryAfterSeconds: 50 });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: false,
+      retryAfterSeconds: 50,
+      limit: BUCKETS.auth.limit,
+      remaining: 0,
+    });
   });
 
   it("rounds retryAfterSeconds up to whole seconds (it feeds the Retry-After header)", () => {
@@ -56,7 +72,12 @@ describe("createInMemoryRateLimiter", () => {
     }
     clock.advanceTo(59_999);
     // 1ms until the oldest timestamp exits — ceil to 1 second, never 0.
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: false, retryAfterSeconds: 1 });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: false,
+      retryAfterSeconds: 1,
+      limit: BUCKETS.auth.limit,
+      remaining: 0,
+    });
   });
 
   it("slides the window: a denied key is allowed again once the oldest timestamp ages out", () => {
@@ -68,7 +89,11 @@ describe("createInMemoryRateLimiter", () => {
     clock.advanceTo(59_999);
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
     clock.advanceTo(60_000);
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: true,
+      limit: BUCKETS.auth.limit,
+      remaining: BUCKETS.auth.limit - 1,
+    });
   });
 
   it("slides timestamp by timestamp, not in fixed-window resets", () => {
@@ -79,7 +104,11 @@ describe("createInMemoryRateLimiter", () => {
       rateLimiter.check("auth", "user-1");
     }
     clock.advanceTo(30_000);
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: true,
+      limit: BUCKETS.auth.limit,
+      remaining: 0,
+    });
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
     // At t=60s the nine t=0 timestamps exit; the t=30s one is still inside the window, so only
     // limit - 1 more checks fit. A fixed-window counter resetting at t=60s would forget the
@@ -87,11 +116,16 @@ describe("createInMemoryRateLimiter", () => {
     // sequence discriminates the true sliding-window log from that.
     clock.advanceTo(60_000);
     for (let request = 0; request < BUCKETS.auth.limit - 1; request++) {
-      expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+      expect(rateLimiter.check("auth", "user-1").allowed).toBe(true);
     }
     // The window now holds the t=30s timestamp plus the nine t=60s ones — full. The oldest
     // (t=30s) exits at t=90s: 30 seconds from now.
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: false, retryAfterSeconds: 30 });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: false,
+      retryAfterSeconds: 30,
+      limit: BUCKETS.auth.limit,
+      remaining: 0,
+    });
   });
 
   it("does not record denied checks, so a denied caller's retry-after never extends itself", () => {
@@ -103,9 +137,14 @@ describe("createInMemoryRateLimiter", () => {
     clock.advanceTo(30_000);
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
-    // The denied checks above must not count toward the limit at t=60s.
+    // The denied checks above must not count toward the limit at t=60s — and the published
+    // remaining must agree, or a client would be told it has less room than it does.
     clock.advanceTo(60_000);
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: true,
+      limit: BUCKETS.auth.limit,
+      remaining: BUCKETS.auth.limit - 1,
+    });
   });
 
   it("isolates buckets for the same key", () => {
@@ -115,8 +154,18 @@ describe("createInMemoryRateLimiter", () => {
       rateLimiter.check("auth", "user-1");
     }
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
-    expect(rateLimiter.check("expensive", "user-1")).toEqual({ allowed: true });
-    expect(rateLimiter.check("default", "user-1")).toEqual({ allowed: true });
+    // Each bucket reports its OWN ceiling, so a client cannot be shown the wrong limit for the
+    // route it is actually calling.
+    expect(rateLimiter.check("expensive", "user-1")).toEqual({
+      allowed: true,
+      limit: BUCKETS.expensive.limit,
+      remaining: BUCKETS.expensive.limit - 1,
+    });
+    expect(rateLimiter.check("default", "user-1")).toEqual({
+      allowed: true,
+      limit: BUCKETS.default.limit,
+      remaining: BUCKETS.default.limit - 1,
+    });
   });
 
   it("isolates keys within the same bucket", () => {
@@ -126,7 +175,11 @@ describe("createInMemoryRateLimiter", () => {
       rateLimiter.check("auth", "user-1");
     }
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
-    expect(rateLimiter.check("auth", "user-2")).toEqual({ allowed: true });
+    expect(rateLimiter.check("auth", "user-2")).toEqual({
+      allowed: true,
+      limit: BUCKETS.auth.limit,
+      remaining: BUCKETS.auth.limit - 1,
+    });
   });
 
   it("stays conservative under a backwards-jumping clock: denied with positive retry-after", () => {
@@ -144,6 +197,8 @@ describe("createInMemoryRateLimiter", () => {
     expect(rateLimiter.check("auth", "user-1")).toEqual({
       allowed: false,
       retryAfterSeconds: 100,
+      limit: BUCKETS.auth.limit,
+      remaining: 0,
     });
   });
 

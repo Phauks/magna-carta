@@ -29,6 +29,13 @@
       "when": 1785826683608,
       "tag": "20260804T065814_firm-bucket-name-unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786488171952,
+      "tag": "20260811T224252_self-serve-registration-and-invitations",
+      "breakpoints": true
     }
   ]
 }

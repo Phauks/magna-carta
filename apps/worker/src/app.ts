@@ -89,6 +89,9 @@ import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerInvitationRoutes } from "./routes/invitations.ts";
+import { registerRegistrationRoutes } from "./routes/registrations.ts";
+import { attemptBudgetMiddleware, createAttemptLadder } from "./auth-attempt-budget.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
@@ -459,6 +462,14 @@ export function createApp(options: CreateAppOptions = {}) {
   // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
   // only GET and POST. Registered before the catch-all asset fallthrough, OUTSIDE the chokepoint
   // (it is its own authentication surface, not a /api/v1 route).
+  //
+  // The attempt budget rides IN FRONT of it, and this is the one place it can: the chokepoint's
+  // rate-limit gate is per-route and firm-keyed, which is exactly the wrong shape for a visitor who
+  // has no firm yet and is spending one shared budget across the password, the two-factor code and
+  // the recovery code. One ladder per app instance, alongside the rate limiter and for the same
+  // reason — per-request state would reset on every attempt and limit nothing.
+  const attemptLadder = createAttemptLadder();
+  app.use("/api/auth/*", attemptBudgetMiddleware(attemptLadder));
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
   // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
@@ -542,6 +553,11 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  // Joining the platform: the anonymous registration pair and the invitation pair (one issued
+  // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
+  // rides the chokepoint's tightest rate-limit bucket.
+  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv);
+  registerInvitationRoutes(app, chokepoint, authForEnv);
   registerPlatformReleaseChannelRoute(app, chokepoint);
   registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);

@@ -50,6 +50,12 @@ import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 
 export interface ProvisionFirmInput {
   readonly name: string;
+  // The human-facing name, when it differs from the resume handle above. The operator door leaves
+  // it unset — there the typed name IS the name. The self-serve door sets it, because there `name`
+  // is a platform-generated handle and the firm's real name must not be a UNIQUE column: firm names
+  // are not unique in the world, and a unique one would refuse the second Smith Law, let a stranger
+  // probe for any firm by trying to register its name, and make squatting cost one email address.
+  readonly displayName?: string;
   readonly owner: { readonly email: string; readonly name: string };
 }
 
@@ -113,9 +119,9 @@ export async function provisionFirm(
     try {
       await database
         .prepare(
-          "INSERT INTO firm (id, name, status, created_at) VALUES (?1, ?2, 'provisioning', ?3)",
+          "INSERT INTO firm (id, name, display_name, status, created_at) VALUES (?1, ?2, ?3, 'provisioning', ?4)",
         )
-        .bind(newIdentifier("firm"), input.name, now())
+        .bind(newIdentifier("firm"), input.name, input.displayName ?? null, now())
         .run();
     } catch (caught) {
       // Lost a concurrent find-or-insert race: the winner's row is the firm — fall through to

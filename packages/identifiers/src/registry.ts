@@ -107,6 +107,12 @@ export const ENTITY_PREFIXES = {
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",
   supportGrant: "supportGrant",
+  // Joining the platform. `registration` is a self-serve sign-up in flight — the control-plane row a
+  // stranger's request costs before anything they asked for exists; `invitation` is a firm's own
+  // invitation to a member or a portal client, redeemed against a code plus two facts about the
+  // person. Both handles are internal: neither is ever the secret a redeemer types.
+  registration: "registration",
+  invitation: "invitation",
   // Password recovery — a transient job identifier minted at recover-request time and used to key
   // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
   // itself is the state store for the job).

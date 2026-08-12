@@ -46,6 +46,13 @@ export const Problem = z
     // flagged downloads. The actual challenge (recent-auth check) is wired in a later auth slice;
     // the flag is present now so clients can show a re-auth prompt as soon as it lands.
     stepUpRequired: z.boolean().optional(),
+    // The attempt budget, set on a throttled reply and on a refused credential-shaped attempt. A
+    // bare "too many requests" leaves a surface that wants to warn before the wall with nothing to
+    // say, so the two numbers behind the wording ride the problem itself: how many attempts are
+    // left, and how long the refusal stands. Both are whole non-negative integers; both are absent
+    // rather than zero when the reply is not about a budget at all.
+    attemptsRemaining: z.number().int().min(0).optional(),
+    retryAfterSeconds: z.number().int().min(0).optional(),
   })
   .openapi("Problem");
 
@@ -63,6 +70,10 @@ export interface ProblemOptions {
   // See stepUpRequired on Problem above. Emitted into the body only when set (true) — the
   // download handler sets it when the firm has step-up re-auth enabled for flagged downloads.
   stepUpRequired?: boolean;
+  // See attemptsRemaining / retryAfterSeconds on Problem above. Emitted only when set, so a
+  // problem that is not about a budget carries neither.
+  attemptsRemaining?: number;
+  retryAfterSeconds?: number;
   // An already-minted error_ handle to stamp into the body instead of minting a fresh one. The
   // caller wants the SAME Error ID it has already correlated elsewhere — e.g. the platform-admin
   // guard logs a denial cause against the id it then returns to the client (reworked onto the
@@ -114,6 +125,12 @@ export function problemJson<S extends ProblemStatusCode>(
     ...(options.errors !== undefined && { errors: options.errors }),
     ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),
     ...(options.stepUpRequired !== undefined && { stepUpRequired: options.stepUpRequired }),
+    ...(options.attemptsRemaining !== undefined && {
+      attemptsRemaining: options.attemptsRemaining,
+    }),
+    ...(options.retryAfterSeconds !== undefined && {
+      retryAfterSeconds: options.retryAfterSeconds,
+    }),
   };
   return c.json(body, options.status, {
     "content-type": "application/problem+json",

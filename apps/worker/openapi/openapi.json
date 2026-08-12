@@ -81,6 +81,14 @@
           },
           "stepUpRequired": {
             "type": "boolean"
+          },
+          "attemptsRemaining": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -1937,6 +1945,209 @@
         "required": [
           "name",
           "owner"
+        ]
+      },
+      "StartRegistrationResponse": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": [
+              "checkEmail",
+              "redeemInvitation"
+            ]
+          }
+        },
+        "required": [
+          "next"
+        ]
+      },
+      "StartRegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "clientOfFirm",
+              "firmMember",
+              "foundFirm"
+            ],
+            "description": "Which door the visitor came through: a client of a law firm, someone who works at one, or someone starting a new one. The first two are joined by invitation; only the third creates a firm."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "firmName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "role",
+          "email",
+          "name"
+        ]
+      },
+      "ConfirmRegistrationResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "provisioning"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "status"
+        ]
+      },
+      "ConfirmRegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "IssueInvitationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "email",
+          "code",
+          "expiresAt"
+        ]
+      },
+      "IssueInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string"
+          },
+          "expiresInDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90
+          }
+        },
+        "required": [
+          "kind",
+          "email",
+          "name",
+          "lastName",
+          "dateOfBirth"
+        ]
+      },
+      "RedeemInvitationResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "next": {
+            "type": "string",
+            "enum": [
+              "checkEmail"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "kind",
+          "next"
+        ]
+      },
+      "RedeemInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "lastName",
+          "dateOfBirth"
         ]
       },
       "PlatformSetReleaseChannelResponse": {
@@ -25727,6 +25938,319 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/registrations": {
+      "post": {
+        "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; a visitor founding a firm is emailed a confirmation link, and the firm is built only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
+        "operationId": "registrations.start",
+        "tags": [
+          "registrations"
+        ],
+        "x-mc-operationId": "registrations.start",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "registrations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The registration was accepted; what to do next is in the body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/registrations/confirmations": {
+      "post": {
+        "description": "Completes a registration by presenting the emailed token: the firm's build is queued and the owner is sent the link that sets their password. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
+        "operationId": "registrations.confirm",
+        "tags": [
+          "registrations"
+        ],
+        "x-mc-operationId": "registrations.confirm",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "registrations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The registration is confirmed and the firm is being built",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The token will not confirm — unknown, already used, or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations": {
+      "post": {
+        "description": "Issues an invitation into the session firm and returns its code once. Redemption additionally requires the invitee's surname and date of birth, which are folded into a single stored verifier and never kept on their own.",
+        "operationId": "invitations.issue",
+        "tags": [
+          "invitations"
+        ],
+        "x-mc-operationId": "invitations.issue",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "invitations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The issued invitation, carrying the code for the only time it is readable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueInvitationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability to bring people into the firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations/redemptions": {
+      "post": {
+        "description": "Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.",
+        "operationId": "invitations.redeem",
+        "tags": [
+          "invitations"
+        ],
+        "x-mc-operationId": "invitations.redeem",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "invitations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The invitation was redeemed; the password-setting link has been sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedeemInvitationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination and carries the remaining attempt budget",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -66906,6 +67430,9 @@
       "name": "incidents"
     },
     {
+      "name": "invitations"
+    },
+    {
       "name": "locations"
     },
     {
@@ -66958,6 +67485,9 @@
     },
     {
       "name": "rates"
+    },
+    {
+      "name": "registrations"
     },
     {
       "name": "safeBrowse"
