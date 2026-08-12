@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: todo
 load-profile: todo
 tested: in-progress by="Opus 5"
-branch: claude/discovery-5-2-1
-active-work: docs/active-work/claude/discovery-5-2-1.md
+branch: main
+active-work:
 next: 5·2·2 — privilege review: `privilege_basis` (seeded), `privilege_claim` and its bases junction, claim editing under domain audit, the dangling-claim quality-control read, log fields derived from the metadata 5·1 extracts with per-claim overrides, and the draft privilege log as a paged read and an export
 link-spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
 link-plan:

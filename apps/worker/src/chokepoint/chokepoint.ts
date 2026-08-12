@@ -242,11 +242,20 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         const rateLimitKey = firmId !== undefined ? `firm:${firmId}` : clientRateLimitKey(c);
         const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
         if (!verdict.allowed) {
+          // The budget rides the BODY as well as the header. Retry-After alone tells a caller when
+          // to come back and nothing about how much room it had, so a surface that wants to warn
+          // before the wall — the sign-in ladder is the one that made this necessary — had to
+          // invent the number or say nothing. Both fields come off the verdict, never a constant
+          // here, so the limiter stays the one authority on its own arithmetic.
           const response = problemJson(c, {
             type: "rate-limited",
             status: 429,
             title: "Too many requests",
             detail: "Rate limit exceeded; retry after the interval in the Retry-After header.",
+            attemptsRemaining: verdict.remaining,
+            ...(verdict.retryAfterSeconds !== undefined && {
+              retryAfterSeconds: verdict.retryAfterSeconds,
+            }),
           });
           if (verdict.retryAfterSeconds !== undefined) {
             response.headers.set("retry-after", String(verdict.retryAfterSeconds));

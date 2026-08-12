@@ -46,6 +46,7 @@ import { resolveFirmBucket } from "./files/firm-bucket.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
+import { consumeFirmProvision } from "./firm-provision-consumer.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 import { buildAndStoreDerivedSnapshot } from "./status/derived-snapshot.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
@@ -66,6 +67,11 @@ const CONTROL_PLANE_CONSUMERS: Readonly<
   Record<string, (env: Bindings, row: OutboxRow) => Promise<void>>
 > = {
   "member.provision": consumeMemberProvision,
+  // A confirmed self-serve registration becomes a firm here rather than in the request that
+  // confirmed it — bucket creation, notification configuration and the key mint are external calls
+  // against an account-wide budget, and the provisioner is already resume-safe, which is exactly
+  // the contract an at-least-once consumer needs.
+  "firm.provision": consumeFirmProvision,
 };
 
 // A control-plane user whose firm database carries no member row — the reconciliation backstop's

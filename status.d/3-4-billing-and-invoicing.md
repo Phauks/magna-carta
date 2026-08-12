@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: todo
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
-branch: claude/billing-fee-models
-active-work: docs/active-work/claude/billing-fee-models.md
+branch: main
+active-work:
 next: Taxes; credit notes, client credits, write-offs and reversals; presentation, delivery, LEDES
 link-spec: docs/specs/2026-08-05-billing-design.md
 link-plan: docs/specs/2026-08-05-billing-implementation-plan.md

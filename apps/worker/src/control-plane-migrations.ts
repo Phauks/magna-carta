@@ -4,6 +4,7 @@ import baselineSql from "@magna-carta/database/drizzle/control-plane/20260704T04
 import emailCaptureRouteSql from "@magna-carta/database/drizzle/control-plane/20260803T222618_email-capture-route.sql";
 import twoFactorLockoutFieldsSql from "@magna-carta/database/drizzle/control-plane/20260803T230717_two-factor-lockout-fields.sql";
 import firmBucketNameUniqueSql from "@magna-carta/database/drizzle/control-plane/20260804T065814_firm-bucket-name-unique.sql";
+import selfServeRegistrationAndInvitationsSql from "@magna-carta/database/drizzle/control-plane/20260811T224252_self-serve-registration-and-invitations.sql";
 
 // The control-plane migration lineage bundled INTO the worker (no filesystem at runtime): the
 // scheduled handler is the single-flighted sole applier of these against DB_CONTROL. Mirrors
@@ -16,6 +17,8 @@ export function controlPlaneMigrations(): Migration[] {
     "20260803T222618_email-capture-route": emailCaptureRouteSql,
     "20260803T230717_two-factor-lockout-fields": twoFactorLockoutFieldsSql,
     "20260804T065814_firm-bucket-name-unique": firmBucketNameUniqueSql,
+    "20260811T224252_self-serve-registration-and-invitations":
+      selfServeRegistrationAndInvitationsSql,
   });
 }
 

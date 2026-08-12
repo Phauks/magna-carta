@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: todo
 load-profile: todo
 tested: todo
-branch: claude/magnus-slice-1
-active-work: docs/active-work/claude/magnus-slice-1.md
+branch: main
+active-work:
 next: Explicit per-conversation context grants (the ratified shape), token streaming, then the chat surface
 link-spec: docs/specs/2026-08-06-magnus-design.md
 link-plan: docs/specs/2026-08-06-magnus-implementation-plan.md

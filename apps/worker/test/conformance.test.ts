@@ -53,6 +53,12 @@ const MONEY_SUBSYSTEM_KEYWORDS = new Set([
 // — no route is silently public.
 const PUBLIC_ALLOW_LIST: Record<string, string> = {
   "health.read": "Liveness/readiness probe — platform plumbing, no firm data, no session.",
+  "registrations.start":
+    "The front door: a visitor with no account asks to join, so no session can exist. Writes one control-plane registration row and sends one email — no firm, no bucket, no key. Every outcome answers identically so the endpoint cannot be used to test which addresses have accounts; IP-keyed rate limiting is the enforcement the chokepoint still applies.",
+  "registrations.confirm":
+    "Presents the emailed confirmation token, which is itself the only credential the caller can hold at this point — a session would require the account this confirms into existence. Unknown, spent and expired tokens answer one identical refusal.",
+  "invitations.redeem":
+    "Redeemed by someone who has no account yet, which is the point of an invitation. The code plus the invitee's surname and date of birth are the credential; every unsuccessful combination answers one identical refusal, and the invitation spends its own attempt budget beside the IP-keyed one.",
 };
 
 // POST routes that mutate nothing — a pure computation over the request body (a preview/render) — are
@@ -966,6 +972,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "folders.update",
       "health.read",
       "incidents.report",
+      "invitations.issue",
+      "invitations.redeem",
       "locations.assignMember",
       "locations.clearLetterheadLogo",
       "locations.close",
@@ -1059,6 +1067,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "rateCards.list",
       "rates.append",
       "rates.reRateDrafts",
+      "registrations.confirm",
+      "registrations.start",
       "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",

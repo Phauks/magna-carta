@@ -204,6 +204,21 @@ export const PROBLEM_TYPES = {
   // the firm holds the physical original of a scheduled thing, so a link to nothing asserts something
   // false rather than nothing at all.
   "matter-asset-unknown-custody-item": "matter-asset-unknown-custody-item",
+  // An invitation that will not redeem, for ANY reason (HTTP 422). Deliberately ONE type with ONE
+  // detail sentence covering every cause — an unknown code, a code that belongs to somebody else, a
+  // wrong surname, a wrong date of birth, an invitation already redeemed, revoked or expired. The
+  // three facts are stored as a single combined digest precisely so this handler cannot tell those
+  // causes apart, but the wire shape has to hold the line too: a distinct type or a distinct detail
+  // per cause would rebuild the oracle the storage shape was chosen to prevent, and "that code has
+  // already been used" alone confirms to a stranger that a named person was invited to a named
+  // firm. A real invitee who mistypes is helped by the surface offering the firm's contact, never by
+  // the server naming the field.
+  "invitation-not-redeemable": "invitation-not-redeemable",
+  // A registration confirmation that will not complete (HTTP 422): the token is unknown, already
+  // spent, or past its life. Same single-type discipline as the invitation above, for the same
+  // reason — the branches differ only in ways that would tell a stranger something about somebody
+  // else's sign-up.
+  "registration-not-confirmable": "registration-not-confirmable",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

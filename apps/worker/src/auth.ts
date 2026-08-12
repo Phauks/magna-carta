@@ -24,6 +24,41 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
   twoFactor: "twoFactor",
 };
 
+// RECOVERY CODES — the codes a member writes down and comes back to a year later, so the shape is
+// chosen for being read off paper and typed by hand rather than for looking cryptographic.
+//
+// The `MC` prefix makes a code recognisable in a password manager, a safe, or a printed sheet
+// alongside codes from other services — the one thing that stops somebody trying an unrelated
+// service's codes here and burning their attempt budget. It adds NO entropy, which is precisely why
+// the random part is not shortened to pay for it: ten characters is what the library's own default
+// carries and the prefix is on top, never instead.
+//
+// The alphabet excludes `I l 1 O 0` for the same reason the invitation alphabet does
+// (joining-secrets.ts): those are the glyph pairs a person mistypes off paper, and a recovery code
+// is used on the worst day somebody is having.
+const RECOVERY_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const RECOVERY_CODE_RANDOM_LENGTH = 10;
+const RECOVERY_CODE_COUNT = 10;
+
+function recoveryCodes(): string[] {
+  // Rejection-sampled to stay uniform: 256 is not a multiple of the alphabet's length, so a bare
+  // modulo would make the first few letters more likely and quietly shrink the code's space.
+  const limit = Math.floor(256 / RECOVERY_CODE_ALPHABET.length) * RECOVERY_CODE_ALPHABET.length;
+  const codes: string[] = [];
+  while (codes.length < RECOVERY_CODE_COUNT) {
+    let random = "";
+    while (random.length < RECOVERY_CODE_RANDOM_LENGTH) {
+      for (const byte of crypto.getRandomValues(new Uint8Array(RECOVERY_CODE_RANDOM_LENGTH * 2))) {
+        if (byte >= limit) continue;
+        random += RECOVERY_CODE_ALPHABET[byte % RECOVERY_CODE_ALPHABET.length];
+        if (random.length === RECOVERY_CODE_RANDOM_LENGTH) break;
+      }
+    }
+    codes.push(`MC${random}`);
+  }
+  return codes;
+}
+
 // Auth audit writes are observability, not gates: the INSERT failing must never break
 // the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
 // surface as a 500 on the auth route. A failure is logged through the telemetry pipeline
@@ -193,6 +228,6 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         },
       },
     },
-    plugins: [twoFactor()],
+    plugins: [twoFactor({ backupCodeOptions: { customBackupCodesGenerate: recoveryCodes } })],
   });
 }
