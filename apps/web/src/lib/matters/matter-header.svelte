@@ -21,13 +21,13 @@
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import type { MatterFixture } from "$lib/matters/fixtures.ts";
+  import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
-  let { matter }: { matter: MatterFixture } = $props();
+  let { matter }: { matter: MatterRecord } = $props();
 
   // The status seal, in the subtle badge register. Closed is archived-but-additive — a matter
   // can still accrue record after closing — so it reads quiet neutral, never destructive red.
-  const STATUS_SEAL: Record<MatterFixture["status"], { label: string; variant: BadgeVariant }> = {
+  const STATUS_SEAL: Record<MatterRecord["status"], { label: string; variant: BadgeVariant }> = {
     prospective: { label: "Prospective", variant: "info" },
     open: { label: "Open", variant: "success" },
     closed: { label: "Closed", variant: "neutral" },
@@ -36,7 +36,7 @@
   // One lifecycle action per status: the single next step the matter's life offers. Closing
   // archives (Archive, not a destructive glyph — the record stays additive after close).
   const LIFECYCLE_ACTION: Record<
-    MatterFixture["status"],
+    MatterRecord["status"],
     { label: string; icon: typeof Archive }
   > = {
     prospective: { label: "Open matter", icon: FolderOpen },

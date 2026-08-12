@@ -5,6 +5,7 @@ One plain-language guide per user-visible feature. Naming: `<feature>.md` (e.g. 
 Each guide follows the per-feature pattern in [`../README.md`](../README.md): what it does, how to do the common tasks, tips/edge cases, related features — no internal architecture.
 
 - [`signing-in.md`](signing-in.md) — Signing in: the email, password, and authenticator-code steps, staying signed in, trusting a device, and what to do when a sign-in is refused.
+- [`matter-documents.md`](matter-documents.md) — A matter's documents: the Files page — adding a document from a file or from a template, saving a new version, the version history, and opening the browser editor.
 - [`joining-magna-carta.md`](joining-magna-carta.md) — Joining Magna Carta: registering, the three-way choice between being a client, working at a firm, or starting one, and redeeming an invitation with a code, surname and date of birth (backend built, screens pending).
 - [`asset-register.md`](asset-register.md) — Asset register: what an estate or a client owns, kept on the matter, with a dated value history, interests, and linked documents (backend built, screens pending).
 - [`billing-fee-arrangements.md`](billing-fee-arrangements.md) — Fee arrangements: recording how a matter is billed (hourly, flat fee, contingency, retainer), billing each kind, retainer top-ups, and how multi-matter bills are presented (backend built, screens pending).

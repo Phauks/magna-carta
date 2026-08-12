@@ -42,10 +42,11 @@
 
 - id: documents.file-manager.matter-files-ui
   name: Matter Files surface
-  scope: Multi-view file browser (collection region + capability detail pane) bound to real data via the typed api-client.
+  scope: The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it.
   status: in-build
   spec: docs/specs/2026-07-09-matter-file-manager-design.md
-  evidence: Remote branch file-surface-web + docs/active-work/file-surface-web.md; shared view shell and dev-seed/login e2e already merged to main.
+  evidence: Branch claude/document-surface — apps/web/src/lib/documents/ + the matters/[id]/files route, on same-origin /api/v1 calls; the matter chrome now resolves a live matter, so a firm's own matter is reachable at its own URL. Predecessor branch file-surface-web is unmerged and superseded for this node (its view shell and dev-seed/login e2e are already on main).
+  notes: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions.
 
 - id: documents.file-manager.file-inspector
   name: File Inspector workbench
