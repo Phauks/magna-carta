@@ -16,7 +16,7 @@ Two tick boxes decide how much you will be asked next time:
 
 These two are different dials, and you can use either without the other. The first is about how long this device stays signed in; the second only skips the code step.
 
-**Where accounts come from.** Most people are invited: your firm's administrator sends you an invitation, and you redeem it with a code, your surname and your date of birth. If you are starting a firm of your own, you can create the workspace yourself. Either way the door is [Joining Magna Carta](joining-magna-carta.md) — the sign-in screen itself has no sign-up link.
+**Where accounts come from.** Most people are invited: your firm's administrator sends you an invitation, and you redeem it with a code, your surname and your date of birth. If you are starting a firm of your own, you can create the workspace yourself. Either way the door is [Joining Magna Carta](joining-magna-carta.md), which you reach from the **Register** link beside the email field.
 
 ## Common tasks
 
