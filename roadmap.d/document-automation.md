@@ -14,7 +14,7 @@
 - id: document-automation.conditional-assembly
   name: Conditional document assembly
   scope: Merge fields plus conditional clauses/sections driven by matter data.
-  status: built
+  status: shipped
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0218
   evidence: Substitution, {{#if}}/{{#unless}} conditional blocks, {{#each}} repeats, and {{= }} computed fields are built and tested over a closed expression language (packages/document-assembly/src/expression/, src/blocks.ts) checked at registration with a character offset. Removal and repetition operate on whole paragraphs and whole table rows, so list numbering and table banding survive. An unresolved condition fails the assembly naming the field; an unresolved calculation renders a visible placeholder.

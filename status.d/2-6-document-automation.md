@@ -12,7 +12,7 @@ tested: done by="Opus 4.8"
 next: PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
-adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization, ADR-document-automation-directory-role-sources, ADR-document-automation-protected-value-binding
+adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-0222, ADR-0233, ADR-0238
 blocked-by:
 ---
 
