@@ -19,6 +19,7 @@ import {
   UNMATCHABLE_VERIFIER_HASH,
 } from "../src/joining-secrets.ts";
 import { INVITATION_ATTEMPT_LIMIT } from "../src/routes/invitations.ts";
+import { ATTEMPT_LIMIT } from "../src/auth-attempt-budget.ts";
 
 // THE ATTACK THESE TESTS RUN. Everything below is written from the position of somebody who has no
 // account and wants to learn something they are not entitled to: whether a named person banks with
@@ -43,23 +44,22 @@ const INVITEE = {
   dateOfBirth: "1984-03-17",
 };
 
-interface ObservableAnswer {
-  status: number;
-  type: unknown;
-  title: unknown;
-  detail: unknown;
-}
+// Minted fresh on every reply and identifying the REQUEST rather than its answer, so two identical
+// answers carry different ones. They are the only things a comparison may drop.
+const PER_REQUEST_HANDLES = new Set(["errorId", "correlationId"]);
 
-// What a caller can actually see. attemptsRemaining is deliberately EXCLUDED: it is a fact about
-// the caller's own spent attempts, which they already know, and it legitimately differs between a
-// miss against a real invitation and a miss against nothing.
-async function observableAnswer(response: Response): Promise<ObservableAnswer> {
+// What a caller can actually see: the status and every field of the body except those handles.
+// Nothing is exempted by name — in particular NOT attemptsRemaining and NOT retryAfterSeconds. A
+// budget that moves with what the lookup found is an enumeration oracle however neutral the
+// sentence printed beside it reads, and a field added here later is compared by default rather than
+// slipping through because nobody thought to add it.
+async function observableAnswer(response: Response): Promise<Record<string, unknown>> {
   const body = (await response.json()) as Record<string, unknown>;
   return {
-    status: response.status,
-    type: body["type"],
-    title: body["title"],
-    detail: body["detail"],
+    httpStatus: response.status,
+    ...Object.fromEntries(
+      Object.entries(body).filter(([field]) => !PER_REQUEST_HANDLES.has(field)),
+    ),
   };
 }
 
@@ -147,7 +147,7 @@ describe("invitation redemption is not an oracle", () => {
     );
 
     expect(wrongDateOfBirth).toEqual(inventedCode);
-    expect(wrongDateOfBirth.status).toBe(422);
+    expect(wrongDateOfBirth["httpStatus"]).toBe(422);
   });
 
   it("answers a wrong surname exactly as it answers a wrong date of birth", async () => {
@@ -212,42 +212,164 @@ describe("invitation redemption is not an oracle", () => {
     expect(collided).toEqual(inventedCode);
   });
 
-  it("spends the invitation's own attempt budget and locks it, so a date of birth cannot be walked", async () => {
-    const code = await issueInvitation({ email: "budget-walk@example.com" });
+  // THE ORACLE THIS TEST EXISTS TO DENY. The row is looked up by the code ALONE — the combined
+  // digest guards the verifier comparison, not the lookup — so anybody holding a guessed code can
+  // submit it with invented facts and read the answer. If ANY field of that answer moves with what
+  // the lookup found, the surname and the date of birth have stopped mattering and the endpoint is
+  // a "does this code exist" service: the enumeration this whole module is arranged to prevent,
+  // reached without knowing either fact about the person.
+  //
+  // Anything a future refactor adds to the refusal has to survive this table. If it does not, do
+  // not exempt the field — the field is the leak.
+  it("tells a prober nothing about whether the code they guessed belongs to a real invitation", async () => {
+    const liveEmail = "state-live@example.com";
+    const liveCode = await issueInvitation({ email: liveEmail });
 
-    const remainingSeen: number[] = [];
+    const expiredEmail = "state-expired@example.com";
+    const expiredCode = await issueInvitation({ email: expiredEmail });
+    await env.DB_CONTROL.prepare(
+      "UPDATE invitation SET expires_at = '2000-01-01T00:00:00.000Z' WHERE email = ?1",
+    )
+      .bind(expiredEmail)
+      .run();
+
+    const revokedEmail = "state-revoked@example.com";
+    const revokedCode = await issueInvitation({ email: revokedEmail });
+    await env.DB_CONTROL.prepare("UPDATE invitation SET status = 'revoked' WHERE email = ?1")
+      .bind(revokedEmail)
+      .run();
+
+    const redeemedEmail = "state-redeemed@example.com";
+    const redeemedCode = await issueInvitation({ email: redeemedEmail });
+    const spent = await redeem({
+      code: redeemedCode,
+      lastName: INVITEE.lastName,
+      dateOfBirth: INVITEE.dateOfBirth,
+    });
+    expect(spent.status).toBe(200);
+
+    const lockedEmail = "state-locked@example.com";
+    const lockedCode = await issueInvitation({ email: lockedEmail });
+    await env.DB_CONTROL.prepare(
+      "UPDATE invitation SET attempt_count = ?2, locked_until = ?3 WHERE email = ?1",
+    )
+      .bind(lockedEmail, INVITATION_ATTEMPT_LIMIT, "2999-01-01T00:00:00.000Z")
+      .run();
+
+    // What the prober actually sends: the code under test, and facts they do not have.
+    const invented = { lastName: "Notthename", dateOfBirth: "1900-01-01" };
+
+    // Every probe comes from its OWN caller address, so all six stand at the same rung of their own
+    // ladder. The only thing left that could make two answers differ is the invitation the lookup
+    // did or did not find, which is exactly the fact under test.
+    const probes = [
+      ["a code that matches no invitation at all", generateInvitationCode()],
+      ["a live, pending, unlocked invitation", liveCode],
+      ["an expired invitation", expiredCode],
+      ["a revoked invitation", revokedCode],
+      ["an already-redeemed invitation", redeemedCode],
+      ["an invitation locked out by its own spent attempts", lockedCode],
+    ] as const;
+
+    const answers: { label: string; answer: Record<string, unknown> }[] = [];
+    for (const [label, code] of probes) {
+      answers.push({ label, answer: await observableAnswer(await redeem({ code, ...invented })) });
+    }
+
+    const noSuchCode = answers[0];
+    expect(noSuchCode?.answer["httpStatus"]).toBe(422);
+    // The published budget is the CALLER's first spend, identical for all six because all six
+    // callers have spent exactly one attempt. Asserted against the caller ladder's own limit rather
+    // than the invitation's, because that is the ladder it must be read from.
+    expect(noSuchCode?.answer["attemptsRemaining"]).toBe(ATTEMPT_LIMIT - 1);
+    for (const { label, answer } of answers.slice(1)) {
+      expect(
+        answer,
+        `probing ${label} must be indistinguishable from probing a code that matches nothing`,
+      ).toEqual(noSuchCode?.answer);
+    }
+  });
+
+  it("still spends the invitation's own attempt budget and locks it, while saying nothing about it", async () => {
+    const email = "budget-walk@example.com";
+    const code = await issueInvitation({ email });
+
+    // Five wrong guesses, each from a different caller, so the only ladder walking down is the
+    // invitation's. Every answer is identical, because none of them is about the invitation.
+    const answers: Record<string, unknown>[] = [];
     for (let attempt = 0; attempt < INVITATION_ATTEMPT_LIMIT; attempt += 1) {
-      const response = await redeem({
-        code,
-        lastName: INVITEE.lastName,
-        dateOfBirth: `19${70 + attempt}-01-01`,
-      });
+      answers.push(
+        await observableAnswer(
+          await redeem({
+            code,
+            lastName: INVITEE.lastName,
+            dateOfBirth: `19${70 + attempt}-01-01`,
+          }),
+        ),
+      );
+    }
+    for (const answer of answers) expect(answer).toEqual(answers[0]);
+
+    // The counter is kept and the lockout is armed. This is the defence that stops somebody walking
+    // a date of birth against a code they genuinely hold, and it has to survive the refusal going
+    // quiet — the defect was reporting this number, never keeping it.
+    const row = await env.DB_CONTROL.prepare(
+      "SELECT attempt_count, locked_until FROM invitation WHERE email = ?1",
+    )
+      .bind(email)
+      .first<{ attempt_count: number; locked_until: string | null }>();
+    expect(row?.attempt_count).toBe(INVITATION_ATTEMPT_LIMIT);
+    expect(row?.locked_until).not.toBeNull();
+
+    // And the RIGHT answer is now refused too, to a fresh caller with a full budget of their own —
+    // byte for byte the answer a wrong guess got. Once the invitation's attempts are spent, whether
+    // this attempt was correct stopped mattering, and the lockout does not get a wording, a status
+    // or a number of its own that would mark the code out as real.
+    const correctButLocked = await observableAnswer(
+      await redeem({ code, lastName: INVITEE.lastName, dateOfBirth: INVITEE.dateOfBirth }),
+    );
+    expect(correctButLocked).toEqual(answers[0]);
+  });
+
+  it("counts the caller's own budget down and then refuses them, so the number it publishes is real", async () => {
+    // One address across codes that match nothing: the ladder being walked here is the caller's,
+    // and it is the one the answer reports.
+    const prober = "198.51.100.7";
+    const remainingSeen: number[] = [];
+    for (let attempt = 0; attempt < ATTEMPT_LIMIT; attempt += 1) {
+      const response = await redeem(
+        { code: generateInvitationCode(), lastName: "Nobody", dateOfBirth: "1900-01-01" },
+        prober,
+      );
       expect(response.status).toBe(422);
       const body = (await response.json()) as { attemptsRemaining?: number };
       remainingSeen.push(body.attemptsRemaining ?? -1);
     }
-    // The budget is published and it counts down honestly, which is the whole reason the screens
-    // can render a remaining-attempts line at all.
-    expect(remainingSeen).toEqual([4, 3, 2, 1, 0]);
+    expect(remainingSeen).toEqual([...Array(ATTEMPT_LIMIT).keys()].toReversed());
 
-    // And the RIGHT answer is now refused too: once the budget is spent, whether this attempt was
-    // correct stopped mattering — otherwise the lockout would hand back one oracle bit per request.
-    const correctButLocked = await redeem({
-      code,
-      lastName: INVITEE.lastName,
-      dateOfBirth: INVITEE.dateOfBirth,
-    });
-    expect(correctButLocked.status).toBe(422);
-    const lockedBody = (await correctButLocked.json()) as {
+    // Spent, and enforced rather than decorative: the correct three facts for a live invitation are
+    // refused from this address, and the invitation is left untouched for the person it belongs to.
+    const email = "caller-locked-out@example.com";
+    const code = await issueInvitation({ email });
+    const lockedOut = await redeem(
+      { code, lastName: INVITEE.lastName, dateOfBirth: INVITEE.dateOfBirth },
+      prober,
+    );
+    expect(lockedOut.status).toBe(422);
+    const lockedBody = (await lockedOut.json()) as {
       attemptsRemaining?: number;
       retryAfterSeconds?: number;
-      detail?: string;
     };
     expect(lockedBody.attemptsRemaining).toBe(0);
     expect(lockedBody.retryAfterSeconds).toBeGreaterThan(0);
-    // Still the same sentence — the lockout does not get its own wording that would mark the code
-    // out as real.
-    expect(lockedBody.detail).toContain("could not be redeemed");
+
+    const untouched = await env.DB_CONTROL.prepare(
+      "SELECT status, attempt_count FROM invitation WHERE email = ?1",
+    )
+      .bind(email)
+      .first<{ status: string; attempt_count: number }>();
+    expect(untouched?.status).toBe("pending");
+    expect(untouched?.attempt_count).toBe(0);
   });
 
   it("redeems on the correct three facts, and tolerates the ways a person types them", async () => {
