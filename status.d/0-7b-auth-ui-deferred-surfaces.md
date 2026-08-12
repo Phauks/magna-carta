@@ -9,8 +9,8 @@ built: in-progress
 ui: in-progress
 load-profile: n/a
 tested: in-progress
-branch: claude/sign-in-transposition
-active-work: docs/active-work/claude/sign-in-transposition.md
+branch: main
+active-work:
 next: Registration and invitation redemption, the two-factor enrolment screens, and reset-password as one progressively-disclosed screen — each behind a server route that does not exist yet
 link-spec:
 link-plan:

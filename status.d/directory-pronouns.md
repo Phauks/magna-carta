@@ -9,8 +9,8 @@ built: done by="Opus 5" gap
 ui: todo
 load-profile: n/a
 tested: todo
-branch: claude/directory-pronouns
-active-work: docs/active-work/claude/directory-pronouns.md
+branch: main
+active-work:
 next: Owner review of the pull request, then the Directory pronoun surface (presets plus free-form entry)
 link-spec:
 link-plan:

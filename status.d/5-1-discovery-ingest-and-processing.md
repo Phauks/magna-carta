@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: n/a
 load-profile: todo
 tested: todo
-branch: claude/discovery-5-1-2
-active-work: docs/active-work/claude/discovery-5-1-2.md
+branch: main
+active-work:
 next: 5·1·3 — processing: the DISCOVERY_PROCESS queue lane and its consumer, the composite extraction port that routes to the discovery engine, the derived text and sidecar writes, exact deduplication with occurrence rows, container families, the exception table, and the manifest and exception report at load completion
 link-spec: docs/specs/2026-08-05-discovery-5-1-design.md
 link-plan: docs/specs/2026-08-05-discovery-5-1-implementation-plan.md
