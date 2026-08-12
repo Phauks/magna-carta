@@ -472,6 +472,14 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api/auth/*", attemptBudgetMiddleware(attemptLadder));
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
+  // A SECOND ladder, of the same shape and for the same reason, for the anonymous invitation
+  // redemption form. It is the budget that route's refusal publishes — the invitation's own count
+  // is a fact about the invitation and answering with it would tell a prober whether a guessed code
+  // is live (routes/invitations.ts). Separate state from the credential ladder above because the
+  // two surfaces ask different questions of different people: a member mistyping their password
+  // should not spend a new joiner's tries, or the reverse.
+  const invitationRedemptionLadder = createAttemptLadder();
+
   // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
   // public firms route additionally mounts the platform-admin secret guard as route-specific
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
@@ -557,7 +565,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
   // rides the chokepoint's tightest rate-limit bucket.
   registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv);
-  registerInvitationRoutes(app, chokepoint, authForEnv);
+  registerInvitationRoutes(app, chokepoint, authForEnv, invitationRedemptionLadder);
   registerPlatformReleaseChannelRoute(app, chokepoint);
   registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);

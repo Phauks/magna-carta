@@ -7099,7 +7099,7 @@ export type InvitationsRedeemData = {
 
 export type InvitationsRedeemErrors = {
     /**
-     * The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination and carries the remaining attempt budget
+     * The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination, including a code that matches no invitation at all; the attempt budget it carries counts the caller's own attempts, never any invitation's
      */
     422: Problem;
     /**
