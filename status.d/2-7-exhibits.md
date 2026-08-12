@@ -10,10 +10,10 @@ ui: todo
 load-profile: todo
 tested: todo
 next: Build slice 2·7·1 — the exhibit set, ordering, the computed label, and the freeze at issue.
-active-work: docs/active-work/claude/exhibit-lists.md
+active-work:
 link-spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
 link-plan: docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md
-adrs: ADR-exhibit-identity-position-label, ADR-exhibit-set-freeze-at-issue
+adrs: ADR-0273, ADR-0274
 blocked-by:
 ---
 

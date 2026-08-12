@@ -328,28 +328,28 @@
           "state": "todo"
         },
         "built": {
-          "state": "todo"
+          "state": "in-progress"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress"
         },
         "load-profile": {
           "state": "n/a"
         },
         "tested": {
-          "state": "todo"
+          "state": "in-progress"
         }
       },
       "branch": "main",
       "activeWork": null,
-      "next": null,
+      "next": "The registration and invitation SCREENS (their routes now exist), the two-factor enrolment screens, reset-password as one progressively-disclosed screen, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "First human-operable surface; own design cycle when it starts."
+      "notes": "Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry\nand real recovery-code entry. Every state renders on the developer console's screen-state page.\n\nThe backend behind those screens now exists for three of the nine gaps the screen-state page\nregistered: self-serve registration with the three-way role fork, invitation redemption against a\ncode plus surname and date of birth behind one neutral refusal, and the shared attempt budget the\nsign-in surface renders — which is wired to the live screens, the count and the lockout countdown\nincluded. Recovery codes are `MC`-prefixed. Registration and invitation redemption have routes but\nno screens yet."
     },
     {
       "slice": "1·1 — Matters + Locations + File Manager",
@@ -750,8 +750,58 @@
           "by": "Opus 4.8"
         },
         "built": {
-          "state": "in-progress",
+          "state": "done",
           "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.",
+      "links": {
+        "spec": "docs/specs/2026-08-04-template-expression-language-design.md",
+        "plan": "docs/specs/2026-08-04-document-automation-implementation-plan.md",
+        "adrs": [
+          "ADR-0210",
+          "ADR-0211",
+          "ADR-0217",
+          "ADR-0218",
+          "ADR-0222",
+          "ADR-0233",
+          "ADR-0238"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables\n(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,\n`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object\nover a dedicated queue, and the assembled document filed through `initiateUpload` /\n`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is\nthe single stored placeholder form, and the merge is in-house rather than an adopted library.\n\nBoth registration transforms of the firm's own document are **opt-in and always reported**, revised\non 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered\nwithout it keeps them — each recorded on the field manifest with the part it sits in and the frozen\ncached text it will print, reported again by every assembly in the response and on the provenance row,\nand landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank\nmeets the same absence model an ordinary missing value does. Removing macros likewise runs only on\nrequest; a macro-bearing upload without the opt-in is refused with both remedies named, never stored\ncarrying live macros and never stripped silently. The per-firm **field-mapping library** behind\n`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion\nconfirms them, read once per registration, listed and deletable under `templates:manage`.\n\nBuild slice 2·6·2 shipped the **template expression language** and the three constructs written in it.\n`src/expression/` is an OOXML-free folder — `limits.ts`, `errors.ts`, `lex.ts`, `parse.ts`,\n`catalog.ts`, `check.ts`, `evaluate.ts` — holding one lexer, one recursive-descent parser over a closed\ngrammar, one static checker, and one total evaluator, so the language was proven as a language before it\nmet a package. A merge key is ONE lexical atom resolved by exact match through a `Map`, there is no\nproduction for property traversal, indexing, assignment, a lambda, a regular expression, or a call to\nanything but a frozen helper allowlist, and nothing in the folder throws. Lex, parse, name-resolve,\ntype-check, format-check, and limit-check all run at REGISTRATION, so a type error is a registration\nfailure with a part, an excerpt, and a character offset inside the expression — never an assembly\nsurprise. The manifest stores each block's and computed field's SOURCE rather than a tree, and assembly\nre-checks from it, which is what catches dictionary drift.\n\n`{{#if}}` / `{{#unless}}` / `{{#each}}` / `{{= }}` operate on whole paragraphs and whole table rows —\na marker in a row's first cell makes the row the unit — so list numbering and table banding survive a\nremoved or a repeated unit, and every repeat clone carries its own paragraph and row properties. Money\narithmetic is integer-exact through `@magna-carta/money`, with every intermediate checked before the\noperation so the package's own guard is unreachable; division is not an operator, and `divideExact`,\n`divideRounded`, `applyRate`, `percentOf`, and `allocate` each state their rounding. Owner-flagged\ndefaults applied as recommended: an unresolved condition FAILS the assembly naming the field (G1),\nbanker's rounding only (G2), no business-day math (G3), no pronoun helper (G5). G4 was answered the\nfollowing day the other way: `sum`, `minimum`, and `maximum` fold a LITERAL FIELD PATH of a list-valued\nkey, bounded by exactly what a repeat is bounded by — one batched read, the items-per-repeat cap, a\nstep per element — with an empty collection left unresolved rather than answered zero, because a\nsmallest of nothing has no answer and a total of no amounts has no currency. `matter.parties` is the\nfirst list-valued source, one batched read for the whole collection.\n\nThe security claim carries its fuzz obligation in the slice: a seeded structure-aware generator over\nthe grammar, a seeded byte-level generator, a committed denied-construct corpus that must fail at parse\nor check and never at evaluation, a pretty-print-and-reparse property (which found a real precedence\nbug), an independent BigInt arithmetic oracle, and one bound-hitting test per declared limit.\n\nThe **custom-field merge bindings and the letterhead logo** shipped next. A firm's own matter-axis\nfields enter the dictionary at read time as `custom.<customField_ handle>` entries derived from\n`custom_field` — bound by handle and never by name, so a rename breaks nothing — with the catalogue\nread once (`readCustomFieldCatalog`) and shared by registration, the field-list surface, and assembly,\nwhich is what makes drift detectable rather than silent: an archived field contributes no entry, so a\ntemplate bound to it fails naming the key, and a stored value behind an archived field is skipped and\nreported as an absence. Values resolve through one statement covering every handle, joining the\npicklist option's label and the referenced record's display name rather than fetching either per value.\n`effectiveNumberScale` is REUSED from `@magna-carta/custom-fields` rather than restated, so the same\nstored `500` is five hundred on a number field and five dollars on a currency field, and a currency\nfield with a non-currency scale renders as the exact decimal it is instead of as wrong-looking money.\nThe hard-delete guard gained its template-binding arm: a field a template manifest names is\n`field-in-use` and routes to Archive, with `document_template_version` referenced by string so the\nsibling packages stay independent. `custom.customField_…` also lexes as ONE atom in the expression\nlanguage — a handle's alphabet includes the hyphen, which is also subtraction, so the atom is matched by\nits exact fixed length and no author's spacing can decide which it is.\n\nThe **letterhead logo** is the engine's first image work, and answers the design's open question 3:\n**the asset declares the box**. `location` gained the logo columns (object key, sniffed content type,\nsize, hash, intrinsic pixels, printed width in EMU); only a width is stored, so the height follows from\nthe intrinsic aspect ratio and no document can print a stretched mark. `PUT`/`DELETE\n/api/v1/locations/{id}/letterhead-logo` take the image inline (a firm's mark is tens of kilobytes, and\none request is the only shape where reading what the bytes are, measuring them, and writing the row\nthat points at them happen together). `src/ooxml/image.ts` emits all four halves of a picture — the\npart, the `[Content_Types].xml` Default, the relationship on the drawing part (ids allocated per part,\nby scanning the ids present), and the inline `w:drawing` with every namespace bound on the element that\nuses it — and `packageIntegrityViolations` now proves each one over the emitted bytes, because a\ndocument whose words are right and whose picture wiring is not is a document no reader opens and no\ntext assertion catches. **Image-format policy: PNG and JPEG only, decided by magic bytes rather than by\na declared content type**, enforced at the write and re-checked at assembly; SVG, EMF/WMF, GIF, BMP and\nTIFF are refused with the reasoning recorded. An office with no logo, or one whose object has gone,\nassembles with a visible marker.\n\nThe **load-profile volume profile** deferred by all three build slices is now in the harness. A\n`documentAutomation` volume lays down the firm's template catalogue with its immutable version history,\nan archived tail, the confirmed Word-name-to-merge-key mapping library, and the assembly provenance\nrows — every write through the real composed effects, never a raw insert — plus, on one probe matter\ndeliberately chosen NOT to be the custom-field measurements' own probe, the merge-context hot case: the\nfirm's own matter-axis fields with current values, and a full party list. At the committed baseline\nthat is 181 templates over 479 versions with 27 archived, 1,605 assemblies, 120 mapping rows, and a\nprobe matter carrying 40 custom-field values and 13 party links.\n\nThe four measured operations the design names are on the clock: the catalogue list taken at a real\nkeyset boundary rather than at the head of the table, the one-read current-version resolve every job\nstarts with, the whole batched merge context for the widest template the firm's dictionary can offer,\nand the custom-field manifest read the dictionary is derived from. **Every hot-path plan is an index\nwalk — the scan allowlist for this set is empty.** The read the design flagged as the likely table-wide\nexception, the firm's field catalogue, walks `custom_field_scope_index` instead. What the merge-context\nmeasurement is really for is the batching rule: its cost tracks the number of SOURCES, not the number\nof fields, so a per-field resolver reintroduced later shows up as a curve rather than as a code review.\n\nThe declared-field count per template version is bounded by the dictionary rather than by the profile:\na manifest field is keyed by its merge key, so the probe template declares every key the firm has for\nthat matter — every platform key the dictionary carries (17 at the time it was laid down, 29 once the\nDirectory role sources landed) plus its 40 custom bindings. The number the batching rule is about is the\n40-handle bound-parameter list of the one value statement, and that is the parameter the profile carries;\nthe platform half widens whenever the dictionary does, without moving the read count.\n\nThe **Directory role sources** shipped next, closing the first of the two named seams. Four\nplatform-declared roles — `opposingParty`, `opposingCounsel`, `guardian`, `witness` — each contribute a\nname, a person-or-organisation kind, and a `<role>.all` collection, so a caption names the opposing party\nthe way it already names the client and a repeat lists them all. The set is PLATFORM-DECLARED rather than\nderived from the firm's `directory_party_role` catalogue: a custom field binds by a minted handle\nprecisely because its name is firm-typed text, and a role has no handle — only the words a firm typed,\nwhich neither lex as one atom nor get typed from memory. Matching is by normalization instead, both sides\nlowercased with every non-alphanumeric character removed, so `opposing_party`, `Opposing Party`, and\n`opposing-party` are one role and no two shipped sources may normalize alike (a fitness test, not care).\n**Ambiguity is an answer:** a matter linking three opposing parties resolves the singular keys to nothing\nand says there were three, rather than taking the first by created-at — a document naming the wrong\ndefendant is the mistake nobody catches by reading it. The reason rides a new `absenceReasons` channel on\nthe merge context through to `AssemblyAbsence.reason` and into the failure text of a condition that could\nnot be worked out, and is deliberately NOT persisted: the provenance row records absent KEYS, and a count\nof a matter's parties is the matter's data. No new read — every role is derived from the party collection\nthe merge context already fetched, so a template naming four roles costs what one naming none did, and\nthe four measured plans are untouched index walks.\n\n**Protected-value binding** closed the second named seam, and closed it by extending the existing decrypt\npath rather than by building beside it. The client's sealed Directory identifiers — Social Security\nnumber, Employer Identification Number, date of birth, driver's license number, account number, and\nSSN-last-four — are dictionary entries carrying `sensitivity: protected`, which is the ROUTING decision\nand not a label: they resolve through an injected reader wired to the directory's `readIdentifier`, which\nis `readProtected` — permission gate, decrypt-audit row committed before any plaintext, AAD-bound\ndecrypt, inseparable. `@magna-carta/document-assembly` names no ciphertext column, derives no key, and\ndecrypts nothing; the refusal it turns into an absence is the chokepoint's own\n`ProtectedReadForbiddenError`, caught by identity so the gate is never restated. **No assembly-specific\naudit shape:** the same `protected.decrypt` event, the same subject (the identifier row the AAD binds\nto), the same table a direct read writes — recorded as an ADR, since the alternative was a second reason\ncode and a firm's \"who saw this value\" answer split across two shapes.\n\n**A member without the permission gets the document.** The field lands on the absence model with a reason\nnaming the field and the permission, the draft shows the usual visible marker, and the assembly completes\n`succeeded_with_absences`; nothing is thrown, and the plaintext exists nowhere on that path. Permissions\nare RE-DERIVED when the job runs rather than carried on the queue message, so a revoked grant bites — the\nmessage carries an identity, never a decided answer — and the read is deferred to the first protected key,\nso an ordinary template pays nothing. The decrypt count is bounded by the manifest rather than batched\n(each ciphertext is bound to its own row and commits its own audit record, so a bulk form would have to\nbypass the chokepoint to exist): one decrypt per protected key the manifest names, deduplicated, and a\nrefusal costs exactly one attempt. The subject rides the party read that already happens; a matter linking\nno single client decrypts nothing and says how many it links. Both field-list surfaces now carry an\nentry's sensitivity, so an author sees what a template has bound before anything is assembled —\nregistration itself is unrestricted, because binding names a key, not a value.\n\nA firm declaring one of its OWN fields protected is a separate decision and not this one: it needs a\ncolumn on `custom_field` and a ciphertext column on `custom_field_value` that do not exist, and the\nderivation in `custom-field-bindings.ts` is the one line that reads the declaration once they do.\n\nBuild slice 2·6·5 shipped **the generated catalogue and its contract** — the substrate the merge-field\ncatalogue grows on. The dictionary is no longer a hand-written array: it is the cross product of a\nSUBJECT registry (the things a document can talk about) with a FACET registry (the facts a subject of\nthat kind carries), plus the written-out facts of the one-of-a-kind subjects. `DIRECTORY_ROLE_SOURCES`\nfolds into the subject registry rather than living beside it, so adding a party role is one row whose\nwhole facet set follows and adding a facet is one row every subject of that kind gains with identical\nabsence behaviour, formats, and description wording. A hand-written catalogue's wrong row is seen by\nnobody; a generated one's is wrong on every subject at once and is seen by every test together, which is\nthe trade the shape makes and the reason the fitness functions below exist.\n\n**A committed golden key list makes permanence a property rather than a promise.**\n`test/fixtures/shipped-keys.json` records every shipped key with its value type, source, default\nrendering, absence behaviour, and sensitivity; the test fails when a key disappears, changes any of\nthem, or makes its absence LESS visible (`blank` → `placeholder` → `fail` is the one permitted\ndirection). Adding a key stays safe — a template cannot bind what did not exist — and stays deliberate:\nit lands as a diff to that file. Two keys were added this way, `client.kind` and `client.all`, which the\nclient subject gains from the party facet set.\n\n**Presentation lives on the dictionary entry**, so the read contract is its projection rather than its\ntwin. Every entry carries a label, a picker heading from a declared group registry, the subject it is\nabout, a prominence, search synonyms, and one example rendering per legal format — produced by running\nan invented sample through the REAL format table, so an example can never describe a rendering the\nformatter does not produce. Availability and its note are DERIVED from the source and the subject's\noptionality rather than declared on every row. The absence marker reads the label, so a missing opposing\ncounsel leaves `[OPPOSING COUNSEL'S NAME]` rather than `[OPPOSING COUNSEL DISPLAY NAME]`.\n\n**The structured `name` value type** rides along, because it is what makes the format system testable:\n`displayName` carries the parts the Directory records — projected on the party read that already happens,\nnot a new one — and gains `full`, `formal`, `lastFirst`, `initials`, `family`, `given`, and `upper`. Its\ndefault rendering is byte-for-byte the string it always printed, proven against the plain-text rendering\nof the same recorded string, so no registered template's output moved. A RENDERING THE RECORD CANNOT\nSUPPORT IS A DECLARED ABSENCE WITH A REASON naming the missing part — never a fallback to a different\nrendering, which is the same failure the ambiguity rule refuses one level up.\n\n**The field-binding index** (`document_template_field_binding`) is the one new table: one row per\ndistinct merge key a version's manifest names, written in the same batch as the version. A template\nversion is immutable, so the rows can never disagree with the manifest they came from — no update path,\nno reconciliation, no staleness mode. It turns the custom-field hard-delete guard's `instr()` scan over\nevery stored manifest into an index seek, and it is what \"where is this field used\" and the picker's\nusage ordering will read. `documentTemplate.fieldBinding` counts the write by outcome; no merge-field key\nis ever a dimension.\n\nLoad profile: the `documentAutomation` set gains the catalogue projection and the binding-index lookup,\nboth index walks, with the generator version bumped because registration now writes binding rows.\n\n**Slices 2·6·8–2·6·10 built and tested — the platform record subjects, unblocked by the owner's H1\nratification.** Three per-firm records land as the Matters area's own tables with the catalogue as one\nconsumer: `matter_assignment` (staffing beyond the responsible attorney, whose one home stays the\nmatter row — an assignment role that normalizes to it is refused), `matter_court_case` (the court a\nDirectory organisation, the judge a Directory person, the case number and the two caption designation\nwords — side is a recorded fact, never a key axis), and `matter_estate` (the decedent a Directory\nperson, the styles STORED exactly as the court fixed them, never composed). `matter_party` gains a\nrecorded `capacity`, and the member professional profile carries title, admissions, direct dial, and\nprofessional email — written through `firm:manageMembers` until the platform grows a self-scoped\nmutation concept (the deferral the pending decision record names).\n\nFifty-five keys on three new batched reads — five member subjects on one staffing read, `court.*` and\n`case.*` on one court-case read, `estate.*` on one estate read — and the whole-catalogue read budget\ngrows from four statements to seven. The member subjects share the party facet grammar (level-1\nambiguity naming the count, `.all` as the way out) and every name is parts-carrying, so all seven\nrenderings apply to an attorney, the judge, and the decedent alike. `<member>.barNumber` is the first\nprotected fact about the firm's own people: `bar_number` joins the Directory identifier catalog\n(protected, never standalone-indexed), resolves only through the chokepoint reader, and is never\nattempted for a slot that resolved ambiguously — proven end to end in the worker suite with the audit\ntable itself (value plus one audit row with the permission; marker plus reason and NO row without it;\nno row at all on an ambiguous slot, even for a member who holds the permission). `capacityLine`\ncomposes in the resolver from three recorded facts with ONE absence naming the missing part — the\nthree-marker template concatenation it exists to prevent is the committed test. Caption and probate\nfixtures assemble in the shapes the profession files, asserted over emitted parts. The estate's date\nof death now drives the asset register's as-of date at assembly. Load profile: the probe matter gains\nstaffing, a court case, an estate, and a recorded capacity; three new plan probes prove the record\nreads are index walks (a partial index on `directory_person.member_id` was added for the staffing\nread's mapped-person seek); profile v12, generator v9.\n\nDeliberately deferred to the structured-value slice (2·6·6): the member's office address, the court's\naddress, and the signature block as merge facets — each needs the structured `address` type or real\nline-break (`w:br`) emission, and flattened text would render documents that look right and are\nsubtly wrong. The records store the facts today. Remaining for the subsystem: PDF output and the\nsignature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the\ninterface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party\nsubjects at scale (2·6·7) — `capacityLine` extends to the nine new party subjects automatically when\ntheir rows land."
+    },
+    {
+      "slice": "2·7 — Exhibits and exhibit lists",
+      "group": "phase-2",
+      "order": 7,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "todo"
         },
         "ui": {
           "state": "todo"
@@ -760,24 +810,22 @@
           "state": "todo"
         },
         "tested": {
-          "state": "in-progress",
-          "by": "Opus 4.8"
+          "state": "todo"
         }
       },
-      "branch": "claude/automation-consent-refinements",
-      "activeWork": "docs/active-work/claude/automation-consent-refinements.md",
-      "next": "Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then a location time-zone column behind timeZoneForLocation.",
+      "branch": "main",
+      "activeWork": null,
+      "next": "Build slice 2·7·1 — the exhibit set, ordering, the computed label, and the freeze at issue.",
       "links": {
-        "spec": "docs/specs/2026-08-04-document-automation-design.md",
-        "plan": "docs/specs/2026-08-04-document-automation-implementation-plan.md",
+        "spec": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md",
+        "plan": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md",
         "adrs": [
-          "ADR-0210",
-          "ADR-0211",
-          "ADR-0217"
+          "ADR-0273",
+          "ADR-0274"
         ]
       },
       "blockedBy": [],
-      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables\n(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,\n`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object\nover a dedicated queue, and the assembled document filed through `initiateUpload` /\n`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is\nthe single stored placeholder form, and the merge is in-house rather than an adopted library.\n\nBoth registration transforms of the firm's own document are **opt-in and always reported**, revised\non 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered\nwithout it keeps them — each recorded on the field manifest with the part it sits in and the frozen\ncached text it will print, reported again by every assembly in the response and on the provenance row,\nand landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank\nmeets the same absence model an ordinary missing value does. Removing macros likewise runs only on\nrequest; a macro-bearing upload without the opt-in is refused with both remedies named, never stored\ncarrying live macros and never stripped silently. The per-firm **field-mapping library** behind\n`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion\nconfirms them, read once per registration, listed and deletable under `templates:manage`.\n\nRemaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off\n(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile."
+      "notes": "Designed 2026-08-11. An exhibit is identity, position, and label — three separately-changing facts —\nwith the label a pure function of position and the set's scheme, computed while a set is a draft and\nmaterialized and trigger-frozen at issue. In-text references are a fourth placeholder form\n(`{{@referenceName}}`) citing identity rather than label, deliberately outside both the merge-field\ndictionary and the expression language; a multi-exhibit citation enumerates its members so the\nrenderer computes the phrasing and an insertion cannot silently widen a span. Issuing is a recorded\nhuman assertion (the platform has no e-filing integration), it is irreversible, and an amended filing\nis a superseding set on the calendar's continuance idiom. Four per-firm tables, a new pure\n`@magna-carta/exhibits` package, an `exhibits` collection-only dictionary source that closes the\nexpression language's first open question, and package pagination through the shipped Bates engine.\nEight owner flags open."
     },
     {
       "slice": "Load-profile harness",
@@ -1935,7 +1983,7 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "The capture-address mint/rotate/revoke surface is built (emails:manageCaptureAddresses), so the forward/CC path now has its writer; the capture-subdomain DNS onboarding remains a deploy step. Remaining fast-follows — the native add-in (Outlook/Gmail Save & File over the built file-to-matter API), the DKIM verifier behind the placed seam, guardrailed auto-file rules, and the matter correspondence timeline UI (deferred to the UI plan). Participant resolution is wired live via the merged Directory reverse lookup.",
+      "next": "The capture-address mint/rotate/revoke surface is built (emails:manageCaptureAddresses), so the forward/CC path now has its writer; the capture-subdomain DNS onboarding remains a deploy step. The DKIM verifier behind the placed seam is built (RFC 6376 over WebCrypto, DNS-over-HTTPS key lookup, verdict + reason + verified domain on the message row, informational only), and the file-to-matter API is hardened for the add-in (an honoured Idempotency-Key with the capture job derived from it, applied in the handler because the chokepoint's required-idempotency gate consumes a binary body, format and size guards through the ingest chokepoint's own policy, matter existence/access answered as absence, declared capture source, one shared size ceiling with the forward entrance). The add-in's client API is now complete on top of that seam: ranked matter suggestions (thread continuation, subject matter number, correspondent-to-matter-party, and a typed term delegated to the caseload search) narrowed to the matters the member can access before ranking, a capture-status readback that turns the filing job id into the record and link state the capture consumer recorded, and a member filing-context read (own recent filing targets, whether each has a live capture address, the firm catch-all, the capture zone, the size ceiling) — all bound to the existing emails:read, with one index-only migration behind the recent-filings walk. Guardrailed auto-file rules are now designed and their first build slice is in: the two per-firm tables and the nullable rule reference on the shipped link, the separate `emails:manageAutoFileRules` capability seeded to Owner/Admin and Attorney, the pure `resolveAutoFileDecision` guardrail function (structural ambiguity, the conflict hold, creator access re-checked at fire time, the asymmetric DKIM precondition, never contradicting a person, matter state, and the per-rule circuit breaker — all failing closed), and the rule/ledger statements with their audit rows and bounded activity derivation. That engine is now wired into the capture path: an optional port on the capture core, the bounded evidence gatherer in the capture consumer (off the request path — the capture route still only stages bytes and enqueues), the automatic link naming its rule, the evaluation ledger and the `emails.autoFiled` / `emails.autoFileStaged` audit rows riding the capture's own atomic batch, the circuit breaker suspending a rule that has gone haywire, and the firm-level direct-filing ceiling with its read/patch route pair in the administrative lane (off until an administrator turns it on, and a ceiling rather than a default). Rules are consulted only where nothing routed the capture — the catch-all and the unrouted forward, which is where they earn their keep — so an entrance that already resolved a matter is never second-guessed. Still to come: the rule management routes (create from a filing, update promotion, suspend, resume, revoke), the review read and the \"why did this file itself\" read, and the four load-profile numbers. Remaining fast-follows — the native add-in CLIENT (Outlook/Gmail Save & File over that API — UI, owner-built) and the matter correspondence timeline UI (deferred to the UI plan, and the surface where the verdict becomes visible). Participant resolution is wired live via the merged Directory reverse lookup.",
       "links": {
         "spec": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md",
         "plan": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md",
@@ -1973,14 +2021,188 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and compaction (merge the small per-document splits, swap the catalog). One known extract gap: a born-digital PDF's existing text layer is not read back out — the recognition engine skips such pages — so it records `unextractable` rather than indexing empty; closing it needs `crates/pdf-core`'s `page_text_glyphs` exposed through `packages/pdf`, behind the same `TextExtractionPort`.",
+      "next": "Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and compaction (merge the small per-document splits, swap the catalog).",
       "links": {
         "spec": "docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md",
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Tantivy keyword search over immutable per-firm splits in R2 — a split is a self-contained segment bundle plus a footer, so a query prunes on footers and range-reads only the postings it walks, making per-query I/O scale with query selectivity rather than corpus size. Built: the pure-Rust engine core (`crates/search-core`, a read-only `Directory` over a `RangeReader`), the per-firm `index_split` catalog and its data-access statements, the `SearchIndexPort` with typed outcomes, keyword/hybrid query composition with reciprocal rank fusion, and the **write pipeline** — a `SearchIndexJob` Durable Object over a dead-lettered queue that turns each committed document version into one split at a derived, content-addressed key, so a retry converges instead of duplicating. Gated per firm by `search.indexing_enabled` (off by default) and enqueued off the clean ingest commit. Wired-but-dormant in the conversion subsystem's sense: with no engine deployed, a job parks in a distinct `deferred` state — acked and re-startable, never retried into a dead-letter — so deploying the engine drains the backlog naturally and no document is silently dropped meanwhile."
+      "notes": "Tantivy keyword search over immutable per-firm splits in R2 — a split is a self-contained segment bundle plus a footer, so a query prunes on footers and range-reads only the postings it walks, making per-query I/O scale with query selectivity rather than corpus size. Built: the pure-Rust engine core (`crates/search-core`, a read-only `Directory` over a `RangeReader`), the per-firm `index_split` catalog and its data-access statements, the `SearchIndexPort` with typed outcomes, keyword/hybrid query composition with reciprocal rank fusion, and the **write pipeline** — a `SearchIndexJob` Durable Object over a dead-lettered queue that turns each committed document version into one split at a derived, content-addressed key, so a retry converges instead of duplicating. Extraction is composite and decided per page: the document's own text layer is read natively in\n`crates/pdf-core` and only the pages that have none go to recognition, with per-page `native`/`ocr`\nprovenance on the result — which is what makes a born-digital PDF searchable at all, and what lets a\nmixed document (a scan appended to a contract) extract both halves. A daily re-extraction sweep\nre-enqueues any committed current version the catalog holds no live split for, so documents recorded\nunreadable by the earlier recognition-only extractor are repaired without a marker or a migration.\nGated per firm by `search.indexing_enabled` (off by default) and enqueued off the clean ingest commit. Wired-but-dormant in the conversion subsystem's sense: with no engine deployed, a job parks in a distinct `deferred` state — acked and re-startable, never retried into a dead-letter — so deploying the engine drains the backlog naturally and no document is silently dropped meanwhile."
+    },
+    {
+      "slice": "Magnus — conversational assistant",
+      "group": "cross-cutting",
+      "order": 33,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Explicit per-conversation context grants (the ratified shape), token streaming, then the chat surface",
+      "links": {
+        "spec": "docs/specs/2026-08-06-magnus-design.md",
+        "plan": "docs/specs/2026-08-06-magnus-implementation-plan.md",
+        "adrs": [
+          "ADR-0109",
+          "ADR-0110",
+          "ADR-0111",
+          "ADR-0112",
+          "ADR-0113"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Build slice 1 landed: `@magna-carta/magnus` (record, gates, window, caps), one additive `InferencePort` operation plus a general deterministic stub, three per-firm tables, two permissions, the queue-dispatched path, and the push transport. A transcript is firm **work product** — protected, deletable, archivable, discoverable like email but never swept into a search without an explicit include-or-exclude (that control lands with discovery). **Off by default** — both consent settings closed, stub adapter, no interface; production enablement waits on ADR-0109."
+    },
+    {
+      "slice": "R2 object dimensions (matter + object class in object metadata)",
+      "group": "cross-cutting",
+      "order": 34,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Stamp the `client` dimension once the matter-to-client link has a reader — the backfill sweep fills it in for what already exists at no extra cost",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "r2-object-matter-dimension"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/object-dimensions` — the two dimensions every object in a firm's bucket carries (`matter` on matter-scoped objects, `object_class` on all of them) and the closed class vocabulary behind them. Stamped at put time by every write path: the presigned PUT signs the metadata headers, so a browser upload that drops one is refused rather than landing an unscopeable object; the multipart create carries them (a multipart object's metadata is fixed there); a version cut inherits its source's matter and only changes class; firm-level objects (bundles, templates, letterheads, conversion artifacts, staged mail, the content-addressed email original) record the class and deliberately no matter. `dimension-backfill-sweep.ts` repairs what predates the stamp on the daily storage pass — candidates come from the R2 listing rather than any new schema, bounded per firm and convergent over failures, and it doubles as the standing detector for a write path that forgets. `apps/worker/test/r2-object-dimension-scan.test.ts` is that guard in the suite. `client` and `confidentiality_scope` are reserved and written by nothing."
+    },
+    {
+      "slice": "Notifications — delivery",
+      "group": "cross-cutting",
+      "order": 35,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Slice 2 — the comparison-driven sweep (calendar horizon/due/overdue and the one custody collection point), the three calendar write-path topics, the email-filing topic, and the job-coordinator completion rows; then preferences and the firm policy floor (slice 3), then the email digest (slice 4)",
+      "links": {
+        "spec": "docs/specs/2026-08-06-notifications-delivery-design.md",
+        "plan": "docs/specs/2026-08-06-notifications-delivery-implementation-plan.md",
+        "adrs": [
+          "notifications-delivery-half",
+          "notifications-retention-and-swept-unread"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second non-exclusive translator pass on the shipped per-firm queue (no producing package changed — thirty-one topics already commit transactionally), the member-scoped read API behind `notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window with its nightly sweep and its swept-unread tally."
+    },
+    {
+      "slice": "Directory pronouns",
+      "group": "cross-cutting",
+      "order": 36,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Owner review of the pull request, then the Directory pronoun surface (presets plus free-form entry)",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",
@@ -2032,7 +2254,8 @@
       "order": 2,
       "stages": {
         "research": {
-          "state": "in-progress"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "spec": {
           "state": "in-progress"
@@ -2041,28 +2264,33 @@
           "state": "todo"
         },
         "built": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         },
         "ui": {
           "state": "todo"
         },
         "load-profile": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 5"
         },
         "tested": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         }
       },
       "branch": "main",
       "activeWork": null,
-      "next": null,
+      "next": "An attorney review of the encoded Nevada profile, then compliance surfacing over it",
       "links": {
-        "spec": null,
+        "spec": "docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md",
         "plan": null,
-        "adrs": []
+        "adrs": [
+          "ADR-0009"
+        ]
       },
       "blockedBy": [],
-      "notes": "**Current focus** — design in progress. Tier-1 rigor (always) vs Tier-2 restriction (per-state, default-off); ledger-based, structural owner of _fees-never-touch-trust_; NV baseline."
+      "notes": "**Sub-slices 1 and 2 built.** Sub-slice 1 — trust schema, the three-level client/matter tree, the zero floor written in the creation batch, the composition guard owning no-commingling and fees-never-touch-trust, holds and available balance, the two-linked-entry transfer, and the fitness suite. Fifteen owner flags stay open; the code refuses rather than defaults wherever one would have to be guessed.\n\n**Sub-slice 2** — deposits, disbursements, and matter-to-matter transfers, each behind a required-idempotency route; the append-only `trust_movement` client-ledger record carrying source or payee, purpose, method-as-a-value, reference, and the authorizing member, with its shape enforced by a database CHECK; available balance as the disbursement ceiling; a bank-free reallocation between two matters of one client; and a movement refusal on an account whose office recorded no jurisdiction. The jurisdiction corpus remains open.\n\n**The matter-close gate** is the matter shell's close hook filled for the first time: a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance, the account holding it, and the movements that clear it. Rules are handed to the shell by the composition root rather than imported by it, and a rule may also guard the close batch itself, so a deposit landing between the check and the commit aborts the close instead of slipping under it. A matter with no trust ledger closes freely.\n\n**Two-person disbursement authorization** (owner-directed) closes the last open piece of sub-slice 2: a disbursement is a pending request until a second member approves it, and the movement posts only on that approval, with the approver as `authorized_by` and the submitter as `recorded_by`. The approver-differs rule is a database trigger, not route discipline; the available-balance ceiling is re-read at approval time through the same composer an ungated payment used, so a request overtaken by other activity refuses instead of posting; rejection and withdrawal are recorded, append-only, alongside the request. A firm with a single member holding `trust:manage` may still pay, with that basis stated on the record, and the database withdraws the exception the moment a second such member exists. Three recommended defaults are flagged for owner review: every disbursement is gated rather than only those over a threshold, a pending request never expires, and no new permission was minted.\n\n**The Nevada jurisdiction corpus** fills the jurisdiction seam for the first time, and it still refuses. Nevada's rules are read out of the state's own published text — retention, the IOLTA regime, overdraft notification, unclaimed funds, annual compliance, and advance-fee treatment — with every value carrying the citation and the verbatim sentence it came from, because a value the reviewing attorney cannot check against the rule is a value they cannot review. Encoded is not verified: a profile with no recorded attorney review refuses every requirement with its own code, distinct from the never-researched refusal and from the no-office-state one, and the review binds to the profile revision it was performed against so an amendment re-closes the gate rather than inheriting an attestation about superseded text. Nevada ships NOT VERIFIED, and the read that surfaces the profile with its citations never throws — a firm shown nothing has no reason to get anything reviewed. Every other jurisdiction stays not-encoded with no baseline behind it. Three facts this repository had already written down turned out to be wrong against the current rules, all traceable to the State Bar's own 2019 handbook: retention is five years and not seven, the account-mechanics rule is SCR 78 and not the repealed SCR 78.5, and Nevada mandates no reconciliation at any cadence — the approved schema design's golden test for Nevada would have locked the last two in. The bank-charge carve-out is encoded as a cited rule and deliberately not wired: Nevada permits it, states no cap, and exempts pooled accounts from the charges it would pay, so the permission sits beside a composition guard that still refuses firm money in trust. Flags T7 and T8 shipped as owner-ratified; the attorney review itself and three research caveats are listed for the owner.\n\n**The authorization policy** (owner-directed) turns the always-two-person rule into the firm's own posture: off, threshold (a second person for amounts strictly above a stated amount), or always, plus an independent option requiring whoever lets money go to hold the new `trust:authorize` capability — authority encoded as a capability predicate, seeded to Owner/Admin and Attorney, never a role name. The shipped default is the strict posture as an absent row, so nothing relaxes on migrate; a change is a new append-only version requiring `trust:authorize`, audited from-and-to. Every request stamps the version current at submission and is decided under that stamp — an in-flight request keeps its policy in both directions — and the earned-fee application follows the same policy through the same queue: an application is a request of kind `earned_fee_application` whose invoice lines billing keeps beside it, approved through billing, posting the transfer, the invoice applications, and the decision as one batch. Basis exactness (`second_person` / `sole_trust_manager` / `policy_exempt`), the authority requirement, the stamp itself, and the transfer's recorded actors are all database triggers. Flagged for the owner: whether relaxing the posture should itself take a second person, and whether matter-to-matter reallocations should fall under the policy.\n\n**Review-gate hardening and the catalog re-verification** land the corpus follow-ups before the port is bound or any attorney review is recorded. A review now binds to a content-derived revision — the authored date plus a fingerprint of everything the reviewer attests to — so an amendment that forgets the revision bump closes the gate rather than silently inheriting the attestation. The two newer refusals (encoded-but-unreviewed, and a reviewed jurisdiction's unresearched field) map to the jurisdiction-unavailable problem type with their siblings instead of the generic catch-all; a source-scan fitness guard trips any future surface that computes on an unreviewed value through the display seam; and the silence-resolved singletons are frozen against caller mutation. The narrative 56-jurisdiction catalog was swept against the primary-source records: the Nevada entry's repealed SCR 78.5 citations are corrected, its unclaimed-funds facts aligned with NRPC 1.15(f) and the NRS 120A.500(6)(f) exemption, and the 55 sibling entries — which no primary source in the repository can check — are banner-marked NOT VERIFIED, research leads rather than findings.\n\n**Three-way reconciliation** closes sub-slice 4. A bank statement is a recorded period with its lines — entered by a member, or imported from a file through a preview that reports what it found and stores nothing until a separate confirmation quotes that report's fingerprint back. Statement lines are tied to recorded ledger entries by a person: the platform ranks bounded candidates and shows the reasons, and nothing anywhere records a match on its own. The proof ties three totals as of the period end — the statement's closing balance adjusted for outstanding items, the trust bank account's book balance, and the sum of the client ledgers — both ledger legs computed from dated rows rather than a stored balance, so a period reproduces. Unmatched lines and unmatched recorded items are named outcomes rather than errors, and a proof that does not tie out records which leg disagrees and by how much rather than being forced green. Closing freezes the proof on an append-only row the database refuses to reopen; an unbalanced period closes recording exactly that, and a correction is a new reconciliation superseding the old. The load profile gained the trust volume — the sub-ledger tree, movements, holds, two years of monthly statements each carrying an unrecorded service charge, and the reconciliations over them — with the three-way computation and the client-ledger reads measured against index-walk plans. Flags T9, T10, and T11 shipped as the analysis's recommended defaults and are listed for owner review.\n\n**Authority-based authorization** (owner-directed) reshapes the posture the policy expresses: authority is a property of the person, not a count of people. A member holding `trust:authorize` releases money out of a client ledger — or takes earned fees against a finalized bill — alone and in ONE atomic act (the request, the movement, and the decision recording the footing ride one batch), and a member without it raises the same payment and is told, before composing anything, who can settle it. The shipped posture is now that rule as DATA: a per-firm migration seeds version 1 (`off` plus the authority requirement) conditionally on the table being empty, so the absent-row reading stays strict for the requests it describes, no shipped trigger is touched, and a firm that already chose a posture keeps it. A firm wanting a ceiling still writes a `threshold` or `always` version; above the ceiling the authority requirement binds whichever of the two decides, which is peer approval with no new setting and no new mirror. The one addition is `resolveTrustAuthorizationDisposition`, a read in front of the guarantees that both money-out paths choose solo-versus-route from — it calls the existing predicate rather than restating it, asks the authority question first and always of the ACTOR, and fails closed on an unrecognized kind. The lone-holder count-plus-membership pair is extracted into one helper all three TypeScript callers share. Flagged for the owner: the exception still counts `trust:manage` rather than `trust:authorize` (the design's open question 1, left open because the change would relax a firm with several managers and one authority holder), and the seed relaxes any firm that exists today with no policy row from always-two-person to authority-solo. UI deferred."
     },
     {
       "slice": "3·3 — Costs & expenses (disbursements)",
@@ -2107,6 +2335,49 @@
       },
       "blockedBy": [],
       "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4."
+    },
+    {
+      "slice": "3·4 — Billing & invoicing",
+      "group": "phase-3",
+      "order": 4,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "tested": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Taxes; credit notes, client credits, write-offs and reversals; presentation, delivery, LEDES",
+      "links": {
+        "spec": "docs/specs/2026-08-05-billing-design.md",
+        "plan": "docs/specs/2026-08-05-billing-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "**Sub-slice 1 built — the invoice spine.** `@magna-carta/billing` over a new seven-table schema: the draft/final/void invoice with no stored total and no stored balance, lines that each name their matter, the work-in-progress claim whose partial unique index is the concurrency control, and the per-`(invoice, matter)` balance whose bounds CHECK is the mechanism a later earned-fee transfer depends on. Finalization is one composed batch — the number draw, the presentation snapshot, the `billed` lock on every claimed entry through the shared freeze contract, the balance rows, and the accounts-receivable posting — with a commit guard that aborts the whole thing if a claimed entry was frozen between the read and the commit. A finalized invoice is immutable by trigger, and the numbering pair is append-only. An unmapped `firm_account_role` refuses finalization by name rather than posting somewhere plausible.\n\nAlso extracts the counter/allocation numbering idiom into `@magna-carta/sequence-numbering`, consumed by matters (behaviour bit-for-bit, its whole suite the proof) and by billing.\n\n**Sub-slice 2, the trust half — value reaching an invoice, and T4 closed.** `invoice_application` (append-only, the full closed kind set in its CHECK because SQLite cannot widen one without a destructive rebuild) plus `composeInvoiceApplication`, the one door any value reaches an invoice through: the application row and the `applied_minor` delta, always paired, so the invoice subledger cannot drift from the accounts-receivable control account. Billing now satisfies trust's `EarnedFeePrecondition` — a finalized invoice whose client matches the ledger being drawn on, which bills that matter, with enough unpaid balance on that matter's own row, and named amounts summing to the transfer — closing flag T4 with **no change to `@magna-carta/trust`**, which is the test that the seam sits in the right place. `applyTrustFundsToInvoices` merges trust's two-linked-entry transfer with the applications into ONE batch: a concurrent consumer of the balance aborts the whole thing, trust entries included. The trust kind composes **no ledger entry** — the transfer's operating leg already credited the receivable — with a dedicated test proving the subledger still equals the control account after a trust-funded fee, and a fitness query re-proving exactly one receivable credit per trust application over stored rows. Over HTTP as `POST /api/v1/billing/trust-applications` on `billing:apply`, idempotency required. The trust-refusal-to-problem mapping moved to one shared home now that two route modules reach it.\n\n**All four fee models — the owner's docket direction, built.** `matter_billing_arrangement` is the per-matter fee agreement, versioned append-only in the rate-engine shape hardened by trigger: a fee change is a NEW version, versions are dense per matter, exactly one is in force, and the only edit a version ever takes is the one-time close of its `valid_to` — because invoice lines now record the agreement version that composed them (`invoice_line.billing_arrangement_id`), so what a finalized bill was computed under is permanent. Absence means hourly. The flat fee is one line plus zero-amount claims on the contributing time (instalments representable, over-billing reported by fitness query); a flat-fee or contingency matter refuses hourly time claims by name while its costs stay claimable. The contingency fee is ALWAYS DERIVED, never stored: `matter_recovery` records the settlement or judgment (void-with-reason its only edit) and the fee is computed at composition — the agreed share against the gross recovery or the recovery net of advanced hard costs, per the recorded election — landing as an ordinary reviewable line. The evergreen retainer records target and floor on the agreement, reads trust's own AVAILABLE figure, and records a `retainer_replenishment_request` (observed balance, shortfall, one open per matter, resolution-only edits) emitting `billing.retainer.replenishment_requested` — the notifications seam, with the below-floor automation belonging to 3·7. NO new trust write shape anywhere: advance fees sit where the agreement's recorded destination says, and money leaves trust only through the existing earned-fee application. Per owner override B4, the multi-matter render shape is a fact on the invoice model: a firm default (per-matter pages plus a summary ships as the default), overridable per finalize, snapshot onto `invoice.render_shape` with the letterhead, and served by a render-model derivation the PDF tail will consume. Migration idx 49 (`20260807T060000_billing-fee-models`); thirteen new chokepoint routes on the existing six billing permissions.\n\nTaxes, credit notes, client credits, write-offs and reversals — including the credit-note-after-transfer case, which the design deferred on purpose because giving back money already in the firm's operating account is a firm-funds decision the platform will not make on its own — remain open, as do presentation, delivery, and LEDES (4) and settlement disbursement statements (a later financial slice)."
     },
     {
       "slice": "4·1 — Conflicts matching engine",
@@ -2181,16 +2452,226 @@
           "state": "todo"
         }
       },
-      "branch": "claude/custodian-build-slice-2",
-      "activeWork": "docs/active-work/claude/custodian-build-slice-2.md",
-      "next": "Load-profile volume profile + the six measured operations; then the destruction workflow (owner-gated) and 4·2·3 (gated release, receipts, portal visibility)",
+      "branch": "main",
+      "activeWork": null,
+      "next": "Load-profile volume profile + the six measured operations; then receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will-deposit catalog computes against (no packet column records a death today)",
       "links": {
         "spec": "docs/specs/2026-08-04-custodian-design.md",
         "plan": "docs/specs/2026-08-04-custodian-implementation-plan.md",
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. The destruction workflow and any retention policy remain deliberately unbuilt and owner-gated; `custody_destruction_request` is still a table with no service and no route."
+      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. Slice 4·2·3 built gated release: a `released` movement must name who collected the property and carry the authority it leaves on, how the collector was identified, and the member who made that check, frozen on the append-only ledger row and enforced by three `BEFORE INSERT` triggers rather than by a CHECK, so releases recorded before the gate existed stay exactly as they were recorded. Two-signatory release is a per-firm policy, off by default, and the two signatories must be two people. The authority vocabulary is deliberately not invented — the basis is free text a firm writes. Receipts and portal visibility, the other half of 4·2·3, are not built: the document-assembly path is matter-routed and matter-permissioned, and no portal grant model exists. Slice 4·2·4's stocktake half is built: a firm can open a count over the whole register or one branch of the container tree, record observations in batches (a packet seen at a location, a packet looked for and not found, an object on the shelf with no register row), and close it producing a reconciliation of missing, misplaced, unexpected, and unregistered against what the register expected. **A stocktake observes and reports only** — nothing on the path writes the movement ledger, a packet, or an item; corrective movements are named as proposals a person records through the one movement write path, a missing original proposes nothing at all, and a source-scan fitness function holds that boundary. Sighting rows are append-only at the database with the movement ledger's three triggers plus a fourth refusing an observation against a closed count; closing freezes the findings so a reported number cannot drift, and an unfinished count is abandoned rather than closed. Seven routes over the existing two custody permissions, two per-firm tables, no new movement kind. The destruction workflow is built, now that the owner has ratified the shape flags. Raising a request, approving it, and recording that it was carried out are three calls made by at least two people: **the requester and the approver differ by construction**, enforced by database triggers as well as by the service — including the case a column check cannot see, where a request names no requester and any approver would otherwise satisfy it. A decided request is terminal and is re-raised rather than re-decided. Execution appends its `destroyed` entry through the one movement write path, so a destruction carries a person's name on the same append-only ledger as everything else, and the request row names the ledger entry it produced. **Two refusals carry no override anywhere:** a hold in force stops both the request and the execution (asked twice, because a hold placed between them is exactly what a hold is for), and an item recorded as an irreplaceable original is never destructible — that refusal now binds the ordinary movement path and the database itself, not only the workflow, so it holds for a write path nobody has written. No retention period, default, derived date, or sweep exists anywhere on the path. Five columns and nine triggers on the existing table; no new permission.\n\nThe will-deposit duty catalog is built with **Nevada as the first encoded jurisdiction**, following the trust-rules posture: an unencoded jurisdiction is REFUSED rather than answered, \"not recorded\" stays a different refusal from \"not encoded\", and there is no baseline. Nevada carries the NRS 136.050(1) 30-day delivery duty quoted verbatim with its citation, the clock starting at knowledge of the death, both delivery targets, the subsection 3 civil liability, and the public-record consequence of delivering to the clerk; the personal representative's own duty and the NRS 136.060 court-ordered production sit beside it, the latter carrying no interval because the court names the time. The verified absence of any lifetime court deposit is encoded as an explicit negative. County lodging (EDCR 4.40, Second Judicial District Rule 57.7) is keyed BELOW the state, and Nevada's other nine districts refuse on their own terms. The catalog carries what the statute says and never an interpretation: the research's open questions — constructive knowledge, \"reasonable cause\" case law — stay open, and a due date is computed only from a date a person recorded. **No packet column records a death**, so that computation ships as a seam. Deliberately not built and still owner decisions: the NRS 133 qualified-custodian role, the clerk-versus-personal-representative guidance surface, and the succession/transfer manifest.\n\nThe remaining ratified flags are wired: the location depth cap of eight is proven at eight and at nine on both write paths (C4), the ownership label on an owner link is validated against the firm's own catalog when it has configured one and against nothing when it has not (C5), and the matter close path gained an advisory-only notice — closing a matter surfaces the custody packets linked to it, reports a count and nothing identifying, and never blocks (C6), which is deliberately a separate mechanism from the close-precondition hook rather than a precondition with a softer flag."
+    },
+    {
+      "slice": "4·3 — Matter assets (the asset register)",
+      "group": "phase-4",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "The remainder of slice 4·3·3 — `custom_field.target` widening to `matterAsset` (one additive migration, coordinated with the Custodian `custodyPacket` widening) and the starter schedule template in the document-automation starter content; then the load-profile asset corpus and the as-of schedule measurement, which is the one query in this subsystem with a genuinely non-obvious plan",
+      "links": {
+        "spec": "docs/specs/2026-08-05-matter-assets-design.md",
+        "plan": "docs/specs/2026-08-05-matter-assets-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Slice 4·3·1 built: the register core, on the design's recommended defaults for every owner flag. **Eight per-firm tables** — the asset row anchored `NOT NULL` to one matter, the per-firm type catalog under a closed ten-value platform class, the real-property and financial-account attribute tables, the append-only valuation history, interests, the document link, and the sealed identifier — plus two permissions, thirteen seeded catalog entries, the firm's starting interest-label list, and **seventeen routes**. An asset row is **one matter's assertion**: there is deliberately no cross-matter thing identity, because the same house in a divorce and in an estate has different dates, values, encumbrances, and privilege, and a shared row would have to reconcile them. **Two fields make a row** (a class and a description) — the deliberate inversion of Custodian's mandatory owner link, because here the catastrophe is a register nobody fills in — and a valuation and the class attributes ride the create call, with a bounded bulk route in the first slice rather than deferred. **A valuation is appended, never updated and never deleted, and no current-value column exists on any table**: enforced by the custody ledger's three `RAISE(ABORT)` triggers (update, delete, and the replace guard that catches an `INSERT OR REPLACE`), by a source scan over the package, and by a `PRAGMA`-walking test that no asset table carries an undated value column. A correction is a compensating row naming the row it corrects, which supersedes it in every read while both stay on the record. The **as-of read returns amount, date, and basis as one object** so a value cannot be rendered without the date it speaks to, and **a date before an asset's first valuation resolves to nothing** rather than to the earliest figure — proven as a table, alongside exactly-on, between-two, and corrected-row-never-resolves. **The class is frozen at creation** and the patch schema accepts the field so a caller naming it gets an explainable refusal rather than a silent strip. **Documents are many-to-many** and deliberately diverge from `custody_scan`'s unique file index — one brokerage statement lists four accounts — and no byte reaches an asset route: the File Manager's presigned-upload and quarantine chokepoint is the only ingest, and a file filed under another matter is refused. **Identifiers split by what they are**: a parcel number is public record and stays a plaintext searchable column, while a full account, policy, certificate, or tax number is a registered protected column reachable only through the existing `readProtected` chokepoint — permission-gated, audited before any plaintext, with every list, detail, and report projecting the four-character suffix on a row shape that carries no field a full value could ride on, and a named refusal rather than a blank when the decrypt permission is absent. **No credential is storable anywhere**: a password, passphrase, seed or recovery phrase, private key, personal identification number, or safe combination is refused BY NAME before anything is sealed, with its own problem type whose message names the custody register as the correct home. The class registry carries the firearm handling notice now, standing and non-jurisdictional, guarded by a test asserting it names no jurisdiction, cites no statute, and carries no numeral; nothing branches on it.\n\nDeliberately not built and named as seams: the six remaining attribute tables and their classes (declared in the registry and refused by name with \"arrives in 4·3·2\"), encumbrances and net equity (`matter_asset_valuation.encumbrance_id` lands now because adding it later means rebuilding a table whose triggers have to be dropped to do it), the grouped estate schedule, the custody item link coming into use, the asset merge subjects and the one new assembly source, the firm's own fields on an asset, carry-forward from a prior matter, the parcel and valuation integration adapters, and portal visibility. The load-profile asset corpus and the as-of schedule measurement are the next thing after 4·3·2.\n\nSlices 4·3·2 and 4·3·3 built (reconciled against the plan: the protected identifier and the firearm handling notice landed EARLY in 4·3·1, so 4·3·2's remainder was the attribute tables, encumbrances, and the schedule). **Seven new per-firm tables** — the six remaining one-to-one attribute tables and `matter_asset_encumbrance` — plus one additive index on the valuation history and twenty-six seeded catalog entries, taking the register to **every one of its ten classes**. The line between a public-record identifier and a credential-adjacent secret now has its sharpest cases on both sides: a vehicle identification number, a plate, and a firearm serial are plaintext and indexed because searching by them is the point, while `matter_asset_digital_asset` has **no column a credential could ride on at all** and the write path refuses one by name. A firearm's `regulated_category` is free text a person asserted and is read by nothing — no code classifies an item, determines a recipient, or produces a deadline. **An encumbrance's balance is a valuation row naming it**, so one append-only table, one trigger set, one as-of query shape, and net equity as one read with a sign flip — and the write path refuses a balance naming a charge on a different asset, because that makes the equity of two assets wrong with neither looking wrong. **Equity is computed and never stored, and withheld rather than approximated**: an unrecorded balance makes it unavailable rather than nil (which would overstate exactly the assets a firm must be careful about) and a mixed-currency pair nets to nothing at all; negative equity is reported as negative, because a house worth less than its mortgage is the ordinary condition of many estates. **The schedule** groups by class as of a required, never-defaulted date, subtotals per class per currency, states the unvalued count rather than hiding it, keeps `undetermined` as its own group, and withholds a group's equity subtotal when one balance in it is unstated — five batched reads for a whole matter, never one per asset. **The custody link comes into use**: set and cleared through the patch route against an item the write path proves exists, with the asset detail composing location, status, and hold state by READING Custodian at request time and storing none of it; a source scan in both directions holds the boundary, refusing any mention of `declared_value_*` in the package and any write into a custody table. **Eleven merge subjects on ONE new source**, collection-only by construction: no `assetClass` subject declares a scalar (an estate with two houses would make every scalar an absence naming the count), `value` and `valueAsOf` are declared and set together or not at all, `accountSuffix` is the facet and the full number has no key, and a manifest naming all eleven issues exactly the one read a manifest naming one issues — the a-subject-costs-nothing property, holding on the first outside subsystem to join the catalogue.\n\nStill not built after 4·3·3: `custom_field.target` widening to `matterAsset` (deferred deliberately — it is the custom-fields engine's migration and wants coordinating with the Custodian `custodyPacket` widening so both values land in one), the starter schedule template in the document-automation starter content, the load-profile asset corpus and the as-of schedule measurement, carry-forward from a prior matter, the parcel and valuation integration adapters, and portal visibility."
+    },
+    {
+      "slice": "5·1 — Discovery ingest and processing",
+      "group": "phase-5",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "5·1·3 — processing: the DISCOVERY_PROCESS queue lane and its consumer, the composite extraction port that routes to the discovery engine, the derived text and sidecar writes, exact deduplication with occurrence rows, container families, the exception table, and the manifest and exception report at load completion",
+      "links": {
+        "spec": "docs/specs/2026-08-05-discovery-5-1-design.md",
+        "plan": "docs/specs/2026-08-05-discovery-5-1-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "**Sub-slice 5·1·1 built — the Rust discovery core, the sub-slice with the most unknowns and no Cloudflare, database, or worker in it.** `crates/discovery-core` on the engine-host seam: I/O-free, threadless, dual-target (native + `wasm32`), with a seven-code fixed error set whose own test proves no file content can reach an error payload. **Identification reads bytes and cannot read a name** — `identify` has no parameter a file name could arrive through, so a production's wrong names cannot route anything; comparing the two is a separate call whose answer is reported and never acted on, and a spreadsheet renamed to a picture still identifies as a spreadsheet. A ZIP is refined into the package it actually is (word-processing, workbook, presentation, OpenDocument, or a plain archive) and an OLE2 into the document it actually is (legacy Word/Excel/PowerPoint, an Outlook message, or an encrypted package) from entry names alone, with no decompression. **Normalization is the determinism boundary** — line endings, canonical composition, exotic spacing, and invisible characters all settle before anything derived, and everything derived is derived from its output; **the passage chunker moved out of `packages/search/src/extraction.ts` byte-for-byte**, carrying that suite's own corpus with the expected values copied rather than recomputed, because web and desktop feeding one index must agree about what a document says. Committed cross-target vectors run natively and under `wasm-pack`. Native extractors for text (with charset detection), OOXML (including shared-string resolution, so a workbook yields its words and not its indexes), OpenDocument, RTF, email over `crates/email-core`, and **PDF text layers over `crates/pdf-core` — the born-digital PDF that the shipped extraction port records as unextractable now extracts its real text and is never sent to recognition**. Archives enumerate without decompressing and expand under five guards checked before a byte is retained (depth, total bytes, ratio, entry count, and unconditional path-traversal rejection), with an encrypted entry reported rather than failing its siblings and a too-deep nested archive recorded rather than opened. Hosted by `containers/discovery` + `apps/discovery-worker` on the file-repair container pattern: `enableInternet` false, no `r2` feature, an engine failure a 422 carrying only the stable code. **No C-backed feature on any path**, asserted by a test that reads the crate's own manifest, and a hostile-input sweep runs every fixture through truncation, bit-flips, and absurd declared lengths against every entry point. The custodian-vocabulary gate ships early, scoped to the discovery trees, self-testing so it cannot silently stop biting.\n\n**Sub-slice 5·1·2 built — the review-set model, the object every deferred discovery feature is a function over.** `packages/discovery` plus six per-firm tables in one migration (`20260806T080000_discovery-5-1-2`, journal idx 43). **A review document is a pointer and never a copy**: it names a `file_version` or an `email_message` the firm already holds, so the internal lanes move no bytes, re-read none, and reuse the hash computed at ingest and the scan verdict already recorded — and it pins the VERSION, so a file that gains a new version does not silently change a corpus already certified. **The vocabulary is mechanical**: `recordCustodian` / `record_custodian` / \"record custodian\", two words everywhere, with the shipped gate now biting on this package's own prose; record custodians are review-set-scoped because the same name in two matters is not assertably the same person. **The transcript control is a required field with no default in either direction** — every load declares `transcript_scope`, the column is `NOT NULL` with no default, an omission is refused, and `include` is refused BY NAME until the lane that reaches transcripts exists, because silently dropping it would produce a corpus that does not match its declaration and honouring it in name would produce a manifest claiming a sweep that never happened. **Three state machines are triggers, not conventions**: a review set moves open → locked → closed and a reopen aborts at the database; a load moves declared → loading → processing → complete, fails only before completing, and is reversed only once complete; a document leaves a terminal processing state only by an explicit reset to `pending`, so it can never flip between `processed` and `excepted`. **The reconciliation is a row CHECK** — a load cannot reach `complete` while loaded ≠ processed + excepted. **The ceiling is refused at declaration** with the count and the ceiling in the message. **Discovery is its own permission namespace** (`discovery:read` / `:manageReviewSets` / `:load`), which IS the access rule: a member holding every `matters:*` and `files:*` grant on the matter reaches no review set on it, proven by a route test. The `DiscoveryLoadCoordinator` holds its cursor in durable storage and nothing on the instance, so an eviction mid-fan-out resumes where the load actually got to; email enters as a family; a quarantined version is refused by name rather than skipped.\n\nSettled by the build and recorded: the per-review-set access LIST the design recommended is named for the review surface rather than built (a list nothing renders is a list nothing enforces); the occurrence columns are `primary_review_document_id` + `duplicate_review_document_id`; and the platform-wide widening of the custodian-vocabulary gate that the tool's own comment scheduled for this slice is refused as written and the comment corrected — the shipped Custodian register legitimately owns the bare word as its subsystem name, its package specifier, and its route.\n\nNot built here and named: processing — the queue lane, the composite extraction port, deduplication and occurrences, the exception table and the manifest (5·1·3) — and corpus indexing, the review-document list read, and the load profile (5·1·4). No user-facing surface exists yet, which is why UI is not applicable rather than deferred; the load profile is likewise 5·1·4's, which is why it stays `todo` while the model it measures is built."
+    },
+    {
+      "slice": "5·2 — Discovery review workflow",
+      "group": "phase-5",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "5·2·2 — privilege review: `privilege_basis` (seeded), `privilege_claim` and its bases junction, claim editing under domain audit, the dangling-claim quality-control read, log fields derived from the metadata 5·1 extracts with per-claim overrides, and the draft privilege log as a paged read and an export",
+      "links": {
+        "spec": "docs/specs/2026-08-07-discovery-5-2-review-workflow.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [
+        "The corpus index and the review-document list read (5·1·4) — the coding model and its API are built against the review documents directly",
+        "but the surface that pages through them",
+        "and criteria-driven bulk selection over search results",
+        "both sit on that read"
+      ],
+      "notes": "**Sub-slice 5·2·1 built (backend) — tagging and coding, and the per-review-set access list the review-set model named and deliberately did not build.** Five per-firm tables in one migration (`20260808T000000_discovery-review-coding-and-access`, journal idx 51), the services and statement builders in `packages/discovery`, and fourteen routes in `apps/worker/src/routes/discovery-coding.ts`.\n\n**The access list is the load-bearing half, and it is fail-closed.** No row means no access — an empty list is reachable by nobody rather than by everybody holding a discovery permission — so a bug in the seeding path hides a corpus instead of disclosing one, and only one of those two failures is the kind a person notices. **The predicate is composed in SQL, before the LIMIT, as a REQUIRED argument** to every statement builder that touches review-set content: a post-filter in the Worker would under-fill the page and turn the page size into an existence oracle for the rows it removed, and on a corpus whose whole point is that some people may not see it, that is the difference between a wall and a hint. A table-driven fitness pass enumerates every registered builder and asserts the marker is present, inside the `WHERE` clause and ahead of the `LIMIT`; a source scan proves the registry has not fallen behind the file it describes, and a behavioural pair proves the predicate actually excludes rather than merely appearing. A member not on a list gets a **404, never a 403** — \"you may not see this one\" names its existence. Widening a list requires `discovery:produce` and is audited; the last member cannot be removed, because under fail-closed an empty list is permanent short of a migration.\n\n**Coding is per-document rows, always — family and bulk are scopes, not storage.** Applying to a family writes a row per member rather than one row members inherit, because inheritance resolved years later at production time is exactly where a bug becomes a produced privileged document; the event records the gesture, the rows record the result, and a production will read rows and only rows. **Single choice is structural, not guarded**: a partial unique index on `(document, group) WHERE removed_at IS NULL AND single_choice = 1`, with the group and cardinality denormalized onto the row precisely so the index can be written at all. Two concurrent writers cannot leave a document both responsive and non-responsive. **Rows are never deleted** — removal is a state with an actor and an instant, held by a CHECK that refuses half a removal. **Semantics, not names, drive the machine**: a closed vocabulary on the tag, so a firm renaming \"Privileged\" changes nothing, and a tag carrying one cannot be deactivated at all. Tags a firm creates carry none by design, so a renamed label can never change what a production withholds.\n\n**Bulk freezes its selection before it writes anything** — resolved once through the access predicate, written to R2 under `selections/` (a record, not a cache, so it survives the review set closing), and walked. Criteria are recorded for humans and never re-run: a selection re-resolved per chunk tags documents the operator never saw. Chunks commit as several batches with the event in `running`, so a run that dies part-way leaves an honest partial rather than a silent one. **Undo is compensation and exact** — precisely the rows one act wrote and which are still live; a tag applied independently afterwards is untouched, a row already removed keeps its original attribution, and undoing a removal restores the original apply attribution behind two `NOT EXISTS` guards so a concurrent re-code wins rather than aborting. The undone act stays in the journal pointing at its reversal; an undo is itself an act and is not undone. **Coding writes no generic audit row**: the journal carries actor, instant, scope, criteria, frozen selection and reversal, and two homes for one fact drift. Panel and access-list changes are not coding decisions and do write one.\n\nProgress counts and both quality-control reads ship: completion against the required questions, per-tag counts, the uncoded filter, and the **family-conflict read** — computed over the rows rather than stored, because a stored flag about two documents goes stale the moment either moves.\n\n**Not built here and named.** The **UI is deferred to the owner** — the coding panel, tag chips on the list read, and the viewer pane are the surface this API is the backend half of, and the list read they page through is 5·1·4's. **Criteria-driven bulk at corpus scale** (everything matching a search, walked by a coordinator across turns) likewise waits on that index read; the materialized-selection contract is written so the criteria source is opaque to the executor, which is what lets it land without changing anything below it. Bulk today takes an explicit selection bounded by the same wall a load selection is. The **load profile** is 5·1·4's and stays `todo`."
+    },
+    {
+      "slice": "6·1 — Case calendar and matter timeline",
+      "group": "phase-6",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "The calendar user interface (month, week, agenda, matter timeline over the two reads); then the load-profile litigation corpus and the firm-wide-window measurement that decides whether the rebuildable read model is ever built; notification wiring subscribes to the declared emission points",
+      "links": {
+        "spec": "docs/specs/2026-08-05-case-calendar-design.md",
+        "plan": "docs/specs/2026-08-05-case-calendar-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Built: the recorded model, the source registry, and the reads over both. **Four per-firm tables** — a litigation event, its platform-seeded-and-firm-extensible type catalog, its participants, and a first-class deadline — plus `location.time_zone`, two composite indexes on shipped tables (`audit_log(subject_id, created_at, id)` and `conflicts_check(subject_matter_id, created_at, id)`), two permissions, and **seventeen routes**. Dates are civil dates and times are separate and optional, with a **required IANA zone on the row**: a hearing's zone is the court's, and no property of the firm, the matter, or the office says which that is. A continued hearing is an **edit to the one row** with the move on the audit trail, not a second hearing somebody has to hide. `location.time_zone` makes `timeZoneForLocation` in document assembly return an office's real zone instead of `\"UTC\"` for the first time, with an office that carries none rendering byte-identically to before. **The timeline is FEDERATED and nothing is projected, copied, or backfilled:** thirteen declared sources read their subsystems' rows in place — matter events and deadlines, filed mail, assemblies, matter documents, time, costs, conflicts checks, the matter's own lifecycle, three custody sources, and trust movements — merged under one comparable ISO-8601 sort key and the platform's existing cursor. A custody movement back-dated to Friday and typed on Monday sorts on **Friday**, the assertion the whole design rests on. **Every source's statement builder takes the visible-matter predicate as a REQUIRED argument and composes it into SQL before the `LIMIT`**, proven for every registered source by one table-driven fitness pass, so post-filtering (which under-fills a page and turns the page size into an existence oracle) is structurally impossible. The **canonical-instant obligation** is a fitness function with a failure message that states the consequence, because a variant precision reorders the timeline silently. The **audit log is a source only over a frozen four-key lifecycle allowlist** — a settings change on the same subject never reaches a case history. **Nothing computes a deadline date**, held by a source scan as well as by review; **nothing writes \"missed\"** — overdue is derived at read time in the deadline's own zone, across daylight-saving boundaries in both directions, and no column exists that could disagree. The firm-calendar window and the deadline horizon are capped at 366 days as **refusals rather than silent clamps**. The six notification emission points are declared and wired to nothing.\n\nDeliberately not built and named as seams: the calendar user interface, court e-filing and docket adapters, rule-based deadline computation (a position, not a deferral), notification scheduling and delivery, recurring events, external calendar synchronization, matterless personal appointments, e-signature seals as a source (no per-firm signing record exists to federate), and the custodian's statutory deposit obligation as a source. The load-profile litigation corpus and the four measurements — including the firm-wide-window read that would be the only trigger for building the rebuildable read model — are the next thing after the interface."
+    },
+    {
+      "slice": "6·2 — Calendar: firm events, resources, links & continuance",
+      "group": "phase-6",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "The calendar user interface (month grid, week view, agenda, room grid) consumes the reads named in the spec; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask",
+      "links": {
+        "spec": "docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md",
+        "plan": "docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md",
+        "adrs": [
+          "ADR-0261"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Built: the owner's two overrides executed through every layer, backend only. **Firm events** in\ntheir own `firm_event` table (never a nullable matter — the shipped NOT NULL cannot drop without a\nforbidden rebuild), sharing the civil-date/time/zone shapes and the three-shape participant model,\nreusing the shared type catalog, with `audience = all_members | participants` so a firm holiday is\non everyone's calendar without a list that decays. The federated read gains the declared\n**`visibilityAnchor`** contract field: matter anchors compose the required predicate\n(fitness-enforced), firm anchors are a reviewed allowlist (today exactly `firmEvent`) — never a\nsilent exemption; the registry is fourteen sources and the firm calendar gains `scope` and the\nwidened member filter (participant OR all-members), composed in SQL. **Resources and bookings**:\n`firm_resource` (closed kind enum, soft-deactivate) and `firm_resource_booking` attached to exactly\none event, window defaulted-then-editable, zone frozen from the resource's office; **liveness is\nderived from event status** — no released flag, cancelling or continuing an event frees its rooms\nwith no second write, asserted byte-for-byte. **Double-booking is warn-and-allow** with the\nconflict on the write response, on the grid (pre-paired), and on the booking; the overlap check is\none coarse civil-date statement widened a day each side plus precise per-row-zone instant\nintersection, proven across a DST boundary and across zones. **Continuance** dissolves the\nedit-or-new-row dichotomy: a correction stays an edit; a continuance mints a new setting, marks the\nold `cancelled` with the additive `status_reason`, historical columns byte-untouched, and one\n`continuance_of` link chain-held by two partial unique indexes the schema enforces under races. The\none-batch operation reports trigger-linked open deadlines (pure lookup — the no-arithmetic scan\nstays green) and derivation-released bookings; the chain read is depth-capped at 100 and its cost\ndoes not scale with the firm's event count. Four notification points declared, wired to nothing.\nThe five load-profile bounds asserted over the section-9 corpus. Owner flags R1/R2/R3 built as\nconfirmed recommendations."
     }
   ]
 }

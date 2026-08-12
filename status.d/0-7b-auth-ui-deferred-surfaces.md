@@ -9,8 +9,8 @@ built: in-progress
 ui: in-progress
 load-profile: n/a
 tested: in-progress
-branch: claude/auth-routes
-active-work: docs/active-work/claude/auth-routes.md
+branch: main
+active-work:
 next: The registration and invitation SCREENS (their routes now exist), the two-factor enrolment screens, reset-password as one progressively-disclosed screen, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
 link-spec:
 link-plan:
