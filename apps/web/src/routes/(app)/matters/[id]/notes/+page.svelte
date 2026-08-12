@@ -2,9 +2,9 @@
   /* Notes — no surface backs this section yet; the stub states what will live here. */
   import SectionStub from "$lib/matters/section-stub.svelte";
   import { matterSections } from "$lib/matters/sections.ts";
-  import type { MatterFixture } from "$lib/matters/fixtures.ts";
+  import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
-  let { data }: { data: { matter: MatterFixture } } = $props();
+  let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
 

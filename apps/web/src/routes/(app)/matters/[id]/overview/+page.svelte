@@ -10,13 +10,13 @@
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import type { MatterFixture } from "$lib/matters/fixtures.ts";
+  import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
-  let { data }: { data: { matter: MatterFixture } } = $props();
+  let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
 
-  const STATUS_LABEL: Record<MatterFixture["status"], string> = {
+  const STATUS_LABEL: Record<MatterRecord["status"], string> = {
     prospective: "Prospective",
     open: "Open",
     closed: "Closed",
@@ -40,7 +40,9 @@
     if (matter.locationName) {
       facts.push({ label: "Location", value: matter.locationName });
     }
-    facts.push({ label: "Responsible attorney", value: matter.responsibleAttorneyName });
+    if (matter.responsibleAttorneyName) {
+      facts.push({ label: "Responsible attorney", value: matter.responsibleAttorneyName });
+    }
     if (matter.clientDisplayName) {
       facts.push({
         label: "Client",
@@ -55,7 +57,11 @@
     if (matter.closedAt) {
       facts.push({ label: "Closed", value: formatDate(matter.closedAt) });
     }
-    facts.push({ label: "E-billing", value: matter.eBilling ? "Enabled" : "Not enabled" });
+    // Absent, not false: the matter read does not carry this yet, and "Not enabled" would assert
+    // something about the firm's billing setup that nothing here has established.
+    if (matter.eBilling !== null) {
+      facts.push({ label: "E-billing", value: matter.eBilling ? "Enabled" : "Not enabled" });
+    }
     return facts;
   });
 

@@ -7,9 +7,10 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import type { CostFixtureRow, MatterFixture } from "$lib/matters/fixtures.ts";
+  import type { CostFixtureRow } from "$lib/matters/fixtures.ts";
+  import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
-  let { data }: { data: { matter: MatterFixture } } = $props();
+  let { data }: { data: { matter: MatterRecord } } = $props();
 
   const matter = $derived(data.matter);
 
