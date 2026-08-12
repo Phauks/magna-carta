@@ -19,7 +19,12 @@
    * to reach in the product (a lockout, a rejected recovery code) is otherwise only ever seen by
    * the person it happened to.
    *
-   * NO ALTERNATIVE CREDENTIAL IS OFFERED, because the server supports exactly one. Passkeys,
+   * The Register link beside the address field DOES go somewhere: the three-way role fork at
+ * /register, and from there the founding-a-firm form or invitation redemption. Those screens are in
+ * $lib/auth/screens/ beside these ones, and $lib/auth/joining-availability.ts records how far each
+ * of their steps actually carries.
+ *
+ * NO ALTERNATIVE CREDENTIAL IS OFFERED, because the server supports exactly one. Passkeys,
    * one-time links and firm identity providers are designed and rendered, but their plugins are not
    * mounted — $lib/auth/unbuilt-capabilities.ts is the register, and a control with no route behind
    * it is worse than an absent one.
@@ -221,6 +226,7 @@
       lockoutSeconds={budget?.lockoutSecondsRemaining ?? undefined}
       onSubmit={signIn}
       onForgotPassword={() => goto("/login/reset-password")}
+      onRegister={() => goto("/register")}
     />
   {:else if step === "verification"}
     <VerificationCodeScreen
