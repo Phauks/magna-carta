@@ -428,6 +428,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
             clientLedgerTotalMinor: 1,
             unmatchedLineCount: 0,
             unmatchedItemCount: 0,
+            firmFundsMinor: 0,
             balanced: true,
           },
           "user_x" as never,

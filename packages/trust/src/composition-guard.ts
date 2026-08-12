@@ -150,9 +150,16 @@ export function assertTrustComposition(
       );
     }
     if (role.kind === "firmFunds") {
+      // THE CARVE-OUT NEVER WIDENS THIS DOOR. The firm's own bank-charge cushion is a real,
+      // permitted category, and it has its own composer and its own assertion below — narrower than
+      // this one, not wider. What must never happen is one entry carrying both: a line on a client's
+      // matter leaf beside a line on the firm-funds node is the firm's money and a client's money in
+      // a single movement, which is the commingling the whole subsystem exists to make
+      // unrepresentable. So this refusal stays exactly as absolute as it was before the carve-out
+      // was built, and it is the reason enabling the carve-out did not require editing any rule here.
       throw new TrustValidationError(
-        "firm-funds-node-not-enabled",
-        "the firm-funds carve-out is not enabled; firm money cannot enter a trust account",
+        "firm-funds-entry-touches-client-money",
+        "the firm's own funds in a trust account move through the bank-charge path only; an entry touching client money can never touch them",
       );
     }
   }
@@ -244,6 +251,109 @@ export async function composeTrustEntry(
     .find((role) => role !== undefined && role.kind !== "outside");
   if (owningRole === undefined) {
     throw new Error("unreachable: assertTrustComposition proved a trust account is present");
+  }
+  const posted = await postEntry(database, input, options);
+  return { ...posted, trustAccountId: owningRole.trustAccountId };
+}
+
+// ---- THE SECOND DOOR: the firm's own money, and nothing else ----
+//
+// Bank service charges are the one category of money that legitimately leaves a trust bank account
+// with no client-attributable authorization behind it: the institution takes it, no member releases
+// it, and no client owes it. The professional-conduct answer is that the firm may keep a small
+// amount of its OWN money in the account to bear those charges — and only for that purpose.
+//
+// TWO DOORS, NOT ONE RELAXED CHECK. The obvious implementation is a flag on assertTrustComposition
+// that lets a firm-funds line through. That would put the carve-out inside the one function billing
+// and the payments rail inherit the no-commingling rule from, so every future caller of the general
+// door would be one boolean away from moving client money on a firm-funds entry. Instead the general
+// door keeps refusing firm funds absolutely, and this door — which admits strictly FEWER shapes than
+// that one — is the only way a firm-funds line reaches the ledger.
+//
+// What "strictly fewer" means concretely: exactly two lines, one of them the trust account's own
+// firm-funds node and the other that same account's bank leaf. A matter leaf, a client node, the
+// liability root, a second trust account, or anything outside trust is refused, so this door cannot
+// express a movement of client money at all. The three rules the general door spends most of its
+// length on — one client per entry, postings on matter leaves, the bank-or-reallocation shape — have
+// nothing to bind to here, which is the point: they are absent because the shape they police cannot
+// occur, not because they were waived.
+export function assertTrustFirmFundsComposition(
+  input: PostEntryInput,
+  roles: ReadonlyMap<string, TrustAccountRole>,
+  firmFundsNodeId: TrustLedgerNodeId,
+): void {
+  const lineRoles = input.lines.map((line) => {
+    const role = roles.get(line.accountId);
+    if (!role) {
+      throw new Error(`unreachable: no trust role resolved for ${line.accountId}`);
+    }
+    return role;
+  });
+
+  if (lineRoles.length !== 2) {
+    throw new TrustValidationError(
+      "firm-funds-entry-shape-invalid",
+      `a firm-funds entry has exactly two lines — the firm-funds node and this account's bank leaf — and this one has ${lineRoles.length}`,
+    );
+  }
+
+  const firmFundsLines = lineRoles.filter(
+    (role) => role.kind === "firmFunds" && role.nodeId === firmFundsNodeId,
+  );
+  const bankLines = lineRoles.filter((role) => role.kind === "bank");
+  if (firmFundsLines.length !== 1 || bankLines.length !== 1) {
+    // Everything that is not exactly one of each lands here, including a client or matter line. The
+    // refusal names the real problem — this path is not a way to move somebody else's money — rather
+    // than the arity violation that follows from it.
+    throw new TrustValidationError(
+      "firm-funds-entry-touches-client-money",
+      "a firm-funds entry pairs the firm-funds node with this account's bank leaf and touches nothing else; client money moves through composeTrustEntry",
+    );
+  }
+
+  const firmFundsRole = firmFundsLines[0];
+  const bankRole = bankLines[0];
+  if (firmFundsRole?.kind !== "firmFunds" || bankRole?.kind !== "bank") {
+    throw new Error("unreachable: both line kinds were just counted at exactly one");
+  }
+  if (firmFundsRole.trustAccountId !== bankRole.trustAccountId) {
+    throw new TrustValidationError(
+      "crosses-trust-accounts",
+      "one entry may touch only one trust account; the two sides clear on different bank statements",
+    );
+  }
+}
+
+export interface ComposeTrustFirmFundsEntryOptions extends PostEntryOptions {
+  // The firm-funds node this same effect is creating, which the role read cannot see yet. Declared
+  // for the same reason a lazily created matter leaf is, and it is only ever as true as the composer
+  // that declares it — `firmFundsEntriesTouchingClientMoneyStatement` (fitness.ts) re-proves the
+  // rule over stored lines afterwards.
+  readonly pendingRoles?: ReadonlyMap<string, TrustAccountRole>;
+}
+
+// Read the roles, assert the narrower shape, hand off to the ledger. The `account_balance` floor on
+// the firm-funds node is what actually stops a charge being borne by client money: a charge larger
+// than the cushion would drive that node below zero, and the bounds CHECK aborts the whole batch.
+export async function composeTrustFirmFundsEntry(
+  database: SqlDatabase,
+  input: PostEntryInput,
+  firmFundsNodeId: TrustLedgerNodeId,
+  options: ComposeTrustFirmFundsEntryOptions,
+): Promise<ComposeTrustEntryResult> {
+  const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
+  const roles = await loadTrustAccountRoles(database, accountIds);
+  for (const [accountId, role] of options.pendingRoles ?? []) {
+    if (roles.get(accountId)?.kind === "outside") roles.set(accountId, role);
+  }
+  assertTrustFirmFundsComposition(input, roles, firmFundsNodeId);
+  const owningRole = accountIds
+    .map((accountId) => roles.get(accountId))
+    .find((role) => role !== undefined && role.kind !== "outside");
+  if (owningRole === undefined) {
+    throw new Error(
+      "unreachable: assertTrustFirmFundsComposition proved both lines are trust lines",
+    );
   }
   const posted = await postEntry(database, input, options);
   return { ...posted, trustAccountId: owningRole.trustAccountId };

@@ -104,6 +104,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("trust:authorize");
     expect(grantsFor("Attorney")).toContain("trust:authorize");
     expect(grantsFor("Paralegal")).not.toContain("trust:authorize");
+    // Putting the FIRM'S own money into a client trust account is the one deliberate exception to
+    // no-commingling, and it is seeded onto Owner/Admin alone — narrower than every other trust key,
+    // including trust:authorize. An attorney who may release a client's money still may not open the
+    // bank-charge carve-out or fund it; a firm that wants that reaches for a direct grant, which
+    // leaves a record.
+    expect(grants.filter((grant) => grant.permission === "trust:firmFunds")).toEqual([
+      { role_id: ownerAdmin?.id, permission: "trust:firmFunds" },
+    ]);
+    expect(grantsFor("Attorney")).not.toContain("trust:firmFunds");
+    expect(grantsFor("Billing")).not.toContain("trust:firmFunds");
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
     // a matter reaches no review set on it. Billing and Read-only carry none of the five keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.

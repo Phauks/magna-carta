@@ -43,6 +43,7 @@ interface TrustAccountRow {
   currency: string;
   status: "open" | "closed";
   jurisdiction: string | null;
+  iolta: number;
   bank_ledger_account_id: string;
   client_liability_account_id: string;
 }
@@ -90,6 +91,8 @@ export async function loadTrustAccount(
     currency: row.currency,
     status: row.status,
     jurisdiction: row.jurisdiction,
+    // SQLite has no boolean; the column is the 0/1 integer the schema declares.
+    iolta: row.iolta !== 0,
     bankLedgerAccountId: row.bank_ledger_account_id as TrustAccountSnapshot["bankLedgerAccountId"],
     clientLiabilityAccountId:
       row.client_liability_account_id as TrustAccountSnapshot["clientLiabilityAccountId"],
