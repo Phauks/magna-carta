@@ -1,5 +1,6 @@
 ---
 category: Fixed
+audience: internal
 ---
 
 **A refused invitation redemption no longer reveals whether the code exists.** The refusal published a

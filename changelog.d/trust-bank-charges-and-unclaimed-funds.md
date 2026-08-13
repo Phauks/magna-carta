@@ -1,5 +1,6 @@
 ---
 category: Added
+audience: internal
 ---
 
 Trust — bank charges, and the firm's own funds in a trust account. A trust bank account gets charged
