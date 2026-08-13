@@ -13,10 +13,10 @@ Two keys, both required:
 
 `audience` decides which of two assembled documents the fragment feeds:
 
-| audience   | Folds into                                                                | For                                                          |
-| ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `internal` | [`../CHANGELOG.md`](../CHANGELOG.md) only                                 | The people building Magna Carta                              |
-| `public`   | `../CHANGELOG.md` **and** [`../docs/public-changelog.md`](../docs/public-changelog.md) | The people using it                                          |
+| audience   | Folds into                                                                             | For                             |
+| ---------- | -------------------------------------------------------------------------------------- | ------------------------------- |
+| `internal` | [`../CHANGELOG.md`](../CHANGELOG.md) only                                              | The people building Magna Carta |
+| `public`   | `../CHANGELOG.md` **and** [`../docs/public-changelog.md`](../docs/public-changelog.md) | The people using it             |
 
 **The rule of thumb:** a fragment describing **something a user can now do** is `public`. A design, a
 decision, a research finding, or a tool only this repository uses is `internal` — and design-only

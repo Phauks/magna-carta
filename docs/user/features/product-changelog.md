@@ -29,7 +29,7 @@ That filter is the reason entries can be short. A month of work on the platform'
 
 ## Related features
 
-- **Service status** — for whether something is working *right now*, rather than what changed. A current outage or degradation appears on the status page, not here.
+- **Service status** — for whether something is working _right now_, rather than what changed. A current outage or degradation appears on the status page, not here.
 - **Community board** — for asking for a change, or asking how something works. Not yet available.
 
 ## Questions this guide does not answer

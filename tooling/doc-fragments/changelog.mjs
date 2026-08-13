@@ -130,7 +130,10 @@ export function validateFragment(record, context = "changelog fragment") {
   // be tested: bulleted highlights with emoji prefixes are the house style of every hosted changelog
   // product. Checked here rather than left to review because a public entry is unpublishable once
   // shipped. Standard: docs/conventions/documentation-style.md.
-  if (containsEmoji(record.text) || (record.publicText !== null && containsEmoji(record.publicText))) {
+  if (
+    containsEmoji(record.text) ||
+    (record.publicText !== null && containsEmoji(record.publicText))
+  ) {
     problems.push(
       `${context}: contains an emoji — write the emphasis in words, and use a Lucide icon where a surface needs a glyph`,
     );

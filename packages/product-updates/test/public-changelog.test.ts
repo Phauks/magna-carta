@@ -200,8 +200,8 @@ describe("groupIntoReleases", () => {
   });
 
   it("returns nothing for an empty artifact", () => {
-    expect(groupIntoReleases({ schemaVersion: SCHEMA_VERSION, generatedAt: "", entries: [] })).toEqual(
-      [],
-    );
+    expect(
+      groupIntoReleases({ schemaVersion: SCHEMA_VERSION, generatedAt: "", entries: [] }),
+    ).toEqual([]);
   });
 });

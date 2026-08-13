@@ -51,14 +51,18 @@ describe("parseFragment", () => {
       null,
     );
     expect(
-      parseFragment(fragment("category: Added\naudience: public", "Body.\n\n## Public\n")).publicText,
+      parseFragment(fragment("category: Added\naudience: public", "Body.\n\n## Public\n"))
+        .publicText,
     ).toBe("");
   });
 
   it("drops a leading list marker on both halves, which foldFragments is the one to add", () => {
     // Written as it would read in the file, the two markers stacked into `- - **The Oxlint...**`.
     const parsed = parseFragment(
-      fragment("category: Changed\naudience: public", "- **A change.** Detail.\n\n## Public\n\n- **A change.**"),
+      fragment(
+        "category: Changed\naudience: public",
+        "- **A change.** Detail.\n\n## Public\n\n- **A change.**",
+      ),
     );
     expect(parsed.text).toBe("**A change.** Detail.");
     expect(parsed.publicText).toBe("**A change.**");
@@ -196,8 +200,16 @@ describe("containsEmoji", () => {
 describe("collectFragments", () => {
   it("returns records for a sound set and no problems", () => {
     const { records, problems } = collectFragments([
-      { key: "a.md", context: "a.md", markdown: fragment("category: Added\naudience: internal", "A.") },
-      { key: "b.md", context: "b.md", markdown: fragment("category: Fixed\naudience: internal", "B.") },
+      {
+        key: "a.md",
+        context: "a.md",
+        markdown: fragment("category: Added\naudience: internal", "A."),
+      },
+      {
+        key: "b.md",
+        context: "b.md",
+        markdown: fragment("category: Fixed\naudience: internal", "B."),
+      },
     ]);
     expect(problems).toEqual([]);
     expect([...records.keys()]).toEqual(["a.md", "b.md"]);
@@ -207,7 +219,11 @@ describe("collectFragments", () => {
     const { records, problems } = collectFragments([
       { key: "a.md", context: "a.md", markdown: "no frontmatter\n" },
       { key: "b.md", context: "b.md", markdown: fragment("category: Added", "B.") },
-      { key: "c.md", context: "c.md", markdown: fragment("category: Added\naudience: internal", "C.") },
+      {
+        key: "c.md",
+        context: "c.md",
+        markdown: fragment("category: Added\naudience: internal", "C."),
+      },
     ]);
     expect(problems).toHaveLength(2);
     expect(problems.join()).toMatch(/a\.md/);
@@ -255,7 +271,11 @@ describe("foldFragments", () => {
 
   it("folds into a dated section when one is named, which is how the public home is assembled", () => {
     const dated = ensureDatedSection(publicChangelog, "2026-08-12");
-    const out = foldFragments(dated, [{ category: "Added", text: "A visible change." }], "## 2026-08-12");
+    const out = foldFragments(
+      dated,
+      [{ category: "Added", text: "A visible change." }],
+      "## 2026-08-12",
+    );
     expect(out).toContain("## 2026-08-12\n\n### Added\n\n- A visible change.");
   });
 });
