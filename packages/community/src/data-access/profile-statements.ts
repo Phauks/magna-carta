@@ -122,9 +122,7 @@ export function setBadgeStatement(
   now: string,
 ): SqlStatement {
   return database
-    .prepare(
-      `UPDATE ${COMMUNITY_PROFILE_TABLE} SET badge = ?2, updated_at = ?3 WHERE id = ?1`,
-    )
+    .prepare(`UPDATE ${COMMUNITY_PROFILE_TABLE} SET badge = ?2, updated_at = ?3 WHERE id = ?1`)
     .bind(profileId, badge, now);
 }
 

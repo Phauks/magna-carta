@@ -120,7 +120,9 @@ export function insertPostStatement(database: SqlDatabase, input: InsertPostInpu
 }
 
 export function selectPostByNumberStatement(database: SqlDatabase, number: number): SqlStatement {
-  return database.prepare(`SELECT ${POST_COLUMNS} ${POST_FROM} WHERE post.number = ?1`).bind(number);
+  return database
+    .prepare(`SELECT ${POST_COLUMNS} ${POST_FROM} WHERE post.number = ?1`)
+    .bind(number);
 }
 
 // The handle behind a number. Kept separate from the read above because a write path needs the

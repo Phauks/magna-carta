@@ -79,7 +79,9 @@ describe("what a reader learns about a poster", () => {
 
   it("gives the distinct-firm count only above the floor", () => {
     expect(publicPost(postRow).distinctFirmVoteCount).toBe(9);
-    expect(publicPost({ ...postRow, distinctFirmVoteCount: 2 }).distinctFirmVoteCount).toBeUndefined();
+    expect(
+      publicPost({ ...postRow, distinctFirmVoteCount: 2 }).distinctFirmVoteCount,
+    ).toBeUndefined();
   });
 
   it("says when a post was last edited and never what it used to say", () => {

@@ -60,15 +60,15 @@ back to the request that asked for it, and that post's voters and commenters are
 
 ## 4. Later, in rough order
 
-| Item                             | Note                                                                                                                                                                                              |
+| Item                             | Note                                                                                                                                                                                                |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Scheduled sweeps**             | Archive-at-twelve-months and the thirty-day triage clock are operator-invoked routes today. They belong on a cron, which this worker has no handler for yet.                                      |
+| **Scheduled sweeps**             | Archive-at-twelve-months and the thirty-day triage clock are operator-invoked routes today. They belong on a cron, which this worker has no handler for yet.                                        |
 | **The generated typed client**   | The board emits its own OpenAPI document at `/api/openapi.json`. Folding it into the client pipeline means the generator reading two documents, which is a pipeline change rather than a route one. |
-| **Turnstile on writes**          | The design lists it beside the provisioned-firm requirement. The provisioned-firm requirement is built and is the stronger of the two; this is the cheap second layer.                             |
-| **A distributed rate limiter**   | Today's is per-isolate. The seam is `RateLimiter` in `src/rate-limit.ts` and swapping it is not a contract change.                                                                                |
-| **Reporter reputation surfaced** | The statement that counts a reporter's cleared reports exists and nothing reads it yet. Repeat false flagging is meant to be visible on the account.                                              |
-| **RSS**                          | Named in the design for the changelog. Cheap here too once there are screens to link into.                                                                                                        |
-| **Attachments**                  | Off at launch by design, and the design names this as the recommendation most likely to be wrong in practice. Revisit with moderation capacity and a measured need, not before.                   |
+| **Turnstile on writes**          | The design lists it beside the provisioned-firm requirement. The provisioned-firm requirement is built and is the stronger of the two; this is the cheap second layer.                              |
+| **A distributed rate limiter**   | Today's is per-isolate. The seam is `RateLimiter` in `src/rate-limit.ts` and swapping it is not a contract change.                                                                                  |
+| **Reporter reputation surfaced** | The statement that counts a reporter's cleared reports exists and nothing reads it yet. Repeat false flagging is meant to be visible on the account.                                                |
+| **RSS**                          | Named in the design for the changelog. Cheap here too once there are screens to link into.                                                                                                          |
+| **Attachments**                  | Off at launch by design, and the design names this as the recommendation most likely to be wrong in practice. Revisit with moderation capacity and a measured need, not before.                     |
 
 ---
 

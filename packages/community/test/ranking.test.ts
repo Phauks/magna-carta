@@ -37,9 +37,9 @@ describe("the display floor", () => {
     expect(
       displayableDistinctFirmCount({ distinctFirmVoteCount: DISTINCT_FIRM_DISPLAY_FLOOR - 1 }),
     ).toBeUndefined();
-    expect(displayableDistinctFirmCount({ distinctFirmVoteCount: DISTINCT_FIRM_DISPLAY_FLOOR })).toBe(
-      DISTINCT_FIRM_DISPLAY_FLOOR,
-    );
+    expect(
+      displayableDistinctFirmCount({ distinctFirmVoteCount: DISTINCT_FIRM_DISPLAY_FLOOR }),
+    ).toBe(DISTINCT_FIRM_DISPLAY_FLOOR);
   });
 
   it("withholds rather than flooring, because a floored number is still a small number", () => {
@@ -65,7 +65,10 @@ describe("trending", () => {
   });
 
   it("does not let a clock skew manufacture a score above the undecayed one", () => {
-    const future = request({ distinctFirmVoteCount: 4, lastActivityAt: "2027-01-01T00:00:00.000Z" });
+    const future = request({
+      distinctFirmVoteCount: 4,
+      lastActivityAt: "2027-01-01T00:00:00.000Z",
+    });
     expect(trendingScore(future, NOW)).toBe(4);
   });
 });

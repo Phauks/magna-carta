@@ -56,15 +56,17 @@ async function createPublishedPost(member: SeededMember): Promise<number> {
   const created = await post("/api/v1/community/posts", GOOD_POST, member);
   const body = (await created.json()) as { number: number };
   if (created.status === 202) {
-    await post(`/api/v1/community/moderation/profiles/${await profileOf(member)}/approve`, {}, operator);
+    await post(
+      `/api/v1/community/moderation/profiles/${await profileOf(member)}/approve`,
+      {},
+      operator,
+    );
   }
   return body.number;
 }
 
 async function profileOf(member: SeededMember): Promise<string> {
-  const row = await env.DB_CONTROL.prepare(
-    `SELECT id FROM community_profile WHERE user_id = ?1`,
-  )
+  const row = await env.DB_CONTROL.prepare(`SELECT id FROM community_profile WHERE user_id = ?1`)
     .bind(member.userId)
     .first<{ id: string }>();
   return row?.id ?? "";
@@ -285,7 +287,11 @@ describe("the confidentiality posture", () => {
 
   it("does not hide on one spam report, and does once several separate firms agree", async () => {
     const number = await createPublishedPost(author);
-    const first = await post(`/api/v1/community/posts/${number}/reports`, { reason: "spam" }, reader);
+    const first = await post(
+      `/api/v1/community/posts/${number}/reports`,
+      { reason: "spam" },
+      reader,
+    );
     expect(await first.json()).toEqual({ hidden: false });
     const second = await post(
       `/api/v1/community/posts/${number}/reports`,
@@ -329,9 +335,9 @@ describe("the confidentiality posture", () => {
     expect(restored.status).toBe(204);
     const fetched = await SELF.fetch(`${BASE}/api/v1/community/posts/${number}`);
     expect(fetched.status).toBe(200);
-    const flag = await env.DB_CONTROL.prepare(
-      `SELECT status FROM community_flag LIMIT 1`,
-    ).first<{ status: string }>();
+    const flag = await env.DB_CONTROL.prepare(`SELECT status FROM community_flag LIMIT 1`).first<{
+      status: string;
+    }>();
     expect(flag?.status).toBe("cleared");
   });
 });
@@ -384,7 +390,10 @@ describe("the read-only kill switch", () => {
 
   it("carries the operator's own notice when one is set", async () => {
     await env.COMMUNITY_KV.put(BOARD_WRITES_KEY, WRITES_DISABLED_VALUE);
-    await env.COMMUNITY_KV.put("community:writes:notice", "Paused while we work through a backlog.");
+    await env.COMMUNITY_KV.put(
+      "community:writes:notice",
+      "Paused while we work through a backlog.",
+    );
     const write = await post("/api/v1/community/posts", GOOD_POST, author);
     const body = (await write.json()) as { refusalNotice?: string };
     expect(body.refusalNotice).toBe("Paused while we work through a backlog.");

@@ -522,9 +522,8 @@ export function createApp(env: Bindings, overrides: AppOverrides = {}) {
       const session = c.get("session") as BoardSession;
       const body = profileRequestSchema.parse(await c.req.json());
       const profile = await service.profileFor(session);
-      const { updateProfileDisplayNameStatement } = await import(
-        "@magna-carta/community/profile-statements"
-      );
+      const { updateProfileDisplayNameStatement } =
+        await import("@magna-carta/community/profile-statements");
       await updateProfileDisplayNameStatement(database, {
         userId: session.userId,
         displayName: body.displayName,
@@ -789,7 +788,10 @@ export function createApp(env: Bindings, overrides: AppOverrides = {}) {
     ),
     (async (c: Context) => {
       const session = c.get("session") as BoardSession;
-      const body = z.object({ reference: z.string() }).strict().parse(await c.req.json());
+      const body = z
+        .object({ reference: z.string() })
+        .strict()
+        .parse(await c.req.json());
       const post = await service.postIdentity(Number(c.req.param("number")));
       if (post === null) {
         return problemJson(c, { type: "not-found", status: 404, title: "No such question" });
@@ -828,7 +830,10 @@ export function createApp(env: Bindings, overrides: AppOverrides = {}) {
             body: { content: { "application/json": { schema: flagRequestSchema } } },
           },
           responses: {
-            ...jsonOk(z.object({ hidden: z.boolean() }).strict(), "Whether the subject is now hidden."),
+            ...jsonOk(
+              z.object({ hidden: z.boolean() }).strict(),
+              "Whether the subject is now hidden.",
+            ),
             ...notFound,
           },
         },
@@ -1144,7 +1149,11 @@ export function createApp(env: Bindings, overrides: AppOverrides = {}) {
 
   register(
     boardRoute(
-      { operationId: "community.approveFirstWrite", access: "operator", rateLimitBucket: "profile" },
+      {
+        operationId: "community.approveFirstWrite",
+        access: "operator",
+        rateLimitBucket: "profile",
+      },
       {
         method: "post",
         path: "/api/v1/community/moderation/profiles/{reference}/approve",

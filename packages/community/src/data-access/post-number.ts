@@ -37,9 +37,7 @@ export function ensurePostNumberCounterStatement(database: SqlDatabase): SqlStat
 
 export function selectNextPostNumberStatement(database: SqlDatabase): SqlStatement {
   return database
-    .prepare(
-      `SELECT next_value FROM ${COMMUNITY_POST_NUMBER_COUNTER_TABLE} WHERE scope_key = ?1`,
-    )
+    .prepare(`SELECT next_value FROM ${COMMUNITY_POST_NUMBER_COUNTER_TABLE} WHERE scope_key = ?1`)
     .bind(POST_NUMBER_SCOPE);
 }
 

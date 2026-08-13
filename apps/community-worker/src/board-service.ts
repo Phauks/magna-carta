@@ -391,10 +391,9 @@ export function createBoardService(options: BoardServiceOptions) {
     if (input.reason === "confidentiality") {
       hiddenReason = "confidentiality_report";
     } else {
-      const counted = await countDistinctReportingFirmsStatement(
-        database,
-        subject.id,
-      ).first<{ firm_count: number }>();
+      const counted = await countDistinctReportingFirmsStatement(database, subject.id).first<{
+        firm_count: number;
+      }>();
       if ((counted?.firm_count ?? 0) >= SPAM_REPORT_DISTINCT_FIRM_THRESHOLD) {
         hiddenReason = "spam_reports";
       }

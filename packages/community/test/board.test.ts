@@ -316,7 +316,11 @@ describe("removal", () => {
         reporterFirmId: FIRM_TWO,
         now: NOW,
       }),
-      hidePostStatement(test.database, { postId: POST, reason: "confidentiality_report", now: NOW }),
+      hidePostStatement(test.database, {
+        postId: POST,
+        reason: "confidentiality_report",
+        now: NOW,
+      }),
       insertModerationActionStatement(test.database, {
         id: "communityModerationAction_one" as never,
         subjectKind: "post",
@@ -434,10 +438,9 @@ describe("spam reporting", () => {
         now: NOW,
       }),
     ]);
-    const counted = await countDistinctReportingFirmsStatement(
-      test.database,
-      POST,
-    ).first<{ firm_count: number }>();
+    const counted = await countDistinctReportingFirmsStatement(test.database, POST).first<{
+      firm_count: number;
+    }>();
     // Two accounts, one firm: one firm's worth of accounts cannot reach the threshold by itself.
     expect(counted?.firm_count).toBe(1);
   });
@@ -657,7 +660,9 @@ describe("the request pipeline", () => {
 describe("the post-number sequence", () => {
   it("starts above one, so an early reader cannot count the board", async () => {
     await ensurePostNumberCounterStatement(test.database).run();
-    const drawn = await selectNextPostNumberStatement(test.database).first<{ next_value: number }>();
+    const drawn = await selectNextPostNumberStatement(test.database).first<{
+      next_value: number;
+    }>();
     expect(drawn?.next_value).toBe(FIRST_POST_NUMBER);
     expect(FIRST_POST_NUMBER).toBeGreaterThan(1);
   });
@@ -694,7 +699,9 @@ describe("the post-number sequence", () => {
     await ensurePostNumberCounterStatement(test.database).run();
     await advancePostNumberStatement(test.database, FIRST_POST_NUMBER).run();
     await ensurePostNumberCounterStatement(test.database).run();
-    const drawn = await selectNextPostNumberStatement(test.database).first<{ next_value: number }>();
+    const drawn = await selectNextPostNumberStatement(test.database).first<{
+      next_value: number;
+    }>();
     expect(drawn?.next_value).toBe(FIRST_POST_NUMBER + 1);
   });
 });
