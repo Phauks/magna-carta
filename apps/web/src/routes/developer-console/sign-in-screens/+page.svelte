@@ -19,8 +19,16 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import { UNBUILT_CAPABILITIES, unbuiltCapability } from "$lib/auth/unbuilt-capabilities.ts";
+  import { JOINING_STEPS, joiningStep } from "$lib/auth/joining-availability.ts";
   import { maskedPhoneNumber } from "$lib/auth/code-channels.ts";
   import { ATTEMPT_LIMIT } from "$lib/auth/attempt-ladder.ts";
+  import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
+  import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
+  import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
+  import RedeemInvitationScreen from "$lib/auth/screens/redeem-invitation-screen.svelte";
+  import RegisterDetailsScreen from "$lib/auth/screens/register-details-screen.svelte";
+  import RegisterScreen from "$lib/auth/screens/register-screen.svelte";
+  import { REDEMPTION_REFUSED } from "../../register/joining-messages.ts";
   import RecoveryCodeScreen from "$lib/auth/screens/recovery-code-screen.svelte";
   import SignInScreen from "$lib/auth/screens/sign-in-screen.svelte";
   import TwoFactorMethodScreen from "$lib/auth/screens/two-factor-method-screen.svelte";
@@ -74,8 +82,15 @@
     },
   ];
 
+  /*
+   * A fixed instant for the "sent at" line, so the specimen reads the same on every render and a
+   * visual-regression pass is not chasing the clock. The live screens pass the real send time.
+   */
+  const SENT_AT = new Date("2026-09-04T21:03:00Z");
+
+  const CONFIRMATION_GAP = joiningStep("confirm-registration").behaviour;
+  const AGREEMENTS_GAP = joiningStep("agreements").behaviour;
   const PASSKEY_GAP = unbuiltCapability("passkey").missing;
-  const LADDER_GAP = unbuiltCapability("attempt-budget").missing;
   const CHOICE_GAP = unbuiltCapability("second-factor-choice").missing;
   const WORKSPACE_GAP = unbuiltCapability("workspace-selection").missing;
   const VERIFICATION_GAP = unbuiltCapability("human-verification").missing;
@@ -104,7 +119,11 @@
       <p class="text-sm text-text-muted">
         Each specimen says whether the product can reach it. A state marked
         <Badge variant="warning">No server route</Badge>
-        is designed and rendered but has nothing behind it, and the live route does not offer it.
+        is designed and rendered but has nothing behind it, and the live route does not offer it. A
+        state marked
+        <Badge variant="warning">Stops short</Badge>
+        does call a route that answers, but something outside that route is missing, so it lands
+        somewhere short of where a visitor would expect.
       </p>
     </header>
 
@@ -119,6 +138,30 @@
           <li class="rounded-md border border-border-default bg-surface-raised p-12">
             <p class="text-sm font-semibold">{capability.label}</p>
             <p class="text-xs text-text-muted">{capability.missing}</p>
+          </li>
+        {/each}
+      </ul>
+    </section>
+
+    <section class="flex max-w-prose flex-col gap-12">
+      <h2 class="text-lg font-semibold">How far each joining step carries</h2>
+      <p class="text-sm text-text-muted">
+        Read against the Worker's registration and invitation routes. Every one of them answers —
+        what varies is whether the step ends where the person expects, which is what the screens
+        below have to say out loud rather than leave somebody to find out.
+      </p>
+      <ul class="flex flex-col gap-8">
+        {#each JOINING_STEPS as step (step.id)}
+          <li class="rounded-md border border-border-default bg-surface-raised p-12">
+            <p class="flex flex-wrap items-center gap-8 text-sm font-semibold">
+              {step.label}
+              {#if step.reach === "live"}
+                <Badge variant="success">Live today</Badge>
+              {:else}
+                <Badge variant="warning">Stops short</Badge>
+              {/if}
+            </p>
+            <p class="text-xs text-text-muted">{step.behaviour}</p>
           </li>
         {/each}
       </ul>
@@ -187,7 +230,6 @@
       <ScreenSpecimen
         name="Rejected, with attempts remaining"
         note={`The shared ladder allows ${ATTEMPT_LIMIT} failures across the password, the code and the recovery code.`}
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -200,7 +242,6 @@
       <ScreenSpecimen
         name="Last attempt"
         note="The wording narrows as the count drops; a constant message trains people to ignore it."
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -213,7 +254,6 @@
       <ScreenSpecimen
         name="Locked out"
         note="The lockout REPLACES the rejection: once the budget is spent, whether the last attempt was wrong stopped mattering. The countdown and the way out sit in one element."
-        unbuilt={LADDER_GAP}
       >
         <SignInScreen
           rejection={REJECTION}
@@ -378,7 +418,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Last attempt" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Last attempt">
         <VerificationCodeScreen
           channel="authenticator"
           rejected
@@ -389,7 +429,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Locked out" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Locked out">
         <VerificationCodeScreen
           channel="authenticator"
           rejected
@@ -426,7 +466,7 @@
         />
       </ScreenSpecimen>
 
-      <ScreenSpecimen name="Locked out" unbuilt={LADDER_GAP}>
+      <ScreenSpecimen name="Locked out">
         <RecoveryCodeScreen
           rejection="That code didn't match. Each code works once."
           lockoutSeconds={298}
@@ -459,15 +499,166 @@
       </ScreenSpecimen>
     </section>
 
+    <section class="flex flex-col gap-24">
+      <div class="flex max-w-prose flex-col gap-8">
+        <h2 class="text-lg font-semibold">Register</h2>
+        <p class="text-sm text-text-muted">
+          Three doors, and two of them lead to the same place: membership of an existing firm is
+          that firm's decision, so only founding a firm creates anything. The wording is the whole
+          explanation, which is why nothing sits under the choices — and why they are set at the
+          body size rather than the small one.
+        </p>
+      </div>
+
+      <ScreenSpecimen
+        name="The three doors"
+        note="Equally weighted. The two invited doors navigate rather than asking the server a question whose answer is a constant."
+      >
+        <RegisterScreen onChoose={noop} back={noop} />
+      </ScreenSpecimen>
+    </section>
+
+    <section class="flex flex-col gap-24">
+      <div class="flex max-w-prose flex-col gap-8">
+        <h2 class="text-lg font-semibold">Start a New Law Firm</h2>
+        <p class="text-sm text-text-muted">
+          The firm's name, then the person's own details, then the mail. Both forms submit together
+          — the route takes one call, so the split is a reading order rather than a round trip.
+        </p>
+      </div>
+
+      <ScreenSpecimen
+        name="The firm's name"
+        note="No availability check and nothing to wait for: the name is a display name, not a lookup key, and plenty of firms share one."
+      >
+        <FoundFirmScreen
+          bind:firmName={() => field("firm-name"), (value) => (draft["firm-name"] = value)}
+          onContinue={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Register New User"
+        note="The button names what pressing it does. No password field and no passkey button: the credential is set from the emailed link, which is the act that proves the mailbox."
+        caveat={AGREEMENTS_GAP}
+      >
+        <RegisterDetailsScreen firmName="Goldsmith and Associates" onSubmit={swallow} back={noop} />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Registration refused"
+        note="Only a malformed form reaches this. A taken address and a free one both answer 202 — the difference is in the mail, never on the screen."
+      >
+        <RegisterDetailsScreen
+          firmName="Goldsmith and Associates"
+          rejection="Those details could not be accepted. Check the email address and try again."
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Check your email"
+        note="No resend control, because nothing resends: registering again supersedes the first link. The sent time is written out in full, in the reader's own zone."
+      >
+        <CheckEmailScreen
+          address="trevor@goldsmith.example"
+          instruction="Open the link we sent, or type the confirmation code from that email. Your workspace is built once that is done."
+          sentAt={SENT_AT}
+          remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
+          onEnterCode={noop}
+          enterCodeLabel="Enter the Confirmation Code"
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Confirm the emailed token"
+        note="The token is passed through untouched but for trimming: the server does not normalize it, so grouping or uppercasing it here would produce a digest that matches nothing."
+        caveat={CONFIRMATION_GAP}
+      >
+        <ConfirmRegistrationScreen
+          bind:token={() => field("confirm-token"), (value) => (draft["confirm-token"] = value)}
+          onSubmit={swallow}
+        />
+      </ScreenSpecimen>
+    </section>
+
+    <section class="flex flex-col gap-24">
+      <div class="flex max-w-prose flex-col gap-8">
+        <h2 class="text-lg font-semibold">Your Invitation</h2>
+        <p class="text-sm text-text-muted">
+          Three facts and one answer. The row holds a single digest over the code, the surname and
+          the date of birth together, so the server cannot say which was wrong — and neither can
+          this screen, which is the property the whole design turns on.
+        </p>
+      </div>
+
+      <ScreenSpecimen
+        name="Default"
+        note="Titles above the fields and ghost text within, so the field's name survives the first keystroke. The code carries no generated prefix: the generator emits none, and one typed in would normalize into the digest and fail every code."
+      >
+        <RedeemInvitationScreen
+          bind:code={() => field("invitation-code"), (value) => (draft["invitation-code"] = value)}
+          bind:lastName={() => field("invitation-name"), (value) => (draft["invitation-name"] = value)}
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Details do not match"
+        note="ONE sentence for a wrong code, a wrong surname, a wrong date of birth, an invitation already used, revoked or expired. All three fields carry the invalid mark together, because the refusal belongs to the combination."
+      >
+        <RedeemInvitationScreen rejection={REDEMPTION_REFUSED} onSubmit={swallow} back={noop} />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Attempts remaining"
+        note={`The invitation spends its own budget of ${ATTEMPT_LIMIT} beside the caller-keyed one, because an address-keyed limit alone does not stop a date of birth being walked from a rented range.`}
+      >
+        <RedeemInvitationScreen
+          rejection={REDEMPTION_REFUSED}
+          attemptsRemaining={2}
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Invitation locked"
+        note="The lockout replaces the refusal rather than stacking under it, and the way out sits in the same element as the countdown."
+      >
+        <RedeemInvitationScreen
+          rejection={REDEMPTION_REFUSED}
+          lockoutSeconds={898}
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Redeemed"
+        note="Redemption ends at a mailbox rather than a session, so somebody who guessed all three facts but does not hold the address still gets nothing."
+      >
+        <CheckEmailScreen
+          address="joan@example.test"
+          instruction="Open the link we sent and choose a password. That is the last step — you can sign in straight afterwards."
+          sentAt={SENT_AT}
+          remedy="If it does not arrive, check the spam folder, then ask the firm that invited you to send a new invitation."
+        />
+      </ScreenSpecimen>
+    </section>
+
     <section class="flex max-w-prose flex-col gap-12">
       <h2 class="text-lg font-semibold">Not transposed yet</h2>
       <Alert.Root variant="info">
         <Alert.Description>
-          Registration and its three-way role fork, invitation redemption, the two-factor enrolment
-          hub and its authenticator, phone and recovery-code screens, the recovery-codes issuance
-          and export, and the reset-password screen as one progressively-disclosed surface are all
-          designed but not built here. Each depends on a server route that does not exist, and the
-          set is larger than one reviewable change.
+          The two-factor enrolment hub and its authenticator, phone and recovery-code screens, the
+          recovery-codes issuance and export, and the reset-password screen as one
+          progressively-disclosed surface are designed but not built here. The passkey-or-password
+          choice the registration design calls for is a third case: it is not a missing screen but a
+          missing route, and it stays absent until there is one.
         </Alert.Description>
       </Alert.Root>
     </section>

@@ -16,7 +16,7 @@ Two tick boxes decide how much you will be asked next time:
 
 These two are different dials, and you can use either without the other. The first is about how long this device stays signed in; the second only skips the code step.
 
-**There is no sign-up.** Accounts are created for you by your firm's administrator — there is no way to register yourself, and no link to try.
+**Where accounts come from.** Most people are invited: your firm's administrator sends you an invitation, and you redeem it with a code, your surname and your date of birth. If you are starting a firm of your own, you can create the workspace yourself. Either way the door is [Joining Magna Carta](joining-magna-carta.md), which you reach from the **Register** link beside the email field.
 
 ## Common tasks
 
@@ -48,7 +48,10 @@ Select **Forgot Password**, next to the password box, or ask your firm's adminis
 - **"That email and password combination doesn't match our records."** This one message covers every reason a sign-in was refused — a wrong password, a mistyped address, or an account that is not active yet. It is deliberately not more specific: a message that said "no such account" would let anyone test which addresses belong to your firm. Check both the address and the password, and contact your administrator if it keeps happening.
 - **"That code didn't verify."** Authenticator codes change every 30 seconds. Wait for your app to show a fresh code and enter that one. If codes are consistently rejected, your device's clock may have drifted — check that its time is set automatically.
 - **"That code didn't match. Each code works once."** A recovery code you have already used will not work a second time. Use the next unused code on your list.
-- **"Too many attempts."** Repeated tries are slowed down deliberately. Wait a minute and try again.
+- **"Too many attempts."** Repeated tries are slowed down deliberately. Wait for the countdown on the screen, then try again — or ask your firm's administrator, who can unlock you sooner.
+
+Below a failed attempt you will sometimes see how many tries you have left. That count is shared across all three steps: the password, the authenticator code and the recovery code draw on the same allowance, so switching to a different one does not give you a fresh set. When it runs out, the screen shows a countdown instead of a rejection — at that point whether the last thing you typed was right has stopped mattering, and the countdown is the only way forward.
+
 - **The web address never changes** as you move between the steps. That is on purpose: it keeps the fact that your account uses an authenticator out of your browser history and off the screen.
 - **Refreshing the page starts over** from the sign-in screen. Nothing you typed is kept, which is what you want on a shared screen.
 - **After you sign in** you land on your home page — or, if you followed a link into Magna Carta before signing in, on the page you were trying to reach.

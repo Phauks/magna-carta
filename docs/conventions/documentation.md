@@ -53,14 +53,41 @@ Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.
 
 **On a branch, commit a fragment (or both):**
 
-- **Changelog fragment** — `changelog.d/<slug>.md` with YAML frontmatter `category: Added|Changed|Deprecated|Removed|Fixed|Security` and a body line. Example:
+- **Changelog fragment** — `changelog.d/<slug>.md` with YAML frontmatter `category: Added|Changed|Deprecated|Removed|Fixed|Security` and `audience: public|internal`, then a body line. Example:
 
   ```markdown
   ---
   category: Added
+  audience: internal
   ---
 
   Brief description of the change.
+  ```
+
+  **`audience` is required and has no default in either direction.** Two documents assemble from this
+  one directory — [`CHANGELOG.md`](../../CHANGELOG.md) for the people building Magna Carta, and
+  [`docs/public-changelog.md`](../public-changelog.md) for the people using it — and which of the two
+  a fragment feeds is the author's judgement, not something to fall back on. Both defaults would be
+  wrong, asymmetrically: assuming `public` publishes an internal research note the first time somebody
+  forgets, and assuming `internal` means the public changelog quietly stops being written, which is
+  worse because nothing announces it. The rule of thumb: a fragment describing **something a user can
+  now do** is `public`; a design, a decision, a research finding, or a tool only this repository uses
+  is `internal`. **Design-only work is `internal` by definition** — it has not shipped.
+
+  A `public` fragment carries its customer-facing sentences in a `## Public` block below the developer
+  entry — one file, one commit, one review, and no shared sentences to drift:
+
+  ```markdown
+  ---
+  category: Added
+  audience: public
+  ---
+
+  The developer entry, mechanism and all.
+
+  ## Public
+
+  **What the reader can now do.** Effect, not mechanism, in their language.
   ```
 
 - **Decision fragment** — `docs/decisions/pending/<slug>.md` with frontmatter `slug`, `status`, `area`, `date`, optional `summary`, then the decision body. Reference it as `ADR-<slug>` until it is assigned a number at merge. Example:
@@ -83,19 +110,21 @@ Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.
 
 ```
 vp run decisions-build    # consumes docs/decisions/pending/*.md → docs/decisions/NNNN-<slug>.md; updates the register
-vp run changelog-build    # consumes changelog.d/*.md → appends to CHANGELOG.md [Unreleased]
+vp run changelog-build    # consumes changelog.d/*.md → CHANGELOG.md [Unreleased] + docs/public-changelog.md
 vp run status-build       # renders status.d/* → STATUS.md + STATUS.json (fragments persist — NOT consumed)
 ```
 
 Changelog and decision fragments are **consumed** (deleted) on assembly; the output (`docs/decisions/NNNN-<slug>.md`, the register in `Decision-Log.md`, the `[Unreleased]` entries in `CHANGELOG.md`) is committed to `main`. ADR numbers are assigned at merge in fragment-processing order — contiguous and stable, never renumbered. **Status fragments are the exception: they persist** (a slice's status keeps changing), so `status-build` re-renders `STATUS.md` + `STATUS.json` from the whole current set every run and never deletes a fragment. Validate the set anytime with `pnpm run lint:status`.
 
-**Fragments are validated, not trusted.** A fragment feeds a generated document that has no other store, so a malformed one used to degrade the output silently rather than fail. `pnpm run lint:decisions` checks every decision fragment and numbered decision file — frontmatter fence, known keys, required `slug`/`status`/`area`, lifecycle status, `YYYY-MM-DD` date, and register text that is neither empty nor a Markdown heading — and `vp run decisions-build` runs the same validation over the whole pending set **before** it numbers anything, so a bad fragment is a loud no-op instead of a half-consumed assembly. Both it and `lint:status` run in the gate's governance job on every pull request, so an author finds the problem on their own branch rather than after the merge that consumes the fragment. Format details: [`docs/decisions/README.md`](../decisions/README.md).
+**Fragments are validated, not trusted.** A fragment feeds a generated document that has no other store, so a malformed one used to degrade the output silently rather than fail. `pnpm run lint:decisions` checks every decision fragment and numbered decision file — frontmatter fence, known keys, required `slug`/`status`/`area`, lifecycle status, `YYYY-MM-DD` date, and register text that is neither empty nor a Markdown heading — and `vp run decisions-build` runs the same validation over the whole pending set **before** it numbers anything, so a bad fragment is a loud no-op instead of a half-consumed assembly. `pnpm run lint:changelog-fragments` does the same for changelog fragments — fence, known keys, a real `category`, a decided `audience`, a `## Public` block on a public fragment and none on an internal one, no emoji, kebab-case filename — and `vp run changelog-build` re-runs it over the whole set before folding anything, for the same reason: folding deletes the fragment, so a half-consumed assembly is not something an author can re-run their way out of. All three run in the gate's governance job on every pull request, so an author finds the problem on their own branch rather than after the merge that consumes the fragment. Format details: [`docs/decisions/README.md`](../decisions/README.md), [`changelog.d/README.md`](../../changelog.d/README.md).
 
 The judgment-bearing residue — coverage-gap auditing, drafting missing fragments, the ROADMAP rollup — is owned by the weekly propose-only **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md)), which also re-runs the assemblers as a backstop on its `docs-sync/<date>` branch — the one sanctioned case of a branch carrying rendered-output edits, safe because at most one docs-sync stream exists at a time and a human merge remains the gate.
 
 ## Changelog (Keep a Changelog)
 
 Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Entries are added via the fragment workflow above (`changelog.d/<slug>.md` fragments assembled by `vp run changelog-build`); the `[Unreleased]` section is a build output — do not edit it by hand on a branch. Release-time version-cutting is still to come (a future Phase-0 pick). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) is realized as the scheduled **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md)), which drafts fragments from merged PRs for approval.
+
+**The customer-facing changelog** is [`docs/public-changelog.md`](../public-changelog.md), assembled in the same pass from the `## Public` blocks of `audience: public` fragments. It is a build output too — never hand-edited on a branch — but unlike `CHANGELOG.md` it is **curated on `main`**: a dated section starts as one bullet per published fragment and may be edited into the thematic roll-up a reader actually wants. What is never done there is authoring a change that has no fragment behind it. Entries are grouped by date rather than by version because no release has been cut; the artifact schema in `@magna-carta/product-updates` carries a version field that stays null until one is, so a renderer switches to version grouping with nothing reshaped.
 
 ## Roadmap (living)
 

@@ -14,6 +14,8 @@
     "./movements": "./src/movements.ts",
     "./authorization-policy": "./src/authorization-policy.ts",
     "./disbursement-authorization": "./src/disbursement-authorization.ts",
+    "./firm-funds": "./src/firm-funds.ts",
+    "./unclaimed-funds": "./src/unclaimed-funds.ts",
     "./transfer": "./src/transfer.ts",
     "./jurisdiction": "./src/jurisdiction.ts",
     "./close-precondition": "./src/close-precondition.ts",

@@ -12,6 +12,7 @@ import {
   selectOutstandingTrustBankItemsStatement,
   selectTrustBookBalanceAsOfStatement,
   selectTrustClientLedgerTotalAsOfStatement,
+  selectTrustFirmFundsTotalAsOfStatement,
   selectUnmatchedTrustBankStatementLinesStatement,
 } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
@@ -133,11 +134,14 @@ export async function computeTrustThreeWayProof(
 
   // Four reads, none of them per-row: the two as-of totals, the outstanding items, and the lines
   // this reconciliation has not accounted for.
-  const [bookRows, clientRows, itemRows, lineRows] = await Promise.all([
+  const [bookRows, clientRows, firmFundsRows, itemRows, lineRows] = await Promise.all([
     selectTrustBookBalanceAsOfStatement(database, account.bankLedgerAccountId, asOfDate).all<
       Required<Pick<TotalRow, "balance_minor">>
     >(),
     selectTrustClientLedgerTotalAsOfStatement(database, account.id, asOfDate).all<
+      Required<Pick<TotalRow, "total_minor">>
+    >(),
+    selectTrustFirmFundsTotalAsOfStatement(database, account.id, asOfDate).all<
       Required<Pick<TotalRow, "total_minor">>
     >(),
     selectOutstandingTrustBankItemsStatement(
@@ -156,6 +160,9 @@ export async function computeTrustThreeWayProof(
 
   const bookBalanceMinor = bookRows.results[0]?.balance_minor ?? 0;
   const clientLedgerTotalMinor = clientRows.results[0]?.total_minor ?? 0;
+  // Zero on every account that has not opened the bank-charge carve-out, which is most of them —
+  // so the arithmetic below is identical for both kinds of account rather than branching on one.
+  const firmFundsMinor = firmFundsRows.results[0]?.total_minor ?? 0;
   const items = itemRows.results.map(toBankItem);
 
   // An item that moved nothing across the bank cannot be in transit in either direction. It reaches
@@ -185,10 +192,17 @@ export async function computeTrustThreeWayProof(
       differenceMinor: adjustedBankMinor - bookBalanceMinor,
     });
   }
-  if (bookBalanceMinor !== clientLedgerTotalMinor) {
+  // The book side holds everything in the bank account; the client side holds only what is owed to
+  // other people. The difference between them is the firm's own bank-charge cushion, and that is an
+  // identity rather than a tolerance: every entry that moves the cushion moves the bank leaf by the
+  // same amount, so the two stay in step exactly as book and client do. Leaving the cushion out of
+  // this comparison would report a `book-to-client` disagreement on every account that enabled the
+  // carve-out — poisoning the one signal that means something reached the ledger without going
+  // through the composition guard.
+  if (bookBalanceMinor !== clientLedgerTotalMinor + firmFundsMinor) {
     disagreements.push({
       leg: "book-to-client",
-      differenceMinor: bookBalanceMinor - clientLedgerTotalMinor,
+      differenceMinor: bookBalanceMinor - clientLedgerTotalMinor - firmFundsMinor,
     });
   }
 
@@ -205,6 +219,7 @@ export async function computeTrustThreeWayProof(
     adjustedBankMinor,
     bookBalanceMinor,
     clientLedgerTotalMinor,
+    firmFundsMinor,
     unmatchedStatementLines: lineRows.results.map(toLineSnapshot),
     balanced: disagreements.length === 0,
     disagreements,

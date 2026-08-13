@@ -48,12 +48,6 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
       "Turnstile is an operations runbook item, not shipped code. Nothing issues or validates a token, so the widget slot has nothing to hold.",
   },
   {
-    id: "attempt-budget",
-    label: "Remaining-attempts count and lockout countdown",
-    missing:
-      "A rate-limited request answers with a bare 429 carrying no budget and no retry window, so the count and the countdown have no source.",
-  },
-  {
     id: "second-factor-choice",
     label: "Choosing which second factor to use",
     missing:
@@ -64,12 +58,6 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
     label: "Choosing a workspace after signing in",
     missing:
       "Nothing publishes the firms a signed-in person belongs to, and there is no route to record a default.",
-  },
-  {
-    id: "registration",
-    label: "Registration, invitations, and founding a firm",
-    missing:
-      "emailAndPassword sets disableSignUp, so the public signup route always rejects. Invitation redemption and firm provisioning have no routes.",
   },
   {
     id: "reset-code",

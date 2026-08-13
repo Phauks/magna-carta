@@ -9,12 +9,16 @@ import type {
   TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
+  TrustFirmFundsMovementId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
   TrustReconciliationId,
   TrustReconciliationMatchId,
   TrustTransferId,
+  TrustUnclaimedFundsContactAttemptId,
+  TrustUnclaimedFundsReviewClosureId,
+  TrustUnclaimedFundsReviewId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
@@ -32,10 +36,15 @@ import type {
   TrustDisbursementDecisionKind,
   TrustDisbursementMethod,
   TrustDisbursementRequestKind,
+  TrustFirmFundsMovementKind,
+  TrustFirmFundsMovementMethod,
   TrustFrozenProof,
   TrustMovementKind,
   TrustMovementMethod,
   TrustNodeKind,
+  TrustUnclaimedFundsContactChannel,
+  TrustUnclaimedFundsContactOutcome,
+  TrustUnclaimedFundsReviewOutcome,
 } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's schema by the schema-name-sync test.
@@ -51,6 +60,10 @@ export const TRUST_BANK_STATEMENT_TABLE = "trust_bank_statement";
 export const TRUST_BANK_STATEMENT_LINE_TABLE = "trust_bank_statement_line";
 export const TRUST_RECONCILIATION_TABLE = "trust_reconciliation";
 export const TRUST_RECONCILIATION_MATCH_TABLE = "trust_reconciliation_match";
+export const TRUST_FIRM_FUNDS_MOVEMENT_TABLE = "trust_firm_funds_movement";
+export const TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE = "trust_unclaimed_funds_review";
+export const TRUST_UNCLAIMED_FUNDS_CONTACT_ATTEMPT_TABLE = "trust_unclaimed_funds_contact_attempt";
+export const TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE = "trust_unclaimed_funds_review_closure";
 
 // The capability a member must hold to submit or approve a trust disbursement. Spelled here as a
 // literal because the value it has to agree with is the one baked into the sole-authorizer trigger
@@ -118,7 +131,7 @@ export function selectTrustAccountStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, currency, status, jurisdiction, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
+      `SELECT id, currency, status, jurisdiction, iolta, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
     )
     .bind(trustAccountId);
 }
@@ -805,7 +818,7 @@ export function insertTrustReconciliationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${TRUST_RECONCILIATION_TABLE} (id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_balanced, supersedes_reconciliation_id, note) VALUES (?1, ?2, ?3, 'open', ?4, ?5, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?6, ?7)`,
+      `INSERT INTO ${TRUST_RECONCILIATION_TABLE} (id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_firm_funds_minor, frozen_balanced, supersedes_reconciliation_id, note) VALUES (?1, ?2, ?3, 'open', ?4, ?5, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?6, ?7)`,
     )
     .bind(
       row.id,
@@ -818,7 +831,7 @@ export function insertTrustReconciliationStatement(
     );
 }
 
-const RECONCILIATION_COLUMNS = `id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_balanced, supersedes_reconciliation_id, note`;
+const RECONCILIATION_COLUMNS = `id, trust_account_id, statement_id, status, opened_by, opened_at, closed_by, closed_at, frozen_statement_closing_minor, frozen_outstanding_deposits_minor, frozen_outstanding_disbursements_minor, frozen_adjusted_bank_minor, frozen_book_balance_minor, frozen_client_total_minor, frozen_unmatched_line_count, frozen_unmatched_movement_count, frozen_firm_funds_minor, frozen_balanced, supersedes_reconciliation_id, note`;
 
 export function selectTrustReconciliationStatement(
   database: SqlDatabase,
@@ -855,7 +868,7 @@ export function closeTrustReconciliationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${TRUST_RECONCILIATION_TABLE} SET status = 'closed', closed_by = ?2, closed_at = ?3, frozen_statement_closing_minor = ?4, frozen_outstanding_deposits_minor = ?5, frozen_outstanding_disbursements_minor = ?6, frozen_adjusted_bank_minor = ?7, frozen_book_balance_minor = ?8, frozen_client_total_minor = ?9, frozen_unmatched_line_count = ?10, frozen_unmatched_movement_count = ?11, frozen_balanced = ?12 WHERE id = ?1 AND status = 'open'`,
+      `UPDATE ${TRUST_RECONCILIATION_TABLE} SET status = 'closed', closed_by = ?2, closed_at = ?3, frozen_statement_closing_minor = ?4, frozen_outstanding_deposits_minor = ?5, frozen_outstanding_disbursements_minor = ?6, frozen_adjusted_bank_minor = ?7, frozen_book_balance_minor = ?8, frozen_client_total_minor = ?9, frozen_unmatched_line_count = ?10, frozen_unmatched_movement_count = ?11, frozen_firm_funds_minor = ?12, frozen_balanced = ?13 WHERE id = ?1 AND status = 'open'`,
     )
     .bind(
       reconciliationId,
@@ -872,6 +885,7 @@ export function closeTrustReconciliationStatement(
       assertMinorUnits(proof.clientLedgerTotalMinor, "frozen client_total_minor"),
       proof.unmatchedLineCount,
       proof.unmatchedItemCount,
+      assertMinorUnits(proof.firmFundsMinor, "frozen firm_funds_minor"),
       proof.balanced ? 1 : 0,
     );
 }
@@ -983,10 +997,16 @@ export function selectTrustBookBalanceAsOfStatement(
     .bind(bankLedgerAccountId, asOfDate);
 }
 
-// THE CLIENT LEG, as of the same date: every ledger account the sub-ledger tree names under this
-// trust account, summed in liability terms. It walks the nodes rather than reading any parent's
-// stored balance, because a roll-up's stored balance stays at zero forever and reading one would
-// silently report that the clients hold nothing.
+// THE CLIENT LEG, as of the same date: what this trust account holds FOR OTHER PEOPLE, summed in
+// liability terms. It walks the MATTER leaves rather than reading any parent's stored balance,
+// because a roll-up's stored balance stays at zero forever and reading one would silently report
+// that the clients hold nothing.
+//
+// `kind = 'matter'` is load-bearing rather than a tidy-up. The tree also carries the firm's own
+// bank-charge cushion, and that money is not owed to any client: folded in here it would make the
+// proof tie out while asserting that firm money is client money — the reconciliation certifying the
+// exact confusion it exists to detect. It is summed separately by
+// selectTrustFirmFundsTotalAsOfStatement and reported as its own leg.
 export function selectTrustClientLedgerTotalAsOfStatement(
   database: SqlDatabase,
   trustAccountId: TrustAccountId,
@@ -994,7 +1014,7 @@ export function selectTrustClientLedgerTotalAsOfStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND e.effective_date <= ?2`,
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND n.kind = 'matter' AND e.effective_date <= ?2`,
     )
     .bind(trustAccountId, asOfDate);
 }
@@ -1020,4 +1040,289 @@ export function selectOutstandingTrustBankItemsStatement(
       `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.description AS description, SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor, m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id FROM ${LEDGER_ENTRY_TABLE} e JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.entry_id = e.id AND ${bindingTrustReconciliationMatchPredicate("x")}) GROUP BY e.id, e.effective_date, e.description, m.id, m.kind, m.reference, m.counterparty_name, t.id ORDER BY e.effective_date, e.id LIMIT ?3`,
     )
     .bind(bankLedgerAccountId, asOfDate, limit);
+}
+
+// ---- the bank-charge carve-out: the firm's own money in a trust account ----
+
+// The single firm-funds node under one trust account, if the firm opened one. A miss is the ordinary
+// state — the carve-out is off until somebody deliberately turns it on for that account — and the
+// per-account UNIQUE index is what makes "the" node a well-formed phrase.
+export function selectTrustFirmFundsNodeStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${NODE_COLUMNS} FROM ${TRUST_LEDGER_NODE_TABLE} WHERE trust_account_id = ?1 AND kind = 'firm_funds'`,
+    )
+    .bind(trustAccountId);
+}
+
+export interface InsertTrustFirmFundsMovementRow {
+  readonly id: TrustFirmFundsMovementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly kind: TrustFirmFundsMovementKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly entryId: LedgerEntryId;
+  readonly method: TrustFirmFundsMovementMethod;
+  readonly reference: string | null;
+  readonly description: string;
+  readonly recordedBy: UserId;
+  readonly effectiveDate: string;
+  readonly recordedAt: string;
+}
+
+export function insertTrustFirmFundsMovementStatement(
+  database: SqlDatabase,
+  row: InsertTrustFirmFundsMovementRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_FIRM_FUNDS_MOVEMENT_TABLE} (id, trust_account_id, kind, amount_minor, currency, entry_id, method, reference, description, recorded_by, effective_date, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.kind,
+      assertMinorUnits(row.amountMinor, "firm-funds movement amount_minor"),
+      row.currency,
+      row.entryId,
+      row.method,
+      row.reference,
+      row.description,
+      row.recordedBy,
+      row.effectiveDate,
+      row.recordedAt,
+    );
+}
+
+const FIRM_FUNDS_MOVEMENT_COLUMNS = `id, trust_account_id, kind, amount_minor, currency, entry_id, method, reference, description, recorded_by, effective_date, recorded_at`;
+
+export function selectTrustFirmFundsMovementsStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${FIRM_FUNDS_MOVEMENT_COLUMNS} FROM ${TRUST_FIRM_FUNDS_MOVEMENT_TABLE} WHERE trust_account_id = ?1 ORDER BY effective_date DESC, id LIMIT ?2`,
+    )
+    .bind(trustAccountId, limit);
+}
+
+// The firm's own cushion as of a date, computed from the ledger's dated rows for the same reason
+// every other leg of the proof is: a stored balance has no as-of, and a reconciliation is an
+// assertion about a moment. Zero on an account that never opened the carve-out, which is what makes
+// the proof's arithmetic identical for both kinds of account.
+export function selectTrustFirmFundsTotalAsOfStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  asOfDate: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND n.kind = 'firm_funds' AND e.effective_date <= ?2`,
+    )
+    .bind(trustAccountId, asOfDate);
+}
+
+// ---- unclaimed and dormant client funds ----
+
+// DORMANCY IS THIS QUERY, and there is no other definition of it anywhere in the package. Every
+// matter leaf under one trust account that still holds money and whose most recent movement is on or
+// before a date THE CALLER STATES. No stored flag maintains it, no sweep writes it, and no
+// jurisdiction period is baked in: the window is an argument because the number varies, the clock it
+// runs from varies, and a firm may have been in contact with the client this morning in a way this
+// platform never saw.
+//
+// Two dates come back and they answer different questions. `last_activity_date` is what the window
+// filters on — how long this ledger has been quiet. `earliest_receipt_date` is the effective date of
+// the oldest deposit still sitting on it, which is what the rules' clocks actually run from, and it
+// is deliberately NOT the filter: a ledger topped up last year still holds money received five years
+// ago, and a filter on receipt alone would surface an active matter.
+export function selectDormantTrustBalancesStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  quietOnOrBefore: string,
+  // One past the cap by default, so a caller can tell a full list from a truncated one — the same
+  // arrangement the outstanding-item read uses, and for the same reason.
+  limit: number = TRUST_RECONCILIATION_TRUNCATION_PROBE_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, n.trust_account_id AS trust_account_id, n.matter_id AS matter_id, n.client_entity_id AS client_entity_id, b.balance_minor AS balance_minor, a.currency AS currency,
+         (SELECT MIN(e.effective_date) FROM ${LEDGER_LINE_TABLE} rl JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = rl.entry_id WHERE rl.account_id = n.ledger_account_id AND rl.direction = 'credit') AS earliest_receipt_date,
+         (SELECT MAX(e.effective_date) FROM ${LEDGER_LINE_TABLE} al JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = al.entry_id WHERE al.account_id = n.ledger_account_id) AS last_activity_date,
+         (SELECT r.id FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} r WHERE r.node_id = n.id AND NOT EXISTS (SELECT 1 FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} c WHERE c.review_id = r.id) ORDER BY r.opened_at DESC, r.id LIMIT 1) AS open_review_id
+       FROM ${TRUST_LEDGER_NODE_TABLE} n
+       JOIN ${TRUST_ACCOUNT_TABLE} a ON a.id = n.trust_account_id
+       JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id
+       WHERE n.trust_account_id = ?1 AND n.kind = 'matter' AND b.balance_minor > 0
+         AND (SELECT MAX(e.effective_date) FROM ${LEDGER_LINE_TABLE} al JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = al.entry_id WHERE al.account_id = n.ledger_account_id) <= ?2
+       ORDER BY last_activity_date, n.id LIMIT ?3`,
+    )
+    .bind(trustAccountId, quietOnOrBefore, limit);
+}
+
+export interface InsertTrustUnclaimedFundsReviewRow {
+  readonly id: TrustUnclaimedFundsReviewId;
+  readonly trustAccountId: TrustAccountId;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly observedBalanceMinor: number;
+  readonly currency: string;
+  readonly observedEarliestReceiptDate: string | null;
+  readonly observedLastActivityDate: string | null;
+  readonly openedBy: UserId;
+  readonly openedAt: string;
+  readonly note: string | null;
+}
+
+export function insertTrustUnclaimedFundsReviewStatement(
+  database: SqlDatabase,
+  row: InsertTrustUnclaimedFundsReviewRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} (id, trust_account_id, node_id, observed_balance_minor, currency, observed_earliest_receipt_date, observed_last_activity_date, opened_by, opened_at, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.nodeId,
+      assertMinorUnits(row.observedBalanceMinor, "unclaimed-funds review observed_balance_minor"),
+      row.currency,
+      row.observedEarliestReceiptDate,
+      row.observedLastActivityDate,
+      row.openedBy,
+      row.openedAt,
+      row.note,
+    );
+}
+
+const UNCLAIMED_FUNDS_REVIEW_COLUMNS = `id, trust_account_id, node_id, observed_balance_minor, currency, observed_earliest_receipt_date, observed_last_activity_date, opened_by, opened_at, note`;
+
+export function selectTrustUnclaimedFundsReviewStatement(
+  database: SqlDatabase,
+  reviewId: TrustUnclaimedFundsReviewId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${UNCLAIMED_FUNDS_REVIEW_COLUMNS} FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} WHERE id = ?1`,
+    )
+    .bind(reviewId);
+}
+
+// OPEN IS DERIVED. A review is open when no closure names it — the same derivation an active hold
+// and a pending disbursement request use, and the reason no status column exists to disagree.
+export function selectOpenTrustUnclaimedFundsReviewForNodeStatement(
+  database: SqlDatabase,
+  nodeId: TrustLedgerNodeId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${UNCLAIMED_FUNDS_REVIEW_COLUMNS} FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} r WHERE r.node_id = ?1 AND NOT EXISTS (SELECT 1 FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} c WHERE c.review_id = r.id) ORDER BY r.opened_at DESC, r.id LIMIT 1`,
+    )
+    .bind(nodeId);
+}
+
+export interface InsertTrustUnclaimedFundsContactAttemptRow {
+  readonly id: TrustUnclaimedFundsContactAttemptId;
+  readonly reviewId: TrustUnclaimedFundsReviewId;
+  readonly channel: TrustUnclaimedFundsContactChannel;
+  readonly attemptedOn: string;
+  readonly contactUsed: string | null;
+  readonly outcome: TrustUnclaimedFundsContactOutcome;
+  readonly note: string | null;
+  readonly recordedBy: UserId;
+  readonly recordedAt: string;
+}
+
+export function insertTrustUnclaimedFundsContactAttemptStatement(
+  database: SqlDatabase,
+  row: InsertTrustUnclaimedFundsContactAttemptRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_UNCLAIMED_FUNDS_CONTACT_ATTEMPT_TABLE} (id, review_id, channel, attempted_on, contact_used, outcome, note, recorded_by, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+    )
+    .bind(
+      row.id,
+      row.reviewId,
+      row.channel,
+      row.attemptedOn,
+      row.contactUsed,
+      row.outcome,
+      row.note,
+      row.recordedBy,
+      row.recordedAt,
+    );
+}
+
+export function selectTrustUnclaimedFundsContactAttemptsStatement(
+  database: SqlDatabase,
+  reviewId: TrustUnclaimedFundsReviewId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, review_id, channel, attempted_on, contact_used, outcome, note, recorded_by, recorded_at FROM ${TRUST_UNCLAIMED_FUNDS_CONTACT_ATTEMPT_TABLE} WHERE review_id = ?1 ORDER BY attempted_on, id LIMIT ?2`,
+    )
+    .bind(reviewId, limit);
+}
+
+export interface InsertTrustUnclaimedFundsReviewClosureRow {
+  readonly id: TrustUnclaimedFundsReviewClosureId;
+  readonly reviewId: TrustUnclaimedFundsReviewId;
+  readonly outcome: TrustUnclaimedFundsReviewOutcome;
+  readonly movementId: TrustMovementId | null;
+  readonly closedBy: UserId;
+  readonly closedAt: string;
+  readonly note: string | null;
+}
+
+export function insertTrustUnclaimedFundsReviewClosureStatement(
+  database: SqlDatabase,
+  row: InsertTrustUnclaimedFundsReviewClosureRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} (id, review_id, outcome, movement_id, closed_by, closed_at, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    )
+    .bind(row.id, row.reviewId, row.outcome, row.movementId, row.closedBy, row.closedAt, row.note);
+}
+
+export function selectTrustUnclaimedFundsReviewClosureStatement(
+  database: SqlDatabase,
+  reviewId: TrustUnclaimedFundsReviewId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, review_id, outcome, movement_id, closed_by, closed_at, note FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_CLOSURE_TABLE} WHERE review_id = ?1`,
+    )
+    .bind(reviewId);
+}
+
+export function selectTrustUnclaimedFundsReviewsForAccountStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${UNCLAIMED_FUNDS_REVIEW_COLUMNS} FROM ${TRUST_UNCLAIMED_FUNDS_REVIEW_TABLE} WHERE trust_account_id = ?1 ORDER BY opened_at DESC, id LIMIT ?2`,
+    )
+    .bind(trustAccountId, limit);
+}
+
+// The live balance of one trust ledger node, straight off the stored figure. It answers "can the
+// next charge be borne", which is a question about now — the as-of figures every leg of the
+// reconciliation needs are computed from dated rows by their own statements and never from here.
+export function selectTrustNodeStoredBalanceStatement(
+  database: SqlDatabase,
+  ledgerAccountId: LedgerAccountId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT balance_minor FROM ${ACCOUNT_BALANCE_TABLE} WHERE account_id = ?1`)
+    .bind(ledgerAccountId);
 }

@@ -39,6 +39,10 @@ export const mergeEffects = (...effects: readonly EffectWrite[]): EffectWrite =>
 // suites pass one, because a movement on an account with no recorded jurisdiction refuses by design.
 export interface TrustFixtureOptions {
   readonly jurisdiction?: string | null;
+  // Whether the fixture's account is the POOLED INTEREST-BEARING kind. Defaults to the platform
+  // default (it is), which is what most suites want; the bank-charge suites open a non-pooled
+  // account, because the carve-out refuses a pooled one outright.
+  readonly iolta?: boolean;
 }
 
 export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
@@ -80,10 +84,11 @@ export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
   const opened = await openTrustAccount(
     database,
     {
-      name: "IOLTA — Reno",
+      name: fixtureOptions.iolta === false ? "Trust — Reno" : "IOLTA — Reno",
       locationId,
       jurisdiction: fixtureOptions.jurisdiction ?? null,
       currency: "USD",
+      iolta: fixtureOptions.iolta,
       openedOn: "2026-08-01",
     },
     options,

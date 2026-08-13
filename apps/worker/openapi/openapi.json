@@ -81,6 +81,14 @@
           },
           "stepUpRequired": {
             "type": "boolean"
+          },
+          "attemptsRemaining": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -1937,6 +1945,209 @@
         "required": [
           "name",
           "owner"
+        ]
+      },
+      "StartRegistrationResponse": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": [
+              "checkEmail",
+              "redeemInvitation"
+            ]
+          }
+        },
+        "required": [
+          "next"
+        ]
+      },
+      "StartRegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "clientOfFirm",
+              "firmMember",
+              "foundFirm"
+            ],
+            "description": "Which door the visitor came through: a client of a law firm, someone who works at one, or someone starting a new one. The first two are joined by invitation; only the third creates a firm."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "firmName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "role",
+          "email",
+          "name"
+        ]
+      },
+      "ConfirmRegistrationResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "provisioning"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "status"
+        ]
+      },
+      "ConfirmRegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "IssueInvitationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "email",
+          "code",
+          "expiresAt"
+        ]
+      },
+      "IssueInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string"
+          },
+          "expiresInDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90
+          }
+        },
+        "required": [
+          "kind",
+          "email",
+          "name",
+          "lastName",
+          "dateOfBirth"
+        ]
+      },
+      "RedeemInvitationResponse": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firmMember",
+              "clientOfFirm"
+            ],
+            "description": "What the invitee becomes: a member of the firm, or a client of it with portal access only."
+          },
+          "next": {
+            "type": "string",
+            "enum": [
+              "checkEmail"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "kind",
+          "next"
+        ]
+      },
+      "RedeemInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "lastName",
+          "dateOfBirth"
         ]
       },
       "PlatformSetReleaseChannelResponse": {
@@ -16516,6 +16727,632 @@
           "balanced"
         ]
       },
+      "TrustOpenFirmFundsAck": {
+        "type": "object",
+        "properties": {
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "ledgerAccountId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustLedgerNodeId",
+          "ledgerAccountId"
+        ]
+      },
+      "TrustOpenFirmFundsRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "nodeName": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "nodeName"
+        ]
+      },
+      "TrustFirmFundsMovementAck": {
+        "type": "object",
+        "properties": {
+          "trustFirmFundsMovementId": {
+            "type": "string"
+          },
+          "ledgerEntryId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustFirmFundsMovementId",
+          "ledgerEntryId",
+          "trustLedgerNodeId"
+        ]
+      },
+      "TrustFirmFundsDepositRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TrustFirmFundsMovementRequest"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "check",
+                  "wire",
+                  "electronic_transfer"
+                ]
+              }
+            },
+            "required": [
+              "method"
+            ]
+          }
+        ]
+      },
+      "TrustFirmFundsMovementRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "amountMinor",
+          "currency",
+          "effectiveDate",
+          "description"
+        ]
+      },
+      "TrustFirmFundsPositionResponse": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "balanceMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustFirmFundsMovementRecord"
+            }
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "trustLedgerNodeId",
+          "ledgerAccountId",
+          "balanceMinor",
+          "currency",
+          "movements"
+        ]
+      },
+      "TrustFirmFundsMovementRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "firm_funds_deposit",
+              "bank_charge"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "ledgerEntryId": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "check",
+              "wire",
+              "electronic_transfer",
+              "bank_debit"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "amountMinor",
+          "currency",
+          "ledgerEntryId",
+          "method",
+          "reference",
+          "description",
+          "recordedBy",
+          "effectiveDate",
+          "recordedAt"
+        ]
+      },
+      "TrustDormantBalancesResponse": {
+        "type": "object",
+        "properties": {
+          "quietOnOrBefore": {
+            "type": "string"
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustDormantBalanceRecord"
+            }
+          }
+        },
+        "required": [
+          "quietOnOrBefore",
+          "balances"
+        ]
+      },
+      "TrustDormantBalanceRecord": {
+        "type": "object",
+        "properties": {
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "clientEntityId": {
+            "type": "string"
+          },
+          "balanceMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "earliestReceiptDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastActivityDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openReviewId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "trustLedgerNodeId",
+          "matterId",
+          "clientEntityId",
+          "balanceMinor",
+          "currency",
+          "earliestReceiptDate",
+          "lastActivityDate",
+          "openReviewId"
+        ]
+      },
+      "TrustOpenUnclaimedFundsReviewAck": {
+        "type": "object",
+        "properties": {
+          "trustUnclaimedFundsReviewId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustUnclaimedFundsReviewId",
+          "trustLedgerNodeId"
+        ]
+      },
+      "TrustOpenUnclaimedFundsReviewRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "observedBalanceMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "observedEarliestReceiptDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "observedLastActivityDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "matterId",
+          "observedBalanceMinor",
+          "observedEarliestReceiptDate",
+          "observedLastActivityDate"
+        ]
+      },
+      "TrustUnclaimedFundsContactAttemptAck": {
+        "type": "object",
+        "properties": {
+          "trustUnclaimedFundsContactAttemptId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustUnclaimedFundsContactAttemptId"
+        ]
+      },
+      "TrustUnclaimedFundsContactAttemptRequest": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "regular_mail",
+              "certified_mail",
+              "telephone",
+              "email",
+              "record_review",
+              "other"
+            ]
+          },
+          "attemptedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "contactUsed": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "no_response",
+              "undeliverable",
+              "reached",
+              "declined",
+              "wrong_contact",
+              "other"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "channel",
+          "attemptedOn",
+          "outcome"
+        ]
+      },
+      "TrustCloseUnclaimedFundsReviewAck": {
+        "type": "object",
+        "properties": {
+          "trustUnclaimedFundsReviewClosureId": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "distributed_to_owner",
+              "resolved_without_distribution",
+              "not_dormant",
+              "search_continues"
+            ]
+          }
+        },
+        "required": [
+          "trustUnclaimedFundsReviewClosureId",
+          "outcome"
+        ]
+      },
+      "TrustCloseUnclaimedFundsReviewRequest": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "distributed_to_owner",
+              "resolved_without_distribution",
+              "not_dormant",
+              "search_continues"
+            ]
+          },
+          "trustMovementId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^trustMovement_[A-Za-z0-9_-]{21}$"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "TrustUnclaimedFundsReviewResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trustAccountId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "observedBalanceMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "observedEarliestReceiptDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observedLastActivityDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openedBy": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustUnclaimedFundsContactAttemptRecord"
+            }
+          },
+          "closure": {
+            "$ref": "#/components/schemas/TrustUnclaimedFundsReviewClosureRecord"
+          }
+        },
+        "required": [
+          "id",
+          "trustAccountId",
+          "trustLedgerNodeId",
+          "observedBalanceMinor",
+          "currency",
+          "observedEarliestReceiptDate",
+          "observedLastActivityDate",
+          "openedBy",
+          "openedAt",
+          "note",
+          "attempts",
+          "closure"
+        ]
+      },
+      "TrustUnclaimedFundsContactAttemptRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "regular_mail",
+              "certified_mail",
+              "telephone",
+              "email",
+              "record_review",
+              "other"
+            ]
+          },
+          "attemptedOn": {
+            "type": "string"
+          },
+          "contactUsed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "no_response",
+              "undeliverable",
+              "reached",
+              "declined",
+              "wrong_contact",
+              "other"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "attemptedOn",
+          "contactUsed",
+          "outcome",
+          "note",
+          "recordedBy",
+          "recordedAt"
+        ]
+      },
+      "TrustUnclaimedFundsReviewClosureRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "distributed_to_owner",
+              "resolved_without_distribution",
+              "not_dormant",
+              "search_continues"
+            ]
+          },
+          "trustMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedBy": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "trustMovementId",
+          "closedBy",
+          "closedAt",
+          "note"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -25727,6 +26564,319 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/registrations": {
+      "post": {
+        "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; a visitor founding a firm is emailed a confirmation link, and the firm is built only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
+        "operationId": "registrations.start",
+        "tags": [
+          "registrations"
+        ],
+        "x-mc-operationId": "registrations.start",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "registrations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The registration was accepted; what to do next is in the body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/registrations/confirmations": {
+      "post": {
+        "description": "Completes a registration by presenting the emailed token: the firm's build is queued and the owner is sent the link that sets their password. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
+        "operationId": "registrations.confirm",
+        "tags": [
+          "registrations"
+        ],
+        "x-mc-operationId": "registrations.confirm",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "registrations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The registration is confirmed and the firm is being built",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The token will not confirm — unknown, already used, or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations": {
+      "post": {
+        "description": "Issues an invitation into the session firm and returns its code once. Redemption additionally requires the invitee's surname and date of birth, which are folded into a single stored verifier and never kept on their own.",
+        "operationId": "invitations.issue",
+        "tags": [
+          "invitations"
+        ],
+        "x-mc-operationId": "invitations.issue",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "invitations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The issued invitation, carrying the code for the only time it is readable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueInvitationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability to bring people into the firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations/redemptions": {
+      "post": {
+        "description": "Redeems an invitation with its code, the invitee's surname and their date of birth, and sends the link that sets their password. Every unsuccessful combination — an unknown code, a wrong surname, a wrong date of birth, an invitation already used or expired — answers with one identical refusal, so the form cannot be used to discover who was invited where.",
+        "operationId": "invitations.redeem",
+        "tags": [
+          "invitations"
+        ],
+        "x-mc-operationId": "invitations.redeem",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "invitations"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemInvitationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The invitation was redeemed; the password-setting link has been sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedeemInvitationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination, including a code that matches no invitation at all; the attempt budget it carries counts the caller's own attempts, never any invitation's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -56653,6 +57803,1057 @@
         }
       }
     },
+    "/api/v1/trust/firm-funds": {
+      "post": {
+        "description": "Opens the bank-charge carve-out on one trust account: the firm may keep its own money in that account for the single purpose of bearing the institution's service charges. It is off until a firm deliberately turns it on, one balance per account, and it carries the same zero floor a client ledger carries — so a charge larger than the firm's own funds aborts rather than reaching client money. Refused outright on a pooled interest-bearing account, which the researched rules exempt from service charges: with no charge for the firm's funds to pay there is no permitted purpose, and firm money in a pooled client account without one is commingling.",
+        "operationId": "trust.openFirmFunds",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.openFirmFunds",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:firmFunds",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustOpenFirmFundsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The carve-out is open on this account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustOpenFirmFundsAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Returns what is left of the firm's own money in one trust account, with every top-up and every service charge that produced it, most recent first. An account on which the carve-out was never opened has no such balance and answers 404 — the firm's cushion is a thing a firm opts into, never a zero that quietly exists everywhere.",
+        "operationId": "trust.firmFundsPosition",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.firmFundsPosition",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:firmFunds",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's own funds in this trust account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustFirmFundsPositionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/firm-funds/deposits": {
+      "post": {
+        "description": "Puts the firm's own money into the trust account's bank-charge cushion. This is the only way the cushion is funded and the only permitted deposit of firm money into a trust account. It touches the cushion and that account's bank balance and nothing else — a client ledger cannot appear on this entry, because the record of it has no column a client, a matter, or a payee could be named in.",
+        "operationId": "trust.depositFirmFunds",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.depositFirmFunds",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:firmFunds",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustFirmFundsDepositRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The firm's own funds were recorded into the cushion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustFirmFundsMovementAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/firm-funds/bank-charges": {
+      "post": {
+        "description": "Records the institution taking a service charge out of the trust bank account, borne by the firm's own cushion. A charge larger than the cushion is refused with the remedy named — put the firm's funds in to cover it, then record the charge — because a bank charge is never borne by client money; until then the statement line sits unmatched and the reconciliation reports the difference, which is the honest state. The method is not a field: a service charge is the institution helping itself, which is the one method this movement can carry and is set here rather than stated.",
+        "operationId": "trust.recordBankCharge",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.recordBankCharge",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:firmFunds",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustFirmFundsMovementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The bank charge was recorded against the firm's own funds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustFirmFundsMovementAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/unclaimed-funds/dormant-balances": {
+      "get": {
+        "description": "Lists the client ledgers on one trust account that still hold money and have had no movement since a date the caller states. The date is required and has no default: dormancy is a comparison made at read time, not a stored flag, and the periods that exist differ by jurisdiction and often gate a permission rather than an obligation — so there is no window the platform can pick on a firm's behalf. Each row reports the earliest receipt still on the ledger separately from the last activity, because the conduct rules' clocks run from receipt of the property. Nothing here is a verdict: no row says a balance is abandoned, and the firm may have spoken to that client this morning in a way this platform never saw.",
+        "operationId": "trust.dormantBalances",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.dormantBalances",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "quietOnOrBefore",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The client ledgers quiet since the stated date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDormantBalancesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/unclaimed-funds/reviews": {
+      "post": {
+        "description": "Opens a diligence file over one client's matter ledger: the record of a firm's efforts to locate the owner of money it is still holding. It stores the observation the reviewer acted on — the balance, the earliest receipt, the last activity — and moves nothing. One ledger carries one open review at a time, because the certification a firm eventually signs is about the whole search and two concurrent files would split the evidence in half.",
+        "operationId": "trust.openUnclaimedFundsReview",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.openUnclaimedFundsReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustOpenUnclaimedFundsReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The diligence file is open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustOpenUnclaimedFundsReviewAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/unclaimed-funds/reviews/{reviewId}/contact-attempts": {
+      "post": {
+        "description": "Records one attempt to reach the owner, as it was made: the channel, the date, the address or number actually used, and what came of it. The contact used is required on every channel but a review of the firm's own records — it is the part of the evidence nobody can reconstruct two years later, and a record that says only that the firm wrote to the client is not evidence of anything. Attempts are append-only: one that happened cannot be un-happened, and a correction is a further attempt saying so.",
+        "operationId": "trust.recordUnclaimedFundsContactAttempt",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.recordUnclaimedFundsContactAttempt",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustUnclaimedFundsReview_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustUnclaimedFundsContactAttemptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The attempt was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustUnclaimedFundsContactAttemptAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/unclaimed-funds/reviews/{reviewId}/closure": {
+      "post": {
+        "description": "Ends one round of diligence, recording what came of it. It writes one row and moves nothing. Closing as a distribution ATTACHES a trust disbursement that has already been composed, authorized under the firm's policy, and committed on the disbursement routes — this endpoint takes no amount, no payee, no effective date and no method, so there is nothing here that could be assembled into a payment, and the movement named must be a disbursement from the very ledger under review. An inconclusive round is closed as a continuing search, which is the honest end of most of them.",
+        "operationId": "trust.closeUnclaimedFundsReview",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.closeUnclaimedFundsReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustUnclaimedFundsReview_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustCloseUnclaimedFundsReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The round of diligence is closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCloseUnclaimedFundsReviewAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/unclaimed-funds/reviews/{reviewId}": {
+      "get": {
+        "description": "Returns one diligence file whole: the observation it was opened on, every locate attempt in the order they were made, and its closure if the round has ended. This is the shape a certification is assembled from, which is why the attempts come back with the review rather than through a second call.",
+        "operationId": "trust.getUnclaimedFundsReview",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.getUnclaimedFundsReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustUnclaimedFundsReview_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The diligence file and its evidence trail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustUnclaimedFundsReviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/billing/invoices": {
       "post": {
         "description": "Opens a draft invoice for one client. A draft is a working document: nothing has been asserted to anybody, no number has been drawn, and no work is locked. It becomes a financial record only when it is finalized.",
@@ -66906,6 +69107,9 @@
       "name": "incidents"
     },
     {
+      "name": "invitations"
+    },
+    {
       "name": "locations"
     },
     {
@@ -66958,6 +69162,9 @@
     },
     {
       "name": "rates"
+    },
+    {
+      "name": "registrations"
     },
     {
       "name": "safeBrowse"

@@ -364,6 +364,11 @@ describe("end-to-end", () => {
         // the authority to act on client money under the firm's authorization policy — reaches
         // Owner/Admin and Attorney only (20260807T050000_trust-authorization-policy).
         "trust:authorize",
+        // Putting the FIRM'S own money into a client trust account — the one deliberate exception
+        // to no-commingling, permitted for a single purpose and only in the amount necessary for
+        // it — is narrower still: Owner/Admin alone by seed
+        // (20260812T000001_seed-trust-firm-funds-permission).
+        "trust:firmFunds",
         "trust:manage",
         "trust:read",
       ],
@@ -451,6 +456,27 @@ interface OpenApiDocument {
 
 const MUTATING_METHODS = ["post", "put", "patch", "delete"] as const;
 const ALL_METHODS = ["get", "head", "options", "trace", ...MUTATING_METHODS] as const;
+
+// THE ANONYMOUS JOINING SET — the only mutating /v1 operations a caller with no credential at all
+// may reach, enumerated here so a fourth one cannot appear without this literal being edited.
+//
+// Every sweep below used to say, flatly, that no unauthenticated mutating operation exists in this
+// contract. That was true while accounts were provisioned exclusively by a platform operator, and
+// it stopped being true the moment somebody had to be able to start a firm or redeem an invitation
+// without already having an account — those callers cannot present a session, because the session
+// is what they are asking for. The guarantee the sweeps actually protect is narrower and survives
+// intact: no operation OUTSIDE this list is reachable unauthenticated, Better Auth's own signup
+// stays closed and unmounted in this document, and each member of the list earns its place by a
+// justification recorded in conformance.test.ts's PUBLIC_ALLOW_LIST.
+//
+// What each of them is allowed to do is deliberately small: create one control-plane row, or turn
+// a token the caller already holds into an account. None of them can be reached with a firm id,
+// none of them reads firm data, and all three ride the tightest rate-limit bucket.
+const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
+  "registrations.start",
+  "registrations.confirm",
+  "invitations.redeem",
+]);
 
 interface EmittedOperation {
   readonly path: string;
@@ -557,8 +583,20 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Non-null AND one of the two declared idempotency modes — a new mode must be a deliberate
       // contract change, not a typo this sweep waves through.
       expect(["required", "optional"], label).toContain(operation["x-mc-idempotency"]);
-      // No mutating /v1 route is reachable without authentication metadata — this, with the
-      // narrow platform-admin pin below, is the "no public signup outside /api/auth/*" guarantee.
+      // No mutating /v1 route is reachable without authentication metadata, EXCEPT the enumerated
+      // joining set — this, with the narrow platform-admin pin below, is what keeps the contract
+      // free of an accidental public signup hole.
+      if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) {
+        // An anonymous route must name NO permission: the chokepoint never reads one for a caller
+        // it did not authenticate, so naming one would be a contract that misleads its next reader
+        // into thinking something is enforced. defineOpenAPIRoute refuses it at startup; this is
+        // the same rule asserted over the emitted document.
+        expect(operation["x-mc-authenticated"], label).toBe(false);
+        expect(operation["x-mc-permission"], label).toBeNull();
+        // And it rides the tightest bucket, which is the only enforcement left standing on it.
+        expect(operation["x-mc-rateLimit"], label).toBe("auth");
+        continue;
+      }
       expect(operation["x-mc-authenticated"], label).toBe(true);
       const permission = operation["x-mc-permission"];
       expect(typeof permission, label).toBe("string");
@@ -580,10 +618,15 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // override), and the support-session redeem — all X-Platform-Admin-Key POSTs under /api/v1.
     // A future unguarded route cannot hide behind the exception, because the exception is this
     // exact set, and each member is asserted guarded below.
+    // The public surface carries TWO populations, and conflating them is how a genuinely
+    // unauthenticated route could hide behind the platform-admin exception. Both are enumerated.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
-    expect(publicSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
+    const platformAdminSurface = publicSurface.filter(
+      (entry) => !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
+    );
+    expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
@@ -593,12 +636,22 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "platformStatus.setComponentOverride",
       "supportSessions.redeem",
     ]);
-    // And even the exception is no signup hole: each public operation is authenticated (the
-    // X-Platform-Admin-Key guard) and carries a registered registry permission.
-    for (const { operation, label } of publicSurface) {
+    // The platform-admin exception is no signup hole: each of its operations is authenticated (by
+    // the X-Platform-Admin-Key guard) and carries a registered registry permission.
+    for (const { operation, label } of platformAdminSurface) {
       expect(operation["x-mc-authenticated"], label).toBe(true);
       expect(isPermission(operation["x-mc-permission"] as string), label).toBe(true);
     }
+    // The joining set is the opposite posture, and every member of it must actually be present:
+    // an entry that stopped being emitted would silently shrink this pin to nothing.
+    expect(
+      publicSurface
+        .filter((entry) =>
+          ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
+        )
+        .map((entry) => entry.operation["operationId"])
+        .sort(),
+    ).toEqual([...ANONYMOUS_JOINING_OPERATIONS].sort());
 
     // Every other /v1 operation is an app-surface (session cookie) operation.
     const publicOperations = new Set(publicSurface.map((entry) => entry.operation));
@@ -615,11 +668,20 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // path anywhere in it.
     for (const path of Object.keys(document.paths)) {
       expect(path, path).not.toMatch(/^\/api\/auth\//);
-      expect(path, path).not.toMatch(/sign[-_]?up|register/i);
+      // "signup"-shaped paths stay banned. `/api/v1/registrations` is deliberately NOT one of
+      // them and is exempted by name rather than by loosening the pattern: the thing being
+      // guarded against is Better Auth's own credential-creating signup leaking into this
+      // contract, not the word. The platform's registration route creates no credential at all —
+      // it writes a pending row and mails a link, and the password is set through the reset flow.
+      if (!path.startsWith("/api/v1/registrations")) {
+        expect(path, path).not.toMatch(/sign[-_]?up|register/i);
+      }
     }
-    // And no mutating operation ANYWHERE in the document (not just under /v1) is emitted as
-    // unauthenticated — an unauthenticated user-creating POST cannot exist in this contract.
+    // And no mutating operation ANYWHERE in the document is emitted as unauthenticated except the
+    // enumerated joining set — an unauthenticated user-creating POST cannot appear in this
+    // contract without this literal being edited in the same change.
     for (const { operation, label } of emittedOperations(document, MUTATING_METHODS)) {
+      if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) continue;
       expect(operation["x-mc-authenticated"], label).toBe(true);
     }
   });

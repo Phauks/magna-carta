@@ -107,6 +107,12 @@ export const ENTITY_PREFIXES = {
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",
   supportGrant: "supportGrant",
+  // Joining the platform. `registration` is a self-serve sign-up in flight — the control-plane row a
+  // stranger's request costs before anything they asked for exists; `invitation` is a firm's own
+  // invitation to a member or a portal client, redeemed against a code plus two facts about the
+  // person. Both handles are internal: neither is ever the secret a redeemer types.
+  registration: "registration",
+  invitation: "invitation",
   // Password recovery — a transient job identifier minted at recover-request time and used to key
   // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
   // itself is the state store for the job).
@@ -196,6 +202,18 @@ export const ENTITY_PREFIXES = {
   trustBankStatementLine: "trustBankStatementLine",
   trustReconciliation: "trustReconciliation",
   trustReconciliationMatch: "trustReconciliationMatch",
+  // A `trustFirmFundsMovement` is the record beside an entry touching the firm's OWN money in a
+  // trust account — the permitted cushion that bears the bank's service charges. It is a separate
+  // kind from `trustMovement` because it can never name a client or a matter, which is what keeps
+  // the carve-out from becoming a second way to move client money.
+  trustFirmFundsMovement: "trustFirmFundsMovement",
+  // Unclaimed client funds. A `trustUnclaimedFundsReview` is a firm's open diligence file over one
+  // dormant matter ledger; a `trustUnclaimedFundsContactAttempt` is one locate attempt recorded when
+  // it was made; a `trustUnclaimedFundsReviewClosure` is the single row that ends a review and, when
+  // the owner was found, names the disbursement that already paid them.
+  trustUnclaimedFundsReview: "trustUnclaimedFundsReview",
+  trustUnclaimedFundsContactAttempt: "trustUnclaimedFundsContactAttempt",
+  trustUnclaimedFundsReviewClosure: "trustUnclaimedFundsReviewClosure",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the

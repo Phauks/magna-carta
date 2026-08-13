@@ -5,8 +5,10 @@ import type {
   AuthAuditId,
   FirmId,
   IdempotencyRecordId,
+  InvitationId,
   OutboxId,
   PlatformStaffId,
+  RegistrationId,
   SessionId,
   SupportGrantId,
   TwoFactorId,
@@ -24,8 +26,17 @@ export const firm = sqliteTable("firm", {
   // UNIQUE: the firm name is the provisioner's RESUME IDENTITY — a crashed
   // provisioning run re-invoked with the same name must find its own partial row, and firm ids
   // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
-  // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
+  //
+  // For the PLATFORM-ADMIN door this is still the human name the operator typed. For SELF-SERVE
+  // registration it is a platform-generated handle (the registration's own id), never anything the
+  // stranger chose: a globally UNIQUE human name would refuse the second firm called Smith Law,
+  // would let anyone probe for the existence of a named firm by trying to register it, and would
+  // make squatting a real firm's name cost one email address. The human name lives in
+  // `display_name` beside it, where nothing is unique.
   name: text("name").notNull().unique(),
+  // The firm's human-facing name. Null means "the operator-typed `name` above is the display name",
+  // which is what every platform-provisioned row is — so this column needs no backfill.
+  displayName: text("display_name"),
   // vestigial: per-firm DB is the firmId-addressed FirmDatabase DO; drop in a later control-plane migration
   databaseIdentifier: text("database_identifier").unique(),
   // vestigial: the FirmDatabase DO self-migrates on first access; drop in a later control-plane migration
@@ -207,6 +218,88 @@ export const authAudit = sqliteTable("auth_audit", {
   metadata: text("metadata"), // JSON: ids + non-privileged fields ONLY, redacted (never privileged content)
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
+
+// A self-serve registration in flight: what a stranger asked for, before anything they asked for
+// exists. Deliberately its OWN table rather than an unverified `user` + `firm` pair, and that is the
+// primary anti-abuse control on the open endpoint — a spam run costs exactly one row and touches no
+// bucket, no Durable Object, no key mint, and no cron enumeration. It also keeps the `user` table
+// free of rows nobody proved control of, so an unconfirmed registration can never collide with a
+// later real invitation for the same address.
+//
+// Nothing here is a secret in the clear: `confirmation_hash` is the SHA-256 of the emailed
+// confirmation token, so the control plane cannot hand anyone a working link even if read whole.
+export const registration = sqliteTable(
+  "registration",
+  {
+    id: text("id").primaryKey().$type<RegistrationId>(), // registration_ handle
+    // Which of the three doors the visitor chose. Only `foundFirm` provisions anything; the other
+    // two are recorded so the rate of each is measurable and so a confirmation cannot be replayed
+    // against a different door than the one it was issued for.
+    role: text("role", { enum: ["foundFirm", "firmMember", "clientOfFirm"] }).notNull(),
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull(),
+    // The firm name the visitor typed, for the `foundFirm` door. It becomes `firm.display_name`,
+    // never `firm.name` — see the note on that column.
+    firmDisplayName: text("firm_display_name"),
+    confirmationHash: text("confirmation_hash").notNull(),
+    status: text("status", { enum: ["pending", "confirmed", "expired", "superseded"] }).notNull(),
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant
+    confirmedAt: text("confirmed_at"), // ISO-8601 instant; null until the token is presented
+    // The firm this registration provisioned, written at confirmation. Not a foreign key: the row
+    // is the record of the request and must outlive whatever it created.
+    firmId: text("firm_id").$type<FirmId>(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    // The confirmation token is looked up BY ITS HASH and by nothing else, so the index that makes
+    // that read a point lookup is also what keeps the read from ever needing the email.
+    uniqueIndex("registration_confirmation_hash_unique").on(table.confirmationHash),
+    index("registration_email_index").on(table.email),
+    index("registration_created_at_index").on(table.createdAt),
+  ],
+);
+
+// An invitation into a firm — the firm-member door and the client-portal door share one row shape
+// because they are redeemed identically and differ only in what the redeemer becomes.
+//
+// THREE FACTS, ONE STORED VERIFIER. Redemption asks for the code, the last name and the date of
+// birth, and the row stores `verifier_hash` = SHA-256 over all three together. There is no column
+// holding the last name and none holding the date of birth, so there is no field to compare
+// separately and therefore no way for the redemption path to know WHICH of the three was wrong —
+// the neutral failure message is a structural property of the schema, not a discipline the handler
+// has to keep. (`code_hash` is separate only so a redemption attempt can be counted against the
+// invitation it was aimed at; it never decides the outcome on its own.)
+export const invitation = sqliteTable(
+  "invitation",
+  {
+    id: text("id").primaryKey().$type<InvitationId>(), // invitation_ handle
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // `firmMember` becomes a user of the firm; `clientOfFirm` becomes a portal client of it.
+    kind: text("kind", { enum: ["firmMember", "clientOfFirm"] }).notNull(),
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull(),
+    codeHash: text("code_hash").notNull(),
+    verifierHash: text("verifier_hash").notNull(),
+    status: text("status", { enum: ["pending", "redeemed", "revoked"] }).notNull(),
+    // The per-invitation attempt ladder. An IP-keyed limit alone cannot stop a patient attacker
+    // walking a date of birth from many addresses, so the budget is also spent per invitation.
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lockedUntil: text("locked_until"), // ISO-8601 instant; null while attempts remain
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant
+    redeemedAt: text("redeemed_at"), // ISO-8601 instant
+    redeemedUserId: text("redeemed_user_id").$type<UserId>(),
+    invitedByUserId: text("invited_by_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    uniqueIndex("invitation_code_hash_unique").on(table.codeHash),
+    index("invitation_firm_id_index").on(table.firmId),
+    index("invitation_email_index").on(table.email),
+  ],
+);
 
 // Platform support staff — named human (later: agent) principals who redeem support grants. Separate
 // from firm `user` (every user belongs to exactly one firm; staff belong to none). Self-service staff

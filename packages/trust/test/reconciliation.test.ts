@@ -723,6 +723,7 @@ describe("closing a reconciliation", () => {
       adjustedBankMinor: 500000,
       bookBalanceMinor: 500000,
       clientLedgerTotalMinor: 500000,
+      firmFundsMinor: 0,
       unmatchedLineCount: 0,
       unmatchedItemCount: 0,
       balanced: true,

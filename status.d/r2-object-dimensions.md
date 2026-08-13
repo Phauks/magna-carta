@@ -9,8 +9,8 @@ built: done by="Opus 5"
 ui: n/a
 load-profile: n/a
 tested: done by="Opus 5"
-branch: claude/r2-matter-dimension
-active-work: docs/active-work/claude/r2-matter-dimension.md
+branch: main
+active-work:
 next: Stamp the `client` dimension once the matter-to-client link has a reader — the backfill sweep fills it in for what already exists at no extra cost
 link-spec:
 link-plan:

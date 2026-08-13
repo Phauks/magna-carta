@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: todo
 load-profile: todo
 tested: todo
-branch: claude/assets-4-3-2-3
-active-work: docs/active-work/claude/assets-4-3-2-3.md
+branch: main
+active-work:
 next: The remainder of slice 4·3·3 — `custom_field.target` widening to `matterAsset` (one additive migration, coordinated with the Custodian `custodyPacket` widening) and the starter schedule template in the document-automation starter content; then the load-profile asset corpus and the as-of schedule measurement, which is the one query in this subsystem with a genuinely non-obvious plan
 link-spec: docs/specs/2026-08-05-matter-assets-design.md
 link-plan: docs/specs/2026-08-05-matter-assets-implementation-plan.md

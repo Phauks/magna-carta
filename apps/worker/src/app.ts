@@ -21,7 +21,9 @@ import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerBillingRoutes } from "./routes/billing.ts";
+import { registerTrustFirmFundsRoutes } from "./routes/trust-firm-funds.ts";
 import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
+import { registerTrustUnclaimedFundsRoutes } from "./routes/trust-unclaimed-funds.ts";
 import { registerTrustRoutes } from "./routes/trust.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTemplatesRoutes } from "./routes/templates.ts";
@@ -89,6 +91,9 @@ import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerInvitationRoutes } from "./routes/invitations.ts";
+import { registerRegistrationRoutes } from "./routes/registrations.ts";
+import { attemptBudgetMiddleware, createAttemptLadder } from "./auth-attempt-budget.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
@@ -459,7 +464,23 @@ export function createApp(options: CreateAppOptions = {}) {
   // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
   // only GET and POST. Registered before the catch-all asset fallthrough, OUTSIDE the chokepoint
   // (it is its own authentication surface, not a /api/v1 route).
+  //
+  // The attempt budget rides IN FRONT of it, and this is the one place it can: the chokepoint's
+  // rate-limit gate is per-route and firm-keyed, which is exactly the wrong shape for a visitor who
+  // has no firm yet and is spending one shared budget across the password, the two-factor code and
+  // the recovery code. One ladder per app instance, alongside the rate limiter and for the same
+  // reason — per-request state would reset on every attempt and limit nothing.
+  const attemptLadder = createAttemptLadder();
+  app.use("/api/auth/*", attemptBudgetMiddleware(attemptLadder));
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
+
+  // A SECOND ladder, of the same shape and for the same reason, for the anonymous invitation
+  // redemption form. It is the budget that route's refusal publishes — the invitation's own count
+  // is a fact about the invitation and answering with it would tell a prober whether a guessed code
+  // is live (routes/invitations.ts). Separate state from the credential ladder above because the
+  // two surfaces ask different questions of different people: a member mistyping their password
+  // should not spend a new joiner's tries, or the reverse.
+  const invitationRedemptionLadder = createAttemptLadder();
 
   // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
   // public firms route additionally mounts the platform-admin secret guard as route-specific
@@ -542,6 +563,11 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  // Joining the platform: the anonymous registration pair and the invitation pair (one issued
+  // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
+  // rides the chokepoint's tightest rate-limit bucket.
+  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv);
+  registerInvitationRoutes(app, chokepoint, authForEnv, invitationRedemptionLadder);
   registerPlatformReleaseChannelRoute(app, chokepoint);
   registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
@@ -617,6 +643,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);
   registerTrustReconciliationRoutes(app, chokepoint);
+  // The firm's OWN money in a trust account — the bank-charge carve-out, on its own capability and
+  // in its own module, because firm money and client money never share a door.
+  registerTrustFirmFundsRoutes(app, chokepoint);
+  // Unclaimed client funds: the dormancy read against a window the caller states, and the diligence
+  // file that evidences the search. Nothing on that surface moves money.
+  registerTrustUnclaimedFundsRoutes(app, chokepoint);
   // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
   // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
   registerBillingRoutes(app, chokepoint);

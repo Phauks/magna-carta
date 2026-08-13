@@ -12,7 +12,7 @@ tested: done
 next: The calendar user interface (month grid, week view, agenda, room grid) consumes the reads named in the spec; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask
 link-spec: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
 link-plan: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
-adrs: ADR-calendar-firm-events-resources-links-continuance
+adrs: ADR-0261
 blocked-by:
 ---
 

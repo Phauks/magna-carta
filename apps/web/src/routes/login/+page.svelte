@@ -19,10 +19,20 @@
    * to reach in the product (a lockout, a rejected recovery code) is otherwise only ever seen by
    * the person it happened to.
    *
-   * NO ALTERNATIVE CREDENTIAL IS OFFERED, because the server supports exactly one. Passkeys,
+   * The Register link beside the address field DOES go somewhere: the three-way role fork at
+ * /register, and from there the founding-a-firm form or invitation redemption. Those screens are in
+ * $lib/auth/screens/ beside these ones, and $lib/auth/joining-availability.ts records how far each
+ * of their steps actually carries.
+ *
+ * NO ALTERNATIVE CREDENTIAL IS OFFERED, because the server supports exactly one. Passkeys,
    * one-time links and firm identity providers are designed and rendered, but their plugins are not
    * mounted — $lib/auth/unbuilt-capabilities.ts is the register, and a control with no route behind
    * it is worse than an absent one.
+   *
+   * The remaining-attempts line and the lockout countdown ARE wired, because the server now
+   * publishes both on every credential answer. They stay absent when it does not (an older Worker,
+   * or a frontend-only dev server): a count the server has not agreed to is worse than no count,
+   * which is the whole reason the ladder was left unwired until now.
    *
    * Every call goes through the Better Auth client ($lib/auth/client.ts). Failure wording is a
    * security decision and lives in ./sign-in-messages.ts; every number the copy states comes from
@@ -31,7 +41,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
-  import { authClient } from "$lib/auth/client.ts";
+  import { attemptBudget, authClient } from "$lib/auth/client.ts";
   import RecoveryCodeScreen from "$lib/auth/screens/recovery-code-screen.svelte";
   import SignInScreen from "$lib/auth/screens/sign-in-screen.svelte";
   import VerificationCodeScreen from "$lib/auth/screens/verification-code-screen.svelte";
@@ -51,6 +61,13 @@
   let recoveryCode = $state("");
   let trustDevice = $state(false);
   let pending = $state(false);
+
+  /*
+   * The shared ladder, as the server last reported it. One value for all three steps because it is
+   * one budget — the password, the code and the recovery code spend the same allowance, so a count
+   * held per screen would let a visitor be one failure from a lockout with no screen saying so.
+   */
+  let budget = $state<ReturnType<typeof attemptBudget>>(null);
 
   /*
    * One rejection at a time, and it belongs to the step that produced it. Carrying a credential
@@ -98,6 +115,7 @@
     credentialRejection = null;
     verificationRejected = false;
     recoveryRejection = null;
+    budget = null;
   }
 
   async function signIn(event: SubmitEvent): Promise<void> {
@@ -120,6 +138,7 @@
       status = undefined;
     }
     pending = false;
+    budget = attemptBudget();
     if (outcome === "challenge") {
       // The password has done its work; hold nothing but the challenge while the code is entered.
       password = "";
@@ -152,6 +171,7 @@
       status = undefined;
     }
     pending = false;
+    budget = attemptBudget();
     if (!verified) {
       // The channel-specific sentence is the screen's own; only a non-rejection needs saying here.
       const message = signInErrorMessage(status, VERIFICATION_CODE_REJECTED);
@@ -181,6 +201,7 @@
       status = undefined;
     }
     pending = false;
+    budget = attemptBudget();
     if (!verified) {
       recoveryRejection = signInErrorMessage(status, RECOVERY_CODE_REJECTED);
       recoveryCode = "";
@@ -201,8 +222,11 @@
       bind:emailFieldReference
       {pending}
       rejection={credentialRejection}
+      attemptsRemaining={budget?.remaining}
+      lockoutSeconds={budget?.lockoutSecondsRemaining ?? undefined}
       onSubmit={signIn}
       onForgotPassword={() => goto("/login/reset-password")}
+      onRegister={() => goto("/register")}
     />
   {:else if step === "verification"}
     <VerificationCodeScreen
@@ -212,6 +236,8 @@
       bind:codeFieldReference={verificationCodeFieldReference}
       {pending}
       rejected={verificationRejected}
+      attemptsRemaining={budget?.remaining}
+      lockoutSeconds={budget?.lockoutSecondsRemaining ?? undefined}
       onSubmit={verify}
       onRecoveryCode={() => {
         step = "recovery";
@@ -225,6 +251,7 @@
       bind:codeFieldReference={recoveryCodeFieldReference}
       {pending}
       rejection={recoveryRejection}
+      lockoutSeconds={budget?.lockoutSecondsRemaining ?? undefined}
       onSubmit={verifyRecoveryCode}
       back={() => {
         step = "verification";

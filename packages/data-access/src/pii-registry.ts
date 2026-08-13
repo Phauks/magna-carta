@@ -300,6 +300,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "the other party as the bank named it on a statement line, held as free text with no structured subject, on an append-only row the firm did not author",
   },
+  // The unclaimed-funds diligence file records how a firm tried to reach a client it has lost
+  // contact with, and the contact it used is the whole evidentiary point: "we wrote to the client"
+  // is not evidence, and "we wrote to 14 Elm Street on 3 March, returned undelivered" is. It is the
+  // free-text residue class the movement's counterparty sits in — an address, a telephone number, or
+  // a mailbox, with no structured subject to resolve — with a retention basis stronger than most of
+  // that class: the rules require the firm to certify these efforts with supporting documentary
+  // evidence, and the row is append-only by trigger. Whose money the search concerns resolves
+  // through the review's node to trust_ledger_node, registered above, never through a column here.
+  {
+    table: "trust_unclaimed_funds_contact_attempt",
+    subjectKey: "contact_used",
+    action: "report-manual",
+    note: "the address, number, or mailbox a firm used trying to reach a client it holds money for, held as free text with no structured subject, on an append-only row the firm must be able to certify",
+  },
   // Billing. The invoice header is the one billing table with a structured subject reference: it
   // says the firm charged this client. It is retained on the same basis as matter_party and the
   // trust sub-ledger node — a bill the firm issued is a financial record it is obliged to keep and
@@ -761,6 +775,19 @@ export const NO_PII_TABLES: readonly string[] = [
   // ledger holds resolves through trust_ledger_node, registered above.
   "trust_reconciliation",
   "trust_reconciliation_match",
+  // A firm-funds movement is a record about the FIRM'S OWN money in its own bank account — the
+  // deposit that funds the bank-charge cushion, and the institution taking a charge out of it. There
+  // is deliberately no column in it for a client, a matter, a node, or a payee, which is what makes
+  // the carve-out narrow; the only person it names is the firm member who recorded it, which is the
+  // administrative-provenance line trust_transfer.authorized_by sits on.
+  "trust_firm_funds_movement",
+  // The diligence file's other two rows. A review is an observation about a BALANCE — what it was,
+  // when the money arrived, when the ledger last moved — plus firm-member provenance; whose money it
+  // is resolves through trust_ledger_node, registered above. A closure is an outcome, the
+  // disbursement that settled it, and the member who closed it. The one column about a data subject
+  // in the whole group is the contact an attempt used, registered above.
+  "trust_unclaimed_funds_review",
+  "trust_unclaimed_funds_review_closure",
   // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
   // PII_TABLES above; these five carry none of their own.
   // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two

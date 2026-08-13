@@ -1,5 +1,24 @@
 # file-surface-web
 
+> **Disposition (2026-08-12): abandoned, partly landed, superseded for the matter host.** The branch
+> stopped a month ago at three `wip` commits with no pull request, against a base `main` has since
+> moved ~350 commits past. Two of its three deliverables reached `main` independently and are in use:
+> the shared multi-view shell (`apps/web/src/lib/view-shell/`) and the persisted-preference primitive
+> (`apps/web/src/lib/preferences/`), plus the `seed-dev-firm` route and script and the Playwright
+> login e2e described below. What never landed is the Matter Files body itself.
+>
+> That body is **not** revived: it is built on `@magna-carta/api-client` + TanStack Query mounted into
+> `apps/web`, which is a dependency decision the app has since gone the other way on — every API call
+> in `apps/web` today is a same-origin `fetch` behind a hand-written seam, and the WHOIS module says
+> in as many words that adopting the generated client is a scope decision the owner has not made.
+> Reviving would mean re-litigating that on a branch that also has to be re-based across a moved
+> contract and a regenerated client. Its **reasoning** was taken, though — see
+> `docs/active-work/claude/document-surface.md` and the two warnings at the end of this file, which
+> are still true and were designed around rather than rediscovered.
+>
+> Leave this note in place until the multi-view browser lands over the current surface; delete it and
+> the branch together at that point.
+
 **Scope:** Build the user-facing **file surface** — the shared multi-view shell + the headerless file
 body (collection region + capability detail pane) — and stand it up on **real data**, Matter host first.
 This is "stream three" of the Matter File Manager design, built on top of the app shell rather than
