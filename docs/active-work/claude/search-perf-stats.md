@@ -2,8 +2,8 @@
 branch: claude/search-perf-stats
 worktree: .claude/worktrees/search-perf-stats
 area: a standardized, owner-readable performance benchmark for the search and discovery read path
-status: building
-touches: crates/search-eval, crates/Cargo.toml, docs/conventions/search-benchmark.md, changelog.d/, docs/decisions/pending/
+status: review
+touches: crates/search-eval, crates/Cargo.toml, docs/conventions/performance.md, changelog.d/, docs/decisions/pending/
 ---
 
 Builds the search/discovery read-path benchmark the owner can run from one command and read without
@@ -19,12 +19,17 @@ rather than benchmarking a stub and presenting the number as the system's speed.
 `SearchIndexPort` resolves to the deferred `engine-not-implemented` port everywhere off a deployment,
 which is exactly the stub the report refuses to time.
 
-New crate plus its documentation and fragments — no existing measurement module, profile, or baseline
-is edited, so this stream does not collide with the load-profile harness or any domain slice. It does
-not touch `packages/fixtures/`, the `ledgerVolume` profile, or `packages/fixtures/baselines/`.
+New crate plus its documentation and fragments. The only shared files touched are `crates/Cargo.toml`
+(one member entry and an additive `benchmark` cargo profile) and one bullet in
+`docs/conventions/performance.md` pointing at the crate README, which is the single home for how to
+run the benchmark and how to read it. No existing measurement module, profile, or baseline is edited,
+so this stream does not collide with the load-profile harness or any domain slice: it does not touch
+`packages/fixtures/`, the `ledgerVolume` profile, or `packages/fixtures/baselines/`.
 
 **Not built here:** UI (deferred to the owner), and any change to `crates/search-core` itself — the
-benchmark measures that crate through its public surface and does not modify it.
+benchmark measures that crate through its public surface and does not modify it. The two engine gaps
+the harness surfaced (no reuse of an opened index across queries; no ranged multi-split query) are
+recorded as findings in the decision fragment, deliberately not fixed under a benchmark's cover.
 
 ## Overlaps
 

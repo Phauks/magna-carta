@@ -161,31 +161,34 @@ fn build_document(
     // Decide this document's band membership once, then choose which passage carries each term.
     let mut planted: Vec<(usize, String)> = Vec::new();
     let passage_count = spec.passages_per_document.max(1);
-    let mut plant = |generator: &mut Generator, text: String| {
-        let passage = generator.below(passage_count);
-        planted.push((passage, text));
-    };
 
     if generator.chance(COMMON_IN.0, COMMON_IN.1) {
-        plant(generator, COMMON_TERM.to_owned());
+        let passage = generator.below(passage_count);
+        planted.push((passage, COMMON_TERM.to_owned()));
     }
+    // The two mid-band terms go in the SAME passage when a document draws both. The index's unit is the
+    // passage, not the document, so a boolean `A AND B` is satisfied only by a passage holding both
+    // terms — scattering them across a document's passages makes that query match nothing at all and
+    // measure nothing with it. Co-locating them is also the truthful shape: two terms a reviewer would
+    // search for together are terms that appear together in a clause.
+    let mid_passage = generator.below(passage_count);
     if generator.chance(MID_IN.0, MID_IN.1) {
-        plant(generator, MID_TERM.to_owned());
+        planted.push((mid_passage, MID_TERM.to_owned()));
     }
     if generator.chance(SECOND_MID_IN.0, SECOND_MID_IN.1) {
-        plant(generator, SECOND_MID_TERM.to_owned());
+        planted.push((mid_passage, SECOND_MID_TERM.to_owned()));
     }
     if generator.chance(RARE_IN.0, RARE_IN.1) {
-        plant(generator, RARE_TERM.to_owned());
+        let passage = generator.below(passage_count);
+        planted.push((passage, RARE_TERM.to_owned()));
     }
     if generator.chance(PHRASE_IN.0, PHRASE_IN.1) {
-        plant(
-            generator,
-            format!("{PHRASE_FIRST_WORD} {PHRASE_SECOND_WORD}"),
-        );
+        let passage = generator.below(passage_count);
+        planted.push((passage, format!("{PHRASE_FIRST_WORD} {PHRASE_SECOND_WORD}")));
     }
     if force_unique_term {
-        plant(generator, UNIQUE_TERM.to_owned());
+        let passage = generator.below(passage_count);
+        planted.push((passage, UNIQUE_TERM.to_owned()));
     }
 
     (0..passage_count)
@@ -317,6 +320,24 @@ mod tests {
             common > SMALL.documents / 2,
             "the common band must cover most of the corpus, got {common} of {}",
             SMALL.documents
+        );
+    }
+
+    #[test]
+    fn the_two_mid_band_terms_share_a_passage_so_a_boolean_query_can_match() {
+        // A boolean `A AND B` is evaluated over passages. If the two mid-band terms never land in one
+        // passage the class returns zero hits and measures nothing — which is exactly what happened
+        // before they were co-located, so this asserts the property rather than trusting it.
+        let passages = generate(&SMALL, 42);
+        let both = passages
+            .iter()
+            .filter(|passage| {
+                passage.body.contains(MID_TERM) && passage.body.contains(SECOND_MID_TERM)
+            })
+            .count();
+        assert!(
+            both > 0,
+            "no passage holds both mid-band terms; the boolean class would measure nothing"
         );
     }
 

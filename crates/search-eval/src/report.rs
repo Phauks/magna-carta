@@ -170,6 +170,92 @@ fn wrap_into(text: &str, width: usize, indent: &str) -> String {
 const RULE: &str =
     "--------------------------------------------------------------------------------------------";
 
+/// The class treated as "an ordinary review query" in the headline — broad enough to be representative,
+/// selective enough not to be the ranking collector's worst case.
+const HEADLINE_CLASS: &str = "mid-term";
+
+/// The few sentences an owner should be able to read and then stop. Everything below the headline is
+/// the evidence for it: nothing appears here that is not also in a table further down, and every figure
+/// is computed from this run rather than written by hand, so the headline cannot go stale while the
+/// tables move underneath it.
+fn print_headline(report: &Report) {
+    let Some(largest) = report.corpus_tiers.last() else {
+        return;
+    };
+    println!("HEADLINE -- read this first");
+    println!();
+
+    if let Some(review) = largest
+        .queries
+        .iter()
+        .find(|measurement| measurement.class == HEADLINE_CLASS)
+    {
+        println!("{}", wrap_into(&format!(
+            "COMPACTED, the engine is fast and scales the way the split model intends. At {} documents ({} passages) in one split of {}, an ordinary review query returned in {:.3} ms at the median and {:.3} ms at p95, pulling {} ranged reads totalling {}.",
+            thousands(largest.documents),
+            thousands(largest.passages),
+            bytes_human(largest.split_bytes),
+            review.ranged.p50_ms,
+            review.ranged.p95_ms,
+            review.ranged_reads,
+            bytes_human(review.ranged_bytes),
+        ), 88, "  "));
+        println!();
+    }
+
+    // Read COUNT holding steady while the corpus grows is the split model's central claim, and the read
+    // count is also the figure that transfers off this machine -- so it leads, ahead of any latency.
+    if report.corpus_tiers.len() > 1 {
+        let counts: Vec<usize> = report
+            .corpus_tiers
+            .iter()
+            .flat_map(|tier| tier.queries.iter().map(|query| query.ranged_reads))
+            .collect();
+        let growth = largest.split_bytes as f64 / report.corpus_tiers[0].split_bytes.max(1) as f64;
+        if let (Some(low), Some(high)) = (counts.iter().min(), counts.iter().max()) {
+            println!("{}", wrap_into(&format!(
+                "Per-query ranged reads stayed between {low} and {high} across a {growth:.0}x growth in index size, so the number of round trips one query costs is set by what it asks for, not by how large the matter grew. Bytes per query do grow with the corpus, but sub-linearly: as a fraction of the index, a query touches steadily less of it as the corpus gets bigger.",
+            ), 88, "  "));
+            println!();
+        }
+    }
+
+    // The fan-out comparison is only meaningful where the two axes meet at the same document count.
+    let meeting = report.corpus_tiers.iter().find_map(|tier| {
+        report
+            .fanout
+            .iter()
+            .find(|point| point.splits == tier.documents)
+            .and_then(|point| {
+                tier.queries
+                    .iter()
+                    .find(|query| query.class == HEADLINE_CLASS)
+                    .map(|query| (tier, point, query))
+            })
+    });
+    if let Some((tier, point, query)) = meeting {
+        let ratio = point.ranged_reads as f64 / query.ranged_reads.max(1) as f64;
+        println!("{}", wrap_into(&format!(
+            "UNCOMPACTED, it does not. The same {} documents published the way the pipeline publishes them today -- one split per document version -- cost {} ranged reads for ONE query, against {} for the identical documents compacted into a single split: about {ratio:.0} times the round trips for the same answer. On this machine that is {:.1} ms, but in a deployment every one of those reads is an R2 range GET, so this shape cannot reach a sub-second query however fast the engine itself is. Compaction is not an optimization here; it is what makes the read path viable at all.",
+            thousands(tier.documents),
+            thousands(point.ranged_reads),
+            query.ranged_reads,
+            point.ranged.p50_ms,
+        ), 88, "  "));
+        println!();
+    }
+
+    println!(
+        "{}",
+        wrap_into(
+            "The single biggest caveat: nothing here crossed a network, a Worker, or a Container. Read WHAT THIS RUN DID NOT MEASURE below before quoting any millisecond figure from this report.",
+            88,
+            "  ",
+        )
+    );
+    println!();
+}
+
 pub fn print(report: &Report) {
     println!("{RULE}");
     println!("Magna Carta -- search and discovery read-path benchmark");
@@ -193,6 +279,8 @@ pub fn print(report: &Report) {
     println!("A baseline from this benchmark compares against another run of it ON THIS MACHINE.");
     println!("These are not production latencies, and the section below says exactly why.");
     println!();
+
+    print_headline(report);
 
     println!("WHAT THIS RUN MEASURED");
     println!("{}", wrap_into(

@@ -1,0 +1,648 @@
+{
+  "taken_at_utc": "2026-08-13T19:03:57Z",
+  "taken_at_unix_seconds": 1786647837,
+  "machine": "Linux cloud container (Claude Code session), 4 logical cores, 16 GiB RAM, shared/virtualized host",
+  "build_profile": "optimized build (run with --profile benchmark for the documented, speed-optimized settings)",
+  "engine": "crates/search-core over Tantivy, BM25 keyword ranking",
+  "schema_generation": 1,
+  "corpus_seed": 20260813,
+  "result_limit": 20,
+  "warmup_iterations": 3,
+  "timed_iterations": 30,
+  "fanout_timed_iterations": 10,
+  "corpus_tiers": [
+    {
+      "tier": "smoke",
+      "documents": 250,
+      "passages": 2000,
+      "words_per_passage": 40,
+      "split_bytes": 141249,
+      "segments": 1,
+      "build_ms": 25.527,
+      "index_open": {
+        "iterations": 30,
+        "min_ms": 0.008,
+        "p50_ms": 0.008,
+        "p95_ms": 0.009,
+        "p99_ms": 0.009,
+        "max_ms": 0.009
+      },
+      "index_open_reads": 4,
+      "index_open_bytes": 1912,
+      "queries": [
+        {
+          "class": "unique-term",
+          "query": "zzzsingletonmarker",
+          "meaning": "one passage in the whole corpus matches; the floor of per-query cost",
+          "hits": 1,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.027,
+            "p50_ms": 0.029,
+            "p95_ms": 0.05,
+            "p99_ms": 0.072,
+            "max_ms": 0.072
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 6744,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.04,
+            "p50_ms": 0.042,
+            "p95_ms": 0.075,
+            "p99_ms": 0.109,
+            "max_ms": 0.109
+          }
+        },
+        {
+          "class": "rare-term",
+          "query": "subrogation",
+          "meaning": "a handful of documents match; the band the split model is designed for",
+          "hits": 0,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.024,
+            "p50_ms": 0.024,
+            "p95_ms": 0.045,
+            "p99_ms": 0.056,
+            "max_ms": 0.056
+          },
+          "ranged_reads": 37,
+          "ranged_bytes": 4344,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.038,
+            "p50_ms": 0.039,
+            "p95_ms": 0.069,
+            "p99_ms": 0.17,
+            "max_ms": 0.17
+          }
+        },
+        {
+          "class": "mid-term",
+          "query": "indemnify",
+          "meaning": "roughly a tenth of documents match; an ordinary review query",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.055,
+            "p50_ms": 0.056,
+            "p95_ms": 0.09,
+            "p99_ms": 0.091,
+            "max_ms": 0.091
+          },
+          "ranged_reads": 45,
+          "ranged_bytes": 30184,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.068,
+            "p50_ms": 0.069,
+            "p95_ms": 0.104,
+            "p99_ms": 0.132,
+            "max_ms": 0.132
+          }
+        },
+        {
+          "class": "common-term",
+          "query": "agreement",
+          "meaning": "almost every document matches; the ranking collector's worst case",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.037,
+            "p50_ms": 0.038,
+            "p95_ms": 0.068,
+            "p99_ms": 0.074,
+            "max_ms": 0.074
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 10616,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.052,
+            "p50_ms": 0.053,
+            "p95_ms": 0.091,
+            "p99_ms": 0.102,
+            "max_ms": 0.102
+          }
+        },
+        {
+          "class": "two-term-boolean",
+          "query": "indemnify AND warranty",
+          "meaning": "two mid-band postings lists intersected",
+          "hits": 1,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.032,
+            "p50_ms": 0.033,
+            "p95_ms": 0.036,
+            "p99_ms": 0.078,
+            "max_ms": 0.078
+          },
+          "ranged_reads": 42,
+          "ranged_bytes": 12397,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.047,
+            "p50_ms": 0.048,
+            "p95_ms": 0.078,
+            "p99_ms": 0.134,
+            "max_ms": 0.134
+          }
+        },
+        {
+          "class": "phrase",
+          "query": "\"prior owner\"",
+          "meaning": "an exact adjacent pair; reads term positions, not just postings",
+          "hits": 16,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.057,
+            "p50_ms": 0.061,
+            "p95_ms": 0.11,
+            "p99_ms": 0.145,
+            "max_ms": 0.145
+          },
+          "ranged_reads": 49,
+          "ranged_bytes": 30647,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.07,
+            "p50_ms": 0.072,
+            "p95_ms": 0.111,
+            "p99_ms": 0.164,
+            "max_ms": 0.164
+          }
+        }
+      ]
+    },
+    {
+      "tier": "expected",
+      "documents": 5000,
+      "passages": 40000,
+      "words_per_passage": 40,
+      "split_bytes": 2717609,
+      "segments": 1,
+      "build_ms": 316.366,
+      "index_open": {
+        "iterations": 30,
+        "min_ms": 0.008,
+        "p50_ms": 0.008,
+        "p95_ms": 0.009,
+        "p99_ms": 0.009,
+        "max_ms": 0.009
+      },
+      "index_open_reads": 4,
+      "index_open_bytes": 1928,
+      "queries": [
+        {
+          "class": "unique-term",
+          "query": "zzzsingletonmarker",
+          "meaning": "one passage in the whole corpus matches; the floor of per-query cost",
+          "hits": 1,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.031,
+            "p50_ms": 0.032,
+            "p95_ms": 0.038,
+            "p99_ms": 0.066,
+            "max_ms": 0.066
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 48859,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.527,
+            "p50_ms": 0.564,
+            "p95_ms": 0.637,
+            "p99_ms": 0.673,
+            "max_ms": 0.673
+          }
+        },
+        {
+          "class": "rare-term",
+          "query": "subrogation",
+          "meaning": "a handful of documents match; the band the split model is designed for",
+          "hits": 10,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.066,
+            "p50_ms": 0.068,
+            "p95_ms": 0.094,
+            "p99_ms": 0.129,
+            "max_ms": 0.129
+          },
+          "ranged_reads": 49,
+          "ranged_bytes": 84797,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.565,
+            "p50_ms": 0.607,
+            "p95_ms": 0.72,
+            "p99_ms": 0.798,
+            "max_ms": 0.798
+          }
+        },
+        {
+          "class": "mid-term",
+          "query": "indemnify",
+          "meaning": "roughly a tenth of documents match; an ordinary review query",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.059,
+            "p50_ms": 0.061,
+            "p95_ms": 0.102,
+            "p99_ms": 0.115,
+            "max_ms": 0.115
+          },
+          "ranged_reads": 45,
+          "ranged_bytes": 69463,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.559,
+            "p50_ms": 0.685,
+            "p95_ms": 0.801,
+            "p99_ms": 0.815,
+            "max_ms": 0.815
+          }
+        },
+        {
+          "class": "common-term",
+          "query": "agreement",
+          "meaning": "almost every document matches; the ranking collector's worst case",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.093,
+            "p50_ms": 0.097,
+            "p95_ms": 0.143,
+            "p99_ms": 0.172,
+            "max_ms": 0.172
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 52423,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.66,
+            "p50_ms": 0.705,
+            "p95_ms": 0.768,
+            "p99_ms": 0.777,
+            "max_ms": 0.777
+          }
+        },
+        {
+          "class": "two-term-boolean",
+          "query": "indemnify AND warranty",
+          "meaning": "two mid-band postings lists intersected",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.101,
+            "p50_ms": 0.107,
+            "p95_ms": 0.173,
+            "p99_ms": 0.198,
+            "max_ms": 0.198
+          },
+          "ranged_reads": 57,
+          "ranged_bytes": 149746,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.594,
+            "p50_ms": 0.634,
+            "p95_ms": 0.687,
+            "p99_ms": 0.693,
+            "max_ms": 0.693
+          }
+        },
+        {
+          "class": "phrase",
+          "query": "\"prior owner\"",
+          "meaning": "an exact adjacent pair; reads term positions, not just postings",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.081,
+            "p50_ms": 0.082,
+            "p95_ms": 0.122,
+            "p99_ms": 0.149,
+            "max_ms": 0.149
+          },
+          "ranged_reads": 51,
+          "ranged_bytes": 82016,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 0.579,
+            "p50_ms": 0.617,
+            "p95_ms": 0.682,
+            "p99_ms": 0.684,
+            "max_ms": 0.684
+          }
+        }
+      ]
+    },
+    {
+      "tier": "large",
+      "documents": 25000,
+      "passages": 200000,
+      "words_per_passage": 40,
+      "split_bytes": 13635325,
+      "segments": 1,
+      "build_ms": 1490.222,
+      "index_open": {
+        "iterations": 30,
+        "min_ms": 0.008,
+        "p50_ms": 0.009,
+        "p95_ms": 0.01,
+        "p99_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "index_open_reads": 4,
+      "index_open_bytes": 1938,
+      "queries": [
+        {
+          "class": "unique-term",
+          "query": "zzzsingletonmarker",
+          "meaning": "one passage in the whole corpus matches; the floor of per-query cost",
+          "hits": 1,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.033,
+            "p50_ms": 0.035,
+            "p95_ms": 0.042,
+            "p99_ms": 0.063,
+            "max_ms": 0.063
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 210801,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 9.848,
+            "p50_ms": 10.677,
+            "p95_ms": 12.211,
+            "p99_ms": 12.95,
+            "max_ms": 12.95
+          }
+        },
+        {
+          "class": "rare-term",
+          "query": "subrogation",
+          "meaning": "a handful of documents match; the band the split model is designed for",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.105,
+            "p50_ms": 0.11,
+            "p95_ms": 0.179,
+            "p99_ms": 0.206,
+            "max_ms": 0.206
+          },
+          "ranged_reads": 59,
+          "ranged_bytes": 287298,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 10.179,
+            "p50_ms": 11.439,
+            "p95_ms": 14.917,
+            "p99_ms": 15.157,
+            "max_ms": 15.157
+          }
+        },
+        {
+          "class": "mid-term",
+          "query": "indemnify",
+          "meaning": "roughly a tenth of documents match; an ordinary review query",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.069,
+            "p50_ms": 0.072,
+            "p95_ms": 0.163,
+            "p99_ms": 0.17,
+            "max_ms": 0.17
+          },
+          "ranged_reads": 45,
+          "ranged_bytes": 234543,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 9.754,
+            "p50_ms": 10.659,
+            "p95_ms": 11.776,
+            "p99_ms": 11.993,
+            "max_ms": 11.993
+          }
+        },
+        {
+          "class": "common-term",
+          "query": "agreement",
+          "meaning": "almost every document matches; the ranking collector's worst case",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.11,
+            "p50_ms": 0.114,
+            "p95_ms": 0.134,
+            "p99_ms": 0.214,
+            "max_ms": 0.214
+          },
+          "ranged_reads": 40,
+          "ranged_bytes": 228724,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 9.37,
+            "p50_ms": 9.953,
+            "p95_ms": 11.352,
+            "p99_ms": 12.196,
+            "max_ms": 12.196
+          }
+        },
+        {
+          "class": "two-term-boolean",
+          "query": "indemnify AND warranty",
+          "meaning": "two mid-band postings lists intersected",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.123,
+            "p50_ms": 0.127,
+            "p95_ms": 0.171,
+            "p99_ms": 0.19,
+            "max_ms": 0.19
+          },
+          "ranged_reads": 57,
+          "ranged_bytes": 476927,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 8.836,
+            "p50_ms": 9.417,
+            "p95_ms": 10.948,
+            "p99_ms": 11.453,
+            "max_ms": 11.453
+          }
+        },
+        {
+          "class": "phrase",
+          "query": "\"prior owner\"",
+          "meaning": "an exact adjacent pair; reads term positions, not just postings",
+          "hits": 20,
+          "ranged": {
+            "iterations": 30,
+            "min_ms": 0.125,
+            "p50_ms": 0.128,
+            "p95_ms": 0.162,
+            "p99_ms": 0.183,
+            "max_ms": 0.183
+          },
+          "ranged_reads": 51,
+          "ranged_bytes": 247449,
+          "materialized": {
+            "iterations": 30,
+            "min_ms": 8.702,
+            "p50_ms": 9.383,
+            "p95_ms": 10.663,
+            "p99_ms": 10.756,
+            "max_ms": 10.756
+          }
+        }
+      ]
+    }
+  ],
+  "fanout": [
+    {
+      "splits": 1,
+      "passages": 8,
+      "total_split_bytes": 4233,
+      "class": "mid-term",
+      "hits": 0,
+      "materialized": {
+        "iterations": 10,
+        "min_ms": 0.028,
+        "p50_ms": 0.029,
+        "p95_ms": 0.062,
+        "p99_ms": 0.062,
+        "max_ms": 0.062
+      },
+      "ranged": {
+        "iterations": 10,
+        "min_ms": 0.024,
+        "p50_ms": 0.024,
+        "p95_ms": 0.031,
+        "p99_ms": 0.031,
+        "max_ms": 0.031
+      },
+      "ranged_reads": 37,
+      "ranged_bytes": 4137
+    },
+    {
+      "splits": 10,
+      "passages": 80,
+      "total_split_bytes": 42178,
+      "class": "mid-term",
+      "hits": 1,
+      "materialized": {
+        "iterations": 10,
+        "min_ms": 0.277,
+        "p50_ms": 0.312,
+        "p95_ms": 0.457,
+        "p99_ms": 0.457,
+        "max_ms": 0.457
+      },
+      "ranged": {
+        "iterations": 10,
+        "min_ms": 0.234,
+        "p50_ms": 0.245,
+        "p95_ms": 0.268,
+        "p99_ms": 0.268,
+        "max_ms": 0.268
+      },
+      "ranged_reads": 373,
+      "ranged_bytes": 41288
+    },
+    {
+      "splits": 100,
+      "passages": 800,
+      "total_split_bytes": 421901,
+      "class": "mid-term",
+      "hits": 10,
+      "materialized": {
+        "iterations": 10,
+        "min_ms": 3.015,
+        "p50_ms": 3.22,
+        "p95_ms": 3.494,
+        "p99_ms": 3.494,
+        "max_ms": 3.494
+      },
+      "ranged": {
+        "iterations": 10,
+        "min_ms": 2.497,
+        "p50_ms": 2.605,
+        "p95_ms": 3.581,
+        "p99_ms": 3.581,
+        "max_ms": 3.581
+      },
+      "ranged_reads": 3730,
+      "ranged_bytes": 412825
+    },
+    {
+      "splits": 1000,
+      "passages": 8000,
+      "total_split_bytes": 4221079,
+      "class": "mid-term",
+      "hits": 20,
+      "materialized": {
+        "iterations": 10,
+        "min_ms": 30.849,
+        "p50_ms": 33.073,
+        "p95_ms": 35.61,
+        "p99_ms": 35.61,
+        "max_ms": 35.61
+      },
+      "ranged": {
+        "iterations": 10,
+        "min_ms": 26.089,
+        "p50_ms": 27.202,
+        "p95_ms": 28.997,
+        "p99_ms": 28.997,
+        "max_ms": 28.997
+      },
+      "ranged_reads": 37264,
+      "ranged_bytes": 4126906
+    },
+    {
+      "splits": 5000,
+      "passages": 40000,
+      "total_split_bytes": 21113593,
+      "class": "mid-term",
+      "hits": 20,
+      "materialized": {
+        "iterations": 10,
+        "min_ms": 150.679,
+        "p50_ms": 152.931,
+        "p95_ms": 171.248,
+        "p99_ms": 171.248,
+        "max_ms": 171.248
+      },
+      "ranged": {
+        "iterations": 10,
+        "min_ms": 128.54,
+        "p50_ms": 129.935,
+        "p95_ms": 136.618,
+        "p99_ms": 136.618,
+        "max_ms": 136.618
+      },
+      "ranged_reads": 186293,
+      "ranged_bytes": 20634244
+    }
+  ],
+  "not_measured": [
+    "The network. Every read here is served from this machine's memory. In a deployment each ranged read is an HTTP range GET against per-firm R2, so real latency is this figure PLUS one round trip per read that misses the cache. The read COUNT below transfers; the milliseconds do not.",
+    "The search Worker and its Container. Queries are issued in-process against the engine crate. The deployed path adds a service-binding hop from the app Worker, request/response JSON marshalling, and Container scheduling including any cold start. None of that is in these numbers.",
+    "The warm cache. The design's sub-second claim rests on a Container keeping splits and an open index resident between queries. The engine crate exposes no way to reuse an opened index across queries -- both public query entry points set up their reader from scratch every call -- so warm steady-state latency cannot be measured through its public surface at all. The `index open` column isolates that setup cost so it can at least be seen.",
+    "The semantic half. Vectorize is a deployed-only binding with no local substitute, so `semantic` and `hybrid` modes are entirely unmeasured. Only `keyword` was run.",
+    "Reciprocal rank fusion. `packages/search/src/fusion.ts` is pure TypeScript and never executed here; a hybrid query's fusion cost is unknown.",
+    "The catalog read. Resolving which splits a query covers is a per-firm database read (`listLiveSplitsForMatter`), measured by the TypeScript load-profile harness, not by this benchmark. Total query cost in production is that read PLUS what is measured here.",
+    "The TypeScript SearchIndexPort. Off a deployment it resolves to the deferred port, whose every operation returns `engine-not-implemented`. Timing it would time a stub, so it is deliberately not timed.",
+    "Text extraction and indexing throughput at scale. Split BUILD time is reported per tier, but the upstream extraction, chunking, and queue pipeline that feeds it is not exercised.",
+    "Footer pruning. The design's per-field pruning digest -- which lets a query skip a split whose terms exclude it -- is not implemented in the engine, so the fan-out figures below include no pruning benefit and would improve once it exists."
+  ]
+}

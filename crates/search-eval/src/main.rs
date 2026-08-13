@@ -7,7 +7,7 @@
 //! cargo run -p search-eval --profile benchmark -- benchmark
 //! ```
 //!
-//! and see `docs/conventions/search-benchmark.md` for how to run and how to read the result.
+//! and see this crate's `README.md` for how to run it and how to read what it prints.
 //!
 //! It is deliberately NOT part of any test or check gate: it builds and queries corpora of tens of
 //! thousands of passages and takes minutes, which is exactly the kind of slow default the repository's
@@ -42,9 +42,10 @@ const WORDS_PER_PASSAGE: usize = 40;
 const TIERS: &[(&str, usize)] = &[("smoke", 250), ("expected", 5_000), ("large", 25_000)];
 
 /// Split counts for the fan-out axis, spanning a matter with a handful of indexed documents to one with
-/// a few thousand. Capped below the largest corpus tier on purpose: every point here builds that many
-/// separate splits, and the curve's shape is established well before the cap.
-const FANOUT_SPLIT_COUNTS: &[usize] = &[1, 10, 100, 1_000];
+/// a few thousand. The top point deliberately equals the `expected` corpus tier's document count, so the
+/// two axes meet at one directly comparable place: the same documents in one compacted split versus in
+/// one split each. That pair is what the cost of not compacting can be read straight off.
+const FANOUT_SPLIT_COUNTS: &[usize] = &[1, 10, 100, 1_000, 5_000];
 
 fn main() {
     let mut arguments = std::env::args().skip(1);
