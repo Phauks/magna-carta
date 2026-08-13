@@ -181,12 +181,19 @@ Runbook: `docs/conventions/operations.md` section 2a.
 
 ## Blocked-in-environment owner chores
 
-- Stale remote branch deletion (the git proxy denies ref deletions). Safe to
-  delete: `osv-scanner-audit-gate`, `fix-assembly-format-output`,
+- Stale remote branch deletion (the git proxy denies ref deletions — `git push
+  origin --delete` returns 403 for every branch, not just some). Safe to delete:
+  `osv-scanner-audit-gate`, `fix-assembly-format-output`,
   `fix-assembly-push-no-verify`, `fix-pnpm-audit-endpoint-retirement`,
   `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
   `lint-scope-ignore-workflow-yaml`, plus any branch whose pull request has
   since merged (`docs-sync/2026-07-20` after #41's closure).
+
+  **The one-time fix is a repository setting, not a chore.** Turning on GitHub's
+  _Automatically delete head branches_ (Settings → General → Pull Requests)
+  retires this item permanently: every future merge cleans up after itself, and
+  no session needs a permission it cannot have. Worth doing before the next
+  batch sweep rather than after, so the sweep is the last one.
 
 ## Before the first firm goes live — verify the trust authorization posture
 
