@@ -15,10 +15,13 @@ import type {
   AuditLogId,
   BillingArrangementId,
   CalendarEventLinkId,
+  ClientCreditId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
   CostEntryId,
+  CreditNoteId,
+  CreditNoteLineId,
   CustodyDestructionRequestId,
   CustodyHoldId,
   CustodyItemId,
@@ -4898,6 +4901,29 @@ export const invoiceApplication = sqliteTable(
       .$type<TrustTransferId>()
       .references(() => trustTransfer.id),
     reversesApplicationId: text("reverses_application_id").$type<InvoiceApplicationId>(),
+    // The correction this application came from, for the two kinds a document produces. A credit
+    // note may reach several matters of one invoice, so it produces one application per matter, all
+    // naming the same note; a client credit is discharged a piece at a time against later invoices,
+    // so each discharge is an application naming the credit it drew on.
+    creditNoteId: text("credit_note_id")
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    clientCreditId: text("client_credit_id")
+      .$type<ClientCreditId>()
+      .references(() => clientCredit.id),
+    // The posting this application rode with, recorded on the row that OWNS that posting. A trust
+    // transfer's entries are trust's and billing composes none, so it carries no entry; a credit
+    // note is one posting across however many per-matter applications it produces, so the entry sits
+    // on the note; every other kind is one posting per application and carries it here. The pairing
+    // is held by trigger, which is what makes "billing composes no ledger entry for a trust
+    // application" a database guarantee rather than a rule a future caller has to remember.
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // Why the firm gave up a receivable, or unwound an application it had posted. Required on those
+    // two kinds by trigger: a write-off with no stated reason is indistinguishable from a mistake,
+    // and both are the kind of entry a bar audit asks about.
+    reason: text("reason"),
     effectiveDate: text("effective_date").notNull(), // civil date
     appliedBy: text("applied_by").$type<UserId>(),
     appliedAt: text("applied_at").notNull(),
@@ -4907,6 +4933,8 @@ export const invoiceApplication = sqliteTable(
     index("invoice_application_invoice_matter_index").on(table.invoiceId, table.matterId),
     index("invoice_application_matter_index").on(table.matterId),
     index("invoice_application_trust_transfer_index").on(table.trustTransferId),
+    index("invoice_application_credit_note_index").on(table.creditNoteId),
+    index("invoice_application_client_credit_index").on(table.clientCreditId),
     // The whole closed set, including the four kinds no code writes yet: SQLite cannot widen a CHECK
     // without a destructive table rebuild, so narrowing it to what ships today would mean the
     // credit-note and payment paths could never be added additively.
@@ -4962,6 +4990,158 @@ export const invoiceTrustApplicationLine = sqliteTable(
     ),
     check("invoice_trust_application_line_amount_positive_check", sql`${table.amountMinor} > 0`),
     check("invoice_trust_application_line_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// THE CORRECTION AFTER FINALIZATION. A finalized invoice is frozen by trigger and there is no
+// un-finalize, so a bill issued in error is answered by a second permanent record: a credit note,
+// with its own lines, its own reason, its own effective date, and its own posting. It never edits
+// the invoice, and the invoice's `total_minor` never moves — the note lands as an application
+// against `applied_minor`, so what the client was originally told stays exactly as it was told.
+//
+// A credit note may only be raised against a FINALIZED invoice: a draft is a working document and
+// the correction for a wrong draft is to edit it. Held by trigger, because a route is one code path
+// among several that will reach this table.
+export const creditNote = sqliteTable(
+  "credit_note",
+  {
+    id: text("id").primaryKey().$type<CreditNoteId>(), // creditNote_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    currency: text("currency").notNull(),
+    // Why the bill was wrong, in the firm's own words. Not optional and not a code: a credit note is
+    // read years later by somebody reconstructing a fee dispute, and a reason list the platform
+    // invented would flatten the one fact only the firm has.
+    reason: text("reason").notNull(),
+    effectiveDate: text("effective_date").notNull(), // civil PlainDate
+    // The one posting a credit note makes, across every matter it touches: contra-revenue debited,
+    // the receivable credited by what it actually pays down, and the remainder credited to the
+    // client-credit liability. It sits here rather than on the applications because one note is one
+    // posting however many matters it reaches — and because a note that pays nothing down (a bill
+    // already paid in full) produces no application at all and would otherwise have nowhere to
+    // record what it posted.
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    issuedBy: text("issued_by").$type<UserId>(),
+    issuedAt: text("issued_at").notNull(),
+  },
+  (table) => [
+    index("credit_note_invoice_index").on(table.invoiceId),
+    uniqueIndex("credit_note_entry_unique_index").on(table.entryId),
+    check("credit_note_currency_check", sql`length(${table.currency}) = 3`),
+    check("credit_note_reason_nonempty_check", sql`length(trim(${table.reason})) > 0`),
+  ],
+);
+
+// What the credit note says it is crediting, in presentation order — the mirror of `invoice_line`,
+// and read the same way by anybody re-rendering the correction years later.
+//
+// AMOUNTS ARE POSITIVE HERE, unlike an invoice line. An invoice line may be negative because a
+// discount is one line among many on a document whose direction is "you owe us"; a credit note's
+// direction is the document's, so a line carries only the magnitude. That is the ledger's own rule —
+// direction is data, never a sign — applied one level up.
+export const creditNoteLine = sqliteTable(
+  "credit_note_line",
+  {
+    id: text("id").primaryKey().$type<CreditNoteLineId>(), // creditNoteLine_ handle
+    creditNoteId: text("credit_note_id")
+      .notNull()
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    lineIndex: integer("line_index").notNull(),
+    // Every line names its matter, exactly as an invoice line does: the balance a credit note pays
+    // down is a per-(invoice, matter) row, so a line that did not name one could not be applied.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["fee", "cost", "flat_fee", "discount", "adjustment", "interest", "tax"],
+    }).notNull(),
+    description: text("description").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // WHICH INVOICE LINE THIS CREDITS, when the firm is crediting a specific charge rather than the
+    // bill in general. Optional, and load-bearing where it is present: a fee that was computed from
+    // a basis — a contingency share of a recovery — is billed as an offset against what earlier
+    // bills already charged, so "what has already been charged" has to mean charged AND NOT SINCE
+    // CREDITED. Without this link a credit note could never be attributed to the charge it corrects,
+    // and the over-billing report that finds such a charge could never be cleared by the one record
+    // that resolves it.
+    creditsInvoiceLineId: text("credits_invoice_line_id")
+      .$type<InvoiceLineId>()
+      .references(() => invoiceLine.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("credit_note_line_index_unique_index").on(table.creditNoteId, table.lineIndex),
+    index("credit_note_line_matter_index").on(table.matterId),
+    index("credit_note_line_credits_index").on(table.creditsInvoiceLineId),
+    check("credit_note_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("credit_note_line_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "credit_note_line_kind_check",
+      sql`${table.kind} IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')`,
+    ),
+  ],
+);
+
+// VALUE OWED BACK TO A CLIENT THAT HAS NOT BEEN GIVEN BACK YET, and the honest consequence of the
+// balance CHECK. A credit note cannot reduce a matter's balance below what has already been applied
+// to it — that would be a negative unpaid receivable — so a note that outruns what is still unpaid
+// opens one of these for the excess.
+//
+// The case that makes this necessary rather than tidy: the firm finalized a bill, took the fee out
+// of the client's trust ledger under the earned-fee rule, and only then conceded that part of it was
+// not earned. The trust ledger is not rewound — the transfer was valid when it was made, the trust
+// entries are append-only, and the client's balance genuinely is lower. What the firm has is the
+// client's money in its own operating account, which is a firm-funds question and not an invoicing
+// one. The platform records the obligation, makes it un-loseable, and refuses to discharge it on its
+// own initiative.
+//
+// OPEN IS DERIVED, NOT STORED — no status column, on the same reasoning that keeps one off
+// `trust_hold`. `amount_minor` is frozen and `discharged_minor` is delta-updated inside a posting
+// batch under a bounds CHECK, exactly as `invoice_matter_balance` is and for exactly the same
+// reason: D1 has no interactive transactions, so the CHECK is the only mechanism that can abort a
+// whole batch when two discharges race for the same remainder.
+export const clientCredit = sqliteTable(
+  "client_credit",
+  {
+    id: text("id").primaryKey().$type<ClientCreditId>(), // clientCredit_ handle
+    // Whose money it is, resolved from the invoice the credit note corrected — the same Directory
+    // handle the invoice carries.
+    clientEntityId: text("client_entity_id").notNull(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    creditNoteId: text("credit_note_id")
+      .notNull()
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    amountMinor: integer("amount_minor").notNull(),
+    dischargedMinor: integer("discharged_minor").notNull().default(0),
+    currency: text("currency").notNull(),
+    openedBy: text("opened_by").$type<UserId>(),
+    openedAt: text("opened_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One credit per (note, matter): a note reaching two matters opens two, and a second row for the
+    // same pair would be the same obligation recorded twice.
+    uniqueIndex("client_credit_note_matter_unique_index").on(table.creditNoteId, table.matterId),
+    index("client_credit_client_index").on(table.clientEntityId),
+    index("client_credit_matter_index").on(table.matterId),
+    check("client_credit_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("client_credit_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "client_credit_bounds_check",
+      sql`${table.dischargedMinor} >= 0 AND ${table.dischargedMinor} <= ${table.amountMinor}`,
+    ),
   ],
 );
 

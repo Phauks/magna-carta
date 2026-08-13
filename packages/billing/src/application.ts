@@ -2,8 +2,11 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  ClientCreditId,
+  CreditNoteId,
   InvoiceApplicationId,
   InvoiceId,
+  LedgerEntryId,
   MatterId,
   TrustTransferId,
   UserId,
@@ -23,7 +26,12 @@ import type { BillingServiceOptions, InvoiceApplicationKind } from "./types.ts";
 // that wrote one without the other would break that equality with nothing to notice.
 //
 // ------------------------------------------------------------------------------------------------
-// THE TRUST KIND COMPOSES NO LEDGER ENTRY. This is the most dangerous detail in the subsystem.
+// THIS FUNCTION COMPOSES NO LEDGER ENTRY, EVER. It writes the application row and the balance delta
+// and nothing else; the posting behind an application is the CALLER's, and the caller names it here
+// so the row records which entry it rode with. That is what keeps the most dangerous detail in the
+// subsystem structural rather than remembered.
+//
+// THE TRUST KIND COMPOSES NO LEDGER ENTRY AT ALL.
 //
 // A transfer out of trust is TWO linked ledger entries composed by the trust package: a trust
 // disbursement (Dr the client's matter leaf / Cr the trust bank) and an operating receipt
@@ -35,10 +43,16 @@ import type { BillingServiceOptions, InvoiceApplicationKind } from "./types.ts";
 // has ever taken, growing quietly forever, and the first symptom would be a balance sheet nobody can
 // reconcile years later.
 //
-// So the rule is structural rather than remembered: the trust arm below composes the application and
-// the delta and NOTHING else, and `fitness.ts` re-proves over stored rows that a trust application is
-// never accompanied by a billing-composed receivable credit. The sibling rule lives in
+// So the rule is structural rather than remembered, at three layers: this function composes no
+// posting for anybody; the `invoice_application_entry_paired` trigger refuses a trust application
+// that names one; and `fitness.ts` re-proves over stored rows that a trust application is never
+// accompanied by a billing-composed receivable credit. The sibling rule lives in
 // packages/trust/src/transfer.ts, which owns the two legs.
+//
+// The credit note is the other side of that pairing. One note is ONE posting across however many
+// per-matter applications it produces — including none at all, when the bill it corrects is already
+// paid in full — so the entry is recorded on the note and not repeated here. Every remaining kind is
+// one posting per application and names it.
 // ------------------------------------------------------------------------------------------------
 
 export interface InvoiceApplicationInput {
@@ -53,6 +67,15 @@ export interface InvoiceApplicationInput {
   readonly effectiveDate: string; // YYYY-MM-DD civil date
   readonly trustTransferId?: TrustTransferId | null;
   readonly reversesApplicationId?: InvoiceApplicationId | null;
+  readonly creditNoteId?: CreditNoteId | null;
+  readonly clientCreditId?: ClientCreditId | null;
+  // The posting the CALLER composed for this application, which this function never composes and
+  // never inspects. Absent for a trust transfer (the posting is trust's) and for a credit note (one
+  // posting sits on the note); required for everything else, held by trigger either way.
+  readonly entryId?: LedgerEntryId | null;
+  // Why the firm gave up a receivable or unwound an application. Required on a write-off and a
+  // reversal, held by trigger.
+  readonly reason?: string | null;
   readonly appliedBy: UserId | null;
 }
 
@@ -61,11 +84,16 @@ export interface ComposedInvoiceApplication {
   readonly effect: EffectWrite;
 }
 
-// The kinds whose money movement is composed by SOMEBODY ELSE, so that the application is the whole
-// of billing's contribution. Today that is exactly one: the trust transfer, whose operating leg
-// already credited the receivable.
-const KINDS_ARRIVING_WITH_THEIR_OWN_POSTING: ReadonlySet<InvoiceApplicationKind> = new Set([
+// The kinds that have a write path today. `payment` is the one still missing: cash and card rails
+// are a later slice, and an application composed here with nothing on the firm's books to match it
+// would reduce what a client owes with no posting behind it — the same subledger-versus-control
+// disagreement the trust arm exists to avoid, in the opposite direction.
+const KINDS_WITH_A_WRITE_PATH: ReadonlySet<InvoiceApplicationKind> = new Set([
   "trust_transfer",
+  "credit_note",
+  "client_credit",
+  "write_off",
+  "reversal",
 ]);
 
 export function composeInvoiceApplication(
@@ -80,16 +108,10 @@ export function composeInvoiceApplication(
     );
   }
 
-  if (!KINDS_ARRIVING_WITH_THEIR_OWN_POSTING.has(input.kind)) {
-    // Refused by name rather than composed as an application with no posting behind it. A payment, a
-    // credit note, a client credit, a write-off, and a reversal each move money on their own terms
-    // and each owe the ledger an entry; letting one through here would reduce what a client owes
-    // with nothing on the firm's books to match, which is the same subledger-versus-control-account
-    // disagreement the trust arm exists to avoid, in the opposite direction. Their write paths land
-    // with their own slices — the credit-note path next, payment rails in Phase 6.
+  if (!KINDS_WITH_A_WRITE_PATH.has(input.kind)) {
     throw new BillingValidationError(
       "application-kind-not-built",
-      `${input.kind} applications are not built yet: only a transfer out of a client's trust ledger can currently reach an invoice, because every other kind has to compose its own ledger entry and none of those write paths exist`,
+      `${input.kind} applications are not built yet: a payment has to record the money actually arriving and post it, and the payment rails that would do so are a later slice`,
     );
   }
 
@@ -106,6 +128,10 @@ export function composeInvoiceApplication(
       currency: input.currency,
       trustTransferId: input.trustTransferId ?? null,
       reversesApplicationId: input.reversesApplicationId ?? null,
+      creditNoteId: input.creditNoteId ?? null,
+      clientCreditId: input.clientCreditId ?? null,
+      entryId: input.entryId ?? null,
+      reason: input.reason ?? null,
       effectiveDate: input.effectiveDate,
       appliedBy: input.appliedBy,
       now,
@@ -113,11 +139,16 @@ export function composeInvoiceApplication(
     // The delta, unguarded, riding the same batch as the movement that caused it. The bounds CHECK
     // on invoice_matter_balance is the guarantee — see the statement's own comment for why a guarded
     // UPDATE here would be strictly worse than none.
+    //
+    // A REVERSAL SUBTRACTS, and this is the one place the direction is read off the kind. The row's
+    // amount stays positive — the ledger's rule, applied to the subledger — so the sign lives here
+    // and nowhere else. The lower bound of the same CHECK is what makes reversing more than was ever
+    // applied abort the batch rather than drive a balance negative.
     applyToInvoiceMatterBalanceStatement(
       database,
       input.invoiceId,
       input.matterId,
-      input.amountMinor,
+      input.kind === "reversal" ? -input.amountMinor : input.amountMinor,
       now,
     ),
   ];

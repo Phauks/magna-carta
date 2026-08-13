@@ -57,6 +57,7 @@ import trustAuthorityDefaultPostureSql from "@magna-carta/database/drizzle/per-f
 import trustFirmFundsAndUnclaimedFundsSql from "@magna-carta/database/drizzle/per-firm/20260812T000000_trust-firm-funds-and-unclaimed-funds.sql";
 import seedTrustFirmFundsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260812T000001_seed-trust-firm-funds-permission.sql";
 import documentAssemblyOutputFormatSql from "@magna-carta/database/drizzle/per-firm/20260813T000000_document-assembly-output-format.sql";
+import billingCreditNotesSql from "@magna-carta/database/drizzle/per-firm/20260813T010000_billing-credit-notes.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -124,6 +125,7 @@ export function perFirmMigrations(): Migration[] {
     "20260812T000000_trust-firm-funds-and-unclaimed-funds": trustFirmFundsAndUnclaimedFundsSql,
     "20260812T000001_seed-trust-firm-funds-permission": seedTrustFirmFundsPermissionSql,
     "20260813T000000_document-assembly-output-format": documentAssemblyOutputFormatSql,
+    "20260813T010000_billing-credit-notes": billingCreditNotesSql,
   });
 }
 

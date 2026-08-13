@@ -50,6 +50,9 @@ export interface BillingFixture {
   readonly clientCostsAdvancedAccountId: LedgerAccountId;
   readonly costRecoveryIncomeAccountId: LedgerAccountId;
   readonly operatingBankAccountId: LedgerAccountId;
+  readonly feeAdjustmentsAccountId: LedgerAccountId;
+  readonly feeWriteOffAccountId: LedgerAccountId;
+  readonly clientCreditLiabilityAccountId: LedgerAccountId;
 }
 
 // A firm with an office, a member, and a chart of accounts — but deliberately NO account-role map:
@@ -115,6 +118,26 @@ export async function billingFixture(): Promise<BillingFixture> {
     { name: "Operating Bank Account", type: "asset", currency: "USD" },
     options,
   );
+  // The three a correction resolves. Fee Adjustments is CONTRA-REVENUE — an income account carried
+  // with a debit balance — so gross billings and the credits against them stay separately readable
+  // instead of netting invisibly inside fee income. Bad debt is its own account for the same reason:
+  // giving up a receivable is a different management fact from conceding an over-charge. The client
+  // credit is a LIABILITY, because money the firm has conceded is not its own is money it owes.
+  const feeAdjustments = await createAccount(
+    database,
+    { name: "Fee Adjustments", type: "income", currency: "USD" },
+    options,
+  );
+  const feeWriteOff = await createAccount(
+    database,
+    { name: "Fee Write-off", type: "expense", currency: "USD" },
+    options,
+  );
+  const clientCreditLiability = await createAccount(
+    database,
+    { name: "Client Credits Payable", type: "liability", currency: "USD" },
+    options,
+  );
   await commit(
     database,
     mergeEffects(
@@ -123,6 +146,9 @@ export async function billingFixture(): Promise<BillingFixture> {
       clientCostsAdvanced.effect,
       costRecoveryIncome.effect,
       operatingBank.effect,
+      feeAdjustments.effect,
+      feeWriteOff.effect,
+      clientCreditLiability.effect,
     ),
   );
 
@@ -135,6 +161,9 @@ export async function billingFixture(): Promise<BillingFixture> {
     clientCostsAdvancedAccountId: clientCostsAdvanced.accountId,
     costRecoveryIncomeAccountId: costRecoveryIncome.accountId,
     operatingBankAccountId: operatingBank.accountId,
+    feeAdjustmentsAccountId: feeAdjustments.accountId,
+    feeWriteOffAccountId: feeWriteOff.accountId,
+    clientCreditLiabilityAccountId: clientCreditLiability.accountId,
   };
 }
 
@@ -149,6 +178,9 @@ export async function mapAccountRoles(
     client_costs_advanced: fixture.clientCostsAdvancedAccountId,
     cost_recovery_income: fixture.costRecoveryIncomeAccountId,
     operating_bank: fixture.operatingBankAccountId,
+    fee_adjustments: fixture.feeAdjustmentsAccountId,
+    fee_write_off: fixture.feeWriteOffAccountId,
+    client_credit_liability: fixture.clientCreditLiabilityAccountId,
   };
   await commit(
     fixture.database,
