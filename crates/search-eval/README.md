@@ -42,19 +42,20 @@ unit tests do run with the workspace, and finish in well under a second.
 It measures the **real keyword engine**: building Tantivy splits, and answering BM25 queries over them
 through the ranged-read access pattern a split in R2 is designed to be read through. Nothing is stubbed.
 
-It does **not** measure the network, the search Worker, the Container, the warm cache, the semantic
+It does **not** measure the network, the search Worker, the Container's local disk cache, the semantic
 (Vectorize) half, reciprocal rank fusion, or the per-firm catalog read. The report prints that list in
 full before any number, and the same list is stored inside the baseline file, so a figure cannot be
 lifted out of either without its caveats. That is the point of the harness as much as the timings are:
 an unlabelled number from a partial path reads as the system's speed and is worse than no number.
 
-The one entry on that list worth repeating here, because it is a gap in the engine rather than in the
-harness: **`search-core` exposes no way to reuse an opened index across queries**, and no ranged
-multi-split query at all. So the warm steady-state latency the design's sub-second target rests on
-cannot be measured through the crate's public surface today, and the fan-out figures are a lower bound
-produced by the harness issuing one ranged query per split and merging the results itself.
+**Warm and cold are measured separately, and both are real.** A cold figure opens the split, ranks, and
+discards it — the first query a Container answers after a split enters its working set. A warm figure is
+the same query against a split the engine is holding open, which is the steady state of a resident
+Container and the state the design's sub-second target is stated against. The gap between them is what a
+warm instance is worth. (Both are still local reads: what a deployment adds is the network on every read
+that misses the Container's disk cache, and that hit rate is unmeasured.)
 
-## The two axes
+## The three axes
 
 **Axis 1 — corpus size.** The whole corpus compacted into one split, at three tiers (`smoke`,
 `expected`, `large`), bracketing the thousands-to-tens-of-thousands of documents a matter under review
@@ -69,7 +70,15 @@ grows with the split count rather than the corpus, which is why it is measured s
 falls over first, and the gap between the two axes at the same document count is what compaction is
 worth.
 
-The two axes deliberately meet at 5,000 documents, so that comparison can be read straight off.
+Axes 1 and 2 deliberately meet at 5,000 documents, so that comparison can be read straight off.
+
+**Axis 3 — compaction.** Every fan-out point, merged. The engine merges that point's splits through the
+same ranged readers the fan-out query used, and the identical query runs against the single merged
+split. Same documents, same question, same hit count — the only thing that changed is how many objects
+the corpus is spread over, so the saving is a subtraction inside one run rather than a comparison across
+two differently-built corpora. `merge ms` is the engine's share of a compaction only: the catalog reads,
+the R2 write, the catalog swap, and the retirement of the superseded objects are TypeScript in the app
+Worker and are outside it.
 
 ## How to read the output
 
@@ -81,9 +90,9 @@ The two axes deliberately meet at 5,000 documents, so that comparison can be rea
   same machine and nowhere else.
 - **Every latency has its selectivity beside it.** The `hits` column is what the query actually matched;
   the same query text means something different against a corpus it barely matches.
-- **`matrlz+qry`** is the crate's other public query path, which rebuilds the whole split into an
-  in-memory directory before searching it. At the large tier that rebuild dominates completely — it is
-  labelled for what it does rather than presented as a warm-cache figure.
+- **Read the warm columns for steady state, the cold columns for the first query.** A Container answers
+  cold once per split and warm forever after, so a warm regression matters more than a cold one — but a
+  cold figure that grows means every newly-live split costs more to bring into the working set.
 
 ## The baseline
 
