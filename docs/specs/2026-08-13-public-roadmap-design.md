@@ -94,7 +94,7 @@ The reasoning is the reasoning the search benchmark already uses in this reposit
 
 **The cost, stated honestly.** A prospect evaluating us against a competitor cannot tell whether "In progress" means six weeks or nine months, and some of them will want that number before they sign. We are choosing to lose that conversation rather than win it with a date we do not have. Two things make the trade tolerable: the changelog is dated and public, so shipping cadence is observable from evidence rather than from a promise; and the bands are derived, so "In progress" is at least true on the day it is read, which a quarter is not.
 
-**The one date on the page** is the generation date — when the document was built. It is a fact about the document, not a promise about the product.
+**Not even a generation date**, which was the first draft of this section. Two reasons killed it. It would break the diff gate every day the document was rebuilt, and the gate is the mechanism that makes the bands trustworthy in the first place — a page that says "generated today" and a band that is six months stale is a worse lie than either alone. And a rendered page can stamp its own build time honestly, because it knows when it was built; the document does not. So `buildPublicRoadmapArtifact()` takes `generatedAt` from its caller, and the Markdown carries none.
 
 ### 4.2 The relationship to the voting board
 
