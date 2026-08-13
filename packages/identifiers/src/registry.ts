@@ -340,6 +340,23 @@ export const ENTITY_PREFIXES = {
   notificationRecipient: "notificationRecipient",
   notificationDelivery: "notificationDelivery",
   notificationDigest: "notificationDigest",
+  // The community board — the platform-level, cross-firm surface where members ask about the
+  // software and ask for it to change. A `communityProfile` is one account's board identity, and is
+  // deliberately a separate record from the account: the display name shown on the board is never
+  // the account's own name column, so a member may carry a pseudonym without renaming themselves
+  // everywhere else. It is also the handle a reader sees as the author reference, which is why the
+  // account's `user` handle never reaches a public read. A `communityPost` is one request or one
+  // question; a `communityComment` is one reply on it; a `communityVote` is one account's single
+  // upvote of a post. A `communityFlag` is one reader's report — a confidentiality flag hides the
+  // post the instant it is raised. A `communityModerationAction` is one row of the append-only
+  // record of what was done to a post or comment and by whom, including the automatic hides the
+  // format detector raises with no human actor.
+  communityProfile: "communityProfile",
+  communityPost: "communityPost",
+  communityComment: "communityComment",
+  communityVote: "communityVote",
+  communityFlag: "communityFlag",
+  communityModerationAction: "communityModerationAction",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

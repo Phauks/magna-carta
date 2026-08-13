@@ -36,6 +36,13 @@
       "when": 1786488171952,
       "tag": "20260811T224252_self-serve-registration-and-invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786603079542,
+      "tag": "20260813T063759_community-board",
+      "breakpoints": true
     }
   ]
 }
