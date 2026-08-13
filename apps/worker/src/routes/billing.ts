@@ -2779,7 +2779,18 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
         const residual = await readContingencyResidual(firm.firmDatabase, matterId);
         return c.json(residual as never, 200);
       } catch (caught) {
-        if (caught instanceof BillingValidationError) return billingErrorResponse(c, caught);
+        // The one thing this read can refuse: the matter is not billed on contingency at all, so
+        // there is no share to measure a residual against. Answered here rather than through the
+        // shared mapping, which spans statuses a GET does not declare — and there is nothing to
+        // gain by widening a read's contract to cover a conflict it cannot produce.
+        if (caught instanceof BillingValidationError) {
+          return problemJson(c, {
+            type: "billing-refused",
+            title: "This matter is not billed on contingency",
+            status: 422,
+            detail: caught.message,
+          });
+        }
         throw caught;
       }
     },
