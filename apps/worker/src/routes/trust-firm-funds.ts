@@ -384,7 +384,9 @@ interface FirmFundsMovementRow {
   recorded_at: string;
 }
 
-function rowToFirmFundsMovement(row: FirmFundsMovementRow): z.infer<typeof FirmFundsMovementRecord> {
+function rowToFirmFundsMovement(
+  row: FirmFundsMovementRow,
+): z.infer<typeof FirmFundsMovementRecord> {
   return {
     id: row.id,
     kind: row.kind,
@@ -509,7 +511,10 @@ export function registerTrustFirmFundsRoutes(app: FirmFundsApp, chokepoint: Chok
 
   // POST /api/v1/trust/firm-funds/bank-charges — the institution taking its charge out
   app.openapi(
-    { ...recordBankChargeRoute, middleware: chokepointMiddleware(chokepoint, recordBankChargeRoute) },
+    {
+      ...recordBankChargeRoute,
+      middleware: chokepointMiddleware(chokepoint, recordBankChargeRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const request = c.req.valid("json");
