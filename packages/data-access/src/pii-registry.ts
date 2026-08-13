@@ -706,6 +706,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // contains live in the split object in R2 and are erased by re-indexing the source, not by a row
   // here; this catalog carries no data-subject personal data.
   "index_split",
+  // What is inside a merged split — a split id, the file ids and version numbers it covers, and whether
+  // each is still current. Identifiers and integers only: it says which documents a split holds, never
+  // anything about the people in them. The passages themselves are in the split object in R2 and leave
+  // it when compaction repacks the split, not when a row here is deleted.
+  "index_split_member",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

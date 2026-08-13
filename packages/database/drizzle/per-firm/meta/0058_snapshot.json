@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b4e47e17-5ee0-4d8a-afe1-4863acfe5426",
+  "id": "3145dbb6-4378-4c0e-b3bc-9878e240032c",
   "prevId": "587a9dc8-9e48-4afb-9f03-9c46aa2725ca",
   "tables": {
     "account_balance": {
@@ -582,20 +582,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "trigger_source": {
-          "name": "trigger_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "cause_json": {
-          "name": "cause_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -798,112 +784,6 @@
         "conflicts_hit_source_class_check": {
           "name": "conflicts_hit_source_class_check",
           "value": "\"conflicts_hit\".\"source_class\" IN ('party', 'graph', 'imputation', 'content')"
-        }
-      }
-    },
-    "conflicts_recheck_request": {
-      "name": "conflicts_recheck_request",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cause_topic": {
-          "name": "cause_topic",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cause_reference": {
-          "name": "cause_reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cause_occurred_at": {
-          "name": "cause_occurred_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "requested_at": {
-          "name": "requested_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "satisfied_by_check_id": {
-          "name": "satisfied_by_check_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "satisfied_at": {
-          "name": "satisfied_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "conflicts_recheck_request_open_cause_unique": {
-          "name": "conflicts_recheck_request_open_cause_unique",
-          "columns": ["matter_id", "cause_topic", "cause_reference"],
-          "isUnique": true,
-          "where": "\"conflicts_recheck_request\".\"satisfied_at\" IS NULL"
-        },
-        "conflicts_recheck_request_satisfied_requested_index": {
-          "name": "conflicts_recheck_request_satisfied_requested_index",
-          "columns": ["satisfied_at", "requested_at"],
-          "isUnique": false
-        },
-        "conflicts_recheck_request_matter_satisfied_index": {
-          "name": "conflicts_recheck_request_matter_satisfied_index",
-          "columns": ["matter_id", "satisfied_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "conflicts_recheck_request_matter_id_matter_id_fk": {
-          "name": "conflicts_recheck_request_matter_id_matter_id_fk",
-          "tableFrom": "conflicts_recheck_request",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "conflicts_recheck_request_cause_topic_check": {
-          "name": "conflicts_recheck_request_cause_topic_check",
-          "value": "length(\"conflicts_recheck_request\".\"cause_topic\") > 0"
-        },
-        "conflicts_recheck_request_cause_reference_check": {
-          "name": "conflicts_recheck_request_cause_reference_check",
-          "value": "length(\"conflicts_recheck_request\".\"cause_reference\") > 0"
-        },
-        "conflicts_recheck_request_satisfaction_check": {
-          "name": "conflicts_recheck_request_satisfaction_check",
-          "value": "(\"conflicts_recheck_request\".\"satisfied_by_check_id\" IS NULL) = (\"conflicts_recheck_request\".\"satisfied_at\" IS NULL)"
         }
       }
     },
@@ -8160,6 +8040,60 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "index_split_member": {
+      "name": "index_split_member",
+      "columns": {
+        "split_id": {
+          "name": "split_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "index_split_member_split_superseded_index": {
+          "name": "index_split_member_split_superseded_index",
+          "columns": ["split_id", "superseded_at"],
+          "isUnique": false
+        },
+        "index_split_member_document_index": {
+          "name": "index_split_member_document_index",
+          "columns": ["document_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "index_split_member_split_id_document_id_version_pk": {
+          "columns": ["split_id", "document_id", "version"],
+          "name": "index_split_member_split_id_document_id_version_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

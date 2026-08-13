@@ -14,8 +14,8 @@
 use std::sync::Arc;
 
 use search_core::{
-    build_split, query_over_reader, query_split, query_splits, read_footer, IndexDocument,
-    RangeReader,
+    build_split, merge_splits_over_readers, query_over_reader, query_split, query_splits,
+    query_splits_over_readers, read_footer, IndexDocument, RangeReader, SplitSearcher,
 };
 use serde::Serialize;
 
@@ -50,6 +50,15 @@ pub struct QueryMeasurement {
     pub ranged_reads: usize,
     /// Total bytes those reads pulled.
     pub ranged_bytes: usize,
+    /// Latency of the same query against a split the engine is **holding open** — the warm steady state
+    /// a resident Container has, where opening the index and its per-field setup were paid once for the
+    /// life of the split rather than per query. This is the figure the sub-second target is stated
+    /// against, and it could not be measured at all until the engine exposed a reusable searcher.
+    pub warm: Latency,
+    /// Separate ranged reads a warm query performed. The difference between this and `ranged_reads` is
+    /// exactly what a resident process saves per query.
+    pub warm_reads: usize,
+    pub warm_bytes: usize,
     /// Latency of the same query with the whole split already materialized in memory — the shape of a
     /// Container whose local cache already holds the split.
     pub materialized: Latency,
@@ -88,13 +97,36 @@ pub struct FanoutPoint {
     pub hits: usize,
     /// Latency of the engine's own multi-split query with every split already in memory.
     pub materialized: Latency,
-    /// Latency of the same fan-out served through ranged readers, one per split. See the note in
-    /// `report.rs`: the engine exposes no ranged multi-split query, so the harness performs the
-    /// per-split reads and merges them, which makes this a LOWER BOUND on the deployed path rather
-    /// than a measurement of it.
+    /// Latency of the same fan-out served through the engine's own ranged multi-split query, one reader
+    /// per split. This is the read shape a deployed query has, minus the network.
     pub ranged: Latency,
     pub ranged_reads: usize,
     pub ranged_bytes: usize,
+    /// What compaction does to this exact point: the same splits merged into one, then the same query
+    /// run against the result. Everything below is the "after" to the fields above.
+    pub compacted: CompactedPoint,
+}
+
+/// The same documents after compaction — the fan-out point's counterfactual, measured rather than
+/// argued. Merging is done through the engine's ranged merge, so even the build side of compaction is
+/// measured the way a Container would perform it.
+#[derive(Clone, Debug, Serialize)]
+pub struct CompactedPoint {
+    /// Wall-clock time to merge every split into one. Compaction is background work off the query path,
+    /// so this is a cost-to-run figure, never a latency a member waits on.
+    pub merge_ms: f64,
+    /// The merged split's size, against `total_split_bytes` above — per-split fixed overhead is paid
+    /// once instead of once per document, so the merged bytes are the storage side of the same win.
+    pub split_bytes: usize,
+    /// Hits from the merged split. Must equal the fan-out's hit count: compaction that changed what a
+    /// query matches would not be compaction.
+    pub hits: usize,
+    pub ranged: Latency,
+    pub ranged_reads: usize,
+    pub ranged_bytes: usize,
+    /// The warm figure for the compacted split — a resident Container holding the one merged split open.
+    pub warm: Latency,
+    pub warm_reads: usize,
 }
 
 /// Count the Tantivy segments bundled in a split. Tantivy names every file of a segment
@@ -154,6 +186,28 @@ pub fn run_corpus_tier(
         let ranged = measure(WARMUP_ITERATIONS, TIMED_ITERATIONS, || {
             let _hits = query_over_reader(dynamic.clone(), &class.text, RESULT_LIMIT);
         });
+
+        // The warm steady state: one searcher held open across every query, exactly as a resident
+        // Container holds a live split. The reads are counted after a first query has run, so what is
+        // recorded is the marginal cost of asking again rather than the lazy setup the first ask pays.
+        let searcher = SplitSearcher::over_reader(dynamic.clone()).map_err(|error| {
+            format!(
+                "{tier}/{}: opening a searcher failed: {error:?}",
+                class.name
+            )
+        })?;
+        searcher
+            .search(&class.text, RESULT_LIMIT)
+            .map_err(|error| format!("{tier}/{}: warm query failed: {error:?}", class.name))?;
+        reader.reset();
+        searcher
+            .search(&class.text, RESULT_LIMIT)
+            .map_err(|error| format!("{tier}/{}: warm query failed: {error:?}", class.name))?;
+        let warm_tally = reader.tally();
+        let warm = measure(WARMUP_ITERATIONS, TIMED_ITERATIONS, || {
+            let _hits = searcher.search(&class.text, RESULT_LIMIT);
+        });
+
         let materialized = measure(WARMUP_ITERATIONS, TIMED_ITERATIONS, || {
             let _hits = query_split(&split, &class.text, RESULT_LIMIT);
         });
@@ -166,6 +220,9 @@ pub fn run_corpus_tier(
             ranged,
             ranged_reads: tally.reads,
             ranged_bytes: tally.bytes,
+            warm,
+            warm_reads: warm_tally.reads,
+            warm_bytes: warm_tally.bytes,
             materialized,
         });
     }
@@ -219,20 +276,28 @@ pub fn run_fanout_point(
         let _hits = query_splits(&borrowed, query_text, RESULT_LIMIT);
     });
 
-    let readers: Vec<Arc<CountingReader>> = splits
+    let counting: Vec<Arc<CountingReader>> = splits
         .iter()
         .map(|split| CountingReader::new(split.clone()))
         .collect();
-    for reader in &readers {
+    let readers: Vec<Arc<dyn RangeReader>> = counting
+        .iter()
+        .map(|reader| reader.clone() as Arc<dyn RangeReader>)
+        .collect();
+
+    for reader in &counting {
         reader.reset();
     }
-    fan_out_through_readers(&readers, query_text)?;
-    let tally_reads: usize = readers.iter().map(|reader| reader.tally().reads).sum();
-    let tally_bytes: usize = readers.iter().map(|reader| reader.tally().bytes).sum();
+    query_splits_over_readers(&readers, query_text, RESULT_LIMIT)
+        .map_err(|error| format!("fan-out {split_count}: ranged query failed: {error:?}"))?;
+    let tally_reads: usize = counting.iter().map(|reader| reader.tally().reads).sum();
+    let tally_bytes: usize = counting.iter().map(|reader| reader.tally().bytes).sum();
 
     let ranged = measure(WARMUP_ITERATIONS, FANOUT_TIMED_ITERATIONS, || {
-        let _ = fan_out_through_readers(&readers, query_text);
+        let _ = query_splits_over_readers(&readers, query_text, RESULT_LIMIT);
     });
+
+    let compacted = run_compacted_point(&readers, query_text)?;
 
     Ok(FanoutPoint {
         splits: split_count,
@@ -244,36 +309,58 @@ pub fn run_fanout_point(
         ranged,
         ranged_reads: tally_reads,
         ranged_bytes: tally_bytes,
+        compacted,
     })
 }
 
-/// Query every split through its own ranged reader and merge the results.
+/// Compact one fan-out point's splits into a single split and measure the same query against it.
 ///
-/// The merge is performed HERE rather than in the engine because the engine has no ranged multi-split
-/// query: `query_splits` takes in-memory slices only. That absence is a finding the report states
-/// plainly — this function is a harness stand-in that shows what the fan-out costs at minimum, not the
-/// deployed path, which additionally pays a network round trip per read.
-fn fan_out_through_readers(
-    readers: &[Arc<CountingReader>],
+/// The merge runs through the engine's ranged merge over the same readers the fan-out used, so the
+/// "after" side of the comparison is produced by the same code a compaction pass in a Container would
+/// run — not by rebuilding the corpus into one split, which would measure a pipeline that does not exist.
+fn run_compacted_point(
+    readers: &[Arc<dyn RangeReader>],
     query_text: &str,
-) -> Result<usize, String> {
-    let mut hits = Vec::new();
-    for reader in readers {
-        let dynamic: Arc<dyn RangeReader> = reader.clone();
-        let found = query_over_reader(dynamic, query_text, RESULT_LIMIT)
-            .map_err(|error| format!("ranged fan-out query failed: {error:?}"))?;
-        hits.extend(found);
-    }
-    hits.sort_by(|left, right| {
-        right
-            .score
-            .partial_cmp(&left.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| left.document_id.cmp(&right.document_id))
-            .then_with(|| left.chunk_id.cmp(&right.chunk_id))
+) -> Result<CompactedPoint, String> {
+    let (merged, merge_ms) = elapsed_ms(|| merge_splits_over_readers(readers, &[]));
+    let merged =
+        merged.map_err(|error| format!("compacting {} splits failed: {error:?}", readers.len()))?;
+
+    let reader = CountingReader::new(merged.bytes.clone());
+    let dynamic: Arc<dyn RangeReader> = reader.clone();
+
+    reader.reset();
+    let hits = query_over_reader(dynamic.clone(), query_text, RESULT_LIMIT)
+        .map_err(|error| format!("compacted query failed: {error:?}"))?;
+    let tally = reader.tally();
+    let ranged = measure(WARMUP_ITERATIONS, FANOUT_TIMED_ITERATIONS, || {
+        let _ = query_over_reader(dynamic.clone(), query_text, RESULT_LIMIT);
     });
-    hits.truncate(RESULT_LIMIT);
-    Ok(hits.len())
+
+    let searcher = SplitSearcher::over_reader(dynamic.clone())
+        .map_err(|error| format!("opening a compacted searcher failed: {error:?}"))?;
+    searcher
+        .search(query_text, RESULT_LIMIT)
+        .map_err(|error| format!("compacted warm query failed: {error:?}"))?;
+    reader.reset();
+    searcher
+        .search(query_text, RESULT_LIMIT)
+        .map_err(|error| format!("compacted warm query failed: {error:?}"))?;
+    let warm_tally = reader.tally();
+    let warm = measure(WARMUP_ITERATIONS, FANOUT_TIMED_ITERATIONS, || {
+        let _ = searcher.search(query_text, RESULT_LIMIT);
+    });
+
+    Ok(CompactedPoint {
+        merge_ms: (merge_ms * 1000.0).round() / 1000.0,
+        split_bytes: merged.bytes.len(),
+        hits: hits.len(),
+        ranged,
+        ranged_reads: tally.reads,
+        ranged_bytes: tally.bytes,
+        warm,
+        warm_reads: warm_tally.reads,
+    })
 }
 
 #[cfg(test)]
@@ -311,6 +398,12 @@ mod tests {
             unique.ranged_bytes,
             tier.split_bytes
         );
+        assert!(
+            unique.warm_reads < unique.ranged_reads,
+            "a warm query ({} reads) must cost less than a cold one ({})",
+            unique.warm_reads,
+            unique.ranged_reads
+        );
     }
 
     #[test]
@@ -322,6 +415,28 @@ mod tests {
         assert!(
             point.ranged_reads >= point.splits,
             "each split needs at least one read of its own"
+        );
+    }
+
+    #[test]
+    fn compacting_a_fanout_point_costs_fewer_reads_for_the_same_answer() {
+        // The comparison the whole exercise turns on, pinned as a test so a regression in the merge
+        // shows up in the gate rather than only in a benchmark someone has to remember to run.
+        let point = run_fanout_point(12, 2, 20, "rare-term", corpus::COMMON_TERM, 7).unwrap();
+        assert_eq!(
+            point.compacted.hits, point.hits,
+            "compaction must not change what a query matches"
+        );
+        assert!(
+            point.compacted.ranged_reads < point.ranged_reads,
+            "compacted {} reads should be under the fan-out's {}",
+            point.compacted.ranged_reads,
+            point.ranged_reads
+        );
+        assert!(
+            point.compacted.split_bytes < point.total_split_bytes,
+            "one merged split should be smaller than the {} splits it replaced",
+            point.splits
         );
     }
 }

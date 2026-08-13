@@ -39,13 +39,14 @@ pub fn not_measured() -> Vec<&'static str> {
     vec![
         "The network. Every read here is served from this machine's memory. In a deployment each ranged read is an HTTP range GET against per-firm R2, so real latency is this figure PLUS one round trip per read that misses the cache. The read COUNT below transfers; the milliseconds do not.",
         "The search Worker and its Container. Queries are issued in-process against the engine crate. The deployed path adds a service-binding hop from the app Worker, request/response JSON marshalling, and Container scheduling including any cold start. None of that is in these numbers.",
-        "The warm cache. The design's sub-second claim rests on a Container keeping splits and an open index resident between queries. The engine crate exposes no way to reuse an opened index across queries -- both public query entry points set up their reader from scratch every call -- so warm steady-state latency cannot be measured through its public surface at all. The `index open` column isolates that setup cost so it can at least be seen.",
+        "The Container's disk cache. The engine can now hold a split open across queries, and the `warm` columns below measure exactly that -- but a deployed Container also keeps recently-read BYTES on local NVMe, so a warm read that this harness serves from memory would in production be a local disk read on a hit and an R2 range GET on a miss. The hit rate under a real review workload is unmeasured, so treat the warm read COUNTS as the number of reads a query issues, not as the number that reach R2.",
         "The semantic half. Vectorize is a deployed-only binding with no local substitute, so `semantic` and `hybrid` modes are entirely unmeasured. Only `keyword` was run.",
         "Reciprocal rank fusion. `packages/search/src/fusion.ts` is pure TypeScript and never executed here; a hybrid query's fusion cost is unknown.",
         "The catalog read. Resolving which splits a query covers is a per-firm database read (`listLiveSplitsForMatter`), measured by the TypeScript load-profile harness, not by this benchmark. Total query cost in production is that read PLUS what is measured here.",
         "The TypeScript SearchIndexPort. Off a deployment it resolves to the deferred port, whose every operation returns `engine-not-implemented`. Timing it would time a stub, so it is deliberately not timed.",
         "Text extraction and indexing throughput at scale. Split BUILD time is reported per tier, but the upstream extraction, chunking, and queue pipeline that feeds it is not exercised.",
         "Footer pruning. The design's per-field pruning digest -- which lets a query skip a split whose terms exclude it -- is not implemented in the engine, so the fan-out figures below include no pruning benefit and would improve once it exists.",
+        "The compaction pass itself as it runs in production. The merge measured below is the engine's real merge over the same ranged readers a Container would use, but the pass around it -- the per-firm catalog reads, the R2 multipart write of the merged split, the catalog swap, and the retirement of the superseded objects -- is TypeScript in the app Worker and is not exercised here. `merge ms` is the engine's share of a compaction, not its duration.",
     ]
 }
 
@@ -245,6 +246,29 @@ fn print_headline(report: &Report) {
         println!();
     }
 
+    // The compaction pass is now measured rather than inferred from the gap between the axes: every
+    // fan-out point is merged by the engine and re-queried, so the saving is a subtraction inside one
+    // run against identical documents.
+    if let Some(worst) = report
+        .fanout
+        .iter()
+        .max_by_key(|point| point.ranged_reads)
+        .filter(|point| point.splits > 1)
+    {
+        let factor = worst.ranged_reads as f64 / worst.compacted.ranged_reads.max(1) as f64;
+        println!("{}", wrap_into(&format!(
+            "COMPACTION CLOSES IT, measured rather than argued. Merging those same {} splits through the engine took {:.1} ms and left one split of {}; the identical query against it returned the same {} hits for {} ranged reads instead of {} -- {factor:.0}x fewer round trips, and {} reads when the split is held open. Compaction is background work off the query path, so its cost is paid once per merge rather than by every query.",
+            thousands(worst.splits),
+            worst.compacted.merge_ms,
+            bytes_human(worst.compacted.split_bytes),
+            worst.compacted.hits,
+            thousands(worst.compacted.ranged_reads),
+            thousands(worst.ranged_reads),
+            thousands(worst.compacted.warm_reads),
+        ), 88, "  "));
+        println!();
+    }
+
     println!(
         "{}",
         wrap_into(
@@ -360,33 +384,35 @@ pub fn print(report: &Report) {
             bytes_human(tier.split_bytes)
         );
         println!(
-            "  {:<18} {:>7} {:>10} {:>9} {:>9} {:>8} {:>12} {:>15}",
+            "  {:<18} {:>7} {:>9} {:>9} {:>8} {:>11} {:>10} {:>9} {:>11}",
             "query class",
             "hits",
-            "p50 ms",
-            "p95 ms",
-            "p99 ms",
+            "cold p50",
+            "cold p95",
             "reads",
             "bytes read",
-            "matrlz+qry p50"
+            "warm p50",
+            "warm p95",
+            "warm reads"
         );
         for measurement in &tier.queries {
             println!(
-                "  {:<18} {:>7} {:>10.3} {:>9.3} {:>9.3} {:>8} {:>12} {:>15.3}",
+                "  {:<18} {:>7} {:>9.3} {:>9.3} {:>8} {:>11} {:>10.3} {:>9.3} {:>11}",
                 measurement.class,
                 measurement.hits,
                 measurement.ranged.p50_ms,
                 measurement.ranged.p95_ms,
-                measurement.ranged.p99_ms,
                 measurement.ranged_reads,
                 bytes_human(measurement.ranged_bytes),
-                measurement.materialized.p50_ms,
+                measurement.warm.p50_ms,
+                measurement.warm.p95_ms,
+                measurement.warm_reads,
             );
         }
         println!();
     }
     println!("{}", wrap_into(
-        "Column meanings. hits: ranked results returned, capped at the requested limit -- this is the query's selectivity against this corpus. p50/p95/p99 ms: latency of ONE query served through the ranged reader, including opening the index. reads: separate ranged reads that one query performed; in a deployment each is an R2 range GET, so this count is the figure that transfers off this machine. bytes read: total bytes those reads pulled -- compare it against the split size in the table above to see how much of the index a query actually touched. matrlz+qry p50: the crate's other public query path, which rebuilds the whole split into an in-memory directory and then searches it; at large corpus sizes that rebuild dominates, which is why it is labelled for what it does rather than called a warm-cache figure.",
+        "Column meanings. hits: ranked results returned, capped at the requested limit -- this is the query's selectivity against this corpus. cold p50/p95 ms: latency of ONE query that opens the split, ranks, and discards it -- the first query a Container answers after the split enters its working set. reads: separate ranged reads that cold query performed; in a deployment each is an R2 range GET, so this count is the figure that transfers off this machine. bytes read: total bytes those reads pulled -- compare it against the split size in the table above to see how much of the index a query actually touched. warm p50/p95 ms and warm reads: the same query against a split the engine is HOLDING OPEN, which is the steady state of a resident Container and the state the sub-second target is stated against. The gap between cold and warm is what a warm instance is worth.",
         88,
         "  ",
     ));
@@ -420,7 +446,74 @@ pub fn print(report: &Report) {
     }
     println!();
     println!("{}", wrap_into(
-        "IMPORTANT -- this axis is a LOWER BOUND, not a measurement of the deployed path. The engine exposes no ranged multi-split query: its multi-split entry point takes in-memory slices only. The harness therefore issues one ranged query per split and merges the results itself. A deployment does the same work plus a network round trip per read, so the deployed figure is strictly worse than what is printed here, by an amount this benchmark cannot determine. The reads column is the honest part: that many range GETs is what a deployed query of this shape would issue, before any warm cache.",
+        "This is the engine's own ranged multi-split query, one reader per split -- the read shape a deployed query has, minus the network. A deployment does the same work plus a round trip per read, so the deployed figure is worse than what is printed here by an amount this benchmark cannot determine. The reads column is the part that transfers: that many range GETs is what a deployed query of this shape issues, before any cache.",
+        88,
+        "  ",
+    ));
+    println!();
+
+    println!("{RULE}");
+    println!("AXIS 3 -- COMPACTION: the same splits merged, and what the query costs after");
+    println!("{RULE}");
+    println!("{}", wrap_into(
+        "Every row above, compacted. The engine merges that point's splits through the same ranged readers the fan-out query used, and the identical query is then run against the single merged split. Same documents, same question, same answer -- the only thing that changed is how many objects the corpus is spread over.",
+        88,
+        "  ",
+    ));
+    println!();
+    println!(
+        "  {:<9} {:>10} {:>12} {:>10} {:>7} {:>10} {:>9} {:>10}",
+        "splits in",
+        "merge ms",
+        "merged size",
+        "size saved",
+        "hits",
+        "cold p50",
+        "reads",
+        "warm reads"
+    );
+    for point in &report.fanout {
+        let saved = point
+            .total_split_bytes
+            .saturating_sub(point.compacted.split_bytes);
+        let saved_share = if point.total_split_bytes == 0 {
+            0.0
+        } else {
+            saved as f64 * 100.0 / point.total_split_bytes as f64
+        };
+        println!(
+            "  {:<9} {:>10.1} {:>12} {:>9.0}% {:>7} {:>10.3} {:>9} {:>10}",
+            thousands(point.splits),
+            point.compacted.merge_ms,
+            bytes_human(point.compacted.split_bytes),
+            saved_share,
+            point.compacted.hits,
+            point.compacted.ranged.p50_ms,
+            thousands(point.compacted.ranged_reads),
+            thousands(point.compacted.warm_reads),
+        );
+    }
+    println!();
+    println!(
+        "  {:<9} {:>14} {:>14} {:>14}",
+        "splits in", "reads before", "reads after", "reads removed"
+    );
+    for point in &report.fanout {
+        let removed = point
+            .ranged_reads
+            .saturating_sub(point.compacted.ranged_reads);
+        let factor = point.ranged_reads as f64 / point.compacted.ranged_reads.max(1) as f64;
+        println!(
+            "  {:<9} {:>14} {:>14} {:>14}  ({factor:.0}x)",
+            thousands(point.splits),
+            thousands(point.ranged_reads),
+            thousands(point.compacted.ranged_reads),
+            thousands(removed),
+        );
+    }
+    println!();
+    println!("{}", wrap_into(
+        "merge ms is the ENGINE's share of a compaction and nothing else: the per-firm catalog reads, the R2 write of the merged split, the catalog swap, and the retirement of the superseded objects are all outside it. Compaction is background work off the query path, so this is a cost-to-run figure, never a latency anyone waits on. hits must match the fan-out row above it exactly -- a merge that changed what a query matches would be a defect, not a saving.",
         88,
         "  ",
     ));

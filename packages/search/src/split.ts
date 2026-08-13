@@ -36,3 +36,22 @@ export function splitIdentifierForDocumentVersion(
 ): Promise<IndexSplitId> {
   return deriveIdentifier("indexSplit", `${documentId}:${version}`);
 }
+
+// The split id for a COMPACTED split, derived from the corpus and the exact set of splits merged into it.
+//
+// Derived for the same reason the per-document id is derived, and it buys the same thing: a compaction
+// pass that dies after writing its object but before committing the catalog swap will, on retry, select
+// the same source splits (the selection is ordered and bounded, not arbitrary), compute the same id, and
+// overwrite its own half-written object. A minted id would leave every abandoned attempt as bytes in the
+// firm's bucket that no catalog row names and no sweep can recognize as garbage.
+//
+// The source ids are sorted before hashing, so the id depends on WHICH splits were merged and not on the
+// order they came back in. The corpus is in the hash as well: two corpora that happened to merge splits
+// with the same ids are different splits and must not collide on a key.
+export function splitIdentifierForCompaction(
+  corpus: CorpusScope,
+  sourceSplitIds: readonly IndexSplitId[],
+): Promise<IndexSplitId> {
+  const ordered = [...sourceSplitIds].sort();
+  return deriveIdentifier("indexSplit", `compaction:${corpus.id}:${ordered.join(",")}`);
+}

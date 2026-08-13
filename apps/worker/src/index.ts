@@ -27,6 +27,9 @@ import {
 } from "./scheduled.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
+import { searchCompactionQueue } from "./search/compaction-consumer.ts";
+import type { SearchCompactionMessage } from "./search/compaction-types.ts";
+import { runSearchCompactionSweep } from "./search/compaction-sweep.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
@@ -56,6 +59,7 @@ export { RecoveryJobCoordinator } from "./recovery/recovery-coordinator.ts";
 // split build per document version. Exported so the runtime can instantiate the class named in
 // wrangler.jsonc's durable_objects binding.
 export { SearchIndexJob } from "./search/index-coordinator.ts";
+export { SearchCompactionJob } from "./search/compaction-coordinator.ts";
 
 // The conversational assistant's per-conversation push object, keyed firmId:conversationId. It holds
 // NO conversation content — it reads turn state back from the firm's own database and pushes it.
@@ -92,6 +96,7 @@ const EMAILS_CAPTURE_QUEUE = "magna-carta-production-emails-capture";
 // The search-index queue's name — the queue() handler routes its batches to the index consumer, which
 // extracts one document version's text, builds its split, and converges the per-firm split catalog.
 const SEARCH_INDEX_QUEUE = "magna-carta-production-search-index";
+const SEARCH_COMPACTION_QUEUE = "magna-carta-production-search-compaction";
 
 // The document-assembly queue's name — the queue() handler routes its batches to the assembly consumer,
 // which merges one template version against one matter and files the result through the ingest gate.
@@ -144,6 +149,11 @@ export default {
               // this pass, and running it after the storage work means a firm whose bytes were just
               // reconciled is swept against the corrected picture.
               await runReextractionSweep(env);
+              // After the re-extraction sweep, because that pass enqueues index work whose published
+              // splits are exactly what this one then finds over threshold. It is also the pass that
+              // retires superseded split objects, so it runs where a firm's storage picture has already
+              // been reconciled rather than against a stale one.
+              await runSearchCompactionSweep(env);
               // Last on the daily pass, and cheap: a bounded delete per firm over pointers whose
               // records are all still where their own subsystems keep them.
               await runNotificationRetentionSweep(env);
@@ -196,6 +206,10 @@ export default {
     // The search-index queue routes to the index consumer (extract -> build split -> catalog).
     if (batch.queue === SEARCH_INDEX_QUEUE) {
       return searchIndexQueue(batch as MessageBatch<SearchIndexMessage>, env);
+    }
+    // The split-compaction queue routes to the compaction consumer (merge -> publish -> catalog swap).
+    if (batch.queue === SEARCH_COMPACTION_QUEUE) {
+      return searchCompactionQueue(batch as MessageBatch<SearchCompactionMessage>, env);
     }
     // The assistant's queue routes to its consumer (re-read the gates -> window -> model -> settle).
     if (batch.queue === MAGNUS_QUEUE) {

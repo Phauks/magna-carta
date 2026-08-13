@@ -412,7 +412,14 @@
       "idx": 58,
       "version": "6",
       "when": 1786672800000,
-      "tag": "20260813T020000_conflicts-recheck-ledger",
+      "tag": "20260813T020000_index-split-membership",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1786676400000,
+      "tag": "20260813T030000_conflicts-recheck-ledger",
       "breakpoints": true
     }
   ]
