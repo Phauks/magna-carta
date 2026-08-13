@@ -50,7 +50,18 @@ and never calls external services.
   is an entity matching **itself** (`match.entityId === entity.entityId`).
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`
-  (latest row by `created_at` — the append-only table's read-side "current state" projection)
+  (latest row by `created_at` — the append-only table's read-side "current state" projection),
+  `readHitDispositionStates` (every hit of one check with its latest disposition, in **one** query —
+  the same tie-break, without the per-hit N+1 the posture read cannot afford)
+- `src/posture.ts` — `readMatterConflictsPosture`: the **only sanctioned way to ask where a matter
+  stands on conflicts**. Computed from rows at read time, stores nothing, writes nothing. Also the
+  shared readers of a stored check row (`parseCheckScope`, `parseCheckInputs`, `reportedSourcesFor`),
+  so the posture read and the check read can never explain the same row differently
+- `src/report-text.ts` — `describeCheck`: the pure statement list for one check — what ran with what
+  settings over how many entities, what did not run and why, and what surfaced. Zero hits ends
+  `"Nothing surfaced."`
+- `src/sources.ts` — the one home for what a check can search, what it cannot, and why:
+  `availabilityOf` (the write side), `unavailabilityReason` and `displayNameForSource` (the read side)
 - `src/statements.ts` — SQL statement builders for the three tables; `CONFLICTS_CHECK_TABLE` /
   `CONFLICTS_HIT_TABLE` / `CONFLICTS_DISPOSITION_TABLE` names, tracked by the schema-name-sync fitness
   test; INSERT only — there is no update or delete builder for any of the three tables
@@ -92,6 +103,32 @@ and never calls external services.
   by `directory_identifier.id` reference (plus the `identifier_type`), never `value_ciphertext` or
   `value_blind_index`, and certainly never a decrypted value. `findPlaintextIdentifiersInChecks`
   sweeps every stored `inputs_json` for a nine-consecutive-digit run as the structural guard.
+- **The platform never asserts that a matter is free of conflict** (conflicts-vocabulary:allow —
+  states the rule). It reports what it searched, what it could not search, and what surfaced; the
+  conclusion is a lawyer's and the record says whose. Three things follow, and all three are
+  mechanical rather than conventional:
+  1. **`readMatterConflictsPosture` is the sanctioned read, and it has no aggregate.** No field named
+     `clear`, `clean`, `ok`, `passed`, `status`, `severity`, or `conflictFree` (conflicts-vocabulary:allow — the banned list itself), and no summary
+     boolean. `neverChecked` is the one boolean, and it reports whether a search happened — never what
+     one concluded. A caller that wants a single word writes it itself and owns it.
+  2. **A zero-hit check reports the search ending, not a clearance.** `describeCheck` finishes
+     `"Nothing surfaced."`, which is a fact about the machine's own behaviour. Facts about the machine
+     are the only assertions this package makes: these channels ran, this source has no corpus, this
+     many candidates surfaced.
+  3. **`cleared` survives only as a `DISPOSITION_KINDS` value** — a named human's conclusion about one
+     hit, on a row carrying that human's identity and rationale.
+
+  `pnpm run lint:conflicts-vocabulary` (`tooling/lint-conflicts-vocabulary/index.mjs`) enforces all
+  three by source scan over this package, the conflicts route, the web conflicts surfaces, and
+  `docs/user/`, and runs in the gate's governance step. Prose that exists to state the rule rather than
+  to break it carries an inline `conflicts-vocabulary:allow — <reason>` marker on the same line; a
+  verdict-shaped **field name** has no such escape hatch.
+
+- **Staleness is derived, never written.** `scopeShortfall` compares the latest check's recorded scope
+  against the **live** `conflicts.policy` row on every read, so raising the firm floor makes the
+  shortfall appear immediately on every affected matter with no sweep and no write. This is the
+  posture `packages/calendar/src/overdue.ts` holds for an overdue deadline: the platform computes the
+  comparison and reports it; it never writes a judgement onto a record and lets it rot.
 - **A source that cannot run records `unavailable`, never `searched`.** The `content` class and
   `prior_firm_history` have no corpus yet and are always `unavailable`. `imputation` is `unavailable`
   on a check with no `matterId` (there is nothing to join firm members against), regardless of how the
@@ -109,7 +146,8 @@ and never calls external services.
   caller to run via the data-access layer; holds no D1 binding of its own and calls no external
   service.
 - The worker routes (`apps/worker/src/routes/conflicts.ts`) are the only callers of
-  `runConflictsCheck` / `recordDisposition` — they own threading `env`, the actor, and idempotency.
+  `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` — they own threading `env`,
+  the actor, and idempotency.
 
 ## Gotchas
 
@@ -122,6 +160,12 @@ and never calls external services.
   migration `.sql` (`packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`), like the
   Directory FTS5 triggers, and are verified by `packages/database/test/conflicts-append-only.test.ts`
   plus `assertConflictsFitness`.
+- **The posture read does not check that the matter exists**, and that is deliberate: a 404 on an
+  unknown matter would make "never checked" and "no such matter" the same answer, which is the
+  conflation the whole read exists to prevent. `neverChecked` is the answer for both.
+- The posture read's counts are scoped to the **latest** check. An earlier check's hits stay on the
+  record and are read through that check; cross-check hit identity (a re-surfaced hit that cites an
+  earlier conclusion) is the adjudication read model's job and lands with it.
 - `matchParty`'s exact-normalized-name probe is a direct SQL query against `directory_name`, not a
   fourth blocking channel added to `findDuplicateCandidates` — the directory's shared corpus reader
   stays phonetic/trigram/blind-index only; tier 2 (exact name) is scored here, in this package. The

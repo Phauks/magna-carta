@@ -8,8 +8,12 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
-import { CONFLICTS_HIT_TABLE, insertDispositionStatement } from "./statements.ts";
-import type { DispositionKind } from "./types.ts";
+import {
+  CONFLICTS_DISPOSITION_TABLE,
+  CONFLICTS_HIT_TABLE,
+  insertDispositionStatement,
+} from "./statements.ts";
+import type { DispositionKind, EvidenceTier } from "./types.ts";
 
 // A reviewer's adjudication of one conflicts_hit row. Every call appends a new conflicts_disposition
 // row — the table is append-only (see the migration's RAISE(ABORT) triggers) — so a reviewer who
@@ -103,6 +107,81 @@ export async function recordDisposition(
 // two dispositions written on one hit inside the same millisecond (a reviewer reversing a call, or two
 // reviewers racing) would otherwise resolve to a lexically-random winner — surfacing a reversed conflict
 // as still cleared. `rowid` increases with each append, so it always returns the genuinely-latest row.
+// One hit of a check, with the reviewer's latest word on it — or nothing, when no reviewer has acted.
+export interface HitDispositionState {
+  readonly hitId: string;
+  readonly evidenceTier: EvidenceTier;
+  readonly sourceClass: string;
+  readonly coParty: boolean;
+  readonly disposition: DispositionRow | null;
+}
+
+// Every hit of one check with its current disposition, in ONE query.
+//
+// The obvious shape — read the hits, then call readCurrentDisposition per hit — is the N+1 the
+// posture read cannot afford: a check against a wide corpus surfaces hundreds of hits, and the read
+// runs on every page view of a matter. The correlated subquery picks the same row readCurrentDisposition
+// would pick, by the same `created_at DESC, rowid DESC` tie-break and for the same reason: identifiers
+// are random tokens with no time order, so two dispositions written on one hit inside the same
+// millisecond would otherwise resolve to a lexically-random winner, and the losing row might be the
+// reversal. `rowid` increases with each append, so it always names the genuinely-latest row. Both the
+// filter and the ordering are served by the (hit_id, created_at) index.
+export async function readHitDispositionStates(
+  database: SqlDatabase,
+  checkId: string,
+): Promise<HitDispositionState[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT hit.id AS hit_id, hit.evidence_tier, hit.source_class, hit.co_party,
+              latest.id AS disposition_id, latest.kind, latest.rationale, latest.reviewer_user_id,
+              latest.created_at AS disposition_created_at
+         FROM ${CONFLICTS_HIT_TABLE} AS hit
+         LEFT JOIN ${CONFLICTS_DISPOSITION_TABLE} AS latest
+           ON latest.rowid = (
+             SELECT candidate.rowid FROM ${CONFLICTS_DISPOSITION_TABLE} AS candidate
+              WHERE candidate.hit_id = hit.id
+              ORDER BY candidate.created_at DESC, candidate.rowid DESC
+              LIMIT 1
+           )
+        WHERE hit.check_id = ?1
+        ORDER BY hit.created_at ASC, hit.id ASC`,
+    )
+    .bind(checkId)
+    .all<{
+      hit_id: string;
+      evidence_tier: number;
+      source_class: string;
+      co_party: number;
+      disposition_id: string | null;
+      kind: string | null;
+      rationale: string | null;
+      reviewer_user_id: string | null;
+      disposition_created_at: string | null;
+    }>();
+
+  return results.map((row) => ({
+    hitId: row.hit_id,
+    evidenceTier: row.evidence_tier as EvidenceTier,
+    sourceClass: row.source_class,
+    coParty: row.co_party === 1,
+    disposition:
+      row.disposition_id === null ||
+      row.kind === null ||
+      row.rationale === null ||
+      row.reviewer_user_id === null ||
+      row.disposition_created_at === null
+        ? null
+        : {
+            id: row.disposition_id,
+            hitId: row.hit_id,
+            kind: row.kind as DispositionKind,
+            rationale: row.rationale,
+            reviewerUserId: row.reviewer_user_id,
+            createdAt: row.disposition_created_at,
+          },
+  }));
+}
+
 export async function readCurrentDisposition(
   database: SqlDatabase,
   hitId: string,

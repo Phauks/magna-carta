@@ -19,6 +19,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`review-sets-and-loading.md`](review-sets-and-loading.md) — Review sets: gathering the documents in a case, saying whose records they are, and loading the firm's own files and filed email (backend built, screens pending).
 - [`coding-documents-in-review.md`](coding-documents-in-review.md) — Coding documents in review: deciding what each document is, coding families and in bulk with exact undo, seeing where the review has got to, and who can see a review set at all (backend built, screens pending).
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
+- [`conflicts-reports.md`](conflicts-reports.md) — Conflicts reports: what a conflicts check searched, what it could not search, what is still unanswered, and why the platform reports a search rather than a verdict (backend built, screens pending).
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).
 - [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer (stub; backend built, screens pending).

@@ -6180,6 +6180,12 @@
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
           },
+          "statement": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "hits": {
             "type": "array",
             "items": {
@@ -6189,6 +6195,7 @@
         },
         "required": [
           "check",
+          "statement",
           "hits"
         ]
       },
@@ -6379,6 +6386,284 @@
           "rationale",
           "reviewerUserId",
           "createdAt"
+        ]
+      },
+      "MatterConflictsPostureResponse": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "neverChecked": {
+            "type": "boolean"
+          },
+          "latestCheck": {
+            "$ref": "#/components/schemas/ConflictsPostureLatestCheck"
+          },
+          "scopeShortfall": {
+            "$ref": "#/components/schemas/ConflictsPostureScopeShortfall"
+          },
+          "pendingRecheck": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPosturePendingRecheck"
+            }
+          },
+          "undisposedByTier": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureUndisposedTier"
+            }
+          },
+          "dispositionsByKind": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureDispositionKind"
+            }
+          },
+          "unavailableSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureUnavailableSource"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "neverChecked",
+          "latestCheck",
+          "scopeShortfall",
+          "pendingRecheck",
+          "undisposedByTier",
+          "dispositionsByKind",
+          "unavailableSources"
+        ]
+      },
+      "ConflictsPostureLatestCheck": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ConflictsPostureScope"
+          },
+          "subjectEntityCount": {
+            "type": "integer"
+          },
+          "expandedEntityCount": {
+            "type": "integer"
+          },
+          "skippedIdentifierTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hitCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "trigger",
+          "actorUserId",
+          "scope",
+          "subjectEntityCount",
+          "expandedEntityCount",
+          "skippedIdentifierTypes",
+          "hitCount"
+        ]
+      },
+      "ConflictsPostureScope": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "searched",
+                "unavailable"
+              ]
+            }
+          },
+          "strictness": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "floorRaised": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sources",
+          "strictness",
+          "depth",
+          "floorRaised"
+        ]
+      },
+      "ConflictsPostureScopeShortfall": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "party",
+                "graph",
+                "imputation",
+                "content"
+              ]
+            }
+          },
+          "strictness": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "firmFloor": {
+                "type": "string",
+                "enum": [
+                  "balanced",
+                  "over_inclusive"
+                ]
+              },
+              "ranUnder": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "firmFloor",
+              "ranUnder"
+            ]
+          },
+          "depth": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "firmDefault": {
+                "type": "integer"
+              },
+              "ranAt": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "firmDefault",
+              "ranAt"
+            ]
+          }
+        },
+        "required": [
+          "sources",
+          "strictness",
+          "depth"
+        ]
+      },
+      "ConflictsPosturePendingRecheck": {
+        "type": "object",
+        "properties": {
+          "causeTopic": {
+            "type": "string"
+          },
+          "causeReference": {
+            "type": "string"
+          },
+          "causeOccurredAt": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "causeTopic",
+          "causeReference",
+          "causeOccurredAt",
+          "requestedAt"
+        ]
+      },
+      "ConflictsPostureUndisposedTier": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tier",
+          "count"
+        ]
+      },
+      "ConflictsPostureDispositionKind": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "reviewerUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "count",
+          "reviewerUserIds"
+        ]
+      },
+      "ConflictsPostureUnavailableSource": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "reason"
         ]
       },
       "CreatedConflictsDispositionResponse": {
@@ -36856,7 +37141,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it.",
+        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -36886,7 +37171,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The check and its hits",
+            "description": "The check, the statement of what it searched, and its hits",
             "content": {
               "application/json": {
                 "schema": {
@@ -36917,6 +37202,100 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-posture": {
+      "get": {
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "operationId": "conflicts.matterPosture",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's conflicts posture, derived at read time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

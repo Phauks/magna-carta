@@ -401,8 +401,9 @@ describe("load-profile smoke", () => {
     expect(findFullScans(editingPlans, EDITING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     // The conflicts hot-path plans: same label-set-first guard, then the scan check. The imputation
-    // identity join, the blind-index self-join, the exact-name probe, and the two log reads must each
-    // walk an index, never the table.
+    // identity join, the blind-index self-join, the exact-name probe, and the four log reads must each
+    // walk an index, never the table. The two posture reads matter most here: they run on every view of
+    // a matter over a log that only grows, so a scan there gets slower forever.
     const conflictsPlans = conflictsHotPathPlans(snapshot);
     expect(conflictsPlans.map((plan) => plan.label).sort()).toEqual(
       [
@@ -411,6 +412,8 @@ describe("load-profile smoke", () => {
         "conflicts.exact-name-probe",
         "conflicts.hits-by-check",
         "conflicts.disposition-current",
+        "conflicts.latest-check-for-matter",
+        "conflicts.hit-disposition-states",
       ].sort(),
     );
     expect(findFullScans(conflictsPlans, CONFLICTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
