@@ -308,15 +308,26 @@ export function renderNow(areas) {
   const nodes = allNodes(areas);
   const sections = [NOW_PREAMBLE];
 
+  // This section answers "what is blocked on me?" only for decisions about a CAPABILITY, because the
+  // ledger holds capabilities and nothing else. Account-side work — a dashboard step, a billing
+  // budget, a repository setting — blocks real work just as hard and has no node to hang from, so the
+  // section names its own boundary and points at that list. A "waiting on you" that silently omits
+  // half of what is waiting is worse than no list at all: it is trusted, and it is wrong.
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
   sections.push(
     section(
       "Waiting on you",
-      awaiting.length === 0
-        ? "_Nothing is blocked on an owner decision._"
-        : awaiting
-            .map((node) => `- **${node.name}** (${node.area}) — ${node.awaitingOwner}`)
-            .join("\n"),
+      [
+        awaiting.length === 0
+          ? "_No capability is blocked on an owner decision._"
+          : awaiting
+              .map((node) => `- **${node.name}** (${node.area}) — ${node.awaitingOwner}`)
+              .join("\n"),
+        "",
+        "Decisions about a capability only. Account-side steps that no session can perform — a" +
+          " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
+          " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.",
+      ].join("\n"),
     ),
   );
 
