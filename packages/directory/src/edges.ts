@@ -8,6 +8,7 @@ import type {
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
 import { assertEntityExists, UnknownEntityError } from "./entity-kind.ts";
+import { DIRECTORY_EDGE_CREATED_TOPIC } from "./topics.ts";
 import { EDGE_TYPES, type EdgeType } from "./types.ts";
 
 // The error thrown when a caller supplies an edge_type value that is not in the
@@ -102,7 +103,21 @@ export async function createEdge(
         ),
       directoryAuditStatement(database, options, "directory.edge.created", edgeId),
     ],
-    outboxMessages: [],
+    // One outbox row, in the batch this write was already composing. A relationship recorded after a
+    // matter was screened — the corporate parent found later, the spouse, the principal-of link — is
+    // a change in what a search would reach, so it is announced here and resolved off the hot path.
+    // Both endpoints and the type travel with it: which matters are affected depends on all three.
+    outboxMessages: [
+      {
+        topic: DIRECTORY_EDGE_CREATED_TOPIC,
+        payload: {
+          edgeId,
+          fromEntityId: input.from,
+          toEntityId: input.to,
+          edgeType: input.edgeType,
+        },
+      },
+    ],
     responseCode: 201,
     responseBody: { id: edgeId },
     value: edgeId,

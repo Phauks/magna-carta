@@ -1,4 +1,5 @@
 import type { KnownPermission } from "@magna-carta/access-control/registry";
+import { CONFLICTS_HIT_SURFACED_TOPIC } from "@magna-carta/conflicts/topics";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
 import {
@@ -300,6 +301,46 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: (_subjectId, matterId) => `/matters/${matterId ?? ""}/overview`,
+  },
+  {
+    key: "conflicts.hit.surfaced",
+    category: "conflicts",
+    severity: "attention",
+    mandatory: false,
+    // Whoever can read a conflicts result, rather than whoever happens to be near the matter. A
+    // surfaced candidate is a firm-level professional-responsibility fact, and the person who needs
+    // it is the person entitled to look at the evidence and decide.
+    audience: "capability-holders",
+    audienceCapability: "conflicts:read",
+    includeActor: false,
+    subscribesTo: CONFLICTS_HIT_SURFACED_TOPIC,
+    subjectKind: "conflictsCheck",
+    subjectPayloadKey: "checkId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Two counts and nothing else. NOT the entity, not what matched, not the tier's evidence — a
+    // notification row outlives the access check that justified it, and a name that surfaced in a
+    // conflicts search is the single most sensitive thing this platform holds about who a firm is
+    // talking to. The counts say how much is waiting and how much of it is strong; the subject
+    // resolves behind the deep link, through the conflicts read that checks the reader's capability.
+    facts: {
+      hitCount: { kind: "integer" },
+      // Hits at the two strongest evidence tiers — an exact identifier or an exact name. The one
+      // fact that separates "look at this today" from "look at this."
+      strongHitCount: { kind: "integer" },
+    },
+    buildFacts: (payload) => ({
+      hitCount: typeof payload["hitCount"] === "number" ? payload["hitCount"] : 0,
+      strongHitCount: typeof payload["strongHitCount"] === "number" ? payload["strongHitCount"] : 0,
+    }),
+    // Digest, because IMMEDIATE_ESCALATION_CATEGORIES admits only trust and security today and this
+    // type does not get to widen that on its own. Whether a day's delay on an exact-identifier match
+    // against a matter a firm is about to accept is an inconvenience or a failure is a real question
+    // and the firm's to answer; flipping it is one word here plus one entry in that list.
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("conflicts"),
   },
   {
     key: "system.incident.created",

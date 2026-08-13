@@ -12,6 +12,7 @@ function pendingRow(id: string, attempts = 0): OutboxRow {
     aggregate_key: null,
     seq: null,
     attempts,
+    created_at: NOW(),
   };
 }
 

@@ -5,6 +5,7 @@ import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts"
 import { runDirectoryEffect } from "./run-directory-effect.ts";
 import { assertEntityExists } from "./entity-kind.ts";
 import { insertMatterPartyStatement } from "./statements.ts";
+import { MATTER_PARTY_LINKED_TOPIC } from "./topics.ts";
 
 // The caller-supplied fields for linking a directory entity to a matter in a role. The role is a
 // free-text value (e.g. 'client', 'opposing_party', 'guardian') — directory_party_role is the catalog
@@ -55,7 +56,16 @@ export async function linkMatterParty(
       }),
       directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),
     ],
-    outboxMessages: [],
+    // One outbox row, in the batch this write was already composing — no extra read, no fan-out, no
+    // traversal on the request path. A party added to a matter months after it was screened is the
+    // plainest way an honest conflicts answer goes stale, so the link has to be announced; resolving
+    // what that means for any matter happens in a queue consumer, never here.
+    outboxMessages: [
+      {
+        topic: MATTER_PARTY_LINKED_TOPIC,
+        payload: { matterPartyId, matterId: input.matterId, entityId: input.entityId },
+      },
+    ],
     responseCode: 201,
     responseBody: { id: matterPartyId },
     value: matterPartyId,

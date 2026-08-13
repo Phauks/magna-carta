@@ -19,6 +19,7 @@ import type {
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
+  ConflictsRecheckRequestId,
   CostEntryId,
   CreditNoteId,
   CreditNoteLineId,
@@ -2063,6 +2064,15 @@ export const conflictsCheck = sqliteTable(
     // 1 when the requested scope fell below the firm floor and was raised to it.
     floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
     actorUserId: text("actor_user_id").$type<UserId>(),
+    // How the run was started: 'manual' | 'event' | 'schedule'. NULL on every row written before the
+    // automated paths existed, and on any run a person asked for, which reads exactly as it always
+    // did. Kept beside actor_user_id rather than derived from it: an absent actor says nobody is
+    // being credited with the run, not what set it going.
+    triggerSource: text("trigger_source"),
+    // The corpus changes an automated run covers, as recorded JSON — several accumulated causes
+    // collapse into ONE check that names them all, never into a check that names one and forgets the
+    // rest. NULL for a manual run, which has no cause but the person who asked.
+    causeJson: text("cause_json"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -2136,6 +2146,65 @@ export const conflictsDisposition = sqliteTable(
     check(
       "conflicts_disposition_kind_check",
       sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
+    ),
+  ],
+);
+
+// The re-check ledger: one row per corpus change that could alter an already-checked matter's
+// answer, written when the change commits and satisfied later by the check that covers it.
+//
+// It exists because a queue message is not a record. A matter whose corpus moved has to be able to
+// say "a re-check is owed because entity X was merged on 12 August" from the moment the merge
+// commits — not from whenever a consumer gets round to it — and a drain that runs out of budget has
+// to leave that fact visible rather than dropping it. The satisfied rows are the other half: the
+// interval between a cause and the check that answered it is the evidence that the firm's procedure
+// noticed something, which no check row on its own can show.
+//
+// Rows are never deleted and the cause columns are immutable; only the two satisfaction columns move,
+// once, forwards. All three rules are enforced by triggers in the migration, not by convention.
+export const conflictsRecheckRequest = sqliteTable(
+  "conflicts_recheck_request",
+  {
+    id: text("id").primaryKey().$type<ConflictsRecheckRequestId>(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The outbox topic that caused it, e.g. directory.entity.merged.
+    causeTopic: text("cause_topic").notNull(),
+    // The handle the cause is about — an entity, an edge, an identifier row, a matter party. Never a
+    // value: an identifier cause names the identifier ROW and its type, so nothing sealed leaks into
+    // a table that is read to build a report.
+    causeReference: text("cause_reference").notNull(),
+    causeOccurredAt: text("cause_occurred_at").notNull(),
+    requestedAt: text("requested_at").notNull(),
+    satisfiedByCheckId: text("satisfied_by_check_id").$type<ConflictsCheckId>(),
+    satisfiedAt: text("satisfied_at"),
+  },
+  (table) => [
+    // One OPEN request per (matter, cause): a queue redelivery re-derives the same three values and
+    // is a no-op. Partial, so satisfying a request releases the key and the same cause recurring
+    // later can be requested again.
+    uniqueIndex("conflicts_recheck_request_open_cause_unique")
+      .on(table.matterId, table.causeTopic, table.causeReference)
+      .where(sql`${table.satisfiedAt} IS NULL`),
+    // The drain: unsatisfied rows, oldest cause first.
+    index("conflicts_recheck_request_satisfied_requested_index").on(
+      table.satisfiedAt,
+      table.requestedAt,
+    ),
+    // One matter's open requests — the posture read, and the per-matter claim the drain makes.
+    index("conflicts_recheck_request_matter_satisfied_index").on(table.matterId, table.satisfiedAt),
+    check("conflicts_recheck_request_cause_topic_check", sql`length(${table.causeTopic}) > 0`),
+    check(
+      "conflicts_recheck_request_cause_reference_check",
+      sql`length(${table.causeReference}) > 0`,
+    ),
+    // Satisfied by a check and satisfied at a time are one fact, so they arrive together or not at
+    // all — a row carrying one without the other would report an interval nothing closed.
+    check(
+      "conflicts_recheck_request_satisfaction_check",
+      sql`(${table.satisfiedByCheckId} IS NULL) = (${table.satisfiedAt} IS NULL)`,
     ),
   ],
 );

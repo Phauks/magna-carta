@@ -98,6 +98,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
   { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
+  // The re-check ledger resolves to the Directory entity its cause is about — a merged subordinate, a
+  // renamed entity, the party that was linked. The row is never deleted (a trigger refuses it) and
+  // its cause columns are immutable, so the subject reference is pseudonymized in place exactly as
+  // the three log tables above are. cause_reference is a HANDLE by construction, never a value.
+  {
+    table: "conflicts_recheck_request",
+    subjectKey: "cause_reference",
+    action: "pseudonymize-keep",
+  },
   // Magnus conversations — the firm's own work product, protected and deletable. The fact that a
   // member held a conversation is firm activity worth keeping — the ai_detection_usage.requested_by
   // precedent — so the person becomes a pseudonym and the row survives. The turns go with the

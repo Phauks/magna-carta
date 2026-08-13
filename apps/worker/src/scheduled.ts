@@ -48,6 +48,8 @@ import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-d
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeFirmProvision } from "./firm-provision-consumer.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
+import { drainRecheckLedger } from "./conflicts/recheck-run-consumer.ts";
+import { runPeriodicRescan } from "./conflicts/periodic-rescan.ts";
 import { buildAndStoreDerivedSnapshot } from "./status/derived-snapshot.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
 
@@ -280,6 +282,9 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
             payload: row.payload,
             aggregateKey: row.aggregate_key,
             seq: row.seq,
+            // When the business write COMMITTED, carried through so a consumer that reports an
+            // interval reports the firm's, not the queue's.
+            causeOccurredAt: row.created_at,
           });
           await maybeEmitCompleted({
             logger,
@@ -294,6 +299,10 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
         deadLetter: logDeadLetter(logger, correlationId, `firm ${firm.firmId}`),
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
+      // The conflicts backstop, in the same per-firm pass that already resolved this firm's database.
+      // The drain comes first: answering what is already owed matters more than adding to the queue,
+      // and a firm that is falling behind must not have the scheduled re-scan pile on top of it.
+      await runConflictsRecheckPass(env, firm, logger);
       await sweepStalePendingUploads(env, firm);
       const redriven = await redriveStrandedPendingVersions(env, firm);
       if (redriven > 0) {
@@ -346,6 +355,31 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   );
 
   return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt };
+}
+
+// The conflicts backstop for one firm: drain the re-check requests the queue did not, then enqueue
+// the next slice of the scheduled re-scan if the firm's cadence says one is due.
+//
+// It is a BACKSTOP, not the primary path — the queue answers most causes within one relay cycle. What
+// this pass catches is everything the queue structurally cannot: a fan-out larger than one cycle
+// takes on, a message that dead-lettered, a producer nobody wired, a matter that predates a trigger.
+// Each of those is invisible from inside the event path, and a procedure whose gaps are invisible is
+// a procedure that fails silently.
+//
+// Isolated per firm by the caller's try/catch, and internally so a firm whose conflicts pass throws
+// still gets its other sweeps. Failures route through the one telemetry pipeline and the next Cron
+// fire retries; nothing here is a transaction that can be left half-applied.
+async function runConflictsRecheckPass(
+  env: Bindings,
+  firm: ReachableActiveFirm,
+  logger: Logger,
+): Promise<void> {
+  try {
+    await drainRecheckLedger(env, firm.firmId, firm.database, logger);
+    await runPeriodicRescan(firm.database, logger);
+  } catch (caught) {
+    logOperationFailed(logger, `cron:conflicts-recheck:${firm.firmId}`, caught, newCorrelationId());
+  }
 }
 
 // The stale-pending upload sweep: an upload session left open past its expiry (the client started an

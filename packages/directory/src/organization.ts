@@ -3,6 +3,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryOrganizationId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { DIRECTORY_ENTITY_CREATED_TOPIC } from "./topics.ts";
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
 import {
@@ -79,7 +80,7 @@ export async function createOrganization(
       ...insertPhoneticCodeStatements(database, nameId, codes),
       directoryAuditStatement(database, options, "directory.organization.created", organizationId),
     ],
-    outboxMessages: [{ topic: "directory.entity.created", payload: { organizationId } }],
+    outboxMessages: [{ topic: DIRECTORY_ENTITY_CREATED_TOPIC, payload: { organizationId } }],
     responseCode: 201,
     responseBody: { id: organizationId },
     value: organizationId,

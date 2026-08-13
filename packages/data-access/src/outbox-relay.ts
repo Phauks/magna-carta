@@ -10,6 +10,12 @@ export interface OutboxRow {
   readonly aggregate_key: string | null;
   readonly seq: number | null;
   readonly attempts: number;
+  // When the row was written — which is when the business write it describes COMMITTED, because the
+  // two land in one atomic batch. A consumer that needs to know when something actually happened
+  // reads this rather than its own clock: the gap between them is queue latency, and reporting queue
+  // latency as the moment a firm's records changed would make every interval the platform quotes a
+  // measurement of itself.
+  readonly created_at: string;
 }
 
 export interface OutboxSweepReport {
@@ -47,7 +53,7 @@ export async function sweepOutbox(options: {
 
   const { results } = await options.database
     .prepare(
-      `SELECT id, topic, payload, aggregate_key, seq, attempts FROM ${OUTBOX_TABLE} WHERE status = 'pending' ORDER BY created_at LIMIT ?1`,
+      `SELECT id, topic, payload, aggregate_key, seq, attempts, created_at FROM ${OUTBOX_TABLE} WHERE status = 'pending' ORDER BY created_at LIMIT ?1`,
     )
     .bind(batchSize)
     .all<OutboxRow>();
