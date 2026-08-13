@@ -1,5 +1,8 @@
 import { satisfyRecheckRequestsForMatter } from "@magna-carta/conflicts/recheck-run";
-import { readMattersAwaitingRecheck } from "@magna-carta/conflicts/recheck-statements";
+import {
+  countOpenRecheckRequests,
+  readMattersAwaitingRecheck,
+} from "@magna-carta/conflicts/recheck-statements";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
@@ -105,5 +108,10 @@ export async function drainRecheckLedger(
     satisfied += outcome.causesSatisfied;
   }
   if (satisfied > 0) logger.count("conflicts.recheck.satisfied", {}, satisfied);
+  // What is still owed after this pass. The rate is the alertable signal — a backlog that only grows
+  // means the firm's screening is falling behind its own records, which is the one thing the ledger
+  // cannot fix by itself, and it is invisible from the satisfied count alone. Read after the drain so
+  // the number is what a reader would see if they asked now.
+  logger.count("conflicts.recheck.open_backlog", {}, await countOpenRecheckRequests(firmDatabase));
   return satisfied;
 }

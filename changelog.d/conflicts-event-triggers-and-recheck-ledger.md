@@ -39,7 +39,11 @@ so no migration), and an automated run records `trigger_source: "event"` with no
 ledger row and simply queues fewer of them; the cron backstop drains the rest oldest-cause-first under
 a wall-clock budget, and exceeding it leaves rows _pending_ — a visible state the posture read reports,
 never a discarded one. The scheduled re-scan enqueues open matters in batches at the firm's cadence
-(weekly by default), and whether a firm has switched it off is recorded and surfaced.
+(weekly by default), and whether a firm has switched it off is recorded and surfaced. Both ride the
+**daily** cron pass rather than the `*/5` sweep, because `scheduleRequestPathSweep` runs that sweep on
+`waitUntil` after a provisioning route commits — anything on it executes on the tail of an HTTP
+request, and a full conflicts check is precisely the work that must not. Nothing is lost by the wait:
+the queue is the primary path and answers a cause within one relay cycle.
 
 **`conflicts.hit.surfaced`** joins the notifications registry — category `conflicts`, audience
 `conflicts:read` holders, matter-anchored, `digest`. It subscribes to a check-written outbox row the

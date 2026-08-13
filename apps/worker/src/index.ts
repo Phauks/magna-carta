@@ -19,6 +19,7 @@ import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
+  runConflictsRecheckSweep,
   runNotificationRetentionSweep,
   runScheduledSweep,
   runStatusSnapshot,
@@ -146,6 +147,13 @@ export default {
               // Last on the daily pass, and cheap: a bounded delete per firm over pointers whose
               // records are all still where their own subsystems keep them.
               await runNotificationRetentionSweep(env);
+              // The conflicts backstop. It rides the DAILY pass rather than the */5 sweep because
+              // `scheduleRequestPathSweep` runs that sweep on `waitUntil` after a provisioning route
+              // commits — anything added to it executes on the tail of an HTTP request, and running
+              // full conflicts checks there is exactly the work that must not go on a request path.
+              // Nothing is lost by the wait: the queue is the primary path and answers a cause within
+              // one relay cycle; this only catches what the queue structurally cannot.
+              await runConflictsRecheckSweep(env);
             },
           }
         : controller.cron === STATUS_SNAPSHOT_CRON

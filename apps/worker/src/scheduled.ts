@@ -299,10 +299,6 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
         deadLetter: logDeadLetter(logger, correlationId, `firm ${firm.firmId}`),
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
-      // The conflicts backstop, in the same per-firm pass that already resolved this firm's database.
-      // The drain comes first: answering what is already owed matters more than adding to the queue,
-      // and a firm that is falling behind must not have the scheduled re-scan pile on top of it.
-      await runConflictsRecheckPass(env, firm, logger);
       await sweepStalePendingUploads(env, firm);
       const redriven = await redriveStrandedPendingVersions(env, firm);
       if (redriven > 0) {
@@ -357,29 +353,40 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt };
 }
 
-// The conflicts backstop for one firm: drain the re-check requests the queue did not, then enqueue
-// the next slice of the scheduled re-scan if the firm's cadence says one is due.
+// THE CONFLICTS BACKSTOP, per firm: drain the re-check requests the queue did not, then enqueue the
+// next slice of the scheduled re-scan if the firm's cadence says one is due.
 //
-// It is a BACKSTOP, not the primary path — the queue answers most causes within one relay cycle. What
-// this pass catches is everything the queue structurally cannot: a fan-out larger than one cycle
-// takes on, a message that dead-lettered, a producer nobody wired, a matter that predates a trigger.
-// Each of those is invisible from inside the event path, and a procedure whose gaps are invisible is
-// a procedure that fails silently.
+// It rides the DAILY pass rather than the */5 sweep, deliberately, and the reason is which of the two
+// a request can start. `scheduleRequestPathSweep` runs the whole */5 sweep on `waitUntil` after a
+// provisioning route commits, purely to shorten a new member's permission latency; anything added to
+// that sweep therefore executes on the tail of an HTTP request. Draining a re-check runs full
+// conflicts checks and the scheduled re-scan writes across a caseload, and neither belongs there.
 //
-// Isolated per firm by the caller's try/catch, and internally so a firm whose conflicts pass throws
-// still gets its other sweeps. Failures route through the one telemetry pipeline and the next Cron
-// fire retries; nothing here is a transaction that can be left half-applied.
-async function runConflictsRecheckPass(
-  env: Bindings,
-  firm: ReachableActiveFirm,
-  logger: Logger,
-): Promise<void> {
-  try {
-    await drainRecheckLedger(env, firm.firmId, firm.database, logger);
-    await runPeriodicRescan(firm.database, logger);
-  } catch (caught) {
-    logOperationFailed(logger, `cron:conflicts-recheck:${firm.firmId}`, caught, newCorrelationId());
+// Putting it daily costs nothing in the ordinary case, because the cron pass is NOT the primary path:
+// a cause commits its outbox row, the */5 relay publishes it, and the queue consumers record and
+// answer it within one relay cycle. What this pass catches is only what the queue structurally
+// cannot — a fan-out larger than one cycle takes onto the queue, a message that dead-lettered, a
+// producer nobody wired, a matter that predates a trigger. Each of those is invisible from inside the
+// event path, and a procedure whose gaps are invisible is a procedure that fails silently.
+//
+// The drain comes first: answering what is already owed matters more than adding to the queue, and a
+// firm that is falling behind must not have the scheduled re-scan pile on top of it. Isolated per
+// firm, so one firm's broken database never starves the rest of the fleet.
+export async function runConflictsRecheckSweep(env: Bindings): Promise<number> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let firmsSwept = 0;
+  for (const firm of firms) {
+    try {
+      await drainRecheckLedger(env, firm.firmId, firm.database, logger);
+      await runPeriodicRescan(firm.database, logger);
+      firmsSwept++;
+    } catch (caught) {
+      logOperationFailed(logger, `cron:conflicts-recheck:${firm.firmId}`, caught, correlationId);
+    }
   }
+  return firmsSwept;
 }
 
 // The stale-pending upload sweep: an upload session left open past its expiry (the client started an

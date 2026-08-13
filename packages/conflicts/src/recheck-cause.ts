@@ -51,11 +51,9 @@ const TRIGGER_BY_TOPIC: Readonly<Record<string, ConflictsTrigger>> = {
   [PERSONNEL_TOPIC]: "personnel_changed",
 };
 
+// The catalogue the worker's per-firm dispatch table spreads, so adding a cause is one entry in the
+// table above and nothing at all in the dispatcher.
 export const RECHECK_CAUSE_TOPICS: readonly string[] = Object.freeze(Object.keys(TRIGGER_BY_TOPIC));
-
-export function isRecheckCauseTopic(topic: string): boolean {
-  return Object.hasOwn(TRIGGER_BY_TOPIC, topic);
-}
 
 // The trigger a check answering this topic records. Falls back to `periodic_rescan` for a topic this
 // build does not know, which is the honest label for "something asked and the reason is not in this

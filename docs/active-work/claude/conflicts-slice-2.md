@@ -21,7 +21,8 @@ durable, visible re-check request, and a check that satisfies it.
   coalesce, check, stamp), deliberately separate so a slow check cannot back-pressure cause
   resolution. The request consumer never imports `runConflictsCheck`; neither imports
   `disposition.ts`, and a source scan proves it.
-- **The cron backstop and the periodic re-scan** — the per-firm conflicts pass in `runScheduledSweep`.
+- **The cron backstop and the periodic re-scan** — `runConflictsRecheckSweep`, on the **daily** cron
+  pass (not the `*/5` sweep, which the request path also triggers through `waitUntil`).
 - **`conflicts.hit.surfaced`** in the notifications registry, subscribing to a check-written outbox
   row the automated path emits only when a tier 1-2 hit surfaced or a matter's first hit did.
 

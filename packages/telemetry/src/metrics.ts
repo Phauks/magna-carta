@@ -150,6 +150,13 @@ export const conflictsRecheckRescanEnqueued = defineMetric(
   "conflicts.recheck.rescan_enqueued",
   [] as const,
 );
+// Requests still unsatisfied after a drain pass — the drain-lag gauge. A backlog that only grows is a
+// firm whose conflicts screening is falling behind its own records, and nothing else in this set says
+// so: `satisfied` counts work done, which looks identical whether the queue is keeping up or not.
+export const conflictsRecheckOpenBacklog = defineMetric(
+  "conflicts.recheck.open_backlog",
+  [] as const,
+);
 
 // Document automation. A MERGE-FIELD KEY IS NOT A DIMENSION here: dictionary-declared keys are
 // enum-like and would be tolerable, but a firm's own custom-field entries are keyed by firm-defined
@@ -347,6 +354,7 @@ const CATALOG: readonly MetricDefinition[] = [
   conflictsRecheckAlreadySatisfied,
   conflictsRecheckDrainBudgetExhausted,
   conflictsRecheckRescanEnqueued,
+  conflictsRecheckOpenBacklog,
   documentAssemblyJobs,
   documentAssemblyAbsentField,
   documentAssemblyFrozenField,
