@@ -2,8 +2,8 @@
 branch: claude/credit-notes
 worktree: .claude/worktrees/credit-notes
 area: billing — corrections after finalization (credit notes, client credits, write-offs, reversals) and the contingency shrunk-basis residual
-status: building
-touches: packages/billing/, packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/data-access/src/pii-registry.ts, apps/worker/src/per-firm-migrations.ts, apps/worker/src/routes/billing.ts, apps/worker/src/routes/matters.ts, apps/worker/src/contracts/problem-types.ts, apps/worker/test/, packages/api-client/, docs/user/features/, changelog.d/, docs/decisions/pending/, status.d/3-4-billing-and-invoicing.md, roadmap.d/financial.md
+status: built
+touches: packages/billing/, packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/data-access/src/pii-registry.ts, apps/worker/src/per-firm-migrations.ts, apps/worker/src/routes/billing.ts, apps/worker/src/routes/matters.ts, apps/worker/test/, packages/api-client/, docs/user/features/, changelog.d/, docs/decisions/pending/, status.d/3-4-billing-and-invoicing.md, roadmap.d/financial.md
 ---
 
 The last named gap in the billing spine: a finalized invoice is immutable by trigger, so every
