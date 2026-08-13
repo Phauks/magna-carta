@@ -85,10 +85,11 @@ CREATE TABLE `community_post_number_allocation` (
 	`drawn_value` integer NOT NULL,
 	`post_id` text NOT NULL,
 	`allocated_at` text NOT NULL,
+	PRIMARY KEY(`scope_key`, `drawn_value`),
 	FOREIGN KEY (`post_id`) REFERENCES `community_post`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `community_post_number_allocation_pk` ON `community_post_number_allocation` (`scope_key`,`drawn_value`);--> statement-breakpoint
+CREATE INDEX `community_post_number_allocation_post_index` ON `community_post_number_allocation` (`post_id`);--> statement-breakpoint
 CREATE TABLE `community_post_number_counter` (
 	`scope_key` text PRIMARY KEY NOT NULL,
 	`next_value` integer NOT NULL

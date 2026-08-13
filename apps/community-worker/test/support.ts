@@ -7,7 +7,7 @@ import emailCaptureRouteSql from "@magna-carta/database/drizzle/control-plane/20
 import twoFactorLockoutFieldsSql from "@magna-carta/database/drizzle/control-plane/20260803T230717_two-factor-lockout-fields.sql";
 import firmBucketNameUniqueSql from "@magna-carta/database/drizzle/control-plane/20260804T065814_firm-bucket-name-unique.sql";
 import selfServeRegistrationAndInvitationsSql from "@magna-carta/database/drizzle/control-plane/20260811T224252_self-serve-registration-and-invitations.sql";
-import communityBoardSql from "@magna-carta/database/drizzle/control-plane/20260813T063759_community-board.sql";
+import communityBoardSql from "@magna-carta/database/drizzle/control-plane/20260813T072729_community-board.sql";
 
 // The committed control-plane lineage, applied to the pool's D1. This worker never migrates
 // anything in production — the application worker's scheduled handler is the sole applier — so this
@@ -22,7 +22,7 @@ export async function applyControlPlaneMigrations(database: D1Database): Promise
       "20260804T065814_firm-bucket-name-unique": firmBucketNameUniqueSql,
       "20260811T224252_self-serve-registration-and-invitations":
         selfServeRegistrationAndInvitationsSql,
-      "20260813T063759_community-board": communityBoardSql,
+      "20260813T072729_community-board": communityBoardSql,
     }),
   );
 }

@@ -1,4 +1,11 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AccountId,
@@ -780,7 +787,9 @@ export const communityPostNumberAllocation = sqliteTable(
     allocatedAt: text("allocated_at").notNull(), // ISO-8601 instant
   },
   (table) => [
-    // The composite primary key IS the concurrency control described above.
-    uniqueIndex("community_post_number_allocation_pk").on(table.scopeKey, table.drawnValue),
+    // The composite primary key IS the concurrency control described above: a losing drawer's whole
+    // batch aborts on it. Same shape as the per-firm number allocations.
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("community_post_number_allocation_post_index").on(table.postId),
   ],
 );

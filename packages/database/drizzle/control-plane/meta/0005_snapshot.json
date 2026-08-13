@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bdc3fd62-9b55-4dab-976f-43c11d5362d5",
+  "id": "426b9ff1-7207-4890-82de-b60dafae3b3b",
   "prevId": "09cae4e4-1412-4ce0-aed6-92dd50d6742c",
   "tables": {
     "account": {
@@ -723,10 +723,10 @@
         }
       },
       "indexes": {
-        "community_post_number_allocation_pk": {
-          "name": "community_post_number_allocation_pk",
-          "columns": ["scope_key", "drawn_value"],
-          "isUnique": true
+        "community_post_number_allocation_post_index": {
+          "name": "community_post_number_allocation_post_index",
+          "columns": ["post_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -740,7 +740,12 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "community_post_number_allocation_scope_key_drawn_value_pk": {
+          "columns": ["scope_key", "drawn_value"],
+          "name": "community_post_number_allocation_scope_key_drawn_value_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
