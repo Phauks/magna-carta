@@ -45,6 +45,12 @@ let frozenUserId: string;
 let frozenMatterId: string;
 let frozenBucketName: string;
 
+let pdfFirmId: FirmId;
+let pdfCookie: string;
+let pdfUserId: string;
+let pdfMatterId: string;
+let pdfBucketName: string;
+
 const DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const WORD_NAMESPACE = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 const MAIN_DOCUMENT_CONTENT_TYPE =
@@ -354,6 +360,20 @@ beforeAll(async () => {
   frozenUserId = frozenFirm.userId;
   frozenBucketName = frozenFirm.bucketName;
   frozenMatterId = await seedMatter(frozenFirm, "Harbourside Estate", "Beacon Trust");
+
+  // The PDF block registers a template and submits an assembly per case, which is a bucket's worth of
+  // `expensive` calls on its own — sharing the assembly firm's bucket makes these fail 429 rather than
+  // fail for a reason worth reading.
+  const pdfFirm = await seedOwnedFirm(
+    "Portable Document Firm",
+    "pdf-owner@example.com",
+    "document-automation-pdf-bucket",
+  );
+  pdfFirmId = pdfFirm.firmId;
+  pdfCookie = pdfFirm.cookie;
+  pdfUserId = pdfFirm.userId;
+  pdfBucketName = pdfFirm.bucketName;
+  pdfMatterId = await seedMatter(pdfFirm, "Sherwood Acquisition", "Larkspur Mining Co");
 });
 
 describe("the merge-field dictionary", () => {
@@ -1117,9 +1137,9 @@ describe("assembly as a PDF", () => {
 
   async function submitPdfAssembly(templateVersionId: string): Promise<string> {
     const submitted = await post(
-      `/api/v1/matters/${matterId}/assemblies`,
+      `/api/v1/matters/${pdfMatterId}/assemblies`,
       { templateVersionId, outputFormat: "pdf" },
-      assemblyCookie,
+      pdfCookie,
     );
     expect(submitted.status, await submitted.clone().text()).toBe(202);
     return (await submitted.json()).assemblyId;
@@ -1130,20 +1150,20 @@ describe("assembly as a PDF", () => {
     templateVersionId: string,
   ): MessageBatch<DocumentAssemblyMessage> {
     return makeBatch({
-      firmId: assemblyFirmId,
-      bucketName: assemblyBucketName,
+      firmId: pdfFirmId,
+      bucketName: pdfBucketName,
       assemblyId,
-      matterId,
+      matterId: pdfMatterId,
       templateVersionId,
       folderId: null,
       outputFormat: "pdf",
-      requestedBy: assemblyUserId,
+      requestedBy: pdfUserId,
     }).batch;
   }
 
   it("carries the merged document across the conversion edge and files what comes back", async () => {
     const registered = (await (
-      await registerTemplate(templateDocx(), "Sealable Letter", {}, assemblyCookie)
+      await registerTemplate(templateDocx(), "Sealable Letter", {}, pdfCookie)
     ).json()) as RegisteredTemplateBody;
     const assemblyId = await submitPdfAssembly(registered.versionId);
 
@@ -1162,7 +1182,7 @@ describe("assembly as a PDF", () => {
     );
 
     const state = (await (
-      await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, assemblyCookie)
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
     ).json()) as { status: string; outputFormat: string; fileId: string };
     expect(state.status).toBe("done");
     expect(state.outputFormat).toBe("pdf");
@@ -1170,16 +1190,19 @@ describe("assembly as a PDF", () => {
     const mergedText = new TextDecoder().decode(
       readZipEntry(received ?? new Uint8Array(), "word/document.xml"),
     );
-    expect(mergedText).toContain("Acme Holdings LLC");
+    expect(mergedText).toContain("Larkspur Mining Co");
 
     // The filed document is the CONVERTED bytes under a .pdf name, not the package that went in.
-    const filed = await queryFirstRow<{ name: string }>("SELECT name FROM file WHERE id = ?1", [
-      state.fileId,
-    ]);
+    const filed = await queryFirstRow<{ name: string }>(
+      "SELECT name FROM file WHERE id = ?1",
+      [state.fileId],
+      pdfFirmId,
+    );
     expect(filed?.name.endsWith(".pdf")).toBe(true);
     const version = await queryFirstRow<{ r2_key: string }>(
       "SELECT r2_key FROM file_version WHERE file_id = ?1 ORDER BY version_number DESC",
       [state.fileId],
+      pdfFirmId,
     );
     const object = await env.R2.get(version?.r2_key ?? "");
     expect(new Uint8Array(await (object as R2ObjectBody).arrayBuffer())).toEqual(pdfBytes);
@@ -1189,7 +1212,7 @@ describe("assembly as a PDF", () => {
     // The failure mode this refuses is the quiet one: a member who asked for a PDF, got a .docx, and
     // finds out when the seal will not take it. Nothing is filed at all.
     const registered = (await (
-      await registerTemplate(templateDocx(), "Unconvertible Letter", {}, assemblyCookie)
+      await registerTemplate(templateDocx(), "Unconvertible Letter", {}, pdfCookie)
     ).json()) as RegisteredTemplateBody;
     const assemblyId = await submitPdfAssembly(registered.versionId);
 
@@ -1200,7 +1223,7 @@ describe("assembly as a PDF", () => {
     );
 
     const state = (await (
-      await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, assemblyCookie)
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
     ).json()) as { status: string; outputFormat: string; fileId: string | null; reason: string };
     expect(state.status).toBe("failed");
     // The row still says what the job was trying to make, which is what makes the failure explicable.
@@ -1211,12 +1234,12 @@ describe("assembly as a PDF", () => {
 
   it("records the requested format on the row from the moment of submit, before any job runs", async () => {
     const registered = (await (
-      await registerTemplate(templateDocx(), "Pending Format Letter", {}, assemblyCookie)
+      await registerTemplate(templateDocx(), "Pending Format Letter", {}, pdfCookie)
     ).json()) as RegisteredTemplateBody;
     const assemblyId = await submitPdfAssembly(registered.versionId);
 
     const queued = (await (
-      await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, assemblyCookie)
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
     ).json()) as { status: string; outputFormat: string };
     expect(queued.status).toBe("queued");
     expect(queued.outputFormat).toBe("pdf");
@@ -1224,16 +1247,16 @@ describe("assembly as a PDF", () => {
 
   it("defaults to the word-processing document when the request names no format", async () => {
     const registered = (await (
-      await registerTemplate(templateDocx(), "Default Format Letter", {}, assemblyCookie)
+      await registerTemplate(templateDocx(), "Default Format Letter", {}, pdfCookie)
     ).json()) as RegisteredTemplateBody;
     const submitted = await post(
-      `/api/v1/matters/${matterId}/assemblies`,
+      `/api/v1/matters/${pdfMatterId}/assemblies`,
       { templateVersionId: registered.versionId },
-      assemblyCookie,
+      pdfCookie,
     );
     const { assemblyId } = (await submitted.json()) as { assemblyId: string };
     const state = (await (
-      await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, assemblyCookie)
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
     ).json()) as { outputFormat: string };
     expect(state.outputFormat).toBe("docx");
   });
