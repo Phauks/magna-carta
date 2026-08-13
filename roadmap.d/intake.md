@@ -2,11 +2,16 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Client intake -->
+
 - id: intake
   name: Client intake / CRM
   scope: Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, and receptionist call intake.
   status: not-started
   evidence: No intake package, forms, pipeline, or spec; the white paper flags the whole area needs-development with a follow-up spec required.
+  audience: public
+  public-name: Client intake
+  public-summary: Take an enquiry, check it for conflicts, and turn it into a matter without typing anything twice.
 
 - id: intake.lead-pipeline
   name: Lead pipeline

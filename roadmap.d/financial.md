@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Time, trust and billing -->
+
 - id: financial
   name: Financial Core
   scope: The firm's money spine — ledger, time, trust, billing, costs, operating books
@@ -65,6 +67,8 @@
   adrs: ADR-0033
   spec: docs/specs/2026-06-22-slice-3-1-time-tracking-design.md
   evidence: packages/timekeeping on main; status.d/3-1 built+tested done, ui todo
+  audience: public
+  public-summary: Record time as you work — a running timer, a quick entry, or a weekly grid — against the matter and the rate that applies on that day.
   notes: Backend complete; all daily-driver surfaces await the app shell.
 
 - id: financial.time.capture
@@ -192,6 +196,8 @@
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
   evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
+  audience: public
+  public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
   notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
@@ -226,6 +232,7 @@
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
   evidence: approved design (typed profiles, baseline/overlay resolution, silence-vs-unresearched distinction) on main; packages/trust-jurisdictions does not exist yet
+  awaiting-owner: An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 
 - id: financial.trust.jurisdiction-engine.rules-catalog
   name: Trust-rules catalog (56 jurisdictions)
@@ -260,8 +267,12 @@
 - id: financial.billing
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
-  status: not-started
-  evidence: no billing/invoicing code (packages/billing-core holds only the shared WIP lifecycle and review gate); no slice branch or design spec; scope fixed in docs/specs/2026-06-21-phase-3-financial-core-slice-map.md
+  status: partial
+  evidence: the invoice spine, all four fee models, and the corrections after finalization are on main (packages/billing-core, packages/billing); invoice composition, WIP-to-A/R posting at finalize, taxes, delivery and LEDES are not built
+  audience: public
+  public-name: Billing and invoices
+  public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
+  awaiting-owner: Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
   notes: The slice map serializes this after time and costs, which are both on main.
 
 - id: financial.billing.fee-models
@@ -369,6 +380,9 @@
   slices: 3-3-costs-expenses-disbursements
   spec: docs/specs/2026-06-23-slice-3-3-costs-expenses-design.md
   evidence: packages/costs + @magna-carta/billing-core on main; status.d/3-3 built+tested done, ui todo
+  audience: public
+  public-name: Costs and disbursements
+  public-summary: Record what the firm has laid out on a matter, from a filing fee to postage, and recover it on the bill.
   notes: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice.
 
 - id: financial.costs.entry-model

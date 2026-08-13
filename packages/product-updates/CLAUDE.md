@@ -11,10 +11,14 @@ knowledge of any firm.
 
 ## Key files / entry points
 
-- `src/schema.ts` — the published contract: `publicChangelogArtifactSchema`, its entry shape, the
-  category vocabulary, and `groupIntoReleases()` (the date-then-category grouping a renderer wants).
+- `src/schema.ts` — the published contract: `publicChangelogArtifactSchema` and
+  `publicRoadmapArtifactSchema`, their entry shapes, the category and band vocabularies,
+  `groupIntoReleases()` (the date-then-category grouping a changelog renderer wants) and
+  `groupIntoBands()` (the band-then-area grouping a roadmap renderer wants).
 - `src/public-changelog.ts` — `parsePublicChangelog()` and `buildPublicChangelogArtifact()`: the
   assembled Markdown home turned into the validated artifact.
+- `src/public-roadmap.ts` — the same pair for the roadmap: `parsePublicRoadmap()` and
+  `buildPublicRoadmapArtifact()` over `../../docs/public-roadmap.md`.
 - `../../docs/public-changelog.md` — the document this package reads. Assembled on `main` by
   `vp run changelog-build` from the `## Public` blocks of `audience: public` fragments in
   `changelog.d/`; curated there into thematic roll-ups at publish time.
@@ -30,9 +34,16 @@ knowledge of any firm.
   changelog with nothing raised. Add a new rule as a `problems.push`, not as a lenient fallback, and
   collect every problem in the document rather than stopping at the first.
 - **There is no committed generated artifact and deliberately no drift gate.** A consumer calls
-  `buildPublicChangelogArtifact()` at its own build time, so the artifact cannot fall out of step
-  with the document it derives from. Do not add a checked-in `public-changelog.json`; that would be
-  a second home for the same fact and would need a gate to hold it.
+  `buildPublicChangelogArtifact()` or `buildPublicRoadmapArtifact()` at its own build time, so an
+  artifact cannot fall out of step with the document it derives from. Do not add a checked-in
+  `public-changelog.json` or `public-roadmap.json`; either would be a second home for the same fact
+  and would need a gate to hold it.
+- **The two documents are current for different reasons, and only one of them is gated.**
+  `docs/public-changelog.md` is _authored_: fragments fold into it once and are then curated by hand
+  into thematic roll-ups, so no generator owns its bytes. `docs/public-roadmap.md` is _derived_:
+  `tooling/doc-fragments/build-public-roadmap.mjs` renders it whole from the `roadmap.d/` feature
+  ledger every run and `pnpm run lint:roadmap` fails when the committed file differs. Never
+  hand-edit the roadmap document, and never add a gate to the changelog one.
 - Entries are **dated, not versioned**, because no release has been cut. `version` is present and
   null rather than absent, so the day a release is cut is an edit to the document and a switch in a
   renderer — not a schema change every reader has to tolerate.

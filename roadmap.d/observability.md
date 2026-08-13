@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Reliability and support -->
+
 - id: observability
   name: Observability & diagnostics
   scope: Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
@@ -38,6 +40,9 @@
   scope: Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
   status: partial
   evidence: Error pages carry build identity + copyable trace (changelog.d/developer-console-and-error-tracing.md); breadcrumb library and crash-surface send not built.
+  audience: public
+  public-name: Reporting a problem
+  public-summary: Report a problem from inside the app and get a reference you can quote to us, without sending us the contents of your file.
 
 - id: observability.client-reporter.error-boundary
   name: Error pages with trace identity
@@ -154,6 +159,9 @@
   adrs: ADR-0048
   spec: docs/specs/2026-07-02-service-status-design.md
   evidence: apps/status-worker + packages/status; changelog.d/status-page.md, status-page-history-and-upstream-advisory.md, status-worker-edge-cache.md.
+  audience: public
+  public-name: Service status page
+  public-summary: A page anyone can open to see whether Magna Carta is running normally.
   notes: Deploy-activation checklist (status.magnacarta.esq) still pending per status.d/service-status.md.
 
 - id: observability.support-access
@@ -163,4 +171,6 @@
   slices: support-access-framework
   adrs: ADR-0157
   evidence: apps/worker/src/support/ + routes/support-grants.ts, support-sessions.ts, support-diagnostics.ts.
+  audience: public
+  public-summary: Any access to your firm's data by our support staff is recorded, and the record is yours to read.
   notes: Dormant until platform_staff is seeded; UI deferred.

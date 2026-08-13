@@ -2,12 +2,17 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Calendar and deadlines -->
+
 - id: calendar
   name: Calendar and docketing
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   status: partial
   adrs: ADR-0018, ADR-0055
   evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources), and thirty-two routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
+  audience: public
+  public-name: Calendar and deadlines
+  public-summary: Hearings, deadlines, firm events and room bookings in one calendar, with every date on a matter visible as that matter's own timeline.
 
 - id: calendar.events
   name: Litigation events and deadlines
@@ -60,6 +65,9 @@
   slices: integration-port-system
   adrs: ADR-0091
   evidence: No calendar adapter; the integration port system it will plug into is shipped.
+  audience: public
+  public-name: Two-way calendar sync
+  public-summary: Keep the firm's calendar and your Google or Outlook calendar in step, in both directions.
 
 - id: calendar.docketing
   name: Rules-based docketing
@@ -67,6 +75,9 @@
   status: researching
   adrs: ADR-0018
   evidence: White paper flags it needs-development and expects its own subsystem spec; none exists. Court-rule sets are jurisdiction-keyed reference data on the trust-rules-catalog pattern.
+  audience: public
+  public-name: Deadlines calculated from court rules
+  public-summary: Enter the trigger date and have the deadlines that follow from it calculated under the rules of the court you are in.
 
 - id: calendar.docketing.rule-sets
   name: Court rule sets
@@ -92,3 +103,5 @@
   status: not-started
   adrs: ADR-0059
   evidence: Notifications subsystem decided (ADR-0059) as the seam; no calendar reminders exist.
+  audience: public
+  public-summary: Be reminded of a deadline before it arrives, on the notice you choose.

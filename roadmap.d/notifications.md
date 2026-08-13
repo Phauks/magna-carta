@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Notifications -->
+
 - id: notifications
   name: Notifications subsystem
   scope: One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
@@ -9,6 +11,9 @@
   adrs: ADR-0059, notifications-delivery-half, notifications-retention-and-swept-unread
   spec: docs/specs/2026-08-06-notifications-delivery-design.md
   evidence: packages/notifications + five per-firm tables + the read API shipped; the comparison-driven sweep, preferences, and the email digest are later sub-slices, and there is no user interface.
+  audience: public
+  public-name: Notifications
+  public-summary: Be told when something needs you, in the app and by email, and only ever about matters you already have access to.
 
 - id: notifications.registry
   name: Notification type registry

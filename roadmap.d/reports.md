@@ -2,12 +2,16 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Reports -->
+
 - id: reports
   name: Reports
   scope: Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
   status: planned
   slices: 3-6-financial-reporting
   evidence: Design and implementation plan on branch claude/financial-reporting (docs/specs/2026-08-13-financial-reporting-design.md and -implementation-plan.md); no reporting package, report definitions, or report UI yet.
+  audience: public
+  public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.
 
 - id: reports.projections

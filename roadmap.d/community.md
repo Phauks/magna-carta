@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Community -->
+
 - id: community
   name: Community and feedback forum
   scope: Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
@@ -16,6 +18,9 @@
   status: designed
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: Board-first build shape specified; no code.
+  audience: public
+  public-name: Feature requests and voting
+  public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
 
 - id: community.package
   name: Extractable community package
