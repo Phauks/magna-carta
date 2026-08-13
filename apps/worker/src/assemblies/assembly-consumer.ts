@@ -1,3 +1,4 @@
+import { type EngineResolver, runConversion } from "@magna-carta/conversion/execute";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { assemble } from "@magna-carta/document-assembly/assemble";
 import {
@@ -42,6 +43,7 @@ import {
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
+import { resolveEnginePort } from "../conversions/conversion-engine.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
@@ -59,8 +61,33 @@ import type { DocumentAssemblyMessage } from "./assembly-types.ts";
 // initiateUpload / completeUploadSession plus the ingest event is the one entrance, the same one the
 // email-filing attachment path uses.
 //
+// A job asked for a PDF carries the merged package across the SAME conversion edge the file-converter
+// tool uses — the registry's docx-to-pdf hop, executed by whichever service resolveEnginePort names for
+// its engine. There is no second conversion path here and no engine of this subsystem's own: the merge
+// produces a word-processing package and the office suite turns it into a PDF, which is the one job
+// that suite has (packages/conversion/src/registry.ts holds the edge).
+//
 // The stage names are the telemetry dimension for where a job ends, so they are a closed set here.
-type AssemblyStage = "load-template" | "read-bytes" | "resolve" | "merge" | "file" | "done";
+type AssemblyStage =
+  | "load-template"
+  | "read-bytes"
+  | "resolve"
+  | "merge"
+  | "convert"
+  | "file"
+  | "done";
+
+// What each output format is, once. The name a filed document takes, and the content type the ingest
+// gate is told to expect, both follow from the format rather than being written out at each use.
+const OUTPUT_FORMATS = {
+  docx: {
+    extension: "docx",
+    contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+  pdf: { extension: "pdf", contentType: "application/pdf" },
+} as const;
+
+type AssemblyOutputFormat = keyof typeof OUTPUT_FORMATS;
 
 // Failure reasons are a closed set of CODES. A merge failure reports WHICH KEY failed (on the assembly
 // row's absent-key column), never what it held, and never the value of any field that did resolve.
@@ -79,6 +106,12 @@ type AssemblyFailureCode =
   | "template-expression-invalid"
   | "assembly-expression-refused"
   | "package-integrity"
+  // The merged package could not be turned into a PDF. The reason is the conversion port's own typed
+  // code, not a second vocabulary: `engine-not-implemented` means the office suite is not reachable
+  // from this deployment yet, and everything else means the edge ran and refused these bytes. Neither
+  // files a word-processing package instead — a member who asked for a PDF and silently got a `.docx`
+  // finds out when they try to sign it.
+  | "conversion-failed"
   | "assembly-error";
 
 // An isolate-level cache of template bytes, safe because a template version is immutable: the key pins
@@ -175,7 +208,11 @@ function parseManifest(json: string): FieldManifest {
 // matter's file list can tell two assemblies of the same template on different matters apart. Path
 // separators and control characters are stripped — a template name is firm-authored text and the file
 // name it becomes has to be a name, not a path.
-export function assembledDocumentName(templateName: string, matterLabel: string): string {
+export function assembledDocumentName(
+  templateName: string,
+  matterLabel: string,
+  outputFormat: AssemblyOutputFormat = "docx",
+): string {
   const clean = (value: string): string =>
     // eslint-disable-next-line no-control-regex -- the C0 range is exactly what has to go from a name
     value
@@ -183,7 +220,7 @@ export function assembledDocumentName(templateName: string, matterLabel: string)
       .replace(/\s+/g, " ")
       .trim();
   const base = [clean(templateName), clean(matterLabel)].filter((part) => part !== "").join(" - ");
-  return `${base === "" ? "Assembled document" : base}.docx`;
+  return `${base === "" ? "Assembled document" : base}.${OUTPUT_FORMATS[outputFormat].extension}`;
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -200,6 +237,7 @@ interface AssemblyFailure {
 async function assembleOne(
   env: Bindings,
   message: DocumentAssemblyMessage,
+  resolveEngines: (env: Bindings) => EngineResolver,
 ): Promise<AssemblyFailure | undefined> {
   const logger = createWorkersLogger(env.TELEMETRY);
   const firmDatabase: ProxyBatchDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
@@ -367,6 +405,25 @@ async function assembleOne(
   }
   const needsReview = merged.absences.length > 0 || frozenFieldNames.length > 0;
 
+  // The PDF arm. The merge emits a word-processing package whatever was asked for; a job asked for a
+  // PDF hands those bytes to the registry's own docx-to-pdf edge and files what comes back. This is
+  // deliberately the same edge and the same executing service the file-converter tool uses — the
+  // office suite is the one thing in the platform that renders a word-processing package faithfully,
+  // and a second path to a PDF would be a second answer to "what does this document look like".
+  //
+  // A refusal here FAILS THE JOB. Filing the word-processing package instead would hand a member who
+  // asked for a PDF something that reads as the document they wanted and cannot be sealed; the row
+  // records which of the two it was trying to make, so the failure explains itself.
+  const outputFormat: AssemblyOutputFormat = message.outputFormat === "pdf" ? "pdf" : "docx";
+  let outputBytes = merged.bytes;
+  if (outputFormat === "pdf") {
+    const converted = await runConversion("docx", "pdf", merged.bytes, resolveEngines(env));
+    if (!converted.ok) {
+      return { code: "conversion-failed", stage: "convert", keys: [] };
+    }
+    outputBytes = converted.bytes;
+  }
+
   // The matter number labels the produced document; the merge context already holds it, so no extra
   // read is issued for the file name.
   const matterNumberValue = resolution.context.values.get("matter.number");
@@ -377,10 +434,12 @@ async function assembleOne(
     {
       matterId,
       folderId: (message.folderId as FolderId | null) ?? null,
-      name: assembledDocumentName(templateVersion.templateName, matterLabel),
-      declaredSize: merged.bytes.byteLength,
-      declaredContentType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      name: assembledDocumentName(templateVersion.templateName, matterLabel, outputFormat),
+      declaredSize: outputBytes.byteLength,
+      // Declared, never asserted: the ingest gate sniffs the bytes itself and quarantines a version
+      // whose content disagrees with what was declared, which is exactly the check that catches a
+      // conversion that returned something other than what it promised.
+      declaredContentType: OUTPUT_FORMATS[outputFormat].contentType,
       uploadedBy: (message.requestedBy as UserId | null) ?? null,
       mode: "put",
       uploadKind: "interactive",
@@ -389,8 +448,8 @@ async function assembleOne(
   );
   await commitEffectBatch(firmDatabase, initiated.effect, { now });
 
-  await bucket.put(initiated.r2Key, merged.bytes as unknown as ArrayBuffer, {
-    sha256: await sha256Hex(merged.bytes),
+  await bucket.put(initiated.r2Key, outputBytes as unknown as ArrayBuffer, {
+    sha256: await sha256Hex(outputBytes),
     customMetadata: initiated.dimensions,
   });
 
@@ -422,7 +481,7 @@ async function assembleOne(
   // Drive ingest: the bytes were written server-side, so the object-create event the ingest consumer
   // processes is enqueued here (magic-byte sniff, hash, scan, then commit or quarantine). Idempotent at
   // the consumer.
-  await enqueueDevIngestEvent(env, bucketName, initiated.r2Key, merged.bytes.byteLength);
+  await enqueueDevIngestEvent(env, bucketName, initiated.r2Key, outputBytes.byteLength);
 
   await coordinatorFor(env, message).markDone(initiated.fileId, initiated.versionId);
 
@@ -445,12 +504,16 @@ async function assembleOne(
 export async function documentAssemblyQueue(
   batch: MessageBatch<DocumentAssemblyMessage>,
   env: Bindings,
+  // The per-engine-id resolver the PDF arm converts through. Injected on the same terms the conversion
+  // consumer takes it: the engine Containers cannot run under the local test pool, so a test that
+  // exercises the PDF arm supplies its own port rather than the deployment's.
+  resolveEngines: (env: Bindings) => EngineResolver = resolveEnginePort,
 ): Promise<void> {
   for (const message of batch.messages) {
     const logger = createWorkersLogger(env.TELEMETRY);
     const now = (): string => new Date().toISOString();
     try {
-      const failure = await assembleOne(env, message.body);
+      const failure = await assembleOne(env, message.body, resolveEngines);
       if (failure !== undefined) {
         const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.body.firmId);
         await commitEffectBatch(

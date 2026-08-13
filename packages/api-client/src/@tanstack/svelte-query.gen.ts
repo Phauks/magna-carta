@@ -7706,7 +7706,7 @@ export const templatesMergeFieldsOptions = (options?: Options<TemplatesMergeFiel
 });
 
 /**
- * Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one.
+ * Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done.
  */
 export const assembliesSubmitMutation = (options?: Partial<Options<AssembliesSubmitData>>): MutationOptions<AssembliesSubmitResponse, AssembliesSubmitError, Options<AssembliesSubmitData>> => {
     const mutationOptions: MutationOptions<AssembliesSubmitResponse, AssembliesSubmitError, Options<AssembliesSubmitData>> = {
@@ -7725,7 +7725,7 @@ export const assembliesSubmitMutation = (options?: Partial<Options<AssembliesSub
 export const assembliesStatusQueryKey = (options: Options<AssembliesStatusData>) => createQueryKey('assembliesStatus', options);
 
 /**
- * Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences.
+ * Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences. outputFormat says what the job set out to produce, so a caller knows before the document lands whether it will be a PDF and can therefore be sealed.
  */
 export const assembliesStatusOptions = (options: Options<AssembliesStatusData>) => queryOptions<AssembliesStatusResponse, AssembliesStatusError, AssembliesStatusResponse, ReturnType<typeof assembliesStatusQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -161,6 +161,7 @@ async function assembleAs(requestedBy: UserId): Promise<AssemblyState> {
     templateId: templateIdOfVersion,
     templateVersionId,
     folderId: null,
+    outputFormat: "docx",
     engineVersion: 1,
     dictionaryVersion: 1,
     requestedBy,

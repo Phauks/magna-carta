@@ -11,13 +11,14 @@ import type {
 // through markRunning / markDone / markFailed; the alarm fails a job that never reports.
 //
 // Assembly is asynchronous from the first line of code even though a single small merge would fit in a
-// request: the batch assembly a matter plan will submit is the same code path, the DOCX-to-PDF hop lands
-// in a later slice and is genuinely long, and a job gives the interface a state to poll rather than a
-// request to hold open. Retrofitting a synchronous route into a job later costs exactly as much as
-// building it twice.
+// request: the batch assembly a matter plan will submit is the same code path, a job asked for a PDF
+// crosses the office-suite conversion edge and that hop is genuinely long, and a job gives the
+// interface a state to poll rather than a request to hold open. Retrofitting a synchronous route into
+// a job later costs exactly as much as building it twice.
 
 // A merge over an already-normalized template is fast, but the job also stages an upload, writes an
-// object, and drives the ingest gate. Ten minutes is the same ceiling the other job coordinators use.
+// object, drives the ingest gate, and — for a PDF — waits on a container round trip. Ten minutes is
+// the same ceiling the other job coordinators use.
 const STUCK_DEADLINE_MS = 10 * 60 * 1000;
 
 const UNKNOWN: DocumentAssemblyJobState = {

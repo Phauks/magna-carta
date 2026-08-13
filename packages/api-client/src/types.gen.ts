@@ -4830,12 +4830,14 @@ export type SubmittedAssembly = {
 export type SubmitAssemblyRequest = {
     templateVersionId: string;
     folderId?: string | null;
+    outputFormat?: 'docx' | 'pdf';
 };
 
 export type AssemblyStatus = {
     assemblyId: string;
     status: 'queued' | 'running' | 'done' | 'failed';
     outcome: string | null;
+    outputFormat: 'docx' | 'pdf';
     fileId: string | null;
     fileVersionId: string | null;
     absentFieldKeys: Array<string>;
