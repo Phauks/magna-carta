@@ -226,7 +226,9 @@ describe("the credit note", () => {
       matterId: bill.matterId,
     });
     // A liability, not a reduction of a receivable that no longer exists.
-    expect(await accountBalanceMinor(fixture, fixture.clientCreditLiabilityAccountId)).toBe(200_000);
+    expect(await accountBalanceMinor(fixture, fixture.clientCreditLiabilityAccountId)).toBe(
+      200_000,
+    );
     expect(await accountBalanceMinor(fixture, fixture.feeAdjustmentsAccountId)).toBe(-300_000);
   });
 
@@ -305,9 +307,7 @@ describe("the credit note", () => {
           invoiceId: draft.invoiceId,
           reason: "Wrong",
           effectiveDate: "2026-08-05",
-          lines: [
-            { matterId, kind: "adjustment", description: "Wrong", amountMinor: 100 },
-          ],
+          lines: [{ matterId, kind: "adjustment", description: "Wrong", amountMinor: 100 }],
           issuedBy: null,
         },
         options,
@@ -366,7 +366,12 @@ describe("the credit note", () => {
         reason: "Overstated by an hour",
         effectiveDate: "2026-08-05",
         lines: [
-          { matterId: bill.matterId, kind: "adjustment", description: "One hour", amountMinor: 100 },
+          {
+            matterId: bill.matterId,
+            kind: "adjustment",
+            description: "One hour",
+            amountMinor: 100,
+          },
         ],
         issuedBy: null,
       },
@@ -627,7 +632,9 @@ describe("the client credit", () => {
       matterId: bill.matterId,
     });
     expect(guards).toHaveLength(1);
-    await expect(expectRefusal(() => fixture.database.batch([...(guards ?? [])]))).rejects.toThrow();
+    await expect(
+      expectRefusal(() => fixture.database.batch([...(guards ?? [])])),
+    ).rejects.toThrow();
   });
 });
 
@@ -702,7 +709,9 @@ describe("the reversal", () => {
     expect(await unpaidMinor(fixture, second)).toBe(400_000);
     const credits = await readOpenClientCreditsForClient(fixture.database, CLIENT);
     expect(credits[0]?.remainingMinor).toBe(150_000);
-    expect(await accountBalanceMinor(fixture, fixture.clientCreditLiabilityAccountId)).toBe(150_000);
+    expect(await accountBalanceMinor(fixture, fixture.clientCreditLiabilityAccountId)).toBe(
+      150_000,
+    );
 
     // A double reversal is structurally impossible: the UNIQUE link settles the second attempt.
     await expect(
@@ -881,7 +890,12 @@ describe("the contingency shrunk-basis residual", () => {
       options,
     );
     await commit(fixture.database, draft.effect);
-    const fee = await addContingencyFeeToDraft(fixture.database, draft.invoiceId, matterId, options);
+    const fee = await addContingencyFeeToDraft(
+      fixture.database,
+      draft.invoiceId,
+      matterId,
+      options,
+    );
     await commit(fixture.database, fee.effect);
     const finalized = await finalizeInvoice(
       fixture.database,
@@ -921,7 +935,7 @@ describe("the contingency shrunk-basis residual", () => {
     await mapAccountRoles(fixture, CORRECTION_ROLES);
     const { matterId, invoiceId, feeLineId } = await billedContingencyThenVoided(fixture);
 
-      // The whole basis is gone, so every penny of the fee is beyond the surviving entitlement. A
+    // The whole basis is gone, so every penny of the fee is beyond the surviving entitlement. A
     // vanished basis is the WORST case this read exists to report, not a reason to stop reporting:
     // it resolves to an entitlement of zero rather than refusing the way the composition path does.
     const collapsed = await readContingencyResidual(fixture.database, matterId);
@@ -1128,7 +1142,7 @@ describe("the contingency shrunk-basis residual", () => {
     );
     await commit(fixture.database, issued.effect);
 
-      const residual = await readContingencyResidual(fixture.database, matterId);
+    const residual = await readContingencyResidual(fixture.database, matterId);
     expect(residual.billedMinor).toBe(3_333_000);
     expect(residual.residualMinor).toBe(2_666_400);
   });

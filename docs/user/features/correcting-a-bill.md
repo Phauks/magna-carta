@@ -12,12 +12,12 @@ afterwards.
 
 Four things you can do, and they mean four different things:
 
-| You want to                                        | Use              | It says                                                     |
-| -------------------------------------------------- | ---------------- | ----------------------------------------------------------- |
-| Take something off a bill you should not have charged | A credit note    | The charge was wrong                                        |
-| Give up chasing money you are still owed           | A write-off      | The charge was right; the money is not coming               |
-| Give a client back money they have already paid    | A client credit  | The firm is holding money it has conceded is not its own    |
-| Undo value recorded against the wrong bill         | A reversal       | The bill is fine; the payment landed in the wrong place     |
+| You want to                                           | Use             | It says                                                  |
+| ----------------------------------------------------- | --------------- | -------------------------------------------------------- |
+| Take something off a bill you should not have charged | A credit note   | The charge was wrong                                     |
+| Give up chasing money you are still owed              | A write-off     | The charge was right; the money is not coming            |
+| Give a client back money they have already paid       | A client credit | The firm is holding money it has conceded is not its own |
+| Undo value recorded against the wrong bill            | A reversal      | The bill is fine; the payment landed in the wrong place  |
 
 ## Issuing a credit note
 
