@@ -17,6 +17,7 @@ import {
   submitAssembly,
   type ApiOutcome,
   type ApiProblem,
+  type AssemblyOutputFormat,
   type AssemblyStatus,
 } from "./document-api.ts";
 
@@ -172,6 +173,11 @@ export interface AssemblyOutcome {
    */
   readonly absentFieldKeys: readonly string[];
   readonly frozenMergeFieldNames: readonly string[];
+  /**
+   * What the job produced. A `pdf` outcome is the one the platform seal accepts, so this is what a
+   * surface reads to decide whether "send this for signature" is something it may offer at all.
+   */
+  readonly outputFormat: AssemblyOutputFormat;
 }
 
 /**
@@ -185,12 +191,19 @@ export async function assembleDocument(
   options: CeremonyOptions & {
     readonly matterId: string;
     readonly templateVersionId: string;
+    /**
+     * What to file. `pdf` has the host convert the merged document before filing it, in the same
+     * job — it is not a second step this surface runs, and it is not something a person does to the
+     * document afterwards. Defaults to the word-processing document.
+     */
+    readonly outputFormat?: AssemblyOutputFormat;
   },
 ): Promise<AssemblyOutcome> {
   const {
     fetchImpl,
     matterId,
     templateVersionId,
+    outputFormat = "docx",
     onStage,
     sleep = defaultSleep,
     newIdempotencyKey = defaultIdempotencyKey,
@@ -201,15 +214,16 @@ export async function assembleDocument(
     fetchImpl,
     matterId,
     templateVersionId,
+    outputFormat,
     newIdempotencyKey(),
   );
-  if (submitted.kind !== "ok") return bareAssembly(atStage(submitted, "reserving"));
+  if (submitted.kind !== "ok") return bareAssembly(atStage(submitted, "reserving"), outputFormat);
 
   onStage?.("assembling");
   let last: AssemblyStatus | undefined;
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const status = await readAssemblyStatus(fetchImpl, matterId, submitted.value.assemblyId);
-    if (status.kind !== "ok") return bareAssembly(atStage(status, "assembling"));
+    if (status.kind !== "ok") return bareAssembly(atStage(status, "assembling"), outputFormat);
     last = status.value;
 
     if (last.status === "failed") {
@@ -224,6 +238,7 @@ export async function assembleDocument(
         },
         absentFieldKeys: last.absentFieldKeys,
         frozenMergeFieldNames: last.frozenMergeFieldNames,
+        outputFormat: last.outputFormat,
       };
     }
     if (last.status === "done") {
@@ -235,6 +250,7 @@ export async function assembleDocument(
             : { kind: "created", fileId: last.fileId, versionId: last.fileVersionId },
         absentFieldKeys: last.absentFieldKeys,
         frozenMergeFieldNames: last.frozenMergeFieldNames,
+        outputFormat: last.outputFormat,
       };
     }
     await sleep(POLL_INTERVAL_MS);
@@ -248,6 +264,7 @@ export async function assembleDocument(
         : { kind: "still-settling", fileId: last.fileId },
     absentFieldKeys: last?.absentFieldKeys ?? [],
     frozenMergeFieldNames: last?.frozenMergeFieldNames ?? [],
+    outputFormat: last?.outputFormat ?? outputFormat,
   };
 }
 
@@ -256,6 +273,9 @@ function atStage(outcome: ApiOutcome<unknown>, stage: CreationStage): CreationOu
   return { kind: "transport", stage };
 }
 
-function bareAssembly(creation: CreationOutcome): AssemblyOutcome {
-  return { creation, absentFieldKeys: [], frozenMergeFieldNames: [] };
+function bareAssembly(
+  creation: CreationOutcome,
+  outputFormat: AssemblyOutputFormat,
+): AssemblyOutcome {
+  return { creation, absentFieldKeys: [], frozenMergeFieldNames: [], outputFormat };
 }

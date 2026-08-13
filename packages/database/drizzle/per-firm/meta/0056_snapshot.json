@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "57afa762-db53-4399-abd1-e8274b982c1c",
+  "id": "7e2305db-878e-47fb-acaa-73095ad792de",
   "prevId": "4077f8fd-15c6-429d-aaa1-5a256f8e2d14",
   "tables": {
     "account_balance": {
@@ -376,135 +376,6 @@
         "calendar_event_link_continuance_matter_check": {
           "name": "calendar_event_link_continuance_matter_check",
           "value": "\"calendar_event_link\".\"kind\" <> 'continuance_of' OR (\"calendar_event_link\".\"from_matter_event_id\" IS NOT NULL AND \"calendar_event_link\".\"to_matter_event_id\" IS NOT NULL)"
-        }
-      }
-    },
-    "client_credit": {
-      "name": "client_credit",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "client_entity_id": {
-          "name": "client_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credit_note_id": {
-          "name": "credit_note_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "discharged_minor": {
-          "name": "discharged_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "opened_by": {
-          "name": "opened_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "client_credit_note_matter_unique_index": {
-          "name": "client_credit_note_matter_unique_index",
-          "columns": ["credit_note_id", "matter_id"],
-          "isUnique": true
-        },
-        "client_credit_client_index": {
-          "name": "client_credit_client_index",
-          "columns": ["client_entity_id"],
-          "isUnique": false
-        },
-        "client_credit_matter_index": {
-          "name": "client_credit_matter_index",
-          "columns": ["matter_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "client_credit_matter_id_matter_id_fk": {
-          "name": "client_credit_matter_id_matter_id_fk",
-          "tableFrom": "client_credit",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "client_credit_credit_note_id_credit_note_id_fk": {
-          "name": "client_credit_credit_note_id_credit_note_id_fk",
-          "tableFrom": "client_credit",
-          "tableTo": "credit_note",
-          "columnsFrom": ["credit_note_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "client_credit_amount_positive_check": {
-          "name": "client_credit_amount_positive_check",
-          "value": "\"client_credit\".\"amount_minor\" > 0"
-        },
-        "client_credit_currency_check": {
-          "name": "client_credit_currency_check",
-          "value": "length(\"client_credit\".\"currency\") = 3"
-        },
-        "client_credit_bounds_check": {
-          "name": "client_credit_bounds_check",
-          "value": "\"client_credit\".\"discharged_minor\" >= 0 AND \"client_credit\".\"discharged_minor\" <= \"client_credit\".\"amount_minor\""
         }
       }
     },
@@ -992,248 +863,6 @@
         "cost_entry_currency_check": {
           "name": "cost_entry_currency_check",
           "value": "\"cost_entry\".\"currency\" IN ('USD')"
-        }
-      }
-    },
-    "credit_note": {
-      "name": "credit_note",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "effective_date": {
-          "name": "effective_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entry_id": {
-          "name": "entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "issued_by": {
-          "name": "issued_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "issued_at": {
-          "name": "issued_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "credit_note_invoice_index": {
-          "name": "credit_note_invoice_index",
-          "columns": ["invoice_id"],
-          "isUnique": false
-        },
-        "credit_note_entry_unique_index": {
-          "name": "credit_note_entry_unique_index",
-          "columns": ["entry_id"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "credit_note_invoice_id_invoice_id_fk": {
-          "name": "credit_note_invoice_id_invoice_id_fk",
-          "tableFrom": "credit_note",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "credit_note_entry_id_ledger_entry_id_fk": {
-          "name": "credit_note_entry_id_ledger_entry_id_fk",
-          "tableFrom": "credit_note",
-          "tableTo": "ledger_entry",
-          "columnsFrom": ["entry_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "credit_note_currency_check": {
-          "name": "credit_note_currency_check",
-          "value": "length(\"credit_note\".\"currency\") = 3"
-        },
-        "credit_note_reason_nonempty_check": {
-          "name": "credit_note_reason_nonempty_check",
-          "value": "length(trim(\"credit_note\".\"reason\")) > 0"
-        }
-      }
-    },
-    "credit_note_line": {
-      "name": "credit_note_line",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credit_note_id": {
-          "name": "credit_note_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "line_index": {
-          "name": "line_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_invoice_line_id": {
-          "name": "credits_invoice_line_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "credit_note_line_index_unique_index": {
-          "name": "credit_note_line_index_unique_index",
-          "columns": ["credit_note_id", "line_index"],
-          "isUnique": true
-        },
-        "credit_note_line_matter_index": {
-          "name": "credit_note_line_matter_index",
-          "columns": ["matter_id"],
-          "isUnique": false
-        },
-        "credit_note_line_credits_index": {
-          "name": "credit_note_line_credits_index",
-          "columns": ["credits_invoice_line_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "credit_note_line_credit_note_id_credit_note_id_fk": {
-          "name": "credit_note_line_credit_note_id_credit_note_id_fk",
-          "tableFrom": "credit_note_line",
-          "tableTo": "credit_note",
-          "columnsFrom": ["credit_note_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "credit_note_line_matter_id_matter_id_fk": {
-          "name": "credit_note_line_matter_id_matter_id_fk",
-          "tableFrom": "credit_note_line",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "credit_note_line_credits_invoice_line_id_invoice_line_id_fk": {
-          "name": "credit_note_line_credits_invoice_line_id_invoice_line_id_fk",
-          "tableFrom": "credit_note_line",
-          "tableTo": "invoice_line",
-          "columnsFrom": ["credits_invoice_line_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "credit_note_line_amount_positive_check": {
-          "name": "credit_note_line_amount_positive_check",
-          "value": "\"credit_note_line\".\"amount_minor\" > 0"
-        },
-        "credit_note_line_currency_check": {
-          "name": "credit_note_line_currency_check",
-          "value": "length(\"credit_note_line\".\"currency\") = 3"
-        },
-        "credit_note_line_kind_check": {
-          "name": "credit_note_line_kind_check",
-          "value": "\"credit_note_line\".\"kind\" IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')"
         }
       }
     },
@@ -4648,6 +4277,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "output_format": {
+          "name": "output_format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'docx'"
         },
         "engine_version": {
           "name": "engine_version",
@@ -8439,34 +8076,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "credit_note_id": {
-          "name": "credit_note_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "client_credit_id": {
-          "name": "client_credit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "entry_id": {
-          "name": "entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "effective_date": {
           "name": "effective_date",
           "type": "text",
@@ -8509,16 +8118,6 @@
           "name": "invoice_application_trust_transfer_index",
           "columns": ["trust_transfer_id"],
           "isUnique": false
-        },
-        "invoice_application_credit_note_index": {
-          "name": "invoice_application_credit_note_index",
-          "columns": ["credit_note_id"],
-          "isUnique": false
-        },
-        "invoice_application_client_credit_index": {
-          "name": "invoice_application_client_credit_index",
-          "columns": ["client_credit_id"],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -8545,33 +8144,6 @@
           "tableFrom": "invoice_application",
           "tableTo": "trust_transfer",
           "columnsFrom": ["trust_transfer_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_application_credit_note_id_credit_note_id_fk": {
-          "name": "invoice_application_credit_note_id_credit_note_id_fk",
-          "tableFrom": "invoice_application",
-          "tableTo": "credit_note",
-          "columnsFrom": ["credit_note_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_application_client_credit_id_client_credit_id_fk": {
-          "name": "invoice_application_client_credit_id_client_credit_id_fk",
-          "tableFrom": "invoice_application",
-          "tableTo": "client_credit",
-          "columnsFrom": ["client_credit_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_application_entry_id_ledger_entry_id_fk": {
-          "name": "invoice_application_entry_id_ledger_entry_id_fk",
-          "tableFrom": "invoice_application",
-          "tableTo": "ledger_entry",
-          "columnsFrom": ["entry_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"

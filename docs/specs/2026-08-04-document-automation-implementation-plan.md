@@ -401,20 +401,33 @@ permission); `pnpm check`.
 
 ## Task 17 — PDF output
 
-- [ ] An optional `outputFormat: "docx" | "pdf"` on the assembly request; the `pdf` arm chains the
+- [x] An optional `outputFormat: "docx" | "pdf"` on the assembly request; the `pdf` arm chains the
       existing `docx→pdf` conversion edge after the merge, in the same job, and files the result.
       No new engine, no new registry edge.
+- [x] The requested format is a column on `document_assembly`, not something read off the filed
+      object: a job that FAILED still has to say what it was trying to make. A conversion that cannot
+      be done fails the assembly rather than filing the word-processing package instead.
 
 ## Task 18 — Signature hand-off
 
-- [ ] The assembly result carries the produced file and version handles in the shape the sealing
+- [x] The assembly result carries the produced file and version handles in the shape the sealing
       route already accepts, so "assemble then send for signature" is a link rather than a new path.
+      The poll answers `outputFormat` beside the handles, from the moment of submit and after a
+      failure, which is what tells a caller whether the produced document is a PDF — the one form
+      `POST /api/v1/documents/seal` accepts.
+- [ ] **The surface on the other end of that link does not exist**, and it is not this slice's. The
+      seal is stateless over PDF bytes; the envelope, field placement, signer invitation, consent
+      disclosure, and attribution ceremony that produce a signer record are slice 2·5's sub-slice 3
+      and are unbuilt. Carried, with the two available shapes, into
+      [`2026-08-13-document-automation-tail-remainder-plan.md`](2026-08-13-document-automation-tail-remainder-plan.md).
 
 ## Task 19 — Fillable-form filling
 
 - [ ] Firm-supplied fillable PDFs registered as templates of a `pdfForm` kind; the field manifest
       comes from the AcroForm field set that `crates/pdf-core`'s forms engine already reads, bound to
-      the same data dictionary, and filling goes through the same engine.
+      the same data dictionary, and filling goes through the same engine. **Not built** — it changes
+      the shape of a template rather than adding a step to a job, and it is planned as Part B of
+      [`2026-08-13-document-automation-tail-remainder-plan.md`](2026-08-13-document-automation-tail-remainder-plan.md).
 - [ ] Court-form curation is **out of scope** pending owner decision F2.
 
 ---
@@ -441,9 +454,12 @@ Slice 2·6·1 is self-contained and depends only on what is already on `main`. S
 2·6·1's normalization pass, and internally is a straight line: Task 11 (grammar) gates Task 12
 (evaluator), which gates Tasks 13 through 15 (conditionals, repeats, computed fields). Tasks 11 and
 12 touch no document at all and can be built and reviewed in full before any OOXML work starts; Task
-16 (the widened dictionary sources) depends only on 2·6·1 and can run alongside them. Slice 2·6·3
-depends on the LibreOffice conversion engine being live for its PDF arm (the `docx→pdf` edge
-currently resolves to the deferred engine) and on the sign worker being deployed for its hand-off.
+16 (the widened dictionary sources) depends only on 2·6·1 and can run alongside them. Slice 2·6·3's PDF arm
+depends on the LibreOffice conversion engine being live — the `libreoffice` engine id is now in the
+convert worker's executable set, so the `docx→pdf` edge resolves to the real service wherever the
+`CONVERT` binding is present and to the deferred engine everywhere else, which is why the arm reports
+itself as a deploy-time activation rather than pretending. Its hand-off depends on the sign worker
+being deployed, and past that on slice 2·5's signing surface existing at all.
 Slice 2·6·4 is gated on the editing area's answer to the token question.
 
 Owner decisions F1, F7, and F8 (section 13 of the design) blocked the start of slice 2·6·1 and are

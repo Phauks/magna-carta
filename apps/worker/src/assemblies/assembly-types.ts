@@ -26,6 +26,10 @@ export interface DocumentAssemblyMessage {
   readonly matterId: string;
   readonly templateVersionId: string;
   readonly folderId: string | null;
+  // What the job files. The merge always emits a word-processing package; "pdf" asks the consumer to
+  // carry that package across the office-suite conversion edge before filing it, in this same job.
+  // Absent on a message enqueued before the arm existed, which is a word-processing job.
+  readonly outputFormat?: "docx" | "pdf";
   readonly requestedBy: string | null;
 }
 

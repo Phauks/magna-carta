@@ -317,6 +317,7 @@ describe("assembleDocument", () => {
           assemblyId: "documentAssembly_01",
           status: "done",
           outcome: "succeeded",
+          outputFormat: "docx",
           fileId: "file_09",
           fileVersionId: "fileVersion_09",
           absentFieldKeys: [],
@@ -351,6 +352,7 @@ describe("assembleDocument", () => {
           assemblyId: "documentAssembly_01",
           status: "done",
           outcome: "succeeded_with_absences",
+          outputFormat: "docx",
           fileId: "file_09",
           fileVersionId: "fileVersion_09",
           absentFieldKeys: ["client.address.line1"],
@@ -380,6 +382,7 @@ describe("assembleDocument", () => {
           assemblyId: "documentAssembly_01",
           status: "failed",
           outcome: "failed",
+          outputFormat: "pdf",
           fileId: null,
           fileVersionId: null,
           absentFieldKeys: [],
@@ -400,6 +403,87 @@ describe("assembleDocument", () => {
     expect(result.creation.kind === "problem" ? result.creation.problem.detail : undefined).toBe(
       "the template package could not be read",
     );
+  });
+
+  it("asks for the format it was given and reports back the one the job produced", async () => {
+    // The format is the whole of the signature hand-off on this side: the platform seal takes a PDF
+    // and nothing else, so a surface deciding whether it may offer "send this to be signed" reads
+    // what the job PRODUCED rather than what was asked for. They are the same here; they are not the
+    // same on a job that failed, which is exactly why the answer travels on the ceremony's outcome.
+    const { fetchImpl, calls } = scriptedFetch({
+      "POST /assemblies": () => json({ assemblyId: "documentAssembly_01", status: "queued" }, 202),
+      "GET /assemblies/": () =>
+        json({
+          assemblyId: "documentAssembly_01",
+          status: "done",
+          outcome: "succeeded",
+          outputFormat: "pdf",
+          fileId: "file_09",
+          fileVersionId: "fileVersion_09",
+          absentFieldKeys: [],
+          frozenMergeFieldNames: [],
+          reason: null,
+        }),
+    });
+
+    const result = await assembleDocument({
+      fetchImpl,
+      matterId: "matter_01",
+      templateVersionId: "documentTemplateVersion_01",
+      outputFormat: "pdf",
+      sleep: noSleep,
+      newIdempotencyKey: nextKey,
+    });
+
+    expect(JSON.parse(String(calls[0]?.body ?? "{}"))).toMatchObject({ outputFormat: "pdf" });
+    expect(result.outputFormat).toBe("pdf");
+  });
+
+  it("defaults to the word-processing document when no format is asked for", async () => {
+    const { fetchImpl, calls } = scriptedFetch({
+      "POST /assemblies": () => json({ assemblyId: "documentAssembly_01", status: "queued" }, 202),
+      "GET /assemblies/": () =>
+        json({
+          assemblyId: "documentAssembly_01",
+          status: "done",
+          outcome: "succeeded",
+          outputFormat: "docx",
+          fileId: "file_09",
+          fileVersionId: "fileVersion_09",
+          absentFieldKeys: [],
+          frozenMergeFieldNames: [],
+          reason: null,
+        }),
+    });
+
+    await assembleDocument({
+      fetchImpl,
+      matterId: "matter_01",
+      templateVersionId: "documentTemplateVersion_01",
+      sleep: noSleep,
+      newIdempotencyKey: nextKey,
+    });
+
+    expect(JSON.parse(String(calls[0]?.body ?? "{}"))).toMatchObject({ outputFormat: "docx" });
+  });
+
+  it("reports the format a refused submit was asking for, since no job ever answered", async () => {
+    const { fetchImpl } = scriptedFetch({
+      "POST /assemblies": () =>
+        json({ type: "template-not-activatable", detail: "The template is archived." }, 422),
+    });
+
+    const result = await assembleDocument({
+      fetchImpl,
+      matterId: "matter_01",
+      templateVersionId: "documentTemplateVersion_01",
+      outputFormat: "pdf",
+      sleep: noSleep,
+      newIdempotencyKey: nextKey,
+    });
+
+    expect(result.creation.kind).toBe("problem");
+    expect(result.outputFormat).toBe("pdf");
   });
 
   it("passes a refused submit straight back, without polling a job that was never made", async () => {

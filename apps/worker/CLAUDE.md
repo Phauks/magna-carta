@@ -171,6 +171,28 @@ decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the wor
 
 Until step 2 is done, `resolveEnginePort` returns the deferred port for every convert-worker engine and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
 
+## Document assembly — the PDF arm reuses the conversion edge, it does not own one
+
+`src/assemblies/assembly-consumer.ts` files a word-processing package by default. A job whose
+`outputFormat` is `pdf` hands the **merged** bytes to `runConversion("docx", "pdf", …)` with
+`resolveEnginePort(env)` — the registry's own edge in `packages/conversion/src/registry.ts`, executed
+by whichever service that resolver names for the `libreoffice` engine. Rules for this arm:
+
+- **Nothing here may grow a second way to make a PDF.** No engine, no adapter, no registry entry
+  belongs to document automation. The office suite is the platform's one renderer of a word-processing
+  package, and a second path would be a second answer to what a firm's letterhead looks like on paper.
+- **A conversion that cannot be done FAILS the job (`conversion-failed`); nothing is filed.** Filing
+  the word-processing package and warning would hand a member who asked for a PDF something that reads
+  as the document they wanted and is discovered to be wrong when the seal refuses it. The code is
+  terminal, so the message is acked — a deployment where the suite is unreachable must not become a
+  queue burning attempts.
+- **The requested format is on the row, not read off the object.** `document_assembly.output_format`
+  answers for a job still queued and for a job that failed, neither of which has a filed object; the
+  poll returns it so a caller knows whether the produced document is in the shape
+  `POST /api/v1/documents/seal` accepts. That route is stateless over PDF bytes and is unchanged.
+- **The engine resolver is injectable on `documentAssemblyQueue`**, on the same terms the conversion
+  consumer takes it: the engine Container cannot run under the local test pool.
+
 ## Release channels — the two doors and the flag catalog
 
 A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:

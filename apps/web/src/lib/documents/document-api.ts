@@ -91,10 +91,19 @@ export interface SubmittedAssembly {
   status: "queued";
 }
 
+/**
+ * What an assembly files. The merge always produces a word-processing document; "pdf" asks the host
+ * to convert it before filing, in the same job. The platform seal takes a PDF and nothing else, so a
+ * document meant to be signed is built as one rather than converted afterwards.
+ */
+export type AssemblyOutputFormat = "docx" | "pdf";
+
 export interface AssemblyStatus {
   assemblyId: string;
   status: "queued" | "running" | "done" | "failed";
   outcome: string | null;
+  /** What the job set out to produce — answerable before the document lands, and after one failed. */
+  outputFormat: AssemblyOutputFormat;
   fileId: string | null;
   fileVersionId: string | null;
   /** Merge-field KEYS the matter could not supply — never a value a client's record held. */
@@ -239,11 +248,12 @@ export function submitAssembly(
   fetchImpl: typeof fetch,
   matterId: string,
   templateVersionId: string,
+  outputFormat: AssemblyOutputFormat,
   idempotencyKey: string,
 ): Promise<ApiOutcome<SubmittedAssembly>> {
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/assemblies`, {
     method: "POST",
-    body: { templateVersionId },
+    body: { templateVersionId, outputFormat },
     idempotencyKey,
   });
 }

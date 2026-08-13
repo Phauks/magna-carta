@@ -2826,6 +2826,14 @@ export const documentAssembly = sqliteTable(
     fileVersionId: text("file_version_id")
       .$type<FileVersionId>()
       .references(() => fileVersion.id),
+    // What the job was asked to produce. The merge always emits a word-processing package; `pdf` asks
+    // the job to carry that package across the office-suite conversion edge before filing it. Recorded
+    // rather than inferred from the filed object, because a job that failed still has to say what it
+    // was trying to make, and a caller polling before the document lands needs to know whether what is
+    // coming can be sealed.
+    outputFormat: text("output_format", { enum: ["docx", "pdf"] })
+      .notNull()
+      .default("docx"),
     engineVersion: integer("engine_version").notNull().default(0),
     dictionaryVersion: integer("dictionary_version").notNull().default(0),
     absentFieldCount: integer("absent_field_count").notNull().default(0),
