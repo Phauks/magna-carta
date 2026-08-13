@@ -16,6 +16,7 @@
     "platform-seal-certificate": "node tooling/platform-seal-certificate/index.mts",
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
+    "lint:roadmap": "node tooling/lint-roadmap.mjs",
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",

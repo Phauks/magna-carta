@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Clients, matters and offices -->
+
 - id: directory
   name: Directory
   scope: Single source of truth for every person and organization, modeled as a graph of entities and typed edges.
@@ -10,6 +12,9 @@
   adrs: ADR-0006, ADR-0085
   spec: docs/specs/2026-06-12-slice-1-3-directory-design.md
   evidence: packages/directory on main; status.d/1-3-directory.md built+tested done, ui todo
+  audience: public
+  public-name: One record for every person and organization
+  public-summary: Clients, opposing parties, courts, experts and vendors in one place, with the relationships between them held as facts rather than notes.
   notes: Backend complete on main; UI deferred until the design-system app shell lands.
 
 - id: directory.entities
@@ -51,6 +56,7 @@
   status: partial
   slices: 1-3-directory, 2-6-document-automation
   evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
+  awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
   notes: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner.
 
 - id: directory.edges
@@ -166,6 +172,8 @@
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
   evidence: packages/matters + apps/worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
+  audience: public
+  public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   notes: Backend shipped; matter UI in flight (matter-detail skeleton design, file-surface-web stream) but not landed as a usable surface.
 
 - id: matters.parties
@@ -358,6 +366,9 @@
   adrs: ADR-0031
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
   evidence: packages/locations + routes/locations.ts on main; status.d/1-1 built done, ui todo
+  audience: public
+  public-name: More than one office
+  public-summary: Run several offices, with staff, matters and letterhead attached to the right one and nothing hidden from the rest of the firm.
   notes: Backend shipped; administration UI not built.
 
 - id: locations.fields
@@ -432,6 +443,9 @@
   adrs: ADR-0087, ADR-0107, ADR-0108
   spec: docs/specs/2026-06-18-slice-1-4-custom-fields-design.md
   evidence: packages/custom-fields (typed-EAV, migration 0013); status.d/1-4 built done, ui todo, tested todo
+  audience: public
+  public-name: Fields you define yourself
+  public-summary: Add your own fields to clients, matters and assets, and use them in searches, reports and generated documents.
   notes: Backend shipped; definition/entry UI deferred until the app shell.
 
 - id: custom-fields.typed
@@ -485,6 +499,9 @@
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: packages/matter-assets + twenty routes in apps/worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
+  audience: public
+  public-name: Asset registers
+  public-summary: Track the property, accounts and possessions a matter deals with — what each is worth, what is owed against it, and who holds an interest.
   notes: All ten classes, encumbrances and equity, the grouped schedule, the custody link, and the merge subjects are built. Still open — the firm's own fields on an asset, the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface.
 
 - id: matter-assets.register

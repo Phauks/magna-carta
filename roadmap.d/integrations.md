@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Integrations and tools -->
+
 - id: integrations
   name: Plugin / add-on system
   scope: Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace.
@@ -50,6 +52,9 @@
   status: not-started
   adrs: ADR-0097
   evidence: No catalog or dispatch-namespace code; named as the Spec 2 stage of the manifest platform.
+  audience: public
+  public-name: Third-party add-ons
+  public-summary: Connect tools built by other people, without giving them the run of your data.
 
 - id: integrations.ports
   name: Integration category ports
@@ -113,6 +118,9 @@
   adrs: ADR-0094, ADR-0095
   spec: docs/specs/2026-06-16-shipping-easypost-design.md
   evidence: packages/shipping + apps/worker/src/routes/shipping.ts on main; UI, webhook ingress, and live firm secret deferred.
+  audience: public
+  public-name: Postage and shipping
+  public-summary: Buy a label, track the package, and have the cost land on the matter.
 
 - id: integrations.shipping.easypost-adapter
   name: EasyPost adapter & firm routes
@@ -197,6 +205,9 @@
   name: First-party tool set
   scope: The credential-less first-party tools surfaced through the Tools area
   status: partial
+  audience: public
+  public-name: Built-in tools
+  public-summary: Small utilities where you need them: company and attorney-license lookups, county property records, domain and website checks, and file inspection.
   notes: Backends shipped across the set; tool UIs ride the design-system shell wave
 
 - id: integrations.tools.government-links

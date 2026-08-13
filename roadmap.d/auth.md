@@ -2,12 +2,17 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Security and sign-in -->
+
 - id: auth
   name: Authentication, access control and encryption
   scope: First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
   status: partial
   slices: 0-4-auth-rbac-skeleton-firm-provisioning, 1-2-protected-crypto-module
   adrs: ADR-0004, ADR-0068, ADR-0026
+  audience: public
+  public-name: Accounts and permissions
+  public-summary: A named account for everyone at the firm, with roles that decide what each person can open, change and see.
 
 - id: auth.first-party-login
   name: First-party login
@@ -39,6 +44,9 @@
   name: Second factors
   scope: Passkeys/WebAuthn and TOTP primary; email codes and SMS secondary/recovery only.
   status: partial
+  audience: public
+  public-name: Two-step sign-in
+  public-summary: Protect an account with a second step: a code from an app, a hardware key, or a passkey instead of a password.
 
 - id: auth.two-factor.totp
   name: TOTP
@@ -144,6 +152,9 @@
   slices: 1-2-protected-crypto-module
   adrs: ADR-0026, ADR-0084
   spec: docs/specs/2026-06-12-slice-1-2-protected-crypto-module-design.md
+  audience: public
+  public-name: Encryption of sensitive fields
+  public-summary: Identifiers and other sensitive details are encrypted with keys held for your firm alone, not merely stored behind a login.
 
 - id: auth.encryption.envelope-keys
   name: Envelope key hierarchy

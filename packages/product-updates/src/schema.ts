@@ -37,7 +37,49 @@ export const publicChangelogArtifactSchema = z.object({
   entries: z.array(publicChangelogEntrySchema),
 });
 
+// The roadmap's horizon bands, in the order a rendered page presents them. Shared with the ledger
+// renderer in tooling/doc-fragments/roadmap.mjs, which writes these exact headings; the two lists
+// are asserted equal by this package's tests rather than merely intended to match, for the same
+// reason as the categories above — a band the renderer writes and this parser does not know would
+// be dropped from the artifact without failing anything.
+//
+// They are the community board's own status names, so a request card and a roadmap entry never say
+// the same thing in two vocabularies. `Beta` is the board's sixth and is deliberately absent: no
+// ledger status can honestly produce it until the release-channel work defines what beta means.
+//
+// There is no date, target, or confidence field here, and its absence is the design rather than an
+// omission. A nullable one gets populated, and then it is a promise.
+export const ROADMAP_BANDS = [
+  "Building Now",
+  "Planned",
+  "Future",
+  "Completed",
+  "Not on the roadmap",
+] as const;
+
+export const roadmapBandSchema = z.enum(ROADMAP_BANDS);
+
+export const publicRoadmapEntrySchema = z.object({
+  band: roadmapBandSchema,
+  // The area heading the entry sits under, as the document names it for a reader.
+  group: z.string().min(1),
+  name: z.string().min(1),
+  // Null under Completed, where the changelog owns what a shipped capability does and when it
+  // arrived; a summary here as well would be a second account of the same fact.
+  summary: z.string().min(1).nullable(),
+});
+
+export const publicRoadmapArtifactSchema = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  generatedAt: z.string(),
+  // In document order: bands in display order, areas within a band, entries within an area.
+  entries: z.array(publicRoadmapEntrySchema),
+});
+
 export type ChangelogCategory = z.infer<typeof changelogCategorySchema>;
+export type PublicRoadmapBand = z.infer<typeof roadmapBandSchema>;
+export type PublicRoadmapEntry = z.infer<typeof publicRoadmapEntrySchema>;
+export type PublicRoadmapArtifact = z.infer<typeof publicRoadmapArtifactSchema>;
 export type PublicChangelogEntry = z.infer<typeof publicChangelogEntrySchema>;
 export type PublicChangelogArtifact = z.infer<typeof publicChangelogArtifactSchema>;
 

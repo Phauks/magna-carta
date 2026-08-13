@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Physical custody -->
+
 - id: custodian
   name: Custodian
   scope: Register of physical client originals held in safekeeping — what the firm holds, where it is, whose it is — with custody log, labels, scans, and reminders.
@@ -10,6 +12,9 @@
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian + twenty-five routes in apps/worker/src/routes/custody.ts, over eleven per-firm tables. Matter detail skeleton reserves a Custodian section (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
+  audience: public
+  public-name: Safe custody register
+  public-summary: Record every original will, deed and physical item the firm holds, where it is kept, and who has it now.
   notes: Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.
 
 - id: custodian.register

@@ -18,7 +18,9 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
 | End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
 | Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
-| Feature ledger (capability inventory, per-node status)        | [`roadmap.d/`](roadmap.d/)                                                            |
+| What is blocked on the owner / in build / queued (one screen) | [`docs/now.md`](docs/now.md) — generated; never hand-edited                           |
+| What users are told is coming                                 | [`docs/public-roadmap.md`](docs/public-roadmap.md) — generated; never hand-edited     |
+| Feature ledger (capability inventory, per-node status)        | [`roadmap.d/`](roadmap.d/) — the source both of those render from                     |
 | Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
 | Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
 | Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
@@ -89,6 +91,7 @@ vp dev                                                                  # web SP
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
 vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
+vp run public-roadmap-build                                             # re-render docs/public-roadmap.md + docs/now.md from the roadmap.d/ feature ledger (run after flipping a node's status)
 pnpm test                                                               # unit + integration (Vitest, single-run; includes the Miniflare worker integration test). Wraps `vp test` with a per-worktree single-flight lock — two runs in one worktree wedge each other at 0% CPU, so a second one is refused. Args pass straight through; filter by PATH, not by test name
 pnpm check:scoped                                                       # INNER LOOP: fmt+lint on the diff, incremental tsc -b, svelte-check/Rust only if touched
 pnpm fix:scoped                                                         # apply fmt + lint autofixes to that SAME diff (markdown included) — never a bare repo-wide `vp check --fix`. Autofixes known to be wrong here (sort()->toSorted(), `=== false`->`!x`) still WARN but are never applied
