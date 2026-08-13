@@ -14,10 +14,15 @@ stream is doing lives in [`ROADMAP.md`](../ROADMAP.md).
 ## Waiting on you
 
 - **Client-consent model** (ai.md) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
+- **Feedback board** (community.md) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 - **Pronouns on a person** (core-domain.md) — Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
+- **Search** (discovery.md) — The compaction pass is built and dormant, and four settings were reasoned rather than measured because its real cost cannot be priced until the search container is deployed: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
+- **Trust accounting** (financial.md) — Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
 - **Jurisdiction-configurable compliance engine** (financial.md) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 - **Billing and invoicing** (financial.md) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
 - **Public changelog/roadmap/status pages** (product-updates.md) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
+
+Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
 
 ## Being built now
 

@@ -86,6 +86,7 @@
   audience: public
   public-name: Search across a review set
   public-summary: Search a review set by keyword and by meaning, and narrow it as you go.
+  awaiting-owner: The compaction pass is built and dormant, and four settings were reasoned rather than measured because its real cost cannot be priced until the search container is deployed: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 
 - id: discovery.search.keyword
   name: Tantivy keyword search

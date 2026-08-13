@@ -274,6 +274,8 @@ describe("renderNow", () => {
 
   it("says so plainly when a section is empty", () => {
     const empty = [parseArea(area(shippedPublicNode), "trust.md")];
-    expect(renderNow(empty)).toContain("_Nothing is blocked on an owner decision._");
+    // "No capability", not "nothing": the ledger holds capabilities, and account-side work can be
+    // blocking the owner while this section is legitimately empty.
+    expect(renderNow(empty)).toContain("_No capability is blocked on an owner decision._");
   });
 });

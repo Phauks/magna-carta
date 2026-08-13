@@ -198,6 +198,7 @@
   evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
   audience: public
   public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
+  awaiting-owner: Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
   notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
