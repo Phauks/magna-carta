@@ -3861,6 +3861,146 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type TrustOpenFirmFundsAck = {
+    trustLedgerNodeId: string;
+    ledgerAccountId: string;
+};
+
+export type TrustOpenFirmFundsRequest = {
+    trustAccountId: string;
+    nodeName: string;
+};
+
+export type TrustFirmFundsMovementAck = {
+    trustFirmFundsMovementId: string;
+    ledgerEntryId: string;
+    trustLedgerNodeId: string;
+};
+
+export type TrustFirmFundsDepositRequest = TrustFirmFundsMovementRequest & {
+    method: 'check' | 'wire' | 'electronic_transfer';
+};
+
+export type TrustFirmFundsMovementRequest = {
+    trustAccountId: string;
+    amountMinor: number;
+    currency: 'USD';
+    effectiveDate: string;
+    description: string;
+    reference?: string | null;
+};
+
+export type TrustFirmFundsPositionResponse = {
+    trustAccountId: string;
+    trustLedgerNodeId: string;
+    ledgerAccountId: string;
+    balanceMinor: number;
+    currency: string;
+    movements: Array<TrustFirmFundsMovementRecord>;
+};
+
+export type TrustFirmFundsMovementRecord = {
+    id: string;
+    kind: 'firm_funds_deposit' | 'bank_charge';
+    amountMinor: number;
+    currency: string;
+    ledgerEntryId: string;
+    method: 'check' | 'wire' | 'electronic_transfer' | 'bank_debit';
+    reference: string | null;
+    description: string;
+    recordedBy: string;
+    effectiveDate: string;
+    recordedAt: string;
+};
+
+export type TrustDormantBalancesResponse = {
+    quietOnOrBefore: string;
+    balances: Array<TrustDormantBalanceRecord>;
+};
+
+export type TrustDormantBalanceRecord = {
+    trustLedgerNodeId: string;
+    matterId: string;
+    clientEntityId: string;
+    balanceMinor: number;
+    currency: string;
+    earliestReceiptDate: string | null;
+    lastActivityDate: string | null;
+    openReviewId: string | null;
+};
+
+export type TrustOpenUnclaimedFundsReviewAck = {
+    trustUnclaimedFundsReviewId: string;
+    trustLedgerNodeId: string;
+};
+
+export type TrustOpenUnclaimedFundsReviewRequest = {
+    trustAccountId: string;
+    matterId: string;
+    observedBalanceMinor: number;
+    observedEarliestReceiptDate: string | null;
+    observedLastActivityDate: string | null;
+    note?: string | null;
+};
+
+export type TrustUnclaimedFundsContactAttemptAck = {
+    trustUnclaimedFundsContactAttemptId: string;
+};
+
+export type TrustUnclaimedFundsContactAttemptRequest = {
+    channel: 'regular_mail' | 'certified_mail' | 'telephone' | 'email' | 'record_review' | 'other';
+    attemptedOn: string;
+    contactUsed?: string | null;
+    outcome: 'no_response' | 'undeliverable' | 'reached' | 'declined' | 'wrong_contact' | 'other';
+    note?: string | null;
+};
+
+export type TrustCloseUnclaimedFundsReviewAck = {
+    trustUnclaimedFundsReviewClosureId: string;
+    outcome: 'distributed_to_owner' | 'resolved_without_distribution' | 'not_dormant' | 'search_continues';
+};
+
+export type TrustCloseUnclaimedFundsReviewRequest = {
+    outcome: 'distributed_to_owner' | 'resolved_without_distribution' | 'not_dormant' | 'search_continues';
+    trustMovementId?: string | null;
+    note?: string | null;
+};
+
+export type TrustUnclaimedFundsReviewResponse = {
+    id: string;
+    trustAccountId: string;
+    trustLedgerNodeId: string;
+    observedBalanceMinor: number;
+    currency: string;
+    observedEarliestReceiptDate: string | null;
+    observedLastActivityDate: string | null;
+    openedBy: string;
+    openedAt: string;
+    note: string | null;
+    attempts: Array<TrustUnclaimedFundsContactAttemptRecord>;
+    closure: TrustUnclaimedFundsReviewClosureRecord;
+};
+
+export type TrustUnclaimedFundsContactAttemptRecord = {
+    id: string;
+    channel: 'regular_mail' | 'certified_mail' | 'telephone' | 'email' | 'record_review' | 'other';
+    attemptedOn: string;
+    contactUsed: string | null;
+    outcome: 'no_response' | 'undeliverable' | 'reached' | 'declined' | 'wrong_contact' | 'other';
+    note: string | null;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustUnclaimedFundsReviewClosureRecord = {
+    id: string;
+    outcome: 'distributed_to_owner' | 'resolved_without_distribution' | 'not_dormant' | 'search_continues';
+    trustMovementId: string | null;
+    closedBy: string;
+    closedAt: string;
+    note: string | null;
+} | null;
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -20171,6 +20311,452 @@ export type TrustCloseReconciliationResponses = {
 };
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type TrustFirmFundsPositionData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/firm-funds';
+};
+
+export type TrustFirmFundsPositionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustFirmFundsPositionError = TrustFirmFundsPositionErrors[keyof TrustFirmFundsPositionErrors];
+
+export type TrustFirmFundsPositionResponses = {
+    /**
+     * The firm's own funds in this trust account
+     */
+    200: TrustFirmFundsPositionResponse;
+};
+
+export type TrustFirmFundsPositionResponse2 = TrustFirmFundsPositionResponses[keyof TrustFirmFundsPositionResponses];
+
+export type TrustOpenFirmFundsData = {
+    body: TrustOpenFirmFundsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/firm-funds';
+};
+
+export type TrustOpenFirmFundsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenFirmFundsError = TrustOpenFirmFundsErrors[keyof TrustOpenFirmFundsErrors];
+
+export type TrustOpenFirmFundsResponses = {
+    /**
+     * The carve-out is open on this account
+     */
+    201: TrustOpenFirmFundsAck;
+};
+
+export type TrustOpenFirmFundsResponse = TrustOpenFirmFundsResponses[keyof TrustOpenFirmFundsResponses];
+
+export type TrustDepositFirmFundsData = {
+    body: TrustFirmFundsDepositRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/firm-funds/deposits';
+};
+
+export type TrustDepositFirmFundsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustDepositFirmFundsError = TrustDepositFirmFundsErrors[keyof TrustDepositFirmFundsErrors];
+
+export type TrustDepositFirmFundsResponses = {
+    /**
+     * The firm's own funds were recorded into the cushion
+     */
+    201: TrustFirmFundsMovementAck;
+};
+
+export type TrustDepositFirmFundsResponse = TrustDepositFirmFundsResponses[keyof TrustDepositFirmFundsResponses];
+
+export type TrustRecordBankChargeData = {
+    body: TrustFirmFundsMovementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/firm-funds/bank-charges';
+};
+
+export type TrustRecordBankChargeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown or keeps none of the firm's own funds
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the charge is larger than the firm's own funds in the account, or the carve-out is already open on it
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the carve-out is not open on this account, the account is the pooled interest-bearing kind the rules exempt from service charges, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordBankChargeError = TrustRecordBankChargeErrors[keyof TrustRecordBankChargeErrors];
+
+export type TrustRecordBankChargeResponses = {
+    /**
+     * The bank charge was recorded against the firm's own funds
+     */
+    201: TrustFirmFundsMovementAck;
+};
+
+export type TrustRecordBankChargeResponse = TrustRecordBankChargeResponses[keyof TrustRecordBankChargeResponses];
+
+export type TrustDormantBalancesData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+        quietOnOrBefore: string;
+    };
+    url: '/api/v1/trust/unclaimed-funds/dormant-balances';
+};
+
+export type TrustDormantBalancesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustDormantBalancesError = TrustDormantBalancesErrors[keyof TrustDormantBalancesErrors];
+
+export type TrustDormantBalancesResponses = {
+    /**
+     * The client ledgers quiet since the stated date
+     */
+    200: TrustDormantBalancesResponse;
+};
+
+export type TrustDormantBalancesResponse2 = TrustDormantBalancesResponses[keyof TrustDormantBalancesResponses];
+
+export type TrustOpenUnclaimedFundsReviewData = {
+    body: TrustOpenUnclaimedFundsReviewRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/unclaimed-funds/reviews';
+};
+
+export type TrustOpenUnclaimedFundsReviewErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenUnclaimedFundsReviewError = TrustOpenUnclaimedFundsReviewErrors[keyof TrustOpenUnclaimedFundsReviewErrors];
+
+export type TrustOpenUnclaimedFundsReviewResponses = {
+    /**
+     * The diligence file is open
+     */
+    201: TrustOpenUnclaimedFundsReviewAck;
+};
+
+export type TrustOpenUnclaimedFundsReviewResponse = TrustOpenUnclaimedFundsReviewResponses[keyof TrustOpenUnclaimedFundsReviewResponses];
+
+export type TrustRecordUnclaimedFundsContactAttemptData = {
+    body: TrustUnclaimedFundsContactAttemptRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/unclaimed-funds/reviews/{reviewId}/contact-attempts';
+};
+
+export type TrustRecordUnclaimedFundsContactAttemptErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordUnclaimedFundsContactAttemptError = TrustRecordUnclaimedFundsContactAttemptErrors[keyof TrustRecordUnclaimedFundsContactAttemptErrors];
+
+export type TrustRecordUnclaimedFundsContactAttemptResponses = {
+    /**
+     * The attempt was recorded
+     */
+    201: TrustUnclaimedFundsContactAttemptAck;
+};
+
+export type TrustRecordUnclaimedFundsContactAttemptResponse = TrustRecordUnclaimedFundsContactAttemptResponses[keyof TrustRecordUnclaimedFundsContactAttemptResponses];
+
+export type TrustCloseUnclaimedFundsReviewData = {
+    body: TrustCloseUnclaimedFundsReviewRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/unclaimed-funds/reviews/{reviewId}/closure';
+};
+
+export type TrustCloseUnclaimedFundsReviewErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the client ledger already carries an open review, or the review has already been closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustCloseUnclaimedFundsReviewError = TrustCloseUnclaimedFundsReviewErrors[keyof TrustCloseUnclaimedFundsReviewErrors];
+
+export type TrustCloseUnclaimedFundsReviewResponses = {
+    /**
+     * The round of diligence is closed
+     */
+    201: TrustCloseUnclaimedFundsReviewAck;
+};
+
+export type TrustCloseUnclaimedFundsReviewResponse = TrustCloseUnclaimedFundsReviewResponses[keyof TrustCloseUnclaimedFundsReviewResponses];
+
+export type TrustGetUnclaimedFundsReviewData = {
+    body?: never;
+    path: {
+        reviewId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/unclaimed-funds/reviews/{reviewId}';
+};
+
+export type TrustGetUnclaimedFundsReviewErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, matter ledger, or review is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the ledger holds nothing to be unclaimed, or the movement named is not a disbursement from the ledger under review
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustGetUnclaimedFundsReviewError = TrustGetUnclaimedFundsReviewErrors[keyof TrustGetUnclaimedFundsReviewErrors];
+
+export type TrustGetUnclaimedFundsReviewResponses = {
+    /**
+     * The diligence file and its evidence trail
+     */
+    200: TrustUnclaimedFundsReviewResponse;
+};
+
+export type TrustGetUnclaimedFundsReviewResponse = TrustGetUnclaimedFundsReviewResponses[keyof TrustGetUnclaimedFundsReviewResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
