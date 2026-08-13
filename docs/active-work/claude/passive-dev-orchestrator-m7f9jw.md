@@ -316,6 +316,30 @@ suites in two worktrees at once produces phantom failures that look like real br
 one such run showed 5 failures across 3 files where a clean serial run showed 1. Before
 believing a failure, re-run it alone.
 
+The sixth belongs with them, and it was a tool lying rather than a probe:
+
+- **`vp run clean` swept nothing, ever, and said so in a voice that sounded fine.** It
+  decided "is this branch merged?" with `git branch --merged` — pure ancestry — and this
+  repository squash-merges, so a landed branch is never an ancestor of anything and the
+  answer was permanently no. The post-merge hook had therefore reclaimed nothing since
+  installation, while printing `0 worktree(s) ... would reclaim 0.0 MiB`, which reads
+  exactly like a clean machine. Twenty-six landed worktrees had built up about **nine
+  gigabytes**; the disk was at 80 percent with 7.6 GB free and two agents about to start
+  Rust builds. Fixed on `main` (#221): a content test beside the ancestry one, and the
+  report now distinguishes "found nothing" from "declined everything".
+
+  Two general lessons, both cheap to reuse. **`git merge-base --is-ancestor` and everything
+  built on it is useless here** — to ask whether a branch has landed, merge it into
+  `origin/main` in memory (`git merge-tree --write-tree`) and see whether the tree changes.
+  And **a freshly created worktree passes every "does it add anything?" test**, because it
+  adds nothing yet; without an explicit check that the branch tip differs from the baseline
+  commit, a cleaner will happily delete a live agent's build directory. The first draft of
+  the fix did exactly that, and the dry run is the only reason it did not happen.
+
+Disk hygiene generally: `du -sh` over `.claude/worktrees` **times out at two minutes** once
+there are a couple of dozen of them. `df -h .` is the fast answer, and on this host "Avail"
+near zero with low "Used" means the session allowance is spent, not that the disk is full.
+
 ---
 
 ## 7. Milestone log — one line each, newest first
@@ -324,6 +348,7 @@ Detail lives in the PR and the commit. Do not write paragraphs here.
 
 | Date (UTC)      | Merged | What landed                                                                                                                                                                                                                                                 |
 | --------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 08-13           | 177    | #220 conflicts slice 1 (posture read, honest zero-hit report, vocabulary lint — verified by planting a probe file). #221 fixed `vp run clean`, which had never swept anything: 26 landed worktrees removed by hand, ~9 GB reclaimed, free disk 7.6 GB → 17 GB. Conflicts slice 2 and the search benchmark dispatched                                     |
 | 08-11           | 149    | #193 formatted the six files failing the format gate on main; #194 raised the TypeScript `lib` to ES2023, fixing thirteen call sites that the repo's own `.sort()` autofix had written against an ES2022 pin. Both were main-is-red fixes, not feature work |
 | 08-10           | 147    | #187 calendar slice 2 (fork guard: partial indexes were missing from the drizzle schema behind a false comment), #188 translation design, #189 trust authority design, #190 Kitesurf assessment, #191 self-serve tier + free tier design                    |
 | 08-08           | 142    | Owner returned; translation services researched. Usage incident: work paused, heartbeat disabled, later restored at 3 hours                                                                                                                                 |
