@@ -1147,6 +1147,93 @@ describe("the contingency shrunk-basis residual", () => {
     expect(residual.residualMinor).toBe(2_666_400);
   });
 
+  it("refuses to credit a charge for more than it charged, counting earlier notes", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, CORRECTION_ROLES);
+    const { matterId, invoiceId, feeLineId } = await billedContingencyThenVoided(fixture);
+    const smaller = recordMatterRecovery(
+      fixture.database,
+      {
+        matterId,
+        amountMinor: 2_000_000,
+        currency: "USD",
+        recoveredDate: "2026-08-05",
+        description: "Reduced settlement",
+        recordedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, smaller.effect);
+
+    // Crediting a charge for more than it charged would drive "already charged, net of credits"
+    // negative — and for a fee derived from a basis that would make the NEXT bill charge more than
+    // the entitlement, which is the exact failure the attribution exists to prevent.
+    await expect(
+      issueCreditNote(
+        fixture.database,
+        {
+          invoiceId,
+          reason: "Overshooting the charge",
+          effectiveDate: "2026-08-05",
+          lines: [
+            {
+              matterId,
+              kind: "fee",
+              description: "More than was charged",
+              amountMinor: 3_333_001,
+              creditsInvoiceLineId: feeLineId,
+            },
+          ],
+          issuedBy: null,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "credit-note-invalid" });
+
+    // Two notes that each fit but together do not: the second is refused on the same ground.
+    const first = await issueCreditNote(
+      fixture.database,
+      {
+        invoiceId,
+        reason: "Part of the fee re-levelled",
+        effectiveDate: "2026-08-05",
+        lines: [
+          {
+            matterId,
+            kind: "fee",
+            description: "Part of the fee",
+            amountMinor: 2_000_000,
+            creditsInvoiceLineId: feeLineId,
+          },
+        ],
+        issuedBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, first.effect);
+    await expect(
+      issueCreditNote(
+        fixture.database,
+        {
+          invoiceId,
+          reason: "And the rest, and then some",
+          effectiveDate: "2026-08-05",
+          lines: [
+            {
+              matterId,
+              kind: "fee",
+              description: "The rest and then some",
+              amountMinor: 1_333_001,
+              creditsInvoiceLineId: feeLineId,
+            },
+          ],
+          issuedBy: null,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "credit-note-invalid" });
+  });
+
   it("refuses a credit attributed to a line on another bill", async () => {
     const fixture = await billingFixture();
     await mapAccountRoles(fixture, CORRECTION_ROLES);

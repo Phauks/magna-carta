@@ -154,6 +154,21 @@ async function readUnpaidByMatter(
   );
 }
 
+// What earlier notes have already credited against one charge on a bill.
+async function readCreditedAgainstInvoiceLineMinor(
+  database: SqlDatabase,
+  invoiceLineId: InvoiceLineId,
+): Promise<number> {
+  const { results } = await database
+    .prepare(
+      `SELECT COALESCE(SUM(amount_minor), 0) AS amount_minor
+         FROM credit_note_line WHERE credits_invoice_line_id = ?1`,
+    )
+    .bind(invoiceLineId)
+    .all<{ amount_minor: number }>();
+  return results[0]?.amount_minor ?? 0;
+}
+
 // THE CREDIT NOTE. Its lines say what is being credited and on which matter; its application says
 // how much of that the bill could absorb; and the difference is money the firm is holding that it
 // has conceded is not its own.
@@ -189,6 +204,7 @@ export async function issueCreditNote(
   const invoiceLineById = new Map(invoiceLines.map((line) => [line.id, line]));
 
   const creditedByMatter = new Map<MatterId, number[]>();
+  const attributed = new Map<InvoiceLineId, number>();
   for (const line of input.lines) {
     requirePositiveWholeMinor(line.amountMinor, "a credit note line");
     if (line.description.trim().length === 0) {
@@ -211,10 +227,39 @@ export async function issueCreditNote(
           `line ${line.creditsInvoiceLineId} is not a charge on invoice ${input.invoiceId} for matter ${line.matterId}: a credit is attributed to a charge on the bill it corrects, on the same matter, or to no charge at all`,
         );
       }
+      if (credited.amountMinor <= 0) {
+        throw new BillingValidationError(
+          "credit-note-invalid",
+          `line ${line.creditsInvoiceLineId} charges ${credited.amountMinor}, so there is nothing on it to credit: a discount or a write-down on the bill already reduced what the client owes`,
+        );
+      }
+      attributed.set(
+        line.creditsInvoiceLineId,
+        (attributed.get(line.creditsInvoiceLineId) ?? 0) + line.amountMinor,
+      );
     }
     const bucket = creditedByMatter.get(line.matterId) ?? [];
     bucket.push(line.amountMinor);
     creditedByMatter.set(line.matterId, bucket);
+  }
+
+  // A CHARGE CANNOT BE CREDITED FOR MORE THAN IT CHARGED, counting what earlier notes already
+  // credited against it. This is a guard on the ATTRIBUTION rather than on the note: a note as a
+  // whole may exceed the bill (the excess opens a client credit), but an attributed credit is a
+  // statement about one line, and letting it run past that line's amount would drive
+  // "already charged, net of credits" NEGATIVE — which for a fee derived from a basis would make
+  // the next bill charge more than the entitlement, the exact failure the attribution exists to
+  // prevent. A firm giving back more than it charged for a piece of work is doing something else
+  // and should say so on a line of its own.
+  for (const [invoiceLineId, attributedMinor] of attributed) {
+    const charged = invoiceLineById.get(invoiceLineId)?.amountMinor ?? 0;
+    const alreadyCreditedMinor = await readCreditedAgainstInvoiceLineMinor(database, invoiceLineId);
+    if (alreadyCreditedMinor + attributedMinor > charged) {
+      throw new BillingValidationError(
+        "credit-note-invalid",
+        `line ${invoiceLineId} charged ${charged} and credits already attributed to it total ${alreadyCreditedMinor}; this note adds ${attributedMinor}, which is more than the charge: credit the balance of the bill on an unattributed line instead`,
+      );
+    }
   }
 
   // Per matter: what the bill can still absorb, and what it cannot. Both figures are differences of
