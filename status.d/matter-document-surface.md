@@ -10,7 +10,7 @@ ui: in-progress by="Opus 5"
 load-profile: n/a
 tested: todo
 branch: claude/document-surface
-active-work: docs/active-work/claude/document-surface.md
+active-work:
 next: Register a template in the development seed so the build-from-template path is clickable locally; then folders, and the editor once magna-carta-edit is deployed.
 link-spec:
 link-plan:

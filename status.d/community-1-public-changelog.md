@@ -10,7 +10,7 @@ ui: todo
 load-profile: n/a
 tested: done by="Opus 5" gap
 branch: claude/community-slice-1
-active-work: docs/active-work/claude/community-slice-1.md
+active-work:
 next: The public page and the in-app updates route, both rendering the artifact this slice produces
 link-spec: docs/specs/2026-08-11-community-surfaces-design.md
 link-plan:
