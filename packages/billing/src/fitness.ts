@@ -252,18 +252,20 @@ export function clientCreditsDisagreeingWithApplicationsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT c.id AS client_credit_id,
-              c.discharged_minor AS discharged_minor,
-              COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -o.amount_minor ELSE a.amount_minor END), 0) AS application_sum_minor
-         FROM client_credit c
-         LEFT JOIN invoice_application a
-                ON (a.client_credit_id = c.id AND a.kind = 'client_credit')
-                OR (a.kind = 'reversal'
-                    AND EXISTS (SELECT 1 FROM invoice_application r
-                                 WHERE r.id = a.reverses_application_id AND r.client_credit_id = c.id))
-         LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
-        GROUP BY c.id, c.discharged_minor
-       HAVING c.discharged_minor <> COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -o.amount_minor ELSE a.amount_minor END), 0)`,
+      `SELECT client_credit_id, discharged_minor, application_sum_minor
+         FROM (SELECT c.id AS client_credit_id,
+                      c.discharged_minor AS discharged_minor,
+                      (SELECT COALESCE(SUM(a.amount_minor), 0)
+                         FROM invoice_application a
+                        WHERE a.kind = 'client_credit' AND a.client_credit_id = c.id)
+                    - (SELECT COALESCE(SUM(r.amount_minor), 0)
+                         FROM invoice_application r
+                         JOIN invoice_application o ON o.id = r.reverses_application_id
+                        WHERE r.kind = 'reversal'
+                          AND o.kind = 'client_credit'
+                          AND o.client_credit_id = c.id) AS application_sum_minor
+                 FROM client_credit c)
+        WHERE discharged_minor <> application_sum_minor`,
     )
     .bind();
 }

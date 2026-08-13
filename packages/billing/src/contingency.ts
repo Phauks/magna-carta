@@ -346,6 +346,37 @@ async function readFinalizedContingencyBilledMinor(
   return results[0]?.amount_minor ?? 0;
 }
 
+// The in-force share of the basis AS IT SURVIVES NOW, and deliberately refusing nothing about the
+// basis itself. `deriveContingencyFee` is the composition path and refuses a vanished basis by name,
+// because composing a fee out of no recovery is not a thing to do quietly. The residual read is the
+// opposite question — a basis that vanished is the WORST case it exists to report, not a reason to
+// stop reporting — so a collapsed basis resolves to an entitlement of zero, which is what the
+// over-billing report compares against too.
+async function readSurvivingEntitlementMinor(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<number> {
+  const arrangement = await requireArrangementOfKind(database, matterId, "contingency");
+  const recoveries = await readMatterRecoveries(database, matterId);
+  const recoveriesMinor = aggregateMinor(
+    recoveries
+      .filter((recovery) => recovery.voidedAt === null)
+      .map((recovery) => recovery.amountMinor),
+    arrangement.currency,
+  );
+  const advancedCostsMinor =
+    arrangement.contingencyBasis === "net_after_costs"
+      ? await readAdvancedCostsMinor(database, matterId)
+      : 0;
+  const baseMinor = Math.max(recoveriesMinor - advancedCostsMinor, 0);
+  if (baseMinor === 0) return 0;
+  return contingencyFeeMinor(
+    baseMinor,
+    arrangement.contingencyShareE4 as number,
+    arrangement.currency,
+  );
+}
+
 export interface ContingencyResidual {
   readonly matterId: MatterId;
   // The in-force share of the basis as it survives now.
@@ -393,7 +424,7 @@ export async function readContingencyResidual(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<ContingencyResidual> {
-  const derivation = await deriveContingencyFee(database, matterId);
+  const entitlementMinor = await readSurvivingEntitlementMinor(database, matterId);
   const billedMinor = await readFinalizedContingencyBilledMinor(database, matterId);
   const { results } = await database
     .prepare(
@@ -415,12 +446,12 @@ export async function readContingencyResidual(
     .all<ResidualLineRow>();
   return {
     matterId,
-    entitlementMinor: derivation.feeMinor,
+    entitlementMinor,
     billedMinor,
     // Integer subtraction of two figures the SAME helper produced — the entitlement through
     // `contingencyFeeMinor`, the billed total from lines that helper composed. Nothing rounds here,
     // so the residual can never be a rounding artifact of a second, differently-rounded derivation.
-    residualMinor: Math.max(billedMinor - derivation.feeMinor, 0),
+    residualMinor: Math.max(billedMinor - entitlementMinor, 0),
     feeLines: results.map((row) => ({
       invoiceId: row.invoice_id as InvoiceId,
       invoiceNumber: row.invoice_number,
