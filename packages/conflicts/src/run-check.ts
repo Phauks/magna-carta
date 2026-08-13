@@ -12,6 +12,7 @@ import { findImputationHits } from "./imputation.ts";
 import { type MatchPartyInput, matchParty } from "./matching.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
+import { availabilityOf, PRIOR_FIRM_HISTORY_SOURCE } from "./sources.ts";
 import { insertCheckStatement, insertHitStatement } from "./statements.ts";
 import type { ConflictsTrigger, SourceAvailability, SourceClass } from "./types.ts";
 
@@ -20,15 +21,6 @@ export interface RunCheckInput {
   readonly matterId?: string;
   readonly subjectEntityIds: readonly string[];
   readonly scope: ScopeRequest;
-}
-
-// The content class has no corpus yet: nothing indexes document text, and the email parse core is not
-// wired to a consumer. Recording it as unavailable rather than omitting it keeps the log honest — an
-// auditor must be able to tell "searched and clean" apart from "never searched".
-const AVAILABLE_SOURCES: ReadonlySet<SourceClass> = new Set(["party", "graph", "imputation"]);
-
-function availabilityOf(sourceClass: SourceClass): SourceAvailability {
-  return AVAILABLE_SOURCES.has(sourceClass) ? "searched" : "unavailable";
 }
 
 // The entity id prefixes are self-describing (see packages/directory/src/entity-kind.ts, which this
@@ -76,7 +68,8 @@ async function readSubjectFacts(
     // A genuinely-absent row (an unknown id, or the hard-delete the directory never performs) is the
     // only skippable case. Any other failure — a transient database error — must fail the whole check
     // loudly: silently dropping a seed while the log still records the source as "searched" would turn
-    // an infrastructure error into a false "no conflict", the exact miss this engine exists to prevent.
+    // an infrastructure error into a search that reports nothing, the exact miss this engine exists to
+    // prevent.
     if (error instanceof Error && error.message.includes("not found")) return null;
     throw error;
   }
@@ -180,7 +173,7 @@ export async function runConflictsCheck(
     scopeRecord["imputation"] = "unavailable";
   }
   // Prior-firm lateral history is a registered source with no table. Record it, never omit it.
-  scopeRecord["prior_firm_history"] = "unavailable";
+  scopeRecord[PRIOR_FIRM_HISTORY_SOURCE] = "unavailable";
 
   const checkId = newIdentifier("conflictsCheck", options.randomSource);
   const now = options.clock.now();

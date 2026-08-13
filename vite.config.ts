@@ -119,6 +119,7 @@ export default defineConfig({
       "tooling/bootstrap/vitest.config.ts",
       "tooling/check-scoped/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
+      "tooling/lint-conflicts-vocabulary/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",
