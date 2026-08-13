@@ -58,19 +58,28 @@ function coordinatorFor(env: Bindings, message: SearchIndexMessage) {
   );
 }
 
-// Delete the R2 objects of every split the catalog currently holds for this document, except the one
-// this attempt is about to write. Objects go before rows: a crash between the two leaves a catalog row
+// Delete the R2 objects of the LIVE splits the catalog holds for this document, except the one this
+// attempt is about to write. Objects go before rows: a crash between the two leaves a catalog row
 // pointing at a deleted object (a query gets nothing from it, and the next index run replaces it),
 // whereas the other order leaves bytes in the firm's bucket that nothing references and nothing will
 // ever collect.
-async function deletePriorSplitObjects(
+//
+// A SUPERSEDED SPLIT IS NOT THIS PATH'S TO DELETE, and skipping it is not tidiness. Compaction leaves a
+// merged-away split superseded but present precisely so that a query which resolved its key a moment
+// before the swap can still read it; that promise is kept by a grace period the retirement sweep honours
+// (compaction-sweep.ts). Deleting one here would break the promise from the side compaction cannot see —
+// a re-index of this document, arriving inside that window, taking out bytes a live query is holding a
+// key to. The rows are left behind with the objects for the same reason: the sweep finds them by row.
+function deletePriorSplitObjects(
   bucket: R2Bucket,
-  priorKeys: readonly string[],
+  prior: readonly { readonly objectKey: string; readonly supersededAt: string | null }[],
   keepKey: string,
 ): Promise<void> {
-  const stale = priorKeys.filter((key) => key !== keepKey);
-  if (stale.length === 0) return;
-  await bucket.delete(stale);
+  const stale = prior
+    .filter((split) => split.supersededAt === null && split.objectKey !== keepKey)
+    .map((split) => split.objectKey);
+  if (stale.length === 0) return Promise.resolve();
+  return bucket.delete(stale);
 }
 
 export async function indexOne(
@@ -138,11 +147,7 @@ export async function indexOne(
 
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const prior = await listSplitsForDocument(database, documentId);
-  await deletePriorSplitObjects(
-    env.R2,
-    prior.map((split) => split.objectKey),
-    objectKey,
-  );
+  await deletePriorSplitObjects(env.R2, prior, objectKey);
   // One atomic batch through the standard write chokepoint: the delete and the insert land together or
   // not at all. No outbox message — publishing a split has no consequence outside the firm's own
   // storage, and no idempotency record — convergence here is structural (the derived id and the

@@ -53,11 +53,15 @@ export interface IndexSplitRow {
   readonly sizeBytes: number;
   readonly schemaGeneration: number;
   readonly createdAt: string;
+  // Null while the split is live; the instant compaction replaced it otherwise. Projected on every read
+  // because callers outside the compaction pass need it: the write pipeline must not delete a superseded
+  // split's object, which belongs to the retirement sweep and its grace period.
+  readonly supersededAt: string | null;
 }
 
 // One home for the projection and its row mapping, so every read of this table returns the same shape
 // and a new column cannot be added to one query and forgotten in another.
-const SELECT_SPLIT_COLUMNS = `SELECT id, matter_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at FROM ${INDEX_SPLIT_TABLE}`;
+const SELECT_SPLIT_COLUMNS = `SELECT id, matter_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at, superseded_at FROM ${INDEX_SPLIT_TABLE}`;
 
 interface IndexSplitColumns {
   id: string;
@@ -69,6 +73,7 @@ interface IndexSplitColumns {
   size_bytes: number;
   schema_generation: number;
   created_at: string;
+  superseded_at: string | null;
 }
 
 function toIndexSplitRow(row: IndexSplitColumns): IndexSplitRow {
@@ -82,6 +87,7 @@ function toIndexSplitRow(row: IndexSplitColumns): IndexSplitRow {
     sizeBytes: row.size_bytes,
     schemaGeneration: row.schema_generation,
     createdAt: row.created_at,
+    supersededAt: row.superseded_at,
   };
 }
 
@@ -116,18 +122,24 @@ export async function listSplitsForDocument(
   return results.map(toIndexSplitRow);
 }
 
-// Drop every catalog row for a document. Paired with insertIndexSplitStatement in ONE batch, this is the
-// convergence rule the whole write pipeline rests on: publishing a document's split is a delete-then-
+// Drop the LIVE catalog rows for a document. Paired with insertIndexSplitStatement in ONE batch, this is
+// the convergence rule the whole write pipeline rests on: publishing a document's split is a delete-then-
 // insert, not an upsert, so re-indexing a document at any version leaves exactly one live row no matter
 // how many times the job ran or how far a previous attempt got. Delete (not supersede) is right here
-// because a per-document split has no reader to protect — the replacement covers the same document, so a
-// query that resolves the new split sees everything the old one held.
+// because a LIVE per-document split has no reader to protect — the replacement covers the same document,
+// so a query that resolves the new split sees everything the old one held.
+//
+// A SUPERSEDED ROW IS LEFT ALONE. It is the retirement sweep's record that an object compaction merged
+// away still has to be collected once its grace period expires, and deleting the row here would strand
+// the bytes it names in the firm's bucket with nothing able to recognize them as garbage. It also cannot
+// collide with the insert: the one-live-split-per-document-version unique index is partial on
+// `superseded_at IS NULL`, so a superseded row of the same version is simply outside it.
 export function deleteSplitsForDocumentStatement(
   database: SqlDatabase,
   documentId: FileId,
 ): SqlStatement {
   return database
-    .prepare(`DELETE FROM ${INDEX_SPLIT_TABLE} WHERE document_id = ?1`)
+    .prepare(`DELETE FROM ${INDEX_SPLIT_TABLE} WHERE document_id = ?1 AND superseded_at IS NULL`)
     .bind(documentId);
 }
 
