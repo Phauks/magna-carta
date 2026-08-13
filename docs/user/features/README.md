@@ -24,3 +24,4 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
 - [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery (stub; backend built, screens pending).
+- [`community-board.md`](community-board.md) — The community board: asking for what the software should do, voting on what other firms have asked for, asking how something works, and what happens when a post should not have been made (backend built, screens pending).
