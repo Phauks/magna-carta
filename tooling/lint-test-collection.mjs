@@ -63,7 +63,7 @@ const GATE_INVOCATIONS = [
     job: "test-worker",
     command:
       "pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} " +
-      '"$PWD/apps/worker" "$PWD/apps/status-worker"',
+      '"$PWD/apps/worker" "$PWD/apps/status-worker" "$PWD/apps/community-worker"',
   },
   {
     job: "test-stories",

@@ -105,6 +105,7 @@ export default defineConfig({
       "apps/worker/vitest.config.ts",
       "apps/status-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
+      "apps/community-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
       "apps/discovery-worker/vitest.config.ts",
       "apps/email-worker/vitest.config.ts",
