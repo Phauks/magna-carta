@@ -3926,6 +3926,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "search-eval"
+version = "0.0.0"
+dependencies = [
+ "search-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "security-framework"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
