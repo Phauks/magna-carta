@@ -276,6 +276,45 @@ test"; do sleep 20; done` polls forever, because the waiter's own command line
 - Give every file exactly one owner. Overlapping ownership turns a fast parallel pass
   into a serial repair job.
 - Remove each agent's worktree at merge; the disk filled once.
+- **An agent can die silently, mid-build, with everything uncommitted.** It has happened
+  three times: one finished and never reported, two stopped with substantial work sitting
+  unstaged in their worktrees. Nothing warns you. When an agent goes quiet, look at
+  `git -C .claude/worktrees/<name> status --short` before assuming it is still thinking —
+  and commit whatever is there as labelled WIP *before* reviewing it, because a container
+  reclaim or a `vp run clean` takes uncommitted work with it. Both recovered branches
+  turned out to be near-complete; what they had missed was a formatter pass and a
+  generated-artifact regeneration, which is exactly what a pre-push hook catches and a
+  dead agent never reaches.
+
+### Watching things run — five ways this session lied to itself
+
+Every one of these reported success or health that was not there. They share a single
+root: **trusting a signal without checking what it actually measured.**
+
+- **A probe that contains its own search term matches itself.** A `ps`/`pgrep` filter for
+  `trust-routes` finds the very command doing the filtering, so two dead agents read as
+  "2 procs, healthy" for three consecutive hours. Build the pattern so it cannot match the
+  probe (split the literal, or exclude `python3`/`bin/bash -c` rows), and sanity-check
+  against a worktree's file count and HEAD rather than process presence alone.
+- **`cmd | tail` returns tail's exit code, not the command's.** A FAILING gate reported
+  `exit 0` twice this way, and one of those went into a message to the owner. Use
+  `cmd > /tmp/x.log 2>&1; echo $?` or `${PIPESTATUS[0]}` — never judge a gate through a pipe.
+- **Piping a test run to `tail` also destroys the diagnosis.** Capturing only the summary
+  meant a 20-minute suite had to be re-run purely to learn *which* tests failed. Redirect
+  the whole log to a file, then grep it.
+- **Bare `vp` is not on PATH.** `vp run bootstrap` exits "command not found"; combined with
+  the pipe trap above it looked like a successful bootstrap followed by an inexplicable
+  failure. Use `pnpm exec vp …` or the `pnpm run` script.
+- **The shell's working directory silently reverts.** A background command left cwd back at
+  the shared checkout, so `emit-openapi` ran against the ORCHESTRATOR BRANCH instead of the
+  agent worktree. It was a harmless no-op that time; it would not always be. Pass absolute
+  paths (`git -C <path>`, `cd <abs> && …` in the same invocation) rather than relying on a
+  persisted `cd` — which is what golden rule 7 already says.
+
+Related: **the `pnpm test` single-flight lock is per-worktree, not per-machine.** Running
+suites in two worktrees at once produces phantom failures that look like real breakage —
+one such run showed 5 failures across 3 files where a clean serial run showed 1. Before
+believing a failure, re-run it alone.
 
 ---
 
