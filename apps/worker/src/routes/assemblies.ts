@@ -49,11 +49,18 @@ const assemblyParam = z.object({
   assemblyId: identifierPathParam("documentAssembly", "assemblyId"),
 });
 
+const OutputFormat = z.enum(["docx", "pdf"]);
+
 const SubmitAssemblyRequest = z
   .object({
     templateVersionId: identifierField("documentTemplateVersion"),
     // The matter folder the produced document lands in; absent means the matter's root.
     folderId: identifierField("folder").nullable().optional(),
+    // What to file. The merge always produces a word-processing document; "pdf" carries that document
+    // across the same office-suite conversion the file converter uses before filing it, inside the same
+    // job. A PDF is what the platform seal accepts, so a document meant to be signed is assembled as
+    // one rather than converted afterwards. Defaults to "docx".
+    outputFormat: OutputFormat.optional(),
   })
   .openapi("SubmitAssemblyRequest");
 
@@ -66,6 +73,10 @@ const AssemblyStatusResponse = z
     assemblyId: z.string(),
     status: z.enum(["queued", "running", "done", "failed"]),
     outcome: z.string().nullable(),
+    // What this job set out to file, answerable before the document lands and still answerable after
+    // one that failed. It is what tells a caller whether the produced document can be handed to the
+    // platform seal, which takes a PDF and nothing else.
+    outputFormat: OutputFormat,
     // Set once the document is filed — the File Manager handles the caller opens, converts, or sends
     // for signature.
     fileId: z.string().nullable(),
@@ -112,7 +123,9 @@ const submitRoute = defineOpenAPIRoute(submitMeta, {
     "Assembles a document from a template version against this matter and files it into the matter's " +
     "documents. Returns 202 with a handle to poll: the merge runs in the background and the produced " +
     "document enters the matter through the same upload and scan path every other file does. The " +
-    "output is always a NEW document, never a new version of an existing one.",
+    "output is always a NEW document, never a new version of an existing one. Ask for outputFormat " +
+    "pdf to have the merged document converted before it is filed; the job fails rather than filing " +
+    "a word-processing document when the conversion cannot be done.",
   request: {
     params: matterParam,
     headers: idempotencyKeyHeader,
@@ -160,7 +173,9 @@ const statusRoute = defineOpenAPIRoute(statusMeta, {
     "template still carries — which a caller must surface, because a document that completed with " +
     "blanks in it, or with fields printing text left over from the template, is the failure this " +
     "reports. A Word merge field is not filled in by this system: it prints whatever text Word last " +
-    "cached in it, which is why an assembly that meets one completes as succeeded_with_absences.",
+    "cached in it, which is why an assembly that meets one completes as succeeded_with_absences. " +
+    "outputFormat says what the job set out to produce, so a caller knows before the document lands " +
+    "whether it will be a PDF and can therefore be sealed.",
   request: { params: assemblyParam },
   responses: {
     200: {
@@ -235,6 +250,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
 
       const now = (): string => new Date().toISOString();
       const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const outputFormat = request.outputFormat ?? "docx";
 
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
@@ -252,6 +268,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
                   templateId: version.templateId,
                   templateVersionId: version.versionId,
                   folderId: (request.folderId ?? null) as FolderId | null,
+                  outputFormat,
                   engineVersion: ASSEMBLY_ENGINE_VERSION,
                   dictionaryVersion: DICTIONARY_VERSION,
                   requestedBy: userId,
@@ -263,8 +280,9 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
                   actorUserId: userId,
                   clock: { now },
                   randomSource: cryptoRandomSource,
-                  // Identifiers only — never a merge value, never a field value.
-                  metadata: { matterId, templateVersionId: version.versionId },
+                  // Identifiers and the requested format only — never a merge value, never a field
+                  // value.
+                  metadata: { matterId, templateVersionId: version.versionId, outputFormat },
                 }),
               ],
               outboxMessages: [],
@@ -294,6 +312,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
           matterId,
           templateVersionId: version.versionId,
           folderId: request.folderId ?? null,
+          outputFormat,
           requestedBy: userId,
         });
       }
@@ -335,6 +354,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
               assemblyId,
               status: "failed" as const,
               outcome: "failed",
+              outputFormat: assembly.outputFormat,
               fileId: null,
               fileVersionId: null,
               absentFieldKeys: [],
@@ -351,6 +371,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
           assemblyId,
           status: assembly.status,
           outcome: assembly.outcome,
+          outputFormat: assembly.outputFormat,
           fileId: assembly.fileId,
           fileVersionId: assembly.fileVersionId,
           absentFieldKeys: [...assembly.absentFieldKeys],

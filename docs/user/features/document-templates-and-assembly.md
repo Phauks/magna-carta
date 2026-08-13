@@ -157,6 +157,23 @@ as needing review before you file it — a blank that does not look like a blank
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.
 
+### Word document or PDF
+
+Choose which of the two you want before you build:
+
+- **Word document** — the default, and the one to choose while the document is still being worked on.
+  You can open it, edit it in the browser, and save a new version.
+- **PDF** — the finished form. Choose it when the document is going out to be signed: a PDF is the only
+  form a signature can be applied to.
+
+A PDF is converted from the finished document before it is filed, so it takes a little longer than a
+Word document does. If the conversion cannot be done, the build **fails and says so** — you are never
+handed a Word document in place of the PDF you asked for, because that is the kind of substitution you
+would only discover when the signature was refused.
+
+Either way the document lands in the matter's documents like any other file. There is nothing to
+convert afterwards and nothing to re-upload.
+
 ## The other people on the matter
 
 The client is not the only party a document names. The people and organisations linked to the matter —
@@ -617,5 +634,8 @@ is a report, not a template.
 - **Pronouns for the judge, the decedent, or one item inside a repeat.** The pronoun helper works on
   the people the matter names singly — the client, the other parties, your own staff. A sentence
   inside `{{#each opposingParty.all}}` cannot yet ask for that item's pronouns.
-- **Producing a PDF** directly, and sending an assembled document straight for signature.
+- **Sending an assembled document out to be signed.** Building it as a PDF puts it in the form a
+  signature needs, but inviting someone to sign it — the request, the consent record, and the
+  certificate that goes with it — is not built yet.
+- **Filling in a fillable PDF form** your firm supplies, from the same fields a Word template uses.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

@@ -9,7 +9,7 @@ built: done by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
-next: PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
+next: Fillable-PDF form templates and the signing ceremony surface (the 2·6·3 remainder, planned in docs/specs/2026-08-13-document-automation-tail-remainder-plan.md), authoring surfaces (2·6·4), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
 adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-0222, ADR-0233, ADR-0238
@@ -249,11 +249,44 @@ staffing, a court case, an estate, and a recorded capacity; three new plan probe
 reads are index walks (a partial index on `directory_person.member_id` was added for the staffing
 read's mapped-person seek); profile v12, generator v9.
 
+**Build slice 2·6·3 shipped its first half — PDF output, and the shape the signature hand-off needs.**
+An assembly takes an optional `outputFormat`; the `pdf` arm hands the merged package to the registry's
+own `docx`-to-`pdf` edge inside the same job, through the same `runConversion` and the same
+per-engine-id resolver the file-converter tool executes with. Document automation contributes no
+engine, no adapter, and no registry entry — the office suite already had exactly this job, and a
+second path to a PDF would be a second answer to what a firm's letterhead looks like on paper.
+Converting through the file-converter tool instead was the alternative and was declined: its artifact
+is transient, expires, and is never filed, so the member would download and re-upload and the matter
+would carry a document nothing connects to the assembly that made it.
+
+**A conversion that cannot be done fails the assembly (`conversion-failed`); nothing is filed.** The
+substitution it refuses — file the word-processing package and warn — produces a document that reads
+as the one that was asked for and is discovered to be wrong at the moment somebody tries to sign it,
+which is the absence model's own failure one level up. The requested format is a COLUMN
+(`document_assembly.output_format`, additive, `docx` default) rather than something read off the filed
+object, because the two cases that need the answer are a job still queued and a job that failed, and
+neither has an object to read. The poll answers it beside the file and version handles from the moment
+of submit.
+
+**That recorded format is the whole of the signature hand-off on the backend, and deliberately so.**
+The design named the hand-off a link rather than a build, and it is what the platform can honestly
+support: `POST /api/v1/documents/seal` is a stateless operation over PDF bytes, and there is no
+envelope, signer-invitation, or consent-disclosure model on `main` for an out-for-signature workflow
+to hang from. So an assembled document now arrives in the one shape the seal accepts and says that it
+has; a signing ceremony surface is planned rather than invented, because a consent disclosure is a
+legal artifact and guessing at one is worse than not offering the button. The Documents surface gains
+the format choice and records the PDF arm as `deployed-only` in its availability inventory — the
+office suite runs in a container the convert worker owns, which is a deploy-time activation, and a
+person on a developer's machine is told that rather than left to conclude the feature is broken.
+Fillable-PDF form templates and the signing surface are written into
+[`docs/specs/2026-08-13-document-automation-tail-remainder-plan.md`](../docs/specs/2026-08-13-document-automation-tail-remainder-plan.md)
+rather than half-built.
+
 Deliberately deferred to the structured-value slice (2·6·6): the member's office address, the court's
 address, and the signature block as merge facets — each needs the structured `address` type or real
 line-break (`w:br`) emission, and flattened text would render documents that look right and are
-subtly wrong. The records store the facts today. Remaining for the subsystem: PDF output and the
-signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the
-interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
+subtly wrong. The records store the facts today. Remaining for the subsystem: the signing ceremony and
+fillable-PDF form templates (the 2·6·3 remainder), authoring surfaces (2·6·4), the office-settings UI
+for the logo, and the interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
 subjects at scale (2·6·7) — `capacityLine` extends to the nine new party subjects automatically when
 their rows land.
