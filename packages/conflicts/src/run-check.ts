@@ -13,7 +13,12 @@ import { type MatchPartyInput, matchParty } from "./matching.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
 import { availabilityOf, PRIOR_FIRM_HISTORY_SOURCE } from "./sources.ts";
-import { CONFLICTS_CHECK_TABLE, insertCheckStatement, insertHitStatement } from "./statements.ts";
+import {
+  CONFLICTS_CHECK_TABLE,
+  CONFLICTS_HIT_TABLE,
+  insertCheckStatement,
+  insertHitStatement,
+} from "./statements.ts";
 import { CONFLICTS_HIT_SURFACED_TOPIC } from "./topics.ts";
 import type {
   ConflictsCause,
@@ -122,8 +127,8 @@ async function matterHasEarlierHits(
   const { results } = await context.database
     .prepare(
       `SELECT 1 AS present
-         FROM conflicts_hit
-         JOIN ${CONFLICTS_CHECK_TABLE} ON ${CONFLICTS_CHECK_TABLE}.id = conflicts_hit.check_id
+         FROM ${CONFLICTS_HIT_TABLE}
+         JOIN ${CONFLICTS_CHECK_TABLE} ON ${CONFLICTS_CHECK_TABLE}.id = ${CONFLICTS_HIT_TABLE}.check_id
         WHERE ${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?1
         LIMIT 1`,
     )

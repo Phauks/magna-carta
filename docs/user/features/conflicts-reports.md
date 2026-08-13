@@ -2,8 +2,9 @@
 
 _The conflicts search, its record, and the per-matter report behind them are built, along with the API
 that serves them. The screens — the matter's conflicts panel and the reviewer's queue — are authored
-when those surfaces ship. Automatic re-checks when your directory changes, and the printable conflicts
-report you could hand to a court, are not built yet._
+when those surfaces ship. Automatic re-checks when your directory changes are built and have their own
+guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). The printable conflicts report
+you could hand to a court is not built yet._
 
 ## What it does
 
@@ -83,7 +84,9 @@ separate permission from running a check.
 
 - **A check is a photograph.** It reflects your directory as it stood at that moment. Adding a party
   to the matter, or recording a company's parent months later, does not update a check that already
-  ran. Run a new one — and until automatic re-checks arrive, do that yourself when the facts move.
+  ran; a fresh one does. Magna Carta now notices those changes and re-runs the check itself — see
+  [automatic conflicts re-checks](automatic-conflicts-rechecks.md) for what sets one off, what
+  deliberately does not, and how a matter tells you a re-check is owed before one has run.
 - **Widening your firm's policy does not re-run anything.** It marks every earlier check as having run
   under the narrower setting, which is the honest answer, and leaves the decision about whether to
   re-check with you.
@@ -98,6 +101,8 @@ separate permission from running a check.
 
 ## Related
 
+- [Automatic conflicts re-checks](automatic-conflicts-rechecks.md) — what makes a matter get looked at
+  again on its own, and how a matter says a re-check is owed before one has run.
 - [Case calendar and deadlines](case-calendar-and-deadlines.md) — the matter timeline gathers the
   checks that have been run alongside everything else recorded about a case.
 - [Signing in](signing-in.md) — permissions decide who may run a check and who may record a decision.

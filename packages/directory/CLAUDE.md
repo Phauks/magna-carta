@@ -16,6 +16,7 @@
 - `src/normalize-name.ts` — frozen name normalization: NFC, case-fold, diacritic/punctuation strip, suffix/title parse — produces the `normalized_display` stored at write time
 - `src/phonetics.ts` — scheme-keyed Double Metaphone computation (seam over `words/double-metaphone`); produces `directory_name_phonetic_code` rows for both primary and secondary codes
 - `src/statements.ts` — SQL statement builders (insert/update/repoint) for the atomic batch; the `directoryAuditStatement` helper
+- `src/topics.ts` — the six outbox topics this package publishes, as one frozen set (`directory.entity.created`/`.renamed`/`.merged`, `directory.edge.created`, `directory.identifier.added`, `matter_party.linked`). A subscriber that spells a topic itself can spell it differently, and the failure is silent: an unrecognized topic on the per-firm bus is acked and ignored by design
 - `src/person.ts` — `createPerson` / `readPerson` / `updatePerson` / `setPersonPronouns`
 - `src/pronouns.ts` — the pronoun set: the five grammatical forms plus verb agreement, the all-or-nothing column projection, and the validation the write path runs
 - `src/organization.ts` — `createOrganization` / `readOrganization` (an organization's name changes through `name-history.ts`, so there is deliberately no `updateOrganization` twin of `updatePerson`)
@@ -59,6 +60,8 @@
   and lands on a real person. Rendering, including what an unrecorded set becomes, is
   `@magna-carta/document-assembly`'s business, not this package's.
 - **Every mutation audited.** An `audit_log` row rides in the same batch as each mutation (the `directoryAuditStatement` helper).
+- **A write path that can invalidate an answered conflicts check announces itself with EXACTLY ONE outbox row, in the batch it was already composing.** `linkMatterParty`, `mergeEntities`, `createEdge`, `addIdentifier`, `changeName`, `createPerson`, and `createOrganization` each add one row and add **no query** — resolving which matters a change affects is a queue consumer's work, and doing it here would put an unbounded fan-out inside a request. Two rows would double the write amplification of every party link and merge; none would silently stop the automatic re-check path, because an unrecognized (or absent) topic is acked and ignored rather than throwing. Topic constants live in `src/topics.ts`; `test/topics.test.ts` holds the one-row rule and the "no announcement when the write fails" rule.
+- **A relayed payload carries handles, never values.** `directory.identifier.added` names the entity, the identifier ROW, and its TYPE — never the plaintext and never `value_blind_index`. A blind index is a stable fingerprint of the plaintext, so putting one on a message would let anything reading the bus correlate a person without ever decrypting. `directory.entity.merged` names master AND subordinate, because a matter that knew only the archived record is precisely the one the merge could have changed.
 
 ## Dependencies & contracts
 
