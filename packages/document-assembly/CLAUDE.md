@@ -68,6 +68,12 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   every absence would bury the ones that need reading.
 - **Resolved values never leave memory.** Nothing here persists, logs, or enqueues one. The provenance
   row records absent KEYS; a failure names WHICH key failed, never what it held.
+- **The merge emits a word-processing package and nothing else.** `document_assembly.output_format`
+  (`src/assembly-statements.ts`) records what a JOB was asked to produce, not what this package
+  produced: a `pdf` job carries these bytes across the office-suite conversion edge in
+  `apps/worker/src/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
+  and no second opinion about layout belongs in here — that is the whole reason the engine can be
+  pure TypeScript over OOXML.
 - **`buildXml` writes the XML declaration; the parser drops the source one** (`ignoreDeclaration`).
   Turning that off puts two declarations in every rewritten part — not well-formed XML, a document no
   reader will open, and nothing in a text-content assertion catches it.

@@ -304,19 +304,38 @@ export interface ComposedContingencyFee {
 }
 
 // What earlier FINALIZED bills already charged across the MATTER'S WHOLE CONTINGENCY-AGREEMENT
-// CHAIN — every version of the matter's contingency agreement, not the one in force. The scope is
-// the matter because the recoveries are the matter's: an ordinary amendment (a re-signed engagement
-// letter, even at the same share) mints a new version, and an offset scoped to the version would
-// forget everything billed under the old one and charge the whole basis again. Draft lines are not
-// counted — a draft asserts nothing and may be voided — but a second line on the SAME draft is
-// refused outright below, so a draft can never accumulate two.
+// CHAIN, NET OF EVERY CREDIT NOTE ATTRIBUTED TO ONE OF THOSE CHARGES — every version of the matter's
+// contingency agreement, not the one in force.
+//
+// The scope is the matter because the recoveries are the matter's: an ordinary amendment (a
+// re-signed engagement letter, even at the same share) mints a new version, and an offset scoped to
+// the version would forget everything billed under the old one and charge the whole basis again.
+// Draft lines are not counted — a draft asserts nothing and may be voided — but a second line on the
+// SAME draft is refused outright below, so a draft can never accumulate two.
+//
+// AND THE OFFSET IS NET OF CREDITS, because a finalized bill cannot be edited. A fee whose basis
+// shrank after it was billed — a recovery voided, an advanced cost that arrived late — leaves the
+// firm having charged more than the surviving basis entitles it to, and the only record that can
+// resolve that is a credit note standing beside the bill. If the offset counted the gross charge
+// forever, the credit note would have no effect on any later derivation: the correction would exist,
+// the client would have it, and the arithmetic here would carry on as though it had never been
+// issued. Attribution is the `credits_invoice_line_id` link on the credit note's line, so only a
+// credit aimed at a contingency fee line moves this figure — a general credit against the same bill
+// is not a statement about the fee.
 async function readFinalizedContingencyBilledMinor(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<number> {
   const { results } = await database
     .prepare(
-      `SELECT SUM(l.amount_minor) AS amount_minor
+      `SELECT COALESCE(SUM(l.amount_minor), 0)
+              - COALESCE((SELECT SUM(c.amount_minor)
+                            FROM credit_note_line c
+                            JOIN invoice_line cl ON cl.id = c.credits_invoice_line_id
+                            JOIN invoice ci ON ci.id = cl.invoice_id
+                            JOIN matter_billing_arrangement ca ON ca.id = cl.billing_arrangement_id
+                           WHERE ca.matter_id = ?1 AND ca.kind = 'contingency'
+                             AND cl.kind = 'fee' AND ci.status = 'final'), 0) AS amount_minor
          FROM invoice_line l
          JOIN invoice i ON i.id = l.invoice_id
          JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
@@ -325,6 +344,123 @@ async function readFinalizedContingencyBilledMinor(
     .bind(matterId)
     .all<{ amount_minor: number | null }>();
   return results[0]?.amount_minor ?? 0;
+}
+
+// The in-force share of the basis AS IT SURVIVES NOW, and deliberately refusing nothing about the
+// basis itself. `deriveContingencyFee` is the composition path and refuses a vanished basis by name,
+// because composing a fee out of no recovery is not a thing to do quietly. The residual read is the
+// opposite question — a basis that vanished is the WORST case it exists to report, not a reason to
+// stop reporting — so a collapsed basis resolves to an entitlement of zero, which is what the
+// over-billing report compares against too.
+async function readSurvivingEntitlementMinor(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<number> {
+  const arrangement = await requireArrangementOfKind(database, matterId, "contingency");
+  const recoveries = await readMatterRecoveries(database, matterId);
+  const recoveriesMinor = aggregateMinor(
+    recoveries
+      .filter((recovery) => recovery.voidedAt === null)
+      .map((recovery) => recovery.amountMinor),
+    arrangement.currency,
+  );
+  const advancedCostsMinor =
+    arrangement.contingencyBasis === "net_after_costs"
+      ? await readAdvancedCostsMinor(database, matterId)
+      : 0;
+  const baseMinor = Math.max(recoveriesMinor - advancedCostsMinor, 0);
+  if (baseMinor === 0) return 0;
+  return contingencyFeeMinor(
+    baseMinor,
+    arrangement.contingencyShareE4 as number,
+    arrangement.currency,
+  );
+}
+
+export interface ContingencyResidual {
+  readonly matterId: MatterId;
+  // The in-force share of the basis as it survives now.
+  readonly entitlementMinor: number;
+  // What finalized bills charge for the fee across the whole agreement chain, net of credit notes
+  // already attributed to those charges.
+  readonly billedMinor: number;
+  // What the firm has charged beyond the surviving entitlement and has not yet credited back. Zero
+  // when the bills and the basis agree, which is the ordinary case.
+  readonly residualMinor: number;
+  // The finalized fee lines a credit note would be raised against, newest bill last, each with what
+  // that bill still owes — because a credit note that outruns the unpaid balance opens a client
+  // credit, and a firm choosing where to aim the correction wants to know that before it does.
+  readonly feeLines: readonly ContingencyResidualLine[];
+}
+
+export interface ContingencyResidualLine {
+  readonly invoiceId: InvoiceId;
+  readonly invoiceNumber: string | null;
+  readonly invoiceLineId: InvoiceLineId;
+  readonly chargedMinor: number;
+  readonly creditedMinor: number;
+  readonly invoiceMatterUnpaidMinor: number;
+}
+
+interface ResidualLineRow {
+  invoice_id: string;
+  invoice_number: string | null;
+  invoice_line_id: string;
+  charged_minor: number;
+  credited_minor: number;
+  unpaid_minor: number;
+}
+
+// THE SHRUNK-BASIS RESIDUAL, stated as an amount and pointed at the bills that carry it.
+//
+// The over-billing fitness report finds this condition over the whole firm and is the right shape
+// for a periodic sweep. This read is the other half: for one matter, what the residual IS, and which
+// finalized fee lines a correction would be aimed at. Nothing here composes a credit note. What the
+// firm owes back after a settlement collapses is a decision with a client in it — whether to credit,
+// how much, against which bill, and whether what has already been collected goes back by refund or
+// by return to trust — and a platform that issued the correction on its own initiative would be
+// making that decision on the firm's behalf.
+export async function readContingencyResidual(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<ContingencyResidual> {
+  const entitlementMinor = await readSurvivingEntitlementMinor(database, matterId);
+  const billedMinor = await readFinalizedContingencyBilledMinor(database, matterId);
+  const { results } = await database
+    .prepare(
+      `SELECT l.invoice_id AS invoice_id,
+              i.invoice_number AS invoice_number,
+              l.id AS invoice_line_id,
+              l.amount_minor AS charged_minor,
+              COALESCE((SELECT SUM(c.amount_minor) FROM credit_note_line c
+                         WHERE c.credits_invoice_line_id = l.id), 0) AS credited_minor,
+              COALESCE((SELECT b.total_minor - b.applied_minor FROM invoice_matter_balance b
+                         WHERE b.invoice_id = l.invoice_id AND b.matter_id = l.matter_id), 0) AS unpaid_minor
+         FROM invoice_line l
+         JOIN invoice i ON i.id = l.invoice_id
+         JOIN matter_billing_arrangement a ON a.id = l.billing_arrangement_id
+        WHERE a.matter_id = ?1 AND a.kind = 'contingency' AND l.kind = 'fee' AND i.status = 'final'
+        ORDER BY i.issue_date, i.id`,
+    )
+    .bind(matterId)
+    .all<ResidualLineRow>();
+  return {
+    matterId,
+    entitlementMinor,
+    billedMinor,
+    // Integer subtraction of two figures the SAME helper produced — the entitlement through
+    // `contingencyFeeMinor`, the billed total from lines that helper composed. Nothing rounds here,
+    // so the residual can never be a rounding artifact of a second, differently-rounded derivation.
+    residualMinor: Math.max(billedMinor - entitlementMinor, 0),
+    feeLines: results.map((row) => ({
+      invoiceId: row.invoice_id as InvoiceId,
+      invoiceNumber: row.invoice_number,
+      invoiceLineId: row.invoice_line_id as InvoiceLineId,
+      chargedMinor: row.charged_minor,
+      creditedMinor: row.credited_minor,
+      invoiceMatterUnpaidMinor: row.unpaid_minor,
+    })),
+  };
 }
 
 // One fee line, OFFSET against what the agreement has already billed. The derivation computes the

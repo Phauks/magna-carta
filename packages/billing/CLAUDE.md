@@ -43,6 +43,11 @@ ADR-0072, ADR-0079.) **Invariants:**
   composition, never stored), and `addContingencyFeeToDraft`
 - `src/retainer.ts` — `readRetainerStatus` + the replenishment request record, and the
   `billing.retainer.replenishment_requested` topic (the notifications seam)
+- `src/credit-note.ts` — the four corrections after finalization: `issueCreditNote` (the split
+  against what the bill can still absorb, and the `client_credit` for what it cannot),
+  `composeInvoiceWriteOff`, `applyClientCreditToInvoice`, `composeApplicationReversal`
+- `src/close-precondition.ts` — `matterClientCreditClosePrecondition`: the hard block on closing a
+  matter over money the firm has conceded it owes back
 - `src/render-shape.ts` — the multi-matter render-shape firm setting and `readInvoiceRenderModel`
   (per-matter pages + summary), the model the PDF tail consumes
 - `src/statements.ts` / `src/types.ts` / `src/billing-validation.ts` / `src/fitness.ts`
@@ -82,9 +87,44 @@ ADR-0072, ADR-0079.) **Invariants:**
   second credit composed here leaves the ledger balanced, every entry valid, and nothing failing —
   while the receivable control account drifts below the invoice subledger by the total of every
   trust-funded fee the firm has ever taken. It is the single most likely bug in the subsystem, so it
-  is structural (the one arm in `composeInvoiceApplication`), has its own test asserting the
-  subledger still equals the control account, and is re-proved over stored rows by
-  `trustApplicationsWithoutExactlyOneReceivableCreditStatement`.
+  is structural at three layers: `composeInvoiceApplication` composes no posting for ANY kind (the
+  caller's posting is named to it, never built by it); the `invoice_application_entry_paired`
+  trigger refuses a trust application that names an entry at all; and it is re-proved over stored
+  rows by `trustApplicationsWithoutExactlyOneReceivableCreditStatement`, with its own test asserting
+  the subledger still equals the control account.
+- **THE ENTRY IS RECORDED ON THE ROW THAT OWNS THE POSTING, and the pairing is a trigger.** None for
+  a trust transfer (above). None on the application for a **credit note** either: one note is ONE
+  posting across however many per-matter applications it produces — including none at all, when the
+  bill it corrects is already paid in full — so `credit_note.entry_id` carries it. Exactly one on
+  the application for every remaining kind. `billingCompositionsWithoutTheirReceivablePostingStatement`
+  proves the mirror condition to the trust one: a non-trust application that moved a balance with no
+  receivable posting behind it, or with two.
+- **A CORRECTION IS A SECOND RECORD, AND THE BILL'S TOTAL NEVER MOVES.** `credit_note` and
+  `credit_note_line` are append-only from birth and refused by trigger against anything but a
+  finalized invoice. A note lands as an application against `applied_minor`; never reduce
+  `total_minor`, which would be a negative unpaid receivable and would rewrite what the client was
+  told. What the note cannot absorb opens a `client_credit` — because in the ordinary case that
+  money has already left the client's trust ledger and become the firm's, which is a firm-funds
+  decision and not an invoicing one.
+- **A CLIENT CREDIT'S "OPEN" IS DERIVED — never a status column.** `amount_minor` is frozen by a
+  shape trigger and `discharged_minor` is delta-updated inside a posting batch under a bounds CHECK,
+  the same arrangement `invoice_matter_balance` carries, so two discharges racing for one remainder
+  abort rather than overdraw. Only the exit that moves no money is built (setting it against a later
+  bill of the SAME client, on any of their matters); a refund from operating and a return to trust
+  both move real money out of a firm account and belong with the operating-disbursement path.
+- **A REVERSAL REFUSES A TRUST TRANSFER AND A CREDIT NOTE, BY NAME.** Putting money back into a
+  client's ledger is a trust movement, composed and authorized there — reversing one from here would
+  make billing a writer of trust statements, which the source scan forbids and the earned-fee seam
+  exists to prevent. A credit note is a permanent document the client may already hold; unwinding
+  its application while the document stood would orphan any credit it opened. Reversing a reversal
+  is refused too: it would re-apply value under a kind whose whole meaning is that it subtracts.
+- **A CREDIT IS ATTRIBUTABLE, and for a derived fee that attribution is load-bearing.**
+  `credit_note_line.credits_invoice_line_id` (held by trigger to a line of the same bill on the same
+  matter) is what makes "already charged" mean charged AND NOT SINCE CREDITED. Both the contingency
+  offset and `contingencyBilledBeyondEntitlementStatement` read billed net of it. Never revert either
+  to the gross charge: a finalized line cannot be edited, so the credit note is the only record that
+  can answer a shrunk basis, and a gross comparison leaves the matter reported forever with the
+  correct remedy already applied.
 - **The earned-fee precondition is billing's, the transfer is trust's.** Billing implements the port;
   `@magna-carta/trust` never learns what an invoice is, and no trust file changed to close this. The
   port's context (node, matter, amount, currency) is enough precisely because the precondition is
@@ -147,7 +187,12 @@ ADR-0072, ADR-0079.) **Invariants:**
   finding. Net-after-costs deducts the matter's advanced (hard)
   costs, never soft costs, and only `approved`/`billed` entries — a draft cost is a claim nobody
   confirmed. A basis that SHRINKS after billing (a voided recovery, a late cost) cannot be caught on
-  the write path; `contingencyBilledBeyondEntitlementStatement` is the mechanism that surfaces it.
+  the write path; `contingencyBilledBeyondEntitlementStatement` surfaces it firm-wide and
+  `readContingencyResidual` states it per matter as an amount against the fee lines a correction
+  would be aimed at. Neither issues anything: what the firm owes back after a settlement collapses is
+  a decision with a client in it. `readContingencyResidual` deliberately refuses NOTHING about the
+  basis — a basis that vanished resolves to an entitlement of zero, because that is the worst case it
+  exists to report, where `deriveContingencyFee` (the composition path) refuses it by name.
 - **A non-hourly matter refuses hourly time claims by name** (`matter-not-billed-hourly`) — charging
   a flat-fee or contingency client by the hour would bill the same agreement twice. Costs stay
   claimable on every matter, and a retainer matter still bills hourly: a retainer FUNDS work, it

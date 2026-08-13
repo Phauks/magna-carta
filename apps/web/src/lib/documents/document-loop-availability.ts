@@ -49,6 +49,13 @@ export const DOCUMENT_LOOP_STEPS: readonly LoopStep[] = [
       "Submits a real assembly job against the firm's template catalogue and polls it; the produced document enters the matter through the same upload and scan path as any other.",
   },
   {
+    id: "create-template-pdf",
+    label: "Build that document as a PDF",
+    reach: "deployed-only",
+    behaviour:
+      "The job is submitted for real and asks for a PDF, which the host produces by converting the merged document through the office suite before filing it. That suite runs in a container the convert worker owns, which is a deploy step; where it is not reachable the job fails and says so rather than quietly filing a Word document instead.",
+  },
+  {
     id: "edit-in-browser",
     label: "Edit a document in the browser",
     reach: "deployed-only",

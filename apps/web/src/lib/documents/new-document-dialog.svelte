@@ -18,7 +18,11 @@
   import Dropzone from "@magna-carta/design-system/dropzone";
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import { listTemplates, type TemplateSummary } from "./document-api.ts";
+  import {
+    listTemplates,
+    type AssemblyOutputFormat,
+    type TemplateSummary,
+  } from "./document-api.ts";
   import {
     assembleDocument,
     uploadDocument,
@@ -42,10 +46,14 @@
   let templates = $state<readonly TemplateSummary[] | null>(null);
   let templatesFailed = $state(false);
   let selectedTemplateVersionId = $state("");
+  // A word-processing document is the default because it is the one a person can still edit. PDF is
+  // the deliberate choice, and it is the only one the platform seal accepts.
+  let outputFormat = $state<AssemblyOutputFormat>("docx");
   let stage = $state<CreationStage | null>(null);
   let outcome = $state<CreationOutcome | null>(null);
   let absentFieldKeys = $state<readonly string[]>([]);
   let frozenMergeFieldNames = $state<readonly string[]>([]);
+  let producedFormat = $state<AssemblyOutputFormat | null>(null);
 
   const running = $derived(stage !== null && stage !== "settled");
 
@@ -79,6 +87,11 @@
     })),
   );
 
+  const OUTPUT_FORMAT_ITEMS: readonly { value: AssemblyOutputFormat; label: string }[] = [
+    { value: "docx", label: "Word document — still editable" },
+    { value: "pdf", label: "PDF — ready to sign" },
+  ];
+
   const STAGE_NARRATION: Record<CreationStage, string> = {
     reserving: "Reserving the document…",
     uploading: "Sending the bytes to storage…",
@@ -93,6 +106,7 @@
     outcome = null;
     absentFieldKeys = [];
     frozenMergeFieldNames = [];
+    producedFormat = null;
   }
 
   async function runUpload(): Promise<void> {
@@ -114,11 +128,13 @@
       fetchImpl: fetch,
       matterId,
       templateVersionId: selectedTemplateVersionId,
+      outputFormat,
       onStage: (next) => (stage = next),
     });
     outcome = result.creation;
     absentFieldKeys = result.absentFieldKeys;
     frozenMergeFieldNames = result.frozenMergeFieldNames;
+    producedFormat = result.outputFormat;
     settle();
   }
 
@@ -210,6 +226,29 @@
                 </Select.Content>
               </Select.Root>
             </div>
+            <div class="flex flex-col gap-8">
+              <Label id="new-document-format-label">Build it as</Label>
+              <Select.Root
+                type="single"
+                items={[...OUTPUT_FORMAT_ITEMS]}
+                bind:value={outputFormat}
+                allowDeselect={false}
+                disabled={running}
+              >
+                <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
+                  <Select.Value placeholder="Choose a format" />
+                </Select.Trigger>
+                <Select.Content>
+                  {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
+                    <Select.Item value={item.value} label={item.label} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+              <p class="text-sm text-text-muted">
+                A PDF is converted from the merged document before it is filed, so it takes a little
+                longer. Choose it when the document is going out to be signed.
+              </p>
+            </div>
             <Button
               class="self-start"
               disabled={selectedTemplateVersionId === "" || running}
@@ -232,7 +271,12 @@
       {#if outcome.kind === "created"}
         <Alert.Root variant="success">
           <Alert.Title>The document is on the matter.</Alert.Title>
-          <Alert.Description>It is in the list behind this dialog.</Alert.Description>
+          <Alert.Description>
+            It is in the list behind this dialog.
+            {#if producedFormat === "pdf"}
+              It is a PDF, which is the form the platform seal accepts.
+            {/if}
+          </Alert.Description>
         </Alert.Root>
       {:else if outcome.kind === "rejected"}
         <Alert.Root variant="danger">

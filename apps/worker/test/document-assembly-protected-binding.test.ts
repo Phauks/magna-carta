@@ -180,6 +180,7 @@ async function seedAssembly(): Promise<string> {
     templateId: assertIdentifier(templateId, "documentTemplate"),
     templateVersionId: assertIdentifier(templateVersionId, "documentTemplateVersion"),
     folderId: null,
+    outputFormat: "docx",
     engineVersion: ASSEMBLY_ENGINE_VERSION,
     dictionaryVersion: DICTIONARY_VERSION,
     requestedBy: ownerUserId,

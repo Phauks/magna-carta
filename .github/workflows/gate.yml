@@ -734,10 +734,11 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + custodian vocabulary + licenses + status fragments + decision files + changelog fragments + test registration + lint scope)
+      - name: Governance (process-refs + custodian vocabulary + conflicts vocabulary + licenses + status fragments + decision files + changelog fragments + test registration + lint scope)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:custodian-vocabulary
+          pnpm run lint:conflicts-vocabulary
           pnpm run lint:licenses
           pnpm run lint:status
           pnpm run lint:decisions

@@ -11,6 +11,7 @@
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
     "lint:custodian-vocabulary": "node tooling/lint-custodian-vocabulary.mjs",
+    "lint:conflicts-vocabulary": "node tooling/lint-conflicts-vocabulary/index.mjs",
     "seed-dev-firm": "node tooling/seed-dev-firm.mjs",
     "platform-seal-certificate": "node tooling/platform-seal-certificate/index.mts",
     "lint:licenses": "node tooling/lint-licenses.mjs",

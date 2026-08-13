@@ -653,6 +653,7 @@ export async function generateDocumentAutomationVolume(
           templateId: source.id,
           templateVersionId: source.versionId,
           folderId: null,
+          outputFormat: "docx",
           engineVersion: 1,
           dictionaryVersion: 1,
           requestedBy: null,

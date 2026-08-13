@@ -1,11 +1,15 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   BillingArrangementId,
+  ClientCreditId,
+  CreditNoteId,
+  CreditNoteLineId,
   InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
   InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
+  LedgerEntryId,
   LocationId,
   MatterId,
   TrustDisbursementRequestId,
@@ -425,6 +429,10 @@ export interface InsertInvoiceApplicationInput {
   readonly currency: string;
   readonly trustTransferId: TrustTransferId | null;
   readonly reversesApplicationId: InvoiceApplicationId | null;
+  readonly creditNoteId: CreditNoteId | null;
+  readonly clientCreditId: ClientCreditId | null;
+  readonly entryId: LedgerEntryId | null;
+  readonly reason: string | null;
   readonly effectiveDate: string;
   readonly appliedBy: UserId | null;
   readonly now: string;
@@ -440,8 +448,8 @@ export function insertInvoiceApplicationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO invoice_application (id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, effective_date, applied_by, applied_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+      `INSERT INTO invoice_application (id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, credit_note_id, client_credit_id, entry_id, reason, effective_date, applied_by, applied_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)`,
     )
     .bind(
       input.id,
@@ -452,6 +460,10 @@ export function insertInvoiceApplicationStatement(
       input.currency,
       input.trustTransferId,
       input.reversesApplicationId,
+      input.creditNoteId,
+      input.clientCreditId,
+      input.entryId,
+      input.reason,
       input.effectiveDate,
       input.appliedBy,
       input.now,
@@ -486,6 +498,383 @@ export function applyToInvoiceMatterBalanceStatement(
         WHERE invoice_id = ?1 AND matter_id = ?2`,
     )
     .bind(invoiceId, matterId, deltaMinor, now);
+}
+
+// --- Corrections after finalization -------------------------------------------------------------
+
+export interface InsertCreditNoteInput {
+  readonly id: CreditNoteId;
+  readonly invoiceId: InvoiceId;
+  readonly currency: string;
+  readonly reason: string;
+  readonly effectiveDate: string;
+  readonly entryId: LedgerEntryId;
+  readonly issuedBy: UserId | null;
+  readonly now: string;
+}
+
+// The correction itself. Append-only by trigger, and refused outright against anything but a
+// finalized invoice — a draft is edited, and a voided draft asserted nothing to anybody.
+export function insertCreditNoteStatement(
+  database: SqlDatabase,
+  input: InsertCreditNoteInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO credit_note (id, invoice_id, currency, reason, effective_date, entry_id, issued_by, issued_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+    )
+    .bind(
+      input.id,
+      input.invoiceId,
+      input.currency,
+      input.reason,
+      input.effectiveDate,
+      input.entryId,
+      input.issuedBy,
+      input.now,
+    );
+}
+
+export interface InsertCreditNoteLineInput {
+  readonly id: CreditNoteLineId;
+  readonly creditNoteId: CreditNoteId;
+  readonly lineIndex: number;
+  readonly matterId: MatterId;
+  readonly kind: InvoiceLineKind;
+  readonly description: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly creditsInvoiceLineId: InvoiceLineId | null;
+  readonly now: string;
+}
+
+export function insertCreditNoteLineStatement(
+  database: SqlDatabase,
+  input: InsertCreditNoteLineInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO credit_note_line (id, credit_note_id, line_index, matter_id, kind, description, amount_minor, currency, credits_invoice_line_id, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+    )
+    .bind(
+      input.id,
+      input.creditNoteId,
+      input.lineIndex,
+      input.matterId,
+      input.kind,
+      input.description,
+      input.amountMinor,
+      input.currency,
+      input.creditsInvoiceLineId,
+      input.now,
+    );
+}
+
+export interface InsertClientCreditInput {
+  readonly id: ClientCreditId;
+  readonly clientEntityId: string;
+  readonly matterId: MatterId;
+  readonly creditNoteId: CreditNoteId;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly openedBy: UserId | null;
+  readonly now: string;
+}
+
+export function insertClientCreditStatement(
+  database: SqlDatabase,
+  input: InsertClientCreditInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO client_credit (id, client_entity_id, matter_id, credit_note_id, amount_minor, discharged_minor, currency, opened_by, opened_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?8)`,
+    )
+    .bind(
+      input.id,
+      input.clientEntityId,
+      input.matterId,
+      input.creditNoteId,
+      input.amountMinor,
+      input.currency,
+      input.openedBy,
+      input.now,
+    );
+}
+
+// THE SECOND UNGUARDED DELTA, and the same reasoning as the balance one above. Two discharges of one
+// credit racing for the same remainder both read it as available; this drives `discharged_minor`
+// past `amount_minor` and the bounds CHECK aborts the loser's WHOLE batch, ledger entry included.
+// `... WHERE amount_minor - discharged_minor >= ?` would look safer and be strictly worse: a
+// zero-row UPDATE is not an error in SQLite, so the loser would commit its posting beside a credit
+// that never moved. A reversal passes a negative delta and the CHECK's lower bound catches giving
+// back more than was ever taken.
+export function dischargeClientCreditStatement(
+  database: SqlDatabase,
+  id: ClientCreditId,
+  deltaMinor: number,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE client_credit SET discharged_minor = discharged_minor + ?2, updated_at = ?3 WHERE id = ?1`,
+    )
+    .bind(id, deltaMinor, now);
+}
+
+export interface CreditNoteSnapshot {
+  readonly id: CreditNoteId;
+  readonly invoiceId: InvoiceId;
+  readonly currency: string;
+  readonly reason: string;
+  readonly effectiveDate: string;
+  readonly entryId: LedgerEntryId;
+  readonly issuedAt: string;
+}
+
+interface CreditNoteRow {
+  id: string;
+  invoice_id: string;
+  currency: string;
+  reason: string;
+  effective_date: string;
+  entry_id: string;
+  issued_at: string;
+}
+
+function toCreditNoteSnapshot(row: CreditNoteRow): CreditNoteSnapshot {
+  return {
+    id: row.id as CreditNoteId,
+    invoiceId: row.invoice_id as InvoiceId,
+    currency: row.currency,
+    reason: row.reason,
+    effectiveDate: row.effective_date,
+    entryId: row.entry_id as LedgerEntryId,
+    issuedAt: row.issued_at,
+  };
+}
+
+export async function readCreditNotesForInvoice(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<CreditNoteSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, invoice_id, currency, reason, effective_date, entry_id, issued_at
+         FROM credit_note WHERE invoice_id = ?1 ORDER BY issued_at, id`,
+    )
+    .bind(invoiceId)
+    .all<CreditNoteRow>();
+  return results.map(toCreditNoteSnapshot);
+}
+
+export interface CreditNoteLineSnapshot {
+  readonly id: CreditNoteLineId;
+  readonly creditNoteId: CreditNoteId;
+  readonly lineIndex: number;
+  readonly matterId: MatterId;
+  readonly kind: InvoiceLineKind;
+  readonly description: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly creditsInvoiceLineId: InvoiceLineId | null;
+}
+
+interface CreditNoteLineRow {
+  id: string;
+  credit_note_id: string;
+  line_index: number;
+  matter_id: string;
+  kind: InvoiceLineKind;
+  description: string;
+  amount_minor: number;
+  currency: string;
+  credits_invoice_line_id: string | null;
+}
+
+export async function readCreditNoteLines(
+  database: SqlDatabase,
+  creditNoteId: CreditNoteId,
+): Promise<CreditNoteLineSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, credit_note_id, line_index, matter_id, kind, description, amount_minor, currency, credits_invoice_line_id
+         FROM credit_note_line WHERE credit_note_id = ?1 ORDER BY line_index`,
+    )
+    .bind(creditNoteId)
+    .all<CreditNoteLineRow>();
+  return results.map((row) => ({
+    id: row.id as CreditNoteLineId,
+    creditNoteId: row.credit_note_id as CreditNoteId,
+    lineIndex: row.line_index,
+    matterId: row.matter_id as MatterId,
+    kind: row.kind,
+    description: row.description,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    creditsInvoiceLineId: (row.credits_invoice_line_id as InvoiceLineId | null) ?? null,
+  }));
+}
+
+export interface ClientCreditSnapshot {
+  readonly id: ClientCreditId;
+  readonly clientEntityId: string;
+  readonly matterId: MatterId;
+  readonly creditNoteId: CreditNoteId;
+  readonly amountMinor: number;
+  readonly dischargedMinor: number;
+  // Derived, never stored: open is a comparison, on the same reasoning that keeps a status column
+  // off trust_hold and off the disbursement request.
+  readonly remainingMinor: number;
+  readonly currency: string;
+  readonly openedAt: string;
+}
+
+interface ClientCreditRow {
+  id: string;
+  client_entity_id: string;
+  matter_id: string;
+  credit_note_id: string;
+  amount_minor: number;
+  discharged_minor: number;
+  currency: string;
+  opened_at: string;
+}
+
+function toClientCreditSnapshot(row: ClientCreditRow): ClientCreditSnapshot {
+  return {
+    id: row.id as ClientCreditId,
+    clientEntityId: row.client_entity_id,
+    matterId: row.matter_id as MatterId,
+    creditNoteId: row.credit_note_id as CreditNoteId,
+    amountMinor: row.amount_minor,
+    dischargedMinor: row.discharged_minor,
+    remainingMinor: row.amount_minor - row.discharged_minor,
+    currency: row.currency,
+    openedAt: row.opened_at,
+  };
+}
+
+const CLIENT_CREDIT_COLUMNS =
+  "id, client_entity_id, matter_id, credit_note_id, amount_minor, discharged_minor, currency, opened_at";
+
+export async function readClientCredit(
+  database: SqlDatabase,
+  id: ClientCreditId,
+): Promise<ClientCreditSnapshot | undefined> {
+  const { results } = await database
+    .prepare(`SELECT ${CLIENT_CREDIT_COLUMNS} FROM client_credit WHERE id = ?1`)
+    .bind(id)
+    .all<ClientCreditRow>();
+  const row = results[0];
+  return row ? toClientCreditSnapshot(row) : undefined;
+}
+
+// Every credit still owed to a client, across every matter of theirs. The comparison is the
+// definition: a fully discharged credit is history and does not appear.
+export async function readOpenClientCreditsForClient(
+  database: SqlDatabase,
+  clientEntityId: string,
+): Promise<ClientCreditSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${CLIENT_CREDIT_COLUMNS} FROM client_credit
+        WHERE client_entity_id = ?1 AND discharged_minor < amount_minor
+        ORDER BY opened_at, id`,
+    )
+    .bind(clientEntityId)
+    .all<ClientCreditRow>();
+  return results.map(toClientCreditSnapshot);
+}
+
+export async function readOpenClientCreditsForMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<ClientCreditSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${CLIENT_CREDIT_COLUMNS} FROM client_credit
+        WHERE matter_id = ?1 AND discharged_minor < amount_minor
+        ORDER BY opened_at, id`,
+    )
+    .bind(matterId)
+    .all<ClientCreditRow>();
+  return results.map(toClientCreditSnapshot);
+}
+
+// THE COMMIT GUARD behind the matter-close block on an open client credit. It aims a `currency`
+// value the table's length CHECK forbids at exactly the credits that still owe the client something,
+// so it matches nothing when every credit on the matter is discharged and aborts the WHOLE close
+// batch when one is not. A guarded UPDATE matching zero rows would abort nothing and let the matter
+// close over money the firm has conceded is not its own — which is the condition the block exists
+// for. Same construction, for the same reason, as the trust close guard.
+export function refuseMatterCloseWithOpenClientCreditStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE client_credit SET currency = 'matter-close-refused'
+        WHERE matter_id = ?1 AND discharged_minor < amount_minor`,
+    )
+    .bind(matterId);
+}
+
+export async function readInvoiceApplication(
+  database: SqlDatabase,
+  id: InvoiceApplicationId,
+): Promise<InvoiceApplicationDetail | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, credit_note_id, client_credit_id, entry_id, effective_date
+         FROM invoice_application WHERE id = ?1`,
+    )
+    .bind(id)
+    .all<InvoiceApplicationDetailRow>();
+  const row = results[0];
+  if (!row) return undefined;
+  return {
+    id: row.id as InvoiceApplicationId,
+    invoiceId: row.invoice_id as InvoiceId,
+    matterId: row.matter_id as MatterId,
+    kind: row.kind,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    trustTransferId: row.trust_transfer_id,
+    reversesApplicationId: row.reverses_application_id,
+    creditNoteId: (row.credit_note_id as CreditNoteId | null) ?? null,
+    clientCreditId: (row.client_credit_id as ClientCreditId | null) ?? null,
+    entryId: (row.entry_id as LedgerEntryId | null) ?? null,
+    effectiveDate: row.effective_date,
+  };
+}
+
+// The snapshot above serves the invoice-detail read, where every identifier is on its way to JSON.
+// This one serves the composers, which pass the values straight back into other statement builders,
+// so its identifiers stay BRANDED — the compiler is what stops a matter handle reaching an invoice
+// parameter, and widening to string here would spend that guarantee at exactly the call sites that
+// move money.
+export interface InvoiceApplicationDetail {
+  readonly id: InvoiceApplicationId;
+  readonly invoiceId: InvoiceId;
+  readonly matterId: MatterId;
+  readonly kind: InvoiceApplicationKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly trustTransferId: string | null;
+  readonly reversesApplicationId: string | null;
+  readonly creditNoteId: CreditNoteId | null;
+  readonly clientCreditId: ClientCreditId | null;
+  readonly entryId: LedgerEntryId | null;
+  readonly effectiveDate: string;
+}
+
+interface InvoiceApplicationDetailRow extends InvoiceApplicationRow {
+  credit_note_id: string | null;
+  client_credit_id: string | null;
+  entry_id: string | null;
 }
 
 interface InvoiceApplicationRow {

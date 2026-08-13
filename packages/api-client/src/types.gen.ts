@@ -1549,6 +1549,7 @@ export type ConflictsScopeRequest = {
 
 export type ConflictsCheckWithHitsResponse = {
     check: ConflictsCheckDetail;
+    statement: Array<string>;
     hits: Array<ConflictsHitDetail>;
 };
 
@@ -1593,6 +1594,73 @@ export type ConflictsDispositionDetail = {
     reviewerUserId: string;
     createdAt: string;
 } | null;
+
+export type MatterConflictsPostureResponse = {
+    matterId: string;
+    neverChecked: boolean;
+    latestCheck: ConflictsPostureLatestCheck;
+    scopeShortfall: ConflictsPostureScopeShortfall;
+    pendingRecheck: Array<ConflictsPosturePendingRecheck>;
+    undisposedByTier: Array<ConflictsPostureUndisposedTier>;
+    dispositionsByKind: Array<ConflictsPostureDispositionKind>;
+    unavailableSources: Array<ConflictsPostureUnavailableSource>;
+};
+
+export type ConflictsPostureLatestCheck = {
+    id: string;
+    createdAt: string;
+    trigger: string;
+    actorUserId: string | null;
+    scope: ConflictsPostureScope;
+    subjectEntityCount: number;
+    expandedEntityCount: number;
+    skippedIdentifierTypes: Array<string>;
+    hitCount: number;
+} | null;
+
+export type ConflictsPostureScope = {
+    sources: {
+        [key: string]: 'searched' | 'unavailable';
+    };
+    strictness: string;
+    depth: number;
+    floorRaised: boolean;
+};
+
+export type ConflictsPostureScopeShortfall = {
+    sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    strictness: {
+        firmFloor: 'balanced' | 'over_inclusive';
+        ranUnder: string;
+    } | null;
+    depth: {
+        firmDefault: number;
+        ranAt: number;
+    } | null;
+};
+
+export type ConflictsPosturePendingRecheck = {
+    causeTopic: string;
+    causeReference: string;
+    causeOccurredAt: string;
+    requestedAt: string;
+};
+
+export type ConflictsPostureUndisposedTier = {
+    tier: number;
+    count: number;
+};
+
+export type ConflictsPostureDispositionKind = {
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    count: number;
+    reviewerUserIds: Array<string>;
+};
+
+export type ConflictsPostureUnavailableSource = {
+    source: string;
+    reason: string;
+};
 
 export type CreatedConflictsDispositionResponse = {
     id: string;
@@ -4349,6 +4417,118 @@ export type BillingRenderShapeSetting = {
     renderShape: 'combined' | 'per_matter_pages';
 };
 
+export type BillingCreditNoteAck = {
+    creditNoteId: string;
+    invoiceId: string;
+    totalMinor: number;
+    appliedMinor: number;
+    clientCreditMinor: number;
+    matters: Array<{
+        matterId: string;
+        creditedMinor: number;
+        appliedMinor: number;
+        residualMinor: number;
+        clientCreditId: string | null;
+    }>;
+};
+
+export type BillingCreditNoteRequest = {
+    reason: string;
+    effectiveDate: string;
+    lines: Array<BillingCreditNoteLineRequest>;
+};
+
+export type BillingCreditNoteLineRequest = {
+    matterId: string;
+    kind: 'fee' | 'cost' | 'flat_fee' | 'discount' | 'adjustment' | 'interest' | 'tax';
+    description: string;
+    amountMinor: number;
+    creditsInvoiceLineId?: string | null;
+};
+
+export type BillingCreditNoteListResponse = {
+    data: Array<{
+        id: string;
+        reason: string;
+        effectiveDate: string;
+        currency: string;
+        issuedAt: string;
+        totalMinor: number;
+        lines: Array<{
+            id: string;
+            matterId: string;
+            kind: string;
+            description: string;
+            amountMinor: number;
+            creditsInvoiceLineId: string | null;
+        }>;
+    }>;
+};
+
+export type BillingApplicationAck = {
+    applicationId: string;
+    invoiceId: string;
+    matterId: string;
+};
+
+export type BillingWriteOffRequest = {
+    matterId: string;
+    amountMinor: number;
+    reason: string;
+    effectiveDate: string;
+};
+
+export type BillingClientCreditListResponse = {
+    data: Array<{
+        id: string;
+        matterId: string;
+        creditNoteId: string;
+        amountMinor: number;
+        dischargedMinor: number;
+        remainingMinor: number;
+        currency: string;
+        openedAt: string;
+    }>;
+};
+
+export type BillingApplyClientCreditAck = {
+    applicationId: string;
+    clientCreditId: string;
+    remainingMinor: number;
+};
+
+export type BillingApplyClientCreditRequest = {
+    invoiceId: string;
+    matterId: string;
+    amountMinor: number;
+    effectiveDate: string;
+};
+
+export type BillingReverseApplicationAck = {
+    applicationId: string;
+    reversesApplicationId: string;
+};
+
+export type BillingReverseApplicationRequest = {
+    reason: string;
+    effectiveDate: string;
+};
+
+export type BillingContingencyResidualResponse = {
+    matterId: string;
+    entitlementMinor: number;
+    billedMinor: number;
+    residualMinor: number;
+    feeLines: Array<{
+        invoiceId: string;
+        invoiceNumber: string | null;
+        invoiceLineId: string;
+        chargedMinor: number;
+        creditedMinor: number;
+        invoiceMatterUnpaidMinor: number;
+    }>;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -4830,12 +5010,14 @@ export type SubmittedAssembly = {
 export type SubmitAssemblyRequest = {
     templateVersionId: string;
     folderId?: string | null;
+    outputFormat?: 'docx' | 'pdf';
 };
 
 export type AssemblyStatus = {
     assemblyId: string;
     status: 'queued' | 'running' | 'done' | 'failed';
     outcome: string | null;
+    outputFormat: 'docx' | 'pdf';
     fileId: string | null;
     fileVersionId: string | null;
     absentFieldKeys: Array<string>;
@@ -11386,12 +11568,55 @@ export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetC
 
 export type ConflictsGetCheckResponses = {
     /**
-     * The check and its hits
+     * The check, the statement of what it searched, and its hits
      */
     200: ConflictsCheckWithHitsResponse;
 };
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
+
+export type ConflictsMatterPostureData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-posture';
+};
+
+export type ConflictsMatterPostureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+
+export type ConflictsMatterPostureResponses = {
+    /**
+     * The matter's conflicts posture, derived at read time
+     */
+    200: MatterConflictsPostureResponse;
+};
+
+export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
 
 export type ConflictsRecordDispositionData = {
     body: RecordConflictsDispositionRequest;
@@ -22156,6 +22381,351 @@ export type BillingSetRenderShapeDefaultResponses = {
 };
 
 export type BillingSetRenderShapeDefaultResponse = BillingSetRenderShapeDefaultResponses[keyof BillingSetRenderShapeDefaultResponses];
+
+export type BillingListCreditNotesData = {
+    body?: never;
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/credit-notes';
+};
+
+export type BillingListCreditNotesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingListCreditNotesError = BillingListCreditNotesErrors[keyof BillingListCreditNotesErrors];
+
+export type BillingListCreditNotesResponses = {
+    /**
+     * The bill's credit notes
+     */
+    200: BillingCreditNoteListResponse;
+};
+
+export type BillingListCreditNotesResponse = BillingListCreditNotesResponses[keyof BillingListCreditNotesResponses];
+
+export type BillingIssueCreditNoteData = {
+    body: BillingCreditNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/credit-notes';
+};
+
+export type BillingIssueCreditNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingIssueCreditNoteError = BillingIssueCreditNoteErrors[keyof BillingIssueCreditNoteErrors];
+
+export type BillingIssueCreditNoteResponses = {
+    /**
+     * The credit note was issued
+     */
+    201: BillingCreditNoteAck;
+};
+
+export type BillingIssueCreditNoteResponse = BillingIssueCreditNoteResponses[keyof BillingIssueCreditNoteResponses];
+
+export type BillingWriteOffBalanceData = {
+    body: BillingWriteOffRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/write-offs';
+};
+
+export type BillingWriteOffBalanceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingWriteOffBalanceError = BillingWriteOffBalanceErrors[keyof BillingWriteOffBalanceErrors];
+
+export type BillingWriteOffBalanceResponses = {
+    /**
+     * The balance was written off
+     */
+    201: BillingApplicationAck;
+};
+
+export type BillingWriteOffBalanceResponse = BillingWriteOffBalanceResponses[keyof BillingWriteOffBalanceResponses];
+
+export type BillingClientCreditsData = {
+    body?: never;
+    path: {
+        clientEntityId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/clients/{clientEntityId}/credits';
+};
+
+export type BillingClientCreditsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingClientCreditsError = BillingClientCreditsErrors[keyof BillingClientCreditsErrors];
+
+export type BillingClientCreditsResponses = {
+    /**
+     * The client's open credits
+     */
+    200: BillingClientCreditListResponse;
+};
+
+export type BillingClientCreditsResponse = BillingClientCreditsResponses[keyof BillingClientCreditsResponses];
+
+export type BillingApplyClientCreditData = {
+    body: BillingApplyClientCreditRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        clientCreditId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/client-credits/{clientCreditId}/applications';
+};
+
+export type BillingApplyClientCreditErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingApplyClientCreditError = BillingApplyClientCreditErrors[keyof BillingApplyClientCreditErrors];
+
+export type BillingApplyClientCreditResponses = {
+    /**
+     * The credit was set against the bill
+     */
+    201: BillingApplyClientCreditAck;
+};
+
+export type BillingApplyClientCreditResponse = BillingApplyClientCreditResponses[keyof BillingApplyClientCreditResponses];
+
+export type BillingReverseApplicationData = {
+    body: BillingReverseApplicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        applicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/applications/{applicationId}/reversal';
+};
+
+export type BillingReverseApplicationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingReverseApplicationError = BillingReverseApplicationErrors[keyof BillingReverseApplicationErrors];
+
+export type BillingReverseApplicationResponses = {
+    /**
+     * The application was reversed
+     */
+    201: BillingReverseApplicationAck;
+};
+
+export type BillingReverseApplicationResponse = BillingReverseApplicationResponses[keyof BillingReverseApplicationResponses];
+
+export type BillingContingencyResidualData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/contingency-residual';
+};
+
+export type BillingContingencyResidualErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingContingencyResidualError = BillingContingencyResidualErrors[keyof BillingContingencyResidualErrors];
+
+export type BillingContingencyResidualResponses = {
+    /**
+     * The matter's contingency position
+     */
+    200: BillingContingencyResidualResponse;
+};
+
+export type BillingContingencyResidualResponse2 = BillingContingencyResidualResponses[keyof BillingContingencyResidualResponses];
 
 export type TimeEntriesListData = {
     body?: never;
