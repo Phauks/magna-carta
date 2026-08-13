@@ -1549,6 +1549,7 @@ export type ConflictsScopeRequest = {
 
 export type ConflictsCheckWithHitsResponse = {
     check: ConflictsCheckDetail;
+    statement: Array<string>;
     hits: Array<ConflictsHitDetail>;
 };
 
@@ -1593,6 +1594,73 @@ export type ConflictsDispositionDetail = {
     reviewerUserId: string;
     createdAt: string;
 } | null;
+
+export type MatterConflictsPostureResponse = {
+    matterId: string;
+    neverChecked: boolean;
+    latestCheck: ConflictsPostureLatestCheck;
+    scopeShortfall: ConflictsPostureScopeShortfall;
+    pendingRecheck: Array<ConflictsPosturePendingRecheck>;
+    undisposedByTier: Array<ConflictsPostureUndisposedTier>;
+    dispositionsByKind: Array<ConflictsPostureDispositionKind>;
+    unavailableSources: Array<ConflictsPostureUnavailableSource>;
+};
+
+export type ConflictsPostureLatestCheck = {
+    id: string;
+    createdAt: string;
+    trigger: string;
+    actorUserId: string | null;
+    scope: ConflictsPostureScope;
+    subjectEntityCount: number;
+    expandedEntityCount: number;
+    skippedIdentifierTypes: Array<string>;
+    hitCount: number;
+} | null;
+
+export type ConflictsPostureScope = {
+    sources: {
+        [key: string]: 'searched' | 'unavailable';
+    };
+    strictness: string;
+    depth: number;
+    floorRaised: boolean;
+};
+
+export type ConflictsPostureScopeShortfall = {
+    sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    strictness: {
+        firmFloor: 'balanced' | 'over_inclusive';
+        ranUnder: string;
+    } | null;
+    depth: {
+        firmDefault: number;
+        ranAt: number;
+    } | null;
+};
+
+export type ConflictsPosturePendingRecheck = {
+    causeTopic: string;
+    causeReference: string;
+    causeOccurredAt: string;
+    requestedAt: string;
+};
+
+export type ConflictsPostureUndisposedTier = {
+    tier: number;
+    count: number;
+};
+
+export type ConflictsPostureDispositionKind = {
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    count: number;
+    reviewerUserIds: Array<string>;
+};
+
+export type ConflictsPostureUnavailableSource = {
+    source: string;
+    reason: string;
+};
 
 export type CreatedConflictsDispositionResponse = {
     id: string;
@@ -11500,12 +11568,55 @@ export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetC
 
 export type ConflictsGetCheckResponses = {
     /**
-     * The check and its hits
+     * The check, the statement of what it searched, and its hits
      */
     200: ConflictsCheckWithHitsResponse;
 };
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
+
+export type ConflictsMatterPostureData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-posture';
+};
+
+export type ConflictsMatterPostureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+
+export type ConflictsMatterPostureResponses = {
+    /**
+     * The matter's conflicts posture, derived at read time
+     */
+    200: MatterConflictsPostureResponse;
+};
+
+export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
 
 export type ConflictsRecordDispositionData = {
     body: RecordConflictsDispositionRequest;

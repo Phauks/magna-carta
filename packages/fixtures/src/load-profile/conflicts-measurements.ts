@@ -240,6 +240,48 @@ function dispositionCurrentPlanStatement(snapshot: LoadedSnapshot): NodeSqlState
   );
 }
 
+// The posture read's first query (posture.ts readLatestCheckRow): a matter's most recent check. Walks
+// the conflicts_check (subject_matter_id, created_at, id) index — without it this scans every check the
+// firm has ever run to answer a single matter's page.
+function latestCheckForMatterPlanStatement(
+  snapshot: LoadedSnapshot,
+  matterId: string,
+): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT id, trigger, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at
+         FROM conflicts_check WHERE subject_matter_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      )
+      .bind(matterId),
+  );
+}
+
+// The posture read's second query (disposition.ts readHitDispositionStates): every hit of one check
+// with its latest disposition, in one read rather than one read per hit. The hit side walks the
+// check_id index; the correlated latest-disposition subquery walks (hit_id, created_at).
+function hitDispositionStatesPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT hit.id AS hit_id, hit.evidence_tier, hit.source_class, hit.co_party,
+                latest.id AS disposition_id, latest.kind, latest.rationale, latest.reviewer_user_id,
+                latest.created_at AS disposition_created_at
+           FROM conflicts_hit AS hit
+           LEFT JOIN conflicts_disposition AS latest
+             ON latest.rowid = (
+               SELECT candidate.rowid FROM conflicts_disposition AS candidate
+                WHERE candidate.hit_id = hit.id
+                ORDER BY candidate.created_at DESC, candidate.rowid DESC
+                LIMIT 1
+             )
+          WHERE hit.check_id = ?1
+          ORDER BY hit.created_at ASC, hit.id ASC`,
+      )
+      .bind("conflictsCheck_probe"),
+  );
+}
+
 export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const { directoryProbes } = snapshot.manifest;
   const statements: readonly { label: string; statement: NodeSqlStatement }[] = [
@@ -256,6 +298,14 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
     {
       label: "conflicts.disposition-current",
       statement: dispositionCurrentPlanStatement(snapshot),
+    },
+    {
+      label: "conflicts.latest-check-for-matter",
+      statement: latestCheckForMatterPlanStatement(snapshot, "matter_probe"),
+    },
+    {
+      label: "conflicts.hit-disposition-states",
+      statement: hitDispositionStatesPlanStatement(snapshot),
     },
   ];
   return statements.map(({ label, statement }) => ({

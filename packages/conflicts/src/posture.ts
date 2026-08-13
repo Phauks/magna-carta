@@ -1,5 +1,6 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { readHitDispositionStates } from "./disposition.ts";
+import type { ReportedSource } from "./report-text.ts";
 import { readConflictsPolicy } from "./settings.ts";
 import { unavailabilityReason } from "./sources.ts";
 import { CONFLICTS_CHECK_TABLE } from "./statements.ts";
@@ -159,7 +160,10 @@ async function readLatestCheckRow(
 // A stored JSON blob is read defensively throughout: the log is append-only and years old rows outlive
 // the code that wrote them, so a shape that no longer parses must degrade to "nothing recorded" rather
 // than crash the read of a matter's whole conflicts posture.
-function parseScopeJson(scopeJson: string): Record<string, SourceAvailability> {
+//
+// Exported because the check read and the posture read are two views of the SAME stored row, and a
+// second copy of this parsing is how the two would come to disagree about what a check searched.
+export function parseCheckScope(scopeJson: string): Record<string, SourceAvailability> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(scopeJson);
@@ -174,13 +178,13 @@ function parseScopeJson(scopeJson: string): Record<string, SourceAvailability> {
   return scope;
 }
 
-interface CheckInputs {
+export interface CheckInputs {
   readonly subjectEntityIds: readonly string[];
   readonly expandedEntityIds: readonly string[];
   readonly skippedIdentifierTypes: readonly string[];
 }
 
-function parseInputsJson(inputsJson: string): CheckInputs {
+export function parseCheckInputs(inputsJson: string): CheckInputs {
   const empty: CheckInputs = {
     subjectEntityIds: [],
     expandedEntityIds: [],
@@ -201,6 +205,22 @@ function parseInputsJson(inputsJson: string): CheckInputs {
     expandedEntityIds: stringArray(record["expandedEntityIds"]),
     skippedIdentifierTypes: stringArray(record["skippedIdentifierTypes"]),
   };
+}
+
+// The scope a check recorded, shaped for the report sentence: every registered source, whether it ran,
+// and — when it did not — why. One home for the availability-to-reason join, so the posture read and
+// the check read can never explain the same stored row differently.
+export function reportedSourcesFor(
+  scope: Readonly<Record<string, SourceAvailability>>,
+  context: { readonly hasSubjectMatter: boolean },
+): ReportedSource[] {
+  return Object.entries(scope)
+    .map(([source, availability]) => ({
+      source,
+      availability,
+      reason: availability === "unavailable" ? unavailabilityReason(source, context) : null,
+    }))
+    .toSorted((left, right) => left.source.localeCompare(right.source));
 }
 
 const STRICTNESS_RANK: Record<Strictness, number> = { balanced: 0, over_inclusive: 1 };
@@ -245,8 +265,8 @@ export async function readMatterConflictsPosture(
   }
 
   const policy = await readConflictsPolicy(database);
-  const scope = parseScopeJson(checkRow.scope_json);
-  const inputs = parseInputsJson(checkRow.inputs_json);
+  const scope = parseCheckScope(checkRow.scope_json);
+  const inputs = parseCheckInputs(checkRow.inputs_json);
   const hitStates = await readHitDispositionStates(database, checkRow.id);
 
   const undisposedCounts = new Map<EvidenceTier, number>([
@@ -272,11 +292,16 @@ export async function readMatterConflictsPosture(
 
   // This read is always matter-scoped, so the check under it always had a matter to join firm members
   // against; the imputation-without-a-matter reason cannot apply here.
-  const unavailabilityContext = { hasSubjectMatter: true };
-  const unavailableSources: UnavailableSourceRecord[] = Object.entries(scope)
-    .filter(([, availability]) => availability === "unavailable")
-    .map(([source]) => ({ source, reason: unavailabilityReason(source, unavailabilityContext) }))
-    .toSorted((left, right) => left.source.localeCompare(right.source));
+  const unavailableSources: UnavailableSourceRecord[] = reportedSourcesFor(scope, {
+    hasSubjectMatter: true,
+  })
+    .filter((entry) => entry.availability === "unavailable")
+    .map((entry) => ({
+      source: entry.source,
+      // reportedSourcesFor always derives a reason for an unavailable source, so the fallback is
+      // unreachable — and where it is not, it calls the same table rather than inventing a sentence.
+      reason: entry.reason ?? unavailabilityReason(entry.source, { hasSubjectMatter: true }),
+    }));
 
   // The firm's floor is expressed in source CLASSES, so `prior_firm_history` — a registered source
   // with no class of its own — can never be floored and never appears here. It is reported through

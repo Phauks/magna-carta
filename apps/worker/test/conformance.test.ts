@@ -802,6 +802,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateResource",
       "calendar.vacateDeadline",
       "conflicts.getCheck",
+      "conflicts.matterPosture",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
       "conversions.events",
