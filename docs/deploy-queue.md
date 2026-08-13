@@ -181,8 +181,8 @@ Runbook: `docs/conventions/operations.md` section 2a.
 
 ## Blocked-in-environment owner chores
 
-- Stale remote branch deletion (the git proxy denies ref deletions — `git push
-  origin --delete` returns 403 for every branch, not just some). Safe to delete:
+- Stale remote branch deletion. The git proxy denies ref deletions: a
+  `git push --delete` returns 403 for every branch, not just some. Safe to delete:
   `osv-scanner-audit-gate`, `fix-assembly-format-output`,
   `fix-assembly-push-no-verify`, `fix-pnpm-audit-endpoint-retirement`,
   `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
