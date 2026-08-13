@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Apps and access -->
+
 - id: platform
   name: Platform
   scope: Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions.
@@ -110,6 +112,9 @@
   status: not-started
   adrs: ADR-0002, ADR-0023, ADR-0024
   evidence: docs/desktop-build-avenues.md (accumulating opportunity log; no Tauri code in tree)
+  audience: public
+  public-name: Desktop app
+  public-summary: The same product as an application on your own machine, with the browser version always available and no feature only in one of them.
 
 - id: platform.desktop.parity
   name: Web/desktop parity policy

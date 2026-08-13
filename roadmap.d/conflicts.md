@@ -2,12 +2,17 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Conflicts -->
+
 - id: conflicts
   name: Conflicts Check
   scope: Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   status: partial
   adrs: ADR-0013
   evidence: Matching seams shipped inside the Directory package; the conflicts-check feature itself has no code or spec.
+  audience: public
+  public-name: Conflicts checking
+  public-summary: Check a prospective client or matter against everyone the firm has acted for or against, and keep a permanent record of what the check returned and who cleared it.
   notes: Remote branch slice-4-1-conflicts exists but contains merge commits only (docs/maintenance/reports/2026-07-14-baseline.md) — not counted as in-build.
 
 - id: conflicts.directory-seams

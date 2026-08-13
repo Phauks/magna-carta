@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Communications -->
+
 - id: communications
   name: Communications layer
   scope: Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
@@ -14,6 +16,9 @@
   scope: Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
   status: partial
   evidence: Transactional adapter, parse core, and the forward/CC capture path are shipped; the firm-mailbox (Gmail/Outlook plugin) integration is still design-only.
+  audience: public
+  public-name: Email filed to the matter
+  public-summary: Send and receive client email from the firm's address and have each message filed against the right matter.
 
 - id: communications.email.transactional
   name: Transactional email adapter
@@ -67,6 +72,9 @@
   status: not-started
   adrs: ADR-0047
   evidence: Decision accepted; no messaging port, adapter, or schema on the tree.
+  audience: public
+  public-name: Text messaging
+  public-summary: Text a client from a firm number and keep the whole thread on the matter.
 
 - id: communications.messaging.port
   name: Messaging port
@@ -116,6 +124,9 @@
   status: not-started
   adrs: ADR-0047
   evidence: No telephony port or call-handling code.
+  audience: public
+  public-name: Calls and voicemail
+  public-summary: Take and make firm calls in the app, with voicemail and call records kept on the matter.
 
 - id: communications.voice.transcription
   name: In-house transcription

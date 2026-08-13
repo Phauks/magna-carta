@@ -2,12 +2,17 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Payments -->
+
 - id: payments
   name: Payments
   scope: Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
   status: not-started
   adrs: ADR-0032
   evidence: No payments package, adapter, or rail code; billing-core (invoicing substrate) is on main but processes no money.
+  audience: public
+  public-name: Client payments
+  public-summary: Let a client pay a bill by bank transfer or card, with card fees kept away from trust money.
 
 - id: payments.port
   name: Payments port
