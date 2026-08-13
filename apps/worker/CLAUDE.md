@@ -193,6 +193,29 @@ by whichever service that resolver names for the `libreoffice` engine. Rules for
 - **The engine resolver is injectable on `documentAssemblyQueue`**, on the same terms the conversion
   consumer takes it: the engine Container cannot run under the local test pool.
 
+## Search split compaction — the ordering rules that make it safe
+
+`src/search/compaction-*.ts` merges a corpus's many per-document splits into one. Three local rules, all
+about ordering, and breaking any of them is a correctness bug rather than a performance one:
+
+- **A pass publishes object, then catalog, then nothing.** Write the merged split to R2; commit ONE
+  batch that inserts its row, inserts its `index_split_member` rows, and marks every source superseded;
+  then stop. **Never delete a source object in the pass that superseded it** — a query resolves its split
+  keys and then reads them, so that is the one ordering that can hand a live query a key to bytes that
+  are gone. Retirement is `runSearchCompactionSweep` on the daily cron, after a grace period.
+- **The write path may count; it may never merge.** The compaction trigger in `index-consumer.ts` is one
+  indexed `countLiveSplitsForMatter` and a coordinator call. A merge is proportional to the corpus, so
+  merging per write would be quadratic in it.
+- **A re-index marks and publishes in the same batch.** `markMembersStaleForDocumentStatement` rides the
+  batch that inserts the replacement split. Between the two writes a query would return the document
+  twice — once from its new split and once from the merged split that still holds the old passages — so
+  the window has to be zero. The stale members become per-split `excludeDocumentIds` on the query
+  (`keyword-search.ts`); the next merge is passed the same ids and repacks them out of the bytes.
+
+The coordinator is keyed by **corpus**, not by pass: two concurrent passes over one corpus would each
+merge overlapping splits and leave every document in the overlap live in two merged splits at once.
+Thresholds and merge bounds are per-firm settings (`@magna-carta/search/settings`), never constants.
+
 ## Release channels — the two doors and the flag catalog
 
 A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:

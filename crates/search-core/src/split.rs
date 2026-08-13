@@ -97,12 +97,22 @@ pub fn build_split(documents: &[IndexDocument]) -> Result<Vec<u8>, SearchError> 
     // a candidate for bundling.
     drop(writer);
 
-    bundle_directory(scratch.path(), documents.len() as u64)
+    bundle_directory(scratch.path(), documents.len() as u64, &|_| true)
 }
 
-/// Concatenate every index file under `dir` and append the footer + trailer. Lock files are excluded —
-/// they are writer-local coordination, never part of the queryable index.
-fn bundle_directory(dir: &Path, document_count: u64) -> Result<Vec<u8>, SearchError> {
+/// Concatenate every index file under `dir` that `keep` accepts, and append the footer + trailer. Lock
+/// files are always excluded — they are writer-local coordination, never part of the queryable index.
+///
+/// `keep` exists for the merge path. A freshly built index directory holds only live files, but a
+/// directory that has been merged and had deletions applied also holds the superseded segments, which
+/// nothing will ever read again; bundling them would inflate every split compaction publishes. The merge
+/// path passes the file set the index's own metadata declares live, so the decision comes from Tantivy
+/// rather than from a guess about naming.
+pub(crate) fn bundle_directory(
+    dir: &Path,
+    document_count: u64,
+    keep: &dyn Fn(&str) -> bool,
+) -> Result<Vec<u8>, SearchError> {
     let mut data: Vec<u8> = Vec::new();
     let mut files: Vec<FileEntry> = Vec::new();
 
@@ -119,6 +129,9 @@ fn bundle_directory(dir: &Path, document_count: u64) -> Result<Vec<u8>, SearchEr
         let name = entry.file_name().to_string_lossy().into_owned();
         // `.tantivy-writer.lock` / `.tantivy-meta.lock` — coordination, not index content.
         if name.ends_with(".lock") {
+            continue;
+        }
+        if !keep(&name) {
             continue;
         }
         let bytes = std::fs::read(&path)?;

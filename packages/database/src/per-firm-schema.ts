@@ -2189,6 +2189,39 @@ export const indexSplit = sqliteTable(
   ],
 );
 
+// What is inside a MERGED split. A split the write pipeline publishes carries its own document_id and
+// version on the row above, so it needs no membership; a split compaction publishes covers many document
+// versions and those columns are NULL, which would leave nothing able to say which versions it holds.
+//
+// The catalog has to be able to say, because a merged split is immutable and the corpus is not. When a
+// document is re-indexed, its replacement is published as a new per-document split while the merged
+// split still holds the older version's passages — and both are live. The membership is what lets the
+// query path name that stale version to the engine as a per-split exclusion, so it stops matching
+// immediately, and what lets the next compaction of that split pass the same id to the merge, which
+// deletes it and repacks so the postings leave the bytes. Marking makes it stop matching; compaction
+// makes it stop costing anything.
+export const indexSplitMember = sqliteTable(
+  "index_split_member",
+  {
+    // The merged split this membership belongs to (index_split.id).
+    splitId: text("split_id").notNull().$type<IndexSplitId>(),
+    documentId: text("document_id").notNull().$type<FileId>(),
+    version: integer("version").notNull(),
+    // Null while this document version is still the current one inside the split. Set to the instant a
+    // re-index or a removal superseded it, which both excludes it from queries against this split and
+    // makes the split a compaction candidate.
+    supersededAt: text("superseded_at"),
+  },
+  (table) => [
+    // A document version appears at most once in a given split.
+    primaryKey({ columns: [table.splitId, table.documentId, table.version] }),
+    // The query-path read: the stale members of the splits a corpus holds live.
+    index("index_split_member_split_superseded_index").on(table.splitId, table.supersededAt),
+    // The write-path read: every live split carrying any version of the document just re-indexed.
+    index("index_split_member_document_index").on(table.documentId),
+  ],
+);
+
 // Email filing & capture — the matter-email record model. Metadata here in per-firm D1; the verbatim
 // original message and every extracted attachment live in per-firm R2, never D1. A matter's email view
 // is reconstructed from the links + the thread DAG, never a re-saved per-reply blob. Written by the
