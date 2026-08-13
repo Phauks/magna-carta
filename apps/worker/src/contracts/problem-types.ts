@@ -330,6 +330,39 @@ export const PROBLEM_TYPES = {
   // outstanding item on this account as of the period. DISTINCT from `validation` — the request is
   // well-formed; the record it describes is not one the rules permit.
   "trust-reconciliation-refused": "trust-reconciliation-refused",
+  // Something the rules refuse about the FIRM'S OWN money in a trust account (HTTP 422): the account
+  // keeps no bank-charge cushion because nobody opened one, the account is the pooled
+  // interest-bearing kind the researched rules exempt from service charges (so there is no charge for
+  // firm money to pay and putting it there would be commingling), or the entry is not one the
+  // narrower firm-funds composition door admits. DELIBERATELY DISTINCT from
+  // `trust-movement-refused`, which says the trust rules refused a movement of CLIENT money: that
+  // sentence would be false here, and the firm's own cushion and client money never sharing a door is
+  // the property this whole category is built to hold.
+  "trust-firm-funds-refused": "trust-firm-funds-refused",
+  // A bank service charge larger than the firm's own funds in the account (HTTP 409). A charge is
+  // never borne by client money, so it is refused rather than absorbed, and the remedy is the
+  // real-world one the detail names: the firm restores its own funds in the account and records the
+  // charge again. DELIBERATELY DISTINCT from `trust-insufficient-available`, which says a CLIENT
+  // ledger does not have the money — the exact false statement this category exists to prevent.
+  "trust-firm-funds-insufficient": "trust-firm-funds-insufficient",
+  // Something the rules refuse about an unclaimed-funds diligence file (HTTP 422): a ledger that
+  // holds nothing for anybody to be unable to claim, a ledger tier that is not a client's matter
+  // ledger, a window that is not a calendar date, or a closure naming a payment that is not a
+  // disbursement from the ledger under review. DISTINCT from `validation` — the request is
+  // well-formed; the record it describes is not one the rules permit.
+  "trust-unclaimed-funds-refused": "trust-unclaimed-funds-refused",
+  // The diligence file is not in a state this act can be performed against (HTTP 409): the client
+  // ledger already carries an open review, or the review named has already been closed. One ledger
+  // carries one open review because the certification a firm eventually signs is about the whole
+  // search, and a closed review is a finished round — so the detail names the review that stands and
+  // the caller either records on it or opens the next one. DISTINCT from `conflict` in carrying the
+  // handle of the review that decided the outcome.
+  "trust-unclaimed-funds-review-not-actionable": "trust-unclaimed-funds-review-not-actionable",
+  // More client ledgers have been quiet since the stated date than one list can honestly present
+  // (HTTP 422). The cap is detected rather than silent, and the answer is a refusal rather than a
+  // short list: a firm working a truncated diligence list would believe it had worked the whole one.
+  // The remedy is in the caller's hands — state a narrower window.
+  "trust-dormant-list-truncated": "trust-dormant-list-truncated",
   // A matter close refused by one of the rules the close hook runs (HTTP 409). Today the only such
   // rule is trust's: a matter whose client trust ledger still holds money, or carries an active
   // disputed-funds hold, does not close — a closed matter with somebody else's money in it is how

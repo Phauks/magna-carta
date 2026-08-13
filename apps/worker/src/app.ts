@@ -21,7 +21,9 @@ import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerBillingRoutes } from "./routes/billing.ts";
+import { registerTrustFirmFundsRoutes } from "./routes/trust-firm-funds.ts";
 import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
+import { registerTrustUnclaimedFundsRoutes } from "./routes/trust-unclaimed-funds.ts";
 import { registerTrustRoutes } from "./routes/trust.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTemplatesRoutes } from "./routes/templates.ts";
@@ -641,6 +643,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);
   registerTrustReconciliationRoutes(app, chokepoint);
+  // The firm's OWN money in a trust account — the bank-charge carve-out, on its own capability and
+  // in its own module, because firm money and client money never share a door.
+  registerTrustFirmFundsRoutes(app, chokepoint);
+  // Unclaimed client funds: the dormancy read against a window the caller states, and the diligence
+  // file that evidences the search. Nothing on that surface moves money.
+  registerTrustUnclaimedFundsRoutes(app, chokepoint);
   // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
   // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
   registerBillingRoutes(app, chokepoint);
