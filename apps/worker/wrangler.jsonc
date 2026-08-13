@@ -114,6 +114,11 @@
       // document version; the consumer extracts its text, builds its split, and converges the per-firm
       // split catalog.
       { "binding": "SEARCH_INDEX", "queue": "magna-carta-production-search-index" },
+      // The split-compaction queue: the SearchCompactionJob DO enqueues one message per corpus that has
+      // crossed the compaction threshold; the consumer merges that corpus's small splits into one and
+      // swaps the catalog. What keeps the read path's cost tracking a threshold the platform chooses
+      // rather than the number of documents ever indexed.
+      { "binding": "SEARCH_COMPACTION", "queue": "magna-carta-production-search-compaction" },
       // The document-assembly queue: the DocumentAssemblyJob DO enqueues one message per assembly; the
       // consumer resolves the merge context, merges the template, and files the output through the same
       // upload/scan chokepoint every other byte crosses.
@@ -208,6 +213,17 @@
         "max_concurrency": 2,
         "dead_letter_queue": "magna-carta-production-search-index-deadletter",
       },
+      // The split-compaction consumer: one corpus per message → merge its small splits into one through
+      // the SearchIndexPort → swap the per-firm catalog in a single batch. Concurrency 1, and the
+      // constraint is not CPU: a merge reads and rewrites every byte of its sources, so several running
+      // at once would multiply the R2 traffic of background housekeeping against the query traffic it
+      // exists to reduce. Per-corpus single-flighting is enforced by the coordinator Durable Object
+      // rather than by this lane, which only bounds how much merging the whole worker does at a time.
+      {
+        "queue": "magna-carta-production-search-compaction",
+        "max_concurrency": 1,
+        "dead_letter_queue": "magna-carta-production-search-compaction-deadletter",
+      },
       // The document-assembly consumer (the queue() handler routes this queue to the assembly
       // consumer): one job per message → resolve the merge context → merge over the already-normalized
       // template → file the output through initiateUpload/completeUploadSession. The work is a
@@ -289,6 +305,10 @@
       // The search-index job coordinator: keyed firmId:documentId:version, single-flights one split
       // build per document version and holds its outcome, including the parked `deferred` state.
       { "name": "SEARCH_INDEX_JOB", "class_name": "SearchIndexJob" },
+      // The split-compaction coordinator: keyed firmId:corpusId. Keyed by the CORPUS because two
+      // concurrent passes over one corpus would each merge overlapping splits, leaving every document in
+      // the overlap live in two merged splits at once.
+      { "name": "SEARCH_COMPACTION_JOB", "class_name": "SearchCompactionJob" },
       // The document-assembly job coordinator: keyed firmId:assemblyId, single-flights one assembly per
       // job so a retried submit can never file two documents onto a matter.
       { "name": "DOCUMENT_ASSEMBLY_JOB", "class_name": "DocumentAssemblyJob" },
@@ -311,8 +331,8 @@
   // password-recovery job coordinator DO; v4-search-index-job the discovery search-index job
   // coordinator DO; v5-document-assembly-job the document-assembly job coordinator DO;
   // v6-magnus-conversation the assistant's per-conversation push object; v7-discovery-load-job the
-  // discovery load fan-out coordinator (the most recent class, appended last). Never modify an
-  // applied tag — only append a new one.
+  // discovery load fan-out coordinator; v8-search-compaction-job the split-compaction coordinator (the
+  // most recent class, appended last). Never modify an applied tag — only append a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
@@ -323,6 +343,7 @@
     { "tag": "v5-document-assembly-job", "new_sqlite_classes": ["DocumentAssemblyJob"] },
     { "tag": "v6-magnus-conversation", "new_sqlite_classes": ["MagnusConversation"] },
     { "tag": "v7-discovery-load-job", "new_sqlite_classes": ["DiscoveryLoadCoordinator"] },
+    { "tag": "v8-search-compaction-job", "new_sqlite_classes": ["SearchCompactionJob"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

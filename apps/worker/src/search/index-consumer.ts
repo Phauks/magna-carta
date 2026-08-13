@@ -1,8 +1,10 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   listSplitsForDocument,
+  markMembersStaleForDocumentStatement,
   replaceDocumentSplitStatements,
 } from "@magna-carta/data-access/index-split-statements";
+import { readSearchCompactionPolicy } from "@magna-carta/search/settings";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { TextExtractionPort } from "@magna-carta/search/extraction";
@@ -13,6 +15,8 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
+import { corpusNeedsCompaction } from "./compaction-consumer.ts";
+import { searchCompactionJobName } from "./compaction-types.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "./index-types.ts";
 import { resolveTextExtractionPort } from "./text-extraction.ts";
@@ -54,19 +58,28 @@ function coordinatorFor(env: Bindings, message: SearchIndexMessage) {
   );
 }
 
-// Delete the R2 objects of every split the catalog currently holds for this document, except the one
-// this attempt is about to write. Objects go before rows: a crash between the two leaves a catalog row
+// Delete the R2 objects of the LIVE splits the catalog holds for this document, except the one this
+// attempt is about to write. Objects go before rows: a crash between the two leaves a catalog row
 // pointing at a deleted object (a query gets nothing from it, and the next index run replaces it),
 // whereas the other order leaves bytes in the firm's bucket that nothing references and nothing will
 // ever collect.
-async function deletePriorSplitObjects(
+//
+// A SUPERSEDED SPLIT IS NOT THIS PATH'S TO DELETE, and skipping it is not tidiness. Compaction leaves a
+// merged-away split superseded but present precisely so that a query which resolved its key a moment
+// before the swap can still read it; that promise is kept by a grace period the retirement sweep honours
+// (compaction-sweep.ts). Deleting one here would break the promise from the side compaction cannot see —
+// a re-index of this document, arriving inside that window, taking out bytes a live query is holding a
+// key to. The rows are left behind with the objects for the same reason: the sweep finds them by row.
+function deletePriorSplitObjects(
   bucket: R2Bucket,
-  priorKeys: readonly string[],
+  prior: readonly { readonly objectKey: string; readonly supersededAt: string | null }[],
   keepKey: string,
 ): Promise<void> {
-  const stale = priorKeys.filter((key) => key !== keepKey);
-  if (stale.length === 0) return;
-  await bucket.delete(stale);
+  const stale = prior
+    .filter((split) => split.supersededAt === null && split.objectKey !== keepKey)
+    .map((split) => split.objectKey);
+  if (stale.length === 0) return Promise.resolve();
+  return bucket.delete(stale);
 }
 
 export async function indexOne(
@@ -134,39 +147,72 @@ export async function indexOne(
 
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const prior = await listSplitsForDocument(database, documentId);
-  await deletePriorSplitObjects(
-    env.R2,
-    prior.map((split) => split.objectKey),
-    objectKey,
-  );
+  await deletePriorSplitObjects(env.R2, prior, objectKey);
   // One atomic batch through the standard write chokepoint: the delete and the insert land together or
   // not at all. No outbox message — publishing a split has no consequence outside the firm's own
   // storage, and no idempotency record — convergence here is structural (the derived id and the
   // delete-then-insert), not guarded by a key.
+  const publishedAt = now();
   await commitEffectBatch(
     database,
     {
-      statements: replaceDocumentSplitStatements(database, {
-        id: splitId,
-        // The catalog is still keyed by matter. It is the one part of the scope that costs a per-firm
-        // schema change to widen, and unlike the object key it costs the same whenever it is done — the
-        // rows are a rebuildable index of derived objects, not the objects themselves. It widens with
-        // the corpus kind that first needs it.
-        matterId,
-        documentId,
-        version: message.version,
-        objectKey,
-        documentCount: built.published.documentCount,
-        sizeBytes: built.published.sizeBytes,
-        schemaGeneration: built.published.schemaGeneration,
-        createdAt: now(),
-      }),
+      statements: [
+        // MARK AND PUBLISH TOGETHER, in the one batch, or neither. A compacted split still holds the
+        // passages of whatever earlier version of this document it was merged from, and both it and the
+        // split about to be inserted are live. Between the insert and the mark the query path would
+        // return this document twice — once as it is and once as it was — so the window has to be zero,
+        // and the only way to make it zero is to put both writes in the same atomic batch.
+        markMembersStaleForDocumentStatement(database, documentId, publishedAt),
+        ...replaceDocumentSplitStatements(database, {
+          id: splitId,
+          // The catalog is still keyed by matter. It is the one part of the scope that costs a per-firm
+          // schema change to widen, and unlike the object key it costs the same whenever it is done — the
+          // rows are a rebuildable index of derived objects, not the objects themselves. It widens with
+          // the corpus kind that first needs it.
+          matterId,
+          documentId,
+          version: message.version,
+          objectKey,
+          documentCount: built.published.documentCount,
+          sizeBytes: built.published.sizeBytes,
+          schemaGeneration: built.published.schemaGeneration,
+          createdAt: publishedAt,
+        }),
+      ],
       outboxMessages: [],
     },
     { now },
   );
 
   await coordinator.markIndexed(objectKey);
+
+  // THE COMPACTION TRIGGER, and it is deliberately only a count. Publishing a split is what makes a
+  // corpus's live split count grow, and the read path's cost grows with it — a query is handed every
+  // live split and reads each one separately — so this is the moment the platform can notice, for the
+  // price of one indexed count against a table it has just written. What it must NOT do here is merge:
+  // a merge is proportional to the corpus, so merging on every write would be quadratic in it.
+  //
+  // The coordinator single-flights per corpus, so a burst of a thousand ingests over the threshold
+  // produces one compaction in flight rather than a thousand, and a pass that is bounded re-enqueues
+  // itself while the corpus is still over — which is what makes a large back-catalogue converge without
+  // any one merge being unbounded. A failure here is swallowed on purpose: the document IS indexed, the
+  // daily backstop will notice the same threshold, and turning a housekeeping hiccup into a failed index
+  // job would take a searchable document back out of the corpus.
+  try {
+    const policy = await readSearchCompactionPolicy(database);
+    if (await corpusNeedsCompaction(database, matterId, policy)) {
+      await env.SEARCH_COMPACTION_JOB.get(
+        env.SEARCH_COMPACTION_JOB.idFromName(searchCompactionJobName(message.firmId, matterId)),
+      ).start({ firmId: message.firmId, matterId });
+    }
+  } catch (caught) {
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `queue:search-index:compaction-trigger`,
+      caught,
+      newCorrelationId(),
+    );
+  }
 }
 
 export function resolveSearchIndexPorts(env: Bindings): SearchIndexPorts {

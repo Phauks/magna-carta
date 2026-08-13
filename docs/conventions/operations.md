@@ -62,6 +62,15 @@ The forward/CC capture path terminates on the `apps/email-worker` Cloudflare Ema
 
 > The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs` + `…-platform-jobs-deadletter`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`, `…-emails-capture` + `…-emails-capture-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying. The `…-emails-capture` queue has a **cross-worker** producer: the `magna-carta-email` worker enqueues onto it and the main worker consumes it, so it must exist before either deploys.
 >
+> `…-search-compaction` + `…-search-compaction-deadletter` carry the **split-compaction** pass, which is
+> what keeps a matter's search cost tracking a threshold rather than the number of documents ever indexed
+> into it. Its consumer runs at concurrency 1 on purpose: a merge reads and rewrites every byte of its
+> source splits, so several at once would multiply the background R2 traffic against the query traffic
+> compaction exists to reduce. A parked message here is deferred housekeeping, never a lost document —
+> the corpus stays queryable, just over more splits than it should be, and the daily cron re-enqueues it.
+> The pass supersedes split objects but never deletes one; the daily sweep collects them after a grace
+> period, so a firm's bucket briefly holds both the merged split and the sources it replaced.
+>
 > `…-platform-jobs` is the **shared per-firm job queue**: every per-firm outbox row the relay sweeps crosses it, firmId-tagged, and the dispatch table in `apps/worker/src/costs/recoverable-charge-consumer.ts` routes each message to the handler owning its topic (unowned topics are acked and ignored). It was a declared **producer only** until email capture-address minting needed it, so per-firm outbox effects were published and never applied; it is now a declared consumer, and its dead-letter queue must exist before the next deploy. A parked message here means a per-firm effect has not been applied — for a capture address, that the address exists but will never receive mail until the row is revived (the operator seam in [`security.md`](security.md)).
 
 ## 4. Adding a per-firm D1 binding (beyond the starter pool)

@@ -109,6 +109,10 @@ describe("schema conformance (fitness functions)", () => {
     // document_template_field_binding is keyed by (template_version_id, merge_key) — a binding IS that
     // pair, there is nothing else to record about one, and both directions of the question ("what does
     // this version bind", "who binds this field") arrive holding one of the two columns.
+    // index_split_member is keyed by (split_id, document_id, version) — a membership IS "this document
+    // version is inside this split". There is nothing else to record about one, both directions of the
+    // question arrive holding one of the columns, and a handle would need a unique lookup on the triple
+    // at every re-index to find the row to mark stale.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
@@ -121,14 +125,18 @@ describe("schema conformance (fitness functions)", () => {
       "document_template_field_binding",
       "scan_cache",
       "scoped_setting",
+      "index_split_member",
     ]);
-    // Composite key columns are TEXT with two documented exceptions, both the same shape: the value a
-    // number draw reserves is a counter value, and constraining the NUMBER is the entire point of the
-    // row — a string spelling of it would let '01' and '1' both be drawn.
+    // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
+    // a number and constraining it as one is the entire point. The value a number draw reserves is a
+    // counter — a string spelling of it would let '01' and '1' both be drawn — and a file's version is
+    // the same integer the file entry and index_split already carry, so spelling it as text here would
+    // make the membership disagree with the split row it describes.
     const integerCompositeKeyColumns = new Set([
       "matter_number_allocation.drawn_value",
       "custody_number_allocation.drawn_value",
       "invoice_number_allocation.drawn_value",
+      "index_split_member.version",
     ]);
 
     for (const table of ALL_TABLES) {
