@@ -56,6 +56,9 @@
       "path": "packages/calendar/tsconfig.build.json"
     },
     {
+      "path": "packages/community/tsconfig.build.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.build.json"
     },
     {
@@ -165,6 +168,9 @@
     },
     {
       "path": "packages/pdf/tsconfig.build.json"
+    },
+    {
+      "path": "packages/product-updates/tsconfig.build.json"
     },
     {
       "path": "packages/property-links/tsconfig.build.json"

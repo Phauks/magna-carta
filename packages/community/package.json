@@ -1,0 +1,41 @@
+{
+  "name": "@magna-carta/community",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./sql": "./src/sql.ts",
+    "./types": "./src/types.ts",
+    "./categories": "./src/categories.ts",
+    "./slug": "./src/slug.ts",
+    "./ranking": "./src/ranking.ts",
+    "./posting-notice": "./src/posting-notice.ts",
+    "./confidentiality-detector": "./src/confidentiality-detector.ts",
+    "./availability": "./src/availability.ts",
+    "./projection": "./src/projection.ts",
+    "./contract": "./src/contract.ts",
+    "./profile-statements": "./src/data-access/profile-statements.ts",
+    "./post-statements": "./src/data-access/post-statements.ts",
+    "./vote-statements": "./src/data-access/vote-statements.ts",
+    "./comment-statements": "./src/data-access/comment-statements.ts",
+    "./flag-statements": "./src/data-access/flag-statements.ts",
+    "./moderation-statements": "./src/data-access/moderation-statements.ts",
+    "./post-number": "./src/data-access/post-number.ts",
+    "./tables": "./src/data-access/tables.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
