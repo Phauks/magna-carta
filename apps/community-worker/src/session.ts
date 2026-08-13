@@ -26,6 +26,20 @@ import type { Context } from "hono";
 export interface BoardSession {
   readonly userId: UserId;
   readonly firmId: FirmId;
+  // True when this account joined the platform as a firm's CLIENT rather than as somebody who works
+  // there. A client of a firm must never write on this board, and the failure being prevented is
+  // specific and severe: a post signed with a real name, from an account that exists only because
+  // one firm invited its client, discloses that firm-client relationship to every reader.
+  //
+  // This is a CHECK, and it should not stay one. The intended shape is that a portal principal is
+  // structurally incapable of holding a board identity — a distinct principal type on the account,
+  // or portal clients not sharing the `user` table at all — because a check is one refactor away
+  // from being silently wrong and this particular failure is a confidentiality breach rather than a
+  // bug. Today the redemption path writes the same `user` row for both invitation kinds and records
+  // the difference only on the invitation, so the invitation is the only place the distinction
+  // exists to be read. When the account gains a principal type of its own, this reads that instead
+  // and the join below goes away.
+  readonly isPortalPrincipal: boolean;
   // The account's own name, used only as the SUGGESTED display name when a member first writes.
   // It is never stored on a post and never rendered from here: the board's display name lives on
   // the community profile, which is a separate record precisely so the two can differ.
@@ -72,6 +86,7 @@ interface SessionLookupRow {
   readonly email_verified: number;
   readonly firm_id: string;
   readonly firm_status: string;
+  readonly portal_invitation_count: number;
 }
 
 export function controlPlaneSessionPort(database: SqlDatabase, now: () => number): SessionPort {
@@ -87,7 +102,10 @@ export function controlPlaneSessionPort(database: SqlDatabase, now: () => number
           // registration flow before posting once.
           `SELECT s.user_id AS user_id, s.expires_at AS expires_at,
                   u.name AS name, u.email_verified AS email_verified,
-                  u.firm_id AS firm_id, f.status AS firm_status
+                  u.firm_id AS firm_id, f.status AS firm_status,
+                  (SELECT COUNT(*) FROM invitation AS i
+                     WHERE i.redeemed_user_id = s.user_id AND i.kind = 'clientOfFirm')
+                    AS portal_invitation_count
              FROM session AS s
              JOIN user AS u ON u.id = s.user_id
              JOIN firm AS f ON f.id = u.firm_id
@@ -103,6 +121,7 @@ export function controlPlaneSessionPort(database: SqlDatabase, now: () => number
         firmId: row.firm_id as FirmId,
         accountName: row.name,
         emailVerified: row.email_verified !== 0,
+        isPortalPrincipal: row.portal_invitation_count > 0,
       };
     },
   };

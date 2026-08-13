@@ -251,6 +251,19 @@ export function createApp(env: Bindings, overrides: AppOverrides = {}) {
             detail: "The board is public to read. Writing needs an account at a provisioned firm.",
           });
         }
+        // A firm's own client never writes here. The disclosure being prevented is the sharpest one
+        // this surface has: an account that exists only because a firm invited its client, posting
+        // under a real display name, publishes that firm-client relationship to every reader. It is
+        // refused before the profile is even looked up, so a portal principal never acquires a
+        // board identity to be rendered later.
+        if (session.isPortalPrincipal) {
+          return problemJson(c, {
+            type: "community-write-refused",
+            status: 403,
+            title: "This account cannot write to the board",
+            detail: "The board is for people who work at a firm using Magna Carta.",
+          });
+        }
         if (!session.emailVerified) {
           return problemJson(c, {
             type: "community-write-refused",

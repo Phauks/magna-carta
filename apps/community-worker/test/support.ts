@@ -107,3 +107,29 @@ export async function makeOperator(database: D1Database, userId: string): Promis
     .bind(userId)
     .run();
 }
+
+// An account that joined as a firm's CLIENT rather than as somebody who works there. Today the
+// redemption path writes the same `user` row for both invitation kinds and records the difference
+// only on the invitation, so this is what makes an account a portal principal.
+export async function markAsPortalClient(
+  database: D1Database,
+  input: { readonly userId: string; readonly firmId: string },
+): Promise<void> {
+  await database
+    .prepare(
+      `INSERT INTO invitation
+         (id, firm_id, kind, email, display_name, code_hash, verifier_hash, status,
+          attempt_count, expires_at, redeemed_at, redeemed_user_id, invited_by_user_id, created_at)
+       VALUES (?1, ?2, 'clientOfFirm', ?3, 'Portal client', ?4, ?5, 'redeemed',
+               0, '2099-01-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z', ?6, ?6, '2026-08-01T00:00:00.000Z')`,
+    )
+    .bind(
+      `invitation_${input.userId}`,
+      input.firmId,
+      `${input.userId}@example.test`,
+      `codehash_${input.userId}`,
+      `verifierhash_${input.userId}`,
+      input.userId,
+    )
+    .run();
+}

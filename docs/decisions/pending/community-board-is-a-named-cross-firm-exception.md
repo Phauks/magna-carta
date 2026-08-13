@@ -3,7 +3,7 @@ slug: community-board-is-a-named-cross-firm-exception
 status: Accepted
 area: Community surfaces / Tenancy
 date: 2026-08-13
-summary: "The community board is a NAMED, ARGUED EXCEPTION to the firm-scoped data-access rule, not a surface that happens to sit outside it. Its records live in control-plane D1 as `community_*` tables, they carry a `firm_id` on every authored row, and votes aggregate across firms — which is the exact shape the tenancy rule forbids in the per-firm lineage. The exception is granted on four grounds: the board holds no firm business data, only statements about the software written for an audience that includes every other firm; the firm identifier is an aggregation and moderation key that is rendered NOWHERE, and is captured at write time because membership changes make it unrecoverable later; per-firm storage would make the board REQUIRE the cross-firm read it is trying to avoid, since every list would fan out across the fleet; and the isolation the per-firm database boundary normally supplies is replaced by three structural substitutes rather than by care — a deployable (`apps/community-worker`) that binds no per-firm resource, a package (`@magna-carta/community`) that cannot import the firm-scoped data-access layer, and a projection chokepoint whose public types have no field for a firm or an account. What is given up is stated plainly: this is the one surface on the platform that does not fail closed by being unable to see another firm. The exception is scoped to `community_*` and licenses nothing else — in particular it does not license reading firm data INTO the board, which is why the confidentiality detector is format-only."
+summary: "The community board is a NAMED, ARGUED EXCEPTION to the firm-scoped data-access rule, not a surface that happens to sit outside it. Its records live in control-plane D1 as `community_*` tables, they carry a `firm_id` on every authored row, and votes aggregate across firms — which is the exact shape the tenancy rule forbids in the per-firm lineage. The exception is granted on four grounds: the board holds no firm business data, only statements about the software written for an audience that includes every other firm; the firm identifier is an aggregation and moderation key that is rendered NOWHERE, and is captured at write time because membership changes make it unrecoverable later; per-firm storage would make the board REQUIRE the cross-firm read it is trying to avoid, since every list would fan out across the fleet; and the isolation the per-firm database boundary normally supplies is replaced by three structural substitutes rather than by care — a deployable (`apps/community-worker`) that binds no per-firm resource, a package (`@magna-carta/community`) that cannot import the firm-scoped data-access layer, and a projection chokepoint whose public types have no field for a firm or an account. What is given up is stated plainly: this is the one surface on the platform that does not fail closed by being unable to see another firm. The exception is scoped to `community_*` and licenses nothing else — in particular it does not license reading firm data INTO the board, which is why the confidentiality detector is format-only. One weak point is recorded rather than dressed up: a firm's external portal client is refused at the gate by reading the invitation that created their account, because the account model does not yet carry a principal type that would make the exclusion structural."
 ---
 
 **The community board takes a named exception to the firm-scoped data-access rule, and the
@@ -88,11 +88,21 @@ revision table, so a member who realises their post said too much can make the o
 **Not that a post was hidden** — a hidden post is absent rather than replaced by a placeholder, since
 a marker is a sign pointing at the one post somebody thought might name a client.
 
-**Portal principals are excluded structurally rather than by a check.** A community profile is keyed
-on a `user` row, and a firm's external portal client is not one, so there is no path for a portal
-principal to acquire a board identity. The failure mode being avoided is specific: a portal
-principal posting on this board would disclose a firm-client relationship, which is the one
-disclosure this platform can least afford.
+**Portal principals are excluded, and the exclusion is honestly a check today rather than a
+structure.** A firm's external client must never write here: an account that exists only because a
+firm invited its client, posting under a real display name, publishes that firm-client relationship
+to every reader, and that is the one disclosure this platform can least afford. The board refuses
+such an account at the gate, before a board identity is created for it, so nothing about it can ever
+be rendered.
+
+**But the refusal reads the invitation, not the account, and that is a weaker guarantee than it
+should be.** The redemption path writes the same `user` row for a `firmMember` and a `clientOfFirm`
+invitation and records the difference only on the invitation, so the invitation is the only place
+the distinction exists to be read. The intended shape — a portal principal being structurally
+incapable of holding a board identity, through a principal type on the account or through portal
+clients not sharing the `user` table at all — is not available yet, and a check is one refactor away
+from being silently wrong. This is recorded as a known weak point rather than presented as
+structural, and it is the first thing to strengthen when the account model grows a principal type.
 
 **Consequences.** The board is the only place in the repository where a reviewer must think about
 cross-firm reachability rather than rely on it being impossible, so the three structural properties

@@ -4,6 +4,7 @@ import { BOARD_WRITES_KEY, WRITES_DISABLED_VALUE } from "@magna-carta/community/
 import {
   applyControlPlaneMigrations,
   makeOperator,
+  markAsPortalClient,
   seedMember,
   FIRM_ONE,
   FIRM_THREE,
@@ -162,6 +163,29 @@ describe("writing needs a signed-in member of a provisioned firm", () => {
     });
     const response = await post("/api/v1/community/posts", GOOD_POST, unconfirmed);
     expect(response.status).toBe(403);
+  });
+
+  it("refuses a firm's own client, whose account exists because a firm invited them", async () => {
+    const portalClient = await seedMember(env.DB_CONTROL, {
+      userId: `user_boardPortalClient${castCounter}`,
+      firmId: `${FIRM_TWO}${castCounter}`,
+      name: "A Client Of The Firm",
+    });
+    await markAsPortalClient(env.DB_CONTROL, {
+      userId: portalClient.userId,
+      firmId: portalClient.firmId,
+    });
+    const response = await post("/api/v1/community/posts", GOOD_POST, portalClient);
+    expect(response.status).toBe(403);
+    // Refused before a board identity exists at all, so nothing about this account can be rendered
+    // later. Publishing that a named person is a client of a named firm is the sharpest disclosure
+    // this surface could make.
+    const profile = await env.DB_CONTROL.prepare(
+      `SELECT id FROM community_profile WHERE user_id = ?1`,
+    )
+      .bind(portalClient.userId)
+      .first<{ id: string }>();
+    expect(profile).toBeNull();
   });
 
   it("refuses an expired session", async () => {
