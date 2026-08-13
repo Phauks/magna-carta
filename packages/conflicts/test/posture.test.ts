@@ -325,7 +325,12 @@ test("a reversed disposition counts under the reversal, not under the reversed c
   );
   await recordDisposition(
     value.database,
-    { hitId, kind: "representation_declined", rationale: "on review, adverse", reviewerUserId: ACTOR },
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, adverse",
+      reviewerUserId: ACTOR,
+    },
     { ...value.options, clock: { now: () => "2026-08-13T10:00:00.000Z" } },
   );
 
@@ -368,7 +373,7 @@ test("nothing in the posture shape is an aggregate or a verdict", async () => {
 
   // The structural half of the vocabulary rule, asserted against the real returned object rather than
   // against the type: a verdict field added by a later edit fails here as well as in the source scan.
-  const verdictShaped = /^(clear|clean|ok|passed|conflictFree|status|severity)$/i;
+  const verdictShaped = /^(clear|clean|ok|passed|conflictFree|status|severity)$/i; // conflicts-vocabulary:allow — the banned field-name list itself
   const walk = (value_: unknown, path: string): void => {
     if (value_ === null || typeof value_ !== "object") return;
     if (Array.isArray(value_)) {

@@ -135,7 +135,10 @@ export function describeCheck(
   if (unavailable.length > 0) {
     statements.push(
       `Not searched: ${unavailable
-        .map((entry) => `${displayNameForSource(entry.source)} (${entry.reason ?? "no reason recorded"})`)
+        .map(
+          (entry) =>
+            `${displayNameForSource(entry.source)} (${entry.reason ?? "no reason recorded"})`,
+        )
         .join(", ")}.`,
     );
   }

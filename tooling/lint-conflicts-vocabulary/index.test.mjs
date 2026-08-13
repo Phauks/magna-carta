@@ -127,7 +127,8 @@ describe("the scan's own self-test", () => {
   });
 
   it("is not vacuous — it carries rows that must fire and rows that must not", () => {
-    expect(SELF_TEST.filter(([, phrase, field]) => phrase !== null || field !== null).length,
+    expect(
+      SELF_TEST.filter(([, phrase, field]) => phrase !== null || field !== null).length,
     ).toBeGreaterThan(5);
     expect(
       SELF_TEST.filter(([, phrase, field]) => phrase === null && field === null).length,
@@ -143,7 +144,10 @@ describe("the script as the gate runs it", () => {
   afterAll(() => rmSync(fixtureRoot, { recursive: true, force: true }));
 
   it("fails a tree containing a banned phrase", () => {
-    writeFileSync(join(fixtureRoot, "offender.ts"), 'const label = "This matter is conflict-free";');
+    writeFileSync(
+      join(fixtureRoot, "offender.ts"),
+      'const label = "This matter is conflict-free";',
+    );
     const { offenders } = scanTrees(fixtureRoot, ["."]);
     expect(offenders).toHaveLength(1);
     expect(offenders[0].rule).toBe("assertion");

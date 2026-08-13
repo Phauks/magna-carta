@@ -35,19 +35,12 @@ test("a zero-hit check ends by saying the search ended, and says nothing about t
   expect(statements.at(-1)).toBe("Nothing surfaced.");
 
   const whole = statements.join(" ").toLowerCase();
-  // Not a clearance, in any of the shapes a reader could take as one.
-  for (const banned of [
-    "conflict-free",
-    "conflict free",
-    "no conflicts",
-    "clear of conflicts",
-    "conflicts cleared",
-    "check passed",
-    "all clear",
-    "no conflict found",
-  ]) {
-    expect(whole, banned).not.toContain(banned);
-  }
+  // Not a clearance, in any of the shapes a reader could take as one. The list is the same one the
+  // source scan holds, restated here because this asserts the COMPOSED sentence rather than a literal
+  // — two harmless fragments joining into a clearance would pass the scan and fail here.
+  // prettier-ignore
+  const banned = ["conflict-free", "conflict free", "no conflicts", "clear of conflicts", "conflicts cleared", "check passed", "all clear", "no conflict found"]; // conflicts-vocabulary:allow — the banned list itself
+  for (const phrase of banned) expect(whole, phrase).not.toContain(phrase);
 });
 
 test("the statement says what ran, with what settings, over how many entities", () => {
@@ -96,14 +89,16 @@ test("a zero traversal budget says so rather than implying a graph was walked", 
 });
 
 test("a source that did not run produces no line claiming it ran", () => {
-  const statements = describeCheck(CHECK, [], [
-    { source: "party", availability: "searched", reason: null },
-    { source: "graph", availability: "unavailable", reason: "the graph class was not in scope" },
-  ]);
-  expect(statements.some((line) => line.startsWith("Graph — "))).toBe(false);
-  expect(statements).toContainEqual(
-    "Not searched: graph (the graph class was not in scope).",
+  const statements = describeCheck(
+    CHECK,
+    [],
+    [
+      { source: "party", availability: "searched", reason: null },
+      { source: "graph", availability: "unavailable", reason: "the graph class was not in scope" },
+    ],
   );
+  expect(statements.some((line) => line.startsWith("Graph — "))).toBe(false);
+  expect(statements).toContainEqual("Not searched: graph (the graph class was not in scope).");
 });
 
 test("hits are counted and grouped by tier, and the count is a fact about the search", () => {

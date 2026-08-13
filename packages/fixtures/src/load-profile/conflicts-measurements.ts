@@ -54,7 +54,7 @@ export async function conflictsMeasurementHandle(
   const { directoryProbes } = snapshot.manifest;
   const firmKeyProvider = await createProfileFirmKeyProvider(snapshot.manifest.seed);
   const identifierContext: DirectoryIdentifierContext = {
-    firmId: directoryProbes.firmId as FirmId,
+    firmId: directoryProbes.firmId,
     firmKeyVersion: PROTECTED_FIRM_KEY_VERSION,
     firmKeyProvider,
     database: snapshot.database,

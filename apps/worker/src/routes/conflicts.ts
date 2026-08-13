@@ -271,9 +271,7 @@ const PostureScopeShortfall = z
   .object({
     // Source classes the firm's current policy requires that the latest check did not consider.
     sources: z.array(z.enum(SOURCE_CLASSES)),
-    strictness: z
-      .object({ firmFloor: z.enum(STRICTNESS_LEVELS), ranUnder: z.string() })
-      .nullable(),
+    strictness: z.object({ firmFloor: z.enum(STRICTNESS_LEVELS), ranUnder: z.string() }).nullable(),
     depth: z.object({ firmDefault: z.number().int(), ranAt: z.number().int() }).nullable(),
   })
   .openapi("ConflictsPostureScopeShortfall");
@@ -650,9 +648,9 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
-      // No existence check on the matter, and deliberately: a matter with no conflicts check reads
-      // `neverChecked`, and that is exactly the state a caller needs to see. A 404 here would make
-      // "never checked" and "no such matter" the same answer, which is the conflation this read
+      // No existence check on the matter, and deliberately: a matter that has never been checked
+      // reads `neverChecked`, and that is exactly the state a caller needs to see. A 404 here would
+      // make "never checked" and "no such matter" the same answer, which is the conflation this read
       // exists to prevent.
       const posture = await readMatterConflictsPosture(firm.firmDatabase, matterId);
       return c.json(posture as z.infer<typeof MatterConflictsPostureResponse>, 200);

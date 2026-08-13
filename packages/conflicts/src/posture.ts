@@ -306,10 +306,12 @@ export async function readMatterConflictsPosture(
   // The firm's floor is expressed in source CLASSES, so `prior_firm_history` — a registered source
   // with no class of its own — can never be floored and never appears here. It is reported through
   // `unavailableSources`, where it belongs.
-  const shortfallSources = policy.floorSources.filter((source) => !Object.hasOwn(scope, source));
+  const shortfallSources = new Set(
+    policy.floorSources.filter((source) => !Object.hasOwn(scope, source)),
+  );
   const storedStrictnessRank = rankOfStoredStrictness(checkRow.strictness);
   const scopeShortfall: ScopeShortfall = {
-    sources: SOURCE_CLASSES.filter((source) => shortfallSources.includes(source)),
+    sources: SOURCE_CLASSES.filter((source) => shortfallSources.has(source)),
     strictness:
       storedStrictnessRank < STRICTNESS_RANK[policy.floorStrictness]
         ? { firmFloor: policy.floorStrictness, ranUnder: checkRow.strictness }
