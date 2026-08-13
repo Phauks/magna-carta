@@ -6,7 +6,35 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-12 (the editor deploy now gates a reachable screen)._
+_Last updated: 2026-08-13 (split compaction adds a queue and a Durable Object class)._
+
+## Split compaction — one queue pair to create before the app worker deploys
+
+Search split compaction landed with a new queue, its deadletter, and a new Durable
+Object class. **Create the queues first.** A declared consumer whose queue does not
+exist fails the deploy outright, the same hazard the email-capture activation below
+carries:
+
+1. Create `magna-carta-production-search-compaction` **and**
+   `magna-carta-production-search-compaction-deadletter`.
+2. Deploy the app worker. Its `wrangler.jsonc` already carries the producer binding, the
+   consumer at concurrency 1, the `SEARCH_COMPACTION_JOB` Durable Object binding, and
+   migration tag `v8-search-compaction-job`. Nothing else to set.
+
+No new secret and no bucket step: merged splits are written into the firm's existing
+bucket under the prefix the per-document splits already use.
+
+**Why the concurrency is 1, so nobody raises it as an optimization.** A merge reads and
+rewrites every byte of its sources. Several at once would multiply the R2 traffic of
+background housekeeping against exactly the query traffic compaction exists to reduce.
+Per-corpus single-flighting is the coordinator's job; this lane bounds how much merging
+the whole worker does at a time.
+
+**What it is worth, measured rather than assumed.** A query over 5,000 per-document
+splits issued 186,293 ranged reads — one R2 range GET each in a deployment — against 45
+for the same documents merged. That is why this is a deploy-blocking capability for
+search rather than a later tuning pass. Figures come from
+`crates/search-eval`; how to reproduce them is in that crate's README.
 
 ## New configuration the next deploy must carry
 
