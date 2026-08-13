@@ -1,0 +1,57 @@
+{
+  // THE COMMUNITY BOARD. Its own deployable, and the binding list below is the point of it.
+  //
+  // This is the only surface in the estate that serves unauthenticated PUBLIC READS of content
+  // members wrote. Three consequences follow, and each is why this worker is not routes on the
+  // application worker:
+  //
+  //   1. Its blast radius should not be the application's. A flaw in a board read must not sit in
+  //      the same process as a firm's matters.
+  //   2. Its availability is not load-bearing. A firm doing billable work does not need the board,
+  //      so this worker can be turned off at the route without touching the product.
+  //   3. THE ISOLATION IS THE CONFIDENTIALITY BOUNDARY. The board is cross-firm by construction,
+  //      which means the per-firm database boundary — the platform's strongest control — does not
+  //      protect it. What replaces that boundary is this binding list: the control-plane database
+  //      and one key-value namespace, and nothing else. No FirmDatabase Durable Object namespace,
+  //      no bucket, no queue, no service binding into the application worker. A firm's business
+  //      data is not merely un-queried here; it is unreachable, which is a property of the
+  //      deployment rather than of a lint rule or a reviewer's attention.
+  //
+  // BEFORE ADDING A BINDING HERE, STOP. There are exactly two, and a third is a design change
+  // rather than a wiring step. test/isolation.test.ts reads this file and fails on a new one.
+  "name": "magna-carta-community",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // The board's own host. Separate from the apex for three reasons: it is permanently unindexed
+  // and mixing an unindexed path into the indexed marketing hostname is a mistake somebody makes
+  // once; it serves member-authored content from its own origin, which is easier to firewall; and
+  // it is the surface most likely to need turning off, which is a routing change on a dedicated
+  // host and surgery on a shared one.
+  "routes": [{ "pattern": "community.magnacarta.esq", "custom_domain": true }],
+  "workers_dev": true,
+  "preview_urls": false,
+  // The one real control-plane database. This id MUST stay identical to the DB_CONTROL id in
+  // apps/worker/wrangler.jsonc — both bind the same database, and the application worker's
+  // scheduled handler is the sole applier of its migrations. This worker never migrates anything.
+  "d1_databases": [
+    {
+      "binding": "DB_CONTROL",
+      "database_name": "magna-carta-production-platform-control",
+      "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
+    },
+  ],
+  // The read-only kill switch and its operator notice. One namespace, written by an operator and
+  // only read here, so a board under a spam run or a disclosure can be put read-only in seconds
+  // with no deploy.
+  "kv_namespaces": [{ "binding": "COMMUNITY_KV", "id": "PLACEHOLDER_CREATE_BEFORE_FIRST_DEPLOY" }],
+  // Signing and cookie verification share the application worker's secret because they read the
+  // same sessions out of the same control-plane database. Declaring it here makes a deploy fail
+  // with a named missing secret rather than letting every write 401 by design.
+  "secrets": { "required": ["AUTH_SECRET"] },
+  // Deliberately NO Workers Cache. The status page caches because every byte it serves is
+  // identical for every reader; this worker's responses are not — a signed-in member sees whether
+  // they voted, and an author sees their own held post. The cache key does not include the cookie,
+  // so caching here would serve one member's view to the next reader.
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}
