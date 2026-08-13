@@ -21,4 +21,12 @@ fitness report read billed-net-of-credits.
 No trust write shape and no trust statement: the reversal of a trust-transfer application is refused
 by name, because reversing one would mean composing a trust entry from billing.
 
-Migration taken: `20260813T000000_billing-credit-notes` (idx 56).
+Migration taken: `20260813T010000_billing-credit-notes`, journal **idx 56**.
+
+**Merge order matters here.** `claude/automation-tail` holds `20260813T000000_document-assembly-output-format`
+at the same idx. The TAGS are deliberately an hour apart, so the two never collide on a filename, an
+import path, or a map key — only on the journal slot, which the journal's contiguous-from-zero rule
+makes unavoidable for whichever branch is cut second. Whichever lands second renumbers its entry to
+57, bumps its `when`, and **regenerates** its snapshot as `0057_snapshot.json`
+(`node packages/database/scripts/refresh-snapshot.mjs per-firm`) — never renames the existing one, which
+has silently dropped tables here before.
