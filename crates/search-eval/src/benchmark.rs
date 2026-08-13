@@ -190,8 +190,12 @@ pub fn run_corpus_tier(
         // The warm steady state: one searcher held open across every query, exactly as a resident
         // Container holds a live split. The reads are counted after a first query has run, so what is
         // recorded is the marginal cost of asking again rather than the lazy setup the first ask pays.
-        let searcher = SplitSearcher::over_reader(dynamic.clone())
-            .map_err(|error| format!("{tier}/{}: opening a searcher failed: {error:?}", class.name))?;
+        let searcher = SplitSearcher::over_reader(dynamic.clone()).map_err(|error| {
+            format!(
+                "{tier}/{}: opening a searcher failed: {error:?}",
+                class.name
+            )
+        })?;
         searcher
             .search(&class.text, RESULT_LIMIT)
             .map_err(|error| format!("{tier}/{}: warm query failed: {error:?}", class.name))?;

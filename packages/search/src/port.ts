@@ -54,6 +54,21 @@ export interface RemoveDocumentInput {
 // `hybrid` runs both and fuses their rankings. Keyword is the slice that exists today.
 export type SearchMode = "keyword" | "semantic" | "hybrid";
 
+// One split a query reads, and the document ids it must not return from that split.
+//
+// The exclusion exists because a compacted split is immutable while the corpus is not: it covers a set of
+// document versions, and when one of those documents is re-indexed the replacement is published as its
+// own split while the merged split still holds the older version's passages. Both are live until the next
+// compaction repacks the merged split, so the stale version has to be excluded meanwhile or a query
+// returns the document twice — once as it is and once as it was.
+//
+// PER SPLIT, never per query. The same document is legitimately live at a newer version in a different
+// split; excluding it across the whole query would hide the current text along with the stale text.
+export interface SplitQueryTarget {
+  readonly objectKey: string;
+  readonly excludeDocumentIds: readonly FileId[];
+}
+
 export interface SearchQueryInput {
   readonly firmId: FirmId;
   // The corpus the query runs over. A query never spans corpora — that is the isolation the scope key
@@ -62,10 +77,24 @@ export interface SearchQueryInput {
   readonly text: string;
   readonly mode: SearchMode;
   readonly limit: number;
-  // The R2 object keys of the corpus's live splits, resolved by the caller from the per-firm catalog.
-  // The keyword engine range-reads exactly these; the caller owns catalog enumeration and firm scoping,
-  // so the engine never needs to reach the per-firm database. Empty for a `semantic`-only query.
-  readonly splitKeys: readonly string[];
+  // The corpus's live splits, resolved by the caller from the per-firm catalog, each with its own
+  // exclusions. The keyword engine range-reads exactly these; the caller owns catalog enumeration and
+  // firm scoping, so the engine never needs to reach the per-firm database. Empty for a `semantic`-only
+  // query.
+  readonly splits: readonly SplitQueryTarget[];
+}
+
+// The splits one compaction pass merges, and where the result goes.
+export interface CompactCorpusInput {
+  readonly firmId: FirmId;
+  readonly corpus: CorpusScope;
+  // The source splits, each with the document ids the merge must drop — the versions a re-index or a
+  // removal superseded since the source was published. Passing them here rather than filtering later is
+  // what makes the superseded postings leave the published bytes instead of being masked forever.
+  readonly sources: readonly SplitQueryTarget[];
+  // Where the merged split is written, derived by the caller from the corpus and the source ids
+  // (@magna-carta/search/split) so a retried pass overwrites its own object rather than orphaning one.
+  readonly objectKey: string;
 }
 
 // A ranked result. Carries only the pointers needed to hydrate the passage through the data-access
@@ -107,10 +136,25 @@ export type SearchQueryResult =
   | { readonly ok: true; readonly hits: readonly SearchHit[] }
   | SearchFailure;
 
+// What a compaction produced. `excludedDocumentIds` is what the merge actually dropped, out of what it
+// was asked to drop: an id whose split had already left the merge set when the merge ran is not an error
+// — a compaction and a re-index can legitimately race — but the difference is reported rather than
+// swallowed, so a pass that silently dropped nothing is visible.
+export interface CompactedSplit extends PublishedSplit {
+  readonly excludedDocumentIds: readonly FileId[];
+}
+
+export type CompactResult =
+  | { readonly ok: true; readonly published: CompactedSplit }
+  | SearchFailure;
+
 export interface SearchIndexPort {
   index(input: IndexDocumentInput): Promise<IndexResult>;
   remove(input: RemoveDocumentInput): Promise<RemoveResult>;
   query(input: SearchQueryInput): Promise<SearchQueryResult>;
+  // Merge many of a corpus's splits into one. Never called on a query or a request path: the caller is a
+  // queue consumer, because a merge is proportional to the bytes it reads and the corpus decides those.
+  compact(input: CompactCorpusInput): Promise<CompactResult>;
 }
 
 // ── Smart constructors ──────────────────────────────────────────────────────
@@ -125,6 +169,10 @@ export function removed(): RemoveResult {
 
 export function found(hits: readonly SearchHit[]): SearchQueryResult {
   return { ok: true, hits };
+}
+
+export function compacted(published: CompactedSplit): CompactResult {
+  return { ok: true, published };
 }
 
 // The deferred state, shared across operations: the engine Container is not yet reachable. The returned

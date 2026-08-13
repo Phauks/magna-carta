@@ -164,3 +164,274 @@ export function markSplitSupersededStatement(
 export function deleteIndexSplitStatement(database: SqlDatabase, id: IndexSplitId): SqlStatement {
   return database.prepare(`DELETE FROM ${INDEX_SPLIT_TABLE} WHERE id = ?1`).bind(id);
 }
+
+// ── Compaction ──────────────────────────────────────────────────────────────
+//
+// Compaction merges many small splits into one, and everything below exists to let it do that without a
+// query ever seeing a partial corpus. The rule the whole set is written to: the catalog moves in ONE
+// atomic step from naming the sources to naming the merged split, and the sources' R2 objects outlive
+// that step by a grace period. A query that resolved its keys before the swap holds source keys whose
+// objects still exist; one that resolved after holds the merged key and none of the sources. There is no
+// interleaving that yields both and none that yields neither.
+
+// Table name tracked against @magna-carta's per-firm schema by the schema-name-sync fitness test. What
+// is inside a MERGED split — a per-document split needs no membership, because its own document_id and
+// version columns are its membership.
+export const INDEX_SPLIT_MEMBER_TABLE = "index_split_member";
+
+// How many splits a corpus currently holds live. The count the write path makes after publishing, to
+// notice that a corpus has crossed the compaction threshold — one indexed count against a table it is
+// already writing, never a scan and never a merge.
+export async function countLiveSplitsForMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<number> {
+  const row = await database
+    .prepare(
+      `SELECT COUNT(*) AS live FROM ${INDEX_SPLIT_TABLE} WHERE matter_id = ?1 AND superseded_at IS NULL`,
+    )
+    .bind(matterId)
+    .first<{ live: number }>();
+  return row?.live ?? 0;
+}
+
+// Every matter holding at least one live split — the candidate set the daily compaction backstop walks.
+//
+// Distinct matters rather than splits, because the question is "which corpora might need compacting",
+// and a matter with four thousand splits should cost one row here rather than four thousand. The
+// threshold read that follows is what decides; this only bounds who is asked.
+export async function listMattersWithLiveSplits(
+  database: SqlDatabase,
+  limit: number,
+): Promise<MatterId[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT matter_id FROM ${INDEX_SPLIT_TABLE} WHERE superseded_at IS NULL GROUP BY matter_id ORDER BY COUNT(*) DESC LIMIT ?1`,
+    )
+    .bind(limit)
+    .all<{ matter_id: string }>();
+  return results.map((row) => row.matter_id as MatterId);
+}
+
+// The splits one compaction pass will merge: the corpus's live splits, oldest first, cut off at whichever
+// bound is reached first.
+//
+// BOTH BOUNDS ARE NECESSARY and they guard different failures. The count bound keeps the merge's
+// bookkeeping — readers, catalog rows, membership — inside what one pass can hold. The byte bound keeps
+// the merge itself inside a Container's memory and wall clock, which the count cannot do because splits
+// are not the same size: a thousand-page production and a one-line memo are both one split. A corpus over
+// the bound converges over several passes rather than attempting one merge that cannot finish.
+//
+// Oldest first, because the oldest splits are the ones a later re-index is most likely to have superseded
+// and therefore the ones a merge reclaims the most from — and because it is a stable order, so a retried
+// pass selects the same set and derives the same merged split id.
+export async function listCompactionInputSplits(
+  database: SqlDatabase,
+  matterId: MatterId,
+  maximumSplits: number,
+  maximumTotalBytes: number,
+): Promise<IndexSplitRow[]> {
+  const { results } = await database
+    .prepare(
+      `${SELECT_SPLIT_COLUMNS} WHERE matter_id = ?1 AND superseded_at IS NULL ORDER BY created_at, id LIMIT ?2`,
+    )
+    .bind(matterId, maximumSplits)
+    .all<IndexSplitColumns>();
+
+  const selected: IndexSplitRow[] = [];
+  let totalBytes = 0;
+  for (const row of results) {
+    const split = toIndexSplitRow(row);
+    // The first split is always taken even if it alone exceeds the byte bound. A corpus whose oldest
+    // split is enormous would otherwise select nothing and re-enqueue forever, and merging one split by
+    // itself is still useful work — it repacks whatever a re-index has superseded inside it.
+    if (selected.length > 0 && totalBytes + split.sizeBytes > maximumTotalBytes) break;
+    selected.push(split);
+    totalBytes += split.sizeBytes;
+  }
+  return selected;
+}
+
+export interface IndexSplitMemberRow {
+  readonly splitId: IndexSplitId;
+  readonly documentId: FileId;
+  readonly version: number;
+}
+
+// Record which document versions a merged split covers. Inserted in the same batch that publishes the
+// split, never afterwards: a merged split whose membership landed separately would, between the two
+// writes, be a split nothing could name the contents of — so a re-index in that window could not mark its
+// stale version and the old passages would go on matching.
+export function insertIndexSplitMemberStatement(
+  database: SqlDatabase,
+  row: IndexSplitMemberRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT OR REPLACE INTO ${INDEX_SPLIT_MEMBER_TABLE} (split_id, document_id, version, superseded_at) VALUES (?1, ?2, ?3, NULL)`,
+    )
+    .bind(row.splitId, row.documentId, row.version);
+}
+
+// Mark every live merged split's membership of this document stale, whatever version it holds. Composed
+// into the same batch that publishes the document's replacement split, so a re-index marks and publishes
+// together or does neither — the window in which a document has a new split AND an unmarked old one
+// inside a merged split is the window in which a query returns both, and this closes it to zero.
+//
+// Deliberately not scoped to a version: every version of this document that a merged split still carries
+// is superseded by the one being published, and naming them individually would need a read the write path
+// does not otherwise make.
+export function markMembersStaleForDocumentStatement(
+  database: SqlDatabase,
+  documentId: FileId,
+  supersededAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${INDEX_SPLIT_MEMBER_TABLE} SET superseded_at = ?2 WHERE document_id = ?1 AND superseded_at IS NULL`,
+    )
+    .bind(documentId, supersededAt);
+}
+
+export interface StaleSplitMember {
+  readonly splitId: IndexSplitId;
+  readonly documentId: FileId;
+}
+
+// The per-split exclusion lists for a corpus, in one read.
+//
+// This is the query path's second catalog read and it is what keeps a re-indexed document from matching
+// its own stale passages: the merged split still holds them until the next compaction repacks it, so the
+// engine is told, per split, which document ids may not contribute a hit. Per split rather than per
+// query, because the same document is legitimately live at a newer version in a different split —
+// excluding it globally would hide the current text along with the stale text.
+export async function listStaleMembersForMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<StaleSplitMember[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT member.split_id AS split_id, member.document_id AS document_id
+         FROM ${INDEX_SPLIT_MEMBER_TABLE} AS member
+         JOIN ${INDEX_SPLIT_TABLE} AS split ON split.id = member.split_id
+        WHERE split.matter_id = ?1
+          AND split.superseded_at IS NULL
+          AND member.superseded_at IS NOT NULL
+        ORDER BY member.split_id, member.document_id`,
+    )
+    .bind(matterId)
+    .all<{ split_id: string; document_id: string }>();
+  return results.map((row) => ({
+    splitId: row.split_id as IndexSplitId,
+    documentId: row.document_id as FileId,
+  }));
+}
+
+// The live membership of one merged split — the document versions still current inside it.
+//
+// Read when that split is itself a source for a further compaction: the result has to inherit what its
+// inputs carried, or a chain of compactions would lose track of what is inside the split it produced and
+// no later re-index could mark its versions stale.
+export async function listLiveMembersForSplit(
+  database: SqlDatabase,
+  splitId: IndexSplitId,
+): Promise<IndexSplitMemberRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT split_id, document_id, version FROM ${INDEX_SPLIT_MEMBER_TABLE} WHERE split_id = ?1 AND superseded_at IS NULL`,
+    )
+    .bind(splitId)
+    .all<{ split_id: string; document_id: string; version: number }>();
+  return results.map((row) => ({
+    splitId: row.split_id as IndexSplitId,
+    documentId: row.document_id as FileId,
+    version: row.version,
+  }));
+}
+
+// How many stale members a corpus's live splits are carrying. A corpus can need compacting without
+// gaining a single split: a re-indexed document leaves its old passages inside a merged split, costing
+// bytes to store and an exclusion clause on every query until a merge repacks them out. The compaction
+// trigger reads this beside the live-split count so churn is a reason to compact, not only growth.
+export async function countStaleMembersForMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<number> {
+  const row = await database
+    .prepare(
+      `SELECT COUNT(*) AS stale
+         FROM ${INDEX_SPLIT_MEMBER_TABLE} AS member
+         JOIN ${INDEX_SPLIT_TABLE} AS split ON split.id = member.split_id
+        WHERE split.matter_id = ?1
+          AND split.superseded_at IS NULL
+          AND member.superseded_at IS NOT NULL`,
+    )
+    .bind(matterId)
+    .first<{ stale: number }>();
+  return row?.stale ?? 0;
+}
+
+export interface PublishCompactedSplitInput {
+  readonly split: InsertIndexSplitRow;
+  readonly members: readonly IndexSplitMemberRow[];
+  readonly supersededSplitIds: readonly IndexSplitId[];
+  readonly supersededAt: string;
+}
+
+// THE COMPACTION SWAP, as one ordered batch. Insert the merged split's row, insert its membership, then
+// mark every source superseded — and never as more than one batch.
+//
+// The order inside the batch matters as much as its atomicity. The merged row and its membership land
+// before the sources leave the live set, so there is no committed state in which a corpus has lost the
+// sources and not yet gained the merge. Split across two batches, a crash between them would either
+// double-count every merged document (sources still live beside the merge) or lose the whole merge set
+// from search (sources superseded, merge absent) — the second of which is a defensibility failure, not a
+// cache miss.
+//
+// What is deliberately NOT here: deleting the source splits' R2 objects or their rows. A query resolves
+// its split keys and then reads them, so a pass that deleted an object it had just superseded could hand
+// a live query a key to bytes that no longer exist. Retirement is a later sweep with a grace period
+// (`listSupersededSplitsReadyForCollection`), which is the whole reason `superseded_at` is a timestamp
+// rather than a flag.
+export function publishCompactedSplitStatements(
+  database: SqlDatabase,
+  input: PublishCompactedSplitInput,
+): SqlStatement[] {
+  return [
+    insertIndexSplitStatement(database, input.split),
+    ...input.members.map((member) => insertIndexSplitMemberStatement(database, member)),
+    ...input.supersededSplitIds.map((id) =>
+      markSplitSupersededStatement(database, id, input.supersededAt),
+    ),
+  ];
+}
+
+// Splits superseded longer ago than the grace period, and therefore safe to retire: no query can still
+// be holding a key resolved before the swap that superseded them. The bound is a wall-clock instant the
+// caller computes, so the grace period lives with the sweep that owns it rather than in this statement.
+export async function listSupersededSplitsReadyForCollection(
+  database: SqlDatabase,
+  supersededBefore: string,
+  limit: number,
+): Promise<IndexSplitRow[]> {
+  const { results } = await database
+    .prepare(
+      `${SELECT_SPLIT_COLUMNS} WHERE superseded_at IS NOT NULL AND superseded_at < ?1 ORDER BY superseded_at LIMIT ?2`,
+    )
+    .bind(supersededBefore, limit)
+    .all<IndexSplitColumns>();
+  return results.map(toIndexSplitRow);
+}
+
+// Retire a split's catalog rows once its R2 object is gone. Membership first, then the split row: the
+// membership is meaningless without the split it describes, and leaving it behind would make a document
+// look as though it were still inside something.
+export function retireSupersededSplitStatements(
+  database: SqlDatabase,
+  id: IndexSplitId,
+): SqlStatement[] {
+  return [
+    database.prepare(`DELETE FROM ${INDEX_SPLIT_MEMBER_TABLE} WHERE split_id = ?1`).bind(id),
+    deleteIndexSplitStatement(database, id),
+  ];
+}

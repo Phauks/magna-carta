@@ -112,6 +112,7 @@ function publishingIndexPort(): SearchIndexPort {
       }),
     remove: async () => ({ ok: true }),
     query: async () => searchEngineNotImplemented(),
+    compact: async () => searchEngineNotImplemented(),
   };
 }
 
@@ -119,6 +120,7 @@ const deferredIndexPort: SearchIndexPort = {
   index: async () => searchEngineNotImplemented(),
   remove: async () => searchEngineNotImplemented(),
   query: async () => searchEngineNotImplemented(),
+  compact: async () => searchEngineNotImplemented(),
 };
 
 function ports(
@@ -288,6 +290,7 @@ describe("searchIndexQueue — failures are recorded, never silently dropped", (
         index: async () => searchAdapterError("engine 500"),
         remove: async () => searchEngineNotImplemented(),
         query: async () => searchEngineNotImplemented(),
+        compact: async () => searchEngineNotImplemented(),
       },
     });
 

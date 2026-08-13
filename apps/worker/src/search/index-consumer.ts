@@ -1,8 +1,10 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   listSplitsForDocument,
+  markMembersStaleForDocumentStatement,
   replaceDocumentSplitStatements,
 } from "@magna-carta/data-access/index-split-statements";
+import { readSearchCompactionPolicy } from "@magna-carta/search/settings";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { TextExtractionPort } from "@magna-carta/search/extraction";
@@ -13,6 +15,8 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
+import { corpusNeedsCompaction } from "./compaction-consumer.ts";
+import { searchCompactionJobName } from "./compaction-types.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "./index-types.ts";
 import { resolveTextExtractionPort } from "./text-extraction.ts";
@@ -143,30 +147,67 @@ export async function indexOne(
   // not at all. No outbox message — publishing a split has no consequence outside the firm's own
   // storage, and no idempotency record — convergence here is structural (the derived id and the
   // delete-then-insert), not guarded by a key.
+  const publishedAt = now();
   await commitEffectBatch(
     database,
     {
-      statements: replaceDocumentSplitStatements(database, {
-        id: splitId,
-        // The catalog is still keyed by matter. It is the one part of the scope that costs a per-firm
-        // schema change to widen, and unlike the object key it costs the same whenever it is done — the
-        // rows are a rebuildable index of derived objects, not the objects themselves. It widens with
-        // the corpus kind that first needs it.
-        matterId,
-        documentId,
-        version: message.version,
-        objectKey,
-        documentCount: built.published.documentCount,
-        sizeBytes: built.published.sizeBytes,
-        schemaGeneration: built.published.schemaGeneration,
-        createdAt: now(),
-      }),
+      statements: [
+        // MARK AND PUBLISH TOGETHER, in the one batch, or neither. A compacted split still holds the
+        // passages of whatever earlier version of this document it was merged from, and both it and the
+        // split about to be inserted are live. Between the insert and the mark the query path would
+        // return this document twice — once as it is and once as it was — so the window has to be zero,
+        // and the only way to make it zero is to put both writes in the same atomic batch.
+        markMembersStaleForDocumentStatement(database, documentId, publishedAt),
+        ...replaceDocumentSplitStatements(database, {
+          id: splitId,
+          // The catalog is still keyed by matter. It is the one part of the scope that costs a per-firm
+          // schema change to widen, and unlike the object key it costs the same whenever it is done — the
+          // rows are a rebuildable index of derived objects, not the objects themselves. It widens with
+          // the corpus kind that first needs it.
+          matterId,
+          documentId,
+          version: message.version,
+          objectKey,
+          documentCount: built.published.documentCount,
+          sizeBytes: built.published.sizeBytes,
+          schemaGeneration: built.published.schemaGeneration,
+          createdAt: publishedAt,
+        }),
+      ],
       outboxMessages: [],
     },
     { now },
   );
 
   await coordinator.markIndexed(objectKey);
+
+  // THE COMPACTION TRIGGER, and it is deliberately only a count. Publishing a split is what makes a
+  // corpus's live split count grow, and the read path's cost grows with it — a query is handed every
+  // live split and reads each one separately — so this is the moment the platform can notice, for the
+  // price of one indexed count against a table it has just written. What it must NOT do here is merge:
+  // a merge is proportional to the corpus, so merging on every write would be quadratic in it.
+  //
+  // The coordinator single-flights per corpus, so a burst of a thousand ingests over the threshold
+  // produces one compaction in flight rather than a thousand, and a pass that is bounded re-enqueues
+  // itself while the corpus is still over — which is what makes a large back-catalogue converge without
+  // any one merge being unbounded. A failure here is swallowed on purpose: the document IS indexed, the
+  // daily backstop will notice the same threshold, and turning a housekeeping hiccup into a failed index
+  // job would take a searchable document back out of the corpus.
+  try {
+    const policy = await readSearchCompactionPolicy(database);
+    if (await corpusNeedsCompaction(database, matterId, policy)) {
+      await env.SEARCH_COMPACTION_JOB.get(
+        env.SEARCH_COMPACTION_JOB.idFromName(searchCompactionJobName(message.firmId, matterId)),
+      ).start({ firmId: message.firmId, matterId });
+    }
+  } catch (caught) {
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `queue:search-index:compaction-trigger`,
+      caught,
+      newCorrelationId(),
+    );
+  }
 }
 
 export function resolveSearchIndexPorts(env: Bindings): SearchIndexPorts {

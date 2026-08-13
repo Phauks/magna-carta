@@ -123,7 +123,10 @@ fn merge_opened(
 /// without them, which is what makes the split smaller and keeps a query from walking postings that can
 /// never contribute a hit. Stopping after the first step would be correct and would leave compaction
 /// unable to reclaim anything a re-index superseded.
-fn apply_exclusions(index: &Index, exclude_document_ids: &[String]) -> Result<Vec<String>, SearchError> {
+fn apply_exclusions(
+    index: &Index,
+    exclude_document_ids: &[String],
+) -> Result<Vec<String>, SearchError> {
     let schema = SearchSchema::build();
     let present = document_ids_present(index, exclude_document_ids)?;
     if present.is_empty() {
@@ -246,7 +249,10 @@ mod tests {
 
         let footer = read_footer(&merged.bytes).unwrap();
         assert_eq!(footer.schema_generation, SCHEMA_GENERATION);
-        assert_eq!(footer.document_count, 13, "12 documents, one with 2 passages");
+        assert_eq!(
+            footer.document_count, 13,
+            "12 documents, one with 2 passages"
+        );
         assert_eq!(merged.document_count, 13);
 
         // Every document the sources held still matches the term they all share.
@@ -274,7 +280,11 @@ mod tests {
             .filter(|name| !name.starts_with('.') && *name != "meta.json")
             .filter_map(|name| name.split('.').next())
             .collect();
-        assert_eq!(segments.len(), 1, "a merge must produce one segment, got {segments:?}");
+        assert_eq!(
+            segments.len(),
+            1,
+            "a merge must produce one segment, got {segments:?}"
+        );
     }
 
     #[test]
@@ -356,7 +366,9 @@ mod tests {
                 let end = offset
                     .checked_add(length)
                     .filter(|end| *end <= self.0.len())
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "range past end"))?;
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::UnexpectedEof, "range past end")
+                    })?;
                 Ok(self.0[offset..end].to_vec())
             }
             fn total_len(&self) -> usize {
@@ -375,7 +387,9 @@ mod tests {
         assert_eq!(ranged.document_count, in_memory.document_count);
         assert_eq!(
             query_split(&ranged.bytes, "agreement", 100).unwrap().len(),
-            query_split(&in_memory.bytes, "agreement", 100).unwrap().len()
+            query_split(&in_memory.bytes, "agreement", 100)
+                .unwrap()
+                .len()
         );
     }
 }

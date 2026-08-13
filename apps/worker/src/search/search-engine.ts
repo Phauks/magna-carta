@@ -1,9 +1,12 @@
 import {
+  compacted,
   found,
   indexed,
   removed,
   searchAdapterError,
   searchEngineNotImplemented,
+  type CompactResult,
+  type CompactedSplit,
   type IndexResult,
   type RemoveResult,
   type SearchHit,
@@ -72,11 +75,28 @@ function serviceBindingPort(search: Pick<Fetcher, "fetch">): SearchIndexPort {
           text: input.text,
           mode: input.mode,
           limit: input.limit,
-          splitKeys: input.splitKeys,
+          // Each split travels with its own exclusions. The engine applies them per split as it reads it,
+          // because the same document is legitimately live at a newer version in a different split.
+          splits: input.splits,
         });
         if (!response.ok) return searchAdapterError(`search service ${response.status}`);
         const body = (await response.json()) as { hits: SearchHit[] };
         return found(body.hits);
+      } catch (error) {
+        return searchAdapterError(error instanceof Error ? error.message : "search service error");
+      }
+    },
+    async compact(input): Promise<CompactResult> {
+      try {
+        const response = await post("compact", {
+          firmId: input.firmId,
+          corpus: input.corpus,
+          sources: input.sources,
+          objectKey: input.objectKey,
+        });
+        if (!response.ok) return searchAdapterError(`search service ${response.status}`);
+        const published = (await response.json()) as CompactedSplit;
+        return compacted(published);
       } catch (error) {
         return searchAdapterError(error instanceof Error ? error.message : "search service error");
       }
@@ -92,6 +112,7 @@ const deferredPort: SearchIndexPort = {
   index: () => Promise.resolve(searchEngineNotImplemented()),
   remove: () => Promise.resolve(searchEngineNotImplemented()),
   query: () => Promise.resolve(searchEngineNotImplemented()),
+  compact: () => Promise.resolve(searchEngineNotImplemented()),
 };
 
 // Resolve the SearchIndexPort to the search worker when its binding is present, else the deferred port.

@@ -219,6 +219,16 @@ export type Bindings = {
   // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
   // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
   SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
+  // The split-compaction coordinator: keyed firmId:corpusId, and keyed that way because two concurrent
+  // compactions of one corpus would each merge overlapping splits and leave every document in the
+  // overlap live in two merged splits at once.
+  SEARCH_COMPACTION_JOB: DurableObjectNamespace<
+    import("./search/compaction-coordinator.ts").SearchCompactionJob
+  >;
+  // The compaction queue: the consumer merges a corpus's small splits into one, publishes it, and swaps
+  // the per-firm catalog in a single batch. Never on a query or a request path — a merge is proportional
+  // to the bytes it reads and the corpus decides those.
+  SEARCH_COMPACTION: Queue<import("./search/compaction-types.ts").SearchCompactionMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;

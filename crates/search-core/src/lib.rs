@@ -246,7 +246,9 @@ mod tests {
                 let end = offset
                     .checked_add(length)
                     .filter(|end| *end <= self.data.len())
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "range past end"))?;
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::UnexpectedEof, "range past end")
+                    })?;
                 self.reads.fetch_add(1, Ordering::Relaxed);
                 Ok(self.data[offset..end].to_vec())
             }
@@ -317,7 +319,9 @@ mod tests {
                 let end = offset
                     .checked_add(length)
                     .filter(|end| *end <= self.0.len())
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "range past end"))?;
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::UnexpectedEof, "range past end")
+                    })?;
                 Ok(self.0[offset..end].to_vec())
             }
             fn total_len(&self) -> usize {
