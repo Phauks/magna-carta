@@ -346,6 +346,31 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "what the client was told the firm did, held as free text with no structured subject, frozen once the invoice is finalized",
   },
+  // Corrections after finalization sit on exactly the same footing as the bill they correct, and for
+  // the same reason: a credit note is a document the firm has already given a client, and the firm
+  // has to be able to produce it for its own accounts and for a fee dispute. Erasing one would leave
+  // a posting in the ledger nobody could attribute, which is the argument the invoice row makes.
+  {
+    table: "credit_note",
+    subjectKey: "reason",
+    action: "report-manual",
+    note: "the firm's own account of why a bill was wrong, held as free text with no structured subject and frozen at issue",
+  },
+  {
+    table: "credit_note_line",
+    subjectKey: "description",
+    action: "report-manual",
+    note: "what the client was told was being credited, held as free text with no structured subject and frozen at issue",
+  },
+  // Money the firm has conceded is not its own and has not yet given back. Retained on the matter's
+  // footing: an open obligation to a client cannot be erased out from under the client it is owed
+  // to, and the subject-side scrub happens at the Directory entity.
+  {
+    table: "client_credit",
+    subjectKey: "client_entity_id",
+    action: "retain-under-matter",
+    note: "who the firm owes money back to, on a record it must be able to produce until the obligation is discharged",
+  },
   // The case calendar. Only one of its four tables carries a structured reference to a person: who
   // was, or will be, at a hearing. It resolves to a subject three ways because all three shapes
   // really occur, and the third is why one key would not be enough — an EXTERNAL participant (the

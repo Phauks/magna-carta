@@ -206,6 +206,86 @@ export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): 
     .bind();
 }
 
+// A CREDIT NOTE, A WRITE-OFF, AND A REVERSAL EACH BRING EXACTLY ONE RECEIVABLE CREDIT — and a
+// reversal's is a DEBIT, because it takes one back.
+//
+// The mirror of the trust query above, in the other direction. There the danger is a second credit
+// composed for a movement trust already posted; here it is NO credit at all, or two. A correction
+// that moved `applied_minor` with nothing on the firm's books to match reduces what a client owes
+// while the receivable control account carries on as before, and the drift is exactly as silent: the
+// ledger stays balanced, every entry stays valid, and nothing fails.
+//
+// The entry is read from the row that OWNS the posting — the note for a credit note, the application
+// for everything else — which is the pairing the `invoice_application_entry_paired` trigger holds.
+// A trust application is deliberately absent from this query: it is proved by the trust query above,
+// which asserts the opposite thing about it.
+export function billingCompositionsWithoutTheirReceivablePostingStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT application_id, invoice_id, kind, expected_direction, receivable_line_count
+         FROM (SELECT a.id AS application_id,
+                      a.invoice_id AS invoice_id,
+                      a.kind AS kind,
+                      CASE WHEN a.kind = 'reversal' THEN 'debit' ELSE 'credit' END AS expected_direction,
+                      (SELECT COUNT(*)
+                         FROM ledger_line l
+                         JOIN firm_account_role r ON r.role = 'accounts_receivable'
+                        WHERE l.entry_id = COALESCE(a.entry_id, (SELECT n.entry_id FROM credit_note n WHERE n.id = a.credit_note_id))
+                          AND l.account_id = r.ledger_account_id
+                          AND l.direction = CASE WHEN a.kind = 'reversal' THEN 'debit' ELSE 'credit' END) AS receivable_line_count
+                 FROM invoice_application a
+                WHERE a.kind <> 'trust_transfer')
+        WHERE receivable_line_count <> 1`,
+    )
+    .bind();
+}
+
+// A CLIENT CREDIT'S DISCHARGED TOTAL IS THE SUM OF THE APPLICATIONS THAT DISCHARGED IT. The delta and
+// the application row are written by the one composer in the same batch, so a row here means a
+// credit was recorded as given back without an application saying where it went — or, in the other
+// direction, that a reversal gave one back without the delta following it. Same class of finding as
+// the balance-versus-applications query above, and the reason the composer writes both or neither.
+export function clientCreditsDisagreeingWithApplicationsStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT c.id AS client_credit_id,
+              c.discharged_minor AS discharged_minor,
+              COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -o.amount_minor ELSE a.amount_minor END), 0) AS application_sum_minor
+         FROM client_credit c
+         LEFT JOIN invoice_application a
+                ON (a.client_credit_id = c.id AND a.kind = 'client_credit')
+                OR (a.kind = 'reversal'
+                    AND EXISTS (SELECT 1 FROM invoice_application r
+                                 WHERE r.id = a.reverses_application_id AND r.client_credit_id = c.id))
+         LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
+        GROUP BY c.id, c.discharged_minor
+       HAVING c.discharged_minor <> COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -o.amount_minor ELSE a.amount_minor END), 0)`,
+    )
+    .bind();
+}
+
+// A CREDIT NOTE CORRECTS A FINALIZED INVOICE, and never reduces a matter's balance below what has
+// already been applied to it. The first half is a trigger and the second is the bounds CHECK, so a
+// row here means one of the two was bypassed — the query exists because both are guarantees about
+// rows this table can hold, and an invariant that cannot be re-proved against stored data is one you
+// are trusting rather than holding.
+export function creditNotesAgainstUnfinalizedInvoicesStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS credit_note_id, n.invoice_id AS invoice_id, i.status AS status
+         FROM credit_note n
+         JOIN invoice i ON i.id = n.invoice_id
+        WHERE i.status <> 'final'`,
+    )
+    .bind();
+}
+
 // A MATTER IS NOT BILLED PAST ITS CONTINGENCY ENTITLEMENT. The entitlement ceiling is the IN-FORCE
 // contingency version's share against the basis as it survives NOW — the non-voided recoveries,
 // minus (under the net-after-costs election) the matter's approved or billed advanced costs — and
@@ -220,6 +300,14 @@ export function flatFeeBilledBeyondArrangementStatement(database: SqlDatabase): 
 // reported here — the agreement moved on, and its old bills answer to the versions that issued
 // them. The half-up CAST matches the line boundary's half-away-from-zero exactly, because the base
 // here is never negative.
+//
+// BILLED IS NET OF THE CREDIT NOTES ATTRIBUTED TO THOSE FEE LINES, and that is what makes the
+// finding actionable rather than permanent. A finalized invoice cannot be edited, so the only record
+// that can answer a shrunk basis is a credit note standing beside the bill; comparing the gross
+// charge would leave every such matter reported forever, with the one correct remedy having no
+// effect on the report that demanded it — and a report nothing can clear stops being read. Only a
+// credit aimed at a contingency fee line counts, through `credit_note_line.credits_invoice_line_id`:
+// a general credit against the same bill is not a statement about the fee.
 export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
@@ -227,6 +315,13 @@ export function contingencyBilledBeyondEntitlementStatement(database: SqlDatabas
          FROM (SELECT a.matter_id AS matter_id,
                       a.id AS in_force_arrangement_id,
                       (SELECT COALESCE(SUM(l.amount_minor), 0)
+                              - COALESCE((SELECT SUM(c.amount_minor)
+                                            FROM credit_note_line c
+                                            JOIN invoice_line cl ON cl.id = c.credits_invoice_line_id
+                                            JOIN invoice ci ON ci.id = cl.invoice_id
+                                            JOIN matter_billing_arrangement cv ON cv.id = cl.billing_arrangement_id
+                                           WHERE cv.matter_id = a.matter_id AND cv.kind = 'contingency'
+                                             AND cl.kind = 'fee' AND ci.status = 'final'), 0)
                          FROM invoice_line l
                          JOIN invoice i ON i.id = l.invoice_id
                          JOIN matter_billing_arrangement v ON v.id = l.billing_arrangement_id
