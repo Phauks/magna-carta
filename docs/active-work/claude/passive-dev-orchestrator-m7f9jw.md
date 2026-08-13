@@ -6,514 +6,436 @@ status: building
 touches: docs/active-work/ (sweeps), docs/deploy-queue.md, status.d/ (merged-stream repairs), .claude/settings.json, delegated agent branches (each with its own note)
 ---
 
-Long-lived orchestration stream running while the owner is away. This note doubles
-as the **revival document**: everything a fresh context or container needs to resume
-at full capacity. Keep it current at every milestone — it is the durable memory.
+# Orchestrator revival document
 
-## Mandate (owner decisions, 2026-08-04, all recorded in-session)
+Long-lived orchestration stream. This note is the **durable memory**: everything a
+fresh context or container needs to resume at full capacity.
 
-- **Full-program authorization** — any backend slice, any fix, any phase 0-7.
-- **UI surfaces deferred to the owner** (they have opinions). Backend seams only.
-- **Production deploys never** (`git push origin main:release` forbidden; deny rule
-  enforces it). Pending activations accumulate in `docs/deploy-queue.md`.
-- **Merges allowed** once the gate is green and a review passed. Merge explicitly via
-  the GitHub API; repo auto-merge is not relied on.
-- **Golden-rule-14 consent granted** for the LibreOffice conversion engine
-  (C++ in a network-isolated Container, the Collabora precedent).
-- **Invariant-heavy designs** (trust accounting 3·2, crypto/compliance calls like
-  protected-column changes) get analysis + a written flag for owner review, not
-  unilateral build.
-- **Standing "dream" directive**: continually look for improvements and expanded
-  functionality; confirm tools are genuinely useful; capture ideas in the status
-  artifact's ideas ledger; promote mature ones to ROADMAP's interest list or a spec.
+**How to write to this file.** Each section below carries a write rule, and the rules
+are the point — this document became a 743-line blob because there was no rule about
+where anything went, so every update appended another full restatement of the world.
+Sections 1, 3 and 4 change rarely. Section 2 is **overwritten**, never appended —
+only the current position matters, and git already keeps the old ones. Section 5 is
+mutated as items resolve. Section 6 grows, but curated. Section 7 gets **one line**
+per milestone, never a paragraph. Detail belongs in the PR and the commit, not here.
+
+Do not restate the task board or ROADMAP here. They are the home for the queue
+(golden rule 9); this note points at them.
+
+---
+
+## 1. Cold start — read this section first
+
+1. `git fetch origin`, check out this branch, read this note top to bottom.
+2. Read `docs/deploy-queue.md`, run `TaskList`, and fetch the status artifact
+   (section 4 has the URL).
+3. Reconcile reality against section 2: list open PRs, and
+   `git ls-remote origin 'refs/heads/claude/*' 'refs/heads/remediate-*'`.
+   Anything a dead agent left half-done shows up as a branch with no PR, or a PR
+   with no merge.
+4. Re-arm: PR subscriptions for every open PR you own, a `send_later` check-in if a
+   gate is running, and confirm the heartbeat trigger's state matches section 4.
+5. Work **section 8**, the execution order — it says what to do next and why. The task
+   board holds the items themselves. Update section 2 and the artifact at each milestone.
+
+---
+
+## 2. Current state — OVERWRITE THIS SECTION, never append
+
+_Last updated 2026-08-11, ~03:00 UTC._
+
+- **Merged:** 149 pull requests. Head PR is **#194**.
+- **Open PRs, both awaiting the owner:**
+  - **#192** status page — upstream severity scoping plus the 90-day bar's
+    accessibility. Verified and mergeable; carries three owner decisions (polling
+    host `www` vs `new`, the empty-store false green, per-tick vs run-length
+    screen-reader announcement). Public UI surface, so it waits.
+  - **#186** `docs-sync/2026-08-10` — propose-only by its own skill, six action
+    items, base six merges behind, and ONE modify/delete conflict caused by #193
+    (it reformatted a fragment this branch deletes). Resolution is to accept the
+    deletion; commented on the PR.
+- **CI:** still dead. Root jobs get no runners, all downstream skip. The austerity
+  merge bar (section 3) applies.
+- **In flight:** nothing.
+- **Main's own gates were both red and are now green.** #193 fixed the format gate
+  (six files failing on main itself) and #194 fixed typecheck (thirteen ES2023
+  call sites against an ES2022 `lib` pin). Both had the same shape: a branch
+  inherited a red gate regardless of its own diff. Worth re-checking periodically —
+  `pnpm exec vp fmt --check` and `pnpm exec vp run typecheck` answer it in minutes.
+- **Journal gap:** section 7 covers through #194 at the summary level. Per-PR detail
+  for #183–#191 was never written; reconstruct from git if it is ever needed.
+
+---
+
+## 3. Mandate — owner decisions only; do not edit from inference
+
+Recorded in-session 2026-08-04 unless dated otherwise.
+
+- **Full-program authorization** — any backend slice, any fix, any phase 0–7.
+  (Widened 2026-08-07; the original text restricted phases.)
+- **UI surfaces are deferred to the owner.** One standing exception: the **sign-in
+  surface** was opened 2026-08-07. The rest of the UI stays parked.
+- **Production deploys never.** `git push origin main:release` is forbidden and a
+  deny rule enforces it. Pending activations accumulate in `docs/deploy-queue.md`.
+- **Merges** require a green gate plus a passed review, merged explicitly through the
+  GitHub API. Repo auto-merge is not relied on.
+  - **Austerity bar** (active whenever CI is dead): full local suites plus an
+    adversarial review substitute for the gate. This bar has caught three money bugs
+    pre-merge that no test caught — keep it honest, it is not a formality.
+- **Invariant-heavy designs** — trust accounting, crypto and compliance calls such as
+  protected-column changes — get analysis plus a written flag for owner review. Never
+  a unilateral build.
+- **Golden-rule-14 consent granted** for the LibreOffice conversion engine (C++ in a
+  network-isolated Container, on the Collabora precedent).
+- **Standing "dream" directive** — continually look for improvements and expanded
+  functionality, confirm tools are genuinely useful, capture ideas in the status
+  artifact's ideas ledger, promote mature ones to ROADMAP's interest list or a spec.
 - Build modularly; spec-first for new slices (golden rule 8); no emojis; no
-  process-artifact references in code (never cite F-NNN finding ids in source).
+  process-artifact references in code.
 
-## Standing infrastructure
+### Cost discipline (added 2026-08-08 after a usage incident)
 
-- **Status artifact** (owner-visible log, update at every milestone):
+Half a week's model budget went in 24 hours, unnoticed until the owner raised it.
+Four structural causes, all still live if unwatched: universal adversarial review on
+every PR, transcript-replaying agent resumes, a high heartbeat cadence, and a high
+merge rate. **Watch burn actively and raise it before the owner has to.** The
+heartbeat now runs at a 3-hour cadence rather than hourly.
+
+---
+
+## 4. Standing infrastructure
+
+- **Status artifact** (owner-visible log; refresh at each milestone):
   https://claude.ai/code/artifact/494243b6-b656-47bf-be52-25e1b33f68e3
-  (republish the scratchpad file `orchestrator-status.html`; if the scratchpad is
-  gone after a restart, rebuild the page from this note + git history and republish
-  with the `url` parameter to keep the same link).
-- **Hourly heartbeat routine** `trig_01Kc6QhpUarReG4qmirNxbkc` (fires :09) — carries
-  the full standing instructions; it revives this session after usage gaps.
-- **Permission allowlist** committed in `.claude/settings.json` (this branch):
-  git/pnpm/node/cargo, both tool servers, file/agent tools; deny guards on deploy
+  Republish the scratchpad file `orchestrator-status.html`. If the scratchpad is gone
+  after a restart, rebuild the page from this note plus git history and republish
+  with the `url` parameter to keep the link stable.
+- **Sign-in mockup artifact:** https://claude.ai/code/artifact/5293058a-000e-4662-bdfa-5c9992259f57
+  (scratchpad `sign-in-mockup.html`). **I publish; agents never do.**
+- **Background lab artifact:** https://claude.ai/code/artifact/1830af71-7175-4122-95f2-531c7467154e
+- **Heartbeat routine** `trig_01Kc6QhpUarReG4qmirNxbkc` — carries the full standing
+  instructions and revives this session after usage gaps. 3-hour cadence.
+- **Permission allowlist** committed in `.claude/settings.json` on this branch:
+  git/pnpm/node/cargo, both tool servers, file and agent tools; deny guards on deploy
   paths and force-pushes to main.
-- Weekly routines that exist and are healthy: docs-sync (Mon 14:05 UTC), a second
-  MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
-  persisted), dependency updates (Mon 14:30).
+- **Healthy weekly routines:** docs-sync (Mon 14:05 UTC), a second docs-sync
+  (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not persisted),
+  dependency updates (Mon 14:30).
+- **Austerity revert checklist** is armed for Sept 1 — trigger
+  `trig_01CyD83cWkUfdtGdPxz5vmob`, and PR #171's fail-fast changes are marked to
+  revert with it.
 
-## Position update (2026-08-06 ~23:50 UTC) — campaign 2 nearly closed; Magnus LIVE; owner scope answers banked
+---
 
-One hundred eighteen merged. OWNER TURNS today (all genuine): (1) SUCK IT
-rounds — status protocol name. (2) Directives: finish-the-designs (tasks
-103-106 created + 93/95/96/97 stand), search/discovery STATS harness (107 —
-standardized owner-readable speed report), Magnus BUILD authorized (AI
-Gateway seam, opt-in), AI Search design-then-flags + opt-in. (3) Flags:
-H1/D3/L3/F1 ratified (#145); Magnus F2 (four working roles)/F3 (per-convo
-grants)/F4b ratified — F4b REFRAMED: transcripts are WORK PRODUCT (protected,
-deletable, archivable; discoverable like email BUT any search/discovery
-surface reaching them needs an EXPLICIT include-or-exclude control — binds
-discovery 5·1·2+, recorded #158). (4) Queue-when-time scopes: conflicts BOTH
-gaps (112), reporting ALL FOUR surfaces bar-audit-first (113), discovery 5·2
-tagging-first (114) — start when current queue drains. (5) Queue-level
-question answered: 2 heavy + 2 light is the box optimum; expansion = buy
-Actions minutes (recommended) / bigger env / wait Sept 1 — OWNER HAS NOT
-CHOSEN; austerity bar stands. MERGED since 108: #149 assets (idx 38), #150
-discovery Rust core, #151-153 campaign-2 reviews (43 findings: 7H/17M/19L),
-#154 R1 financial fixes (H1 trust attribution — client derived from
-matter_party, its one home now in packages/matters/src/matter-party.ts),
-#155 AI Search assessment (adopt-partially retrieval-first; instance-per-firm
-only shape that scales; filter-disjunction docs CONTRADICTION — test before
-walling; matter-dimension R2 metadata = build-now task 110), #156 Magnus
-design (NO new port — @magna-carta/inference IS the seam; ADR-0111/0112/0113),
-#157 R2 operational fixes (two-signatory bound to real members, idx 39),
-#158 flags, #159 MAGNUS SLICE 1 (idx 40; FIFTH permission inventory found:
-RESOURCE_BY_PERMISSION_NAMESPACE in conformance.test.ts; JobProgressSockets
-deliberately NOT reused — bucket attachment is a signed-URL guard). IN
-FLIGHT: R3 automation fixes (final worker run; addDays/sweep-convergence/
-DKIM-From; duplicate-From finding DISPROVEN by test; no migration) + billing
-3·4·2 trust application (tag 20260806T060000 idx 41 expected; no-double-
-credit dedicated test; two-person disposition flagged). Journal head idx 40.
-QUEUE: 103 discovery 5·1·2 (F4b include/exclude control), 104 auto-file
-wiring, 106 assets 4·3·2/3, 93 catalog 2-4, 95-97, 107 stats, 109/110 AI
-Search, 90; THEN owner-scoped 112/113/114. NO 6/7, NO UI. Sept 1 revert
-armed. Contention adjudication standard mature: disjoint-sets + isolation
-pass + honest disclosure; base-vs-changes stash-testing now standard.
+## 5. Open with the owner — awaiting a decision; delete each when answered
 
-## Position update (2026-08-06 ~04:20 UTC) — OWNER REDIRECT: deepen 0-5 only; UI parked
+- **Trust:** whether one person should be able to dismantle the two-person control.
+  A single seeded attorney can relax the policy to `off` and then act alone, audited.
+- **Trust:** matter-to-matter reallocations sit outside the authorization policy.
+  Nothing leaves trust, so this is a reporting concern rather than a money one.
+- **Trust:** the threshold posture's structuring limitation — two at-threshold
+  requests bypass one above-threshold rule. Stated honestly in the ADR and the admin
+  guide; an aggregation guard is future work.
+- **Trust:** Nevada attorney review of the jurisdiction corpus, and the T3 bank-charge
+  rule text. The corpus ships marked NOT-VERIFIED until this happens.
+- **Escheat (T16):** research returned and awaits the owner before anything is
+  encoded. Finding: trust funds do **not** escheat.
+- **AI Search:** the live fenced-account run needs Cloudflare credentials.
+- **Infrastructure the owner must do:** install the Renovate app; optionally enable a
+  merge queue; delete stale remote branches (the git proxy 403s ref deletions, so
+  branch cleanup is manual); the bot self-merge setting.
+- **Actions minutes are exhausted, and it is costing more than the gate.** Every run
+  since **2026-08-07T08:08Z** dies at runner assignment. That takes `assemble-docs`
+  down with the gate, so committed fragments stop folding: by 2026-08-12 roughly a
+  hundred `changelog.d/` fragments had piled up unrendered. Restoring the budget
+  restores both; until then a docs-sync pass is the only thing folding them.
+- **Build stamp:** "PST" is hardcoded, but August in Los Angeles is PDT. Owner's call
+  whether the label should track the real offset.
 
-One hundred eight merged. OWNER TURNS (2026-08-06, genuine): (1) Flag round —
-H1/D3/L3/F1 ALL RATIFIED as recommended, B1 by acknowledged silence (recorded
-docs/decisions/pending/design-flags-h1-d3-l3-f1-ratified.md, #145). (2)
-DIRECTION: "I would be surprised if only 6/7 are next steps. if that is the
-case, do not start work on any of those. I feel like we need to further
-develop 0-5" — NO phase 6/7 work (portal/payments/exports designs NOT
-started); queue re-aimed at 0-5 depth: review campaign 2 over all post-F-173
-code (task 94), Notifications delivery design+build (95 — emission points
-wired to nothing), 2·6·3 PDF+e-sign tail (96), load-profile gaps custodian+
-calendar (97), catalog slices 2-4 (93, H1 unlocked), discovery builds,
-billing 3·4·2, auto-file 2, numbering consolidation (90). (3) UI: "not doing
-UI until after this trip, so no work on it yet" — FULLY PARKED, no design, no
-prep. MERGED since 100: #142 auto-file slice 1 (partial-index find; demotion
-reason flagged to slice 2), #143 billing spine (proven-union batch method
-born here), #144 calendar (idx 36; matter.created allowlist fix; interleave
-trap dodged by rebuild-from-main), #145 ratifications, #146 catalog slice 1
-(idx 37; H1-free proven; golden keys 35->37; latent type error outside diff
-found by tsc), #147 D3 widening (KEY-SHAPE RULING: id-only, kind segment
-redundant — discovery 5·1·1 reconciles the decision record's wording, task
-99 carries it). Journal head idx 37 = 20260806T010000. IN FLIGHT: assets
-slice 1 (tag 020000, idx 38 expected) + discovery 5·1·1 (tag 030000). Merge-
-queue discipline mature: pre-assign tags in dispatch order, second-to-merge
-retags, database typecheck FIRST after any merge, generated files re-derived
-never hand-merged, structural no-lost-operations diff. Sept 1 revert armed.
+---
 
-## Position update (2026-08-05 ~22:00 UTC) — ONE HUNDRED MERGED
+## 6. Hard-won knowledge — each of these cost real time; do not relearn them
 
-Merge 99 = #138 custodian destruction + Nevada catalog (task 83): two-person
-by trigger incl. NULL-requester case; execution needs a COMMITTED approval;
-intrinsic-value refusal closed at THREE layers (the agent found the ordinary
-movement path accepted a destroyed movement — a reachable override, fixed);
-NV-1..5 verbatim incl. the verified NEGATIVE (no lifetime deposit); C4 proven
-at 8/9; C6 advisory via a new CloseAdvisory hook that structurally cannot
-block (own MatterCloseAck component); migration idx 32 = 20260805T180000.
-Merge 100 = #140 composite extraction (task 86): born-digital PDFs now extract
-natively per page with native/ocr provenance on the RESULT (no schema);
-recognition gate moved into pdf-core so extractor and recognizer cannot
-disagree; re-extraction rides the existing daily cron; three typography bugs
-caught by genuine fixtures (inferred spaces, baseline grouping, per-line gap
-scaling). NO migration, NO contract move. IN FINAL REVIEW: #139 trust
-reconciliation (task 79 — four append-only tables, entry-keyed matching
-because earned-fee transfers write NO movement row [the load-bearing
-deviation], honest reds naming the leg, frozen closes, superseded-recon
-matches ignored by the outstanding read, T9/T10/T11 recommended defaults,
-profile v10; second-to-merge instruction SENT: retag idx 33 + regen contract +
-re-run affected). MERGE-QUEUE DISCIPLINE proven twice today: tag order
-decides merge order (custodian 180000 before recon 200000); contention flakes
-on shared 4 cores are adjudicated by disjoint-sets + isolation-pass evidence
-(accepted #138, #140 on that standard — import time 3.5x wall documents the
-contention; the box also rebooted once mid-run). After #139: dispatch task 73
-exports fix + first flag-free build slices (check merged plans: catalog slice
-1 H1-free?, auto-file slice 1 on F1 staged default, billing slice 1). Owner
-ledger: task 85, 50 flags (H1, D3-deadline, B1, L3, F1 first). Austerity
-reverts Sept 1 (trigger armed).
+Append here, grouped. Keep entries to the mechanism, not the incident.
 
-## Position update (2026-08-05 ~17:40 UTC) — OWNER SESSION: decisions, three new subsystem designs, lint lever landed
+### Migrations and schema
 
-Ninety-three merged. OWNER DECISIONS (genuine turns, ~15:30-16:10Z, recorded in
-docs/decisions/pending/ via #126): (1) Actions minutes reset START OF NEXT
-MONTH — one-shot trigger trig_01CyD83cWkUfdtGdPxz5vmob armed 2026-09-01 12:00Z
-fires the austerity revert into this session (task 61 updated). (2) T12
-RATIFIED: hard close block kept, no override. (3) TWO-PERSON DISBURSEMENT
-AUTHORIZATION: BUILD NOW (task 75, in flight — pending-request state, approver
-differs enforced in DB, ceiling re-checked at approval, single-manager firms
-recorded-as-such; migration idx 31 = 20260805T170000 expected). (4) Next work
-ALL FOUR ratified (recon/billing/auto-file/discovery, tasks 79-82) PLUS three
-new asks: merge-field catalog SYSTEM design (dedicated agent — DELIVERED,
-#127), matter ASSETS (properties/APN/accounts/vehicles/firearms, "estates and
-asset logging super easy" — DELIVERED, #130), case CALENDAR (litigation +
-case events — DELIVERED, #131). (5) Custodian C4-C11 ALL RATIFIED as
-recommended (#126; destruction workflow build unblocked = task 83); C8 =
-design-first, NEVADA first jurisdiction — research DELIVERED+MERGED (#128:
-NRS 136.050(1) 30-day delivery duty verbatim; no lifetime deposit procedure
-(affirmatively established — uniform-act web results are a TRAP, documented);
-lodging is county rule; NRS 133.300-133.340 e-will qualified-custodian role =
-owner decision, flagged). ALSO MERGED: #129 protected-value merge binding
-(Directory identifiers via the ONE decrypt path, audit reused, paralegal
-refusal = declared absence, plaintext proven absent from every row+log; scope
-honestly pivoted from "custom fields" — custom_field has NO protected model,
-future owner decision); #132 lint fan-out sink deferral (worker = 75.6%
-type-program weight; PR-tier defers sinks-as-dependents only, union-coverage
-fitness lint:affected-scope in governance, -68% lint minutes per merged
-change; app.ts hub named as the real refactor target). OWNER-ASK LEDGER now
-headlined by task 85: design flags H1-H6 (catalog; H1 gates 3/7 slices),
-A1-A5 (assets), L1-L7 (calendar; L3 = never compute deadlines from court
-rules without verified catalog). IN FLIGHT: two-person auth build (75),
-billing design (80), auto-file rules design (81). QUEUE: trust recon build
-(79), discovery design (82), custodian destruction+Nevada encoding (83),
-stale email-filing export (73), task 65 folds into Sept-1 revert. NEW GOTCHA:
-PII registry is a literal inventory — migration-bearing briefs MUST run
-data-access suite (#118 missed it, #125 repaired).
+- Control-plane migrations are generated (drizzle-kit plus the timestamp script) and
+  need their map entry in `control-plane-migrations.ts`. Per-firm migrations need
+  hand-registration in `apps/worker/src/per-firm-migrations.ts`.
+- Per-firm journal conflicts: keep both sides and renumber `idx` so it stays dense and
+  monotonic. drizzle-kit diffs against the tracked baseline — hand-extract only the
+  new DDL. Generated snapshots need `oxfmt`.
+- Snapshots form a `prevId` chain. A refresh that re-chains to the wrong parent is
+  invisible without the chain fitness check added in #180 — trust the check, not the
+  regeneration script.
+- drizzle-kit `generate` treats a column rename inside an **unmerged** migration as
+  no-change when run non-interactively: `check-snapshots` reports current while the
+  snapshot still holds the old name. Fix by deleting the new snapshot and
+  regenerating from the previous baseline.
+- Partial indexes **are** expressible in the drizzle schema — the repo does it about
+  twenty times. Any comment claiming otherwise is wrong (one such comment shipped).
+- The per-firm database is a **Durable Object**, not D1. Design accordingly.
 
-## Position update (2026-08-05 ~14:45 UTC) — gate integrity restored; custodian counts + role fields
+### Registries and merges
 
-Eighty-two merged. HEADLINE (#119, task 68 CLOSED): the gate of record was
-collecting 284 OF 719 test files — path filters match PER PROJECT against
-project-root-relative paths, so relative ancestor paths (`packages`,
-`tooling`) matched nothing and exited 0; apps/sign-worker was never listed
-anywhere. All 435 un-run files pass (un-run coverage, not hidden breakage).
-Fix: absolute "$PWD/..." paths + new lint:test-collection (floor 647, union
-= registry, jobs disjoint, invocations held verbatim vs gate.yml). TRAP also
-found: two negated --project patterns CANCEL (OR-ed regexes) — never use
-multiple negations. Verify live on first post-reset run (task 61). Also
-merged: #117 undeclared-body contract fix (task 66); #118 custodian stocktake
-(task 69 — observe-only at four depths, proposals never actions, migration
-idx 29 = 20260805T150000, C4-C11/C8 untouched); #120 status-fragment repair;
-#121 directory role sources (task 70 — opposingParty/opposingCounsel/guardian/
-witness via one already-issued party read, ambiguity = named reason on the new
-absenceReasons channel, never a silent pick; note: bare-key {{#if role.x}}
-rewrites to has() and answers no on ambiguity — documented, deliberate).
-NEW GOTCHAS: (a) `vp` NOT on PATH in fresh worktrees — bare `vp run bootstrap`
-exits 0 building nothing; always `pnpm exec vp run bootstrap` + verify pkg/
-dirs exist. (b) Killing a `pnpm test` wrapper ORPHANS the vite-plus-test cli.js
-process — orphans starve the box (~3x slower suites); kill the cli.js PID.
-(c) `pnpm --filter @magna-carta/web test` silently no-ops (no test script) —
-use `node_modules/.bin/vp test run --project=web`. (d) Worker firm-scoped rate
-bucket is 100/60s — big new route-test blocks need their own seeded firm.
-Building: email add-in client API (task 71). Queue: task 63 lint-fanout design,
-3·2·3 trust (T-flag check first), 2·6 protected-value binding, custodian
-receipts (blocked on matter-routed assembly) / portal visibility (blocked on
-portal grant model). Owner ledger unchanged; Actions reset date still top ask.
+- **Repo-wide registry scans live in the package that OWNS the registry, not in the
+  violator.** Per-package runs therefore cannot structurally catch them. **Ten known**,
+  and the count has risen every time somebody went looking — treat the list as a floor,
+  not an inventory, and grep for source-scanning fitness tests before claiming a slice
+  is done:
+  1. five permission inventories (one is `RESOURCE_BY_PERMISSION_NAMESPACE` in
+     `conformance.test.ts`, which is easy to miss)
+  2. the conformance not-vacuous operation list — update it when adding a route
+  3. the telemetry metric catalog — a metric missing from it is **silently dropped**,
+     so a subsystem ships with its observability going nowhere
+  4. `packages/data-access/src/pii-registry.ts` — its coverage test forces every table
+     to be classified
+  5. the problem-type registry inventory in `test/contracts/problem.test.ts`
+  6. the object-dimension source scan in `apps/worker` — fails any new R2 write path
+     that omits the dimension stamp
+- Keep-both conflict resolution on additive registries (`per-firm-schema.ts`,
+  `pii-registry.ts`, telemetry events) can **silently interleave** blocks: git aligns
+  on shared trailing lines — `createdAt`/`updatedAt`, closing brackets — and splices
+  one subsystem's declarations inside another's. Typecheck catches most, but a
+  schema-shaped splice can look plausible. After any registry merge, verify each
+  subsystem's block is contiguous before trusting it.
+- Generated files — `openapi.json`, the api-client — are **re-derived, never
+  hand-merged**. A 422 conflict on them means re-emit.
+- Resolve merge conflicts by hunk, never by whole file.
+- `status.d` slot numbers collide across parallel branches; move to the next free one.
+- Deleting a `docs/active-work` note requires flipping its `status.d` fragment to
+  `branch: main` with an empty `active-work:` in the **same** commit (`lint:status`).
 
-## Position update (2026-08-05 ~12:15 UTC) — trust movements + safe tooling landed
+### Build, tooling and tests
 
-Seventy-six merged. #114 tooling pair (task 54 CLOSED): fix:scoped now drives
-formatter and lint autofix separately with unsafe rules allowed off in the FIX
-PASS ONLY (tooling/check-scoped/unsafe-autofix-rules.mjs — the two known-bad
-rewrites still warn everywhere, never auto-apply); `pnpm test` is now a
-per-worktree single-flight guard (atomic wx lock, dead-holder + 90-min stale
-reclaim, MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1 override) — the wedge did NOT
-reproduce on this container, guard makes it moot. #115 trust 3·2·2 (task 67
-CLOSED): deposits (gross, lazy leaf + floor + first posting ONE batch),
-disbursements (ceiling = available, authorizer required), matter-to-matter
-transfers (bank-free same-client shape — NO phantom bank lines; guard admits
-exactly one bank-free shape, >=2 distinct matter leaves); append-only
-trust_movement client-ledger record with shape CHECKs; ledger pendingAccounts
-with stored-row-wins; migration idx 28 = 20260805T140000, snapshot 0028, no
-collision. MONEY_NAMESPACES gains trust; rule rebound to MUTATING methods
-(a GET has no write to deduplicate). Recommended-defaults shipped for owner:
-permit-all disbursement-method policy (T7 territory; method recorded from
-movement one) and authorizer = authenticated submitter (columns pre-split for
-two-person workflow). NEW gate-integrity finding (task 68): positional path
-filters REPLACE vitest collection rather than narrowing it (41/327 vs 666/6313)
-— gate.yml test-node may under-collect; audit + floor assertion, verify
-post-reset. tsconfig-refs main breakage repaired by #115's regeneration; 0027
-snapshot format drift joins 0022 in task 65. Swept ~29 stale active-work notes
-(this commit). Dispatched next: task 66 contract fix + custodian 4·2·4
-stocktake. Then: directory role sources, add-in client API, 3·2·3+ per
-analysis.
+- Fresh worktrees need `vp run bootstrap` before anything that imports the WASM
+  `pkg/` output. The pre-push hook needs it too — `SKIP_PREPUSH=1 git push` for
+  docs-only or CI-only work.
+- `vp` is not on PATH here. Use `pnpm exec vp` or the package scripts.
+- Never run `vp check --fix` blind over worker or ES2022 packages: `.sort()` becomes
+  `.toSorted()` and breaks them. Use the diff-scoped `pnpm fix:scoped`.
+- pnpm overrides go **only** in `pnpm-workspace.yaml`. In `package.json` they
+  silently break the vitest alias chain ("Vitest failed to find the runner"). Plain
+  `pnpm install`, never `--no-frozen-lockfile`.
+- Two concurrent full-suite runs on this box starve each other. Per-package plus CI
+  is the honest fallback.
+- **Test-pool live queue consumers race test bodies.** This was the root cause of both
+  historical full-suite flakes. The product verdict machines are correct and
+  deliberately untouched — overwritable failed/deferred _is_ the redelivery design.
+- Miniflare tests cannot read host fixtures — inline the strings. Register static
+  routes before parameterized ones.
+- Contention flakes on shared cores are adjudicated by disjoint-sets plus an
+  isolation pass plus honest disclosure. Stash-to-base testing is the standard.
+- Mockup HTML gets headless-Chromium verification before every publish
+  (`verify-mock.mjs` in the scratchpad; playwright-core under
+  `node_modules/.pnpm/playwright-core@1.60.0/`, chromium at `/opt/pw-browsers/chromium`).
+  **Verify what the host actually renders.** Mermaid is _not_ bundled in the mockup —
+  the artifact host renders it — so a local probe measures a `<pre>` and every
+  assertion about diagram geometry or node clicks passes against the wrong element.
+  Two features shipped "verified" and broken this way.
+- Batch text-edits use assert-replacements plus post-write marker checks. Two silent
+  failures happened without them.
 
-Seventy-three merged. The owner's entire selected wave is on main: trust 3·2·1
-foundation (#105), DKIM + add-in hardening (#106), 1-core ubuntu-slim runners
-(#107), 2·6·3 letterhead + custom-field bindings (#109), custodian gated release
-(#110), expression aggregates (#111 — sum/minimum/maximum full names; RULING:
-aggregate over an empty list = declared absence, a sum of no money cannot invent
-a currency; item-missing-field = unresolved, never skipped), and the
-binary-idempotency audit + documentAutomation load profile (#112, tasks 57+64
-closed). #112 outcome: ZERO live required+binary hits across 105 required-
-idempotency and 10 octet-stream operations; enforcement shipped at three depths
-(defineOpenAPIRoute startup guard, conformance rule over the emitted doc, source
-scan over routes/ — the third prong exists because `fileIntegrity.hash` and
-`scan.diagnose` stream `c.req.raw.body` while declaring NO body, invisible to a
-document-level rule; that contract inaccuracy is task 66, its own slice since it
-moves snapshot + client). Load profile v9: 181 templates / 479 versions / 1,605
-assemblies, all four hot paths index walks, scan allowlist EMPTY;
-merge-context median 0.741 ms tracks source count, not field count. Trust
-fitness deliberately NOT wired — the profile lays only subledger accounts;
-3·2 gets its own load-profile stage. GOTCHA reconFIRMED 3×: identical-timestamp
-migration collisions between parallel branches (second-to-merge retags +1s) —
-#94/#98, trust/email at 120000, custodian-3/2·6·3 at 130000; always check the
-journal tail before merging a migration-bearing PR. fix:scoped struck again in
-#112 (~35 lines incl. security-guard boolean churn — reverted; task 54 open).
-Queue: #54 tooling pair, 3·2·2 trust movements (check T4/T5 partial answers;
-unanswered T-flags ship recommended-default + flagged), custodian 4·2·4
-stocktake, directory role sources, add-in client API, task 66. Austerity
-unchanged (merge bar = full local suites + review; revert = task 61, reset date
-still unknown — owner-ask).
+### CI, security, environment
 
-## Position update (2026-08-05 ~09:30 UTC) — day-2 morning: owner decisions, austerity, trust foundation
+- Jobs failing at runner assignment — `runner_id 0`, about 3 seconds, **no logs** —
+  means the budget is exhausted, not that the code is broken. A real gate job produces
+  logs. Probe a **fresh** run before diagnosing; a stale run tells you nothing.
+  `get_job_logs` returns HTTP 404 for these, which reads like a tool fault and is not;
+  the tell is `runner_name: ""` in `list_workflow_jobs`.
+- The exhausted budget silently stops `assemble-docs` too, so `changelog.d/`,
+  `docs/decisions/pending/`, and `status.d/` fragments accumulate unrendered with
+  nothing announcing it. Check the newest `docs/maintenance/reports/` date against
+  `main` before assuming the trackers are current.
+- Workers Builds' production branch is `release`, not `main`.
+- osv gate: severity keys on CVSS >= 7.0; accepted advisories live only in the root
+  `osv-scanner.toml` (lockfiles via explicit `-L`). Kept for the mechanism, not the
+  dates — the 2026-10-14 advisories were resolved 2026-08-04.
+- Email Routing has **one** zone catch-all. That is why the control-plane token index
+  exists; never "simplify" it away.
+- No `gh` CLI here — use the GitHub tool server. The git proxy 403s ref deletions.
+  The osv-scanner binary is not downloadable.
+- Real hostnames: `magnacarta.esq` (apex, plus api./app./portal./firm./files./edit./
+  status./in./dmarc.), `magnacartausercontent.com` for user content on a separate
+  origin, `magna-carta.com` for marketing.
 
-Sixty-eight merged. OWNER DECISIONS 2026-08-05 (all in session): G1-G5 expression
-defaults RATIFIED + aggregates (sum/count/min/max) APPROVED as a follow-up slice;
-TRUST AUTHORIZED — T1 client-to-matter-leaves tree, T17 build before the pre-beta
-baseline; CI BUDGET: Actions minutes exhausted (runs fail with runner_id 0 —
-hard-down), owner chose MERGE ON LOCAL VERIFICATION (agent full local suites +
-orchestrator review) and SUSPEND the whole-repo lint entirely; austerity landed
-(#103, grep "TEMPORARY CI AUSTERITY 2026-08-05" to revert + one dispatched full
-gate before trusting main — task 61); Cloudflare CI question answered (#104):
-DO NOT MIGRATE (10% of billable minutes port; skipped builds emit no check run —
-never make a Cloudflare check required); better levers: 1-core ubuntu-slim
-runners for short jobs (LANDED #107, ~$20-60/mo) and the lint dependency-fanout
-(43% of the bill — task 63, needs design). MERGED this morning: trust 3·2·1
-foundation (#105 — every invariant by construction, T2-T16 seamed, transfers
-refuse by default pending T4); DKIM verifier + add-in hardening (#106 — journal
-idx 25 after an identical-timestamp retag to 120002; the chokepoint idempotency
-gate TEXT-DECODES cached bodies, mangling binary uploads — route kept optional +
-handler-side, audit task 64); drizzle snapshots repaired (#102 — refresh script +
-check-snapshots + NEW RULE in packages/database/CLAUDE.md: hand-written
-migrations refresh the snapshot same commit). Building: 2·6·3 letterhead +
-custom-field bindings, custodian slice 3. Queue: aggregates slice, load profile
-(task 57), tooling pair (54), binary-idempotency audit (64), snapshot format fix
+### Working with subagents
 
-- ubuntu-slim validation (65, folds into austerity revert). Owner ledger:
-  F2-F5/F9, C4-C11, G6-G8, T2-T16 per-slice, ADR-0109 + transcript-as-client-record,
-  deploy queue, Renovate, stale branches, bot self-merge, Actions RESET DATE
-  UNKNOWN — ask the owner when visible.
+- A subagent does **not** get resumed by its own background tasks. Arming a Monitor or
+  a background waiter and stopping burns the whole budget for nothing — one agent lost
+  293k tokens this way. Tell them explicitly not to.
+- **A `pgrep`-based wait loop matches itself and never exits.** `until ! pgrep -f "vp
+test"; do sleep 20; done` polls forever, because the waiter's own command line
+  contains the pattern. Two agents have left these behind; each orphan then fires a
+  task notification every time the harness reaps one, and every notification costs a
+  turn in the parent session. Find them with `ps -eo pid,args | grep 'until ! pgrep'`
+  and kill the shell plus its `sleep` children. Better: do not poll for a command's
+  completion at all — run it in the foreground, or background it and read the exit
+  code from a file it writes on the way out.
+- Give every file exactly one owner. Overlapping ownership turns a fast parallel pass
+  into a serial repair job.
+- Remove each agent's worktree at merge; the disk filled once.
+- **An agent can die silently, mid-build, with everything uncommitted.** It has happened
+  three times: one finished and never reported, two stopped with substantial work sitting
+  unstaged in their worktrees. Nothing warns you. When an agent goes quiet, look at
+  `git -C .claude/worktrees/<name> status --short` before assuming it is still thinking —
+  and commit whatever is there as labelled WIP _before_ reviewing it, because a container
+  reclaim or a `vp run clean` takes uncommitted work with it. Both recovered branches
+  turned out to be near-complete; what they had missed was a formatter pass and a
+  generated-artifact regeneration, which is exactly what a pre-push hook catches and a
+  dead agent never reaches.
 
-## Position update (2026-08-05 ~03:20 UTC) — evening wave complete
+### Watching things run — five ways this session lied to itself
 
-Fifty-nine merged through 08-05 01:45Z; the evening wave (#91-#98) all landed:
-the owner's consent overrules (#94 — merge-field absence-visibility, opt-in
-macro strip, per-firm mapping library), office-crypto replaced in-house (#95 —
-sixteen crates gone, ZERO accepted Rust advisories remain), the template
-expression language designed to the owner's expanded ceiling (#92 — flags
-G1-G8 pending, G1 unresolved-condition default and G4 aggregates the notable
-ones), the Cloudflare Agents assessment corrected against all 123 doc pages
-(#91 — verdict: keep our Durable Objects, harvest DO-native push-progress, an
-assistant surface gates on ADR-0109 + the transcript-as-client-record
-question), fix:scoped + the stack-demand guard (#93), the trust accounting
-analysis (#97 — owner checklist T1-T17; discoveries: the approved
-jurisdiction-profile design was never built and its 56-jurisdiction corpus
-never vendored; trust creates the first real chart-of-accounts rows, a pin
-the phase-3 map lacked), and custodian slice 2 (#98). Now building:
-push-progress WebSockets (claude/push-progress-websockets, task 55) and the
-2·6·2 conditionals slice (claude/automation-conditionals-slice, task 56, with
-recommended defaults applied and flagged). Queued: drizzle snapshot repair
-(task 53), fix:scoped/vp-test tooling pair (task 54), pre-beta baseline
-(task 45, owner-timed).
+Every one of these reported success or health that was not there. They share a single
+root: **trusting a signal without checking what it actually measured.**
 
-NEW GOTCHAS from the wave: parallel migrations sharing a timestamp prefix —
-retag the second-to-merge +1 second to keep tag ordering total (the #94/#98
-case); widening a CHECK constraint means rebuilding the table in SQLite —
-re-prove append-only triggers against the rebuilt table and carry the
-expand-contract annotation; fix:scoped's lint autofix rewrites .sort() to
-.toSorted() even outside ES2022 lib targets and makes drive-by edits — review
-its diff before committing (task 54); two concurrent vp test invocations
-deadlock at 0% CPU — serialize them; `vp test run --project X -- filter`
-hangs — pass paths, not positional filters.
+- **A probe that contains its own search term matches itself.** A `ps`/`pgrep` filter for
+  `trust-routes` finds the very command doing the filtering, so two dead agents read as
+  "2 procs, healthy" for three consecutive hours. Build the pattern so it cannot match the
+  probe (split the literal, or exclude `python3`/`bin/bash -c` rows), and sanity-check
+  against a worktree's file count and HEAD rather than process presence alone.
+- **`cmd | tail` returns tail's exit code, not the command's.** A FAILING gate reported
+  `exit 0` twice this way, and one of those went into a message to the owner. Use
+  `cmd > /tmp/x.log 2>&1; echo $?` or `${PIPESTATUS[0]}` — never judge a gate through a pipe.
+- **Piping a test run to `tail` also destroys the diagnosis.** Capturing only the summary
+  meant a 20-minute suite had to be re-run purely to learn _which_ tests failed. Redirect
+  the whole log to a file, then grep it.
+- **Bare `vp` is not on PATH.** `vp run bootstrap` exits "command not found"; combined with
+  the pipe trap above it looked like a successful bootstrap followed by an inexplicable
+  failure. Use `pnpm exec vp …` or the `pnpm run` script.
+- **The shell's working directory silently reverts.** A background command left cwd back at
+  the shared checkout, so `emit-openapi` ran against the ORCHESTRATOR BRANCH instead of the
+  agent worktree. It was a harmless no-op that time; it would not always be. Pass absolute
+  paths (`git -C <path>`, `cd <abs> && …` in the same invocation) rather than relying on a
+  persisted `cd` — which is what golden rule 7 already says.
 
-## Day-end position (2026-08-04 ~19:15 UTC)
+Related: **the `pnpm test` single-flight lock is per-worktree, not per-machine.** Running
+suites in two worktrees at once produces phantom failures that look like real breakage —
+one such run showed 5 failures across 3 files where a clean serial run showed 1. Before
+believing a failure, re-run it alone.
 
-Forty-seven pull requests merged. The whole-program-review fix campaign is
-COMPLETE (all ten batches + every confirmed-open residue item). The October
-advisory deadline is resolved early (#77: uuid fixed by pnpm override,
-quick-xml quadratic scan mitigated by a 64 KiB descriptor cap in
-decryption-core, lopdf 0.44 taken; the named exit is replacing office-crypto —
-its own slice). The LibreOffice engine, the tooling/hygiene batches, the
-telemetry runtime fixes, and the file-manager residue all landed.
+The sixth belongs with them, and it was a tool lying rather than a probe:
 
-THE OWNER RETURNED mid-day and decided: F1 braces are the one canonical
-placeholder form with MERGEFIELD CONVERTED at registration (opt-in, see
-below); F7 in-house TypeScript OOXML engine; F8 macros accepted-and-stripped
-(deviation from spec recommendation, security-boundary tests required);
-custodian C1/C2/C3 all as recommended. NEW BINDING POSTURE (ADR on main,
-`consensual-guided-data-conversion`): data conversion into the platform is
-consensual and guided — detection/reporting always on, conversion opt-in,
-never silent; confirmations accumulate as per-firm mapping libraries. The
-owner also AUTHORIZED the field-input UI infrastructure carve-out (delivered:
-#87 — merge-field catalog contract + design-system picker components +
-assembly input area over a mock provider; one file swaps when the real API
-wires up), and stated: no production firms exist, so migration ceremony is
-low-stakes and the schema gets condensed to a fresh baseline pre-beta (task
-45, owner-timed).
+- **`vp run clean` swept nothing, ever, and said so in a voice that sounded fine.** It
+  decided "is this branch merged?" with `git branch --merged` — pure ancestry — and this
+  repository squash-merges, so a landed branch is never an ancestor of anything and the
+  answer was permanently no. The post-merge hook had therefore reclaimed nothing since
+  installation, while printing `0 worktree(s) ... would reclaim 0.0 MiB`, which reads
+  exactly like a clean machine. Twenty-six landed worktrees had built up about **nine
+  gigabytes**; the disk was at 80 percent with 7.6 GB free and two agents about to start
+  Rust builds. Fixed on `main` (#221): a content test beside the ancestry one, and the
+  report now distinguishes "found nothing" from "declined everything".
 
-Built on those decisions same-day: custodian slice 4·2·1 (#86 — packet
-register, location tree, trigger-enforced append-only movements, custody
-numbering, journal idx 17/18) and document automation slice 2·6·1 (PR #88, in
-reconciliation: template catalogue, registration-time normalization with
-opt-in MERGEFIELD conversion and always-on detection, adversarial macro
-stripping with independent re-verification, merge assembly through the ingest
-chokepoint). #88's agent made two recorded judgment calls: macro stripping
-stays unconditional (changes what a document DOES, not says) and unconverted
-merge-field templates are REFUSED with the field list rather than registered
-inert (frozen cached text is invisible to the absence model). The register
-pipeline defect (#84) is fixed: fragment validation is loud, lint:decisions
-gates PRs, ADR-0210-0213 restored whole with the owner's decisions recorded.
+  Two general lessons, both cheap to reuse. **`git merge-base --is-ancestor` and everything
+  built on it is useless here** — to ask whether a branch has landed, merge it into
+  `origin/main` in memory (`git merge-tree --write-tree`) and see whether the tree changes.
+  And **a freshly created worktree passes every "does it add anything?" test**, because it
+  adds nothing yet; without an explicit check that the branch tip differs from the baseline
+  commit, a cleaner will happily delete a live agent's build directory. The first draft of
+  the fix did exactly that, and the dry run is the only reason it did not happen.
 
-In flight: PR #88 merging main to renumber the migration journal (its
-tags 20260804T150000/150001 sort before custodian's 160000/160001 — resolver
-briefed), assembly bot PR #85. Queue after: task 40 (engine-host stack
-overflow flake), 46 (fix:scoped script), 45 (pre-beta baseline, owner-timed),
-then next slices by value — 2·6·2 conditionals, the per-firm field-mapping
-library, the office-crypto replacement slice, 3·2 trust = analysis + owner
-flag only. Owner-blocked: deploy queue, Renovate install, stale remote
-branches, bot self-merge setting, custodian flags C4-C11 and automation flags
-F2-F6/F9 (all non-blocking).
+Disk hygiene generally: `du -sh` over `.claude/worktrees` **times out at two minutes** once
+there are a couple of dozen of them. `df -h .` is the fast answer, and on this host "Avail"
+near zero with low "Used" means the session allowance is spent, not that the disk is full.
 
-## Earlier snapshot (superseded, kept for the resume trail)
+---
 
-Merged today (14): #42 #29 #43 #35 #44 #45 #50 #47 #49 #52 #48 #51 #53 #54 —
-the whole inherited backlog, the CI cost package (gate tiered + cached, nightly
-sweep), the dependency refresh (hono security bump), fix batches
-B1 B2 B3 B4 B7 B10, and the 2·4 conversion close-out. #41 closed superseded.
-Audit standing: most of the 27 critical/high findings fixed on main; ledger
-update still owed (sweep task).
+## 7. Milestone log — one line each, newest first
 
-Agents in flight at writing (die on restart — check branches/PRs; redispatch
-from the batch specs if absent): B6 ingest custody
-(`claude/fix-ingest-custody`), B8 matters numbering
-(`claude/fix-matters-numbering`), B9 editing guards (PR #55 open), the mint
-route (`claude/email-capture-mint-route`), and the 2·5 seal landing
-(`claude/2-5-analysis-prep-0n2kxw`). Remaining queue: B5 shipping/whois after
-the OpenAPI-touching PRs clear; the sweeps (tasks 21, 26, 27); the
-linter-stream reconciliation (task 24); a fresh docs-sync (task 3); then the
-LibreOffice engine (task 7) and the search write pipeline (task 8). Owner
-asks are on the status artifact: install the Renovate app; optionally enable
-a merge queue; the advisories lapsing 2026-10-14 (task 23). Operational
-lessons: remove each agent's worktree at merge (the disk filled once); never
-run vp check --fix repo-wide; resolve merge conflicts by hunk, never by
-whole file.
+Detail lives in the PR and the commit. Do not write paragraphs here.
 
-## Fix campaign — whole-program review (the owner-designated work basis)
+| Date (UTC)      | Merged | What landed                                                                                                                                                                                                                                                                                                          |
+| --------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 08-13           | 177    | #220 conflicts slice 1 (posture read, honest zero-hit report, vocabulary lint — verified by planting a probe file). #221 fixed `vp run clean`, which had never swept anything: 26 landed worktrees removed by hand, ~9 GB reclaimed, free disk 7.6 GB → 17 GB. Conflicts slice 2 and the search benchmark dispatched |
+| 08-11           | 149    | #193 formatted the six files failing the format gate on main; #194 raised the TypeScript `lib` to ES2023, fixing thirteen call sites that the repo's own `.sort()` autofix had written against an ES2022 pin. Both were main-is-red fixes, not feature work                                                          |
+| 08-10           | 147    | #187 calendar slice 2 (fork guard: partial indexes were missing from the drizzle schema behind a false comment), #188 translation design, #189 trust authority design, #190 Kitesurf assessment, #191 self-serve tier + free tier design                                                                             |
+| 08-08           | 142    | Owner returned; translation services researched. Usage incident: work paused, heartbeat disabled, later restored at 3 hours                                                                                                                                                                                          |
+| 08-07 ~14:10    | 139    | #179 calendar design, #180 test-race pair — worker suite 214 files / 1569 tests green under parallelism for the first time, #181 escheat research, #182 catalog follow-ups                                                                                                                                           |
+| 08-07 ~12:50    | 135    | #177 catalog slices 2–4, #178 trust authorization policy — **review reproduced a money bug pre-merge** (lone-manager exception borrowable by a `billing:apply` clerk)                                                                                                                                                |
+| 08-07 ~10:30    | 133    | #166 auto-file wiring, #174 Nevada corpus, #176 AI Search wall experiment, #175 notifications delivery. CI budget exhausted; austerity bar back                                                                                                                                                                      |
+| 08-07 ~07:00    | 129    | Merge train: #167 discovery 5·1·2, **#173 sign-in — first UI in production code**, #168 R2 matter dimension, #169 docket record, #171 CI fail-fast                                                                                                                                                                   |
+| 08-07 ~05:50    | 124    | Owner mega-session: all 92 docket questions answered (9 overrides became tasks 119–128), $5 Actions budget, UI opened for sign-in only, main verifiably green                                                                                                                                                        |
+| 08-07 ~00:20    | 123    | #164 assets 4·3·2/3, #165 R3 — **review campaign 2 closed 43/43**                                                                                                                                                                                                                                                    |
+| 08-06 ~22:40    | 121    | #161 billing trust application closed T4, completing the trust arc; #163 AI Search design (retrieval-only, opt-in, derived feed)                                                                                                                                                                                     |
+| 08-06 (earlier) | 118    | #159 Magnus slice 1 live; #154 R1 financial fixes; #156 Magnus design; F4b reframed — transcripts are work product                                                                                                                                                                                                   |
+| 08-06 ~04:20    | 108    | Owner redirect: no phase 6/7, deepen 0–5 only; UI fully parked. #142 auto-file, #143 billing spine, #144 calendar, #146 catalog slice 1, #147 D3 widening                                                                                                                                                            |
+| 08-05 ~22:00    | 100    | #138 custodian destruction with Nevada catalog, #140 composite extraction (born-digital PDFs extracted natively)                                                                                                                                                                                                     |
+| 08-05 ~17:40    | 93     | Owner session: three new subsystem designs, lint lever landed                                                                                                                                                                                                                                                        |
+| 08-05           | 60–90  | Trust foundation, trust movements, gate integrity restored, custodian counts, safe diff-scoped tooling                                                                                                                                                                                                               |
+| 08-04           | 14     | Session start. Whole inherited backlog cleared, CI cost package, dependency refresh, fix batches B1–B10 triaged and begun                                                                                                                                                                                            |
 
-Source: `docs/research/2026-07-01-fable-whole-program-review.md` (F-001..F-173) +
-verification ledger (same name + `-verification`). Triage 2026-08-04: ledger had
-never been run; 27 confirmed-open critical/high; F-059 and F-120 likely fixed
-already. **Update the verification ledger as each batch lands.**
+---
 
-Batches in order (details in task board; sequencing notes inline):
+## 8. Execution order — the forward queue
 
-- **B1** (running) F-140, F-072 — tenancy. **B10** (running) F-031/157, F-073, F-109.
-- **B2** pdf-core: F-162 split() keeps dropped pages via kept-page /Annots
-  (generate.rs), F-163 surgery redaction never strips /Annots (redact.rs). Pure
-  Rust; rebase over lopdf lockfile after #35 merges.
-- **B3** metadata: F-126 inflate w/o bomb guard (detect.ts), F-127 move-range
-  markers survive scrub (ooxml/walk.ts REMOVE_TAGS), F-128 thumbnail/customXml/
-  settings.xml untouched, F-129 JPEG post-EOI bytes kept (image/jpeg.ts), F-130
-  200MB cap > 128MiB isolate (guards.ts). Sweep F-131-137. After #43 merges.
-- **B4** directory: F-079 chained merges unresolvable (no merged_into_id repoint),
-  F-080 collision absorption hard-DELETEs edges/matter_party (merge.ts:345),
-  F-081 assertEntityExists ignores status. Sweep F-082-087.
-- **B5** shipping/whois: F-138 EasyPost Idempotency-Key assumption, F-139 insurance
-  never sent (easypost/map.ts), F-142 reconnect impossible (needs DELETE route →
-  OpenAPI regen — land AFTER other OpenAPI-touching branches), F-141 naive CIDR
-  startsWith (whois/rdap.ts). Sweep F-143-151.
-- **B6** ingest (after B1 — same bucket seam): F-071 committed bytes mutable in
-  presign TTL / overwrite no-op (ingest-consumer.ts), F-060 strict MIME equality
-  false-quarantines legacy Office (ingest-core.ts). Sweep F-061-070.
-- **B7** custom-fields: F-088 no number_scale re-scale on convert (100x money
-  corruption), F-089 setCustomFieldValue never reads definition. Sweep F-090-098.
-- **B8** matters: F-043 counter backstop gap (needs allocation-table migration —
-  coordinate slots), F-044 openMatterStatement missing status guard. Sweep F-045-053.
-- **B9** editing: F-112 getFile prefers R2 current over token version
-  (wopi-routes.ts), F-113 edit worker boots container on any nonempty host label.
-- **Sweeps**: telemetry/fitness F-032-039 (widen console-ban to scan-worker);
-  doc/lint lows F-007/038/087/119/172; libvips cluster F-121-125 re-scope as dead
-  code (dispatch moved to conversion-engine.ts service bindings).
+_Owner-approved 2026-08-11._ Work this top to bottom. It holds **order and trigger
+conditions only**; the task board holds the items, so an entry here is a label, a next
+step, and what blocks it — never a restatement. Reorder when priorities change; delete
+an entry when its task closes. UI work is tracked separately and is owner-driven.
 
-## Feature queue (from the five inherited handovers, distilled)
+### Tier 1 — finish the money subsystem
 
-1. **Email capture mint/rotate route** (`emails:manageCaptureAddresses`) — the
-   forward/CC entrance is merged but inert until this ships. Design constraints:
-   per-firm write + outbox row in ONE transaction, relay dispatches control-plane
-   `email_capture_route` insert (mint = per-firm-first, degrades gracefully);
-   revocation = control-plane-first (fail closed); tokens server-minted, lowercase
-   alphanumeric ~16-22 chars, global PK collision retry; `resource: "matter"`
-   (catch-all kind is firm-scoped — decide binding deliberately); never return
-   revoked token values casually. Reuse `findCaptureAddressByToken`,
-   `insertEmailCaptureAddressStatement`, `routes/firms.ts` control-plane precedent.
-   Regenerate OpenAPI + client same commit; conformance not-vacuous list; Miniflare
-   e2e mint/revoke/rotate/replay + 403 + failure-ordering test; ADR fragment records
-   the cross-database ordering. Then remove operations.md §2a fast-follow caveat.
-2. **2·4 close-out branch** `claude/repo-status-roadmap-xhdvyb` (per-engine
-   dispatch seam, tracking refresh, fitness repairs — all green per its author):
-   merge main, review, PR, land. At merge: delete its active-work note; warn
-   eyebrow-link/file-manager-primitives streams their status.d order slots
-   renumbered (eyebrow-link 22→25).
-3. **2·5 e-sign branch** `claude/2-5-analysis-prep-0n2kxw` (platform seal complete
-   end to end, commit `0b4a3d1f`): review, PR, land. Deploy hazard already in
-   deploy-queue (SIGN_SERVICE binding blocks app-worker deploy until
-   magna-carta-sign exists). Next after landing: pyHanko/DSS independent validator
-   conformance; timestamp/LTV + purchased-cert decision is owner-paired.
-4. **LibreOffice engine (2·4f, consented)** — design doc first. Inputs settled in
-   docs/research/in-app-conversion.md: LibreOfficeKit fork-pool (Collabora
-   convert-to internals the model), one-conversion-per-instance, Carlito+Caladea
-   baked in; open: LOK binding choice, pool sizing/health-recycle. Wiring surface:
-   CONVERT_WORKER_ENGINE_IDS + engineTargetFor + new Container class. Email→PDF
-   render engine rides this container (network-isolated, inline only own CID parts,
-   never wkhtmltopdf).
-5. **Search write pipeline** — add document_id+version to index_split (new per-firm
-   migration), deterministic split ids, delete-then-insert re-index, queue consumer
-   copying the ConversionJob shape, dead-letter on failure. Then apps/search-worker
-   (mirror scan-worker; warm cache; RangeReader over R2 range GETs; /index /query
-   /remove), then Vectorize namespace-per-firm, then the API route (after engine).
-6. After queue: next backend slices by value — 2·6 document automation, 4·2
-   custodian; 3·2 trust = analysis + owner flag.
+The largest unstarted owner-directed work, in the area where a quiet bug is worst. Trust
+and billing share files, so these run **one at a time**, not in parallel.
 
-## Gotchas (each cost someone real time — do not relearn)
+1. **Task 144 — authority-based trust authorization.** Design merged in #189. Authority
+   is a property of the person: whoever holds it acts alone, whoever lacks it raises a
+   request. Must reconcile with the two-person default (#137) and the per-firm policy
+   (#178) already shipped.
+2. **Task 146 — bank-charge carve-out, wired narrowly.** The one firm-funds-in-trust
+   exception. Nevada RPC 1.15(b) text came back verbatim in #174 and is deliberately not
+   yet wired. _Blocked by 144_ — same files.
+3. **Task 145 — unclaimed-funds workflow.** Escheat research (#181) settled the law:
+   Nevada trust funds do **not** escheat; the duty is NRPC 1.15(f)'s five-year permissive
+   remittance to the Clients' Security Fund. Owner requires **manual confirmation on any
+   money movement**. _Blocked by 144._
+4. **Task 143 — credit-note slice.** Carries the contingency shrunk-basis residual the
+   #185 review found. Independent of the three above.
 
-- Deleting a docs/active-work note requires flipping its status.d fragment to
-  `branch: main` + empty `active-work:` in the SAME commit (lint:status).
-- pnpm overrides ONLY in pnpm-workspace.yaml; package.json pnpm.overrides silently
-  breaks the vitest alias chain ("Vitest failed to find the runner"). Plain
-  `pnpm install`, never --no-frozen-lockfile.
-- Control-plane migrations are generated (drizzle-kit + timestamp script) and need
-  the map entry in control-plane-migrations.ts; per-firm journal conflicts: keep
-  both, renumber idx monotonic. drizzle-kit diffs against the tracked baseline —
-  hand-extract only the new DDL. Generated snapshots need oxfmt (vp check --fix).
-- Never `vp check --fix` blind over worker/ES2022 packages (.sort→.toSorted breaks).
-- Fresh worktrees: `vp run bootstrap` before anything importing WASM pkg/; pre-push
-  hook needs it too — `SKIP_PREPUSH=1 git push` for docs/CI-only work; CI is the
-  gate of record. `vp` not on PATH here — use `pnpm exec vp` / package scripts.
-- Miniflare tests can't read host fixtures — inline strings. Static routes before
-  parameterized ones. Email Routing has ONE zone catch-all (why the control-plane
-  token index exists — never "simplify" it back).
-- osv gate: severity keyed on CVSS >= 7.0; accepted advisories only in root
-  osv-scanner.toml (lockfiles via explicit -L); tracked ignores lapse 2026-10-14
-  (quick-xml x2, uuid) and will fail the gate then; GHSA-gv7w-rqvm-qjhr is an
-  unused ignore — prune when in the file.
-- Environment: no `gh` CLI (GitHub tool server instead); git proxy 403s ref
-  deletions (branch cleanup is owner-manual); osv-scanner binary not downloadable.
-- Keep-both conflict resolution on additive registries (per-firm-schema.ts,
-  pii-registry.ts, telemetry events) can SILENTLY INTERLEAVE blocks: git aligns
-  on shared trailing lines (createdAt/updatedAt, closing brackets) and splices
-  one subsystem's declarations inside the other's. Typecheck catches most but a
-  schema-shaped splice can look plausible — after any registry merge, verify each
-  subsystem's block is contiguous (grep the export boundaries) before trusting it.
-- The advisories above were RESOLVED 2026-08-04 (uuid override; quick-xml capped +
-  extended to 2027-02-14 with reachability analysis; the exit is replacing
-  office-crypto). The osv line above is kept for the mechanism, not the dates.
-- Deploys: Workers Builds production branch is `release`, not `main`.
+### Tier 2 — close the half-built subsystems
 
-## Revival procedure (cold start)
+Functional holes, not polish. Each is a subsystem that cannot complete its own job.
 
-1. `git fetch origin` — check out this branch; read this note, `docs/deploy-queue.md`,
-   TaskList, and the status artifact (via its URL above; WebFetch to read it).
-2. `git ls-remote origin 'refs/heads/claude/*' 'refs/heads/remediate-*'` + list open
-   PRs — reconcile against the state snapshot; anything a dead agent left half-done
-   is visible as a branch without a PR or a PR without a merge.
-3. Re-arm: PR subscriptions for every open PR you own, a send_later check-in if any
-   gate is running, and verify the heartbeat trigger is enabled.
-4. Continue the task board in order; keep this note and the artifact current.
+5. **Task 96 — document automation 2·6·3 tail.** Assembly works; producing a final PDF
+   and handing it to e-sign does not. The subsystem cannot finish a document.
+6. **Discovery 5·2·2 and 5·2·4 — privilege claims, logs, productions.** #195 is
+   designation-as-tag only; the privilege machinery that makes a production defensible is
+   unbuilt. _Blocked by #195 merging._ Needs a task.
+7. **Task 117 — AI Search slice 1.** _Blocked on the owner_: the fenced live run needs
+   Cloudflare credentials. The non-retrieval halves may proceed.
+
+### Tier 3 — the designs the owner scoped
+
+8. **Task 112 — conflicts 4·1 deepening**, both gaps (trigger coverage and search depth).
+9. **Task 113 — financial reporting surface**, all four, bar-audit pack first.
+
+### Tier 4 — health debt
+
+10. **Task 150 — Turnstile.** A runbook item, not shipped code, and four merged designs
+    assume it exists.
+11. **Task 97 — load-profile gaps**, custodian and calendar. The convention says every
+    slice is perf-tested as built; these shipped without.
+12. **Task 90 — numbering consolidation** onto `@magna-carta/sequence-numbering`.
+13. **Task 61 — revert CI austerity.** _Trigger: Actions has runners again._ Re-check
+    `vp fmt --check` and `vp run typecheck` as part of it — both rotted unnoticed under
+    austerity precisely because nothing ran them.
+14. **Task 45 — condense the schema to a new baseline.** Owner-timed, pre-beta.
+
+### Parked by owner decision
+
+- **Visual regression.** 2026-08-11: _"I don't really care about visual-regression. Until
+  we have a product for end-users, that seems like we can revert away from that."_ The
+  harness has never had baselines (Docker was unavailable when it was built), so this
+  parks infrastructure with zero coverage rather than losing anything. Do not invest.
+  Revisit when there are end users. The code is left in place; removal is available on
+  the owner's word.
+
+### Waiting on an owner decision before it can be ordered
+
+- **Does the phase 6/7 hold still stand?** Client portal, payments, integrations and
+  exports are untouched under the 2026-08-06 directive to deepen 0–5 instead. That
+  deepening has now largely happened.
+- **The review ledger reads 59 of 173 findings re-verified**, while ROADMAP's `Now`
+  section calls the fix campaign "essentially clear". One of the two is wrong.
