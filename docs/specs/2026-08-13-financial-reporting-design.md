@@ -80,10 +80,10 @@ A bar-audit pack is evidence. Its central property is that the same period re-ru
 same answer, or states precisely why it cannot. That property requires **two** date axes, and the
 tables already carry both:
 
-| Axis                            | Column                                                                                                                       | Meaning                                      | Mutable? |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------- |
-| **Effective** (the period)      | `ledger_entry.effective_date`, `invoice_application.effective_date`, `invoice.issue_date`                                    | When the event is deemed to have happened    | No       |
-| **Knowledge** (what was known) | `ledger_entry.recorded_at`, `invoice_application.applied_at`, `credit_note.created_at`, `trust_movement`/`trust_transfer` timestamps | When the platform learned of it              | No       |
+| Axis                           | Column                                                                                                                               | Meaning                                   | Mutable? |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- | -------- |
+| **Effective** (the period)     | `ledger_entry.effective_date`, `invoice_application.effective_date`, `invoice.issue_date`                                            | When the event is deemed to have happened | No       |
+| **Knowledge** (what was known) | `ledger_entry.recorded_at`, `invoice_application.applied_at`, `credit_note.created_at`, `trust_movement`/`trust_transfer` timestamps | When the platform learned of it           | No       |
 
 `effective_date` is backdatable (future-dating is refused) and `recorded_at` is system-set and
 immutable — the ledger's own schema comment says so. Both live on append-only tables that no UPDATE
@@ -124,14 +124,14 @@ Some reports are live-**only**, by necessity rather than choice — see section 
 Reproducibility is a claim about **figures**, and honesty requires naming what is outside it. Every
 one of these is a label or a piece of context, never an amount:
 
-| Mutable input                                                                       | Effect on a re-run                                                | How the pack handles it                                                                                       |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Directory display names (`directory_person`, `directory_organization`)              | A client renamed later re-renders under a different name          | Every ledger and every line carries the **entity id** beside the name; the id is the identity, the name is a caption |
-| Entity merges (`status = 'merged_into'`)                                            | Two ledgers may later resolve to one client                       | The pack records the entity id as it stood; a merge is visible as two ids, never silently collapsed              |
-| `matter.client_display_name`, matter title                                          | Caption drift                                                     | Caption only; the matter number is frozen at assignment and is the stable handle                                |
-| `location` name, letterhead, remit-to                                               | Office caption drift                                              | Caption only; snapshotted onto the artifact at production                                                       |
-| `trust_account.jurisdiction` and its governing-rule citation                        | The cited rule text may be revised in the corpus                  | The corpus review state and citation are snapshotted onto the artifact at production                            |
-| `member` names of authorizers                                                       | Caption drift                                                     | The user handle is the identity                                                                                 |
+| Mutable input                                                          | Effect on a re-run                                       | How the pack handles it                                                                                              |
+| ---------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Directory display names (`directory_person`, `directory_organization`) | A client renamed later re-renders under a different name | Every ledger and every line carries the **entity id** beside the name; the id is the identity, the name is a caption |
+| Entity merges (`status = 'merged_into'`)                               | Two ledgers may later resolve to one client              | The pack records the entity id as it stood; a merge is visible as two ids, never silently collapsed                  |
+| `matter.client_display_name`, matter title                             | Caption drift                                            | Caption only; the matter number is frozen at assignment and is the stable handle                                     |
+| `location` name, letterhead, remit-to                                  | Office caption drift                                     | Caption only; snapshotted onto the artifact at production                                                            |
+| `trust_account.jurisdiction` and its governing-rule citation           | The cited rule text may be revised in the corpus         | The corpus review state and citation are snapshotted onto the artifact at production                                 |
+| `member` names of authorizers                                          | Caption drift                                            | The user handle is the identity                                                                                      |
 
 So the precise statement the pack itself carries, in its own words: **the figures reproduce for the
 stated period and knowledge instant; the names and citations are as they stood when the pack was
@@ -159,9 +159,9 @@ that has to be defensible, not the column list.
 
 ### 3.1 The bar-audit pack (trust compliance) — slice 1
 
-**Assertion:** *For this trust account, over this period, as known at this instant: here is every
+**Assertion:** _For this trust account, over this period, as known at this instant: here is every
 movement of client money, here is each client's and each matter's ledger, here is what the firm
-attested to at each reconciliation, and here is every item that did not tie out.*
+attested to at each reconciliation, and here is every item that did not tie out._
 
 It is deliberately **not** a dashboard. It is produced for a regulator or an examiner, and its
 sections mirror what the researched rules require a firm to be able to produce: a receipts-and-
@@ -209,8 +209,8 @@ deadline no researched rule imposes.
 
 ### 3.2 Financial reports — slice 2
 
-**Assertion:** *Here is what the firm is owed, what it has not yet billed, and how much of what it
-billed it has actually realized.*
+**Assertion:** _Here is what the firm is owed, what it has not yet billed, and how much of what it
+billed it has actually realized._
 
 - **Accounts-receivable aging, as-of.** Unpaid balance per bucket, per client, per matter, per
   office, at a stated effective date and knowledge instant. Derived as
@@ -232,8 +232,8 @@ billed it has actually realized.*
 
 ### 3.3 Productivity — slice 3
 
-**Assertion:** *Here is how much time each timekeeper recorded, of what kind, on what, in this
-period — and nothing about whether it was enough.*
+**Assertion:** _Here is how much time each timekeeper recorded, of what kind, on what, in this
+period — and nothing about whether it was enough._
 
 Hours recorded, billable versus non-billable (and by non-billable category), by timekeeper, matter,
 client, UTBMS task/activity code, and office; the billable ratio; the distribution across matters.
@@ -249,7 +249,7 @@ progress.
 
 ### 3.4 Operational — slice 4
 
-**Assertion:** *Here is the volume of what the firm did in this period.*
+**Assertion:** _Here is the volume of what the firm did in this period._
 
 Matters opened, closed, by type and office; invoices drafted, finalized, voided; credit notes and
 write-offs issued and their reasons; trust accounts, movements by kind, disbursement requests
@@ -286,13 +286,13 @@ aggregate across every matter and client is a different exposure from a per-matt
 member who may read one client's trust balance is not thereby a member who may read the firm's whole
 receivable position.
 
-| Key                        | Grants                                                                  | Seeded to    |
-| -------------------------- | ----------------------------------------------------------------------- | ------------ |
-| `reports:trustCompliance`  | Read and produce the bar-audit pack for any trust account               | Owner, Admin |
-| `reports:financial`        | Aging, work in progress, realization, firm-wide and per-office          | Owner, Admin |
-| `reports:productivity`     | Timekeeper productivity across the firm                                 | Owner, Admin |
-| `reports:operational`      | Operational volumes                                                     | Owner, Admin |
-| `reports:produce`          | Turn a report into a filed artifact                                     | Owner, Admin |
+| Key                       | Grants                                                         | Seeded to    |
+| ------------------------- | -------------------------------------------------------------- | ------------ |
+| `reports:trustCompliance` | Read and produce the bar-audit pack for any trust account      | Owner, Admin |
+| `reports:financial`       | Aging, work in progress, realization, firm-wide and per-office | Owner, Admin |
+| `reports:productivity`    | Timekeeper productivity across the firm                        | Owner, Admin |
+| `reports:operational`     | Operational volumes                                            | Owner, Admin |
+| `reports:produce`         | Turn a report into a filed artifact                            | Owner, Admin |
 
 Seeded narrowest; a firm that wants a bookkeeper to run reconciliation packs reaches for a direct
 grant, which leaves a record. `reports:productivity` is deliberately separate because a report about
