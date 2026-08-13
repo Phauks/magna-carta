@@ -14,7 +14,7 @@ The owner's sentence contains two problems that look like one:
 
 > "I think we need to make a roadmap a high priority, I constantly lose track of what is being worked on or doing. I mean this as an actual document that users can see as well."
 
-**The owner cannot tell what is in flight.** This is not a missing file. `ROADMAP.md` is 273 lines, `STATUS.md` tracks 45 slices across five stages, and `roadmap.d/` holds 703 capability nodes. Every fact is already written down. What does not exist is a surface small enough to read in one sitting: the answer to "what is being worked on, and what is waiting on me" is currently assembled by reading three long documents and holding them in your head.
+**The owner cannot tell what is in flight.** This is not a missing file. `ROADMAP.md` runs to 274 lines, `STATUS.md` tracks 67 slices across seven stages, and `roadmap.d/` holds 702 capability nodes. Every fact is already written down. What does not exist is a surface small enough to read in one sitting: the answer to "what is being worked on, and what is waiting on me" is currently assembled by reading three long documents and holding them in your head.
 
 **Users have nothing.** There is no public statement of what is coming. The public changelog says what shipped; nothing says what is next.
 
@@ -179,7 +179,7 @@ The seam is the artifact contract, exactly as the public changelog does it: `@ma
 - **Hand-writing the public roadmap and reviewing it monthly.** The failure mode being fixed. Eleven days and 236 commits of measured drift under an explicit same-commit rule is the refutation.
 - **Defaulting `public-summary` to the node's `scope:` line.** One line of code, and it publishes builder prose that cites packages. Rejected in section 3.
 - **A target-date or confidence field, even nullable.** Rejected in section 4.1, with the reasoning imported from the community-surfaces design: a nullable field gets populated, and then it is a promise.
-- **Deriving public entries automatically from status, with no opt-in.** It would publish all 703 nodes, most of which are internal machinery, and it would publish a new promise every time somebody added a node. Publication is a judgement and stays one.
+- **Deriving public entries automatically from status, with no opt-in.** It would publish all 702 nodes, most of which are internal machinery, and it would publish a new promise every time somebody added a node. Publication is a judgement and stays one.
 - **Rolling child nodes up into parents automatically.** Tempting (the ledger is a tree, and a parent's status is already a rollup), but a parent's public summary would then describe a capability whose children mean different things to a user. Curation picks the node at the level a user thinks in, which is sometimes the parent and sometimes one child.
 - **A committed `public-roadmap.json`.** A second home for the same fact needing a second gate. The sibling package already rejected this for the changelog and the reasoning is unchanged.
 - **Building the page in this stream.** It is UI. The seam costs nothing to leave open and the page costs a design review to get wrong.
