@@ -10,7 +10,7 @@ ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: claude/conflicts-slice-1
-active-work: docs/active-work/claude/conflicts-slice-1.md
+active-work:
 next: Deepening slice 1 (reporting posture) built; slices 2-5 follow — event triggers + the re-check ledger, traversal depth, matching depth, adjudication read models
 link-spec: docs/specs/2026-08-13-conflicts-deepening-design.md
 link-plan: docs/specs/2026-08-13-conflicts-deepening-implementation-plan.md
