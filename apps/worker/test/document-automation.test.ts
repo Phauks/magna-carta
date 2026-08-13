@@ -1122,10 +1122,13 @@ describe("assembly as a PDF", () => {
       assemblyCookie,
     );
     expect(submitted.status, await submitted.clone().text()).toBe(202);
-    return ((await submitted.json()) as { assemblyId: string }).assemblyId;
+    return (await submitted.json()).assemblyId;
   }
 
-  function pdfBatch(assemblyId: string, templateVersionId: string): MessageBatch<DocumentAssemblyMessage> {
+  function pdfBatch(
+    assemblyId: string,
+    templateVersionId: string,
+  ): MessageBatch<DocumentAssemblyMessage> {
     return makeBatch({
       firmId: assemblyFirmId,
       bucketName: assemblyBucketName,

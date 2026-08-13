@@ -136,10 +136,10 @@ form template changes the shape of a template:
 
 ### Owner decisions this part needs
 
-| Flag   | Decision                                                                                                                                                                      |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **B5** | Flatten a filled form, leave it interactive, or make it a per-template setting?                                                                                               |
-| **F2** | (from the parent design, still open) Does the platform ever ship and maintain a curated library of jurisdiction court forms, or only fill forms a firm supplies?              |
+| Flag   | Decision                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **B5** | Flatten a filled form, leave it interactive, or make it a per-template setting?                                                                                  |
+| **F2** | (from the parent design, still open) Does the platform ever ship and maintain a curated library of jurisdiction court forms, or only fill forms a firm supplies? |
 
 ---
 
