@@ -1,5 +1,6 @@
 ---
 category: Changed
+audience: internal
 ---
 
 **The quality gate now stops at the first failure.** Matrix fail-fast is on and the heavy jobs (WASM,

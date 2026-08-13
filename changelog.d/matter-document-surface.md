@@ -1,5 +1,6 @@
 ---
 category: Added
+audience: internal
 ---
 
 **A matter's documents now have a working screen.** Open a matter, go to Files, and the whole

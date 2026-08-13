@@ -1,5 +1,6 @@
 ---
 category: Added
+audience: internal
 ---
 
 **The registration and invitation-redemption screens.** Joining is now something a visitor can do
