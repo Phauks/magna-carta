@@ -34,10 +34,22 @@ import {
 } from "@magna-carta/billing/arrangements";
 import {
   addContingencyFeeToDraft,
+  readContingencyResidual,
   readMatterRecoveries,
   recordMatterRecovery,
   voidMatterRecovery,
 } from "@magna-carta/billing/contingency";
+import {
+  applyClientCreditToInvoice,
+  composeApplicationReversal,
+  composeInvoiceWriteOff,
+  issueCreditNote,
+} from "@magna-carta/billing/credit-note";
+import {
+  readCreditNoteLines,
+  readCreditNotesForInvoice,
+  readOpenClientCreditsForClient,
+} from "@magna-carta/billing/statements";
 import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
 import {
   readRetainerStatus,
@@ -99,6 +111,11 @@ const FINALIZE = "billing:finalize" as const;
 // that seeded these put `billing:apply` on the same roles `trust:manage` reaches for exactly that
 // reason.
 const APPLY = "billing:apply" as const;
+// Correcting a bill that has already been issued. Separate from finalizing for the same reason
+// applying is: issuing a credit note, giving up a receivable, or unwinding an application each
+// change what a client owes on a document the firm has already handed over, and a billing clerk who
+// may assemble drafts is not automatically somebody who may forgive a balance.
+const CREDIT = "billing:credit" as const;
 const CONFIGURE = "billing:configure" as const;
 
 // A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike; both
@@ -560,6 +577,153 @@ const RenderModelResponse = z
   })
   .openapi("BillingRenderModelResponse");
 
+// --- Corrections after finalization ---------------------------------------------------------
+
+const CreditNoteLineRequest = z
+  .object({
+    matterId: identifierField("matter"),
+    kind: z.enum(["fee", "cost", "flat_fee", "discount", "adjustment", "interest", "tax"]),
+    description: z.string().min(1),
+    // Positive. A credit note's direction is the document it is, so its lines carry the magnitude
+    // only — the same rule a ledger line follows.
+    amountMinor: z.number().int().positive(),
+    // The charge on the corrected bill this line credits, where the firm is crediting a specific
+    // one rather than the bill in general. Required to make a credit count against a fee that was
+    // computed from a basis, because such a fee is billed as the increment over what earlier bills
+    // already charged.
+    creditsInvoiceLineId: identifierField("invoiceLine").nullable().optional(),
+  })
+  .openapi("BillingCreditNoteLineRequest");
+
+const CreditNoteRequest = z
+  .object({
+    reason: z.string().min(1),
+    effectiveDate: civilDate,
+    lines: z.array(CreditNoteLineRequest).min(1),
+  })
+  .openapi("BillingCreditNoteRequest");
+
+const CreditNoteAck = z
+  .object({
+    creditNoteId: z.string(),
+    invoiceId: z.string(),
+    totalMinor: z.number().int(),
+    appliedMinor: z.number().int(),
+    clientCreditMinor: z.number().int(),
+    matters: z.array(
+      z.object({
+        matterId: z.string(),
+        creditedMinor: z.number().int(),
+        appliedMinor: z.number().int(),
+        residualMinor: z.number().int(),
+        clientCreditId: z.string().nullable(),
+      }),
+    ),
+  })
+  .openapi("BillingCreditNoteAck");
+
+const CreditNoteListResponse = z
+  .object({
+    data: z.array(
+      z.object({
+        id: z.string(),
+        reason: z.string(),
+        effectiveDate: z.string(),
+        currency: z.string(),
+        issuedAt: z.string(),
+        totalMinor: z.number().int(),
+        lines: z.array(
+          z.object({
+            id: z.string(),
+            matterId: z.string(),
+            kind: z.string(),
+            description: z.string(),
+            amountMinor: z.number().int(),
+            creditsInvoiceLineId: z.string().nullable(),
+          }),
+        ),
+      }),
+    ),
+  })
+  .openapi("BillingCreditNoteListResponse");
+
+const WriteOffRequest = z
+  .object({
+    matterId: identifierField("matter"),
+    amountMinor: z.number().int().positive(),
+    reason: z.string().min(1),
+    effectiveDate: civilDate,
+  })
+  .openapi("BillingWriteOffRequest");
+
+const ApplicationAck = z
+  .object({ applicationId: z.string(), invoiceId: z.string(), matterId: z.string() })
+  .openapi("BillingApplicationAck");
+
+const ClientCreditListResponse = z
+  .object({
+    data: z.array(
+      z.object({
+        id: z.string(),
+        matterId: z.string(),
+        creditNoteId: z.string(),
+        amountMinor: z.number().int(),
+        dischargedMinor: z.number().int(),
+        remainingMinor: z.number().int(),
+        currency: z.string(),
+        openedAt: z.string(),
+      }),
+    ),
+  })
+  .openapi("BillingClientCreditListResponse");
+
+const ApplyClientCreditRequest = z
+  .object({
+    invoiceId: identifierField("invoice"),
+    matterId: identifierField("matter"),
+    amountMinor: z.number().int().positive(),
+    effectiveDate: civilDate,
+  })
+  .openapi("BillingApplyClientCreditRequest");
+
+const ApplyClientCreditAck = z
+  .object({
+    applicationId: z.string(),
+    clientCreditId: z.string(),
+    remainingMinor: z.number().int(),
+  })
+  .openapi("BillingApplyClientCreditAck");
+
+const ReverseApplicationRequest = z
+  .object({ reason: z.string().min(1), effectiveDate: civilDate })
+  .openapi("BillingReverseApplicationRequest");
+
+const ReverseApplicationAck = z
+  .object({
+    applicationId: z.string(),
+    reversesApplicationId: z.string(),
+  })
+  .openapi("BillingReverseApplicationAck");
+
+const ContingencyResidualResponse = z
+  .object({
+    matterId: z.string(),
+    entitlementMinor: z.number().int(),
+    billedMinor: z.number().int(),
+    residualMinor: z.number().int(),
+    feeLines: z.array(
+      z.object({
+        invoiceId: z.string(),
+        invoiceNumber: z.string().nullable(),
+        invoiceLineId: z.string(),
+        chargedMinor: z.number().int(),
+        creditedMinor: z.number().int(),
+        invoiceMatterUnpaidMinor: z.number().int(),
+      }),
+    ),
+  })
+  .openapi("BillingContingencyResidualResponse");
+
 const invoiceParam = z.object({ invoiceId: identifierPathParam("invoice", "invoiceId") });
 const lineParam = z.object({
   invoiceId: identifierPathParam("invoice", "invoiceId"),
@@ -577,6 +741,15 @@ const recoveryParam = z.object({
 const replenishmentParam = z.object({
   requestId: identifierPathParam("retainerReplenishmentRequest", "requestId"),
 });
+const clientCreditParam = z.object({
+  clientCreditId: identifierPathParam("clientCredit", "clientCreditId"),
+});
+const applicationParam = z.object({
+  applicationId: identifierPathParam("invoiceApplication", "applicationId"),
+});
+// The client is a Directory handle rather than a per-firm identifier, so it is an ordinary path
+// string — the same shape the invoice list's clientEntityId filter takes.
+const clientParam = z.object({ clientEntityId: z.string().min(1) });
 const retainerStatusQuery = z.object({ trustAccountId: identifierField("trustAccount") });
 const listQuery = z.object({
   clientEntityId: z.string().min(1).optional(),
@@ -644,6 +817,7 @@ type BillingPermission =
   | typeof DRAFT
   | typeof FINALIZE
   | typeof APPLY
+  | typeof CREDIT
   | typeof CONFIGURE;
 
 function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
@@ -1269,6 +1443,133 @@ const setRenderShapeRoute = defineOpenAPIRoute(
   },
 );
 
+const issueCreditNoteRoute = defineOpenAPIRoute(writeMeta("billing.issueCreditNote", CREDIT), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/credit-notes",
+  description:
+    "Issues a credit note against a bill that has already gone out. The bill itself is never edited and never withdrawn: the note is a second permanent record standing beside it, with its own lines, its own reason, and its own date. What the note credits comes off what the client still owes; anything beyond that is money already in the firm's hands, so it becomes a recorded credit the firm owes the client back rather than a negative bill. Where the note is correcting a specific charge, name that charge on the line — a fee worked out from a settlement or a recovery is billed as the increment over what earlier bills already charged, and only an attributed credit changes that arithmetic.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: CreditNoteRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The credit note was issued",
+      content: { "application/json": { schema: CreditNoteAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const listCreditNotesRoute = defineOpenAPIRoute(readMeta("billing.listCreditNotes"), {
+  method: "get",
+  path: "/api/v1/billing/invoices/{invoiceId}/credit-notes",
+  description:
+    "Every credit note issued against one bill, with its lines. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
+  request: { params: invoiceParam },
+  responses: {
+    200: {
+      description: "The bill's credit notes",
+      content: { "application/json": { schema: CreditNoteListResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
+const writeOffRoute = defineOpenAPIRoute(writeMeta("billing.writeOffBalance", CREDIT), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/write-offs",
+  description:
+    "Gives up part or all of what a matter still owes on a bill, with the reason. This is a different fact from a credit note and is kept separate on the firm's books: a credit note says the firm charged something it should not have, a write-off says the charge was right and the money is not coming. It cannot exceed what is still owed — money already collected is refunded or credited instead.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: WriteOffRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The balance was written off",
+      content: { "application/json": { schema: ApplicationAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const clientCreditsRoute = defineOpenAPIRoute(readMeta("billing.clientCredits"), {
+  method: "get",
+  path: "/api/v1/billing/clients/{clientEntityId}/credits",
+  description:
+    "What the firm still owes one client back, across all of their matters. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
+  request: { params: clientParam },
+  responses: {
+    200: {
+      description: "The client's open credits",
+      content: { "application/json": { schema: ClientCreditListResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
+const applyClientCreditRoute = defineOpenAPIRoute(writeMeta("billing.applyClientCredit", APPLY), {
+  method: "post",
+  path: "/api/v1/billing/client-credits/{clientCreditId}/applications",
+  description:
+    "Sets money the firm owes a client against a later bill for that same client, discharging that much of the obligation. No money moves in either direction — the debt and the credit cancel. It may land on any matter of the same client, and never on another client's bill. The other two ways to give a credit back — a refund from the operating account, and a return to the client's trust ledger — move real money and are not performed here.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: clientCreditParam,
+    body: { content: { "application/json": { schema: ApplyClientCreditRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The credit was set against the bill",
+      content: { "application/json": { schema: ApplyClientCreditAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const reverseApplicationRoute = defineOpenAPIRoute(
+  writeMeta("billing.reverseApplication", CREDIT),
+  {
+    method: "post",
+    path: "/api/v1/billing/applications/{applicationId}/reversal",
+    description:
+      "Unwinds value recorded against the wrong bill or the wrong matter, with the reason. The original record stays exactly as it is and the reversal is a new one linked to it, so both are readable afterwards. A transfer out of a client's trust ledger cannot be unwound here — putting that money back is a movement in the trust ledger, raised and authorized there — and neither can a credit note, which is a document the client may already hold and is answered by a further correction.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: applicationParam,
+      body: {
+        content: { "application/json": { schema: ReverseApplicationRequest } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        description: "The application was reversed",
+        content: { "application/json": { schema: ReverseApplicationAck } },
+      },
+      ...mutationResponses,
+    },
+  },
+);
+
+const contingencyResidualRoute = defineOpenAPIRoute(readMeta("billing.contingencyResidual"), {
+  method: "get",
+  path: "/api/v1/billing/matters/{matterId}/contingency-residual",
+  description:
+    "Compares what a matter's contingency fee has actually been billed against what the surviving recovery now entitles the firm to, and reports the difference. It is not zero when a recovery is voided or reduced after a bill went out, or when an advanced cost arrives late under a net-of-costs agreement: the bill was true when it was issued and cannot be edited, so the difference sits there until the firm decides what to do about it. The answer names each finalized fee line and what its bill still owes, because a credit note larger than the unpaid balance leaves the firm owing money back. Nothing is issued here — what a client is owed after a settlement collapses is the firm's decision to make.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "The matter's contingency position",
+      content: { "application/json": { schema: ContingencyResidualResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
 // A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in one place
 // rather than at nine call sites that would drift.
 function billingErrorResponse(
@@ -1279,7 +1580,9 @@ function billingErrorResponse(
     error.code === "unknown-invoice" ||
     error.code === "unknown-invoice-line" ||
     error.code === "unknown-invoice-claim" ||
-    error.code === "unknown-matter-recovery"
+    error.code === "unknown-matter-recovery" ||
+    error.code === "unknown-client-credit" ||
+    error.code === "unknown-invoice-application"
   ) {
     return problemJson(c, {
       type: "not-found",
@@ -1318,10 +1621,16 @@ function billingErrorResponse(
   // member looked and the moment they acted — a credit note or another payment consumes it. Retrying
   // against the balance as it now stands is the remedy, which is what makes this a 409 rather than a
   // 422, and the mirror of trust's own "the money is not there" on the other side of one operation.
-  if (error.code === "earned-fee-exceeds-unpaid-balance") {
+  // Both ceilings move for the same reason and take the same remedy: retry against the balance as it
+  // now stands, or aim the correction somewhere else. A conflict rather than a refusal on the merits.
+  if (
+    error.code === "earned-fee-exceeds-unpaid-balance" ||
+    error.code === "write-off-exceeds-unpaid-balance" ||
+    error.code === "client-credit-exhausted"
+  ) {
     return problemJson(c, {
       type: "billing-exceeds-unpaid-balance",
-      title: "That is more than this matter still owes on that bill",
+      title: "That is more than is left to apply",
       status: 409,
       detail: error.message,
     });
@@ -2235,6 +2544,244 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       );
       if (outcome.kind === "refused") return outcome.response;
       return c.json(outcome.body, 200);
+    },
+  );
+
+  // POST /api/v1/billing/invoices/{invoiceId}/credit-notes — correct a bill already issued
+  app.openapi(
+    { ...issueCreditNoteRoute, middleware: chokepointMiddleware(chokepoint, issueCreditNoteRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof CreditNoteAck>>(
+        c,
+        201,
+        async (issuedBy) => {
+          const issued = await issueCreditNote(
+            firm.firmDatabase,
+            {
+              invoiceId,
+              reason: request.reason,
+              effectiveDate: request.effectiveDate,
+              lines: request.lines.map((line) => ({
+                matterId: line.matterId,
+                kind: line.kind,
+                description: line.description,
+                amountMinor: line.amountMinor,
+                creditsInvoiceLineId: line.creditsInvoiceLineId ?? null,
+              })),
+              issuedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: issued.effect,
+            body: {
+              creditNoteId: issued.creditNoteId,
+              invoiceId,
+              totalMinor: issued.totalMinor,
+              appliedMinor: issued.appliedMinor,
+              clientCreditMinor: issued.clientCreditMinor,
+              matters: issued.matters.map((matter) => ({
+                matterId: matter.matterId,
+                creditedMinor: matter.creditedMinor,
+                appliedMinor: matter.appliedMinor,
+                residualMinor: matter.residualMinor,
+                clientCreditId: matter.clientCreditId,
+              })),
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...listCreditNotesRoute, middleware: chokepointMiddleware(chokepoint, listCreditNotesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const notes = await readCreditNotesForInvoice(firm.firmDatabase, invoiceId);
+      const data = [];
+      for (const note of notes) {
+        const lines = await readCreditNoteLines(firm.firmDatabase, note.id);
+        data.push({
+          id: note.id,
+          reason: note.reason,
+          effectiveDate: note.effectiveDate,
+          currency: note.currency,
+          issuedAt: note.issuedAt,
+          totalMinor: lines.reduce((total, line) => total + line.amountMinor, 0),
+          lines: lines.map((line) => ({
+            id: line.id,
+            matterId: line.matterId,
+            kind: line.kind,
+            description: line.description,
+            amountMinor: line.amountMinor,
+            creditsInvoiceLineId: line.creditsInvoiceLineId,
+          })),
+        });
+      }
+      return c.json({ data } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...writeOffRoute, middleware: chokepointMiddleware(chokepoint, writeOffRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ApplicationAck>>(
+        c,
+        201,
+        async (writtenOffBy) => {
+          const composed = await composeInvoiceWriteOff(
+            firm.firmDatabase,
+            {
+              invoiceId,
+              matterId: request.matterId,
+              amountMinor: request.amountMinor,
+              reason: request.reason,
+              effectiveDate: request.effectiveDate,
+              writtenOffBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: composed.effect,
+            body: {
+              applicationId: composed.applicationId,
+              invoiceId,
+              matterId: request.matterId,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...clientCreditsRoute, middleware: chokepointMiddleware(chokepoint, clientCreditsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { clientEntityId } = c.req.valid("param");
+      const credits = await readOpenClientCreditsForClient(firm.firmDatabase, clientEntityId);
+      return c.json(
+        {
+          data: credits.map((credit) => ({
+            id: credit.id,
+            matterId: credit.matterId,
+            creditNoteId: credit.creditNoteId,
+            amountMinor: credit.amountMinor,
+            dischargedMinor: credit.dischargedMinor,
+            remainingMinor: credit.remainingMinor,
+            currency: credit.currency,
+            openedAt: credit.openedAt,
+          })),
+        } as never,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    {
+      ...applyClientCreditRoute,
+      middleware: chokepointMiddleware(chokepoint, applyClientCreditRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { clientCreditId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ApplyClientCreditAck>>(
+        c,
+        201,
+        async (appliedBy) => {
+          const applied = await applyClientCreditToInvoice(
+            firm.firmDatabase,
+            {
+              clientCreditId,
+              invoiceId: request.invoiceId,
+              matterId: request.matterId,
+              amountMinor: request.amountMinor,
+              effectiveDate: request.effectiveDate,
+              appliedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: applied.effect,
+            body: {
+              applicationId: applied.applicationId,
+              clientCreditId,
+              remainingMinor: applied.remainingMinor,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    {
+      ...reverseApplicationRoute,
+      middleware: chokepointMiddleware(chokepoint, reverseApplicationRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { applicationId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ReverseApplicationAck>>(
+        c,
+        201,
+        async (reversedBy) => {
+          const reversed = await composeApplicationReversal(
+            firm.firmDatabase,
+            {
+              applicationId,
+              reason: request.reason,
+              effectiveDate: request.effectiveDate,
+              reversedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: reversed.effect,
+            body: {
+              applicationId: reversed.applicationId,
+              reversesApplicationId: reversed.reversesApplicationId,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    {
+      ...contingencyResidualRoute,
+      middleware: chokepointMiddleware(chokepoint, contingencyResidualRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      try {
+        const residual = await readContingencyResidual(firm.firmDatabase, matterId);
+        return c.json(residual as never, 200);
+      } catch (caught) {
+        if (caught instanceof BillingValidationError) return billingErrorResponse(c, caught);
+        throw caught;
+      }
     },
   );
 }

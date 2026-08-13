@@ -302,6 +302,22 @@
   evidence: packages/billing/src/retainer.ts (target and floor on the agreement; floor status from trust's available figure; retainer_replenishment_request with the billing.retainer.replenishment_requested topic)
   notes: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event.
 
+- id: financial.billing.corrections
+  name: Corrections after finalization
+  scope: Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application.
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/credit-note.ts (the four composers; a correction is a second permanent record and the invoice's total never moves) and packages/billing/src/close-precondition.ts (a matter does not close over an open client credit)
+  notes: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision.
+
+- id: financial.billing.corrections.contingency-residual
+  name: Contingency shrunk-basis residual
+  scope: Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding.
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: readContingencyResidual in packages/billing/src/contingency.ts (the amount and the fee lines a correction would be aimed at) and contingencyBilledBeyondEntitlementStatement in packages/billing/src/fitness.ts (billed read net of credits attributed through credit_note_line.credits_invoice_line_id)
+  notes: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it.
+
 - id: financial.billing.invoice-composition
   name: Invoice composition
   scope: Bills combine time/fees plus costs plus taxes.

@@ -22,6 +22,7 @@ import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
+import { matterClientCreditClosePrecondition } from "@magna-carta/billing/close-precondition";
 import { matterTrustClosePrecondition } from "@magna-carta/trust/close-precondition";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
@@ -157,9 +158,17 @@ const RenumberRequest = z
 const matterParam = z.object({ id: identifierPathParam("matter", "id") });
 
 // The close rules, registered here because this app is where the subsystems meet: the matter shell
-// runs whatever it is handed and never imports the subsystem that owns a rule. Trust is the first
-// and, today, the only one — a matter whose client trust ledger still holds money does not close.
-const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [matterTrustClosePrecondition];
+// runs whatever it is handed and never imports the subsystem that owns a rule. Two, and both are
+// about somebody else's money — a matter whose client trust ledger still holds funds does not close,
+// and neither does one carrying a credit the firm has conceded it owes the client back.
+//
+// There is deliberately no rule here on an unpaid bill: an uncollectable receivable is an ordinary
+// business outcome whose lawful exit is a write-off, and blocking on one would be friction with no
+// ethical floor under it.
+const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
+  matterTrustClosePrecondition,
+  matterClientCreditClosePrecondition,
+];
 
 // The close NOTICES, registered the same way and kept deliberately separate from the rules above.
 // Custody is the first: closing a matter surfaces the physical originals the firm still holds against
