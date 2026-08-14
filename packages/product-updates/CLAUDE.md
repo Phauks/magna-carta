@@ -18,7 +18,9 @@ knowledge of any firm.
 - `src/public-changelog.ts` — `parsePublicChangelog()` and `buildPublicChangelogArtifact()`: the
   assembled Markdown home turned into the validated artifact.
 - `src/public-roadmap.ts` — the same pair for the roadmap: `parsePublicRoadmap()` and
-  `buildPublicRoadmapArtifact()` over `../../docs/public-roadmap.md`.
+  `buildPublicRoadmapArtifact()`. **Currently unfed.** The public roadmap document is withdrawn
+  until the product has users, so nothing renders the Markdown these functions parse. They are kept
+  whole, with their tests, because reviving the document is a renderer change rather than a rebuild.
 - `../../docs/public-changelog.md` — the document this package reads. Assembled on `main` by
   `vp run changelog-build` from the `## Public` blocks of `audience: public` fragments in
   `changelog.d/`; curated there into thematic roll-ups at publish time.
@@ -38,12 +40,14 @@ knowledge of any firm.
   artifact cannot fall out of step with the document it derives from. Do not add a checked-in
   `public-changelog.json` or `public-roadmap.json`; either would be a second home for the same fact
   and would need a gate to hold it.
-- **The two documents are current for different reasons, and only one of them is gated.**
+- **Only the changelog document exists on disk; the roadmap parser is a seam held open.**
   `docs/public-changelog.md` is _authored_: fragments fold into it once and are then curated by hand
-  into thematic roll-ups, so no generator owns its bytes. `docs/public-roadmap.md` is _derived_:
-  `tooling/doc-fragments/build-public-roadmap.mjs` renders it whole from the `roadmap.d/` feature
-  ledger every run and `pnpm run lint:roadmap` fails when the committed file differs. Never
-  hand-edit the roadmap document, and never add a gate to the changelog one.
+  into thematic roll-ups, so no generator owns its bytes and no gate could hold it. The public
+  roadmap document is _derived_ — rendered whole from the `roadmap.d/` feature ledger by
+  `tooling/doc-fragments/roadmap.mjs` — and is deliberately **not written to disk**: there are no
+  users yet, so it has no audience. `parsePublicRoadmap` is tested against a rendered document held
+  in the tests rather than a file, so it stays correct with nothing published. What the ledger does
+  render is `docs/now.md`, the internal build register, which `pnpm run lint:roadmap` diff-gates.
 - Entries are **dated, not versioned**, because no release has been cut. `version` is present and
   null rather than absent, so the day a release is cut is an edit to the document and a switch in a
   renderer — not a schema change every reader has to tolerate.

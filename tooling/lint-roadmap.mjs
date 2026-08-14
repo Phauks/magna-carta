@@ -3,17 +3,19 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { containsEmoji } from "./doc-fragments/changelog.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
-import { parseArea, renderNow, renderPublicRoadmap } from "./doc-fragments/roadmap.mjs";
+import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
 
-// Fitness function for the roadmap.d/* feature ledger and the two documents rendered from it
-// (mirrors lint-status.mjs). Three jobs, in increasing order of what they carry:
+// Fitness function for the roadmap.d/* feature ledger and the document rendered from it (mirrors
+// lint-status.mjs). Three jobs, in increasing order of what they carry:
 //
 //   1. The ledger parses, ids are unique, and the status/audience vocabularies hold.
 //   2. Anything marked `audience: public` carries a summary written for a user — no decision
 //      numbers, no slice or phase numbers, no file paths, no package names, no emoji, and no date
 //      or quarter. Enforced on the fragment because a fragment can still be edited and a published
-//      document cannot, which is the same reasoning lint-changelog-fragments gives.
-//   3. docs/public-roadmap.md and docs/now.md match a fresh render of the ledger, byte for byte.
+//      document cannot, which is the same reasoning lint-changelog-fragments gives. Nothing is
+//      published from those keys today — the public rendering has no audience yet — and the check
+//      stays on so the copy is already sound on the day it does.
+//   3. docs/now.md matches a fresh render of the ledger, byte for byte.
 //
 // The third is the point of the whole design. A capability that ships flips one word in its ledger
 // node, and this gate refuses the two ways a derived document rots: flipping the node without
@@ -83,10 +85,7 @@ for (const area of areas) {
 // The drift gate. Only meaningful if every area parsed — a partial ledger renders a shorter document
 // and would report the difference as drift rather than as the parse failure it is.
 if (problems.length === 0) {
-  for (const [path, rendered] of [
-    ["docs/public-roadmap.md", renderPublicRoadmap(areas)],
-    ["docs/now.md", renderNow(areas)],
-  ]) {
+  for (const [path, rendered] of [["docs/now.md", renderBuildRegister(areas)]]) {
     const absolute = join(ROOT, path);
     const onDisk = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
     if (onDisk === rendered) continue;
@@ -112,7 +111,7 @@ if (problems.length > 0) {
   console.error("\nThe feature ledger (roadmap.d/*) failed validation:\n");
   console.error(problems.map((problem) => `  ${problem}`).join("\n"));
   console.error(
-    `\n${problems.length} problem(s). Format: roadmap.d/README.md. Fix the node(s) and re-run \`vp run public-roadmap-build\`.`,
+    `\n${problems.length} problem(s). Format: roadmap.d/README.md. Fix the node(s) and re-run \`vp run register-build\`.`,
   );
   process.exit(1);
 }
@@ -122,5 +121,5 @@ const publicNodes = areas.reduce(
   0,
 );
 console.log(
-  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} public); both rendered documents are current.`,
+  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md is current.`,
 );

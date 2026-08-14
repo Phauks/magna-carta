@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   BANDS,
   LEDGER_STATUSES,
+  ROLL_UPS,
   bandForStatus,
   parseArea,
   publicEntries,
-  renderNow,
+  renderBuildRegister,
   renderPublicRoadmap,
+  wholePercentages,
 } from "./roadmap.mjs";
 
 function area(...blocks) {
@@ -107,6 +109,9 @@ describe("bandForStatus", () => {
   });
 });
 
+// The public rendering is kept and exercised, and is deliberately not written to disk by the build:
+// there are no users yet, so it has no audience. These tests hold its behaviour intact for the day
+// it does — see the comment at the top of roadmap.mjs.
 describe("renderPublicRoadmap", () => {
   const areas = [
     parseArea(
@@ -192,7 +197,30 @@ describe("publicEntries", () => {
   });
 });
 
-describe("renderNow", () => {
+describe("ROLL_UPS", () => {
+  it("puts every ledger status in exactly one roll-up, so the shares can sum to the whole", () => {
+    // A status missing from this table would not fail — it would quietly make a percentage column
+    // wrong, which is the failure mode a reader cannot see.
+    const counted = ROLL_UPS.flatMap((rollUp) => rollUp.statuses);
+    expect(counted.toSorted()).toEqual(LEDGER_STATUSES.toSorted());
+  });
+});
+
+describe("wholePercentages", () => {
+  it("sums to exactly 100, where rounding each share on its own does not", () => {
+    // Three equal thirds round to 33 each and print a column that adds to 99.
+    expect(wholePercentages([1, 1, 1], 3)).toEqual([34, 33, 33]);
+    expect(wholePercentages([241, 182, 15, 24, 13, 8, 178, 39, 2], 702)).toHaveLength(9);
+    const shares = wholePercentages([241, 182, 15, 24, 13, 8, 178, 39, 2], 702);
+    expect(shares.reduce((sum, value) => sum + value, 0)).toBe(100);
+  });
+
+  it("returns zeros rather than dividing by zero on an empty ledger", () => {
+    expect(wholePercentages([0, 0], 0)).toEqual([0, 0]);
+  });
+});
+
+describe("renderBuildRegister", () => {
   const areas = [
     parseArea(
       area(
@@ -217,31 +245,70 @@ describe("renderNow", () => {
     ),
   ];
 
-  it("leads with what is blocked on the owner, and states the question", () => {
-    const rendered = renderNow(areas);
-    expect(rendered.indexOf("## Waiting on you")).toBeLessThan(rendered.indexOf("## Being built"));
-    expect(rendered).toContain(
-      "- **Bank charges on a trust account** (trust.md) — Whether a bank charge may ever be met from the pooled balance.",
+  it("leads with the counts, which are what the whole document is read for", () => {
+    const rendered = renderBuildRegister(areas);
+    expect(rendered.indexOf("## Where the program stands")).toBeLessThan(
+      rendered.indexOf("## Waiting on you"),
+    );
+    expect(rendered).toContain("**3 capabilities across 1 areas.**");
+  });
+
+  it("states what is blocked on the owner, and states the question", () => {
+    expect(renderBuildRegister(areas)).toContain(
+      "- **Bank charges on a trust account** (`trust.charges`) — Whether a bank charge may ever be met from the pooled balance.",
     );
   });
 
   it("lists what is in build and what is queued, from status alone", () => {
-    const rendered = renderNow(areas);
+    const rendered = renderBuildRegister(areas);
     expect(rendered).toMatch(/## Being built now[\S\s]*Three-way reconciliation/);
     expect(rendered).toMatch(/## Next up[\S\s]*Bank charges on a trust account/);
   });
 
-  it("does not repeat what shipped, which is the changelog's fact", () => {
-    expect(renderNow(areas)).not.toContain("Client trust ledger");
+  it("counts each of the nine statuses in its own column, never banded together", () => {
+    // Banding was the previous rendering's largest loss of signal: `partial` (a backend with no
+    // screen on it) and `in-build` (being written right now) landed under one heading.
+    const rendered = renderBuildRegister(areas);
+    expect(rendered).toContain(
+      "| Trust accounting | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 3 | 33% |",
+    );
+    for (const status of LEDGER_STATUSES) expect(rendered).toContain(`| \`${status}\` |`);
+    for (const band of BANDS) expect(rendered).not.toContain(band);
   });
 
-  it("counts every node in the tally, so the total is the ledger's own", () => {
-    expect(renderNow(areas)).toContain("| Trust accounting | 1 | 1 | 0 | 1 | 0 | 3 |");
+  it("names the gap between shipped and shipped-plus-partial, which is the interface debt", () => {
+    const withPartial = [
+      parseArea(
+        area(
+          shippedPublicNode,
+          [
+            "- id: trust.recon",
+            "  name: Three-way reconciliation",
+            "  scope: Bank, book and client-ledger reconciliation.",
+            "  status: partial",
+            "",
+          ].join("\n"),
+        ),
+        "trust.md",
+      ),
+    ];
+    expect(renderBuildRegister(withPartial)).toContain(
+      "**Shipped alone is 1 of 2 (50%). Shipped plus partial is 2 (100%).**",
+    );
   });
 
-  it("states a subtree once, at its shallowest node", () => {
-    // A parent and nine children under one heading is nine lines saying what one line said, which is
-    // what turns a one-screen digest back into something nobody reads.
+  it("lists every node including what shipped, because this is the register and not a digest", () => {
+    const rendered = renderBuildRegister(areas);
+    expect(rendered).toMatch(/## The register[\S\s]*Client trust ledger/);
+    expect(rendered).toContain(
+      "- `trust.ledger` · `shipped` · **Client trust ledger** — Per-client trust ledger with a no-negative invariant.",
+    );
+  });
+
+  it("keeps a whole subtree, indented by the depth of its id", () => {
+    // An earlier rendering kept only the shallowest node of each subtree. A parent's status is a
+    // roll-up and its children are the actual units of work, so collapsing them hid exactly the
+    // detail this document exists to show.
     const deep = [
       parseArea(
         area(
@@ -266,16 +333,46 @@ describe("renderNow", () => {
         "community.md",
       ),
     ];
-    const rendered = renderNow(deep);
-    expect(rendered).toContain("**Board**");
-    expect(rendered).not.toContain("**Voting**");
-    expect(rendered).not.toContain("**Ranking**");
+    const rendered = renderBuildRegister(deep);
+    expect(rendered).toContain("- `board` · `designed` · **Board** — A board.");
+    expect(rendered).toContain("  - `board.voting` · `designed` · **Voting** — Votes on a board.");
+    expect(rendered).toContain(
+      "    - `board.voting.ranking` · `designed` · **Ranking** — Ranked votes.",
+    );
+  });
+
+  it("carries a node's note, which is where a parked or partial status says why", () => {
+    const noted = [
+      parseArea(
+        area(
+          [
+            "- id: trust.sweep",
+            "  name: Interest sweep",
+            "  scope: Sweeping trust interest to the bar foundation.",
+            "  status: deferred",
+            "  notes: Parked until a second jurisdiction is opened.",
+            "",
+          ].join("\n"),
+        ),
+        "trust.md",
+      ),
+    ];
+    expect(renderBuildRegister(noted)).toContain(
+      "_Note: Parked until a second jurisdiction is opened._",
+    );
   });
 
   it("says so plainly when a section is empty", () => {
     const empty = [parseArea(area(shippedPublicNode), "trust.md")];
     // "No capability", not "nothing": the ledger holds capabilities, and account-side work can be
     // blocking the owner while this section is legitimately empty.
-    expect(renderNow(empty)).toContain("_No capability is blocked on an owner decision._");
+    const rendered = renderBuildRegister(empty);
+    expect(rendered).toContain("_No capability is blocked on an owner decision._");
+    expect(rendered).toContain("_No capability is marked `in-build`._");
+    expect(rendered).toContain("_No capability is marked `planned` or `designed`._");
+  });
+
+  it("draws no trend line, because the ledger holds no history to draw one from", () => {
+    expect(renderBuildRegister(areas)).toContain("**This is where we are, not where we were.**");
   });
 });
