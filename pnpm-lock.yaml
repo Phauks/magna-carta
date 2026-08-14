@@ -730,6 +730,9 @@ importers:
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
+      '@magna-carta/reporting':
+        specifier: workspace:*
+        version: link:../../packages/reporting
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse

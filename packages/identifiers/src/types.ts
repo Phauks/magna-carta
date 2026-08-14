@@ -182,5 +182,3 @@ export type NotificationEventId = Identifier<"notificationEvent">;
 export type NotificationRecipientId = Identifier<"notificationRecipient">;
 export type NotificationDeliveryId = Identifier<"notificationDelivery">;
 export type NotificationDigestId = Identifier<"notificationDigest">;
-export type ReportProductionId = Identifier<"reportProduction">;
-export type ReportProductionCompletionId = Identifier<"reportProductionCompletion">;

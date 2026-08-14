@@ -342,14 +342,6 @@ export const ENTITY_PREFIXES = {
   notificationRecipient: "notificationRecipient",
   notificationDelivery: "notificationDelivery",
   notificationDigest: "notificationDigest",
-  // Reporting — turning a report into a filed firm record. A `reportProduction` is the request: who
-  // asked, for what scope, over which period and knowledge instant. A `reportProductionCompletion`
-  // is the one row that settles it — the filed artifact and its content hash, or the refusal and why.
-  // Two handles rather than one row with a status column, on the house pattern that keeps a status
-  // column off a trust hold and off an invoice application: whether a production is done is the
-  // presence of the completion row, so nothing can disagree with it.
-  reportProduction: "reportProduction",
-  reportProductionCompletion: "reportProductionCompletion",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

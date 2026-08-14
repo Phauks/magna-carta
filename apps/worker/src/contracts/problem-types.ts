@@ -491,6 +491,23 @@ export const PROBLEM_TYPES = {
   // request-shape problem, and both have the same answer — rename it, because nothing ever matched
   // it by name.
   "discovery-coding-panel-refused": "discovery-coding-panel-refused",
+  // The period a report was asked for is not one that can be answered (HTTP 422): the dates are not
+  // calendar dates, the period ends before it starts, or the knowledge instant is not a UTC instant
+  // or names a moment the platform has not reached. Its own type because the fix is a different
+  // request rather than a different account or a different grant.
+  "report-period-invalid": "report-period-invalid",
+  // The period holds more of an account's activity than one document can carry (HTTP 422). Named
+  // rather than answered short: a client ledger missing entries, or a journal missing a
+  // disbursement, presented as complete is worse than a refusal, because a reader has no way to
+  // tell. The remedy is in the message — produce the period in shorter parts.
+  "report-period-too-large": "report-period-too-large",
+  // The platform cannot produce this report for this account (HTTP 422), and the reason is a fact
+  // somebody has to establish rather than a request to retry: no jurisdiction is recorded against
+  // the account, nobody has encoded that jurisdiction's rules, no attorney has reviewed them, or the
+  // account has more items outstanding than one reconciliation can account for. The detail carries
+  // the refusing subsystem's own words, because each of those is fixed by a different person doing a
+  // different thing.
+  "report-cannot-be-produced": "report-cannot-be-produced",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
