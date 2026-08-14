@@ -25,8 +25,8 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 241 | 34% |
-| Part-built | partial, in-build | 197 | 28% |
-| Ahead | designed, planned, researching, not-started | 223 | 32% |
+| Part-built | partial, in-build | 199 | 28% |
+| Ahead | designed, planned, researching, not-started | 221 | 32% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **702** | **100%** |
 
@@ -35,23 +35,23 @@ below; these are the totals over that list.
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 241 | 34% |
-| `partial` | 182 | 26% |
+| `partial` | 184 | 26% |
 | `in-build` | 15 | 2% |
-| `designed` | 24 | 4% |
+| `designed` | 22 | 3% |
 | `planned` | 13 | 2% |
 | `researching` | 8 | 1% |
-| `not-started` | 178 | 25% |
+| `not-started` | 178 | 26% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **702** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 241 of 702 (34%). Shipped plus partial is 423 (60%).**
+**Shipped alone is 241 of 702 (34%). Shipped plus partial is 425 (61%).**
 
-The 182 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 184 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
-distance from 34% to 60% is approximately the program's interface debt: work that is engineered and
+distance from 34% to 61% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
 overstates what a user can do; reading the smaller one understates what has been built. Both are
 true and neither is the answer on its own.
@@ -69,7 +69,7 @@ true and neither is the answer on its own.
 | Core Domain — Directory, Matters & Locations | 31 | 33 | 0 | 2 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
-| Discovery (e-discovery) | 4 | 10 | 0 | 3 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
+| Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Financial Core | 15 | 20 | 4 | 3 | 0 | 0 | 13 | 3 | 0 | 58 | 26% |
@@ -87,7 +87,7 @@ true and neither is the answer on its own.
 | Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **241** | **182** | **15** | **24** | **13** | **8** | **178** | **39** | **2** | **702** | **34%** |
+| **All areas** | **241** | **184** | **15** | **22** | **13** | **8** | **178** | **39** | **2** | **702** | **34%** |
 
 ## Waiting on you
 
@@ -136,8 +136,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `locations.usage.custodian` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `custodian.retention-destruction` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
-- `discovery.search` · **Search** — Full-text and semantic search over the discovery corpus.
-- `discovery.search.keyword` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
 - `documents.editing.editor-ui` · **Editor UI** — In-app surface that opens a document in the Collabora frame.
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
@@ -428,7 +426,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 23 nodes, 17% shipped. 4 done, 10 part-built, 7 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 23 nodes, 17% shipped. 4 done, 12 part-built, 5 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
   - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
@@ -438,8 +436,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `discovery.ocr` · `shipped` · **OCR engine** — PaddleOCR PP-OCR models run as ONNX through a Rust ort pipeline, one pinned versioned model set for server Container and desktop. _Note: UI todo; ocr-raster-cap-and-skip-gate branch in flight; Tesseract/ocrs fallbacks and docTR head-to-head resolve in the future discovery subsystem spec._
   - `discovery.archive-handling` · `shipped` · **Opaque archive storage** — Uploaded archives stored opaque (versioned, hashed, on the matter); never expanded server-side.
     - `discovery.archive-handling.contents-indexing` · `partial` · **Archive contents in review** — Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload. _Note: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all._
-  - `discovery.search` · `designed` · **Search** — Full-text and semantic search over the discovery corpus.
-    - `discovery.search.keyword` · `designed` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
+  - `discovery.search` · `partial` · **Search** — Full-text and semantic search over the discovery corpus.
+    - `discovery.search.keyword` · `partial` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
   - `discovery.review` · `partial` · **Review workflow** — Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
     - `discovery.review.filters` · `not-started` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
