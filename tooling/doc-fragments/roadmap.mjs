@@ -1,17 +1,24 @@
-// Pure parse + render for the feature ledger (roadmap.d/* → docs/public-roadmap.md + docs/now.md).
-// No filesystem here — every function is a pure transform, unit-tested in roadmap.test.mjs. The
-// impure runner is build-public-roadmap.mjs and the fitness function is tooling/lint-roadmap.mjs.
-// Mirrors the split in status.mjs / build-status.mjs and changelog.mjs / build-changelog.mjs.
+// Pure parse + render for the feature ledger (roadmap.d/* → docs/now.md). No filesystem here —
+// every function is a pure transform, unit-tested in roadmap.test.mjs. The impure runner is
+// build-register.mjs and the fitness function is tooling/lint-roadmap.mjs. Mirrors the split in
+// status.mjs / build-status.mjs and changelog.mjs / build-changelog.mjs.
 //
-// The ledger is the one home for how complete each capability is; both documents are renderings of
-// it, never second copies. The split that makes drift impossible: a human authors the durable half
-// of a public entry (whether it is public at all, its name, its sentence) and this module derives
-// the volatile half (which horizon band it sits in) from the node's status on every run. Nobody can
-// forget to move an entry because nobody can move one.
+// The ledger is the one home for how complete each capability is, and docs/now.md is a rendering of
+// it, never a second copy. It is the COMPLETE register: every node, at its real status, nothing
+// collapsed and nothing curated. A digest of this ledger was tried and thrown away — banding nine
+// statuses into five horizons put `partial` (a backend with no screen on it) and `in-build` (being
+// written right now) under one heading, which is the largest loss of signal the source can suffer.
+// Whatever else changes here, do not re-collapse the statuses.
 //
-// Neither rendered document carries a generation timestamp: they are byte-exact functions of the
-// ledger so that a diff gate can hold them, and a clock in the output would break that every day.
-// A renderer that wants a build time stamps its own — see packages/product-updates.
+// renderPublicRoadmap is the other rendering — user-facing, curated, banded. It is exercised by its
+// tests and read by packages/product-updates, and it is deliberately NOT written to disk: there are
+// no users yet, so there is no audience for it, and a document nobody reads is a document nobody
+// keeps honest. The renderer, the audience/public-name/public-summary ledger keys and the artifact
+// schema all stay ready for the day the product has readers.
+//
+// The rendered document carries no generation timestamp: it is a byte-exact function of the ledger
+// so that a diff gate can hold it, and a clock in the output would break that every day. A renderer
+// that wants a build time stamps its own — see packages/product-updates.
 
 export const LEDGER_STATUSES = [
   "shipped",
@@ -206,7 +213,9 @@ export function publicEntries(areas) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// docs/public-roadmap.md — what users see.
+// The public rendering — what users would see. DORMANT: no build script calls this today, because
+// the product has no users and a roadmap written for them was answering nobody. Kept whole, and
+// kept tested, so reviving it is wiring a renderer back to a build script rather than writing one.
 
 const PUBLIC_PREAMBLE = `# Magna Carta roadmap
 
@@ -274,86 +283,46 @@ function orderedGroups(entries) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// docs/now.md — the owner's one screen.
+// docs/now.md — the complete build register.
 
-const NOW_PREAMBLE = `# Now
+// The four ways a capability can stand, each a group of ledger statuses. Coarser than `status` and
+// deliberately so: four numbers are the ones you reason about, nine are the ones you audit against,
+// and the document prints both rather than choosing. Every ledger status belongs to exactly one
+// roll-up — asserted in roadmap.test.mjs, because a status quietly missing from this table would
+// make a percentage column wrong rather than make it fail.
+export const ROLL_UPS = [
+  { name: "Done", statuses: ["shipped"] },
+  { name: "Part-built", statuses: ["partial", "in-build"] },
+  { name: "Ahead", statuses: ["designed", "planned", "researching", "not-started"] },
+  { name: "Parked", statuses: ["deferred", "cut"] },
+];
 
-One screen: what is blocked on the owner, what is being built, what is queued, and how much of the
-product exists. Every line is derived from the feature ledger in [\`roadmap.d/\`](../roadmap.d/), so
-nothing here can describe a state the ledger does not hold.
+const REGISTER_PREAMBLE = (nodeCount, areaCount) => `# Now — the build register
 
-**Assembled, never hand-edited.** Run \`vp run public-roadmap-build\` after changing a ledger node.
+Every capability in the program, with its real status, and the arithmetic over the whole set. This
+is the complete register rather than a digest: all ${nodeCount} nodes of the feature ledger in
+[\`roadmap.d/\`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
+nothing collapsed and nothing curated away.
 
-What has already shipped is deliberately not repeated here — that is the
-[changelog's](../CHANGELOG.md) fact, and a second account of it would be a second thing to keep
-current. Slice-by-slice build stages live in [\`STATUS.md\`](../STATUS.md); the narrative of what each
-stream is doing lives in [\`ROADMAP.md\`](../ROADMAP.md).`;
+**Assembled, never hand-edited.** Run \`vp run register-build\` after changing a ledger node.
 
-// Keep only the shallowest node of any subtree in a list. A parent and nine of its children all
-// sitting in "Next up" is nine lines saying what one line said, and it is exactly what turns a
-// one-screen digest back into something nobody reads. Hierarchy is in the dotted id, so an ancestor
-// is a dotted prefix.
-export function collapseToShallowest(nodes) {
-  const present = new Set(nodes.map((node) => node.id));
-  return nodes.filter((node) => {
-    const segments = node.id.split(".");
-    for (let depth = 1; depth < segments.length; depth += 1) {
-      if (present.has(segments.slice(0, depth).join("."))) return false;
-    }
-    return true;
-  });
-}
+**This is where we are, not where we were.** The ledger records only each capability's current
+status — it keeps no history at all, so no trend line can be drawn from it without inventing one,
+and none is drawn here. [\`CHANGELOG.md\`](../CHANGELOG.md) is the dated record of what shipped and
+when; it is the only place a real "where we have been" can be read today. Slice-by-slice build
+stages live in [\`STATUS.md\`](../STATUS.md), the narrative of what each stream is doing lives in
+[\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine statuses means lives in
+[\`roadmap.d/README.md\`](../roadmap.d/README.md).`;
 
-export function renderNow(areas) {
+export function renderBuildRegister(areas) {
   const nodes = allNodes(areas);
-  const sections = [NOW_PREAMBLE];
+  const sections = [REGISTER_PREAMBLE(nodes.length, areas.length)];
 
-  // This section answers "what is blocked on me?" only for decisions about a CAPABILITY, because the
-  // ledger holds capabilities and nothing else. Account-side work — a dashboard step, a billing
-  // budget, a repository setting — blocks real work just as hard and has no node to hang from, so the
-  // section names its own boundary and points at that list. A "waiting on you" that silently omits
-  // half of what is waiting is worse than no list at all: it is trusted, and it is wrong.
-  const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
-  sections.push(
-    section(
-      "Waiting on you",
-      [
-        awaiting.length === 0
-          ? "_No capability is blocked on an owner decision._"
-          : awaiting
-              .map((node) => `- **${node.name}** (${node.area}) — ${node.awaitingOwner}`)
-              .join("\n"),
-        "",
-        "Decisions about a capability only. Account-side steps that no session can perform — a" +
-          " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
-          " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.",
-      ].join("\n"),
-    ),
-  );
-
-  const building = collapseToShallowest(nodes.filter((node) => node.status === "in-build"));
-  sections.push(
-    section(
-      "Being built now",
-      building.length === 0
-        ? "_No capability is marked in-build._"
-        : building.map((node) => `- **${node.name}** (${node.area}) — ${node.scope}`).join("\n"),
-    ),
-  );
-
-  const next = collapseToShallowest(
-    nodes.filter((node) => node.status === "planned" || node.status === "designed"),
-  );
-  sections.push(
-    section(
-      "Next up",
-      next.length === 0
-        ? "_Nothing is planned or designed and waiting to be built._"
-        : next.map((node) => `- **${node.name}** (${node.area}) — ${node.scope}`).join("\n"),
-    ),
-  );
-
-  sections.push(section("Where the program stands", renderTally(areas)));
+  sections.push(section("Where the program stands", renderStanding(areas, nodes)));
+  sections.push(section("Waiting on you", renderAwaiting(nodes)));
+  sections.push(section("Being built now", renderStatusList(nodes, ["in-build"])));
+  sections.push(section("Next up", renderStatusList(nodes, ["planned", "designed"])));
+  sections.push(section("The register", renderLedger(areas)));
 
   return `${sections.join("\n\n")}\n`;
 }
@@ -362,35 +331,232 @@ function section(heading, body) {
   return `## ${heading}\n\n${body}`;
 }
 
-// Per-area counts in the public bands, so the two documents count the product the same way. Emitted
-// width-independent (one space around each cell) so one long area name cannot re-pad every row.
-function renderTally(areas) {
-  // Every band, including the empty ones: a column of zeros is cheap, and a total that does not sum
-  // to the count beside it is the kind of small wrongness that makes a reader stop trusting a table.
-  const columns = BAND_ORDER;
+// --- the counts -------------------------------------------------------------------------------
+
+function renderStanding(areas, nodes) {
+  const counts = countByStatus(nodes);
+  const shipped = counts.get("shipped");
+  const partial = counts.get("partial");
+  const delivered = shipped + partial;
+
+  return [
+    wrap(
+      `**${nodes.length} capabilities across ${areas.length} areas.** Every one of them is listed` +
+        " in [the register](#the-register) below; these are the totals over that list.",
+    ),
+    "",
+    "### The roll-up",
+    "",
+    renderRollUpTable(nodes, counts),
+    "",
+    "### Every status",
+    "",
+    renderStatusTable(nodes, counts),
+    "",
+    "### What `partial` hides",
+    "",
+    wrap(
+      `**Shipped alone is ${shipped} of ${nodes.length} (${share(shipped, nodes.length)}).` +
+        ` Shipped plus partial is ${delivered} (${share(delivered, nodes.length)}).**`,
+    ),
+    "",
+    wrap(
+      `The ${partial} nodes between those two numbers are the most decision-relevant fact in this` +
+        " document. A `partial` capability is most often a backend that works with nothing on" +
+        ` screen to reach it, so the distance from ${share(shipped, nodes.length)} to` +
+        ` ${share(delivered, nodes.length)} is approximately the program's interface debt: work` +
+        " that is engineered and paid for, and that nobody can use. Reading the larger number as" +
+        " how much of the product exists overstates what a user can do; reading the smaller one" +
+        " understates what has been built. Both are true and neither is the answer on its own.",
+    ),
+    "",
+    "### By area",
+    "",
+    renderAreaMatrix(areas),
+  ].join("\n");
+}
+
+// Hard-wrap a paragraph at the width the rest of the documentation is written to. Counts are
+// interpolated into this prose, so wrapping has to be computed rather than typed: a three-digit
+// total becoming four digits would otherwise reflow one line by hand and leave the rest ragged.
+// Safe on inline code spans because every token here is whitespace-free.
+function wrap(text, width = 100) {
+  const lines = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line === "") line = word;
+    else if (line.length + 1 + word.length <= width) line += ` ${word}`;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line !== "") lines.push(line);
+  return lines.join("\n");
+}
+
+function countByStatus(nodes) {
+  const counts = new Map(LEDGER_STATUSES.map((status) => [status, 0]));
+  for (const node of nodes) counts.set(node.status, counts.get(node.status) + 1);
+  return counts;
+}
+
+function renderRollUpTable(nodes, counts) {
+  const totals = ROLL_UPS.map((rollUp) =>
+    rollUp.statuses.reduce((sum, status) => sum + counts.get(status), 0),
+  );
+  const shares = wholePercentages(totals, nodes.length);
   const rows = [
-    `| Area | ${columns.join(" | ")} | Total |`,
-    `| --- | ${columns.map(() => "---:").join(" | ")} | ---: |`,
+    "| Where it stands | Statuses counted | Nodes | Share |",
+    "| --- | --- | ---: | ---: |",
   ];
-  const totals = new Map(columns.map((column) => [column, 0]));
+  for (const [index, rollUp] of ROLL_UPS.entries()) {
+    rows.push(
+      `| ${rollUp.name} | ${rollUp.statuses.join(", ")} | ${totals[index]} | ${shares[index]}% |`,
+    );
+  }
+  rows.push(`| **All capabilities** | | **${nodes.length}** | **100%** |`);
+  return rows.join("\n");
+}
+
+function renderStatusTable(nodes, counts) {
+  // Lifecycle order, not descending by count: this table is read beside a diff, and rows that
+  // reorder themselves every time a node is flipped turn a one-line change into a whole-table one.
+  const values = LEDGER_STATUSES.map((status) => counts.get(status));
+  const shares = wholePercentages(values, nodes.length);
+  const rows = ["| Status | Nodes | Share |", "| --- | ---: | ---: |"];
+  for (const [index, status] of LEDGER_STATUSES.entries()) {
+    rows.push(`| \`${status}\` | ${values[index]} | ${shares[index]}% |`);
+  }
+  rows.push(`| **All statuses** | **${nodes.length}** | **100%** |`);
+  return rows.join("\n");
+}
+
+// The per-area matrix, one column per ledger status — never per band. Emitted width-independent
+// (one space around each cell) so one long area name cannot re-pad every row of the diff.
+function renderAreaMatrix(areas) {
+  const rows = [
+    `| Area | ${LEDGER_STATUSES.map((status) => `\`${status}\``).join(" | ")} | Total | Shipped |`,
+    `| --- | ${LEDGER_STATUSES.map(() => "---:").join(" | ")} | ---: | ---: |`,
+  ];
+  const totals = new Map(LEDGER_STATUSES.map((status) => [status, 0]));
   let grandTotal = 0;
 
   for (const area of areas) {
-    const counts = new Map(columns.map((column) => [column, 0]));
-    for (const node of area.nodes) {
-      const band = bandForStatus(node.status);
-      if (counts.has(band)) counts.set(band, counts.get(band) + 1);
+    const counts = countByStatus(area.nodes);
+    for (const status of LEDGER_STATUSES) {
+      totals.set(status, totals.get(status) + counts.get(status));
     }
-    const areaTotal = area.nodes.length;
-    grandTotal += areaTotal;
-    for (const column of columns) totals.set(column, totals.get(column) + counts.get(column));
+    grandTotal += area.nodes.length;
+    const cells = LEDGER_STATUSES.map((status) => counts.get(status)).join(" | ");
     rows.push(
-      `| ${area.publicGroup} | ${columns.map((column) => counts.get(column)).join(" | ")} | ${areaTotal} |`,
+      `| ${area.title} | ${cells} | ${area.nodes.length} | ${share(counts.get("shipped"), area.nodes.length)} |`,
     );
   }
 
+  const totalCells = LEDGER_STATUSES.map((status) => `**${totals.get(status)}**`).join(" | ");
   rows.push(
-    `| **All areas** | ${columns.map((column) => `**${totals.get(column)}**`).join(" | ")} | **${grandTotal}** |`,
+    `| **All areas** | ${totalCells} | **${grandTotal}** | **${share(totals.get("shipped"), grandTotal)}** |`,
   );
   return rows.join("\n");
+}
+
+function share(value, total) {
+  return `${total === 0 ? 0 : Math.round((value * 100) / total)}%`;
+}
+
+// Whole percentages that sum to exactly 100 (largest remainder). Rounding nine shares independently
+// lands on 99 or 101 often enough to matter, and a percentage column printed beside a count column
+// is read as arithmetic: one that does not add up costs the reader's trust in every other number.
+export function wholePercentages(values, total) {
+  if (total === 0) return values.map(() => 0);
+  const exact = values.map((value) => (value * 100) / total);
+  const result = exact.map((value) => Math.floor(value));
+  let remaining = 100 - result.reduce((sum, value) => sum + value, 0);
+  const byFraction = exact
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .toSorted((left, right) => right.fraction - left.fraction || left.index - right.index);
+  for (const { index } of byFraction) {
+    if (remaining <= 0) break;
+    result[index] += 1;
+    remaining -= 1;
+  }
+  return result;
+}
+
+// --- the short lists --------------------------------------------------------------------------
+
+// This section answers "what is blocked on me?" only for decisions about a CAPABILITY, because the
+// ledger holds capabilities and nothing else. Account-side work — a dashboard step, a billing
+// budget, a repository setting — blocks real work just as hard and has no node to hang from, so the
+// section names its own boundary and points at that list. A "waiting on you" that silently omits
+// half of what is waiting is worse than no list at all: it is trusted, and it is wrong.
+function renderAwaiting(nodes) {
+  const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
+  return [
+    awaiting.length === 0
+      ? "_No capability is blocked on an owner decision._"
+      : awaiting
+          .map((node) => `- **${node.name}** (\`${node.id}\`) — ${node.awaitingOwner}`)
+          .join("\n"),
+    "",
+    "Decisions about a capability only. Account-side steps that no session can perform — a" +
+      " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
+      " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.",
+  ].join("\n");
+}
+
+// Every matching node, parents and children alike. An earlier version kept only the shallowest node
+// of each subtree, on the theory that a parent plus nine children is nine lines saying what one line
+// said. It is not: a parent's status is a roll-up and its children are the actual units of work, so
+// collapsing them hid exactly the detail this document exists to show.
+function renderStatusList(nodes, statuses) {
+  const matching = nodes.filter((node) => statuses.includes(node.status));
+  if (matching.length === 0) {
+    return `_No capability is marked ${statuses.map((status) => `\`${status}\``).join(" or ")}._`;
+  }
+  return matching.map((node) => `- \`${node.id}\` · **${node.name}** — ${node.scope}`).join("\n");
+}
+
+// --- the register -----------------------------------------------------------------------------
+
+const LEDGER_INTRO = `Every node in the ledger, by area, in the order the area file writes them.
+Indentation follows the dotted id, so a child sits under its parent and a parent's status is a
+roll-up of what is beneath it. Nothing is collapsed, nothing is summarised, and nothing is left out:
+to change a line here, edit the node in its area file and re-run the build.`;
+
+function renderLedger(areas) {
+  const sections = [LEDGER_INTRO];
+  for (const area of areas) {
+    const counts = countByStatus(area.nodes);
+    const shippedCount = counts.get("shipped");
+    const rollUpCounts = ROLL_UPS.map(
+      (rollUp) =>
+        `${rollUp.statuses.reduce((sum, status) => sum + counts.get(status), 0)} ${rollUp.name.toLowerCase()}`,
+    ).join(", ");
+    sections.push(
+      [
+        `### ${area.title}`,
+        "",
+        `[\`roadmap.d/${area.name}\`](../roadmap.d/${area.name}) — ${area.nodes.length} nodes,` +
+          ` ${share(shippedCount, area.nodes.length)} shipped. ${capitalise(rollUpCounts)}.`,
+        "",
+        area.nodes.map((node) => renderLedgerNode(node)).join("\n"),
+      ].join("\n"),
+    );
+  }
+  return sections.join("\n\n");
+}
+
+// Two spaces of indent per level of the dotted id, which is what Markdown reads as a nested list.
+// The ledger has no orphan nodes (a child never appears without its parent above it), and the lint
+// would surface one as a hierarchy that jumps a level rather than as a broken document.
+function renderLedgerNode(node) {
+  const indent = "  ".repeat(node.id.split(".").length - 1);
+  const note = node.notes === null ? "" : ` _Note: ${node.notes}_`;
+  return `${indent}- \`${node.id}\` · \`${node.status}\` · **${node.name}** — ${node.scope}${note}`;
+}
+
+function capitalise(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

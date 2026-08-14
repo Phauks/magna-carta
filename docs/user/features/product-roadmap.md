@@ -1,6 +1,6 @@
 # What is coming — the product roadmap
 
-_Stub — the full guide is authored when the roadmap page ships. The roadmap itself is written and kept current; there is no page to read it on yet._
+_Stub — the full guide is authored when the roadmap page ships. There is no roadmap to read yet: everything below describes what it will be, and is written now so the shape is settled before the page is built._
 
 ## What it does
 

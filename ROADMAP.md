@@ -8,7 +8,7 @@ This is **not** the white paper's _Build roadmap_, which is the stable **phase s
 
 ## Now — current focus
 
-**One screen instead of this one:** [`docs/now.md`](docs/now.md) is generated from the feature ledger and answers what is blocked on the owner, what is in build, and what is queued. What users are told is coming is [`docs/public-roadmap.md`](docs/public-roadmap.md), generated from the same ledger. Neither is hand-edited; this section keeps the narrative the ledger cannot hold.
+**The complete inventory instead of this narrative:** [`docs/now.md`](docs/now.md) is the build register, generated from the feature ledger — every capability at its real status, the counts over all of them, what is blocked on the owner, what is in build, and what is queued. It is never hand-edited; this section keeps the narrative the ledger cannot hold.
 
 **Current focus: Phase 2 is closing and Phases 3-6 are all open at once.** Seventeen slices carry an in-progress stage in [`STATUS.md`](STATUS.md): 2·4 (in-app conversion) and 2·5 (PDF services + e-signature core) are the last Phase 2 build streams, with 2·6 (document automation) built and tested and awaiting its interface; Phase 3 has 3·2 Trust and 3·4 Billing building; Phase 4 has 4·2 Custodian and 4·3 Matter assets; Phase 5 has 5·1 ingest and 5·2 review; Magnus and Notifications-delivery build alongside, and 0·7b (auth UI) is the live UI stream. The bullets below are the live streams with only their next step; per-slice stage currency lives in [`STATUS.md`](STATUS.md), what shipped is in [`CHANGELOG.md`](CHANGELOG.md), and per-capability completeness is in [`roadmap.d/`](roadmap.d/).
 

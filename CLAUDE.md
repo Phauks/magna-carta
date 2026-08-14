@@ -8,25 +8,24 @@ This is the **entry point** for anyone working in this repo: the golden rules an
 
 Documentation is **segmented and non-duplicative.** Every fact has one authoritative home; everything else links to it. Put new information in its home.
 
-| You need…                                                     | Home                                                                                  |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Why / what — design, rationale, feature map                   | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
-| Decisions + status (ADR register & standard)                  | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
-| How to work here + golden rules + this map                    | **this file**                                                                         |
-| Code standards (style, UI, testing, security, API, docs)      | [`docs/conventions/`](docs/conventions/)                                              |
-| Subsystem design (spec → plan → build)                        | [`docs/specs/`](docs/specs/)                                                          |
-| Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
-| End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
-| Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
-| What is blocked on the owner / in build / queued (one screen) | [`docs/now.md`](docs/now.md) — generated; never hand-edited                           |
-| What users are told is coming                                 | [`docs/public-roadmap.md`](docs/public-roadmap.md) — generated; never hand-edited     |
-| Feature ledger (capability inventory, per-node status)        | [`roadmap.d/`](roadmap.d/) — the source both of those render from                     |
-| Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
-| Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
-| Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
-| Docs-sync routine & its run reports                           | [`docs/maintenance/`](docs/maintenance/)                                              |
-| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
-| Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
+| You need…                                                      | Home                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Why / what — design, rationale, feature map                    | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
+| Decisions + status (ADR register & standard)                   | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
+| How to work here + golden rules + this map                     | **this file**                                                                         |
+| Code standards (style, UI, testing, security, API, docs)       | [`docs/conventions/`](docs/conventions/)                                              |
+| Subsystem design (spec → plan → build)                         | [`docs/specs/`](docs/specs/)                                                          |
+| Local rules & gotchas for a code area                          | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
+| End-user & admin guides (per feature)                          | [`docs/user/`](docs/user/)                                                            |
+| Live execution status (now / next / shipped / backlog)         | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Every capability, its real status, the counts over all of them | [`docs/now.md`](docs/now.md) — the build register; generated, never hand-edited       |
+| Feature ledger (capability inventory, per-node status)         | [`roadmap.d/`](roadmap.d/) — the source the register renders from                     |
+| Per-slice stage status (spec → plan → built → tested)          | [`STATUS.md`](STATUS.md)                                                              |
+| Concurrent work in flight (other worktrees/branches)           | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
+| Notable changes                                                | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Docs-sync routine & its run reports                            | [`docs/maintenance/`](docs/maintenance/)                                              |
+| Recurring & associated costs (subscriptions, usage, one-time)  | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
+| Research (trust rules, competitive analysis)                   | [`docs/research/`](docs/research/)                                                    |
 
 **Cross-reference rule:** `§N` is navigation _inside_ the white paper only. From any other file, reference the white paper by **document + topic name** (or a stable **`ADR-NNNN`**), never a section number — they shift on reorganization.
 
@@ -91,7 +90,7 @@ vp dev                                                                  # web SP
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
 vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
-vp run public-roadmap-build                                             # re-render docs/public-roadmap.md + docs/now.md from the roadmap.d/ feature ledger (run after flipping a node's status)
+vp run register-build                                                   # re-render docs/now.md (the build register: every capability at its real status) from the roadmap.d/ feature ledger — run after flipping a node's status
 pnpm test                                                               # unit + integration (Vitest, single-run; includes the Miniflare worker integration test). Wraps `vp test` with a per-worktree single-flight lock — two runs in one worktree wedge each other at 0% CPU, so a second one is refused. Args pass straight through; filter by PATH, not by test name
 pnpm check:scoped                                                       # INNER LOOP: fmt+lint on the diff, incremental tsc -b, svelte-check/Rust only if touched
 pnpm fix:scoped                                                         # apply fmt + lint autofixes to that SAME diff (markdown included) — never a bare repo-wide `vp check --fix`. Autofixes known to be wrong here (sort()->toSorted(), `=== false`->`!x`) still WARN but are never applied

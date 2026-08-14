@@ -3,8 +3,24 @@
 **Status:** Proposed (design, built with it) · **Date:** 2026-08-13 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Product updates (changelog, release notes & roadmap)_
 **Builds on:** [`2026-07-14-docs-sync-routine-design.md`](2026-07-14-docs-sync-routine-design.md) (the `roadmap.d/` feature ledger and the layered pipeline this is the first consumer of), [`2026-08-11-community-surfaces-design.md`](2026-08-11-community-surfaces-design.md) (the public changelog idiom, the six board statuses, and the no-dates rule), [`roadmap.d/README.md`](../../roadmap.d/README.md) (the node schema, which reserved the `audience` key for exactly this)
-**Decisions proposed:** `the-public-roadmap-is-derived-and-states-no-date`
+**Decisions proposed:** `the-roadmap-is-derived-and-the-register-is-complete`
 **Produces:** two generated documents (`docs/public-roadmap.md`, `docs/now.md`), the assembler and fitness function behind them, the ledger keys they read, and the artifact contract a future page would render. **No page, no route, no worker.**
+
+---
+
+## Amendment — the public rendering is withdrawn until there are users
+
+**This spec's public half shipped and was then withdrawn, deliberately and without prejudice.** Everything below is the design as accepted; this note records what changed and why, so a later reader does not read the missing document as an oversight.
+
+**What was withdrawn:** the rendered `docs/public-roadmap.md` only. It is deleted and is no longer generated.
+
+**Why.** The document solved a problem nobody has yet. There are no users, so a document written for users has no reader, and a document with no reader is a document nobody keeps honest — the exact failure mode section 5 exists to prevent, arriving by a route that section did not consider. Its curation also cut against what the owner actually needed from the ledger: the public view published 50 parent capabilities out of 702 nodes in marketing register, at a moment when the need was the opposite of curation.
+
+**What stays, and stays exercised.** The `renderPublicRoadmap` renderer; the `audience`, `public-name`, `public-summary` and `public-group` ledger keys; the public-copy rules in `pnpm run lint:roadmap`; and `parsePublicRoadmap` / `buildPublicRoadmapArtifact` in `@magna-carta/product-updates`. Every one of them is still under test — the corpus test renders the public document in memory from the real ledger and round-trips it through the artifact parser, so the guarantee the committed file used to carry is intact without the file. Nothing has to be rebuilt on the day the product has readers; the change is one line in the assembler.
+
+**What replaced it.** `docs/now.md` became **the build register**: every one of the 702 nodes at its real status, led by the counts across all nine statuses. The five horizon bands are gone from it entirely. Banding was the substantive error — it put `partial` (a shipped backend with no screen on it) and `in-build` (being written right now) under one heading, and those are the two facts an owner most needs held apart. The band mapping in section 4.3 remains correct **for the public document** and applies to nothing else.
+
+**What is still open.** Section 10's three questions are all downstream of publication and are all deferred with it. The `awaiting-owner` node that asks about a public page is unchanged and still accurate.
 
 ---
 
