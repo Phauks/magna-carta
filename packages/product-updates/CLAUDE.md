@@ -18,7 +18,9 @@ knowledge of any firm.
 - `src/public-changelog.ts` — `parsePublicChangelog()` and `buildPublicChangelogArtifact()`: the
   assembled Markdown home turned into the validated artifact.
 - `src/public-roadmap.ts` — the same pair for the roadmap: `parsePublicRoadmap()` and
-  `buildPublicRoadmapArtifact()` over `../../docs/public-roadmap.md`.
+  `buildPublicRoadmapArtifact()`. **Currently unfed.** The public roadmap document is withdrawn
+  until the product has users, so nothing renders the Markdown these functions parse. They are kept
+  whole, with their tests, because reviving the document is a renderer change rather than a rebuild.
 - `../../docs/public-changelog.md` — the document this package reads. Assembled on `main` by
   `vp run changelog-build` from the `## Public` blocks of `audience: public` fragments in
   `changelog.d/`; curated there into thematic roll-ups at publish time.

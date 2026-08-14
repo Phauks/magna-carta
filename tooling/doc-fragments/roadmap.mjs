@@ -213,7 +213,9 @@ export function publicEntries(areas) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// docs/public-roadmap.md — what users see.
+// The public rendering — what users would see. DORMANT: no build script calls this today, because
+// the product has no users and a roadmap written for them was answering nobody. Kept whole, and
+// kept tested, so reviving it is wiring a renderer back to a build script rather than writing one.
 
 const PUBLIC_PREAMBLE = `# Magna Carta roadmap
 
