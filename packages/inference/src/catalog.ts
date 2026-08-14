@@ -6,8 +6,38 @@ import type { InferenceModelId } from "./port.ts";
 // are re-checked against the Anthropic reference per release (verifiedOn records the last check). The
 // catalog is validated at module load, so a malformed entry fails loud at import — never at first
 // inference.
+//
+// A model identifier is a PERISHABLE fact. Providers ship successors and retire predecessors on their
+// own schedule, and neither event announces itself to this repository, so every entry carries the two
+// dates and the two provider-published facts that let ./model-pin-freshness.ts say when an entry is due
+// for a human's attention. Nothing in this file acts on those facts by itself: which model the platform
+// runs is a decision, and the freshness pass exists to put that decision in front of someone rather than
+// to make it for them.
 
 export type ModelSlot = "reasoning" | "utility" | "embedding";
+
+// The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
+// code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
+// advancement is therefore a catalog edit or a deploy-configuration override, not an edit to any call
+// site — the provider publishes no evergreen alias of its own (every model id it publishes is a pinned
+// snapshot), so an evergreen name only exists if the platform maintains one.
+export type ReasoningTier = "most-capable" | "balanced";
+
+export const REASONING_TIERS: readonly ReasoningTier[] = ["most-capable", "balanced"];
+
+// Whether the platform embedding model may still change.
+//
+// "open"   — no vector index exists anywhere in the platform, so the model can be swapped for the cost
+//            of editing this file. This is the only window in which the choice is free.
+// "frozen" — at least one index holds vectors. Every stored vector is a function of the model that
+//            produced it, so a swap does not migrate: it silently makes stored vectors and query
+//            vectors incomparable unless every corpus is re-embedded from source. There is no mechanism
+//            that makes a frozen pin cheaply changeable, and this file does not pretend otherwise.
+//
+// The transition runs one way, and the fitness gate in test/fitness-model-pin-rot.test.ts is what keeps
+// the state honest: while the state reads "open" no code may write a vector, so the day the first index
+// is built the gate fails until the pin decision has been made and recorded here.
+export type EmbeddingPinState = "open" | "frozen";
 
 export interface CatalogEntry {
   // The slot the model may fill.
@@ -26,12 +56,43 @@ export interface CatalogEntry {
   readonly zdrEligible: boolean;
   // True when the provider will not train on the data.
   readonly noTrainingEligible: boolean;
-  // ISO date the entry was last verified against the reference.
+  // ISO date the entry's CONFIDENTIALITY facts (zdrEligible, noTrainingEligible) were last verified
+  // against the reference.
   readonly verifiedOn: string;
+  // ISO date the entry's LIFECYCLE facts were last read from the provider's own deprecation reference:
+  // that the id is still published, still active, and what retirement date the provider names for it.
+  // Deliberately separate from verifiedOn — the two facts live on different provider pages, are checked
+  // by different work, and go stale independently. Collapsing them into one date would let a lifecycle
+  // check silently launder a confidentiality claim nobody re-read.
+  readonly availabilityVerifiedOn: string;
+  // The earliest retirement date the provider publishes for this model, when it publishes one. Absent
+  // where the provider names none.
+  readonly retirementNotBefore?: string;
+  // The provider's current-generation successor to this entry, recorded as an OBSERVATION.
+  //
+  // Nothing resolves a model through this field, and nothing may: a successor is not in this catalog,
+  // so it has no verified confidentiality facts, and moving a tier onto it is a decision about the
+  // platform's confidentiality posture rather than a derivation from a provider's release notes. The
+  // field exists so the freshness pass can say "a successor exists, and nobody has decided about it".
+  readonly supersededBy?: string;
+  // Reasoning entries only: the tier this entry currently occupies, if any. A reasoning entry without a
+  // tier is still selectable by a firm; it is simply not what an unconfigured firm resolves to.
+  readonly tier?: ReasoningTier;
+  // Embedding entry only: whether the pin may still move. See EmbeddingPinState.
+  readonly pinState?: EmbeddingPinState;
+  // Embedding entry only: the index generation these vectors belong to. Carried beside the model id so a
+  // mismatch between the model that wrote an index and the model querying it is a comparable fact rather
+  // than an inference from two strings that happen to look alike.
+  readonly indexVersion?: string;
 }
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // A reasoning entry that is not ZDR-eligible can never enter the reasoning slot, so the entry schema
 // itself refuses it — the curated invariant is enforced at the data boundary, not only in a fitness test.
+// The tier and embedding-pin fields are refined the same way, at the same boundary: a tier on a
+// non-reasoning entry, or a pin state on a non-embedding entry, is a malformed entry rather than a
+// harmless extra.
 export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   .object({
     slot: z.enum(["reasoning", "utility", "embedding"]),
@@ -40,45 +101,73 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     referenceId: z.string().min(1),
     zdrEligible: z.boolean(),
     noTrainingEligible: z.boolean(),
-    verifiedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    verifiedOn: isoDate,
+    availabilityVerifiedOn: isoDate,
+    retirementNotBefore: isoDate.optional(),
+    supersededBy: z.string().min(1).optional(),
+    tier: z.enum(["most-capable", "balanced"]).optional(),
+    pinState: z.enum(["open", "frozen"]).optional(),
+    indexVersion: z.string().min(1).optional(),
   })
   .refine((entry) => entry.slot !== "reasoning" || entry.zdrEligible, {
     message: "a reasoning model must be ZDR-eligible",
+  })
+  .refine((entry) => entry.tier === undefined || entry.slot === "reasoning", {
+    message: "only a reasoning model may occupy a reasoning tier",
+  })
+  .refine((entry) => entry.pinState === undefined || entry.slot === "embedding", {
+    message: "only the embedding model carries a pin state",
+  })
+  .refine((entry) => entry.slot !== "embedding" || entry.pinState !== undefined, {
+    message: "the embedding model must declare whether its pin is open or frozen",
   });
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 1;
-export const CATALOG_EFFECTIVE_DATE = "2026-06-17";
+export const CATALOG_VERSION = 2;
+export const CATALOG_EFFECTIVE_DATE = "2026-08-14";
 
-// CONFIRM BEFORE MERGE: this id must equal the embedding model the live Vectorize index was built with —
-// a mismatch silently corrupts similarity. It is platform-fixed (no firm selects it) and versioned with
-// the index. The reasoning/utility ids and their ZDR facts are verified against the Anthropic reference;
-// this embedding id is pinned to the index, not asserted ZDR-verified by the reasoning-reference process.
+// The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
+// constant does not change when the platform moves to a newer model.
+export const PLATFORM_DEFAULT_REASONING_TIER: ReasoningTier = "most-capable";
+
+// CONFIRM BEFORE THE FIRST VECTOR IS WRITTEN: this id must equal the embedding model every stored vector
+// was produced by — a mismatch silently corrupts similarity rather than failing. It is platform-fixed (no
+// firm selects it) and versioned with the index. The reasoning/utility ids and their ZDR facts are
+// verified against the Anthropic reference; this embedding id is pinned to the index, not asserted
+// ZDR-verified by the reasoning-reference process.
 export const PLATFORM_EMBEDDING_MODEL_ID = "@cf/baai/bge-large-en-v1.5";
 
-// The launch catalog. Reasoning default first; the small utility model; the platform-fixed embedding
-// model pinned to the Vectorize index version. claude-fable-5 is intentionally absent — it mandates a
-// retention window and returns a hard error under ZDR, so it is not ZDR-eligible and never enters the
-// reasoning slot.
+// The launch catalog. Reasoning models first, each on the tier it currently occupies; the small utility
+// model; the platform-fixed embedding model pinned to the index generation. claude-fable-5 is
+// intentionally absent — it mandates a retention window and returns a hard error under ZDR, so it is not
+// ZDR-eligible and never enters the reasoning slot.
 const RAW_CATALOG: readonly CatalogEntry[] = [
   {
     slot: "reasoning",
+    tier: "most-capable",
     modelId: "anthropic/claude-opus-4-8",
     snapshotId: "claude-opus-4-8-20260101",
     referenceId: "claude-opus-4-8",
     zdrEligible: true,
     noTrainingEligible: true,
     verifiedOn: "2026-06-17",
+    availabilityVerifiedOn: "2026-08-14",
+    retirementNotBefore: "2027-05-28",
+    supersededBy: "claude-opus-5",
   },
   {
     slot: "reasoning",
+    tier: "balanced",
     modelId: "anthropic/claude-sonnet-4-6",
     snapshotId: "claude-sonnet-4-6-20260101",
     referenceId: "claude-sonnet-4-6",
     zdrEligible: true,
     noTrainingEligible: true,
     verifiedOn: "2026-06-17",
+    availabilityVerifiedOn: "2026-08-14",
+    retirementNotBefore: "2027-02-17",
+    supersededBy: "claude-sonnet-5",
   },
   {
     slot: "utility",
@@ -88,12 +177,19 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     zdrEligible: true,
     noTrainingEligible: true,
     verifiedOn: "2026-06-17",
+    availabilityVerifiedOn: "2026-08-14",
+    retirementNotBefore: "2026-10-15",
   },
   {
     // Workers AI on-Cloudflare embedding model. Confidentiality rests on Cloudflare's own data terms
     // (ZDR is an Anthropic/third-party concept; Cloudflare AI runs on-platform). zdrEligible and
     // noTrainingEligible reflect first-party reality: Cloudflare does not train on Workers AI
     // inference data under standard terms, and data does not leave the Cloudflare platform.
+    //
+    // The pin is OPEN: no vector index exists anywhere in the platform, so this model can still be
+    // changed for the cost of editing this line. Cloudflare publishes no retirement date for its Workers
+    // AI models, so this entry carries none — the lifecycle rule that covers the Anthropic entries has
+    // nothing to read here, which is why the pin-state gate rather than a date is what protects it.
     slot: "embedding",
     modelId: PLATFORM_EMBEDDING_MODEL_ID,
     snapshotId: "bge-large-en-v1.5-vectorize-index-v1",
@@ -101,11 +197,15 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     zdrEligible: true,
     noTrainingEligible: true,
     verifiedOn: "2026-06-17",
+    availabilityVerifiedOn: "2026-08-14",
+    pinState: "open",
+    indexVersion: "vectorize-index-v1",
   },
 ];
 
 // Module-load validation: every entry parses (all fields present, every reasoning entry ZDR-eligible),
-// and exactly one embedding entry exists. A malformed table aborts the import.
+// exactly one embedding entry exists, and every reasoning tier has exactly one occupant so the platform
+// default always resolves. A malformed table aborts the import.
 function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntry[] {
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
   const embeddings = validated.filter((entry) => entry.slot === "embedding");
@@ -113,6 +213,14 @@ function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntr
     throw new Error(
       `the catalog must declare exactly one embedding entry (found ${embeddings.length})`,
     );
+  }
+  for (const tier of REASONING_TIERS) {
+    const occupants = validated.filter((entry) => entry.tier === tier);
+    if (occupants.length !== 1) {
+      throw new Error(
+        `reasoning tier "${tier}" must have exactly one occupant (found ${occupants.length})`,
+      );
+    }
   }
   return validated;
 }
@@ -135,9 +243,26 @@ const EMBEDDING_ENTRY: CatalogEntry = (() => {
   return entry;
 })();
 
+// Precomputed at module init — validateCatalog already guarantees exactly one occupant per tier.
+const TIER_OCCUPANTS: ReadonlyMap<ReasoningTier, CatalogEntry> = new Map(
+  REASONING_TIERS.map((tier) => {
+    const entry = CATALOG.find((e) => e.tier === tier);
+    if (entry === undefined) throw new Error(`no occupant for reasoning tier "${tier}"`);
+    return [tier, entry] as const;
+  }),
+);
+
 // The ZDR-eligible reasoning subset a firm may select from (consumed by the setting schema).
 export function reasoningModelIds(): readonly InferenceModelId[] {
   return REASONING_IDS;
+}
+
+// The curated model currently occupying a reasoning tier. Total: every tier has an occupant by
+// module-load validation, so this never returns undefined and callers need no fallback.
+export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {
+  const entry = TIER_OCCUPANTS.get(tier);
+  if (entry === undefined) throw new Error(`no occupant for reasoning tier "${tier}"`);
+  return entry;
 }
 
 // The single platform-fixed embedding entry the embedding operation closes over.

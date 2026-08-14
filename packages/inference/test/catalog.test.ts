@@ -54,6 +54,9 @@ describe("the curated model catalog", () => {
   });
 
   it("the entry schema enforces a reasoning entry to be zdrEligible", () => {
+    // Every other field is present and well-formed, so the ONLY thing this entry fails on is the
+    // eligibility refinement — otherwise the assertion would pass on a missing field and prove nothing
+    // about the invariant it is named for.
     const nonZdrReasoning = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
@@ -62,8 +65,45 @@ describe("the curated model catalog", () => {
       zdrEligible: false,
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(nonZdrReasoning).success).toBe(false);
+    // The same entry with eligibility restored parses, which is what proves the refinement was the cause.
+    expect(catalogEntrySchema.safeParse({ ...nonZdrReasoning, zdrEligible: true }).success).toBe(
+      true,
+    );
+  });
+
+  it("the entry schema refuses a tier on a non-reasoning entry", () => {
+    const taggedUtility = {
+      slot: "utility",
+      modelId: "anthropic/some-utility-model",
+      snapshotId: "some-utility-model-20260101",
+      referenceId: "some-utility-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+      tier: "most-capable",
+    };
+    expect(catalogEntrySchema.safeParse(taggedUtility).success).toBe(false);
+    const { tier: _tier, ...untagged } = taggedUtility;
+    expect(catalogEntrySchema.safeParse(untagged).success).toBe(true);
+  });
+
+  it("the entry schema requires the embedding entry to declare its pin state", () => {
+    const unstatedPin = {
+      slot: "embedding",
+      modelId: "@cf/example/embedding",
+      snapshotId: "example-embedding-v1",
+      referenceId: "@cf/example/embedding",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(unstatedPin).success).toBe(false);
+    expect(catalogEntrySchema.safeParse({ ...unstatedPin, pinState: "open" }).success).toBe(true);
   });
 
   it("rejects a verifiedOn date that does not conform to YYYY-MM-DD (single-digit month/day not allowed)", () => {
@@ -78,8 +118,22 @@ describe("the curated model catalog", () => {
       zdrEligible: true,
       noTrainingEligible: true,
       verifiedOn: "2026-6-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(singleDigitMonth).success).toBe(false);
+    // Correcting only the malformed date parses, so the date format was the sole cause.
+    expect(
+      catalogEntrySchema.safeParse({ ...singleDigitMonth, verifiedOn: "2026-06-17" }).success,
+    ).toBe(true);
+    // The lifecycle date is held to the same format, on the same reasoning: an under-specified date
+    // slipping past a lenient parser corrupts the verification trail whichever fact it dates.
+    expect(
+      catalogEntrySchema.safeParse({
+        ...singleDigitMonth,
+        verifiedOn: "2026-06-17",
+        availabilityVerifiedOn: "2026-6-17",
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects an entry with a missing required field (snapshotId omitted)", () => {
