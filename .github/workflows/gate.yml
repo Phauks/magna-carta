@@ -518,7 +518,8 @@ jobs:
           "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
           "$PWD/apps/convert-worker" "$PWD/apps/discovery-worker" "$PWD/apps/email-worker"
           "$PWD/apps/file-repair-worker" "$PWD/apps/magna-carta-edit" "$PWD/apps/ocr-worker"
-          "$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/sign-worker"
+          "$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/search-worker"
+          "$PWD/apps/sign-worker"
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
@@ -687,7 +688,8 @@ jobs:
             -L containers/ocr/Cargo.lock \
             -L containers/raster/Cargo.lock \
             -L containers/recovery/Cargo.lock \
-            -L containers/scan/Cargo.lock
+            -L containers/scan/Cargo.lock \
+            -L containers/search/Cargo.lock
           code=$?
           echo "osv-scanner exit code: $code"
 
@@ -836,7 +838,7 @@ jobs:
         # artifacts built by the previous compiler, which the old key permitted — prunes the saved
         # target dirs down to dependency artifacts (the workspace's own crates recompile anyway, and
         # leaving them in is what made these entries enormous), and skips the save entirely when
-        # nothing changed. Each container is its own Cargo workspace, so all seven are listed.
+        # nothing changed. Each container is its own Cargo workspace, so all eight are listed.
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -847,6 +849,7 @@ jobs:
             containers/raster
             containers/recovery
             containers/scan
+            containers/search
 
       - name: Set up buildx for the image builds
         # The acceptance suites' images rebuild the same base layers and the same Rust dependency graph
@@ -908,7 +911,7 @@ jobs:
               # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
               # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
               # them — and so anything NOT listed fails below instead of passing green untested.
-              collabora | discovery | file-repair | ocr | raster)
+              collabora | discovery | file-repair | ocr | raster | search)
                 echo "::warning::containers/$name changed but has no acceptance suite yet"
                 ;;
               *)
