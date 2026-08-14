@@ -159,6 +159,13 @@ export const calendarMeasurements: readonly Measurement<CalendarMeasurementHandl
       // "What is on my calendar" — the sources that cannot answer the filter are dropped from the
       // registry before a statement is built, so this read issues FEWER statements than the one
       // above rather than the same ones with a post-filter.
+      //
+      // Fewer statements, and yet reliably slower than the unfiltered window it narrows. The filter
+      // is composed as two correlated per-row lookups — is this member a participant, or responsible
+      // for the matter — and the participant arm's cost tracks how many events the member is on
+      // rather than how many are in the window. The profile's participation share is what that arm is
+      // measured against; the fixture firm has ONE member, so this is a partner's diary, not a
+      // junior's.
       await readTimelinePage({
         database: handle.snapshot.database,
         registry: handle.registry,

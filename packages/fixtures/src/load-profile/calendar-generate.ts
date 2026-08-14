@@ -164,6 +164,12 @@ export async function generateCalendarVolume(
       min: volume.participantsPerEvent.min,
       max: volume.participantsPerEvent.max,
     });
+    // Whether the firm's own member is on this one. The member-filtered read pays a correlated
+    // participant lookup per candidate row whose cost tracks how many events that member is on, so
+    // this share is what that read is measured against — putting the member on everything would make
+    // the number describe a diary nobody keeps.
+    const memberAttends =
+      faker.number.float({ min: 0, max: 1 }) < volume.probeMemberParticipationFraction;
     const created = createMatterEvent(
       database,
       {
@@ -174,7 +180,7 @@ export async function generateCalendarVolume(
         startsAtTime: faker.helpers.arrayElement(["09:00", "10:30", "13:15", "15:00", null]),
         timeZone: FIXTURE_TIME_ZONE,
         participants: Array.from({ length: participantTarget }, (_, index) =>
-          index === 0
+          index === 0 && memberAttends
             ? { participantKind: "member" as const, memberUserId: attach.memberUserId }
             : { participantKind: "external" as const, participantName: faker.person.fullName() },
         ),

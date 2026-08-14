@@ -9,7 +9,7 @@ built: done by="Opus 5"
 ui: todo
 load-profile: done by="Opus 5"
 tested: done by="Opus 5"
-next: The calendar user interface (month, week, agenda, matter timeline over the two reads); then the rebuildable read model the firm-wide-window measurement now argues for — every federated source but matterEvent, firmEvent and matterLifecycle scans its table for that window; notification wiring subscribes to the declared emission points
+next: The calendar user interface (month, week, agenda, matter timeline over the two reads); then the two index follow-ups the load profile now names — the custodyDueBack predicate that costs 16.2ms of a 17.3ms timeline page, and the member filter's participant lookup — neither of which argues for the rebuildable read model, since federation's own bound holds exactly; notification wiring subscribes to the declared emission points
 link-spec: docs/specs/2026-08-05-case-calendar-design.md
 link-plan: docs/specs/2026-08-05-case-calendar-implementation-plan.md
 adrs:

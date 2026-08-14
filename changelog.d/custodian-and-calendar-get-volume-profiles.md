@@ -43,7 +43,16 @@ which machine, so a reader diffing two baselines could not tell a regression fro
 The baseline carries the node version, platform, architecture, processor, core count, and memory, plus
 the federated read's counts.
 
-This is a measurement change and deliberately not a fix: three findings it surfaced (the register
-list's missing sort index, the two custody sweeps choosing the wrong index, and the firm-wide window
-scanning nine of its fourteen sources) are recorded where the plans are taken and left for their own
-change.
+**Most of both subsystems is boring, which is the good outcome.** Every custody read except two sweeps
+sits between 0.08 ms and 1.0 ms at two thousand packets and thirty-eight thousand ledger movements;
+the recursive subtree walk the custodian design flagged as its least predictable read is 0.22 ms and
+seeks on both arms, so neither a materialized path nor a closure table is warranted on this evidence.
+Keyset pagination holds on both: a packet's deep history page is 0.18 ms, and page 20 of a deep matter
+timeline is faster than page 1.
+
+This is a measurement change and deliberately not a fix. What it found is recorded where the plans are
+taken: one predicate (`custodyDueBack`) plans through the wrong index and costs 16.2 ms of a 17.3 ms
+matter timeline page and 15.3 ms of the overdue sweep, walking 32,723 movements to answer 91; the
+member filter's participant lookup costs about a hundred times the same window unfiltered; the
+register list has no index covering its sort; and the firm-wide window scans nine of its fourteen
+sources. Each gets its own change, against the baseline this one commits.

@@ -391,6 +391,12 @@ export interface CalendarVolume {
   // Participants attached per event. The member filter resolves through this table, so its width is
   // what the participant EXISTS predicate costs.
   readonly participantsPerEvent: { readonly min: number; readonly max: number };
+  // Fraction of events on which the firm's own member is one of those participants; the rest are
+  // external names. This is a PARAMETER rather than "always", because it is the multiplier the
+  // member-filtered read's correlated participant lookup pays per candidate row — a member on every
+  // event in the corpus would make that read look worse than any firm's would, and a member on none
+  // of them would make it look better. Half is a partner's plausible share of a small firm's diary.
+  readonly probeMemberParticipationFraction: number;
   // Deadlines left open across the firm, and the fraction of them already past their due date.
   // Overdue is a comparison made at read time and never a stored fact, so the fraction exists to make
   // that comparison return a mix rather than all-or-nothing.
@@ -643,6 +649,7 @@ export const ledgerVolume: LedgerVolumeProfile = {
     eventsPerMatter: { min: 0, max: 12 },
     probeMatterEventCount: 300,
     participantsPerEvent: { min: 1, max: 3 },
+    probeMemberParticipationFraction: 0.5,
     openDeadlineCount: 400,
     overdueDeadlineFraction: 0.15,
     closedDeadlineCount: 250,

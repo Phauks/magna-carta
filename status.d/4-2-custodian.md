@@ -9,7 +9,7 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 5"
 tested: todo
-next: Receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will-deposit catalog computes against (no packet column records a death today)
+next: The two sweeps the load profile found planning through the wrong index (overdue check-out at 15.3ms over 32,723 movements to answer 91, and reviews-due), then receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will-deposit catalog computes against (no packet column records a death today)
 link-spec: docs/specs/2026-08-04-custodian-design.md
 link-plan: docs/specs/2026-08-04-custodian-implementation-plan.md
 adrs:
