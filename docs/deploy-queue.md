@@ -6,7 +6,43 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-13 (split compaction adds a queue and a Durable Object class)._
+_Last updated: 2026-08-14 (the search engine's own worker and container are buildable; activating
+them is the step below)._
+
+## Search engine activation — a new worker, a new container image, one binding
+
+`apps/search-worker` (`magna-carta-search`) and `containers/search` now exist: the
+Tantivy engine, its R2 range-read adapter, and the object host it reads through. Nothing
+about them is live — `resolveSearchIndexPort` returns the deferred port until the app
+worker has a `SEARCH_SERVICE` binding, so every index job still parks in `deferred` and
+no query reaches an engine.
+
+**A new container is its own Workers Build**, and the order matters because each step
+depends on the one before it:
+
+1. **Connect `magna-carta-search` to Workers Builds on `release`** and let it build the
+   container image (`containers/search/Dockerfile`, build context = repository root).
+   It declares the `SEARCH_INDEX` Durable Object binding, migration tag `v1`, and an
+   `APP_WORKER` service binding to `magna-carta`. No secret, no queue, no R2 binding —
+   the engine holds no credentials by design.
+2. **Deploy the app worker**, which mounts the split-object host the engine reads
+   through (`/search-objects/*`). This has to be live BEFORE the engine is reachable, or
+   the container's first read is forwarded to a worker with no route for it.
+3. **Add the `SEARCH_SERVICE` binding** to the app worker's `wrangler.jsonc`, pointing at
+   `magna-carta-search`, and deploy again. That single binding is what flips the port
+   from deferred to live; there is no code change, and the parked `deferred` jobs drain
+   on their next pass.
+4. **Arm the warm cron** (`"*/20 * * * *"` in `apps/search-worker/wrangler.jsonc`) once a
+   firm actually has `search.indexing_enabled` on. It is off deliberately: with no
+   queries, pinning a `standard-1` instance bills its 4 GiB continuously for nothing.
+
+**No R2 lifecycle rule for the split prefix, deliberately.** Splits are a derived cache
+and are rebuildable, but they are also the only thing a query reads — expiring them
+would silently empty a matter's search. Retirement of superseded splits is already the
+compaction sweep's job, on a grace period.
+
+**Nothing here needs a bucket step.** Splits are written into the firm's existing bucket
+under the prefix the write pipeline already uses, stamped `object_class: search-split`.
 
 ## Split compaction — one queue pair to create before the app worker deploys
 

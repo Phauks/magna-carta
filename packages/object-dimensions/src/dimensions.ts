@@ -57,7 +57,13 @@ export type MatterScopedObjectClass =
   // the one matter its review set does. A RECORD rather than a cache: "which documents did that act
   // touch" is asked when a production drawn from that coding is challenged, so it outlives the
   // derived artifacts a closing review set releases.
-  | "review-coding-selection";
+  | "review-coding-selection"
+  // One immutable Tantivy split of the discovery keyword index — a self-contained segment bundle plus
+  // its footer, range-read by the search engine and never mutated. A DERIVED cache: it is rebuildable
+  // from the documents it was built from, which is what makes it safe to expire, and the class is what
+  // tells a reader of the bucket that these bytes are an index rather than a document. A split belongs
+  // to exactly one corpus, and a corpus is a matter today, so it stamps that matter.
+  | "search-split";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -92,6 +98,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "working-copy",
   "shipping-label",
   "review-coding-selection",
+  "search-split",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [

@@ -5,6 +5,10 @@ import type { SearchQueryInput } from "@magna-carta/search/port";
 import type { Bindings } from "../src/app.ts";
 import { resolveSearchIndexPort } from "../src/search/search-engine.ts";
 
+// The engine adapter mints a split-object capability token per operation, so it needs the signing
+// secret the Worker signs everything else with.
+const AUTH_SECRET = "test-auth-secret-value-not-for-production";
+
 const QUERY: SearchQueryInput = {
   firmId: "firm_test0000000000000000000001" as FirmId,
   corpus: corpusOfMatter("matter_test0000000000000000001" as MatterId),
@@ -36,7 +40,10 @@ describe("resolveSearchIndexPort", () => {
         );
       },
     };
-    const port = resolveSearchIndexPort({ SEARCH_SERVICE: fetcher } as unknown as Bindings);
+    const port = resolveSearchIndexPort({
+      SEARCH_SERVICE: fetcher,
+      AUTH_SECRET,
+    } as unknown as Bindings);
     const result = await port.query(QUERY);
 
     expect(seen?.url).toBe("https://search/query");
@@ -69,7 +76,10 @@ describe("resolveSearchIndexPort", () => {
         );
       },
     };
-    const port = resolveSearchIndexPort({ SEARCH_SERVICE: fetcher } as unknown as Bindings);
+    const port = resolveSearchIndexPort({
+      SEARCH_SERVICE: fetcher,
+      AUTH_SECRET,
+    } as unknown as Bindings);
     const result = await port.compact({
       firmId: QUERY.firmId,
       corpus: QUERY.corpus,
@@ -116,7 +126,10 @@ describe("resolveSearchIndexPort", () => {
     const fetcher: Pick<Fetcher, "fetch"> = {
       fetch: async () => new Response("boom", { status: 500 }),
     };
-    const port = resolveSearchIndexPort({ SEARCH_SERVICE: fetcher } as unknown as Bindings);
+    const port = resolveSearchIndexPort({
+      SEARCH_SERVICE: fetcher,
+      AUTH_SECRET,
+    } as unknown as Bindings);
     const result = await port.query(QUERY);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -131,7 +144,10 @@ describe("resolveSearchIndexPort", () => {
         throw new Error("connection reset");
       },
     };
-    const port = resolveSearchIndexPort({ SEARCH_SERVICE: fetcher } as unknown as Bindings);
+    const port = resolveSearchIndexPort({
+      SEARCH_SERVICE: fetcher,
+      AUTH_SECRET,
+    } as unknown as Bindings);
     const result = await port.query(QUERY);
     expect(result.ok).toBe(false);
     if (!result.ok) {

@@ -48,6 +48,14 @@ full before any number, and the same list is stored inside the baseline file, so
 lifted out of either without its caveats. That is the point of the harness as much as the timings are:
 an unlabelled number from a partial path reads as the system's speed and is worse than no number.
 
+**The adapter that binds these reads to real storage now exists, and does not change them.** The
+production `RangeReader` (`containers/search/src/object_client.rs`) issues one HEAD to open a split and
+exactly one closed-`Range` GET per read the engine makes — the reads counted here are the range GETs a
+deployment issues, one for one, which is why a change in this column is a real change in what search
+costs and not an artifact of where the bytes came from. What a deployment adds is still the network per
+read, and still unmeasured here. The engine reports its own issued-read count on every query response,
+so the deployed number can be compared against this one rather than assumed equal to it.
+
 **Warm and cold are measured separately, and both are real.** A cold figure opens the split, ranks, and
 discards it — the first query a Container answers after a split enters its working set. A warm figure is
 the same query against a split the engine is holding open, which is the steady state of a resident

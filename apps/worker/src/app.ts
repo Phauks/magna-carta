@@ -46,6 +46,7 @@ import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
 import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
 import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
+import { registerSplitObjectHostRoutes } from "./search/split-object-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
@@ -604,6 +605,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,
   // OUTSIDE the chokepoint (the editor sends no session cookie). The editor's data plane.
   registerWopiHostRoutes(app);
+  // The discovery search engine's object surface (/search-objects/*) — cookieless, capability-token
+  // guarded, OUTSIDE the chokepoint, for the same reason the WOPI surface is: the caller is the search
+  // Container, which holds no session and no R2 credentials. This is where a ranged read by the engine
+  // becomes a ranged R2 GET, and where a published split is stamped with its object dimensions.
+  registerSplitObjectHostRoutes(app);
   // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
   // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
   registerDocumentCheckoutRoutes(app, chokepoint);

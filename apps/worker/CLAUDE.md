@@ -193,6 +193,35 @@ by whichever service that resolver names for the `libreoffice` engine. Rules for
 - **The engine resolver is injectable on `documentAssemblyQueue`**, on the same terms the conversion
   consumer takes it: the engine Container cannot run under the local test pool.
 
+## The split-object host — how the search engine reads R2 without credentials
+
+`src/search/split-object-host.ts` mounts `/search-objects/*`: cookieless, capability-token guarded,
+**outside the chokepoint**, for the same reason `/wopi/*` is — the caller is the keyword-search
+Container, which holds no session and no R2 credentials. The engine issues an ordinary ranged GET
+against a non-routable internal host, the search worker's container outbound interception forwards it
+here over a service binding, and this handler performs exactly one R2 operation. The engine is in
+`containers/search`; the worker that owns it is `apps/search-worker`.
+
+- **One request in, one R2 operation out.** No prefetch, no read-ahead, no buffering of a body being
+  passed through, and **an unranged GET is refused with 416 rather than serving the split whole**.
+  Every ranged read is a Class B operation in a deployment, and the read counts `crates/search-eval`
+  reports only transfer to production while that holds — a helpful optimization here changes the cost
+  model with nothing measuring it.
+- **The token decides whose bytes are reachable, never the request line.** `split-object-token.ts`
+  mints a per-operation HMAC token carrying the firm and the corpus; the allowed key prefix is
+  **derived** from that corpus rather than carried. A query reads several splits, so the key has to come
+  from the path — constraining it to the token's own prefix is what keeps that choice inside one
+  corpus. Write capability is a separate claim, so a query cannot overwrite what it is reading.
+- **The firm's bucket comes from the verified token through `files/firm-bucket.ts`**, like every other
+  object path here. A firm with no provisioned bucket is a refusal, not a fall-back to the bound handle.
+- **Four literals are duplicated across three packages** (the internal host, the path prefix, the token
+  header, the size header) because a worker cannot import from another worker. Each side pins them in a
+  test; change one and change all of them in the same commit, or every engine read becomes blocked
+  egress.
+- The PUT route registers its path as a **literal string** so the object-dimension fitness scan can tell
+  a route registration from a bucket write; a published split is stamped `object_class: search-split`
+  with its corpus as the matter.
+
 ## Search split compaction — the ordering rules that make it safe
 
 `src/search/compaction-*.ts` merges a corpus's many per-document splits into one. Three local rules, all

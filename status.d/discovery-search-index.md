@@ -10,8 +10,8 @@ ui: todo
 load-profile: todo
 tested: done
 branch: main
-active-work:
-next: Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`, `/compact`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and the footer's per-field pruning digest (which reduces the cost of the splits that remain, where compaction reduces how many remain).
+active-work: docs/active-work/claude/search-r2-adapter.md
+next: Deploy-gated — `apps/search-worker` and `containers/search` are now BUILT (the Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`, `/compact`), so what is left between the parked `deferred` jobs and real hits is the deploy itself: build the container image, deploy the app worker so the split-object host exists, then add the `SEARCH_SERVICE` binding — no code change (`docs/deploy-queue.md`). Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and the footer's per-field pruning digest (which reduces the cost of the splits that remain, where compaction reduces how many remain).
 link-spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
 link-plan:
 adrs:
@@ -36,4 +36,14 @@ table records what a merged split covers, so a re-indexed document's stale versi
 until the next merge repacks it out. The engine also now holds a split open across queries and answers a
 ranged multi-split query — the two absences the read-path benchmark named, both of which the benchmark
 now measures. Gated per firm by `search.indexing_enabled` (off by default) and enqueued off the clean
-ingest commit. Wired-but-dormant in the conversion subsystem's sense: with no engine deployed, a job parks in a distinct `deferred` state — acked and re-startable, never retried into a dead-letter — so deploying the engine drains the backlog naturally and no document is silently dropped meanwhile.
+ingest commit. The engine now reaches real storage. `containers/search` wraps the crate in an axum service whose
+`HttpRangeReader` costs one HEAD to open a split and exactly one closed-`Range` GET per read the engine
+makes; `apps/search-worker` owns that Container with `enableInternet` false and intercepts its object
+calls into the app Worker, so the engine reads a firm's index while holding no credential for it; and the
+app Worker's split-object host verifies a per-operation, corpus-scoped HMAC capability token, resolves
+the firm's bucket through the one home for that decision, refuses an unranged GET rather than serving a
+split whole, and stamps a published split with its object dimensions. Deferred deliberately: the
+container keeps no split cache between calls (a cached searcher answers from bytes authorized on an
+earlier call, and the residency sizing needs a resident corpus to measure), so a first query pays its
+opens against object storage rather than local disk — the read counts are the same either way.
+Wired-but-dormant in the conversion subsystem's sense: with no engine deployed, a job parks in a distinct `deferred` state — acked and re-startable, never retried into a dead-letter — so deploying the engine drains the backlog naturally and no document is silently dropped meanwhile.
