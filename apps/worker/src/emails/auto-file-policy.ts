@@ -3,6 +3,11 @@ import {
   readFirmSetting,
   type FirmSettingDefinition,
 } from "@magna-carta/data-access/setting-statements";
+import {
+  AUTO_FILE_CIRCUIT_BREAKER_BOUNDS,
+  DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
+  type AutoFileCircuitBreakerThresholds,
+} from "@magna-carta/email-filing/auto-file-rules";
 import { z } from "zod";
 
 // The firm-level ceiling on unattended filing, stored as a per-firm setting so a missing row IS the
@@ -26,3 +31,55 @@ export const autoFileDirectFilingDefinition: FirmSettingDefinition<boolean> = {
 export function readAutoFileDirectFilingPermitted(database: SqlDatabase): Promise<boolean> {
   return readFirmSetting(database, autoFileDirectFilingDefinition);
 }
+
+// The firm's circuit-breaker thresholds. Stored as one object rather than three rows because they are
+// read together on every capture that matches a rule and are only meaningful together — the undo
+// threshold is a fraction of the recent-fire window, and half-applying a change would mean a firm
+// briefly running on a combination it never chose.
+//
+// The bounds are the domain package's (@magna-carta/email-filing), so the schema that refuses a bad
+// write and the guardrail that refuses a bad stored value cannot drift apart. `maxUndosInRecentFires`
+// may not exceed `recentFireWindow`: the undo count is capped by the window it is counted over, so a
+// higher threshold could never be reached and the breaker would read as configured while never
+// tripping. A stored value outside any of this falls back to the platform defaults on read rather
+// than bricking the capture path, which is what readFirmSetting does for every setting.
+const circuitBreakerSchema: z.ZodType<AutoFileCircuitBreakerThresholds> = z
+  .object({
+    maxFiresPerWindow: z
+      .number()
+      .int()
+      .min(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxFiresPerWindow.minimum)
+      .max(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxFiresPerWindow.maximum),
+    recentFireWindow: z
+      .number()
+      .int()
+      .min(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.recentFireWindow.minimum)
+      .max(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.recentFireWindow.maximum),
+    maxUndosInRecentFires: z
+      .number()
+      .int()
+      .min(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxUndosInRecentFires.minimum)
+      .max(AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxUndosInRecentFires.maximum),
+  })
+  .refine((value) => value.maxUndosInRecentFires <= value.recentFireWindow, {
+    message: "maxUndosInRecentFires may not exceed recentFireWindow",
+    path: ["maxUndosInRecentFires"],
+  });
+
+export const autoFileCircuitBreakerDefinition: FirmSettingDefinition<AutoFileCircuitBreakerThresholds> =
+  {
+    key: "emails.auto_file_circuit_breaker",
+    schema: circuitBreakerSchema,
+    defaultValue: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
+  };
+
+export function readAutoFileCircuitBreaker(
+  database: SqlDatabase,
+): Promise<AutoFileCircuitBreakerThresholds> {
+  return readFirmSetting(database, autoFileCircuitBreakerDefinition);
+}
+
+// The request schema the settings route validates a client's thresholds against. Exported from here
+// rather than written out at the route so the API refuses exactly what the stored-value schema
+// refuses — one definition of what a firm may set.
+export const autoFileCircuitBreakerRequestSchema = circuitBreakerSchema;

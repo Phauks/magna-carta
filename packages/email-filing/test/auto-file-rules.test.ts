@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  AUTO_FILE_MAX_FIRES_PER_WINDOW,
-  AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES,
+  activityWindowLimitFor,
+  AUTO_FILE_CIRCUIT_BREAKER_BOUNDS,
+  DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
+  isWellFormedCircuitBreaker,
   resolveAutoFileDecision,
   type AutoFileCandidateRule,
   type AutoFileEvidence,
@@ -60,6 +62,8 @@ function evidence(overrides: Partial<AutoFileEvidence> = {}): AutoFileEvidence {
     targetMatters: [{ matterId: MATTER, status: "open", systemOwned: false }],
     conflictHold: false,
     firmDirectFilingPermitted: true,
+    // A firm that has never touched the thresholds, which is the behaviour the breaker shipped with.
+    circuitBreaker: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
     ...overrides,
   };
 }
@@ -382,7 +386,9 @@ describe("the blast bound", () => {
   it("trips at the threshold: the rule reverts to staging and asks to be suspended", () => {
     const decision = resolveAutoFileDecision(
       evidence({
-        matchedRules: [threadRule({ firesInWindow: AUTO_FILE_MAX_FIRES_PER_WINDOW })],
+        matchedRules: [
+          threadRule({ firesInWindow: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.maxFiresPerWindow }),
+        ],
       }),
     );
     expect(decision.outcome).toBe("stage");
@@ -395,7 +401,9 @@ describe("the blast bound", () => {
   it("still files one below the threshold", () => {
     const decision = resolveAutoFileDecision(
       evidence({
-        matchedRules: [threadRule({ firesInWindow: AUTO_FILE_MAX_FIRES_PER_WINDOW - 1 })],
+        matchedRules: [
+          threadRule({ firesInWindow: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.maxFiresPerWindow - 1 }),
+        ],
       }),
     );
     expect(decision.outcome).toBe("file");
@@ -405,7 +413,11 @@ describe("the blast bound", () => {
   it("trips on undo rate: the firm keeps undoing the rule's filings", () => {
     const decision = resolveAutoFileDecision(
       evidence({
-        matchedRules: [threadRule({ undosInRecentFires: AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES })],
+        matchedRules: [
+          threadRule({
+            undosInRecentFires: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.maxUndosInRecentFires,
+          }),
+        ],
       }),
     );
     expect(decision.outcome).toBe("stage");
@@ -418,7 +430,9 @@ describe("the blast bound", () => {
       resolveAutoFileDecision(
         evidence({
           matchedRules: [
-            threadRule({ undosInRecentFires: AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES - 1 }),
+            threadRule({
+              undosInRecentFires: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.maxUndosInRecentFires - 1,
+            }),
           ],
         }),
       ).outcome,
@@ -429,13 +443,124 @@ describe("the blast bound", () => {
     const decision = resolveAutoFileDecision(
       evidence({
         matchedRules: [
-          threadRule({ promotion: "stage", firesInWindow: AUTO_FILE_MAX_FIRES_PER_WINDOW }),
+          threadRule({
+            promotion: "stage",
+            firesInWindow: DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.maxFiresPerWindow,
+          }),
         ],
       }),
     );
     expect(decision.outcome).toBe("stage");
     expect(decision.demotionReason).toBe("rulePosture");
     expect(decision.suspension).toEqual({ ruleId: THREAD_RULE, reason: "blastBound" });
+  });
+});
+
+describe("the firm's own circuit-breaker thresholds", () => {
+  it("defaults to the numbers the breaker shipped with", () => {
+    expect(DEFAULT_AUTO_FILE_CIRCUIT_BREAKER).toEqual({
+      maxFiresPerWindow: 25,
+      recentFireWindow: 10,
+      maxUndosInRecentFires: 3,
+    });
+  });
+
+  it("trips at the firm's fire threshold rather than the platform default", () => {
+    const circuitBreaker = { ...DEFAULT_AUTO_FILE_CIRCUIT_BREAKER, maxFiresPerWindow: 5 };
+    const tripped = resolveAutoFileDecision(
+      evidence({ circuitBreaker, matchedRules: [threadRule({ firesInWindow: 5 })] }),
+    );
+    expect(tripped.outcome).toBe("stage");
+    expect(tripped.demotionReason).toBe("blastBound");
+    expect(
+      resolveAutoFileDecision(
+        evidence({ circuitBreaker, matchedRules: [threadRule({ firesInWindow: 4 })] }),
+      ).outcome,
+    ).toBe("file");
+  });
+
+  it("trips at the firm's undo threshold rather than the platform default", () => {
+    const circuitBreaker = { ...DEFAULT_AUTO_FILE_CIRCUIT_BREAKER, maxUndosInRecentFires: 1 };
+    const tripped = resolveAutoFileDecision(
+      evidence({ circuitBreaker, matchedRules: [threadRule({ undosInRecentFires: 1 })] }),
+    );
+    expect(tripped.outcome).toBe("stage");
+    expect(tripped.demotionReason).toBe("undoRate");
+  });
+
+  it("files at a raised threshold that the platform default would have tripped on", () => {
+    const decision = resolveAutoFileDecision(
+      evidence({
+        circuitBreaker: { maxFiresPerWindow: 200, recentFireWindow: 50, maxUndosInRecentFires: 20 },
+        matchedRules: [threadRule({ firesInWindow: 30, undosInRecentFires: 5 })],
+      }),
+    );
+    expect(decision.outcome).toBe("file");
+  });
+
+  it("derives the activity walk's limit above the firm's threshold, so the count can reach it", () => {
+    expect(
+      activityWindowLimitFor({ ...DEFAULT_AUTO_FILE_CIRCUIT_BREAKER, maxFiresPerWindow: 5 }),
+    ).toBe(6);
+    expect(activityWindowLimitFor(DEFAULT_AUTO_FILE_CIRCUIT_BREAKER)).toBe(26);
+  });
+
+  // A circuit breaker a firm can switch off is not a circuit breaker. Anything outside the bounds is
+  // unevaluable evidence, so the capture stages instead of filing on a guardrail nothing can reach.
+  it("refuses thresholds that would put the breaker out of reach", () => {
+    const outOfBounds: Record<string, unknown>[] = [
+      // Past the ceiling: an arbitrarily large fire threshold is the off switch.
+      { maxFiresPerWindow: 100000, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      // Zero or negative floors: the breaker either never trips or always does.
+      { maxFiresPerWindow: 0, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      { maxFiresPerWindow: 25, recentFireWindow: 10, maxUndosInRecentFires: 0 },
+      { maxFiresPerWindow: -1, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      // More undos than there are fires to count them among: unreachable by construction.
+      { maxFiresPerWindow: 25, recentFireWindow: 10, maxUndosInRecentFires: 11 },
+      // Not whole numbers, and not numbers at all.
+      { maxFiresPerWindow: 25.5, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      {
+        maxFiresPerWindow: Number.POSITIVE_INFINITY,
+        recentFireWindow: 10,
+        maxUndosInRecentFires: 3,
+      },
+      { maxFiresPerWindow: "25", recentFireWindow: 10, maxUndosInRecentFires: 3 },
+    ];
+    for (const circuitBreaker of outOfBounds) {
+      expect(isWellFormedCircuitBreaker(circuitBreaker as never)).toBe(false);
+      const decision = resolveAutoFileDecision(
+        evidence({ circuitBreaker: circuitBreaker as never }),
+      );
+      expect(decision.outcome).toBe("noRule");
+      expect(decision.suppressionReason).toBe("incompleteEvidence");
+    }
+  });
+
+  it("accepts the tightest and the loosest thresholds a firm may write", () => {
+    expect(
+      isWellFormedCircuitBreaker({
+        maxFiresPerWindow: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxFiresPerWindow.minimum,
+        recentFireWindow: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.recentFireWindow.minimum,
+        maxUndosInRecentFires: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxUndosInRecentFires.minimum,
+      }),
+    ).toBe(true);
+    expect(
+      isWellFormedCircuitBreaker({
+        maxFiresPerWindow: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxFiresPerWindow.maximum,
+        recentFireWindow: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.recentFireWindow.maximum,
+        maxUndosInRecentFires: AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxUndosInRecentFires.maximum,
+      }),
+    ).toBe(true);
+  });
+
+  // Omitting the field entirely is the case the required-evidence list exists for: a gatherer that
+  // did not resolve the thresholds did not answer the question, and an unanswered question is never
+  // permission to file.
+  it("treats absent thresholds as unevaluable rather than defaulting to the platform numbers", () => {
+    const { circuitBreaker: _omitted, ...withoutThresholds } = evidence();
+    const decision = resolveAutoFileDecision(withoutThresholds as AutoFileEvidence);
+    expect(decision.outcome).toBe("noRule");
+    expect(decision.suppressionReason).toBe("incompleteEvidence");
   });
 });
 

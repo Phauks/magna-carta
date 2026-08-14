@@ -1067,6 +1067,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../sequence-numbering
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

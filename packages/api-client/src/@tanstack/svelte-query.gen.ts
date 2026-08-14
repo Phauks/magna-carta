@@ -638,7 +638,7 @@ export const emailsRevokeCaptureAddressMutation = (options?: Partial<Options<Ema
 export const emailsGetAutoFilePolicyQueryKey = (options?: Options<EmailsGetAutoFilePolicyData>) => createQueryKey('emailsGetAutoFilePolicy', options);
 
 /**
- * Reads whether the firm permits captured email to be filed onto a matter without a person present. The setting is off for a firm that has never changed it, so a fresh firm always reads a valid configuration.
+ * Reads whether the firm permits captured email to be filed onto a matter without a person present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. A firm that has never changed them reads the platform defaults, so a fresh firm always reads a valid configuration.
  */
 export const emailsGetAutoFilePolicyOptions = (options?: Options<EmailsGetAutoFilePolicyData>) => queryOptions<EmailsGetAutoFilePolicyResponse, EmailsGetAutoFilePolicyError, EmailsGetAutoFilePolicyResponse, ReturnType<typeof emailsGetAutoFilePolicyQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -654,7 +654,7 @@ export const emailsGetAutoFilePolicyOptions = (options?: Options<EmailsGetAutoFi
 });
 
 /**
- * Sets whether the firm permits captured email to be filed onto a matter without a person present. This is a ceiling, not a default: while it is off, a rule that asks to file still only places the message on the matter for someone to confirm. Turning it on does not file anything that has already been captured. Only the supplied fields are changed; the write is batched atomically with an audit entry.
+ * Sets whether the firm permits captured email to be filed onto a matter without a person present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. Direct filing is a ceiling, not a default: while it is off, a rule that asks to file still only places the message on the matter for someone to confirm. Turning it on does not file anything that has already been captured. The circuit breaker cannot be switched off — each threshold is a whole number inside a fixed range, and the undo threshold may not exceed the recent-fire window it is counted over. Only the supplied fields are changed; the write is batched atomically with an audit entry.
  */
 export const emailsUpdateAutoFilePolicyMutation = (options?: Partial<Options<EmailsUpdateAutoFilePolicyData>>): MutationOptions<EmailsUpdateAutoFilePolicyResponse, EmailsUpdateAutoFilePolicyError, Options<EmailsUpdateAutoFilePolicyData>> => {
     const mutationOptions: MutationOptions<EmailsUpdateAutoFilePolicyResponse, EmailsUpdateAutoFilePolicyError, Options<EmailsUpdateAutoFilePolicyData>> = {

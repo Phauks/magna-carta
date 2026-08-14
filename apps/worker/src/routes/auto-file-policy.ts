@@ -17,21 +17,35 @@ import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import {
+  autoFileCircuitBreakerDefinition,
+  autoFileCircuitBreakerRequestSchema,
   autoFileDirectFilingDefinition,
+  readAutoFileCircuitBreaker,
   readAutoFileDirectFilingPermitted,
 } from "../emails/auto-file-policy.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 
-// The firm's ceiling on unattended email filing. One switch, off until an administrator turns it on;
-// the resolved value is read here and by the capture consumer through the same helper, so the queue
-// path and the API can never disagree about what the firm chose.
+// The firm's controls over unattended email filing: the ceiling on whether the platform may file at
+// all, and the circuit breaker's thresholds. Both resolved values are read here and by the capture
+// consumer through the same helpers, so the queue path and the API can never disagree about what the
+// firm chose, and a firm that has never opened this surface reads the platform defaults.
 
 const AutoFilePolicyResponse = z
-  .object({ directFilingPermitted: z.boolean() })
+  .object({
+    directFilingPermitted: z.boolean(),
+    circuitBreaker: z.object({
+      maxFiresPerWindow: z.number().int(),
+      recentFireWindow: z.number().int(),
+      maxUndosInRecentFires: z.number().int(),
+    }),
+  })
   .openapi("AutoFilePolicyResponse");
 
 const PatchAutoFilePolicyRequest = z
-  .object({ directFilingPermitted: z.boolean().optional() })
+  .object({
+    directFilingPermitted: z.boolean().optional(),
+    circuitBreaker: autoFileCircuitBreakerRequestSchema.optional(),
+  })
   .openapi("PatchAutoFilePolicyRequest");
 
 // The administrative lane the firm catch-all already sits in: deciding whether the platform may file
@@ -100,8 +114,9 @@ const getRoute = defineOpenAPIRoute(getMeta, {
   path: "/api/v1/firm/email-auto-file-policy",
   description:
     "Reads whether the firm permits captured email to be filed onto a matter without a person " +
-    "present. The setting is off for a firm that has never changed it, so a fresh firm always " +
-    "reads a valid configuration.",
+    "present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. A " +
+    "firm that has never changed them reads the platform defaults, so a fresh firm always reads a " +
+    "valid configuration.",
   responses: {
     200: {
       description: "The firm's automatic-filing policy",
@@ -119,9 +134,12 @@ const patchRoute = defineOpenAPIRoute(patchMeta, {
   path: "/api/v1/firm/email-auto-file-policy",
   description:
     "Sets whether the firm permits captured email to be filed onto a matter without a person " +
-    "present. This is a ceiling, not a default: while it is off, a rule that asks to file still " +
+    "present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. " +
+    "Direct filing is a ceiling, not a default: while it is off, a rule that asks to file still " +
     "only places the message on the matter for someone to confirm. Turning it on does not file " +
-    "anything that has already been captured. Only the supplied fields are changed; the write is " +
+    "anything that has already been captured. The circuit breaker cannot be switched off — each " +
+    "threshold is a whole number inside a fixed range, and the undo threshold may not exceed the " +
+    "recent-fire window it is counted over. Only the supplied fields are changed; the write is " +
     "batched atomically with an audit entry.",
   request: {
     headers: idempotencyKeyHeader,
@@ -153,10 +171,11 @@ export function registerAutoFilePolicyRoutes(
     { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      return c.json(
-        { directFilingPermitted: await readAutoFileDirectFilingPermitted(firm.firmDatabase) },
-        200,
-      );
+      const [directFilingPermitted, circuitBreaker] = await Promise.all([
+        readAutoFileDirectFilingPermitted(firm.firmDatabase),
+        readAutoFileCircuitBreaker(firm.firmDatabase),
+      ]);
+      return c.json({ directFilingPermitted, circuitBreaker }, 200);
     },
   );
 
@@ -167,16 +186,30 @@ export function registerAutoFilePolicyRoutes(
       const userId = requireChokepointUserId(c);
       const body = c.req.valid("json");
 
-      const current = await readAutoFileDirectFilingPermitted(firm.firmDatabase);
+      // Read the current resolved settings up front: an empty patch returns them unchanged, and a
+      // real one merges over them so the stored idempotent response reflects the full state.
+      const [currentDirectFilingPermitted, currentCircuitBreaker] = await Promise.all([
+        readAutoFileDirectFilingPermitted(firm.firmDatabase),
+        readAutoFileCircuitBreaker(firm.firmDatabase),
+      ]);
       // An empty patch is a no-op: the current state back, with no write and no audit row, so a
       // redelivered no-op never adds a spurious entry to the firm's record.
-      if (body.directFilingPermitted === undefined) {
-        return c.json({ directFilingPermitted: current }, 200);
+      if (body.directFilingPermitted === undefined && body.circuitBreaker === undefined) {
+        return c.json(
+          {
+            directFilingPermitted: currentDirectFilingPermitted,
+            circuitBreaker: currentCircuitBreaker,
+          },
+          200,
+        );
       }
 
       const idempotency = requireChokepointIdempotency(c);
       const now = (): string => new Date().toISOString();
-      const resolved = { directFilingPermitted: body.directFilingPermitted };
+      const resolved: z.infer<typeof AutoFilePolicyResponse> = {
+        directFilingPermitted: body.directFilingPermitted ?? currentDirectFilingPermitted,
+        circuitBreaker: body.circuitBreaker ?? currentCircuitBreaker,
+      };
 
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
@@ -188,12 +221,26 @@ export function registerAutoFilePolicyRoutes(
           return {
             write: {
               statements: [
-                writeFirmSettingStatement(
-                  firm.firmDatabase,
-                  autoFileDirectFilingDefinition,
-                  body.directFilingPermitted ?? current,
-                  timestamp,
-                ),
+                ...(body.directFilingPermitted !== undefined
+                  ? [
+                      writeFirmSettingStatement(
+                        firm.firmDatabase,
+                        autoFileDirectFilingDefinition,
+                        body.directFilingPermitted,
+                        timestamp,
+                      ),
+                    ]
+                  : []),
+                ...(body.circuitBreaker !== undefined
+                  ? [
+                      writeFirmSettingStatement(
+                        firm.firmDatabase,
+                        autoFileCircuitBreakerDefinition,
+                        body.circuitBreaker,
+                        timestamp,
+                      ),
+                    ]
+                  : []),
                 insertAuditLogStatement(firm.firmDatabase, {
                   id: newIdentifier("auditLog"),
                   event: "emails.auto_file_policy_updated",
