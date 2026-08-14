@@ -61,6 +61,7 @@ describe("the curated model catalog", () => {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: false,
       noTrainingEligible: true,
@@ -79,6 +80,7 @@ describe("the curated model catalog", () => {
       slot: "utility",
       modelId: "anthropic/some-utility-model",
       snapshotId: "some-utility-model-20260101",
+      snapshotForm: "provider-dated",
       referenceId: "some-utility-model",
       zdrEligible: true,
       noTrainingEligible: true,
@@ -96,6 +98,7 @@ describe("the curated model catalog", () => {
       slot: "embedding",
       modelId: "@cf/example/embedding",
       snapshotId: "example-embedding-v1",
+      snapshotForm: "platform-composed",
       referenceId: "@cf/example/embedding",
       zdrEligible: true,
       noTrainingEligible: true,
@@ -114,6 +117,7 @@ describe("the curated model catalog", () => {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: true,
       noTrainingEligible: true,
@@ -143,12 +147,85 @@ describe("the curated model catalog", () => {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       // snapshotId intentionally omitted
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: true,
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(missingSnapshotId).success).toBe(false);
+    // Every other field is present, so restoring only snapshotId parses — which is what proves the
+    // omission was the cause rather than something else in the fixture.
+    expect(
+      catalogEntrySchema.safeParse({ ...missingSnapshotId, snapshotId: "some-model-20260101" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("the entry schema refuses a date suffix on a snapshot the provider publishes undated", () => {
+    // The defect this invariant exists for. An entry whose provider issues no dated id, carrying a
+    // plausible-looking date anyway, is the one shape that cannot be caught by inspecting the string:
+    // "<referenceId>-20260101" is well-formed whether or not that release was ever published. Declaring
+    // the form is what turns it into a contradiction the schema can see.
+    const fabricatedDate = {
+      slot: "reasoning",
+      modelId: "anthropic/some-model",
+      snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dateless",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(fabricatedDate).success).toBe(false);
+    // Dropping the invented suffix — the correct record for a dateless model — parses.
+    expect(
+      catalogEntrySchema.safeParse({ ...fabricatedDate, snapshotId: "some-model" }).success,
+    ).toBe(true);
+  });
+
+  it("the entry schema refuses a dated form whose snapshot carries no date", () => {
+    // The mirror case: an entry that declares the provider publishes a dated id, then records the bare
+    // alias. That loses the pin — the alias resolves to whatever the provider currently points it at —
+    // so the provenance record would name a pointer rather than the release that produced the output.
+    const droppedDate = {
+      slot: "utility",
+      modelId: "anthropic/some-model",
+      snapshotId: "some-model",
+      snapshotForm: "provider-dated",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(droppedDate).success).toBe(false);
+    // A malformed date is refused on the same rule; only the provider's -YYYYMMDD shape is accepted.
+    expect(
+      catalogEntrySchema.safeParse({ ...droppedDate, snapshotId: "some-model-2026" }).success,
+    ).toBe(false);
+    expect(
+      catalogEntrySchema.safeParse({ ...droppedDate, snapshotId: "some-model-20251001" }).success,
+    ).toBe(true);
+  });
+
+  it("the entry schema lets only the embedding entry compose its own snapshot id", () => {
+    // A composed id is the embedding entry's alone. Letting a reasoning or utility entry invent one
+    // would reopen the gap the two cases above close, since a composed id is checked against nothing.
+    const composedReasoning = {
+      slot: "reasoning",
+      modelId: "anthropic/some-model",
+      snapshotId: "something-the-provider-never-published",
+      snapshotForm: "platform-composed",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(composedReasoning).success).toBe(false);
   });
 
   it("the exactly-one-embedding invariant is enforced by the module-load fitness guard (validateCatalog)", () => {

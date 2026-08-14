@@ -18,6 +18,7 @@ function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
     slot: "reasoning",
     modelId: "provider/example-model",
     snapshotId: "example-model-20260101",
+    snapshotForm: "provider-dated",
     referenceId: "example-model",
     zdrEligible: true,
     noTrainingEligible: true,

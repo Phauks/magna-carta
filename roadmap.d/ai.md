@@ -36,9 +36,9 @@
 
 - id: ai.inference.model-catalog
   name: Curated ZDR-only model catalog
-  scope: In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one.
+  scope: In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one, and the FORM the provider publishes its pinned snapshot in, so a snapshot id that contradicts its own form fails at import rather than reaching a provenance record.
   status: shipped
-  evidence: packages/inference/src/catalog.ts with module-load validation.
+  evidence: packages/inference/src/catalog.ts with module-load validation, including the snapshotForm refinements; packages/inference/test/catalog.test.ts and packages/inference/test/fitness-catalog.test.ts pin the recorded snapshot ids to the provider's published values.
 
 - id: ai.inference.reasoning-tier
   name: Evergreen reasoning tier

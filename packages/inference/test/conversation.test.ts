@@ -47,7 +47,7 @@ describe("generateConversation on the gateway port", () => {
     if (result.ok) {
       expect(result.value.text).toBe("Here is what the rule says.");
       expect(result.value.usage).toEqual({ inputTokens: 40, outputTokens: 9 });
-      expect(result.value.snapshotId).toBe("claude-opus-4-8-20260101");
+      expect(result.value.snapshotId).toBe("claude-opus-4-8");
     }
     const options = calls[0]?.options as {
       gateway: {
