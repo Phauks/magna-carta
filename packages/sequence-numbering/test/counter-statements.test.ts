@@ -3,7 +3,7 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { InvoiceId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { drawWithBoundedRetry } from "../src/bounded-retry.ts";
+import { drawWithBoundedRetry, type DrawNonConvergence } from "../src/bounded-retry.ts";
 import {
   allocateCounterValueStatement,
   ensureCounterRowStatement,
@@ -162,6 +162,20 @@ describe("the shared sequence-numbering statements", () => {
   });
 });
 
+// Every consumer of the loop supplies its own give-up error, so the tests do too. This one stands in
+// for the named refusal a route maps to a problem type (custodian's shape).
+class SequenceExhaustedError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SequenceExhaustedError";
+  }
+}
+
+const plainNonConvergence = ({ message }: DrawNonConvergence): unknown => new Error(message);
+
 describe("the bounded-retry draw", () => {
   it("loses the draw once, advances the counter out of band, and converges on the next value", async () => {
     const database = freshDatabase();
@@ -180,7 +194,7 @@ describe("the bounded-retry draw", () => {
     const drawn = await drawWithBoundedRetry(
       database,
       INVOICE_TABLES,
-      { sequenceLabel: "invoice number" },
+      { sequenceLabel: "invoice number", nonConvergenceError: plainNonConvergence },
       async (observe) => {
         attempts += 1;
         const observedValue =
@@ -207,10 +221,15 @@ describe("the bounded-retry draw", () => {
     const database = freshDatabase();
     let attempts = 0;
     await expect(
-      drawWithBoundedRetry(database, INVOICE_TABLES, { sequenceLabel: "invoice number" }, () => {
-        attempts += 1;
-        return Promise.reject(new Error("the batch failed for an unrelated reason"));
-      }),
+      drawWithBoundedRetry(
+        database,
+        INVOICE_TABLES,
+        { sequenceLabel: "invoice number", nonConvergenceError: plainNonConvergence },
+        () => {
+          attempts += 1;
+          return Promise.reject(new Error("the batch failed for an unrelated reason"));
+        },
+      ),
     ).rejects.toThrow("the batch failed for an unrelated reason");
     expect(attempts).toBe(1);
   });
@@ -224,7 +243,11 @@ describe("the bounded-retry draw", () => {
       drawWithBoundedRetry(
         database,
         INVOICE_TABLES,
-        { sequenceLabel: "invoice number", maxAttempts: 3 },
+        {
+          sequenceLabel: "invoice number",
+          maxAttempts: 3,
+          nonConvergenceError: plainNonConvergence,
+        },
         async (observe) => {
           attempts += 1;
           // Always observes the taken value, so every attempt loses on the allocation key.
@@ -243,6 +266,51 @@ describe("the bounded-retry draw", () => {
     expect(attempts).toBe(3);
   });
 
+  // The reason both consumers kept private copies of this loop: giving up has to be sayable in the
+  // caller's own error vocabulary, because the throw leaves the package and becomes an HTTP response.
+  it("gives up as the CALLER's error, carrying the loop's own wording and the failure that caused it", async () => {
+    const database = freshDatabase();
+    const invoiceId = await seedDraftInvoice(database);
+    await allocateCounterValueStatement(database, INVOICE_TABLES, "", 1, invoiceId, NOW).run();
+    let seen: DrawNonConvergence | undefined;
+    const caught = await captureError(() =>
+      drawWithBoundedRetry(
+        database,
+        INVOICE_TABLES,
+        {
+          sequenceLabel: "invoice number",
+          maxAttempts: 2,
+          nonConvergenceError: (detail) => {
+            seen = detail;
+            return new SequenceExhaustedError("invoice-number-exhausted", detail.message);
+          },
+        },
+        async (observe) => {
+          observe({ scopeKey: "", observedValue: 1, startValue: 1 });
+          await allocateCounterValueStatement(
+            database,
+            INVOICE_TABLES,
+            "",
+            1,
+            invoiceId,
+            NOW,
+          ).run();
+        },
+      ),
+    );
+    expect(caught).toBeInstanceOf(SequenceExhaustedError);
+    expect((caught as SequenceExhaustedError).code).toBe("invoice-number-exhausted");
+    expect(seen?.attempts).toBe(2);
+    expect(seen?.sequenceLabel).toBe("invoice number");
+    // The last real failure travels with the give-up, so an operator reading the refusal can see
+    // which race the draw kept losing rather than only that it lost. Here that is the invoice
+    // allocation's append-only guard, which fires ahead of the primary key on a duplicate draw.
+    expect(String(seen?.lastError)).toContain("invoice_number_allocation is append-only");
+    expect(seen?.message).toBe(
+      `invoice number allocation did not converge after 2 attempts: ${String(seen?.lastError)}`,
+    );
+  });
+
   it("retries a caller's own collision when it declares one, and nothing else", async () => {
     const database = freshDatabase();
     let attempts = 0;
@@ -253,6 +321,7 @@ describe("the bounded-retry draw", () => {
         sequenceLabel: "matter number",
         alsoRetryable: (error) =>
           error instanceof Error && error.message.includes("matter.matter_number"),
+        nonConvergenceError: plainNonConvergence,
       },
       (observe) => {
         attempts += 1;
@@ -265,5 +334,38 @@ describe("the bounded-retry draw", () => {
     );
     expect(result).toBe("drawn");
     expect(attempts).toBe(2);
+  });
+
+  // The other reason both consumers kept their own loops. Custodian's packet write resolves the
+  // firm's shared custody holding matter BEFORE it reaches the counter, so a concurrent first use of
+  // that matter loses a uniqueness race with nothing drawn — and the retry that reads the winner's
+  // row is the whole fix. Retryable-ness and observed-ness are independent facts.
+  it("retries a declared collision that observed no draw, and moves no counter doing it", async () => {
+    const database = freshDatabase();
+    await ensureCounterRowStatement(database, MATTER_TABLES, "RENO", 7).run();
+    let attempts = 0;
+    const result = await drawWithBoundedRetry(
+      database,
+      MATTER_TABLES,
+      {
+        sequenceLabel: "matter number",
+        alsoRetryable: (error) =>
+          error instanceof Error && error.message.includes("matter.system_key"),
+        nonConvergenceError: plainNonConvergence,
+      },
+      (observe) => {
+        attempts += 1;
+        if (attempts === 1) {
+          // Fails before any counter is read — nothing to report, nothing to step past.
+          return Promise.reject(new Error("UNIQUE constraint failed: matter.system_key"));
+        }
+        observe({ scopeKey: "RENO", observedValue: 7, startValue: 7 });
+        return Promise.resolve("drawn");
+      },
+    );
+    expect(result).toBe("drawn");
+    expect(attempts).toBe(2);
+    // Untouched: a retry over a collision that consumed no counter value must not burn one.
+    expect(await readCounterValue(database, MATTER_TABLES, "RENO")).toBe(7);
   });
 });

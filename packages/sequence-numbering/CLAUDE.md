@@ -15,7 +15,8 @@ plus the conflict predicate and the retry helper. No I/O, no clock, no database 
   `guardedIncrementStatement` / `allocateCounterValueStatement` / `isNumberAllocationConflict` /
   `readCounterValue`
 - `src/bounded-retry.ts` — `drawWithBoundedRetry`: the loop that advances a lost draw's counter OUT
-  OF BAND and re-reads
+  OF BAND and re-reads, plus `BoundedDrawOptions` / `DrawNonConvergence` (the caller's retryable
+  collisions and the error it gives up with)
 
 ## Invariants that apply here
 
@@ -50,9 +51,15 @@ plus the conflict predicate and the retry helper. No I/O, no clock, no database 
   an append-only no-overwrite BEFORE INSERT guard sees that trigger fire ahead of the primary key on
   a duplicate key, so the loser reads as an append-only refusal rather than a UNIQUE constraint. Same
   event, same retry. Matters' and custodian's tables have no such trigger; billing's does.
-- **`drawWithBoundedRetry` is not the only retry loop over these statements, and that is deliberate.**
-  Matters and custodian each keep their own loop, because each has a retryable collision and a
-  non-convergence outcome the shared helper does not express: custodian's gives up as a named
-  `CustodyValidationError` its route maps to a problem type, and retries a manual-number collision
-  that consumed no counter value at all. The statement builders are what is shared; a loop that had
-  to grow options for every consumer's error vocabulary would be shared in name only.
+- **`drawWithBoundedRetry` is the only retry loop over these statements.** Matters and custodian each
+  kept a private copy until the shared loop could express what they needed, which was two things.
+  **`nonConvergenceError` is required**: giving up leaves this package and becomes an HTTP response,
+  so the caller supplies the error — custodian a named `CustodyValidationError` its route maps to a
+  problem type, matters a plain `Error` the standard pipeline reports. A mapper rather than a result
+  type, because every caller's translation is "throw mine" and a result type would put the
+  "did not converge after N attempts" wording back into each consumer. It is required rather than
+  defaulted so a new sequence cannot inherit a bare `Error` by saying nothing.
+  **Retryable-ness and observed-ness are independent**: a declared collision that observed no draw is
+  still retried, there is simply no counter to advance. Custodian reaches its draw only after
+  resolving the shared custody holding matter, and a concurrent first use of that matter loses on
+  `matter.system_key` before any counter has been read.

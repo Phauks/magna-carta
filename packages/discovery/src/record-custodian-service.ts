@@ -40,7 +40,7 @@ function assertKind(value: string): RecordCustodianKind {
   if (kind === undefined) {
     throw new DiscoveryValidationError(
       "discovery-unknown-record-custodian-kind",
-      `a record custodian is a person, an organization, or unattributed; not ${JSON.stringify(value)}`,
+      `a Custodian of Record is a person, an organization, or unattributed; not ${JSON.stringify(value)}`,
     );
   }
   return kind;
@@ -62,7 +62,7 @@ export async function createRecordCustodian(
   if ((await readRecordCustodianIdByName(database, input.reviewSetId, displayName)) !== undefined) {
     throw new DiscoveryValidationError(
       "discovery-record-custodian-name-taken",
-      `this review set already has a record custodian called ${JSON.stringify(displayName)}`,
+      `this review set already has a Custodian of Record called ${JSON.stringify(displayName)}`,
     );
   }
 
@@ -130,7 +130,7 @@ export async function updateRecordCustodian(
   if (existing === undefined) {
     throw new DiscoveryValidationError(
       "discovery-unknown-record-custodian",
-      `no such record custodian: ${recordCustodianId}`,
+      `no such Custodian of Record: ${recordCustodianId}`,
     );
   }
   const displayName =
@@ -146,7 +146,7 @@ export async function updateRecordCustodian(
     if (clash !== undefined && clash !== recordCustodianId) {
       throw new DiscoveryValidationError(
         "discovery-record-custodian-name-taken",
-        `this review set already has a record custodian called ${JSON.stringify(displayName)}`,
+        `this review set already has a Custodian of Record called ${JSON.stringify(displayName)}`,
       );
     }
   }
@@ -186,13 +186,13 @@ export async function assertRecordCustodianBelongsToReviewSet(
   if (existing === undefined) {
     throw new DiscoveryValidationError(
       "discovery-unknown-record-custodian",
-      `no such record custodian: ${recordCustodianId}`,
+      `no such Custodian of Record: ${recordCustodianId}`,
     );
   }
   if (existing.review_set_id !== reviewSetId) {
     throw new DiscoveryValidationError(
       "discovery-record-custodian-review-set-mismatch",
-      "that record custodian belongs to a different review set. Custodians are review-set-scoped " +
+      "that Custodian of Record belongs to a different review set. Custodians are review-set-scoped " +
         "on purpose: the same name in two matters is not assertably the same person.",
     );
   }

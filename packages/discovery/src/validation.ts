@@ -122,12 +122,12 @@ export function assertReviewSetName(name: string): string {
 export function assertRecordCustodianName(name: string): string {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    refuse("discovery-empty-record-custodian-name", "a record custodian needs a display name");
+    refuse("discovery-empty-record-custodian-name", "a Custodian of Record needs a display name");
   }
   if (trimmed.length > RECORD_CUSTODIAN_NAME_MAX_LENGTH) {
     refuse(
       "discovery-empty-record-custodian-name",
-      `a record custodian display name is at most ${RECORD_CUSTODIAN_NAME_MAX_LENGTH} characters`,
+      `a Custodian of Record display name is at most ${RECORD_CUSTODIAN_NAME_MAX_LENGTH} characters`,
     );
   }
   return trimmed;

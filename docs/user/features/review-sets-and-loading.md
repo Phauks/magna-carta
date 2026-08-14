@@ -1,6 +1,6 @@
 # Review sets — gathering the documents in a case
 
-_Review sets, record custodians, and loading the firm's own matter files and filed email are built,
+_Review sets, Custodians of Record, and loading the firm's own matter files and filed email are built,
 along with the API behind them. Loading a production received from another party goes through the
 same upload path any file takes, and its destination is built. Reading what a document says,
 grouping duplicates, and the exception report are the next piece of work. The screens — the review
@@ -49,22 +49,22 @@ name and the date on it.
 
 ## Saying whose records these are
 
-Before or while you load, name the **record custodians** — the people or organizations whose files
+Before or while you load, name the **Custodians of Record** — the people or organizations whose files
 and mailboxes the material came from.
 
-Two words, always: "record custodian". The firm's safe custody register also has custodians, and
-they are a completely different thing (the person a physical original belongs to). You will see both
-words on screen in the same matter, so the two are never abbreviated to the same one.
+Always the full phrase: "Custodian of Record". The firm's safe custody register also has custodians,
+and they are a completely different thing (the person a physical original belongs to). You will meet
+both in the same matter, so neither is ever shortened to the bare word.
 
-- A record custodian can be somebody already in your directory, or just a name — a production will
+- A Custodian of Record can be somebody already in your directory, or just a name — a production will
   routinely name people your firm has never met.
 - If material arrived with nobody attached to it, record that as **unattributed**. It is a real
   answer and a better one than a blank.
-- Record custodians belong to their review set. "J. Smith" in this case and "J. Smith" in another
-  case are not assumed to be the same person, because being wrong about that is the kind of thing you
-  get asked about under oath.
-- If you later work out who "J. Smith" actually is, correct the record custodian rather than making a
-  second one. Everything already attributed to them follows the correction.
+- A Custodian of Record belongs to their review set. "J. Smith" in this case and "J. Smith" in
+  another case are not assumed to be the same person, because being wrong about that is the kind of
+  thing you get asked about under oath.
+- If you later work out who "J. Smith" actually is, correct the Custodian of Record rather than
+  making a second one. Everything already attributed to them follows the correction.
 
 ## Loading material
 
@@ -89,8 +89,8 @@ A load says four things.
 **How much is coming.** Your best count. It is never used to correct what actually arrives — it is
 there so the two can be compared.
 
-**Whose records these are.** Either one record custodian for the whole load, or per document when a
-production carries several people's material.
+**Whose records these are.** Either one Custodian of Record for the whole load, or per document when
+a production carries several people's material.
 
 **Whether the firm's own assistant transcripts are in scope.** This one is required and has no
 default, and it is worth explaining why.

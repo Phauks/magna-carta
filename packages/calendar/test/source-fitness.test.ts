@@ -15,11 +15,22 @@ interface InspectableStatement {
   readonly bindings: readonly unknown[];
 }
 
+// ONE migrated database for the whole file, the way test/visibility-fitness.test.ts and
+// test/load-profile.test.ts already do it. Nothing here EXECUTES a statement — every assertion reads
+// `.sql` and `.bindings` off what a builder composed — so the handle is only ever a `prepare()`
+// factory and sharing it writes no state anything else could see. Building one per composition
+// instead re-read every committed per-firm migration off disk and replayed the whole schema, about
+// 200 ms a time and roughly seventy-five times across this file: fourteen seconds of DDL to prove a
+// property about string concatenation. That is also why this file used to time out on branches that
+// never touched the calendar — the work was real, so a machine under load pushed a single case past
+// the 5 s default and reported it as a calendar failure. Keep the composition pure and the margin
+// stops being a number anyone has to tune.
+const { database } = migratedDatabase();
+
 function statementsFor(
   source: (typeof TIMELINE_SOURCES)[number],
   overrides: Partial<SourceReadRequest> = {},
 ): InspectableStatement[] {
-  const { database } = migratedDatabase();
   const request: SourceReadRequest = {
     database,
     scope:

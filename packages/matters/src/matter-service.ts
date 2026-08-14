@@ -49,11 +49,12 @@ import {
   selectMatterStatement,
   updateMatterFieldsStatement,
 } from "./matter-statements.ts";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import {
   allocateCounterValueStatement,
   ensureCounterRowStatement,
   guardedIncrementStatement,
-  isNumberAllocationConflict,
+  MATTER_NUMBERING_TABLES,
   readCounterValue,
 } from "./numbering/counter-statements.ts";
 import { deriveScopeKey, renderMatterNumber, type RenderContext } from "./numbering/render.ts";
@@ -84,8 +85,12 @@ import { MatterValidationError } from "./validation.ts";
 // duplicate of the SAME request) is handled inside runIdempotentEffect, which replays the winner.
 // When no Idempotency-Key is supplied (fixtures, internal callers), runIdempotentEffect simply commits
 // with no record — so the draw and lifecycle logic are identical whether or not a key is present.
-
-const DEFAULT_MAX_ATTEMPTS = 5;
+//
+// The retry itself is @magna-carta/sequence-numbering's, not a copy: matters, custodian, and billing
+// draw against the same counter/allocation mechanism, and the reasoning that makes it correct — a
+// zero-row guarded UPDATE aborts nothing, so the allocation key is the backstop — has to live in one
+// place or the copies drift. What matters supplies at the call site is its own retryable collision
+// and the error it gives up with.
 
 export interface ClockPort {
   now(): string;
@@ -265,12 +270,12 @@ async function runMatterEffect<T>(
   }
 }
 
-// The bounded-retry number draw over the shared idempotency primitive: read the active scheme +
-// counter, render, and commit the ensure-row + guarded increment + matter write + allocation row as
-// one batch. A collision (a concurrent winner on the counter value, or a parked manual number on the
-// rendered value) aborts the batch and rethrows; because the in-batch increment rolls back with it,
-// the counter is advanced OUT OF BAND so the retry renders a fresh number — a no-op when a concurrent
-// winner already advanced it. An idempotency-key collision is handled inside runIdempotentEffect.
+// The number draw over the shared idempotency primitive: read the active scheme + counter, render,
+// and commit the ensure-row + guarded increment + matter write + allocation row as one batch. A
+// collision (a concurrent winner on the counter value, or a parked manual number on the rendered
+// value) aborts the batch and rethrows; the shared bounded retry advances the counter out of band —
+// the in-batch increment rolled back with everything else — and re-runs this closure, so the retry
+// renders a fresh number. An idempotency-key collision is handled inside runIdempotentEffect.
 async function runMatterDraw<T>(
   database: BatchDatabase,
   options: MatterServiceOptions,
@@ -279,15 +284,23 @@ async function runMatterDraw<T>(
   build: (matterNumber: string, now: string) => BuiltMutation<T>,
   responseCode: number,
 ): Promise<T & ReplayFlag> {
-  const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-  let lastError: unknown;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Set inside the effect closure (which always runs before any commit throw), so the catch can
-    // advance the same scope's counter out of band.
-    let scopeKey = "";
-    let observed = 0;
-    let startValue = 0;
-    try {
+  return await drawWithBoundedRetry(
+    database,
+    MATTER_NUMBERING_TABLES,
+    {
+      sequenceLabel: "matter number",
+      maxAttempts: options.maxAttempts,
+      // Matters' own second collision: the rendered STRING is unique per firm, so a drawn number can
+      // land on one a court or a legacy system already assigned by hand. That number drew no
+      // allocation row, so only the matter_number index can see it, and the retry steps past it.
+      alsoRetryable: isMatterNumberConflict,
+      // Unlike custodian, matters has no named refusal for this: the counter would have to lose five
+      // consecutive races, which is not a state a person can be told anything useful about. It stays
+      // an unexpected fault, reported and correlated by the standard pipeline. The mapper still has
+      // to be written out, so that stays a decision rather than an inherited default.
+      nonConvergenceError: ({ message }) => new Error(message),
+    },
+    async (observe) => {
       const result = await runIdempotentEffect({
         database,
         key: options.idempotency?.key,
@@ -297,9 +310,12 @@ async function runMatterDraw<T>(
         effect: async () => {
           const scheme = await loadActiveScheme(database);
           const context: RenderContext = { openedDate: options.clock.today(), ...numberContext };
-          scopeKey = deriveScopeKey(scheme.segments, context);
-          startValue = scheme.startValue;
-          observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
+          const scopeKey = deriveScopeKey(scheme.segments, context);
+          const startValue = scheme.startValue;
+          const observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
+          // Reported before the batch is composed, so a losing attempt can advance THIS scope's
+          // counter out of band — the in-batch increment rolls back with everything else.
+          observe({ scopeKey, observedValue: observed, startValue });
           const matterNumber = renderMatterNumber(scheme.segments, context, observed);
           const now = options.clock.now();
           const built = build(matterNumber, now);
@@ -321,17 +337,7 @@ async function runMatterDraw<T>(
         },
       });
       return finishMatterResult<T>(result);
-    } catch (caught) {
-      if (!isMatterNumberConflict(caught) && !isNumberAllocationConflict(caught)) throw caught;
-      lastError = caught;
-      // Advance past the taken value out of band (the in-batch increment rolled back). Guarded on
-      // the observed value, so a concurrent winner that already advanced the counter no-ops here.
-      await ensureCounterRowStatement(database, scopeKey, startValue).run();
-      await guardedIncrementStatement(database, scopeKey, observed).run();
-    }
-  }
-  throw new Error(
-    `matter number allocation did not converge after ${maxAttempts} attempts: ${String(lastError)}`,
+    },
   );
 }
 

@@ -51698,7 +51698,7 @@
     },
     "/api/v1/review-sets/{reviewSetId}/record-custodians": {
       "get": {
-        "description": "Whose records are in this review set. Record custodians are scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.",
+        "description": "Whose records are in this review set. A Custodian of Record is scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.",
         "operationId": "discovery.listRecordCustodians",
         "tags": [
           "discovery"
@@ -51728,7 +51728,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The review set's record custodians",
+            "description": "The review set's Custodians of Record",
             "content": {
               "application/json": {
                 "schema": {
@@ -51849,7 +51849,7 @@
         },
         "responses": {
           "201": {
-            "description": "The record custodian was created",
+            "description": "The Custodian of Record was created",
             "content": {
               "application/json": {
                 "schema": {
@@ -51931,7 +51931,7 @@
     },
     "/api/v1/record-custodians/{recordCustodianId}": {
       "patch": {
-        "description": "Corrects a record custodian in place, which re-points every document already attributed to it — and that is the intent: a production that named \"J. Smith\" and the person the firm later identified are one custodian, and a second row would split the attribution of documents already loaded under the first.",
+        "description": "Corrects a Custodian of Record in place, which re-points every document already attributed to it — and that is the intent: a production that named \"J. Smith\" and the person the firm later identified are one Custodian of Record, and a second row would split the attribution of documents already loaded under the first.",
         "operationId": "discovery.updateRecordCustodian",
         "tags": [
           "discovery"
@@ -51980,7 +51980,7 @@
         },
         "responses": {
           "200": {
-            "description": "The updated record custodian",
+            "description": "The updated Custodian of Record",
             "content": {
               "application/json": {
                 "schema": {

@@ -20,13 +20,14 @@ import {
   isSystemMatterConflict,
   SYSTEM_MATTER_KEYS,
 } from "@magna-carta/matters/system-matter-statements";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { custodyAuditStatement, type CustodyAuditContext } from "./audit.ts";
 import { insertCustodyMovementStatement } from "./movement-statements.ts";
 import {
   allocateCounterValueStatement,
+  CUSTODY_NUMBERING_TABLES,
   ensureCounterRowStatement,
   guardedIncrementStatement,
-  isNumberAllocationConflict,
   readCounterValue,
 } from "./numbering/counter-statements.ts";
 import {
@@ -55,11 +56,12 @@ import { assertReviewIntervalMonths, CustodyValidationError } from "./validation
 // Splitting any of them out would create a window in which the register holds an unattributable
 // packet or a numbered row with no history — the two states the whole design exists to prevent.
 //
-// The number draw reuses the matters allocation-ledger idiom rather than re-deriving it: the same
-// race (concurrent draws against a per-firm counter, no interactive transaction) already has a
-// tested solution, and the read-render-commit here runs under the same bounded retry.
-
-const DEFAULT_MAX_ATTEMPTS = 5;
+// The number draw runs on @magna-carta/sequence-numbering's bounded retry rather than a copy of it:
+// the same race (concurrent draws against a per-firm counter, no interactive transaction) has one
+// tested solution, and the subtlety that makes it correct — a zero-row guarded UPDATE aborts
+// nothing, so the ALLOCATION key is the backstop — is the thing a copy loses first. Custody's two
+// additions to the shared loop are declared where the loop is called: its own retryable collisions,
+// and the named refusal it gives up with.
 
 export interface CustodyIdempotencyContext {
   readonly key: string | undefined;
@@ -141,14 +143,32 @@ export async function createCustodyPacket(
 
   const scheme = options.numberScheme ?? DEFAULT_CUSTODY_NUMBER_SCHEME;
   const numberContext: CustodyNumberContext = { rootCode: input.rootCode };
-  const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-  let lastError: unknown;
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const packetId = newIdentifier("custodyPacket", options.randomSource);
-    let scopeKey = "";
-    let observed = 0;
-    try {
+  return await drawWithBoundedRetry(
+    database,
+    CUSTODY_NUMBERING_TABLES,
+    {
+      sequenceLabel: "custody number",
+      maxAttempts: options.maxAttempts,
+      // Two collisions of custody's own, on top of the allocation-key race the loop already knows.
+      // A rendered number can collide with one a firm carried in manually (only the unique index on
+      // custody_number sees that, since a manual number draws no allocation row), and the holding
+      // matter this packet files its scans against can be created concurrently by another packet —
+      // which loses on `matter.system_key` before any counter has been read at all. The retry of the
+      // second one succeeds by finding the winner's row.
+      alsoRetryable: (error) => isCustodyNumberConflict(error) || isSystemMatterConflict(error),
+      // Giving up is a refusal a person sees, not an internal fault: the route maps this code to a
+      // problem type. A bare Error here would surface as an unexplained 500 on a packet a firm is
+      // standing at a safe trying to log.
+      nonConvergenceError: ({ message }) =>
+        new CustodyValidationError("custody-number-exhausted", message),
+    },
+    async (observe) => {
+      // Minted per attempt: a losing batch rolled its packet row back with everything else, so the
+      // retry lands a genuinely new packet rather than re-proposing an identifier that lost.
+      const packetId = newIdentifier("custodyPacket", options.randomSource);
+      let scopeKey = "";
+      let observed = 0;
       const result = await runIdempotentEffect({
         database,
         key: options.idempotency?.key,
@@ -182,6 +202,12 @@ export async function createCustodyPacket(
           } else {
             scopeKey = deriveScopeKey(scheme, numberContext);
             observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
+            // Report the draw so a losing attempt can advance this counter out of band. Only the
+            // drawn branch reports: a manual number consumed no counter value, so there is nothing
+            // for a retry to step past. This is the signal the old private loop inferred from
+            // `scopeKey !== "" || observed !== 0`, which quietly stopped advancing anything on a
+            // firm-wide scheme starting from zero.
+            observe({ scopeKey, observedValue: observed, startValue: scheme.startValue });
             custodyNumber = renderCustodyNumber(scheme, numberContext, observed);
             drawStatements.push(
               ensureCounterRowStatement(database, scopeKey, scheme.startValue),
@@ -266,27 +292,7 @@ export async function createCustodyPacket(
         },
       });
       return finishPacketResult(result);
-    } catch (caught) {
-      if (
-        !isCustodyNumberConflict(caught) &&
-        !isNumberAllocationConflict(caught) &&
-        !isSystemMatterConflict(caught)
-      ) {
-        throw caught;
-      }
-      lastError = caught;
-      if (scopeKey !== "" || observed !== 0) {
-        // Advance past the taken value out of band: the in-batch increment rolled back with
-        // everything else, so without this the retry would render the same number again. Guarded on
-        // the observed value, so a concurrent winner that already advanced the counter no-ops here.
-        await ensureCounterRowStatement(database, scopeKey, scheme.startValue).run();
-        await guardedIncrementStatement(database, scopeKey, observed).run();
-      }
-    }
-  }
-  throw new CustodyValidationError(
-    "custody-number-exhausted",
-    `custody number allocation did not converge after ${maxAttempts} attempts: ${String(lastError)}`,
+    },
   );
 }
 
