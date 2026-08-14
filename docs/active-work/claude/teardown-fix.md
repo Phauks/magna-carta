@@ -2,8 +2,8 @@
 branch: claude/teardown-fix
 worktree: /home/user/magna-carta/.claude/worktrees/teardown-fix
 area: worker test-harness teardown race — background work outliving the Miniflare environment
-status: building
-touches: apps/worker/src/background.ts, apps/worker/src/request-path-sweep.ts, apps/worker/vitest.config.ts, apps/worker/test/
+status: review
+touches: apps/worker/src/background.ts, apps/worker/src/request-path-sweep.ts, apps/worker/vitest.config.ts, apps/worker/test/, apps/worker/CLAUDE.md, docs/conventions/testing.md
 ---
 
 Fixing the teardown race where request-path background work (`executionCtx.waitUntil`) is still in
