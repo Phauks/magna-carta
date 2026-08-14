@@ -1,5 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { readHitDispositionStates } from "./disposition.ts";
+import { readConflictsRecheckSettings, readConflictsRescanState } from "./recheck-settings.ts";
+import { readPendingRecheckRequests } from "./recheck-statements.ts";
 import type { ReportedSource } from "./report-text.ts";
 import { readConflictsPolicy } from "./settings.ts";
 import { unavailabilityReason } from "./sources.ts";
@@ -97,15 +99,26 @@ export interface DispositionKindCount {
   readonly reviewerUserIds: readonly string[];
 }
 
-// A re-check the platform knows is owed and has not yet run, naming the corpus change that caused it.
-// Nothing produces one yet: the re-check ledger and the corpus-change triggers that write into it are
-// built in slice 2, and until then the list is empty BY CONSTRUCTION rather than by search — no
-// producer exists, so there is nothing that could be pending and go unreported.
+// A re-check the platform knows is owed and has not yet run, naming the corpus change that caused it
+// and when that change happened. Read from the re-check ledger at read time, like everything else
+// here: a matter whose corpus moved says so from the moment the change commits, not from whenever a
+// consumer gets round to it, so the platform never sits on a known-stale answer silently.
 export interface PendingRecheckRecord {
   readonly causeTopic: string;
   readonly causeReference: string;
   readonly causeOccurredAt: string;
   readonly requestedAt: string;
+}
+
+// The clock-driven backstop's standing: whether it runs at all, how often, and when it last did.
+// Reported because a backstop a firm has switched off is a fact about that firm's procedure, and one
+// that is invisible unless the report says it out loud. `enabled: false` is not a failure — it is a
+// choice the firm made, and this is where it becomes legible.
+export interface PeriodicRescanRecord {
+  readonly enabled: boolean;
+  readonly intervalDays: number;
+  // Null when no scheduled pass has enqueued a re-scan for this firm yet.
+  readonly lastRunAt: string | null;
 }
 
 export interface MatterConflictsPosture {
@@ -117,6 +130,7 @@ export interface MatterConflictsPosture {
   readonly latestCheck: LatestCheckRecord | null;
   readonly scopeShortfall: ScopeShortfall;
   readonly pendingRecheck: readonly PendingRecheckRecord[];
+  readonly periodicRescan: PeriodicRescanRecord;
   // Scoped to the LATEST check's hits. An earlier check's hits stay on the record and are read through
   // that check; this field answers "what did the most recent search leave unanswered".
   readonly undisposedByTier: readonly UndisposedTierCount[];
@@ -242,11 +256,50 @@ const ZERO_UNDISPOSED_BY_TIER: readonly UndisposedTierCount[] = [
   { tier: 4, count: 0 },
 ];
 
+// How many pending re-checks one posture read reports. `pendingRecheck` states that something is
+// owed and names the causes; it is not a work queue, so a bounded list keeps a matter with a large
+// backlog readable. The count of what is owed is never the point — that a re-check is owed at all is.
+const PENDING_RECHECK_PAGE = 50;
+
+// The ledger row, narrowed to what a reader of a matter's posture needs: what changed, which handle
+// it was about, when it happened, and when the platform noticed. The ledger's own row id is
+// deliberately not carried — a pending re-check is a statement about the matter, not a job handle.
+function toPendingRecheckRecord(request: {
+  readonly causeTopic: string;
+  readonly causeReference: string;
+  readonly causeOccurredAt: string;
+  readonly requestedAt: string;
+}): PendingRecheckRecord {
+  return {
+    causeTopic: request.causeTopic,
+    causeReference: request.causeReference,
+    causeOccurredAt: request.causeOccurredAt,
+    requestedAt: request.requestedAt,
+  };
+}
+
+// The backstop's standing, read from the firm's settings on every posture read like everything else
+// here. Two rows, and no write: whether the firm has the scheduled re-scan on, and when it last ran.
+async function readPeriodicRescan(database: SqlDatabase): Promise<PeriodicRescanRecord> {
+  const settings = await readConflictsRecheckSettings(database);
+  const state = await readConflictsRescanState(database);
+  return {
+    enabled: settings.periodicRescanEnabled,
+    intervalDays: settings.periodicRescanIntervalDays,
+    lastRunAt: state.lastRunAt,
+  };
+}
+
 export async function readMatterConflictsPosture(
   database: SqlDatabase,
   matterId: string,
 ): Promise<MatterConflictsPosture> {
   const checkRow = await readLatestCheckRow(database, matterId);
+  // Read for BOTH arms below. A matter nobody has ever checked can still be owed a re-check — a
+  // party was added to a matter that predates the engine — and reporting it as having nothing
+  // pending because it has no check would hide exactly the case that most needs saying.
+  const pendingRecheck = await readPendingRecheckRequests(database, matterId, PENDING_RECHECK_PAGE);
+  const periodicRescan = await readPeriodicRescan(database);
 
   if (checkRow === null) {
     // Never checked. Reported as its own state, with an empty shortfall rather than a shortfall
@@ -257,7 +310,8 @@ export async function readMatterConflictsPosture(
       neverChecked: true,
       latestCheck: null,
       scopeShortfall: NO_SHORTFALL,
-      pendingRecheck: [],
+      pendingRecheck: pendingRecheck.map(toPendingRecheckRecord),
+      periodicRescan,
       undisposedByTier: ZERO_UNDISPOSED_BY_TIER,
       dispositionsByKind: [],
       unavailableSources: [],
@@ -342,9 +396,8 @@ export async function readMatterConflictsPosture(
       hitCount: hitStates.length,
     },
     scopeShortfall,
-    // No producer writes a re-check request yet; slice 2 builds the ledger and the corpus-change
-    // triggers that fill it. Empty here means "nothing can be pending", not "we looked and found none".
-    pendingRecheck: [],
+    pendingRecheck: pendingRecheck.map(toPendingRecheckRecord),
+    periodicRescan,
     undisposedByTier: [...undisposedCounts]
       .toSorted(([left], [right]) => left - right)
       .map(([tier, count]) => ({ tier, count })),

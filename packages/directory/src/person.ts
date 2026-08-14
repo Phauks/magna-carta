@@ -4,6 +4,7 @@ import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifier
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { assertEntityExists, entityKindFromId, UnknownEntityError } from "./entity-kind.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { DIRECTORY_ENTITY_CREATED_TOPIC } from "./topics.ts";
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
 import {
@@ -114,7 +115,7 @@ export async function createPerson(
       ...insertPhoneticCodeStatements(database, nameId, codes),
       directoryAuditStatement(database, options, "directory.person.created", personId),
     ],
-    outboxMessages: [{ topic: "directory.entity.created", payload: { personId } }],
+    outboxMessages: [{ topic: DIRECTORY_ENTITY_CREATED_TOPIC, payload: { personId } }],
     responseCode: 201,
     responseBody: { id: personId },
     value: personId,

@@ -19,7 +19,13 @@
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts",
     "./run-conflicts-effect": "./src/run-conflicts-effect.ts",
-    "./fitness": "./src/fitness.ts"
+    "./fitness": "./src/fitness.ts",
+    "./topics": "./src/topics.ts",
+    "./recheck-settings": "./src/recheck-settings.ts",
+    "./recheck-statements": "./src/recheck-statements.ts",
+    "./recheck-cause": "./src/recheck-cause.ts",
+    "./recheck-run": "./src/recheck-run.ts",
+    "./recheck-request": "./src/recheck-request.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -29,7 +35,9 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/directory": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/matters": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/encryption": "workspace:*",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
+import { CONFLICTS_OUTBOX_TOPICS } from "@magna-carta/conflicts/topics";
 import { FILE_MANAGER_OUTBOX_TOPICS } from "@magna-carta/file-manager/topics";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
@@ -31,6 +32,7 @@ import {
 // just quietly stops delivering.
 const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   ...MATTER_OUTBOX_TOPICS,
+  ...CONFLICTS_OUTBOX_TOPICS,
   ...FILE_MANAGER_OUTBOX_TOPICS,
   LEDGER_ENTRY_POSTED_TOPIC,
   INVOICE_FINALIZED_TOPIC,

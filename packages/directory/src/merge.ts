@@ -7,6 +7,7 @@ import type { DirectoryWriteOptions } from "./audit.ts";
 import { entityKindFromId, NODE_TABLE } from "./entity-kind.ts";
 import type { DirectoryIdentifierContext } from "./identifiers.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { DIRECTORY_ENTITY_MERGED_TOPIC } from "./topics.ts";
 import type { EntityKind } from "./types.ts";
 
 // Merge is the directory's most intricate write: it folds a duplicate (the subordinate) into the
@@ -516,7 +517,14 @@ export async function mergeEntities(
   // retried merge under the same key never double-repoints nor writes a second entity_merge event.
   return runDirectoryEffect(database, context.idempotency, context.clock, () => ({
     statements,
-    outboxMessages: [],
+    // One outbox row, in the batch the merge was already composing. The payload names BOTH sides
+    // because a matter that named either one is affected by the union, and only the pair says which:
+    // two records that were separately unremarkable become one record whose combined names,
+    // identifiers, and edges may not be. Nothing here resolves those matters — that is a queue
+    // consumer's work, and doing it here would put an unbounded fan-out inside a merge request.
+    outboxMessages: [
+      { topic: DIRECTORY_ENTITY_MERGED_TOPIC, payload: { mergeId, masterId, subordinateId } },
+    ],
     responseCode: 201,
     responseBody: { mergeId },
     value: mergeId,

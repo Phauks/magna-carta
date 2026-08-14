@@ -1535,7 +1535,7 @@ export type CreatedConflictsCheckResponse = {
 };
 
 export type CreateConflictsCheckRequest = {
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
     matterId?: string;
     subjectEntityIds: Array<string>;
     scope: ConflictsScopeRequest;
@@ -1555,7 +1555,7 @@ export type ConflictsCheckWithHitsResponse = {
 
 export type ConflictsCheckDetail = {
     id: string;
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
     matterId: string | null;
     subjectEntityIds: Array<string>;
     scope: {
@@ -1601,6 +1601,7 @@ export type MatterConflictsPostureResponse = {
     latestCheck: ConflictsPostureLatestCheck;
     scopeShortfall: ConflictsPostureScopeShortfall;
     pendingRecheck: Array<ConflictsPosturePendingRecheck>;
+    periodicRescan: ConflictsPosturePeriodicRescan;
     undisposedByTier: Array<ConflictsPostureUndisposedTier>;
     dispositionsByKind: Array<ConflictsPostureDispositionKind>;
     unavailableSources: Array<ConflictsPostureUnavailableSource>;
@@ -1644,6 +1645,12 @@ export type ConflictsPosturePendingRecheck = {
     causeReference: string;
     causeOccurredAt: string;
     requestedAt: string;
+};
+
+export type ConflictsPosturePeriodicRescan = {
+    enabled: boolean;
+    intervalDays: number;
+    lastRunAt: string | null;
 };
 
 export type ConflictsPostureUndisposedTier = {

@@ -274,17 +274,21 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     });
   });
 
-  it("publishes the queue message with the pinned field names { id, firmId, topic, payload, aggregateKey, seq }", async () => {
-    // The field names are a wire contract: future consumers dedup on id and order by
+  it("publishes the queue message with the pinned field names { id, firmId, topic, payload, aggregateKey, seq, causeOccurredAt }", async () => {
+    // The field names are a wire contract: consumers dedup on id and order by
     // (aggregateKey, seq), and firmId resolves the originating tenant because per-firm
-    // messages cross the single SHARED queue (the first per-firm consumer, slice 0·5+, has no other
-    // handle on which physical database the row came from). A capturing fake QUEUE pins the shape.
+    // messages cross the single SHARED queue (a per-firm consumer has no other
+    // handle on which physical database the row came from). causeOccurredAt carries the outbox row's
+    // own creation instant — which is when the business write COMMITTED, the two landing in one
+    // atomic batch — so a consumer that reports an interval reports the firm's rather than the
+    // queue's. A capturing fake QUEUE pins the shape.
     const outboxId = newIdentifier("outbox");
+    const createdAt = new Date().toISOString();
     await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
       .prepare(
         `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
       )
-      .bind(outboxId, new Date().toISOString())
+      .bind(outboxId, createdAt)
       .run();
 
     const sent: unknown[] = [];
@@ -304,6 +308,7 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
       payload: '{"demo":true}',
       aggregateKey: "agg_demo",
       seq: 7,
+      causeOccurredAt: createdAt,
     });
   });
 

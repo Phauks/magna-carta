@@ -15,13 +15,40 @@ export type SourceClass = (typeof SOURCE_CLASSES)[number];
 export const STRICTNESS_LEVELS = ["balanced", "over_inclusive"] as const;
 export type Strictness = (typeof STRICTNESS_LEVELS)[number];
 
+// Why a check ran. The column carries a `length > 0` CHECK rather than an enumeration, so widening
+// this catalogue is additive — no migration, and no rebuild of a growing append-only table.
+//
+// A trigger names the EVENT, never the outcome: reading a check back has to say what set it going,
+// because "run because two Directory records were merged" and "run because somebody clicked" are
+// different claims about how thorough a firm's procedure is, and only the first one is a procedure.
 export const CONFLICTS_TRIGGERS = [
   "preliminary",
   "comprehensive",
   "new_party",
+  "entity_merged",
+  "entity_renamed",
+  "relationship_recorded",
+  "identifier_recorded",
+  "personnel_changed",
   "periodic_rescan",
 ] as const;
 export type ConflictsTrigger = (typeof CONFLICTS_TRIGGERS)[number];
+
+// What started a run, kept beside the actor rather than derived from it. An absent actor says nobody
+// is being credited with the run; it does not say whether a person, an event, or the clock set it
+// going, and a report that reads "run automatically because entity X was merged" needs to know which.
+// NULL on every row written before the automated paths existed, and on any run a person asked for.
+export const CONFLICTS_TRIGGER_SOURCES = ["manual", "event", "schedule"] as const;
+export type ConflictsTriggerSource = (typeof CONFLICTS_TRIGGER_SOURCES)[number];
+
+// One corpus change a check covers: the topic that announced it, the handle it is about, and when it
+// happened. Recorded on the check as an array, because several accumulated causes collapse into ONE
+// check that names them all — coalescing must never collapse a cause out of existence.
+export interface ConflictsCause {
+  readonly topic: string;
+  readonly reference: string;
+  readonly occurredAt: string;
+}
 
 export const DISPOSITION_KINDS = [
   "cleared",

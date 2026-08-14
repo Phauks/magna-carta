@@ -1,4 +1,5 @@
-import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { CONFLICTS_PERSONNEL_TOPIC } from "@magna-carta/conflicts/recheck-cause";
 import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
@@ -52,7 +53,7 @@ function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
     };
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
-    throw new Error(`member.provision ${row.id}: ${message}`);
+    throw new Error(`member.provision ${row.id}: ${message}`, { cause: caught });
   }
 }
 
@@ -101,6 +102,20 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
   // One atomic batch: a crash can never leave the member row without its role (or vice versa).
   // Deliberate pin: the BatchDatabase annotation proves at compile time that the firm-database proxy
   // still satisfies the data-access batch port — a port drift fails here, not at runtime.
+  //
+  // The batch carries ONE extra row: a per-firm outbox message announcing the new member. Rule 1.10
+  // imputes a lawyer's conflicts to the whole firm, so a roster change can alter the answer on a
+  // matter whose parties never moved at all — the lateral hire is the classic case. Announcing it
+  // here rather than resolving it here keeps the fan-out (every open matter) where fan-outs belong.
+  // insertMemberStatement is ON CONFLICT DO NOTHING, so a redelivery re-emits; the ledger's partial
+  // unique index makes that a no-op downstream.
   const batchDatabase: BatchDatabase = firmDatabase;
-  await batchDatabase.batch(statements);
+  await commitEffectBatch(
+    batchDatabase,
+    {
+      statements,
+      outboxMessages: [{ topic: CONFLICTS_PERSONNEL_TOPIC, payload: { userId: payload.userId } }],
+    },
+    { now: () => new Date().toISOString() },
+  );
 }

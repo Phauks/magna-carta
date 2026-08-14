@@ -301,6 +301,14 @@ const PosturePendingRecheck = z
   })
   .openapi("ConflictsPosturePendingRecheck");
 
+const PosturePeriodicRescan = z
+  .object({
+    enabled: z.boolean(),
+    intervalDays: z.number().int(),
+    lastRunAt: z.string().nullable(),
+  })
+  .openapi("ConflictsPosturePeriodicRescan");
+
 const MatterConflictsPostureResponse = z
   .object({
     matterId: z.string(),
@@ -310,6 +318,10 @@ const MatterConflictsPostureResponse = z
     latestCheck: PostureLatestCheck.nullable(),
     scopeShortfall: PostureScopeShortfall,
     pendingRecheck: z.array(PosturePendingRecheck),
+    // The clock-driven backstop's standing for this firm. A firm that has switched it off has made a
+    // choice about its own procedure, and a report that leaves it out would leave the reader assuming
+    // the opposite.
+    periodicRescan: PosturePeriodicRescan,
     undisposedByTier: z.array(PostureUndisposedTier),
     dispositionsByKind: z.array(PostureDispositionKind),
     unavailableSources: z.array(PostureUnavailableSource),
@@ -475,7 +487,10 @@ const matterPostureRoute = defineOpenAPIRoute(readMeta("matterPosture", "conflic
   description:
     "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, " +
     "which of the firm's current policy requirements that check did not meet, how many of its hits no " +
-    "reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, and " +
+    "reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, " +
+    "every re-check the platform knows is owed because the firm's records moved under this matter — " +
+    "each naming what changed and when — whether the firm's scheduled re-screening is switched on and " +
+    "how often it runs, and " +
     "every source that could not be searched with the reason it could not. A matter that has never " +
     "been checked reports that as its own distinct state, separate from a check that searched and " +
     "surfaced nothing. Every field is computed from the log at the moment of the request and nothing " +
