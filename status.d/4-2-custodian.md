@@ -7,9 +7,9 @@ spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: in-progress by="Opus 4.8"
 ui: todo
-load-profile: todo
+load-profile: done by="Opus 5"
 tested: todo
-next: Load-profile volume profile + the six measured operations; then receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will-deposit catalog computes against (no packet column records a death today)
+next: Receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will-deposit catalog computes against (no packet column records a death today)
 link-spec: docs/specs/2026-08-04-custodian-design.md
 link-plan: docs/specs/2026-08-04-custodian-implementation-plan.md
 adrs:

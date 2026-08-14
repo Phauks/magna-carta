@@ -12,6 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { backup } from "node:sqlite";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { LocationId, MatterId } from "@magna-carta/identifiers/types";
 import {
   loadMigrationsFromDisk,
   openNodeDatabaseFile,
@@ -33,6 +35,8 @@ import {
   type DocumentAutomationProbes,
 } from "./document-automation-generate.ts";
 import { generateTrustVolume, type TrustProbes } from "./trust-generate.ts";
+import { generateCustodianVolume, type CustodianProbes } from "./custodian-generate.ts";
+import { generateCalendarVolume, type CalendarProbes } from "./calendar-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -114,6 +118,27 @@ export interface SnapshotManifest {
   // The period end the open reconciliation's statement covers. Recorded here rather than re-derived
   // in the measurement layer, so the EXPLAIN probes bind to exactly the date the proof used.
   readonly trustAsOfDate: string;
+  // The custody volume laid over the practice + directory books: the container tree, the packets and
+  // the items inside them, the append-only movement ledger with its decades of history, holds, and
+  // review dates — plus the probe identifiers the custody measurement layer binds its register list /
+  // subtree walk / packet detail / overdue sweep / paginated history / number draw to.
+  readonly custodyLocationCount: number;
+  readonly custodyPacketCount: number;
+  readonly custodyItemCount: number;
+  readonly custodyMovementCount: number;
+  readonly custodyHoldCount: number;
+  readonly custodianProbes: CustodianProbes;
+  // The calendar volume laid over everything else: the recorded events and deadlines, the firm's own
+  // events, the bookable resources and their bookings, and one continued hearing — plus the probe
+  // identifiers the calendar measurement layer binds its federated timeline / firm-window / member
+  // filter / availability / overlap / chain reads to.
+  readonly matterEventCount: number;
+  readonly matterEventParticipantCount: number;
+  readonly matterDeadlineCount: number;
+  readonly firmEventCount: number;
+  readonly firmResourceCount: number;
+  readonly firmResourceBookingCount: number;
+  readonly calendarProbes: CalendarProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -138,6 +163,46 @@ const DEFAULT_CACHE_DIRECTORY = join(
   ".cache",
   "load-profile",
 );
+
+// The rows the custody volume hangs off, read back deterministically (ORDER BY id) from what the
+// earlier generators wrote. Read rather than threaded through as return values because these are
+// whole populations rather than probes: a generator's result carries the handful of identifiers its
+// own measurements need, and widening it into an inventory of everything it created would make every
+// generator's signature grow whenever a later one wanted something.
+async function readCustodyAttachPoints(database: SqlDatabase): Promise<{
+  firmLocationIds: LocationId[];
+  ownerEntityIds: string[];
+  matterIds: MatterId[];
+}> {
+  const [offices, persons, organizations, matters] = await Promise.all([
+    database.prepare("SELECT id FROM location ORDER BY id").all<{ id: string }>(),
+    database.prepare("SELECT id FROM directory_person ORDER BY id").all<{ id: string }>(),
+    database.prepare("SELECT id FROM directory_organization ORDER BY id").all<{ id: string }>(),
+    database
+      .prepare("SELECT id FROM matter WHERE system_key IS NULL ORDER BY id")
+      .all<{ id: string }>(),
+  ]);
+  return {
+    firmLocationIds: offices.results.map((row) => row.id as LocationId),
+    // Both entity kinds own property: a will belongs to a person and a share register to a company.
+    ownerEntityIds: [
+      ...persons.results.map((row) => row.id),
+      ...organizations.results.map((row) => row.id),
+    ],
+    matterIds: matters.results.map((row) => row.id as MatterId),
+  };
+}
+
+// The firm's own matters, excluding the platform-owned holding matters. It is the SAME set the
+// calendar's visible-matter predicate resolves, so a matter this generator writes an event onto is a
+// matter the timeline can read it back from — a holding matter's event would be written and then be
+// permanently invisible, which is a fixture that quietly measures less than it appears to.
+async function readVisibleMatterIds(database: SqlDatabase): Promise<MatterId[]> {
+  const { results } = await database
+    .prepare("SELECT id FROM matter WHERE system_key IS NULL ORDER BY id")
+    .all<{ id: string }>();
+  return results.map((row) => row.id as MatterId);
+}
 
 export function snapshotCacheKey(profile: LedgerVolumeProfile, seed: string): string {
   return snapshotCacheKeyFromTags(profile, seed, loadCurrentSchemaTags());
@@ -261,6 +326,37 @@ export async function loadProfileSnapshot(
       // practice generator opened and a client ledger to its matters, and it composes every row
       // through the trust write paths, so the composition guard and the zero floor bind at any scale.
       const trust = await generateTrustVolume(generated.database, context, profile.trust, options);
+      // The custody volume rides after practice and directory generation: its roots bind the offices
+      // the practice generator opened, its owner links point at the directory generator's entities,
+      // and a fraction of its packets link to matters. It also CREATES the platform holding matter
+      // the matterless packets file their scans against, which is why it runs before the calendar
+      // volume reads the firm's matters — that row must exist and must be excluded there.
+      const custodyAttachPoints = await readCustodyAttachPoints(generated.database);
+      const custodian = await generateCustodianVolume(
+        generated.database,
+        context,
+        profile.custodian,
+        {
+          ...custodyAttachPoints,
+          actorUserId: practice.probes.responsibleMemberId,
+        },
+        options,
+      );
+      // The calendar volume rides LAST, on purpose: a matter timeline federates over the rows every
+      // other generator has already written, so the deep-timeline probe matter is only genuinely deep
+      // in every source once they have all run.
+      const calendar = await generateCalendarVolume(
+        generated.database,
+        context,
+        profile.calendar,
+        {
+          matterIds: await readVisibleMatterIds(generated.database),
+          deepTimelineMatterId: practice.probes.busiestMatterId,
+          memberUserId: practice.probes.responsibleMemberId,
+          firmLocationIds: custodyAttachPoints.firmLocationIds,
+        },
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -310,6 +406,19 @@ export async function loadProfileSnapshot(
         trustReconciliationMatchCount: trust.trustReconciliationMatchCount,
         trustProbes: trust.probes,
         trustAsOfDate: trust.asOfDate,
+        custodyLocationCount: custodian.locationCount,
+        custodyPacketCount: custodian.packetCount,
+        custodyItemCount: custodian.itemCount,
+        custodyMovementCount: custodian.movementCount,
+        custodyHoldCount: custodian.holdCount,
+        custodianProbes: custodian.probes,
+        matterEventCount: calendar.matterEventCount,
+        matterEventParticipantCount: calendar.matterEventParticipantCount,
+        matterDeadlineCount: calendar.matterDeadlineCount,
+        firmEventCount: calendar.firmEventCount,
+        firmResourceCount: calendar.firmResourceCount,
+        firmResourceBookingCount: calendar.firmResourceBookingCount,
+        calendarProbes: calendar.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

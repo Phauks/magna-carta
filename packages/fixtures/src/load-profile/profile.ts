@@ -318,6 +318,112 @@ export interface InvoiceVolume {
   readonly spanDays: number;
 }
 
+// The custody volume laid over the practice + directory books: the physical container tree, the
+// packets the firm holds and the items described inside them, the owner links into the Directory, the
+// append-only movement ledger, holds, and review dates.
+//
+// This corpus is SMALL, DEEP, AND OLD — the opposite shape of every other volume here. A firm holds
+// low thousands of packets with a handful of items each, but it holds them for DECADES, so the
+// movement ledger is the only table that grows without bound and the register is routinely read
+// across twenty years of history. The counts below say that: the packet count is modest and the
+// history span is what carries the volume. Every count is a PARAMETER, never a generator constant —
+// changing one bumps the profile `version`, so a baseline never silently compares two shapes.
+export interface CustodianVolume {
+  // Container roots that bind a firm office (one per office the practice generator opened), plus the
+  // offsite/bank roots that bind none — a vault is not an office row, and the two kinds of root are
+  // separate parameters because only the first is capped by the firm's office count.
+  readonly officeRootCount: number;
+  readonly offsiteRootCount: number;
+  // The default shape a firm's tree takes below a root: safes, then boxes, then positions. Four
+  // levels including the root, well inside the write path's depth cap of eight — the cap is a
+  // refusal, not a target, and a tree at the cap is not what a firm builds.
+  readonly safesPerRoot: number;
+  readonly boxesPerSafe: number;
+  readonly positionsPerBox: number;
+  // Packets in the register.
+  readonly packetCount: number;
+  // Items described inside each packet.
+  readonly itemsPerPacket: { readonly min: number; readonly max: number };
+  // Fraction of packets held for somebody with no matter — a will deposited by a client whose only
+  // engagement closed a decade ago. These file their scans against the platform holding matter, which
+  // is what makes the holding matter a real row in the corpus rather than a hypothetical one.
+  readonly matterlessPacketFraction: number;
+  // How far back the oldest deposits go. This is the parameter that carries the subsystem's actual
+  // risk: a packet's history depth is its AGE times the movement rate, so lengthening the span
+  // deepens the ledger without adding a single packet.
+  readonly historySpanYears: number;
+  // Movements appended per packet per year of its age, beyond the opening `logged` entry.
+  readonly movementsPerPacketPerYear: { readonly min: number; readonly max: number };
+  // The tail of the history distribution: one probe packet given this many movements outright, so the
+  // keyset-paginated history read is measured at the depth a real long-held packet reaches rather
+  // than at the average.
+  readonly deepHistoryMovementCount: number;
+  // Fraction of packets left checked out at the end of generation (the register's `out` population),
+  // and the fraction of THOSE whose due-back date is already past — the overdue sweep's selectivity.
+  // A sweep that found either everything or nothing would measure nothing.
+  readonly checkedOutPacketFraction: number;
+  readonly overdueCheckoutFraction: number;
+  // Fraction of packets carrying a hold in force (the destruction and release blocker read).
+  readonly heldPacketFraction: number;
+  // Fraction of packets carrying a firm-set review date. Nothing derives one and nothing expires when
+  // one passes; the only consequence is that the packet appears on a list, which is the read measured.
+  readonly reviewScheduledFraction: number;
+}
+
+// The calendar volume laid over everything else: the two recorded tables (matter events with their
+// participants, and deadlines), the firm's own scope (firm events, resources, bookings), and one
+// continued hearing.
+//
+// What makes this subsystem's read shape unusual is that most of its corpus is NOT its own. A matter
+// timeline unions the recorded rows with a dozen federated sources that other generators already laid
+// down — time entries, costs, filed documents, assemblies, conflicts checks, custody movements, trust
+// movements, the matter's own lifecycle — so the counts below add the calendar's OWN rows and lean on
+// the rest of the profile for the depth. That is also why the deep probe matter matters: the design
+// asks for one matter deliberately deep in every federated source at once, and the only way to get it
+// is to point the calendar's own volume at the matter the other generators already made busiest.
+export interface CalendarVolume {
+  // Litigation events recorded per matter, drawn per matter across the firm's caseload. Most matters
+  // stay shallow; the probe matter below is the tail.
+  readonly eventsPerMatter: { readonly min: number; readonly max: number };
+  // Events recorded on the probe matter — the deep timeline the page-1-versus-page-20 comparison
+  // walks, on top of everything the other generators put on that same matter.
+  readonly probeMatterEventCount: number;
+  // Participants attached per event. The member filter resolves through this table, so its width is
+  // what the participant EXISTS predicate costs.
+  readonly participantsPerEvent: { readonly min: number; readonly max: number };
+  // Deadlines left open across the firm, and the fraction of them already past their due date.
+  // Overdue is a comparison made at read time and never a stored fact, so the fraction exists to make
+  // that comparison return a mix rather than all-or-nothing.
+  readonly openDeadlineCount: number;
+  readonly overdueDeadlineFraction: number;
+  // Deadlines already discharged (satisfied or vacated), so the state filter is selective.
+  readonly closedDeadlineCount: number;
+  // Days the event and deadline dates spread over. A decade, with the dense window at the recent end
+  // where a real firm's calendar activity is.
+  readonly spanDays: number;
+  // Fraction of events that land in the DENSE RECENT WINDOW — the most recent quarter of the span,
+  // extended six months into the future for settings already given. The rest trail back over the
+  // whole span, which is what makes a page-20 read walk genuinely old rows.
+  readonly recentWindowFraction: number;
+  // The firm's own scope: a year of weekly recurring-shaped meetings entered as individual rows
+  // (recurrence is not built, and the fixtures mirror what a firm actually types), plus a handful of
+  // all-members entries — the holidays and closures that land on everybody's calendar and make the
+  // audience switch a real branch in the member-filtered read.
+  readonly weeklyFirmEventWeeks: number;
+  readonly allMembersFirmEventCount: number;
+  // Bookable resources across the firm's offices, and the bookings laid over them.
+  readonly resourceCount: number;
+  readonly bookingCount: number;
+  // Fraction of bookings deliberately overlapping another on the same resource. Double-booking is
+  // warn-and-allow, so the availability read has to pre-pair overlaps at volume — with no overlaps
+  // the pairing pass would be measured doing nothing.
+  readonly overlappingBookingFraction: number;
+  // Settings in the one continuance chain: a hearing continued this many times minus one, with
+  // deadlines hanging off the intermediate settings. The chain read walks link hops, so its length is
+  // the only thing its cost may depend on.
+  readonly continuanceChainLength: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -356,6 +462,12 @@ export interface LedgerVolumeProfile {
   // The invoice volume laid over the practice and timekeeping books (drafts, claims, finalized
   // invoices with their per-matter balances, and the receivables the aging read fans over).
   readonly invoices: InvoiceVolume;
+  // The custody volume laid over the practice + directory books (the container tree, packets and
+  // items, owner links, the movement ledger with its decades of history, holds, and review dates).
+  readonly custodian: CustodianVolume;
+  // The calendar volume laid over everything else (matter events and participants, deadlines, the
+  // firm's own events, resources and bookings, and one continued hearing).
+  readonly calendar: CalendarVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -363,7 +475,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 12,
+  version: 13,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -499,6 +611,50 @@ export const ledgerVolume: LedgerVolumeProfile = {
     openDraftEveryNthMatter: 8,
     spanDays: 730,
   },
+  custodian: {
+    // An established firm's safe: a root per office plus one offsite vault, a conventional
+    // safe/box/position tree under each, two thousand packets of a handful of items, and twenty years
+    // of history behind them. The packet count is the design's "low thousands"; the history span is
+    // where this subsystem's volume actually lives, since a packet's ledger depth is its age times
+    // the movement rate. One packet is given two hundred movements outright — the tail of the
+    // distribution, and the depth the paginated history read is measured at.
+    officeRootCount: 2,
+    offsiteRootCount: 1,
+    safesPerRoot: 3,
+    boxesPerSafe: 6,
+    positionsPerBox: 8,
+    packetCount: 2_000,
+    itemsPerPacket: { min: 1, max: 5 },
+    matterlessPacketFraction: 0.4,
+    historySpanYears: 20,
+    movementsPerPacketPerYear: { min: 1, max: 2 },
+    deepHistoryMovementCount: 200,
+    checkedOutPacketFraction: 0.04,
+    overdueCheckoutFraction: 0.3,
+    heldPacketFraction: 0.05,
+    reviewScheduledFraction: 0.35,
+  },
+  calendar: {
+    // A litigation calendar over a decade with the dense window at the recent end: most matters carry
+    // a handful of settings, one carries three hundred, several hundred deadlines are open with a
+    // realistic overdue slice, and the firm's own scope holds a year of weekly meetings, a handful of
+    // all-members closures, eight bookable resources, and a year of bookings with a deliberate
+    // overlap fraction. One hearing has been continued four times.
+    eventsPerMatter: { min: 0, max: 12 },
+    probeMatterEventCount: 300,
+    participantsPerEvent: { min: 1, max: 3 },
+    openDeadlineCount: 400,
+    overdueDeadlineFraction: 0.15,
+    closedDeadlineCount: 250,
+    spanDays: 3_650,
+    recentWindowFraction: 0.7,
+    weeklyFirmEventWeeks: 52,
+    allMembersFirmEventCount: 8,
+    resourceCount: 8,
+    bookingCount: 400,
+    overlappingBookingFraction: 0.15,
+    continuanceChainLength: 5,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -630,6 +786,56 @@ export function scaleProfile(
       invoicesPerBilledMatter: scaleCount(profile.invoices.invoicesPerBilledMatter, 2),
       claimsPerInvoice: scaleCount(profile.invoices.claimsPerInvoice, 3),
       spanDays: scaleCount(profile.invoices.spanDays, 20),
+    },
+    custodian: {
+      ...profile.custodian,
+      // Floors keep a tree with every level populated (so the subtree walk has something to descend
+      // through and the occupancy read has shelves), a handful of packets with items and owners, and
+      // a history span long enough for the age-derived movement counts not to collapse to zero at the
+      // smoke multiplier. The fractions are not scaled — a fraction of a smaller population is still
+      // that fraction, which is what keeps the overdue and hold slices selective at every scale.
+      officeRootCount: scaleCount(profile.custodian.officeRootCount, 1),
+      offsiteRootCount: scaleCount(profile.custodian.offsiteRootCount, 1),
+      safesPerRoot: scaleCount(profile.custodian.safesPerRoot, 1),
+      boxesPerSafe: scaleCount(profile.custodian.boxesPerSafe, 2),
+      positionsPerBox: scaleCount(profile.custodian.positionsPerBox, 2),
+      packetCount: scaleCount(profile.custodian.packetCount, 12),
+      historySpanYears: scaleCount(profile.custodian.historySpanYears, 2),
+      deepHistoryMovementCount: scaleCount(profile.custodian.deepHistoryMovementCount, 8),
+      itemsPerPacket: {
+        min: Math.max(1, Math.round(profile.custodian.itemsPerPacket.min * multiplier)),
+        max: Math.max(2, Math.round(profile.custodian.itemsPerPacket.max * multiplier)),
+      },
+      movementsPerPacketPerYear: {
+        min: Math.max(1, Math.round(profile.custodian.movementsPerPacketPerYear.min * multiplier)),
+        max: Math.max(1, Math.round(profile.custodian.movementsPerPacketPerYear.max * multiplier)),
+      },
+    },
+    calendar: {
+      ...profile.calendar,
+      // Floors keep a probe matter deep enough for a second page to exist, deadlines in both states,
+      // a firm scope with weekly rows and an all-members row, and enough resources and bookings for
+      // an overlap to be pairable at the smoke multiplier. The fractions are not scaled.
+      probeMatterEventCount: scaleCount(profile.calendar.probeMatterEventCount, 60),
+      openDeadlineCount: scaleCount(profile.calendar.openDeadlineCount, 8),
+      closedDeadlineCount: scaleCount(profile.calendar.closedDeadlineCount, 4),
+      spanDays: scaleCount(profile.calendar.spanDays, 90),
+      weeklyFirmEventWeeks: scaleCount(profile.calendar.weeklyFirmEventWeeks, 4),
+      allMembersFirmEventCount: scaleCount(profile.calendar.allMembersFirmEventCount, 2),
+      resourceCount: scaleCount(profile.calendar.resourceCount, 2),
+      bookingCount: scaleCount(profile.calendar.bookingCount, 8),
+      eventsPerMatter: {
+        min: Math.max(0, Math.round(profile.calendar.eventsPerMatter.min * multiplier)),
+        max: Math.max(2, Math.round(profile.calendar.eventsPerMatter.max * multiplier)),
+      },
+      participantsPerEvent: {
+        min: Math.max(1, Math.round(profile.calendar.participantsPerEvent.min * multiplier)),
+        max: Math.max(1, Math.round(profile.calendar.participantsPerEvent.max * multiplier)),
+      },
+      // The chain is the one count that is NOT scaled: its whole purpose is that the chain read's
+      // cost is bounded by chain length rather than by the firm's event count, and a chain scaled to
+      // two nodes at the smoke multiplier would prove that vacuously.
+      continuanceChainLength: profile.calendar.continuanceChainLength,
     },
   };
 }
