@@ -63,8 +63,9 @@
 - id: document-automation.field-mapping-library
   name: Per-firm merge-field mapping library
   scope: A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established.
-  status: not-started
-  evidence: The seam exists (MergeFieldNameResolver in packages/document-assembly/src/normalize.ts, the identity mapping today) and the registration response already reports which detected names map to no merge field; no store is built.
+  status: shipped
+  evidence: The store is packages/document-assembly/src/field-mapping-statements.ts over the per-firm document_template_field_mapping table (one merge key per field name by unique index) — read whole into a resolver once per registration, written back in the same batch as the registration whose conversion confirmed each mapping, and exposed at GET /api/v1/merge-field-mappings and DELETE /api/v1/merge-field-mappings/{mappingId}. A detection reports mappedFromLibrary so a firm's own confirmed answer is never blended with a name that happened to match a dictionary key.
+  notes: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in.
 
 - id: document-automation.filing-grade-generation
   name: Filing-grade generation

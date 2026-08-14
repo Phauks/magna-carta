@@ -29,6 +29,9 @@ pnpm check:scoped || fail "pnpm check:scoped"
 step "governance — no process-artifact references (golden rule 13)"
 pnpm run lint:process-refs || fail "lint:process-refs"
 
+step "governance — no raw control characters in source"
+pnpm run lint:control-characters || fail "lint:control-characters"
+
 step "governance — dependency license allowlist"
 pnpm run lint:licenses || fail "lint:licenses"
 

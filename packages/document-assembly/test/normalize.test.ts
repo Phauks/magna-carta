@@ -8,6 +8,7 @@ import {
   footerXml,
   footnotesXml,
   headerXml,
+  legacyFormFieldParagraph,
   paragraphOfRuns,
   simpleMergeFieldParagraph,
   type DocxParts,
@@ -418,6 +419,150 @@ describe("normalization — Word MERGEFIELD conversion, when the caller opts in"
     const byKey = new Map(result.manifest.fields.map((field) => [field.key, field.forms]));
     expect(byKey.get("matter.number")).toEqual(["brace"]);
     expect(byKey.get("firm.name")).toEqual(["mergeField"]);
+  });
+});
+
+// A legacy Word form field is the OTHER construct a firm's existing precedent binds through, and it is
+// the one the engine cannot bind at all: no name it carries is a merge key, and the words it prints are
+// the author's own instruction to whoever fills it in. The whole obligation here is that the template's
+// registration SAYS SO — a template of this shape that registers clean, declares no keys, and reports
+// no absence is a document filed carrying "Click here to enter caption" with nothing anywhere having
+// mentioned it.
+describe("normalization — legacy Word form fields are reported, never bound", () => {
+  it("records a FORMTEXT field on the manifest, with the prompt and the text it prints", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({
+            name: "Caption",
+            statusText: "enter name of party/parties appealing",
+            result: "Click here to enter caption",
+          }),
+        ),
+      }),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.manifest.legacyFormFields).toEqual([
+      {
+        fieldName: "Caption",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 1,
+        helpText: "enter name of party/parties appealing",
+        frozenText: "Click here to enter caption",
+      },
+    ]);
+  });
+
+  it("warns at registration, naming the construct and what a document will print", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "Text1", result: "Click here to enter text." }),
+        ),
+      }),
+    );
+    // The absence is stated, not implied by a silence: a template of this shape must never reach the
+    // "no merge fields at all" warning, which reads as a template that is simply static.
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+    const warning = result.warnings.find((entry) => entry.code === "legacy-form-field");
+    expect(warning?.part).toBe("word/document.xml");
+    expect(warning?.detail).toContain("Text1");
+    expect(warning?.detail).toContain("Click here to enter text.");
+  });
+
+  it("leaves the document exactly as authored and derives no merge key from it", () => {
+    const result = normalizeTemplate(
+      partsOf({ document: documentXml(legacyFormFieldParagraph({ name: "Text1" })) }),
+    );
+    expect(result.manifest.fields).toEqual([]);
+    // No name is invented for it, so nothing downstream can mistake one for a binding the firm made.
+    expect(result.mergeFieldDetections).toEqual([]);
+    expect(result.manifest.unconvertedMergeFields).toEqual([]);
+    const xml = readPartText(result.parts, "word/document.xml") ?? "";
+    expect(xml).toContain("FORMTEXT");
+    expect(xml).toContain("w:ffData");
+  });
+
+  it("reports a checkbox and a dropdown as their own kinds", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ instruction: "FORMCHECKBOX", name: "Check1", result: "" }),
+          legacyFormFieldParagraph({
+            instruction: "FORMDROPDOWN",
+            name: "Party",
+            result: "Appellant",
+          }),
+        ),
+      }),
+    );
+    expect(result.manifest.legacyFormFields.map((field) => field.kind)).toEqual([
+      "checkbox",
+      "dropDown",
+    ]);
+  });
+
+  it("counts repeats of one field once, and reports a field in a header against the header", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "Text1" }),
+          legacyFormFieldParagraph({ name: "Text1" }),
+        ),
+        header: headerXml(legacyFormFieldParagraph({ name: "Text2" })),
+      }),
+    );
+    expect(result.manifest.legacyFormFields).toEqual([
+      {
+        fieldName: "Text1",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 2,
+        helpText: "",
+        frozenText: "Click here to enter text.",
+      },
+      {
+        fieldName: "Text2",
+        kind: "text",
+        part: "word/header1.xml",
+        occurrences: 1,
+        helpText: "",
+        frozenText: "Click here to enter text.",
+      },
+    ]);
+  });
+
+  it("reports a form field carrying no name of its own rather than skipping it", () => {
+    // Word writes `w:ffData` with no `w:name` for a field the author never named. It is still a hole
+    // in the document, and a report that quietly drops the ones it cannot label is the same silence
+    // this whole path exists to break.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "", result: "Click here to enter caption" }),
+        ),
+      }),
+    );
+    expect(result.manifest.legacyFormFields).toHaveLength(1);
+    expect(result.manifest.legacyFormFields[0]).toMatchObject({
+      fieldName: "",
+      frozenText: "Click here to enter caption",
+    });
+  });
+
+  it("leaves a Word field that is neither a merge field nor a form field alone", () => {
+    const paragraph =
+      "<w:p>" +
+      '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
+      '<w:r><w:instrText xml:space="preserve"> TOC \\o "1-3" </w:instrText></w:r>' +
+      '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+      "<w:r><w:t>Table of contents</w:t></w:r>" +
+      '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+      "</w:p>";
+    const result = normalizeTemplate(partsOf({ document: documentXml(paragraph) }));
+    expect(result.manifest.legacyFormFields).toEqual([]);
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("legacy-form-field");
   });
 });
 

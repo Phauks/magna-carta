@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 248 | 35% |
+| Done | shipped | 249 | 35% |
 | Part-built | partial, in-build | 206 | 29% |
-| Ahead | designed, planned, researching, not-started | 212 | 30% |
+| Ahead | designed, planned, researching, not-started | 211 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **707** | **100%** |
 
@@ -36,20 +36,20 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 248 | 35% |
+| `shipped` | 249 | 35% |
 | `partial` | 191 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 19 | 3% |
 | `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
-| `not-started` | 175 | 25% |
+| `not-started` | 174 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **707** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 248 of 707 (35%). Shipped plus partial is 439 (62%).**
+**Shipped alone is 249 of 707 (35%). Shipped plus partial is 440 (62%).**
 
 The 191 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -72,7 +72,7 @@ true and neither is the answer on its own.
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
-| Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
+| Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Financial Core | 18 | 24 | 4 | 1 | 0 | 0 | 10 | 3 | 0 | 60 | 30% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
@@ -89,11 +89,11 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **248** | **191** | **15** | **19** | **10** | **8** | **175** | **39** | **2** | **707** | **35%** |
+| **All areas** | **249** | **191** | **15** | **19** | **10** | **8** | **174** | **39** | **2** | **707** | **35%** |
 
 ## Where we have been
 
-**22 of 41 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+42 shipped since the ledger began** — 204 on 2026-07-14, 246 on 2026-08-14, across 31 days. The
+**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
 ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.5 capabilities shipped a week** across the whole series, and **16.3 a week** over the 15
-snapshots since the last gap (2026-08-11 to 2026-08-14, +7 shipped in 3 days).
+That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
+snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,12 +136,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `cb9225bb` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
-| 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `68f53033` | 245 | 186 | 15 | 21 | 13 | 8 | 176 | 39 | 2 | 705 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 41 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -171,9 +170,9 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Custodian (Safe Custody) | 10 | 12 | 0 | 6 | +6 |
 | Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
-| Document Automation | 8 | 9 | 0 | 1 | +1 |
+| Document Automation | 8 | 9 | 0 | 2 | +2 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
-| Financial Core | 55 | 58 | 8 | 16 | +8 |
+| Financial Core | 55 | 58 | 8 | 15 | +7 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
 | Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
@@ -185,20 +184,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 1 | +1 |
+| Reports | 11 | 11 | 0 | 0 | 0 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
-Core (+8), AI & Inference (+7). **16 of 27 areas have shipped nothing in that time**:
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
+Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
-area standing still here has not necessarily been idle — a node moves in this table only when it
-reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
-in this one.
+Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
+Plans. An area standing still here has not necessarily been idle — a node moves in this table only
+when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
+and not in this one.
 
 ## Waiting on you
 
@@ -564,7 +563,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 11% shipped. 1 done, 7 part-built, 1 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 22% shipped. 2 done, 7 part-built, 0 ahead, 0 parked.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
@@ -573,7 +572,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
   - `document-automation.pdf-form-filling` · `partial` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Binding firm-supplied fillable PDFs to the same data dictionary is slice 2-6-3._
-  - `document-automation.field-mapping-library` · `not-started` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established.
+  - `document-automation.field-mapping-library` · `shipped` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established. _Note: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in._
   - `document-automation.filing-grade-generation` · `partial` · **Filing-grade generation** — Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
 
 ### Documents

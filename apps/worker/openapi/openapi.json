@@ -22105,6 +22105,12 @@
               "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
             }
           },
+          "legacyFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateLegacyFormField"
+            }
+          },
           "confirmedFieldMappings": {
             "type": "array",
             "items": {
@@ -22141,6 +22147,7 @@
           "mergeFieldsConverted",
           "mergeFieldsDetected",
           "unconvertedMergeFields",
+          "legacyFormFields",
           "confirmedFieldMappings",
           "warnings"
         ]
@@ -22216,6 +22223,37 @@
           "occurrences",
           "form",
           "mapsToKnownField",
+          "frozenText"
+        ]
+      },
+      "TemplateLegacyFormField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "helpText": {
+            "type": "string"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "kind",
+          "part",
+          "occurrences",
+          "helpText",
           "frozenText"
         ]
       },
@@ -22406,6 +22444,12 @@
               "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
             }
           },
+          "legacyFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateLegacyFormField"
+            }
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -22420,6 +22464,7 @@
           "normalizerVersion",
           "fields",
           "unconvertedMergeFields",
+          "legacyFormFields",
           "warnings"
         ]
       },

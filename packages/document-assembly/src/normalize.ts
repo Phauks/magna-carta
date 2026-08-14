@@ -21,6 +21,8 @@ import { contentPartNames } from "./ooxml/parts.ts";
 import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
 import type {
   FieldManifest,
+  LegacyFormField,
+  LegacyFormFieldKind,
   ManifestBlock,
   ManifestComputedField,
   ManifestField,
@@ -54,6 +56,24 @@ import type {
 // so registration reports it, the field inspector shows it, and every assembly reports it again. The
 // failure the refusal was guarding against is one the manifest can see; an unregisterable template is
 // one nobody can inspect.
+//
+// A LEGACY WORD FORM FIELD — a complex field whose instruction is FORMTEXT, FORMCHECKBOX, or
+// FORMDROPDOWN, carrying a `w:ffData` block — is the third construct a firm's existing precedent binds
+// through, and it is the one this engine will NOT bind. It is DETECTED and RECORDED on exactly the terms
+// an unconverted merge field is, and it is deliberately not converted: a merge field carries a NAME the
+// firm chose and can confirm the meaning of, while a form field carries a Word-minted bookmark (`Text1`)
+// and a sentence of help text, so deriving a merge key from one would be a guess at what a firm's
+// document means. The engine does not guess what a Word field name means, and a legacy form field is
+// that rule's hardest case rather than its exception. Whether to offer a conversion at all is an owner
+// decision, not a default this pass may take on its own.
+
+// The three field instructions Word writes for a legacy form field. A field whose instruction is
+// anything else — PAGE, DATE, TOC, REF — is Word's own and is left entirely alone.
+const LEGACY_FORM_FIELD_KINDS: ReadonlyMap<string, LegacyFormFieldKind> = new Map([
+  ["FORMTEXT", "text"],
+  ["FORMCHECKBOX", "checkbox"],
+  ["FORMDROPDOWN", "dropDown"],
+]);
 
 // The transform's version, recorded on every template version row. A normalizer change does not
 // retroactively apply to already-registered versions — correct, since versions are immutable — but it
@@ -98,6 +118,11 @@ export interface NormalizationResult {
   // feedback half of the opt-in: it is what a caller shows an administrator so the decision to convert
   // is an informed one.
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
+  // Every legacy Word form field the pass found. Carried beside the manifest copy for the same reason
+  // the merge-field detections are: a registration that FAILS has no manifest, and a template refused
+  // for an unrelated authoring mistake must still tell the firm that it also carries fields nothing
+  // will ever bind — otherwise that fact only appears on the attempt that happens to succeed.
+  readonly legacyFormFields: readonly LegacyFormField[];
   // The name-to-key mappings a conversion just CONFIRMED — emitted only when the caller opted in, and
   // only for names that mapped onto a merge field the dictionary has. This is what the firm's mapping
   // library records, so the next import of a document from the same source reuses the answer instead of
@@ -168,6 +193,63 @@ function mergeFieldNameOf(instruction: string): string | undefined {
   const match = /^\s*MERGEFIELD\s+(?:"([^"]*)"|([^\s\\]+))/i.exec(instruction);
   if (match === null) return undefined;
   return match[1] ?? match[2];
+}
+
+// ` FORMTEXT ` -> "text". Undefined for every other instruction, including MERGEFIELD — the two
+// constructs are answered by two separate readers so neither can quietly absorb the other's shape.
+function legacyFormFieldKindOf(instruction: string): LegacyFormFieldKind | undefined {
+  const match = /^\s*(FORMTEXT|FORMCHECKBOX|FORMDROPDOWN)\b/i.exec(instruction);
+  if (match === null) return undefined;
+  return LEGACY_FORM_FIELD_KINDS.get((match[1] ?? "").toUpperCase());
+}
+
+// The `w:val` of the first descendant with the given tag, searched depth-first. `w:ffData` is a shallow
+// bag of single-valued children, so this reads a bookmark name or a prompt without a walk per shape.
+function attributeValueOfDescendant(node: XmlNode, tag: string): string | undefined {
+  const nodeName = nodeTag(node);
+  if (nodeName === undefined) return undefined;
+  if (nodeName === tag) {
+    const value = attributesOf(node)["@_w:val"];
+    return typeof value === "string" ? value : "";
+  }
+  const children = node[nodeName];
+  if (!Array.isArray(children)) return undefined;
+  for (const child of children as XmlNode[]) {
+    const found = attributeValueOfDescendant(child, tag);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+interface FormFieldData {
+  readonly fieldName: string;
+  readonly helpText: string;
+}
+
+// The `w:ffData` block hanging off a form field's `begin` fldChar. Undefined when the run carries none,
+// which is what separates a legacy form field from a Word field that merely names FORMTEXT in prose.
+function formFieldDataOf(node: XmlNode): FormFieldData | undefined {
+  const children = node["w:r"];
+  if (!Array.isArray(children)) return undefined;
+  for (const child of children as XmlNode[]) {
+    if (nodeTag(child) !== "w:fldChar") continue;
+    const fieldCharChildren = child["w:fldChar"];
+    if (!Array.isArray(fieldCharChildren)) continue;
+    for (const candidate of fieldCharChildren as XmlNode[]) {
+      if (nodeTag(candidate) !== "w:ffData") continue;
+      return {
+        fieldName: attributeValueOfDescendant(candidate, "w:name") ?? "",
+        // Word writes the author's prompt as the status-bar text and, separately, as the F1 help text.
+        // Either is the same sentence to whoever is reading it, so the first one present is reported
+        // rather than both — two near-identical strings on one entry read as two different prompts.
+        helpText:
+          attributeValueOfDescendant(candidate, "w:statusText") ??
+          attributeValueOfDescendant(candidate, "w:helpText") ??
+          "",
+      };
+    }
+  }
+  return undefined;
 }
 
 function fieldCharTypeOf(node: XmlNode): string | undefined {
@@ -244,6 +326,14 @@ interface DetectionTally {
   frozenText: string;
 }
 
+interface FormFieldTally {
+  fieldName: string;
+  kind: LegacyFormFieldKind;
+  occurrences: number;
+  helpText: string;
+  frozenText: string;
+}
+
 interface ConversionTally {
   count: number;
   // The keys the conversion emitted, so the manifest can record that an occurrence arrived as a Word
@@ -251,6 +341,9 @@ interface ConversionTally {
   readonly keys: Set<string>;
   // Every construct found, converted or not. Detection is unconditional; conversion is not.
   readonly detections: Map<string, DetectionTally>;
+  // The legacy form fields found. There is no conversion arm for these and no opt-in that produces one,
+  // so this map is only ever read out — which is the whole point of collecting it.
+  readonly formFields: Map<string, FormFieldTally>;
   // Whether this pass is allowed to REWRITE what it finds. False means detect and report only, leaving
   // the firm's document exactly as it was authored.
   readonly convert: boolean;
@@ -269,6 +362,28 @@ function recordDetection(
     return;
   }
   existing.occurrences += 1;
+  if (existing.frozenText === "") existing.frozenText = frozenText;
+}
+
+// Aggregated by name AND kind, the way merge fields aggregate by name: an author reading the report
+// needs to know which fields are unbindable and how many times each appears, not a line per occurrence.
+// A nameless field is a legitimate key of its own — Word writes `w:ffData` with no `w:name` for a field
+// the author never named, and dropping those would be the same silence this reporting exists to break.
+function recordFormField(
+  tally: ConversionTally,
+  fieldName: string,
+  kind: LegacyFormFieldKind,
+  helpText: string,
+  frozenText: string,
+): void {
+  const key = `${kind} ${fieldName}`;
+  const existing = tally.formFields.get(key);
+  if (existing === undefined) {
+    tally.formFields.set(key, { fieldName, kind, occurrences: 1, helpText, frozenText });
+    return;
+  }
+  existing.occurrences += 1;
+  if (existing.helpText === "") existing.helpText = helpText;
   if (existing.frozenText === "") existing.frozenText = frozenText;
 }
 
@@ -372,6 +487,22 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
           continue;
         }
         instruction += instructionTextOf(candidate);
+      }
+
+      // A legacy form field, recorded and then left exactly where it is. There is no conversion arm to
+      // fall through to, so this records and continues rather than branching on `tally.convert`: the
+      // construct is emitted back by the not-a-merge-field path below, unchanged, whichever way the
+      // merge-field opt-in went.
+      const formFieldKind = end === -1 ? undefined : legacyFormFieldKindOf(instruction);
+      const formFieldData = formFieldKind === undefined ? undefined : formFieldDataOf(node);
+      if (formFieldKind !== undefined && formFieldData !== undefined) {
+        recordFormField(
+          tally,
+          formFieldData.fieldName,
+          formFieldKind,
+          formFieldData.helpText,
+          resultText,
+        );
       }
 
       const name = end === -1 ? undefined : mergeFieldNameOf(instruction);
@@ -646,7 +777,7 @@ function normalizeParagraph(
     // A loop-scoped name is not a merge field: the collection it comes from was read once, as a whole.
     if (entry === undefined) continue;
 
-    const accumulatorKey = `${parsed.key} ${parsed.format ?? ""}`;
+    const accumulatorKey = `${parsed.key}\0${parsed.format ?? ""}`;
     let accumulator = accumulators.get(accumulatorKey);
     if (accumulator === undefined) {
       accumulator = {
@@ -746,7 +877,7 @@ function normalizeComputedField(
     return undefined;
   }
 
-  const accumulatorKey = `${source} ${format ?? ""}`;
+  const accumulatorKey = `${source}\0${format ?? ""}`;
   const existing = state.computedFields.get(accumulatorKey);
   if (existing === undefined) {
     state.computedFields.set(accumulatorKey, {
@@ -972,6 +1103,7 @@ export function normalizeTemplate(
   const failures: NormalizationFailure[] = [];
   const detections: MergeFieldDetection[] = [];
   const unconverted: UnconvertedMergeField[] = [];
+  const legacyFormFields: LegacyFormField[] = [];
   const confirmed = new Map<string, string>();
   const convert = options.convertMergeFields === true;
   const resolveName = options.resolveMergeFieldName ?? identityMergeFieldNameResolver;
@@ -1011,6 +1143,7 @@ export function normalizeTemplate(
       count: 0,
       keys: new Set(),
       detections: new Map(),
+      formFields: new Map(),
       convert,
       resolveName,
     };
@@ -1064,6 +1197,39 @@ export function normalizeTemplate(
       });
     }
 
+    for (const formField of tally.formFields.values()) {
+      legacyFormFields.push({
+        fieldName: formField.fieldName,
+        kind: formField.kind,
+        part: partName,
+        occurrences: formField.occurrences,
+        helpText: formField.helpText,
+        frozenText: formField.frozenText,
+      });
+    }
+    if (tally.formFields.size > 0) {
+      const count = tally.formFields.size;
+      const labels = [...tally.formFields.values()]
+        .map((formField) =>
+          formField.fieldName === "" ? `an unnamed ${formField.kind} field` : formField.fieldName,
+        )
+        .sort()
+        .join(", ");
+      const printed = [...tally.formFields.values()]
+        .map((formField) => formField.frozenText)
+        .filter((text) => text !== "");
+      warnings.push({
+        code: "legacy-form-field",
+        part: partName,
+        detail:
+          `${count} Word form field${count === 1 ? "" : "s"} (${labels}) ${count === 1 ? "is" : "are"} in this part.` +
+          " These are Word's own fill-in-the-blank fields, and this system does not fill them in:" +
+          ` every document assembled from this template prints ${printed.length === 0 ? "whatever each one holds" : `their placeholder text (${[...new Set(printed)].sort().join(", ")})`}` +
+          " where a person is meant to type. There is no conversion for them — replace each one in Word" +
+          " with this system's {{field}} form, choosing the merge field it should have been.",
+      });
+    }
+
     const state: PartWalkState = {
       partName,
       accumulators,
@@ -1110,6 +1276,10 @@ export function normalizeTemplate(
     failures.length === 0 &&
     fields.length === 0 &&
     unconverted.length === 0 &&
+    // A template whose only fields are legacy form fields is the WORST case for this warning: it says
+    // the document is static, when in fact it is full of blanks nothing will fill. The form-field
+    // warning is the true statement about that template, and this one must not be emitted beside it.
+    legacyFormFields.length === 0 &&
     blocks.length === 0 &&
     manifestComputedFields.length === 0
   ) {
@@ -1129,18 +1299,22 @@ export function normalizeTemplate(
       ? left.fieldName.localeCompare(right.fieldName)
       : left.part.localeCompare(right.part);
 
+  legacyFormFields.sort(byPartThenName);
+
   return {
     parts: normalized,
     manifest: {
       fields,
       totalOccurrences,
       unconvertedMergeFields: unconverted.sort(byPartThenName),
+      legacyFormFields,
       blocks,
       computedFields: manifestComputedFields,
     },
     warnings,
     failures,
     mergeFieldDetections: detections.sort(byPartThenName),
+    legacyFormFields,
     confirmedMappings: [...confirmed.entries()]
       .map(([fieldName, mergeKey]) => ({ fieldName, mergeKey }))
       .sort((left, right) => left.fieldName.localeCompare(right.fieldName)),

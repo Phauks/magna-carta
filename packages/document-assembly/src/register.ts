@@ -12,7 +12,12 @@ import {
   type NormalizeOptions,
 } from "./normalize.ts";
 import { readPackage, writePackage } from "./ooxml/package.ts";
-import type { FieldManifest, MergeFieldDetection, NormalizationWarning } from "./types.ts";
+import type {
+  FieldManifest,
+  LegacyFormField,
+  MergeFieldDetection,
+  NormalizationWarning,
+} from "./types.ts";
 
 // The registration pipeline, in the one order that is defensible.
 //
@@ -29,6 +34,11 @@ import type { FieldManifest, MergeFieldDetection, NormalizationWarning } from ".
 // RECORDED ON THE MANIFEST and the template registers, because the field is then visible to every reader
 // downstream; a live macro is REFUSED, because there is no way to record executable code that makes it
 // safe to store, and the only two honest answers are "strip it" and "upload a macro-free file".
+//
+// A legacy Word form field is a THIRD case with no transform at all: nothing binds one and no opt-in
+// converts one, because the only name it carries is a Word-minted bookmark and deriving a merge key
+// from that would be a guess at what the firm's document means. So it is detected and reported —
+// registration, the field list, and every assembly — and left exactly where it is. See normalize.ts.
 //
 // Everything expensive here runs ONCE per template version, at the moment a human is looking at the
 // result — never on the assembly path, where a user is waiting and a failure is least actionable.
@@ -62,6 +72,10 @@ export interface TemplatePreparation {
   // to it, never left to discover a silent rewrite.
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
   readonly mergeFieldsConverted: boolean;
+  // The legacy Word form fields the upload carries. Reported for the same reason the merge fields are,
+  // and with one difference the caller must not blur: there is no opt-in that binds these, so the only
+  // remedies are to replace them in Word or to file the document knowing where its blanks are.
+  readonly legacyFormFields: readonly LegacyFormField[];
   // The name-to-key mappings this registration confirmed, for the firm's mapping library. Empty unless
   // conversion ran.
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
@@ -79,6 +93,10 @@ export type TemplatePreparationResult =
       // uses Word merge fields is refused with the list of them, so the caller can present the choice
       // (convert, or edit the document) rather than a dead end.
       readonly mergeFieldDetections: readonly MergeFieldDetection[];
+      // Likewise on a refusal: a template refused for an authoring mistake elsewhere still tells the
+      // firm which of its fields nothing will bind, rather than saving that up for the attempt that
+      // finally passes.
+      readonly legacyFormFields: readonly LegacyFormField[];
       readonly macroProjectFound: boolean;
     };
 
@@ -89,6 +107,7 @@ function failure(
     normalizationFailures?: readonly NormalizationFailure[];
     macroFindings?: readonly MacroResidueFinding[];
     mergeFieldDetections?: readonly MergeFieldDetection[];
+    legacyFormFields?: readonly LegacyFormField[];
     macroProjectFound?: boolean;
   } = {},
 ): TemplatePreparationResult {
@@ -99,6 +118,7 @@ function failure(
     normalizationFailures: extras.normalizationFailures ?? [],
     macroFindings: extras.macroFindings ?? [],
     mergeFieldDetections: extras.mergeFieldDetections ?? [],
+    legacyFormFields: extras.legacyFormFields ?? [],
     macroProjectFound: extras.macroProjectFound ?? false,
   };
 }
@@ -165,6 +185,7 @@ export async function prepareTemplateVersion(
       {
         normalizationFailures: normalized.failures,
         mergeFieldDetections: normalized.mergeFieldDetections,
+        legacyFormFields: normalized.legacyFormFields,
         macroProjectFound,
       },
     );
@@ -182,6 +203,7 @@ export async function prepareTemplateVersion(
   if (scrubbedBytes === undefined) {
     return failure("scrub-failed", "the template's drafting history could not be removed", {
       mergeFieldDetections: normalized.mergeFieldDetections,
+      legacyFormFields: normalized.legacyFormFields,
       macroProjectFound,
     });
   }
@@ -220,6 +242,7 @@ export async function prepareTemplateVersion(
       removedMacroParts: stripped.removedParts,
       macrosStripped: strip,
       mergeFieldDetections: normalized.mergeFieldDetections,
+      legacyFormFields: normalized.legacyFormFields,
       mergeFieldsConverted: options.convertMergeFields === true,
       confirmedMergeFieldMappings: normalized.confirmedMappings,
     },

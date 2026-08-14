@@ -45,7 +45,7 @@ describe("jpeg", () => {
   it("reports data appended after the end of the image and truncates it on scrub", () => {
     // A viewer stops at EOI, so an appended file is invisible in the picture and travels with it —
     // a motion-photo video, a second document, or an archive in a polyglot file.
-    const appended = [...Array.from("PK", (c) => c.charCodeAt(0)), 0x11, 0x22, 0x33];
+    const appended = [...Array.from("PK\u0003\u0004", (c) => c.charCodeAt(0)), 0x11, 0x22, 0x33];
     const carrier = new Uint8Array([...buildJpeg(), ...appended]);
 
     const before = inspectJpegFindings(carrier).map((f) => f.category);

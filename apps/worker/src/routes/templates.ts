@@ -40,6 +40,7 @@ import {
 } from "@magna-carta/document-assembly/template-statements";
 import type {
   FieldManifest,
+  LegacyFormField,
   MergeFieldDetection,
   NormalizationWarning,
 } from "@magna-carta/document-assembly/types";
@@ -209,6 +210,22 @@ const UnconvertedMergeFieldSchema = z
   })
   .openapi("TemplateUnconvertedMergeField");
 
+// One LEGACY WORD FORM FIELD the version carries. Its own schema rather than a widened
+// TemplateUnconvertedMergeField, because the two ask the reader for different decisions: an unconverted
+// merge field can be bound by registering again with conversion asked for, and this cannot be bound at
+// all. `fieldName` is Word's own bookmark for the field — an identifier for finding it in the document,
+// never a merge key.
+const LegacyFormFieldSchema = z
+  .object({
+    fieldName: z.string(),
+    kind: z.string(),
+    part: z.string(),
+    occurrences: z.number(),
+    helpText: z.string(),
+    frozenText: z.string(),
+  })
+  .openapi("TemplateLegacyFormField");
+
 const RegisteredTemplateResponse = z
   .object({
     templateId: z.string(),
@@ -227,6 +244,10 @@ const RegisteredTemplateResponse = z
     // document never used any. A non-empty list means documents assembled from this template will
     // print frozen text where those fields sit.
     unconvertedMergeFields: z.array(UnconvertedMergeFieldSchema),
+    // The legacy Word form fields the stored version carries. Nothing binds these and no opt-in
+    // converts them, so a non-empty list means documents assembled from this template print the
+    // template's own fill-in-the-blank prompts where a person is meant to type.
+    legacyFormFields: z.array(LegacyFormFieldSchema),
     // The name-to-key mappings this registration added to the firm's field-mapping library, so a later
     // import of documents from the same source arrives already mapped.
     confirmedFieldMappings: z.array(z.object({ fieldName: z.string(), mergeKey: z.string() })),
@@ -278,6 +299,8 @@ const TemplateFieldsResponse = z
     // The Word merge fields this version carries unconverted, with the text each one prints. The field
     // inspector's other half: these are blanks that do not look like blanks.
     unconvertedMergeFields: z.array(UnconvertedMergeFieldSchema),
+    // The other half again: fields the engine will never bind, whatever anyone opts in to.
+    legacyFormFields: z.array(LegacyFormFieldSchema),
     warnings: z.array(NormalizationWarningSchema),
   })
   .openapi("TemplateFields");
@@ -830,6 +853,7 @@ function registrationFeedback(prepared: PreparedUpload) {
     mergeFieldsConverted: prepared.mergeFieldsConverted,
     mergeFieldsDetected: prepared.mergeFieldDetections,
     unconvertedMergeFields: prepared.manifest.unconvertedMergeFields,
+    legacyFormFields: prepared.manifest.legacyFormFields,
     confirmedFieldMappings: prepared.confirmedMergeFieldMappings,
     warnings: prepared.warnings,
   };
@@ -857,6 +881,7 @@ interface PreparedUpload {
   readonly macrosStripped: boolean;
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
   readonly mergeFieldsConverted: boolean;
+  readonly legacyFormFields: readonly LegacyFormField[];
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
   readonly contentSha256: string;
 }
@@ -1387,6 +1412,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             };
           }),
           unconvertedMergeFields: manifest.unconvertedMergeFields.map((field) => ({ ...field })),
+          legacyFormFields: manifest.legacyFormFields.map((field) => ({ ...field })),
           warnings: warnings.map((warning) => ({
             code: warning.code,
             part: warning.part,
@@ -1536,6 +1562,10 @@ function parseManifestJson(json: string): FieldManifest {
       unconvertedMergeFields: Array.isArray(parsed.unconvertedMergeFields)
         ? parsed.unconvertedMergeFields
         : [],
+      // Absent on a manifest stored before legacy form fields were detected at all. Those templates
+      // registered saying nothing about the construct, which is the defect the field exists to end;
+      // re-registering such a template is what gets it reported, since a version is immutable.
+      legacyFormFields: Array.isArray(parsed.legacyFormFields) ? parsed.legacyFormFields : [],
       // Likewise absent on a manifest stored before conditions, repeats, and calculations existed —
       // which is a template that carried none, since registration refused a block marker outright then.
       blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
@@ -1546,6 +1576,7 @@ function parseManifestJson(json: string): FieldManifest {
       fields: [],
       totalOccurrences: 0,
       unconvertedMergeFields: [],
+      legacyFormFields: [],
       blocks: [],
       computedFields: [],
     };
