@@ -115,6 +115,10 @@ export interface AutoFileEvidence {
   // The firm-level ceiling. With it down every rule stages, whatever its own posture — no member can
   // opt the firm into unattended filing.
   readonly firmDirectFilingPermitted: boolean;
+  // The firm's circuit-breaker thresholds, resolved by the caller. Stated rather than defaulted here
+  // for the same reason every other field is: a gatherer that did not resolve them did not answer the
+  // question, and the breaker is the guardrail whose absence is least visible.
+  readonly circuitBreaker: AutoFileCircuitBreakerThresholds;
 }
 
 export interface AutoFileSuspensionRecommendation {
@@ -136,30 +140,93 @@ export interface AutoFileDecision {
   readonly reasons: readonly string[];
 }
 
-// A rule firing this often in a rolling hour is not a person's correspondence — it is a mailing
-// list, a bounce loop, or an autoresponder, and it shows up as a rate long before it shows up as a
-// hundred wrongly-filed messages.
+// The circuit breaker's thresholds. A firm sets these — a mailing list on a correspondent rule looks
+// different at a two-person firm and at one whose client copies it on a daily distribution — but the
+// breaker itself is not optional, which is what the bounds below are for.
+export interface AutoFileCircuitBreakerThresholds {
+  // A rule firing this often in a rolling hour is not a person's correspondence — it is a mailing
+  // list, a bounce loop, or an autoresponder, and it shows up as a rate long before it shows up as a
+  // hundred wrongly-filed messages.
+  //
+  // THE BOUND IS "THE WINDOW PLUS ONE QUEUE BATCH", NOT A HARD CEILING, and saying so is the honest
+  // description. `firesInWindow` is derived from a bounded index walk BEFORE the decision and the
+  // decision row is written after, so concurrent captures of one rule all read the same pre-increment
+  // count: N messages arriving together at count 24 each decide `file` and the window ends at 24 + N.
+  // A maintained counter would close that at the price of two contended hot-path writes on every
+  // capture, which is a worse trade for a guardrail whose job is to catch a rule firing hundreds of
+  // times — an overshoot of one batch does not change that answer.
+  readonly maxFiresPerWindow: number;
+  // How many recent firings the undo rate is measured over — the denominator of "three of the last
+  // ten". It bounds the activity read's second walk, not the decision here.
+  readonly recentFireWindow: number;
+  // Undos are the honest feedback: the firm telling the platform the rule is wrong. Enough of them in
+  // the recent-fire window and the rule stops filing and asks.
+  readonly maxUndosInRecentFires: number;
+}
+
+// The platform defaults: what every firm that has never touched the setting gets, and what the
+// breaker did before it was settable at all.
+export const DEFAULT_AUTO_FILE_CIRCUIT_BREAKER: AutoFileCircuitBreakerThresholds = {
+  maxFiresPerWindow: 25,
+  recentFireWindow: 10,
+  maxUndosInRecentFires: 3,
+};
+
+// A CIRCUIT BREAKER A FIRM CAN SWITCH OFF IS NOT A CIRCUIT BREAKER. Every threshold is a positive
+// integer inside a finite range, so no setting a firm can write leaves the runaway-automation
+// guardrail unreachable:
 //
-// THE BOUND IS "THE WINDOW PLUS ONE QUEUE BATCH", NOT A HARD CEILING, and saying so is the honest
-// description. `firesInWindow` is derived from a bounded index walk BEFORE the decision and the
-// decision row is written after, so concurrent captures of one rule all read the same pre-increment
-// count: N messages arriving together at count 24 each decide `file` and the window ends at 24 + N.
-// A maintained counter would close that at the price of two contended hot-path writes on every
-// capture, which is a worse trade for a guardrail whose job is to catch a rule firing hundreds of
-// times — an overshoot of one batch does not change that answer.
-export const AUTO_FILE_MAX_FIRES_PER_WINDOW = 25;
+//   - `maxFiresPerWindow` has a ceiling because an arbitrarily large one is the off switch — and
+//     because the activity read walks up to the threshold plus one row per candidate rule per
+//     captured message, so an unbounded threshold is also an unbounded read on the capture path. A
+//     rule firing five hundred times in an hour is runaway under any firm's reading.
+//   - `maxUndosInRecentFires` may never exceed `recentFireWindow`: the undo count is capped by the
+//     window it is measured over, so a threshold above it could never be reached — the breaker would
+//     read as configured and never trip. That cross-field rule is enforced where the setting is
+//     validated, and re-checked here.
+//   - every floor is one rather than zero. A zero fire threshold would trip on a rule's first firing,
+//     and a zero undo threshold trips on every firing whether or not anything was undone — both stop
+//     unattended filing entirely, which is a setting nobody means to write.
+export const AUTO_FILE_CIRCUIT_BREAKER_BOUNDS = {
+  maxFiresPerWindow: { minimum: 1, maximum: 500 },
+  recentFireWindow: { minimum: 1, maximum: 100 },
+  maxUndosInRecentFires: { minimum: 1, maximum: 100 },
+} as const;
+
+function isWithinBounds(value: number, bounds: { minimum: number; maximum: number }): boolean {
+  return Number.isInteger(value) && value >= bounds.minimum && value <= bounds.maximum;
+}
+
+// Thresholds in a shape the breaker can actually act on. Anything else is unevaluable, not
+// permission — the same reading a malformed rule gets.
+export function isWellFormedCircuitBreaker(thresholds: AutoFileCircuitBreakerThresholds): boolean {
+  return (
+    thresholds !== null &&
+    typeof thresholds === "object" &&
+    isWithinBounds(
+      thresholds.maxFiresPerWindow,
+      AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxFiresPerWindow,
+    ) &&
+    isWithinBounds(
+      thresholds.recentFireWindow,
+      AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.recentFireWindow,
+    ) &&
+    isWithinBounds(
+      thresholds.maxUndosInRecentFires,
+      AUTO_FILE_CIRCUIT_BREAKER_BOUNDS.maxUndosInRecentFires,
+    ) &&
+    thresholds.maxUndosInRecentFires <= thresholds.recentFireWindow
+  );
+}
 
 // The limit a caller MUST pass when deriving `firesInWindow`. The activity read caps its walk at the
 // limit it is given, so a limit at or below the breaker's threshold would report a count that can
 // never reach it — silently disabling the breaker rather than failing. Strictly greater, so a rule
-// sitting exactly at the threshold is still distinguishable from one past it. Exported as the value
-// to pass rather than left to each call site to get right, because a wrong one is invisible.
-export const AUTO_FILE_ACTIVITY_WINDOW_LIMIT = AUTO_FILE_MAX_FIRES_PER_WINDOW + 1;
-
-// Undos are the honest feedback: the firm telling the platform the rule is wrong. Three of the last
-// ten is enough to stop filing and ask.
-export const AUTO_FILE_RECENT_FIRE_WINDOW = 10;
-export const AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES = 3;
+// sitting exactly at the threshold is still distinguishable from one past it. Derived here rather
+// than left to each call site to get right, because a wrong one is invisible.
+export function activityWindowLimitFor(thresholds: AutoFileCircuitBreakerThresholds): number {
+  return thresholds.maxFiresPerWindow + 1;
+}
 
 // A capture that carries the message's own bytes, so a signature is answerable at all. Forwarding
 // rewrites headers and breaks the original signature, which is why a sender-identity rule can never
@@ -224,6 +291,7 @@ const REQUIRED_EVIDENCE_FIELDS: readonly (keyof AutoFileEvidence)[] = [
   "targetMatters",
   "conflictHold",
   "firmDirectFilingPermitted",
+  "circuitBreaker",
 ];
 
 // A field the caller declared as a list, confirmed to actually be one. Written as a helper rather
@@ -385,6 +453,7 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
     typeof evidence.conflictHold !== "boolean" ||
     typeof evidence.dkimBodyFullyCovered !== "boolean" ||
     typeof evidence.firmDirectFilingPermitted !== "boolean" ||
+    !isWellFormedCircuitBreaker(evidence.circuitBreaker) ||
     !isNonEmptyString(evidence.capturedVia) ||
     !isNonEmptyString(evidence.dkimVerdict)
   ) {
@@ -516,12 +585,16 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
   // The rule stops filing on its own and a person is asked — a property of the rule, not an
   // operations alert. It reverts to staging rather than refusing outright: the message still belongs
   // on the matter, it is the unattended FILING that has stopped being trustworthy.
+  //
+  // The thresholds are the firm's, within bounds that keep the breaker reachable whatever a firm
+  // writes; a firm that has never set them gets DEFAULT_AUTO_FILE_CIRCUIT_BREAKER.
+  const breaker = evidence.circuitBreaker;
   let suspension: AutoFileSuspensionRecommendation | null = null;
   let breakerDemotion: AutoFileDemotionReason | null = null;
-  if (firingRule.firesInWindow >= AUTO_FILE_MAX_FIRES_PER_WINDOW) {
+  if (firingRule.firesInWindow >= breaker.maxFiresPerWindow) {
     breakerDemotion = "blastBound";
     suspension = { ruleId: firingRule.ruleId, reason: "blastBound" };
-  } else if (firingRule.undosInRecentFires >= AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES) {
+  } else if (firingRule.undosInRecentFires >= breaker.maxUndosInRecentFires) {
     breakerDemotion = "undoRate";
     suspension = { ruleId: firingRule.ruleId, reason: "undoRate" };
   }

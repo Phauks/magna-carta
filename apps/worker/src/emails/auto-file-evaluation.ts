@@ -9,10 +9,10 @@ import {
 } from "@magna-carta/data-access/email-filing-statements";
 import {
   resolveAutoFileDecision,
-  AUTO_FILE_ACTIVITY_WINDOW_LIMIT,
-  AUTO_FILE_RECENT_FIRE_WINDOW,
+  activityWindowLimitFor,
   NO_AUTO_FILE_RULE_MATCHED,
   type AutoFileCandidateRule,
+  type AutoFileCircuitBreakerThresholds,
   type AutoFileDecision,
   type AutoFileEvidence,
 } from "@magna-carta/email-filing/auto-file-rules";
@@ -21,7 +21,10 @@ import { candidateMatterNumbers } from "@magna-carta/email-filing/matter-suggest
 import type { MatterId } from "@magna-carta/identifiers/types";
 import { findMattersByNumbers, readMatterFilingTargets } from "@magna-carta/matters/queries";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
-import { readAutoFileDirectFilingPermitted } from "./auto-file-policy.ts";
+import {
+  readAutoFileCircuitBreaker,
+  readAutoFileDirectFilingPermitted,
+} from "./auto-file-policy.ts";
 import { filterAccessibleMatters } from "./matter-access.ts";
 
 // Gather what the guardrail function needs, then let it decide. The split is the one
@@ -73,12 +76,17 @@ export async function evaluateAutoFileRules(
   const ruleRows = [...correspondentRules, ...threadRules];
   if (ruleRows.length === 0) return NO_AUTO_FILE_RULE_MATCHED;
 
-  const [threadHits, subjectMatters, existingLinks, firmDirectFilingPermitted] = await Promise.all([
-    readFiledMattersForThreads(firmDatabase, [request.threadId]),
-    findMattersByNumbers(firmDatabase, candidateMatterNumbers(request.subject)),
-    readEmailMatterLinksForMessage(firmDatabase, request.emailMessageId),
-    readAutoFileDirectFilingPermitted(firmDatabase),
-  ]);
+  // The circuit-breaker thresholds are read here, with the other firm-level answers, because the
+  // activity walk below is bounded BY them — the fire threshold sets the walk's cap and the
+  // recent-fire window sets the undo denominator.
+  const [threadHits, subjectMatters, existingLinks, firmDirectFilingPermitted, circuitBreaker] =
+    await Promise.all([
+      readFiledMattersForThreads(firmDatabase, [request.threadId]),
+      findMattersByNumbers(firmDatabase, candidateMatterNumbers(request.subject)),
+      readEmailMatterLinksForMessage(firmDatabase, request.emailMessageId),
+      readAutoFileDirectFilingPermitted(firmDatabase),
+      readAutoFileCircuitBreaker(firmDatabase),
+    ]);
 
   const threadMatterIds = [...new Set(threadHits.map((hit) => hit.matterId))];
   const subjectMatterIds = [...new Set(subjectMatters.map((matter) => matter.id))];
@@ -96,7 +104,7 @@ export async function evaluateAutoFileRules(
   const [targetMatters, accessByRuleId, activityByRuleId] = await Promise.all([
     readMatterFilingTargets(firmDatabase, decidingMatterIds),
     resolveCreatorAccess(firmDatabase, ruleRows),
-    resolveRuleActivity(dependencies, ruleRows),
+    resolveRuleActivity(dependencies, ruleRows, circuitBreaker),
   ]);
 
   const evidence: AutoFileEvidence = {
@@ -133,6 +141,7 @@ export async function evaluateAutoFileRules(
         ? request.conflictHoldFor(decidingMatterIds[0])
         : false,
     firmDirectFilingPermitted,
+    circuitBreaker,
   };
 
   return resolveAutoFileDecision(evidence);
@@ -183,6 +192,7 @@ async function resolveCreatorAccess(
 async function resolveRuleActivity(
   dependencies: AutoFileEvaluationDependencies,
   rules: readonly EmailAutoFileRuleRow[],
+  circuitBreaker: AutoFileCircuitBreakerThresholds,
 ): Promise<Map<string, { firesInWindow: number; undosInRecentFires: number }>> {
   const windowStart = new Date(
     new Date(dependencies.now()).getTime() - ACTIVITY_WINDOW_MILLISECONDS,
@@ -193,9 +203,10 @@ async function resolveRuleActivity(
         autoFileRuleId: rule.id,
         windowStart,
         // The limit must sit above the breaker's threshold or the reported count could never reach
-        // it — the domain package derives this value for exactly that reason.
-        windowLimit: AUTO_FILE_ACTIVITY_WINDOW_LIMIT,
-        recentFireWindow: AUTO_FILE_RECENT_FIRE_WINDOW,
+        // it — the domain package derives this value from the firm's threshold for exactly that
+        // reason, so a firm raising the threshold widens the walk with it.
+        windowLimit: activityWindowLimitFor(circuitBreaker),
+        recentFireWindow: circuitBreaker.recentFireWindow,
       });
       return [
         rule.id,

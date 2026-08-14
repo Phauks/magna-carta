@@ -318,10 +318,20 @@ export type CaptureAddressSummary = {
 
 export type AutoFilePolicyResponse = {
     directFilingPermitted: boolean;
+    circuitBreaker: {
+        maxFiresPerWindow: number;
+        recentFireWindow: number;
+        maxUndosInRecentFires: number;
+    };
 };
 
 export type PatchAutoFilePolicyRequest = {
     directFilingPermitted?: boolean;
+    circuitBreaker?: {
+        maxFiresPerWindow: number;
+        recentFireWindow: number;
+        maxUndosInRecentFires: number;
+    };
 };
 
 export type FileRepairDiagnosis = {
