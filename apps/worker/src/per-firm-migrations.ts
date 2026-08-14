@@ -61,6 +61,7 @@ import billingCreditNotesSql from "@magna-carta/database/drizzle/per-firm/202608
 import indexSplitMembershipSql from "@magna-carta/database/drizzle/per-firm/20260813T020000_index-split-membership.sql";
 import conflictsRecheckLedgerSql from "@magna-carta/database/drizzle/per-firm/20260813T030000_conflicts-recheck-ledger.sql";
 import calendarAndCustodyIndexFixesSql from "@magna-carta/database/drizzle/per-firm/20260814T000000_calendar-and-custody-index-fixes.sql";
+import reportsPermissionsAndProductionsSql from "@magna-carta/database/drizzle/per-firm/20260814T010000_reports-permissions-and-productions.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -132,6 +133,7 @@ export function perFirmMigrations(): Migration[] {
     "20260813T020000_index-split-membership": indexSplitMembershipSql,
     "20260813T030000_conflicts-recheck-ledger": conflictsRecheckLedgerSql,
     "20260814T000000_calendar-and-custody-index-fixes": calendarAndCustodyIndexFixesSql,
+    "20260814T010000_reports-permissions-and-productions": reportsPermissionsAndProductionsSql,
   });
 }
 

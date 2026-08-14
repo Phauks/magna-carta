@@ -120,6 +120,8 @@ import type {
   RateId,
   RecordCustodianId,
   RepairProvenanceId,
+  ReportProductionCompletionId,
+  ReportProductionId,
   RetainerReplenishmentRequestId,
   ReviewDocumentExceptionId,
   ReviewDocumentId,
@@ -7998,5 +8000,111 @@ export const notificationSweptUnread = sqliteTable(
   },
   (table) => [
     check("notification_swept_unread_count_nonnegative_check", sql`${table.unreadCount} >= 0`),
+  ],
+);
+
+// THE ONE WRITE IN THE REPORTING SURFACE, and the reason it is the caller's rather than the
+// reporting package's.
+//
+// Everything a report prints is a re-presentation of rows some other package already owns, so
+// @magna-carta/reporting composes nothing, holds no binding, and cannot write — a fitness function
+// over its sources proves it. But a reporting surface that could not file its own output would be a
+// surface that cannot produce evidence: a firm handing a document to an examiner needs the version
+// that was handed over to be retrievable byte-for-byte afterwards, independent of any re-run.
+//
+// So producing a report writes exactly three things, all composed by the route and the queue
+// consumer through the ordinary chokepoint: this request row, an outbox message, and — when the job
+// completes — a File Manager version holding the artifact plus the completion row below.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A production is a record that somebody asked
+// for a document on a day; it cannot be un-asked, and re-running a period is a new production.
+export const reportProduction = sqliteTable(
+  "report_production",
+  {
+    id: text("id").primaryKey().$type<ReportProductionId>(), // reportProduction_ handle
+    // Which report was asked for. One value today; the remaining families widen this list as they
+    // land, which is why it is a value rather than a column layout per family.
+    kind: text("kind", { enum: ["trust_compliance"] }).notNull(),
+    // The trust account a compliance pack is produced for. Nullable because the report families that
+    // follow are firm-wide and name no account — a column that every future kind had to invent a
+    // value for would be a column that lies for most rows.
+    trustAccountId: text("trust_account_id")
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    // The temporal pair the report was taken over, stored so a re-run is a re-run rather than an
+    // approximation of one. `known_as_of` is null for a live production, which is the difference
+    // between "this reproduces" and "this was true when it was made".
+    periodStart: text("period_start").notNull(), // YYYY-MM-DD civil date
+    periodEnd: text("period_end").notNull(), // YYYY-MM-DD civil date
+    knownAsOf: text("known_as_of"), // UTC instant, or null for a live production
+    requestedBy: text("requested_by").notNull().$type<UserId>(),
+    requestedAt: text("requested_at").notNull(), // UTC instant
+  },
+  (table) => [
+    index("report_production_requested_at_index").on(table.requestedAt),
+    index("report_production_trust_account_index").on(table.trustAccountId, table.requestedAt),
+    check("report_production_kind_check", sql`${table.kind} IN ('trust_compliance')`),
+    // A compliance pack is about one trust account and cannot be produced without one. Stated as a
+    // shape check rather than a NOT NULL so the column stays available to the kinds that have no
+    // account, and so the pairing is enforced per kind rather than per column.
+    check(
+      "report_production_scope_shape_check",
+      sql`${table.kind} <> 'trust_compliance' OR ${table.trustAccountId} IS NOT NULL`,
+    ),
+    check(
+      "report_production_period_ordered_check",
+      sql`${table.periodStart} <= ${table.periodEnd}`,
+    ),
+  ],
+);
+
+// WHAT SETTLED THE PRODUCTION — the filed artifact, or the refusal.
+//
+// There is deliberately NO status column on `report_production`. Whether a production is finished is
+// the presence of a row here, the same derivation that keeps a status column off a trust hold, off a
+// disbursement request, and off an invoice application: a stored status is a second answer that can
+// disagree with the rows, and the one people act on is whichever they saw last.
+//
+// A REFUSAL IS AN OUTCOME, not a missing row. A pack the platform could not produce — because the
+// account's outstanding-item list is longer than one reconciliation can account for, or because
+// nobody has recorded which jurisdiction governs it — is a fact the firm needs to see, with the
+// refusal that names what to do about it. A production that simply never completed would be
+// indistinguishable from one still in the queue.
+export const reportProductionCompletion = sqliteTable(
+  "report_production_completion",
+  {
+    id: text("id").primaryKey().$type<ReportProductionCompletionId>(), // reportProductionCompletion_ handle
+    productionId: text("production_id")
+      .notNull()
+      .$type<ReportProductionId>()
+      .references(() => reportProduction.id),
+    outcome: text("outcome", { enum: ["filed", "refused"] }).notNull(),
+    // The filed artifact. The File Manager computes and stores the content hash at write, so this is
+    // a copy of a fact rather than a second computation of it — an examiner's copy is identified by
+    // the hash, and the pack prints it on its own provenance section.
+    fileVersionId: text("file_version_id").$type<FileVersionId>(),
+    contentHash: text("content_hash"),
+    // The refusal, in the domain's own vocabulary rather than a reporting synonym of it: the remedy a
+    // firm has to act on is stated by the package that refused.
+    refusalCode: text("refusal_code"),
+    refusalDetail: text("refusal_detail"),
+    completedAt: text("completed_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // One completion per production. UNIQUE rather than checked in a handler, because the consumer
+    // retries and two completions would be two answers about one document.
+    uniqueIndex("report_production_completion_production_unique_index").on(table.productionId),
+    check(
+      "report_production_completion_outcome_check",
+      sql`${table.outcome} IN ('filed', 'refused')`,
+    ),
+    // Each outcome carries its own columns and none of the other's. A "filed" row with no artifact
+    // would say a document exists that does not; a "refused" row naming one would file a document
+    // while reporting that it could not be made.
+    check(
+      "report_production_completion_shape_check",
+      sql`(${table.outcome} = 'filed' AND ${table.fileVersionId} IS NOT NULL AND ${table.contentHash} IS NOT NULL AND ${table.refusalCode} IS NULL AND ${table.refusalDetail} IS NULL)
+        OR (${table.outcome} = 'refused' AND ${table.fileVersionId} IS NULL AND ${table.contentHash} IS NULL AND ${table.refusalCode} IS NOT NULL AND length(${table.refusalCode}) > 0)`,
+    ),
   ],
 );

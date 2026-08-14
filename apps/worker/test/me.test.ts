@@ -169,6 +169,15 @@ describe("GET /api/v1/me", () => {
         // visibility at read time, so the key grants sight of nothing the member could not already
         // reach, and a firm whose staff cannot see their own deadlines is a firm the feature failed.
         "notifications:read",
+        // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
+        // grants more widely, because an aggregate across every matter and client is a different
+        // exposure from a per-matter read. reports:productivity is narrower still in kind: a report
+        // about people rather than about money.
+        "reports:financial",
+        "reports:operational",
+        "reports:produce",
+        "reports:productivity",
+        "reports:trustCompliance",
         "shipping:manage",
         "support:cosign",
         "support:manage",

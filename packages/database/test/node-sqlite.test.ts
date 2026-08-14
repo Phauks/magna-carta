@@ -114,6 +114,22 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     ]);
     expect(grantsFor("Attorney")).not.toContain("trust:firmFunds");
     expect(grantsFor("Billing")).not.toContain("trust:firmFunds");
+    // Every reports key is seeded onto Owner/Admin alone, including the two that read money a
+    // Billing seat already sees per matter. The narrowness is the point: an aggregate across every
+    // matter and client is a different exposure from a per-matter read, and reports:productivity is
+    // a supervision surface over people rather than a financial read at all. A firm that wants its
+    // bookkeeper to run reconciliation packs reaches for a direct grant, which leaves a record.
+    for (const key of [
+      "reports:trustCompliance",
+      "reports:financial",
+      "reports:productivity",
+      "reports:operational",
+      "reports:produce",
+    ]) {
+      expect(grants.filter((grant) => grant.permission === key)).toEqual([
+        { role_id: ownerAdmin?.id, permission: key },
+      ]);
+    }
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
     // a matter reaches no review set on it. Billing and Read-only carry none of the five keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.
