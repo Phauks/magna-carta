@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 702 nodes of the feature ledger in
+is the complete register rather than a digest: all 705 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -17,25 +17,25 @@ stages live in [`STATUS.md`](../STATUS.md), the narrative of what each stream is
 
 ## Where the program stands
 
-**702 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
+**705 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 241 | 34% |
-| Part-built | partial, in-build | 201 | 29% |
+| Done | shipped | 244 | 35% |
+| Part-built | partial, in-build | 201 | 28% |
 | Ahead | designed, planned, researching, not-started | 219 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All capabilities** | | **702** | **100%** |
+| **All capabilities** | | **705** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 241 | 34% |
-| `partial` | 186 | 27% |
+| `shipped` | 244 | 35% |
+| `partial` | 186 | 26% |
 | `in-build` | 15 | 2% |
 | `designed` | 21 | 3% |
 | `planned` | 13 | 2% |
@@ -43,15 +43,15 @@ below; these are the totals over that list.
 | `not-started` | 177 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **702** | **100%** |
+| **All statuses** | **705** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 241 of 702 (34%). Shipped plus partial is 427 (61%).**
+**Shipped alone is 244 of 705 (35%). Shipped plus partial is 430 (61%).**
 
 The 186 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
-distance from 34% to 61% is approximately the program's interface debt: work that is engineered and
+distance from 35% to 61% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
 overstates what a user can do; reading the smaller one understates what has been built. Both are
 true and neither is the answer on its own.
@@ -60,7 +60,7 @@ true and neither is the answer on its own.
 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 12 | 5 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 26 | 46% |
+| AI & Inference | 15 | 5 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 52% |
 | Authentication, Access Control & Encryption | 13 | 9 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 30 | 43% |
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
@@ -87,10 +87,11 @@ true and neither is the answer on its own.
 | Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **241** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **702** | **34%** |
+| **All areas** | **244** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **705** | **35%** |
 
 ## Waiting on you
 
+- **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Client-consent model** (`ai.consent`) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 - **Pronouns on a person** (`directory.pronouns`) — Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
@@ -166,13 +167,16 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 26 nodes, 46% shipped. 12 done, 5 part-built, 6 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 nodes, 52% shipped. 15 done, 5 part-built, 6 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
     - `ai.inference.port` · `shipped` · **InferencePort operations** — Streaming and durable/Workflow-invocable text generation plus a platform-fixed embedding operation; reasoning model an explicit per-call parameter, embedding model pinned to the Vectorize index.
-    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable.
-    - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default.
+    - `ai.inference.embedding-pin-window` · `shipped` · **Embedding pin held open until the first index** — The embedding model is changeable only while no vector index exists, because every stored vector is a function of the model that produced it. The catalog records that state and a fitness scan refuses to let the window close by accident — while the pin reads open, no source file may reach a vector index.
+    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one.
+    - `ai.inference.reasoning-tier` · `shipped` · **Evergreen reasoning tier** — A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable. _Note: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision._
+    - `ai.inference.pin-freshness` · `shipped` · **Model-pin staleness detection** — A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
+    - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
     - `ai.inference.confidentiality` · `shipped` · **Confidentiality control plane** — Gateway-level ZDR, collectLog false and skipCache true pinned per request, fail-closed pre-dispatch ZDR guard that rejects rather than downgrades. _Note: Cloudflare/Anthropic ZDR procurement artifacts gate the first real AI feature, not this layer._
     - `ai.inference.tenant-isolation` · `shipped` · **Tenant isolation & metering** — Firm metadata derived server-side (never caller-supplied); authoritative per-request token usage written through the firm-scoped data-access layer as the reconcilable metering record.
     - `ai.inference.fairness` · `partial` · **Multi-tenant fairness** — One shared gateway per environment; queue-dispatched inference off the hot path; firm-scoped spend rule and account credit alarm as real-time guardrails.

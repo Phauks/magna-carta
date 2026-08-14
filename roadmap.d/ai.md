@@ -27,15 +27,35 @@
   status: shipped
   evidence: packages/inference/src/port.ts; PLATFORM_EMBEDDING_MODEL_ID pinned in catalog.ts.
 
+- id: ai.inference.embedding-pin-window
+  name: Embedding pin held open until the first index
+  scope: The embedding model is changeable only while no vector index exists, because every stored vector is a function of the model that produced it. The catalog records that state and a fitness scan refuses to let the window close by accident — while the pin reads open, no source file may reach a vector index.
+  status: shipped
+  evidence: packages/inference/src/catalog.ts (pinState on the embedding entry) and the source scan in packages/inference/test/fitness-model-pin-rot.test.ts; apps/worker/src/search/semantic-search.ts is still engine-not-implemented and no wrangler configuration declares a Vectorize binding.
+  awaiting-owner: Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
+
 - id: ai.inference.model-catalog
   name: Curated ZDR-only model catalog
-  scope: In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable.
+  scope: In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one.
   status: shipped
   evidence: packages/inference/src/catalog.ts with module-load validation.
 
+- id: ai.inference.reasoning-tier
+  name: Evergreen reasoning tier
+  scope: A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable.
+  status: shipped
+  evidence: packages/inference/src/catalog.ts (tier occupancy validated at module load) and packages/inference/src/reasoning-tier.ts; packages/inference/test/reasoning-tier.test.ts.
+  notes: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision.
+
+- id: ai.inference.pin-freshness
+  name: Model-pin staleness detection
+  scope: A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
+  status: shipped
+  evidence: packages/inference/src/model-pin-freshness.ts; packages/inference/test/model-pin-freshness.test.ts and packages/inference/test/fitness-model-pin-rot.test.ts.
+
 - id: ai.inference.firm-model-selection
   name: Per-firm reasoning-model selection
-  scope: Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default.
+  scope: Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
   status: shipped
   evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition).
 
