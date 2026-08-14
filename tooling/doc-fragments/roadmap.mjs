@@ -179,6 +179,13 @@ function finishNode({ fields, line, area }, name) {
     awaitingOwner: fields["awaiting-owner"] ?? null,
     slices: splitList(fields.slices),
     notes: fields.notes ?? null,
+    // Carried but never rendered. The register prints name/scope/status/notes; these three are the
+    // node's claims ABOUT the repository — the artifact that justifies the status, the design it was
+    // written from, the decisions behind it — and they are what tooling/lint-ledger-staleness checks
+    // the tree against. Dropping them here is what made the ledger uncheckable in that direction.
+    evidence: fields.evidence ?? null,
+    spec: fields.spec ?? null,
+    adrs: splitList(fields.adrs),
   };
 }
 

@@ -25,8 +25,8 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 241 | 34% |
-| Part-built | partial, in-build | 199 | 28% |
-| Ahead | designed, planned, researching, not-started | 221 | 32% |
+| Part-built | partial, in-build | 201 | 29% |
+| Ahead | designed, planned, researching, not-started | 219 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **702** | **100%** |
 
@@ -35,21 +35,21 @@ below; these are the totals over that list.
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 241 | 34% |
-| `partial` | 184 | 26% |
+| `partial` | 186 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 22 | 3% |
+| `designed` | 21 | 3% |
 | `planned` | 13 | 2% |
 | `researching` | 8 | 1% |
-| `not-started` | 178 | 26% |
+| `not-started` | 177 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **702** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 241 of 702 (34%). Shipped plus partial is 425 (61%).**
+**Shipped alone is 241 of 702 (34%). Shipped plus partial is 427 (61%).**
 
-The 184 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 186 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 34% to 61% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -72,7 +72,7 @@ true and neither is the answer on its own.
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
-| Financial Core | 15 | 20 | 4 | 3 | 0 | 0 | 13 | 3 | 0 | 58 | 26% |
+| Financial Core | 15 | 22 | 4 | 2 | 0 | 0 | 12 | 3 | 0 | 58 | 26% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -87,7 +87,7 @@ true and neither is the answer on its own.
 | Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **241** | **184** | **15** | **22** | **13** | **8** | **178** | **39** | **2** | **702** | **34%** |
+| **All areas** | **241** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **702** | **34%** |
 
 ## Waiting on you
 
@@ -141,7 +141,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
 - `documents.conversion.office` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
-- `financial.trust.jurisdiction-engine` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
 - `financial.trust.multi-jurisdiction-accounts` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
@@ -588,7 +587,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 58 nodes, 26% shipped. 15 done, 24 part-built, 16 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 58 nodes, 26% shipped. 15 done, 26 part-built, 14 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -619,7 +618,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
     - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
     - `financial.trust.no-commingling` · `shipped` · **No commingling** — Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
-    - `financial.trust.jurisdiction-engine` · `designed` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
+    - `financial.trust.jurisdiction-engine` · `partial` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
       - `financial.trust.jurisdiction-engine.rules-catalog` · `designed` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data. _Note: Research corpus complete and adversarially verified; the build-data pipeline exists only in the design._
     - `financial.trust.multi-jurisdiction-accounts` · `designed` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
     - `financial.trust.reconciliation` · `not-started` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: Banking-plugin import additionally depends on an unbuilt banking integration._
@@ -635,7 +634,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.billing.invoice-composition` · `not-started` · **Invoice composition** — Bills combine time/fees plus costs plus taxes.
     - `financial.billing.location-letterhead` · `not-started` · **Location letterhead and remit-to on invoices** — Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
     - `financial.billing.wip-to-ar` · `not-started` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
-    - `financial.billing.ledes` · `not-started` · **LEDES e-billing** — Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
+    - `financial.billing.ledes` · `partial` · **LEDES e-billing** — Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
       - `financial.billing.ledes.e-billing-flag` · `shipped` · **Per-matter e-billing flag** — Per-matter flag driving required-code validation upstream in time and cost capture. _Note: Landed early per the phase-3 slice map coordination pin._
       - `financial.billing.ledes.guideline-validation` · `not-started` · **Billing-guideline validation** — Validation against client billing guidelines (rate caps, block-billing/increment rules, required codes) before submission.
       - `financial.billing.ledes.submission` · `not-started` · **Electronic submission path** — A path to electronic invoice submission.

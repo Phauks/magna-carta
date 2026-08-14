@@ -228,11 +228,11 @@
 - id: financial.trust.jurisdiction-engine
   name: Jurisdiction-configurable compliance engine
   scope: A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: approved design (typed profiles, baseline/overlay resolution, silence-vs-unresearched distinction) on main; packages/trust-jurisdictions does not exist yet
+  evidence: packages/trust-jurisdictions is built — the typed profile model carrying per-field confidence and provenance, the registry, baseline/overlay resolution preserving the silence-vs-unresearched distinction, the review gate, and Nevada encoded end to end — with its profile, review-gate and display-seam tests. Nothing consumes it yet: no trust surface reads a requirement through the port, and the other 55 jurisdictions are unencoded.
   awaiting-owner: An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 
 - id: financial.trust.jurisdiction-engine.rules-catalog
@@ -351,8 +351,8 @@
 - id: financial.billing.ledes
   name: LEDES e-billing
   scope: Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
-  status: not-started
-  evidence: no LEDES exporter in tree; UTBMS capture upstream is shipped and its columns are documented as what "the LEDES exporter at billing reads"
+  status: partial
+  evidence: no LEDES exporter in tree; UTBMS capture upstream is shipped and its columns are documented as what "the LEDES exporter at billing reads". The per-matter e-billing flag beneath this node shipped early with the time and cost slices, which is what makes this a roll-up over mixed children rather than untouched work.
 
 - id: financial.billing.ledes.e-billing-flag
   name: Per-matter e-billing flag
