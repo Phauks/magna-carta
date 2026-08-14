@@ -2,11 +2,16 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Tasks and workflows -->
+
 - id: tasks
   name: Tasks and workflows
   scope: Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
   status: not-started
   evidence: No tasks schema, package, or spec; the matter detail skeleton's catch-all section mentions tasks only as future accumulated content.
+  audience: public
+  public-name: Tasks and matter plans
+  public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
 
 - id: tasks.task-lists
   name: Task lists

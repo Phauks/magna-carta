@@ -1,6 +1,7 @@
 # Deterministic docs assembly — folds committed fragments into the rendered trackers on every push to
-# `main`, so `CHANGELOG.md`, the Decision-Log register + numbered ADR files, and `STATUS.md`/`STATUS.json`
-# are current the moment the merge that added their fragments lands. This owns the deterministic half of
+# `main`, so `CHANGELOG.md`, the Decision-Log register + numbered ADR files, `STATUS.md`/`STATUS.json`, and
+# the build register rendered from the feature ledger (`docs/now.md`) are current
+# the moment the merge that added their fragments lands. This owns the deterministic half of
 # docs maintenance; the judgment-bearing half (coverage audit, drafting, roadmap rollup) is the weekly
 # propose-only docs-sync routine — see docs/maintenance/README.md and
 # docs/specs/2026-07-14-docs-sync-routine-design.md.
@@ -56,6 +57,7 @@ jobs:
           node tooling/doc-fragments/build-decisions.mjs
           node tooling/doc-fragments/build-changelog.mjs
           node tooling/doc-fragments/build-status.mjs
+          node tooling/doc-fragments/build-register.mjs
 
       # The assemblers can produce output the formatter rejects — e.g. build-decisions rewrites
       # `ADR-<slug>` references to `ADR-NNNN`, which changes text width inside Markdown tables and breaks

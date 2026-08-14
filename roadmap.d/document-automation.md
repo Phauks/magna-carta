@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Document automation -->
+
 - id: document-automation
   name: Document Automation
   scope: Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling.
@@ -9,6 +11,9 @@
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
   evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. The widened dictionary sources, PDF output, and the authoring surfaces are unbuilt.
+  audience: public
+  public-name: Documents built from your templates
+  public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
   notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.
 
 - id: document-automation.conditional-assembly

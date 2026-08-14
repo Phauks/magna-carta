@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: todo
 branch: claude/financial-reporting
-active-work: docs/active-work/claude/financial-reporting.md
+active-work:
 next: Owner answers on the nine flagged questions; then sub-slice 3·6·1 — the bar-audit pack
 link-spec: docs/specs/2026-08-13-financial-reporting-design.md
 link-plan: docs/specs/2026-08-13-financial-reporting-implementation-plan.md

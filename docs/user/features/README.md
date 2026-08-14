@@ -27,3 +27,5 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
 - [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery (stub; backend built, screens pending).
+- [`product-changelog.md`](product-changelog.md) — What's new: how the changelog is organized and what it covers (stub; the content is built, the page is not).
+- [`product-roadmap.md`](product-roadmap.md) — What is coming: the horizon bands, why there are no dates, and what the roadmap deliberately leaves off (stub; the content is built, the page is not).

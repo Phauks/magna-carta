@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Assistance and AI -->
+
 - id: ai
   name: AI / inference
   scope: Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
@@ -71,6 +73,10 @@
   status: researching
   adrs: ADR-0109
   evidence: ADR-0109 recorded as Proposed (open owner decision); strictest-firm fallback is the on-Cloudflare Workers-AI path via model-slot selection.
+  audience: public
+  public-name: Client consent for AI
+  public-summary: Decide, for each client, whether their information may be sent to an AI model at all — and have that decision enforced rather than remembered.
+  awaiting-owner: Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 
 - id: ai.text-detection
   name: AI-text detection
@@ -122,6 +128,9 @@
   adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
   spec: docs/specs/2026-08-06-magnus-design.md
   evidence: packages/magnus + apps/worker/src/magnus + apps/worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. Backend only; the interface and token streaming are later slices.
+  audience: public
+  public-name: Magnus, the in-app assistant
+  public-summary: Ask a question about your matters in plain language and get an answer, with nothing you ask retained by the model provider.
 
 - id: ai.magnus.record
   name: Transcript as firm work product

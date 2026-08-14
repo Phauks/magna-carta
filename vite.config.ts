@@ -36,6 +36,10 @@ export default defineConfig({
       // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.
       "STATUS.md",
       "STATUS.json",
+      // Assembled by tooling/doc-fragments/build-register.mjs from roadmap.d/* — same case again:
+      // the generator owns the exact bytes and tooling/lint-roadmap.mjs re-derives and diff-gates
+      // them, so formatter reflow would fight the assembler and fail the gate.
+      "docs/now.md",
     ],
   },
   // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,
@@ -216,6 +220,13 @@ export default defineConfig({
       // a slice's status keeps moving across the pipeline). See docs/conventions/documentation.md.
       "status-build": {
         command: "node tooling/doc-fragments/build-status.mjs",
+      },
+      // Regenerate docs/now.md — the complete build register, every capability at its real status —
+      // from the roadmap.d/* feature ledger. Persistent, like status-build. It is a byte-exact
+      // function of the ledger and `pnpm run lint:roadmap` fails when it falls behind, so a
+      // capability that ships moves itself in the register with nobody remembering to.
+      "register-build": {
+        command: "node tooling/doc-fragments/build-register.mjs",
       },
       // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).

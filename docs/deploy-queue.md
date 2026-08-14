@@ -6,7 +6,35 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
+_Last updated: 2026-08-13 (split compaction adds a queue and a Durable Object class)._
+
+## Split compaction — one queue pair to create before the app worker deploys
+
+Search split compaction landed with a new queue, its deadletter, and a new Durable
+Object class. **Create the queues first.** A declared consumer whose queue does not
+exist fails the deploy outright, the same hazard the email-capture activation below
+carries:
+
+1. Create `magna-carta-production-search-compaction` **and**
+   `magna-carta-production-search-compaction-deadletter`.
+2. Deploy the app worker. Its `wrangler.jsonc` already carries the producer binding, the
+   consumer at concurrency 1, the `SEARCH_COMPACTION_JOB` Durable Object binding, and
+   migration tag `v8-search-compaction-job`. Nothing else to set.
+
+No new secret and no bucket step: merged splits are written into the firm's existing
+bucket under the prefix the per-document splits already use.
+
+**Why the concurrency is 1, so nobody raises it as an optimization.** A merge reads and
+rewrites every byte of its sources. Several at once would multiply the R2 traffic of
+background housekeeping against exactly the query traffic compaction exists to reduce.
+Per-corpus single-flighting is the coordinator's job; this lane bounds how much merging
+the whole worker does at a time.
+
+**What it is worth, measured rather than assumed.** A query over 5,000 per-document
+splits issued 186,293 ranged reads — one R2 range GET each in a deployment — against 45
+for the same documents merged. That is why this is a deploy-blocking capability for
+search rather than a later tuning pass. Figures come from
+`crates/search-eval`; how to reproduce them is in that crate's README.
 
 ## New configuration the next deploy must carry
 
@@ -42,6 +70,32 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
   commits ahead and growing; everything below rides the next push.
+
+## `magna-carta-edit` now gates a screen a person can reach
+
+This moved up the queue on 2026-08-12 and the reason is worth stating plainly:
+until now the Collabora editor was a capability nobody could get to, so its
+deploy was housekeeping. The matter document surface changed that. A person can
+open a matter, pick a document, and press the control that opens the editor —
+and the operation behind it is **entirely real**: the document moves to
+co-editing, the open is written to the audit log, and a signed token scoped to
+that one version is minted. Only the editor's own interface is missing, because
+it is served by a per-document container in the `magna-carta-edit` worker, which
+exists only once deployed.
+
+The screen does not pretend otherwise — it carries a badge saying the editor is
+a deployed-only step, and `apps/web/src/lib/documents/document-loop-availability.ts`
+records which steps are `live` and which are `deployed-only` so no consumer has
+to rediscover it. But the honest state is still an empty frame, and the deploy is
+what fills it. Two smaller things travel with it:
+
+- `dev-seed` registers no template, so **build-from-template is a real endpoint
+  with a genuinely empty list** on any fresh environment. Seeding one is queued
+  work, not a deploy step, but it is the other half of "the loop is clickable".
+- The registration confirmation mail sends the **bare token as its whole body**
+  with no link and no landing URL. The screen already accepts a typed code and
+  reads `?token=`, so it works the day the mail carries a link — until then the
+  only path through is copy-paste.
 
 ## Status page — the upstream-severity fix needs BOTH workers deployed
 
@@ -127,9 +181,37 @@ Runbook: `docs/conventions/operations.md` section 2a.
 
 ## Blocked-in-environment owner chores
 
-- Stale remote branch deletion (the git proxy denies ref deletions). Safe to
-  delete: `osv-scanner-audit-gate`, `fix-assembly-format-output`,
+- Stale remote branch deletion. The git proxy denies ref deletions: a
+  `git push --delete` returns 403 for every branch, not just some. Safe to delete:
+  `osv-scanner-audit-gate`, `fix-assembly-format-output`,
   `fix-assembly-push-no-verify`, `fix-pnpm-audit-endpoint-retirement`,
   `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
   `lint-scope-ignore-workflow-yaml`, plus any branch whose pull request has
   since merged (`docs-sync/2026-07-20` after #41's closure).
+
+  **The one-time fix is a repository setting, not a chore.** Turning on GitHub's
+  _Automatically delete head branches_ (Settings → General → Pull Requests)
+  retires this item permanently: every future merge cleans up after itself, and
+  no session needs a permission it cannot have. Worth doing before the next
+  batch sweep rather than after, so the sweep is the last one.
+
+## Before the first firm goes live — verify the trust authorization posture
+
+The authority-based trust posture ships seeded as version-1 data: whoever holds the
+authority releases money alone, and whoever does not raises a request to someone who
+does. That is the owner's directed rule and it is deliberate.
+
+**The seed relaxes any firm that already exists with no policy row** — from
+always-two-person to authority-solo. It is guarded by `WHERE NOT EXISTS`, so a firm
+that has already chosen a posture keeps it; the exposure is limited to firms created
+before the policy feature that never set one. The design's safety argument is that no
+such firm exists, and the repository cannot prove that.
+
+So before a real firm is served, run the check rather than trusting the argument:
+confirm no firm row lacks a stored authorization policy, and if one does, set its
+posture deliberately instead of letting the seed decide. A control that weakens
+without anyone choosing it is the one outcome this subsystem must not produce.
+
+Related and still open for the owner: the lone-holder exception counts `trust:manage`
+rather than `trust:authorize`. Switching would take a firm with several managers and
+one authority holder from two-person to solo — a reduction, so it waits for a decision.
