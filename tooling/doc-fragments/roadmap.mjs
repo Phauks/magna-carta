@@ -609,29 +609,46 @@ function renderSnapshotTable(summary) {
   return rows.join("\n");
 }
 
-// Every unread commit, with the reason it could not be read. Listed rather than counted, because the
-// reasons are what a later reader uses to decide whether the parser has since caught up: re-run the
-// reconstruction with --rebuild and a commit that has become readable joins the series.
+// Every unread commit, grouped under the reason it could not be read. The reasons are what a later
+// reader uses to decide whether the parser has since caught up — re-run the reconstruction with
+// --rebuild and a commit that has become readable joins the series — so every distinct reason is
+// printed in full. It is printed ONCE per group rather than once per commit: a run of commits that
+// all failed on the same character is one fact about the ledger's schema, and repeating its sentence
+// down a column buries that fact under its own restatement instead of stating it.
 function renderGaps(summary, total) {
-  const reasons = new Set(summary.unread.map((snapshot) => snapshot.reason));
-  const dates = summary.unread.map((snapshot) => snapshot.date);
-  const rows = ["| Date | Commit | Why it could not be read |", "| --- | --- | --- |"];
+  const byReason = new Map();
   for (const snapshot of summary.unread) {
-    rows.push(`| ${snapshot.date} | \`${short(snapshot.commit)}\` | ${cell(snapshot.reason)} |`);
+    const group = byReason.get(snapshot.reason);
+    if (group === undefined) byReason.set(snapshot.reason, [snapshot]);
+    else group.push(snapshot);
   }
-  return [
+  const dates = summary.unread.map((snapshot) => snapshot.date);
+  const parts = [
     wrap(
       `**${summary.unread.length} of the ${total} commits do not parse under today's ledger schema**` +
         ` — they run from ${dates[0]} to ${dates.at(-1)}, and` +
-        ` ${reasons.size === 1 ? "every one of them fails for the same reason" : `they fail for ${reasons.size} distinct reasons`}.` +
+        ` ${byReason.size === 1 ? "every one of them fails for the same reason" : `they fail for ${byReason.size} distinct reasons`}.` +
         " They are recorded as holes: their counts are absent from the table above, no line is drawn" +
         " through them, and the changes on either side of a hole are stated across it rather than" +
         " apportioned to it. Re-run the reconstruction with `--rebuild` after a parser change to pick" +
         " up any that have since become readable.",
     ),
-    "",
-    rows.join("\n"),
-  ].join("\n");
+  ];
+  for (const [reason, snapshots] of byReason) {
+    const commits = snapshots
+      .map((snapshot) => `\`${short(snapshot.commit)}\` (${snapshot.date})`)
+      .join(", ");
+    parts.push(
+      "",
+      wrap(
+        `**${snapshots.length} commit${snapshots.length === 1 ? "" : "s"}, ${snapshots[0].date} to` +
+          ` ${snapshots.at(-1).date}** — ${asSentenceFragment(reason)}`,
+      ),
+      "",
+      wrap(commits),
+    );
+  }
+  return parts.join("\n");
 }
 
 // Area movement between the first and the last read snapshot, in the ledger's own area order. Not
@@ -677,9 +694,10 @@ function signed(value) {
   return value > 0 ? `+${value}` : String(value);
 }
 
-// A table cell can hold a parser's message, which is the one string here not written for a table.
-function cell(text) {
-  return text.replaceAll("|", "\\|").replaceAll("\n", " ");
+// A parser's message is the one string rendered here that was not written to be rendered: it can
+// carry newlines, which would end the sentence it is quoted inside partway through.
+function asSentenceFragment(text) {
+  return text.replaceAll("\n", " ").trim();
 }
 
 // --- the short lists --------------------------------------------------------------------------

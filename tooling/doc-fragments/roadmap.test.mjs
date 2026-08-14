@@ -434,9 +434,15 @@ describe("renderBuildRegister — where we have been", () => {
 
   it("lists a commit it could not parse as a gap, with the reason, and interpolates nothing", () => {
     expect(rendered).toContain("**1 of the 3 commits do not parse under today's ledger schema**");
-    expect(rendered).toContain(
-      '| 2026-07-18 | `bbbbbbbb` | roadmap.d/trust.md: line 4: "trust.ledger" has unknown status "built" |',
+    // The reason is stated once for the group of commits that share it, and the commits are listed
+    // under it — so a run that all failed on one character reads as one fact rather than as many.
+    expect(rendered).toContain("**1 commit, 2026-07-18 to 2026-07-18**");
+    // The reason is prose now rather than a table cell, so it is wrapped across lines like every
+    // other sentence in the document — compare it against the unwrapped text.
+    expect(rendered.replaceAll(/\s+/gu, " ")).toContain(
+      'roadmap.d/trust.md: line 4: "trust.ledger" has unknown status "built"',
     );
+    expect(rendered).toContain("`bbbbbbbb` (2026-07-18)");
     // The reconstruction never invents the missing row: the unread commit has no counts anywhere.
     expect(rendered).not.toContain("| 2026-07-18 | `bbbbbbbb` | 2 |");
   });

@@ -145,27 +145,15 @@ counts are absent from the table above, no line is drawn through them, and the c
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
 `--rebuild` after a parser change to pick up any that have since become readable.
 
-| Date | Commit | Why it could not be read |
-| --- | --- | --- |
-| 2026-08-04 | `a98c78df` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-04 | `a0130bbf` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `f03fb4d5` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `6f422b1d` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `18c23915` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `57a0b679` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `7bee0801` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `324664c9` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-05 | `0377a9b9` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-06 | `8fd3ea9a` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-06 | `e8837e3f` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-06 | `227b4acd` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-07 | `45003814` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-07 | `93eee6c5` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-07 | `846dbd4e` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-10 | `681f4b98` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-11 | `953e9a0c` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-11 | `bafaf62d` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
-| 2026-08-11 | `c164cc0c` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+**19 commits, 2026-08-04 to 2026-08-11** — roadmap.d/document-automation.md: line 14:
+"document-automation.conditional-assembly" has unknown status "built" (expected one of shipped,
+partial, in-build, designed, planned, researching, not-started, deferred, cut)
+
+`a98c78df` (2026-08-04), `a0130bbf` (2026-08-04), `f03fb4d5` (2026-08-05), `6f422b1d` (2026-08-05),
+`18c23915` (2026-08-05), `57a0b679` (2026-08-05), `7bee0801` (2026-08-05), `324664c9` (2026-08-05),
+`0377a9b9` (2026-08-05), `8fd3ea9a` (2026-08-06), `e8837e3f` (2026-08-06), `227b4acd` (2026-08-06),
+`45003814` (2026-08-07), `93eee6c5` (2026-08-07), `846dbd4e` (2026-08-07), `681f4b98` (2026-08-10),
+`953e9a0c` (2026-08-11), `bafaf62d` (2026-08-11), `c164cc0c` (2026-08-11)
 
 ### Movement by area
 
