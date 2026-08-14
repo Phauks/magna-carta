@@ -63,8 +63,26 @@ import {
   trustMeasurements,
   TRUST_PLAN_SCAN_ALLOWLIST,
 } from "./trust-measurements.ts";
+import {
+  custodianHotPathPlans,
+  custodianMeasurementHandle,
+  custodianMeasurements,
+  CUSTODIAN_PLAN_SCAN_ALLOWLIST,
+} from "./custodian-measurements.ts";
+import {
+  calendarHotPathPlans,
+  calendarMeasurementHandle,
+  calendarMeasurements,
+  timelinePageBounds,
+  CALENDAR_PLAN_SCAN_ALLOWLIST,
+} from "./calendar-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
-import { findFullScans, runMeasurements, writeBaselineFile } from "./runner.ts";
+import {
+  baselineEnvironment,
+  findFullScans,
+  runMeasurements,
+  writeBaselineFile,
+} from "./runner.ts";
 import { loadProfileSnapshot } from "./snapshot.ts";
 
 // Produce/refresh the committed baseline for the full-scale ledgerVolume profile. Local-only,
@@ -84,9 +102,16 @@ console.log(
   `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets, ${snapshot.manifest.directoryPersonCount} persons, ${snapshot.manifest.directoryOrganizationCount} organizations, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events), ${snapshot.manifest.customFieldDefinitionCount} custom fields (${snapshot.manifest.customFieldValueCount} values), ${snapshot.manifest.timeEntryCount} time entries (${snapshot.manifest.rateCount} rates, ${snapshot.manifest.rateCardCount} cards), ${snapshot.manifest.documentTemplateCount} document templates (${snapshot.manifest.documentTemplateVersionCount} versions, ${snapshot.manifest.archivedDocumentTemplateCount} archived), ${snapshot.manifest.documentAssemblyCount} assemblies, ${snapshot.manifest.documentFieldMappingCount} field mappings, ${snapshot.manifest.trustLedgerNodeCount} trust ledger nodes (${snapshot.manifest.trustMovementCount} movements, ${snapshot.manifest.trustHoldCount} holds), ${snapshot.manifest.trustBankStatementCount} bank statements (${snapshot.manifest.trustBankStatementLineCount} lines), ${snapshot.manifest.trustReconciliationCount} reconciliations (${snapshot.manifest.trustReconciliationMatchCount} matches) (profile v${snapshot.manifest.profile.version})`,
 );
 
+console.log(
+  `custody: ${snapshot.manifest.custodyLocationCount} container nodes, ${snapshot.manifest.custodyPacketCount} packets (${snapshot.manifest.custodyItemCount} items), ${snapshot.manifest.custodyMovementCount} ledger movements, ${snapshot.manifest.custodyHoldCount} holds · calendar: ${snapshot.manifest.matterEventCount} matter events (${snapshot.manifest.matterEventParticipantCount} participants), ${snapshot.manifest.matterDeadlineCount} deadlines, ${snapshot.manifest.firmEventCount} firm events, ${snapshot.manifest.firmResourceCount} resources (${snapshot.manifest.firmResourceBookingCount} bookings)`,
+);
+
 // The automation handle is built before the scan gate: its plan probes bind to the probe manifest's
 // own custom-field handles, so the handle has to exist before the plans can be taken.
 const automationHandle = await documentAutomationMeasurementHandle(snapshot);
+// The calendar's plan probes are built from the registry's own statement builders and its join-key
+// pre-reads, so its handle and its plans are both resolved before the gate too.
+const calendarHandle = calendarMeasurementHandle(snapshot);
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
@@ -103,6 +128,8 @@ const scans = [
     DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST,
   ),
   ...findFullScans(trustHotPathPlans(snapshot), TRUST_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(custodianHotPathPlans(snapshot), CUSTODIAN_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(await calendarHotPathPlans(calendarHandle), CALENDAR_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -155,10 +182,29 @@ const results = [
     warmupIterations: 3,
     iterations: 30,
   })),
+  ...(await runMeasurements(
+    custodianMeasurementHandle(snapshot, BASELINE_SEED),
+    custodianMeasurements,
+    { warmupIterations: 3, iterations: 30 },
+  )),
+  ...(await runMeasurements(calendarHandle, calendarMeasurements, {
+    warmupIterations: 3,
+    iterations: 30,
+  })),
 ];
 for (const result of results) {
   console.log(
     `${result.name}: median ${result.medianMs}ms · p95 ${result.p95Ms}ms · min ${result.minMs}ms (${result.iterations} iterations)`,
+  );
+}
+
+// The federated read's own counts, printed beside the timings. They are the numbers that catch an
+// N+1 the moment somebody adds a per-row lookup to a projection — a plan cannot see that, and a
+// timing would only show it once the corpus was large enough for the difference to clear the noise.
+const timelineBounds = await timelinePageBounds(calendarHandle);
+for (const bound of timelineBounds) {
+  console.log(
+    `${bound.label}: ${bound.statementCount} statements over ${bound.sourcesRead} sources · ${bound.rowsRead} rows read · ${bound.entriesReturned} entries returned`,
   );
 }
 
@@ -169,7 +215,17 @@ writeBaselineFile(baselinePath, {
   profileName: ledgerVolume.name,
   profileVersion: ledgerVolume.version,
   cacheKey: snapshot.cacheKey,
+  // Which machine produced these. Without it a reader diffing two baselines cannot tell a regression
+  // from a different laptop, which is the one mistake the relative-numbers rule most invites.
+  environment: baselineEnvironment(),
   results,
+  bounds: timelineBounds.map((bound) => ({
+    name: bound.label,
+    statementCount: bound.statementCount,
+    rowsRead: bound.rowsRead,
+    sourcesRead: bound.sourcesRead,
+    entriesReturned: bound.entriesReturned,
+  })),
 });
 console.log(`baseline written: ${baselinePath}`);
 snapshot.close();

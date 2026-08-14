@@ -59,6 +59,20 @@ import {
   trustMeasurements,
   TRUST_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/trust-measurements.ts";
+import {
+  custodianHotPathPlans,
+  custodianMeasurementHandle,
+  custodianMeasurements,
+  CUSTODIAN_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/custodian-measurements.ts";
+import {
+  calendarHotPathPlans,
+  calendarMeasurementHandle,
+  calendarMeasurements,
+  timelinePageBounds,
+  CALENDAR_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/calendar-measurements.ts";
+import { TIMELINE_SOURCES } from "@magna-carta/calendar/sources/all";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { readTrustThreeWayProof } from "@magna-carta/trust/reconciliation";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
@@ -274,6 +288,84 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The custody measured set runs under its own handle — the number draw writes, so its context
+    // derives a disjoint identifier stream from the generation seed.
+    const custodianHandle = custodianMeasurementHandle(snapshot, "smoke-seed");
+    expect(
+      custodianHandle.snapshot.manifest.custodianProbes.subtreeLocationIds.length,
+    ).toBeGreaterThan(0);
+    const custodianResults = await runMeasurements(custodianHandle, custodianMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(custodianResults.map((result) => result.name).sort()).toEqual(
+      [
+        "custody-register.by-owner",
+        "custody-register.by-location-subtree",
+        "custody-location.subtree-walk",
+        "custody-location.occupancy",
+        "custody-packet.detail",
+        "custody-overdue.sweep",
+        "custody-reviews.due-sweep",
+        "custody-history.deep-packet-page",
+        "custody-number.counter-draw",
+      ].sort(),
+    );
+    for (const result of custodianResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The calendar measured set runs over the snapshot with the real source registry and the real
+    // visible-matter predicate — every read here is the federated one the product issues.
+    const calendarHandle = calendarMeasurementHandle(snapshot);
+    const calendarResults = await runMeasurements(calendarHandle, calendarMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(calendarResults.map((result) => result.name).sort()).toEqual(
+      [
+        "timeline.matter-page-1",
+        "timeline.matter-page-20",
+        "timeline.matter-shallow-page-1",
+        "timeline.firm-window-31-day",
+        "timeline.firm-window-member-filtered",
+        "booking.availability-read",
+        "booking.overlap-check",
+        "continuance.chain-read",
+      ].sort(),
+    );
+    for (const result of calendarResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // THE federation assertion, and the reason this subsystem gets counts as well as timings: the
+    // read count per page must scale with the REGISTRY, never with the firm's data. One statement per
+    // selected source (the custody review source contributes two arms — a packet's review date and an
+    // item's), and rows read within sourceCount x (pageSize + 1). A per-row lookup added inside a
+    // projection changes neither a plan nor, at this scale, a duration — but it changes these.
+    const timelinePageSize = 50;
+    const bounds = await timelinePageBounds(calendarHandle);
+    expect(bounds.map((bound) => bound.label).sort()).toEqual(
+      [
+        "timeline.matter-page-1",
+        "timeline.firm-window-31-day",
+        "timeline.firm-window-member-filtered",
+      ].sort(),
+    );
+    for (const bound of bounds) {
+      expect(bound.statementCount).toBeLessThanOrEqual(TIMELINE_SOURCES.length + 1);
+      expect(bound.statementCount).toBeGreaterThanOrEqual(bound.sourcesRead);
+      expect(bound.rowsRead).toBeLessThanOrEqual(bound.statementCount * (timelinePageSize + 1));
+    }
+    // The member filter DROPS the sources that cannot answer it rather than post-filtering, so it
+    // reads strictly fewer sources than the same window unfiltered. A regression to a post-filter
+    // would make these two equal.
+    const unfiltered = bounds.find((bound) => bound.label === "timeline.firm-window-31-day");
+    const filtered = bounds.find((bound) => bound.label === "timeline.firm-window-member-filtered");
+    expect(filtered?.sourcesRead ?? 0).toBeLessThan(unfiltered?.sourcesRead ?? 0);
+
     // And the proof is not merely timed but PROVEN honest: the generator puts a service charge on
     // every statement that the firm never records, so the open period cannot tie out and the proof
     // must say which leg is out rather than quietly agreeing.
@@ -458,6 +550,51 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     expect(findFullScans(trustPlans, TRUST_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The custody hot-path plans: same label-set-first guard, then the scan check. The two that
+    // matter most are the register list filtered by owner — the register's primary filter across the
+    // whole packet corpus — and the recursive subtree walk, which the design names as the one read
+    // here with a genuinely non-obvious plan. The paginated ledger read matters for a different
+    // reason: it is the only table in this subsystem that grows without bound, so a scan there gets
+    // slower forever.
+    const custodianPlans = custodianHotPathPlans(snapshot);
+    expect(custodianPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "custody-register.by-owner",
+        "custody-register.by-location-subtree",
+        "custody-location.subtree-walk",
+        "custody-location.occupancy",
+        "custody-packet.detail.packet",
+        "custody-packet.detail.items",
+        "custody-packet.detail.owners",
+        "custody-packet.detail.holds",
+        "custody-overdue.sweep",
+        "custody-reviews.due-sweep",
+        "custody-history.deep-packet-page",
+      ].sort(),
+    );
+    expect(findFullScans(custodianPlans, CUSTODIAN_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // A packet's history is keyset-paginated on (occurred_at, id) over its own composite index, and
+    // that ordering must come OUT of the index rather than out of a temporary B-tree — a firm holds a
+    // packet for decades, so a materialize-and-sort here degrades with every year it holds it.
+    expect(
+      findTempBtreeSorts(
+        custodianPlans.filter((plan) => plan.label === "custody-history.deep-packet-page"),
+      ),
+    ).toEqual([]);
+
+    // The calendar hot-path plans: every REGISTERED source's own statement, for the matter scope and
+    // for the firm-window scope, built through the source's own builder — so a source added to the
+    // registry appears here without anybody remembering to add it, and a source that changed shape
+    // changes its own probe. The label set is asserted as a count rather than a list for that reason:
+    // pinning the names would make adding a source a two-file change for no gain.
+    const calendarPlans = await calendarHotPathPlans(calendarHandle);
+    expect(calendarPlans.length).toBeGreaterThan(TIMELINE_SOURCES.length);
+    expect(calendarPlans.map((plan) => plan.label)).toContain("timeline.matter.matterEvent");
+    expect(calendarPlans.map((plan) => plan.label)).toContain("timeline.firm-window.firmEvent");
+    expect(calendarPlans.map((plan) => plan.label)).toContain("booking.live-in-window");
+    expect(findFullScans(calendarPlans, CALENDAR_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

@@ -40,8 +40,14 @@ valid by construction and scenarios double as integration tests.
   never data; nothing it returns may feed generated rows.
 - **Measurement contexts derive `${seed}:measure`.** Replaying the generation seed against a
   snapshot replays its identifier stream → UNIQUE collisions on the first measured write.
-- **Baselines are relative.** Compare across commits on one machine; never across machines, and
-  never as production latencies.
+- **Baselines are relative, and the file says which machine.** Compare across commits on one machine;
+  never across machines, and never as production latencies. `baselineEnvironment()` stamps the node
+  version, platform, architecture, processor, core count, and memory into every baseline, so a reader
+  diffing two of them can tell a regression from a different machine.
+- **A measurement change measures; it does not also fix.** A number that moved because the corpus grew
+  and a number that moved because a query was rewritten are indistinguishable once both land in one
+  commit. What a profile finds is recorded where the plans are taken and fixed in its own change,
+  against the baseline the measuring change already committed.
 
 ## Extending the load profile (per-slice accretion)
 
