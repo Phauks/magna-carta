@@ -19,8 +19,10 @@ export type ModelSlot = "reasoning" | "utility" | "embedding";
 // The platform-maintained, evergreen name a reasoning selection resolves through. The tier is what other
 // code and configuration refer to; WHICH curated model occupies it is data in this file. Tracking model
 // advancement is therefore a catalog edit or a deploy-configuration override, not an edit to any call
-// site — the provider publishes no evergreen alias of its own (every model id it publishes is a pinned
-// snapshot), so an evergreen name only exists if the platform maintains one.
+// site — the provider publishes no evergreen alias of its own, so an evergreen name only exists if the
+// platform maintains one. Every id it publishes resolves to a pinned snapshot: on its newer models the
+// undated id IS the snapshot, and on older ones the undated name is a convenience alias for a dated one.
+// Neither form ever floats forward to a successor, which is exactly why a tier has to exist here.
 export type ReasoningTier = "most-capable" | "balanced";
 
 export const REASONING_TIERS: readonly ReasoningTier[] = ["most-capable", "balanced"];
@@ -39,13 +41,44 @@ export const REASONING_TIERS: readonly ReasoningTier[] = ["most-capable", "balan
 // is built the gate fails until the pin decision has been made and recorded here.
 export type EmbeddingPinState = "open" | "frozen";
 
+// Which FORM the provider publishes this entry's pinned snapshot in — a fact read off the provider's own
+// model reference, not a shape inferred from the string.
+//
+// It has to be recorded rather than derived, and that is the whole reason this field exists: whether a
+// provider publishes a dated snapshot id for a given model is simply not present anywhere in this
+// repository. Without it, a fabricated date suffix is indistinguishable from a real one, because both
+// are "the reference id plus a dash and eight digits". With it, the contradiction is checkable, and the
+// schema below checks it.
+//
+// "provider-dated"    — the provider publishes a dated id for this model and snapshotId IS that id
+//                       (referenceId plus a -YYYYMMDD suffix). For these models the undated name is a
+//                       convenience alias that resolves to the dated id, so the date carries real
+//                       information and dropping it would lose the pin.
+// "provider-dateless" — the provider publishes no dated form; the undated id is ITSELF the pinned
+//                       snapshot rather than a pointer to one, so snapshotId equals referenceId. The
+//                       equality is the honest record, not a gap in it: there is no date to record
+//                       because the provider issues none, and inventing one would name a release that
+//                       does not exist.
+// "platform-composed" — no provider snapshot identifier applies. The embedding entry composes its own,
+//                       binding the model to the index generation its vectors belong to, because that
+//                       pairing (not the model alone) is what makes a stored vector interpretable.
+export type SnapshotForm = "provider-dated" | "provider-dateless" | "platform-composed";
+
 export interface CatalogEntry {
   // The slot the model may fill.
   readonly slot: ModelSlot;
   // The gateway-routable, provider-prefixed id passed to the AI binding.
   readonly modelId: InferenceModelId;
   // The pinned snapshot in effect — persisted per run so a result is reproducible.
+  //
+  // This value is written into the per-request provenance record, which exists to answer WHICH EXACT
+  // MODEL produced a given output. Transcripts are firm work product and discoverable, so a value here
+  // that names a release the provider never published is worse than no value at all: absence prompts a
+  // question, a plausible-looking wrong id answers it falsely. It is therefore always the provider's own
+  // published pinned identifier, copied verbatim, in whichever form snapshotForm records.
   readonly snapshotId: string;
+  // Which form the provider publishes the above in. See SnapshotForm.
+  readonly snapshotForm: SnapshotForm;
   // The reference id used when verifying ZDR/retention facts. For Anthropic models this is the bare
   // model name (without the gateway prefix) cross-checked against the Anthropic reference. For
   // first-party Workers AI / on-Cloudflare models there is no separate Anthropic reference id, so
@@ -59,11 +92,12 @@ export interface CatalogEntry {
   // ISO date the entry's CONFIDENTIALITY facts (zdrEligible, noTrainingEligible) were last verified
   // against the reference.
   readonly verifiedOn: string;
-  // ISO date the entry's LIFECYCLE facts were last read from the provider's own deprecation reference:
-  // that the id is still published, still active, and what retirement date the provider names for it.
-  // Deliberately separate from verifiedOn — the two facts live on different provider pages, are checked
-  // by different work, and go stale independently. Collapsing them into one date would let a lifecycle
-  // check silently launder a confidentiality claim nobody re-read.
+  // ISO date the entry's LIFECYCLE facts were last read from the provider's own model and deprecation
+  // reference: that the id is still published, still active, what retirement date the provider names for
+  // it, and — read off the same table, so dated by the same field — the pinned snapshot id and the form
+  // it is published in. Deliberately separate from verifiedOn: the confidentiality facts live on a
+  // different provider page, are checked by different work, and go stale independently. Collapsing them
+  // into one date would let a lifecycle check silently launder a confidentiality claim nobody re-read.
   readonly availabilityVerifiedOn: string;
   // The earliest retirement date the provider publishes for this model, when it publishes one. Absent
   // where the provider names none.
@@ -88,6 +122,16 @@ export interface CatalogEntry {
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+// True when snapshotId is exactly referenceId plus a -YYYYMMDD suffix. Built from string operations
+// rather than a regex composed around referenceId, because a reference id legitimately contains regex
+// metacharacters (the embedding id carries dots and slashes) and interpolating one into a pattern would
+// make the check quietly mean something else.
+function isDatedSnapshotOf(snapshotId: string, referenceId: string): boolean {
+  const prefix = `${referenceId}-`;
+  if (!snapshotId.startsWith(prefix)) return false;
+  return /^\d{8}$/.test(snapshotId.slice(prefix.length));
+}
+
 // A reasoning entry that is not ZDR-eligible can never enter the reasoning slot, so the entry schema
 // itself refuses it — the curated invariant is enforced at the data boundary, not only in a fitness test.
 // The tier and embedding-pin fields are refined the same way, at the same boundary: a tier on a
@@ -98,6 +142,7 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
     slot: z.enum(["reasoning", "utility", "embedding"]),
     modelId: z.string().min(1),
     snapshotId: z.string().min(1),
+    snapshotForm: z.enum(["provider-dated", "provider-dateless", "platform-composed"]),
     referenceId: z.string().min(1),
     zdrEligible: z.boolean(),
     noTrainingEligible: z.boolean(),
@@ -120,11 +165,47 @@ export const catalogEntrySchema: z.ZodType<CatalogEntry> = z
   })
   .refine((entry) => entry.slot !== "embedding" || entry.pinState !== undefined, {
     message: "the embedding model must declare whether its pin is open or frozen",
+  })
+  // The snapshot id must agree with the form its author says the provider publishes it in. This is what
+  // makes a fabricated date suffix a malformed entry rather than a plausible string: writing
+  // "<referenceId>-20260101" on an entry whose provider publishes no dated form now contradicts the
+  // entry's own snapshotForm and fails at import.
+  //
+  // It is checked HERE, at the data boundary, and not in the staleness pass, because it is not a fact
+  // that decays. A snapshot id that disagrees with its form is wrong the moment it is written and stays
+  // wrong; a check that only fires when a gate runs would let it sit in the tree — and in every
+  // provenance record written meanwhile — until someone happened to run it. What DOES decay is whether
+  // the recorded form is still what the provider publishes, and that is dated by availabilityVerifiedOn
+  // and reported by ./model-pin-freshness.ts along with the rest of the lifecycle facts.
+  .refine(
+    (entry) => entry.snapshotForm !== "provider-dateless" || entry.snapshotId === entry.referenceId,
+    {
+      message:
+        "a provider-dateless snapshot id must equal the reference id exactly; the provider publishes no dated form for this model, so any date suffix names a release that does not exist",
+    },
+  )
+  .refine(
+    (entry) =>
+      entry.snapshotForm !== "provider-dated" ||
+      isDatedSnapshotOf(entry.snapshotId, entry.referenceId),
+    {
+      message:
+        "a provider-dated snapshot id must be the reference id followed by the provider's -YYYYMMDD suffix",
+    },
+  )
+  // A composed snapshot id is the embedding entry's alone: it is the one entry whose pin is a
+  // model-and-index pairing rather than something the provider publishes, and letting a reasoning or
+  // utility entry compose its own id would reopen exactly the gap above.
+  .refine((entry) => entry.snapshotForm !== "platform-composed" || entry.slot === "embedding", {
+    message: "only the embedding model composes its own snapshot id",
+  })
+  .refine((entry) => entry.slot !== "embedding" || entry.snapshotForm === "platform-composed", {
+    message: "the embedding model's snapshot id is composed, not provider-published",
   });
 
 // Table-level version + effective date — the hook a future eval harness attaches to (nothing to
 // evaluate yet).
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 export const CATALOG_EFFECTIVE_DATE = "2026-08-14";
 
 // The tier an unconfigured firm resolves to. A tier rather than a model id is the whole point: this
@@ -147,7 +228,11 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     slot: "reasoning",
     tier: "most-capable",
     modelId: "anthropic/claude-opus-4-8",
-    snapshotId: "claude-opus-4-8-20260101",
+    // The provider publishes no dated id for this model: from the 4.6 generation onward its ids use a
+    // dateless format that is itself a pinned snapshot rather than a pointer to one. The undated id IS
+    // the pin, so recording it unchanged is the complete provenance, not an abbreviation of it.
+    snapshotId: "claude-opus-4-8",
+    snapshotForm: "provider-dateless",
     referenceId: "claude-opus-4-8",
     zdrEligible: true,
     noTrainingEligible: true,
@@ -160,7 +245,10 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     slot: "reasoning",
     tier: "balanced",
     modelId: "anthropic/claude-sonnet-4-6",
-    snapshotId: "claude-sonnet-4-6-20260101",
+    // Dateless for the same reason as the entry above: this is the 4.6 generation, where the published
+    // id is the pinned snapshot itself.
+    snapshotId: "claude-sonnet-4-6",
+    snapshotForm: "provider-dateless",
     referenceId: "claude-sonnet-4-6",
     zdrEligible: true,
     noTrainingEligible: true,
@@ -172,7 +260,11 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
   {
     slot: "utility",
     modelId: "anthropic/claude-haiku-4-5",
-    snapshotId: "claude-haiku-4-5-20260101",
+    // This model predates the dateless generation, so its undated name is a convenience alias and the
+    // provider's published pin is the dated id below. Here the date is load-bearing: recording the alias
+    // instead would name a pointer rather than the release that produced the output.
+    snapshotId: "claude-haiku-4-5-20251001",
+    snapshotForm: "provider-dated",
     referenceId: "claude-haiku-4-5",
     zdrEligible: true,
     noTrainingEligible: true,
@@ -193,6 +285,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     slot: "embedding",
     modelId: PLATFORM_EMBEDDING_MODEL_ID,
     snapshotId: "bge-large-en-v1.5-vectorize-index-v1",
+    snapshotForm: "platform-composed",
     referenceId: PLATFORM_EMBEDDING_MODEL_ID,
     zdrEligible: true,
     noTrainingEligible: true,

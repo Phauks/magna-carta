@@ -12,9 +12,16 @@ import { CATALOG, type CatalogEntry } from "./catalog.ts";
 // fires on correct entries far more often than on stale ones.
 //
 // What it therefore CANNOT see, stated so nothing above is mistaken for more than it is: a successor
-// released after the last time somebody looked. Supersession is not derivable from the catalog — it is
-// the reason availabilityVerifiedOn exists and has a re-check interval, so the gap is bounded by how
-// long an entry may go unread rather than closed.
+// released after the last time somebody looked, or a snapshot id the provider has restated in a
+// different form since. Neither is derivable from the catalog — that is why availabilityVerifiedOn dates
+// them together and carries a re-check interval, so the gap is bounded by how long an entry may go
+// unread rather than closed.
+//
+// A snapshot id that contradicts the form its own entry declares is a DIFFERENT kind of defect and is
+// deliberately not checked here: it is wrong from the moment it is written rather than wrong as of some
+// date, so ./catalog.ts rejects it at module load, where it fails for every consumer at import instead of
+// waiting for a gate to run. This pass reports when a recorded fact is due to be re-read; the schema
+// decides whether the recorded fact is internally coherent at all.
 
 // Two severities, because they earn different responses.
 //
@@ -153,7 +160,7 @@ export function modelPinFindingsFor(
       today,
       entry.availabilityVerifiedOn,
       "lifecycle-facts-unread",
-      "the published-and-active lifecycle facts were",
+      "the published-and-active lifecycle facts, including the pinned snapshot id and the form it is published in, were",
     ),
   ];
 }

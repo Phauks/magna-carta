@@ -25,6 +25,23 @@ the firm-scoped read result as injected parameters.
   `supersededBy` record what the provider publishes. **Nothing resolves a model through `supersededBy`**
   — a successor is not in the catalog, so it has no verified facts, and moving onto it is a decision
   rather than a derivation.
+- **`snapshotId` is the provider's published pin, verbatim, and `snapshotForm` says which form that is.**
+  The value is written into every per-request provenance record — the record that answers which exact
+  model produced an output, on transcripts that are firm work product and discoverable — so a
+  plausible-looking wrong id is worse than an empty field: absence prompts a question, a fabricated
+  snapshot answers it falsely. It stays REQUIRED even for models the provider names without a date,
+  because on its newer models the undated id **is** the pinned snapshot rather than a pointer to one;
+  recording absence there would assert no snapshot exists when one does. `snapshotForm` is
+  `provider-dated` (the undated name is an alias, so the date is the pin), `provider-dateless`
+  (`snapshotId` equals `referenceId`), or `platform-composed` (the embedding entry alone, binding the
+  model to its index generation). **It is recorded, not derived, and that is the point** — whether a
+  provider issues a dated id for a given model exists nowhere in this repository, so without the
+  declaration a fabricated suffix is indistinguishable from a real one. `catalogEntrySchema` refuses an
+  id that contradicts its form **at module load, not in the freshness pass**: such an id is wrong when
+  written rather than wrong as of a date, so it must fail at import for every consumer instead of waiting
+  for a gate to run. What genuinely decays — whether the recorded form is still what the provider
+  publishes — is read off the same page as the lifecycle facts, dated by `availabilityVerifiedOn`, and
+  reported with them.
 - **Reasoning tiers are the evergreen name; the catalog says who occupies one.** `ReasoningTier`
   (`most-capable` / `balanced`) is what configuration and the firm default refer to; which curated model
   fills a tier is data. The provider publishes no evergreen alias of its own — every id it publishes is

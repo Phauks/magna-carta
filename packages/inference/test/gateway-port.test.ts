@@ -54,7 +54,7 @@ describe("createGatewayInferencePort.generate", () => {
     if (result.ok) {
       expect(result.value.text).toBe("Drafted clause.");
       expect(result.value.usage).toEqual({ inputTokens: 11, outputTokens: 22 });
-      expect(result.value.snapshotId).toBe("claude-opus-4-8-20260101");
+      expect(result.value.snapshotId).toBe("claude-opus-4-8");
     }
     expect(calls[0]?.model).toBe("anthropic/claude-opus-4-8");
     const options = calls[0]?.options as {
@@ -181,7 +181,7 @@ describe("createGatewayInferencePort.generateStream", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.snapshotId).toBe("claude-opus-4-8-20260101");
+    expect(result.value.snapshotId).toBe("claude-opus-4-8");
     const collected: string[] = [];
     for await (const delta of result.value.stream) collected.push(delta);
     expect(collected.join("")).toBe("Drafted clause.");
