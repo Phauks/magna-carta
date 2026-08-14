@@ -13,10 +13,20 @@
 // litigator, carries the industry meaning, and cannot be confused with the register by anyone
 // reading either the code or the screen.
 //
+// THE CODE'S WORD AND THE READER'S LABEL ARE DIFFERENT, AND BOTH ARE PERMITTED. The owner named the
+// discovery attribution "Custodian of Record" for everything a person reads — a field label, an
+// OpenAPI description, a refusal sentence, a help page — while code, tables, columns, route paths,
+// and refusal CODES keep `record_custodian` / `recordCustodian`. So the scan allows exactly two
+// forms, and nothing else: the leading-`record` family, and the full phrase "Custodian of Record".
+// Both are three-or-two-word constructions a reader cannot mistake for the safekeeping register, and
+// neither can be produced by accident — which is what the gate is actually for. A bare `custodian`
+// remains a failure in every casing and every position.
+//
 // WHAT THIS SCANS TODAY. The discovery area, in both directions:
 //
 //   1. a bare `custodian` identifier inside the discovery trees (only `recordCustodian` /
-//      `record_custodian` / `RecordCustodian` / the prose "record custodian" are allowed), and
+//      `record_custodian` / `RecordCustodian` / the prose "record custodian" / the reader-facing
+//      label "Custodian of Record" are allowed), and
 //   2. any `custody*` identifier inside the discovery trees — the physical register's family has no
 //      business there.
 //
@@ -76,11 +86,13 @@ const SKIP_DIRECTORIES = new Set([
   ".vite",
 ]);
 
-// A `custodian` that is NOT preceded by `record` — the only permitted form. The lookbehind covers
-// every casing and joiner the platform writes: `recordCustodian`, `record_custodian`, the prose
-// "record custodian" (also "Record custodian" opening a sentence or a label), and the hyphenated
-// adjectival "per-record-custodian".
-const BARE_CUSTODIAN = /(?<!record[ _-]?)\bcustodian\b/i;
+// A `custodian` that is neither preceded by `record` nor followed by `of record` — anything else is
+// bare. The lookbehind covers every casing and joiner the platform writes: `recordCustodian`,
+// `record_custodian`, the prose "record custodian" (also "Record custodian" opening a sentence), and
+// the hyphenated adjectival "per-record-custodian". The lookahead covers the reader-facing label the
+// owner named, "Custodian of Record", wherever a person will read it. Plurals need neither arm —
+// "custodians" fails the trailing word boundary and was never matched.
+const BARE_CUSTODIAN = /(?<!record[ _-]?)\bcustodian\b(?![ _-]of[ _-]record\b)/i;
 
 // The physical register's identifier family, which must never appear in a discovery tree. Matched
 // with a word boundary before it so `recordCustody…` (which does not exist, and should not) would
@@ -102,6 +114,13 @@ const SELF_TEST = [
   ["/// the record custodian this document was collected from", false, false],
   ["record_custodian_id TEXT NOT NULL", false, false],
   ["/// one zip per-record-custodian", false, false],
+  // The reader-facing label, in the shapes a person actually meets it in.
+  ['title: "Custodian of Record",', false, false],
+  ['detail: "No such Custodian of Record in this firm."', false, false],
+  ["/// the Custodian of Record this document is attributed to", false, false],
+  // …and the near-misses it must not license. Only the full phrase passes.
+  ["const custodian = ofRecord;", true, false],
+  ["/// the custodian of the estate", true, false],
   ["const packet = custodyPacket(id);", false, true],
   ["custody_item_id TEXT", false, true],
   ["const owner = custodyOwner;", false, true],

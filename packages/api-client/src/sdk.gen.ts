@@ -2322,7 +2322,7 @@ export const discoveryTransitionReviewSet = <ThrowOnError extends boolean = fals
 });
 
 /**
- * Whose records are in this review set. Record custodians are scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.
+ * Whose records are in this review set. A Custodian of Record is scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.
  */
 export const discoveryListRecordCustodians = <ThrowOnError extends boolean = false>(options: Options<DiscoveryListRecordCustodiansData, ThrowOnError>): RequestResult<DiscoveryListRecordCustodiansResponses, DiscoveryListRecordCustodiansErrors, ThrowOnError> => (options.client ?? client).get<DiscoveryListRecordCustodiansResponses, DiscoveryListRecordCustodiansErrors, ThrowOnError>({ url: '/api/v1/review-sets/{reviewSetId}/record-custodians', ...options });
 
@@ -2339,7 +2339,7 @@ export const discoveryCreateRecordCustodian = <ThrowOnError extends boolean = fa
 });
 
 /**
- * Corrects a record custodian in place, which re-points every document already attributed to it — and that is the intent: a production that named "J. Smith" and the person the firm later identified are one custodian, and a second row would split the attribution of documents already loaded under the first.
+ * Corrects a Custodian of Record in place, which re-points every document already attributed to it — and that is the intent: a production that named "J. Smith" and the person the firm later identified are one Custodian of Record, and a second row would split the attribution of documents already loaded under the first.
  */
 export const discoveryUpdateRecordCustodian = <ThrowOnError extends boolean = false>(options: Options<DiscoveryUpdateRecordCustodianData, ThrowOnError>): RequestResult<DiscoveryUpdateRecordCustodianResponses, DiscoveryUpdateRecordCustodianErrors, ThrowOnError> => (options.client ?? client).patch<DiscoveryUpdateRecordCustodianResponses, DiscoveryUpdateRecordCustodianErrors, ThrowOnError>({
     url: '/api/v1/record-custodians/{recordCustodianId}',

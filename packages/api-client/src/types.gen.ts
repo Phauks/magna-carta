@@ -17596,7 +17596,7 @@ export type DiscoveryListRecordCustodiansError = DiscoveryListRecordCustodiansEr
 
 export type DiscoveryListRecordCustodiansResponses = {
     /**
-     * The review set's record custodians
+     * The review set's Custodians of Record
      */
     200: RecordCustodianList;
 };
@@ -17646,7 +17646,7 @@ export type DiscoveryCreateRecordCustodianError = DiscoveryCreateRecordCustodian
 
 export type DiscoveryCreateRecordCustodianResponses = {
     /**
-     * The record custodian was created
+     * The Custodian of Record was created
      */
     201: {
         id: string;
@@ -17698,7 +17698,7 @@ export type DiscoveryUpdateRecordCustodianError = DiscoveryUpdateRecordCustodian
 
 export type DiscoveryUpdateRecordCustodianResponses = {
     /**
-     * The updated record custodian
+     * The updated Custodian of Record
      */
     200: RecordCustodian;
 };

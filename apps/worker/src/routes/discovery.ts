@@ -482,13 +482,13 @@ const listRecordCustodiansRoute = defineOpenAPIRoute(readMeta("listRecordCustodi
   method: "get",
   path: "/api/v1/review-sets/{reviewSetId}/record-custodians",
   description:
-    "Whose records are in this review set. Record custodians are scoped to the review set on " +
+    "Whose records are in this review set. A Custodian of Record is scoped to the review set on " +
     "purpose: the same name in two matters is not assertably the same person, and asserting it " +
     "wrongly is a defensibility problem.",
   request: { params: reviewSetIdParam },
   responses: {
     200: {
-      description: "The review set's record custodians",
+      description: "The review set's Custodians of Record",
       content: {
         "application/json": {
           schema: z
@@ -528,7 +528,7 @@ const createRecordCustodianRoute = defineOpenAPIRoute(manageMeta("createRecordCu
   },
   responses: {
     201: {
-      description: "The record custodian was created",
+      description: "The Custodian of Record was created",
       content: { "application/json": { schema: z.object({ id: z.string() }) } },
     },
     ...commonErrors,
@@ -539,10 +539,10 @@ const patchRecordCustodianRoute = defineOpenAPIRoute(manageMeta("updateRecordCus
   method: "patch",
   path: "/api/v1/record-custodians/{recordCustodianId}",
   description:
-    "Corrects a record custodian in place, which re-points every document already attributed to " +
-    'it — and that is the intent: a production that named "J. Smith" and the person the firm later ' +
-    "identified are one custodian, and a second row would split the attribution of documents " +
-    "already loaded under the first.",
+    "Corrects a Custodian of Record in place, which re-points every document already attributed " +
+    'to it — and that is the intent: a production that named "J. Smith" and the person the firm ' +
+    "later identified are one Custodian of Record, and a second row would split the attribution " +
+    "of documents already loaded under the first.",
   request: {
     params: recordCustodianIdParam,
     headers: idempotencyKeyHeader,
@@ -563,7 +563,7 @@ const patchRecordCustodianRoute = defineOpenAPIRoute(manageMeta("updateRecordCus
   },
   responses: {
     200: {
-      description: "The updated record custodian",
+      description: "The updated Custodian of Record",
       content: { "application/json": { schema: RecordCustodianSummary } },
     },
     ...commonErrors,
@@ -1022,7 +1022,7 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
             type: "not-found",
             title: "Not found",
             status: 404,
-            detail: "No such record custodian in this firm.",
+            detail: "No such Custodian of Record in this firm.",
           });
         }
         return c.json(
