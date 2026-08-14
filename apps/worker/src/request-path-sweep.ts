@@ -1,6 +1,7 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
+import { trackBackgroundWork } from "./background.ts";
 import { runScheduledSweep } from "./scheduled.ts";
 
 // Best-effort, request-path outbox sweep scheduled AFTER a route commits a member.provision row
@@ -18,13 +19,19 @@ import { runScheduledSweep } from "./scheduled.ts";
 // Workers `ExecutionContext` (which carries runtime-only fields like `tracing`), so taking the full
 // type would reject the call site. Depending only on `waitUntil` keeps this stable as the Workers
 // type surface grows.
+//
+// The sweep is also registered with `trackBackgroundWork` (background.ts) — a whole cron pass on the
+// tail of a request is the longest-running piece of background work this worker starts, and the test
+// harness has to be able to wait for it before the environment goes away underneath it.
 export function scheduleRequestPathSweep(
   executionContext: Pick<ExecutionContext, "waitUntil">,
   env: Bindings,
 ): void {
   executionContext.waitUntil(
-    runScheduledSweep(env).catch((caught: unknown) => {
-      logOperationFailed(createWorkersLogger(env.TELEMETRY), "request-path-sweep", caught);
-    }),
+    trackBackgroundWork(
+      runScheduledSweep(env).catch((caught: unknown) => {
+        logOperationFailed(createWorkersLogger(env.TELEMETRY), "request-path-sweep", caught);
+      }),
+    ),
   );
 }
