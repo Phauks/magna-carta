@@ -40,7 +40,7 @@ it produced was real. The measurements are quoted inline because they are the wh
 
 ## What is checked, and why
 
-Six rules. Each is exact — a path resolves or it does not, a status is in a set or it is not — and
+Eight rules. Each is exact — a path resolves or it does not, a status is in a set or it is not — and
 none of them guesses at natural language.
 
 Two status groups do the work, both taken from the vocabulary table in `roadmap.d/README.md` rather
@@ -127,6 +127,65 @@ Measured: **five** entries across **four** nodes name decisions by their **pendi
 Measured: **zero** hits. Free, and it closes the one vocabulary contradiction the parser can see
 without touching the filesystem.
 
+### 7. A build stream that has already delivered beside the node
+
+> A **`not-started`** node, **every** slice it names reporting `built: in-progress` or `built: done`,
+> and a **sibling** tagged to one of those same slices holding a has-code status.
+
+Added after two further nodes went stale in a way rules 1–6 are structurally unable to see. Both sat
+at `not-started` over a package with sixteen modules, a route file and an accepted decision behind
+them, and neither was visible to the scan **because neither named a path**: rules 1, 2 and 4 all key
+on a path token, and a node that describes its own absence in prose ("no code", "no registration
+exists") offers nothing to key on. This rule reads no prose at all. A node carries `slices:`, a
+`status.d/` fragment carries `built:`, and both are committed documents; the contradiction is between
+the two of them.
+
+Only the `built` stage is read. `ui`, `tested` and the rest describe work around the code rather than
+whether it exists.
+
+**Two narrowings, both load-bearing, both measured over the whole ledger.**
+
+- **The sibling requirement.** Without it the rule fires **19** times and **14 are the same correct
+  idiom** — the one the rejected slice rule below was rejected for. A capability tagged to the slice
+  that built the _substrate it will reuse_ is not stale: `payments.port` and `calendar.sync` sit on
+  the port system, every `portal.capabilities.*` on the document slice whose engine it will call,
+  `discovery.review.email-threading` on the shipped email parse core. What separates those from a
+  stale node is **where the stream's output landed.** Their substrate is in another subtree; a stream
+  that has already shipped this node's own siblings is demonstrably working inside this subtree.
+  Siblings only — an ancestor corroborates nothing, because a `partial` parent over pre-code children
+  is the most common and most correct shape in the ledger (rule 3 says the same), and a has-code
+  _descendant_ is already rule 3's finding.
+- **`not-started` alone, not the whole pre-code group.** Widening to `designed` and `planned` adds
+  exactly two hits: one stale (`financial.trust.multi-jurisdiction-accounts`) and one correct
+  (`matter-assets.carry-forward`, whose slice is mid-build and has honestly not reached it).
+  One-for-one is not a ratio this file keeps a rule at. The distinction that survives is real rather
+  than fitted: `designed` and `planned` are **attested** pre-code states — a spec or plan was written
+  and somebody recorded that the build had not begun — whereas `not-started` is "promised in the
+  white paper; no artifact or spec yet", the state a node is born in and keeps until someone
+  revisits it. A `not-started` node inside a subtree a stream has already delivered into is precisely
+  the node nobody revisited.
+
+**A node on several slices is contradicted only when every one of them reports built.** A capability
+tracked under two streams is built by both, so one still at `todo` is an honest reason for it to be
+pre-code — three nodes in `roadmap.d/reports.md` are exactly that shape, and the stricter reading is
+the one that keeps the rule silent on them. Slices with no fragment are excluded from the test (rule
+8 reports them separately); a node naming no slice at all is silent, which is 164 of the 175
+`not-started` nodes.
+
+Measured: **2** hits, both the known-stale nodes, no false positives.
+
+### 8. A slice tag names a fragment that does not exist
+
+> Every `slices:` entry must resolve to a `status.d/<slug>.md` fragment.
+
+The guard rule 4 is, for the other kind of reference, and installed for the same reason: rule 7
+reasons from "this slug has a fragment reporting built", so a slug that quietly stops resolving turns
+rule 7 off for that node with nothing raised. Nothing else in the repository checked this —
+`lint:status` validates the fragments themselves, `lint:roadmap` only compares the rendered documents
+to the ledger.
+
+Measured: **267** slice tags across 235 nodes naming 55 distinct fragments, all 267 resolving.
+
 ## What is deliberately not checked
 
 Three candidates were measured and **rejected**. Each is recorded because the measurement is the
@@ -142,6 +201,13 @@ tag says which slice would carry the work, not that the work happened.
 
 It also **would not have caught instance 1**, which settles it: neither `discovery.search` nor
 `discovery.search.keyword` carries a `slices:` tag at all. Only 235 of 702 nodes do.
+
+**Rule 7 later recovered the signal this rejection threw away**, and the difference is worth stating
+because it is the pattern: the rejected form asked the _filesystem_ whether the slice had files and
+took the answer as being about the node, which it never was. Rule 7 asks the slice's own fragment
+whether its build has begun, and then demands that the stream have already delivered a **sibling** of
+the node — which is what makes the claim about this node rather than about the slice. Same input,
+19 hits down to 2, none false. A rejected rule is a rejected _shape_, not a rejected input.
 
 ### Rejected: an affirmative build claim inside a pre-code node
 
@@ -198,6 +264,22 @@ One of two is the honest score. It is worth building because the rules that catc
 nothing on the ledger they do not catch — **zero false positives across every rule, on two separate
 checkouts** — and because they found three further stale nodes nobody had noticed.
 
+### Instance 3 — the blind spot rule 7 was added for
+
+`financial.trust.reconciliation` and `financial.trust.close-rule` both read `not-started` while
+`packages/trust` held sixteen modules, `apps/worker/src/routes/trust-reconciliation.ts` held twelve
+routes, and the close gate was registered in the matter composition root. Rules 1–6 were silent by
+construction and it is worth being precise about why, because it is the same reason both times:
+
+- `reconciliation` named **no path at all** — its evidence was "in slice 3-2 scope per the phase-3
+  slice map … no code" — so there was nothing for a path rule to resolve.
+- `close-rule` named `packages/matters/src/close-preconditions.ts`, which exists **and which the
+  matters node accounts for**, so rule 1's unclaimed filter correctly passed it. The absence claim
+  ("no registration exists") was about a symbol, not a path, so rule 2 could not bind it either.
+
+Neither is a defect in rules 1–6; both are the cost of refusing to resolve English against the tree.
+Rule 7 reaches them from the other side, without reading either sentence.
+
 ## What it finds on today's ledger
 
 Eight hits across six nodes, every one real, none of them the two known instances:
@@ -218,9 +300,12 @@ a bare marker is itself a failure. This follows the marker-plus-reason idiom alr
 object-dimension scan (`fitness:allow-no-dimensions`) and the conflicts-vocabulary gate
 (`conflicts-vocabulary:allow`).
 
-Rules 3, 5 and 6 have **no** escape hatch. They compare the ledger against itself and against files
-that either exist or do not; there is no legitimate exception to a parent contradicting its own
-child, or to citing a decision that was never written.
+Rules 3, 5, 6, 7 and 8 have **no** escape hatch. They compare the ledger against itself and against
+files that either exist or do not; there is no legitimate exception to a parent contradicting its own
+child, to citing a decision that was never written, or to a `not-started` node sitting between
+siblings its own build stream has already shipped. Rule 7 earns that by its narrowing rather than by
+assertion — it fires twice on today's ledger, and needing a per-node exemption would be the signal
+that the rule is the wrong shape, not that the node is an exception.
 
 ## Where it runs
 

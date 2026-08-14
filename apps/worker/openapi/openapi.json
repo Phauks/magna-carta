@@ -17306,6 +17306,1260 @@
           "recordedAt"
         ]
       },
+      "TrustCompliancePack": {
+        "type": "object",
+        "properties": {
+          "cover": {
+            "$ref": "#/components/schemas/TrustComplianceCover"
+          },
+          "reconciliations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceReconciliation"
+            }
+          },
+          "reconciliationNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proofAtProductionNote": {
+            "type": "string"
+          },
+          "clientLedgers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceClientLedger"
+            }
+          },
+          "journal": {
+            "type": "object",
+            "properties": {
+              "openingBalanceMinor": {
+                "type": "integer"
+              },
+              "closingBalanceMinor": {
+                "type": "integer"
+              },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceJournalEntry"
+                }
+              }
+            },
+            "required": [
+              "openingBalanceMinor",
+              "closingBalanceMinor",
+              "entries"
+            ]
+          },
+          "cushion": {
+            "$ref": "#/components/schemas/TrustComplianceCushion"
+          },
+          "exceptions": {
+            "$ref": "#/components/schemas/TrustComplianceExceptions"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "requestedBy": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "computedAt": {
+                "type": "string"
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "knownAsOf": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "packShapeVersion": {
+                "type": "integer"
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "zeroBalanceLedgers": {
+                    "type": "string",
+                    "enum": [
+                      "include",
+                      "omit"
+                    ]
+                  },
+                  "authorizers": {
+                    "type": "string",
+                    "enum": [
+                      "include",
+                      "omit"
+                    ]
+                  }
+                },
+                "required": [
+                  "zeroBalanceLedgers",
+                  "authorizers"
+                ]
+              }
+            },
+            "required": [
+              "requestedBy",
+              "computedAt",
+              "periodStart",
+              "periodEnd",
+              "knownAsOf",
+              "packShapeVersion",
+              "options"
+            ]
+          }
+        },
+        "required": [
+          "cover",
+          "reconciliations",
+          "reconciliationNote",
+          "proofAtProductionNote",
+          "clientLedgers",
+          "journal",
+          "cushion",
+          "exceptions",
+          "provenance"
+        ]
+      },
+      "TrustComplianceCover": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "trustAccountName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "pooledInterestBearing": {
+            "type": "boolean"
+          },
+          "accountStatus": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jurisdiction": {
+            "$ref": "#/components/schemas/TrustComplianceJurisdiction"
+          },
+          "bankChargeCarveOutOpen": {
+            "type": "boolean"
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "trustAccountName",
+          "locationId",
+          "currency",
+          "pooledInterestBearing",
+          "accountStatus",
+          "bankName",
+          "accountNumberLastFour",
+          "jurisdiction",
+          "bankChargeCarveOutOpen",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness"
+        ]
+      },
+      "TrustComplianceJurisdiction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "jurisdiction": {
+                "type": "string"
+              },
+              "requirement": {
+                "type": "string"
+              },
+              "citation": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "available",
+              "jurisdiction",
+              "requirement",
+              "citation",
+              "binding"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "jurisdiction": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "refusalCode": {
+                "type": "string"
+              },
+              "refusalDetail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "available",
+              "jurisdiction",
+              "refusalCode",
+              "refusalDetail"
+            ]
+          }
+        ]
+      },
+      "ReportReproducibility": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "reproducible": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "knownAsOf": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reproducible",
+              "periodStart",
+              "periodEnd",
+              "knownAsOf"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reproducible": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "computedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reproducible",
+              "periodStart",
+              "periodEnd",
+              "computedAt"
+            ]
+          }
+        ]
+      },
+      "ReportCompleteness": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "complete"
+                ]
+              }
+            },
+            "required": [
+              "scope"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "complete-not-itemized"
+                ]
+              },
+              "notItemizedMatterCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scope",
+              "notItemizedMatterCount"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "screened"
+                ]
+              },
+              "excludedMatterCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scope",
+              "excludedMatterCount"
+            ]
+          }
+        ]
+      },
+      "TrustComplianceReconciliation": {
+        "type": "object",
+        "properties": {
+          "reconciliationId": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "statementPeriodStart": {
+            "type": "string"
+          },
+          "statementPeriodEnd": {
+            "type": "string"
+          },
+          "statementReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openedBy": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "statusAsKnown": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frozenProof": {
+            "$ref": "#/components/schemas/TrustComplianceFrozenProof"
+          },
+          "proofAtProduction": {
+            "type": "object",
+            "properties": {
+              "computedAt": {
+                "type": "string"
+              },
+              "boundedByKnowledgeInstant": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "proof": {
+                "$ref": "#/components/schemas/TrustComplianceLiveProof"
+              },
+              "differencesFromAttestation": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceProofDifference"
+                }
+              }
+            },
+            "required": [
+              "computedAt",
+              "boundedByKnowledgeInstant",
+              "proof",
+              "differencesFromAttestation"
+            ]
+          }
+        },
+        "required": [
+          "reconciliationId",
+          "statementId",
+          "statementPeriodStart",
+          "statementPeriodEnd",
+          "statementReference",
+          "openedBy",
+          "openedAt",
+          "statusAsKnown",
+          "closedBy",
+          "closedAt",
+          "frozenProof",
+          "proofAtProduction"
+        ]
+      },
+      "TrustComplianceFrozenProof": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "statementClosingMinor": {
+            "type": "integer"
+          },
+          "outstandingDepositsMinor": {
+            "type": "integer"
+          },
+          "outstandingDisbursementsMinor": {
+            "type": "integer"
+          },
+          "adjustedBankMinor": {
+            "type": "integer"
+          },
+          "bookBalanceMinor": {
+            "type": "integer"
+          },
+          "clientLedgerTotalMinor": {
+            "type": "integer"
+          },
+          "firmFundsMinor": {
+            "type": "integer"
+          },
+          "unmatchedLineCount": {
+            "type": "integer"
+          },
+          "unmatchedItemCount": {
+            "type": "integer"
+          },
+          "balanced": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "statementClosingMinor",
+          "outstandingDepositsMinor",
+          "outstandingDisbursementsMinor",
+          "adjustedBankMinor",
+          "bookBalanceMinor",
+          "clientLedgerTotalMinor",
+          "firmFundsMinor",
+          "unmatchedLineCount",
+          "unmatchedItemCount",
+          "balanced"
+        ]
+      },
+      "TrustComplianceLiveProof": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "statementClosingMinor": {
+            "type": "integer"
+          },
+          "outstandingDeposits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceBankItem"
+            }
+          },
+          "outstandingDepositsMinor": {
+            "type": "integer"
+          },
+          "outstandingDisbursements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceBankItem"
+            }
+          },
+          "outstandingDisbursementsMinor": {
+            "type": "integer"
+          },
+          "adjustedBankMinor": {
+            "type": "integer"
+          },
+          "bookBalanceMinor": {
+            "type": "integer"
+          },
+          "clientLedgerTotalMinor": {
+            "type": "integer"
+          },
+          "firmFundsMinor": {
+            "type": "integer"
+          },
+          "unmatchedStatementLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceStatementLine"
+            }
+          },
+          "balanced": {
+            "type": "boolean"
+          },
+          "disagreements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "leg": {
+                  "type": "string"
+                },
+                "differenceMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "leg",
+                "differenceMinor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "statementId",
+          "asOfDate",
+          "currency",
+          "statementClosingMinor",
+          "outstandingDeposits",
+          "outstandingDepositsMinor",
+          "outstandingDisbursements",
+          "outstandingDisbursementsMinor",
+          "adjustedBankMinor",
+          "bookBalanceMinor",
+          "clientLedgerTotalMinor",
+          "firmFundsMinor",
+          "unmatchedStatementLines",
+          "balanced",
+          "disagreements"
+        ]
+      },
+      "TrustComplianceBankItem": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "bankDeltaMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "description",
+          "bankDeltaMinor",
+          "movementId",
+          "movementKind",
+          "transferId",
+          "reference",
+          "counterpartyName"
+        ]
+      },
+      "TrustComplianceStatementLine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "postedOn": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceRowNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "statementId",
+          "postedOn",
+          "direction",
+          "amountMinor",
+          "description",
+          "reference",
+          "counterpartyName",
+          "sourceRowNumber"
+        ]
+      },
+      "TrustComplianceProofDifference": {
+        "type": "object",
+        "properties": {
+          "leg": {
+            "type": "string"
+          },
+          "attestedMinor": {
+            "type": "integer"
+          },
+          "liveMinor": {
+            "type": "integer"
+          },
+          "differenceMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "leg",
+          "attestedMinor",
+          "liveMinor",
+          "differenceMinor"
+        ]
+      },
+      "TrustComplianceClientLedger": {
+        "type": "object",
+        "properties": {
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceMatterLedger"
+            }
+          }
+        },
+        "required": [
+          "clientEntityId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "matters"
+        ]
+      },
+      "TrustComplianceMatterLedger": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceLedgerEntry"
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "matterId",
+          "ledgerAccountId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "entries"
+        ]
+      },
+      "TrustComplianceLedgerEntry": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reversesEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "debit",
+              "credit"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "deltaMinor": {
+            "type": "integer"
+          },
+          "runningBalanceMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "recordedAt",
+          "description",
+          "reversesEntryId",
+          "direction",
+          "amountMinor",
+          "deltaMinor",
+          "runningBalanceMinor",
+          "movementId",
+          "movementKind",
+          "method",
+          "reference",
+          "counterpartyName",
+          "purpose",
+          "transferId",
+          "authorizedBy",
+          "recordedBy"
+        ]
+      },
+      "TrustComplianceJournalEntry": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reversesEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bankDeltaMinor": {
+            "type": "integer"
+          },
+          "runningBalanceMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmFundsMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmFundsMovementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyNodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "recordedAt",
+          "description",
+          "reversesEntryId",
+          "bankDeltaMinor",
+          "runningBalanceMinor",
+          "movementId",
+          "movementKind",
+          "transferId",
+          "firmFundsMovementId",
+          "firmFundsMovementKind",
+          "method",
+          "reference",
+          "counterpartyName",
+          "purpose",
+          "nodeId",
+          "counterpartyNodeId",
+          "authorizedBy",
+          "recordedBy"
+        ]
+      },
+      "TrustComplianceCushion": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "firmFundsMovementId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "firm_funds_deposit",
+                    "bank_charge"
+                  ]
+                },
+                "effectiveDate": {
+                  "type": "string"
+                },
+                "recordedAt": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "recordedBy": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "firmFundsMovementId",
+                "kind",
+                "effectiveDate",
+                "recordedAt",
+                "amountMinor",
+                "method",
+                "reference",
+                "description",
+                "recordedBy"
+              ]
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "movements"
+        ]
+      },
+      "TrustComplianceExceptions": {
+        "type": "object",
+        "properties": {
+          "holdsInForceAtKnowledgeInstant": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "holdId": {
+                  "type": "string"
+                },
+                "nodeId": {
+                  "type": "string"
+                },
+                "matterId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "placedAt": {
+                  "type": "string"
+                },
+                "placedBy": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "holdId",
+                "nodeId",
+                "matterId",
+                "clientEntityId",
+                "amountMinor",
+                "reason",
+                "placedAt",
+                "placedBy"
+              ]
+            }
+          },
+          "atProduction": {
+            "type": "object",
+            "properties": {
+              "computedAt": {
+                "type": "string"
+              },
+              "boundedByKnowledgeInstant": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "outstandingBankItems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceBankItem"
+                }
+              },
+              "unmatchedStatementLines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reconciliationId": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "$ref": "#/components/schemas/TrustComplianceStatementLine"
+                    }
+                  },
+                  "required": [
+                    "reconciliationId",
+                    "line"
+                  ]
+                }
+              },
+              "storedBalanceDisagreements": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ledgerAccountId": {
+                      "type": "string"
+                    },
+                    "storedBalanceMinor": {
+                      "type": "integer"
+                    },
+                    "computedBalanceMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ledgerAccountId",
+                    "storedBalanceMinor",
+                    "computedBalanceMinor"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "computedAt",
+              "boundedByKnowledgeInstant",
+              "outstandingBankItems",
+              "unmatchedStatementLines",
+              "storedBalanceDisagreements"
+            ]
+          }
+        },
+        "required": [
+          "holdsInForceAtKnowledgeInstant",
+          "atProduction"
+        ]
+      },
       "TrustDormantBalancesResponse": {
         "type": "object",
         "properties": {
@@ -59230,6 +60484,151 @@
         }
       }
     },
+    "/api/v1/reports/trust-compliance/{trustAccountId}": {
+      "get": {
+        "description": "The trust-compliance pack for one trust account over one period: every movement of client money, each client's and each matter's ledger, what the firm attested to at each reconciliation, and every item that did not tie out. Give it a period and a knowledge instant and every figure re-derives from records that can never change, so the same request answers identically however much has been recorded since; omit the knowledge instant and the answer covers everything known now, which is stamped and is not claimed to reproduce. Two blocks are labelled as outside that claim and carry their own instant: the three-way proof shown beside each attestation, and the outstanding items, unmatched statement lines and stored-balance checks in the exceptions section — each is read through the one definition the trust and ledger records already have, and none of those definitions is taken as at a past moment. A period too large to return in one document is refused by name rather than answered short.",
+        "operationId": "reports.trustCompliancePack",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.trustCompliancePack",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:trustCompliance",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "include",
+                "omit"
+              ]
+            },
+            "required": false,
+            "name": "zeroBalanceLedgers",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "include",
+                "omit"
+              ]
+            },
+            "required": false,
+            "name": "authorizers",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pack for this trust account and period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCompliancePack"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:trustCompliance",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates, it ends before it starts, the knowledge instant is not a UTC instant or is in the future, the period holds more of this account's activity than one document can carry, or the account's outstanding items are more than one reconciliation can account for",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trust/unclaimed-funds/dormant-balances": {
       "get": {
         "description": "Lists the client ledgers on one trust account that still hold money and have had no movement since a date the caller states. The date is required and has no default: dormancy is a comparison made at read time, not a stored flag, and the periods that exist differ by jurisdiction and often gate a permission rather than an obligation — so there is no window the platform can pick on a firm's behalf. Each row reports the earliest receipt still on the ledger separately from the last activity, because the conduct rules' clocks run from receipt of the property. Nothing here is a verdict: no row says a balance is abandoned, and the firm may have spoken to that client this morning in a way this platform never saw.",
@@ -70940,6 +72339,9 @@
     },
     {
       "name": "registrations"
+    },
+    {
+      "name": "reports"
     },
     {
       "name": "safeBrowse"

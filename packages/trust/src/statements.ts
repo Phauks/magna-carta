@@ -1334,3 +1334,304 @@ export function selectTrustNodeStoredBalanceStatement(
     .prepare(`SELECT balance_minor FROM ${ACCOUNT_BALANCE_TABLE} WHERE account_id = ?1`)
     .bind(ledgerAccountId);
 }
+
+// ---- the bitemporal reads a compliance report is taken over ----
+//
+// Every statement below filters on BOTH date axes: `effective_date` (when the event is deemed to
+// have happened) and `recorded_at` (when the platform learned of it). The as-of statements above
+// filter on the effective axis alone, and they are deliberately unchanged — the three-way proof's
+// contract is settled and a report must not move it.
+//
+// The second axis is what makes an audit artifact reproducible. Filtering on the effective axis
+// alone means a reversal posted next month with a backdated effective date silently changes last
+// month's answer after somebody signed it — the precise failure the reconciliation freeze exists to
+// prevent, reintroduced by every report that read one axis. With both, a stated
+// (period, knowledge instant) triple selects rows that can never change, so re-running it in five
+// years returns the same integers.
+
+// A ceiling on every per-row report read, so a runaway period cannot pull an unbounded result set
+// into a request handler or a queue consumer. Separate from MAX_TRUST_RECONCILIATION_ROWS because it
+// bounds a different thing: a reconciliation's outstanding list has no lower date bound and grows
+// with the account's whole life, where a report section is bounded by its period.
+//
+// THE CAP IS DETECTED, NEVER SILENT, on the same reasoning the reconciliation cap carries. A pack
+// section that came back short would be a client ledger missing entries, or a journal missing a
+// disbursement, presented as complete — and a document a regulator reads must not be quietly
+// incomplete. Each read asks for one row past the cap so the caller can tell a full list from a
+// truncated one and refuse rather than print.
+export const MAX_TRUST_REPORT_ROWS = 20_000;
+
+export const TRUST_REPORT_TRUNCATION_PROBE_ROWS = MAX_TRUST_REPORT_ROWS + 1;
+
+// EVERY MATTER LEAF UNDER ONE TRUST ACCOUNT, with its balance as of a civil date and bounded by a
+// knowledge instant. One builder rather than two, called twice — the opening balance and the closing
+// balance are the same question at two dates, and two builders would eventually answer it
+// differently.
+//
+// A LEFT JOIN, so a leaf that saw no activity at all still comes back, at zero. Which leaves a pack
+// PRINTS is a presentation decision the caller makes; a read that silently dropped the quiet ones
+// would take that decision away from it.
+//
+// The sign convention is the client leg's: a credit increases what the firm owes this client, a
+// debit reduces it — identical to selectTrustClientLedgerTotalAsOfStatement, which the per-leaf sums
+// are proved to add up to.
+export function selectTrustMatterLeafBalancesAsOfStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  asOfDate: string,
+  knownAsOf: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, n.matter_id AS matter_id, n.client_entity_id AS client_entity_id, n.ledger_account_id AS ledger_account_id,
+         COALESCE(SUM(CASE WHEN e.id IS NULL THEN 0 WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS balance_minor
+       FROM ${TRUST_LEDGER_NODE_TABLE} n
+       LEFT JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id
+       LEFT JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id AND e.effective_date <= ?2 AND e.recorded_at <= ?3
+       WHERE n.trust_account_id = ?1 AND n.kind = 'matter'
+       GROUP BY n.id, n.matter_id, n.client_entity_id, n.ledger_account_id
+       ORDER BY n.client_entity_id, n.matter_id, n.id`,
+    )
+    .bind(trustAccountId, asOfDate, knownAsOf);
+}
+
+// EVERY ENTRY ON EVERY CLIENT LEDGER under one trust account, in the period, as known at an instant.
+//
+// One row per (leaf, ledger line), so a matter-to-matter reallocation appears on BOTH leaves it
+// touches — the receiving ledger must show the funds arriving as plainly as the source ledger shows
+// them leaving, which is why the movement join reaches the counterparty node as well.
+//
+// The movement and the transfer are LEFT-joined for what they add and nothing more: the method, the
+// reference, the counterparty, and who authorized the money leaving. An earned-fee transfer out of
+// trust records a `trust_transfer` and no movement row at all, so a read keyed on movements would
+// omit the single operation most likely to be looked at.
+export function selectTrustClientLedgerEntriesInPeriodStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  periodStart: string,
+  periodEnd: string,
+  knownAsOf: string,
+  limit: number = TRUST_REPORT_TRUNCATION_PROBE_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, n.matter_id AS matter_id, n.client_entity_id AS client_entity_id,
+         e.id AS entry_id, e.effective_date AS effective_date, e.recorded_at AS recorded_at, e.description AS description, e.reverses_entry_id AS reverses_entry_id,
+         l.line_index AS line_index, l.direction AS direction, l.amount_minor AS amount_minor,
+         CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END AS delta_minor,
+         m.id AS movement_id, m.kind AS movement_kind, m.method AS method, m.reference AS reference, m.counterparty_name AS counterparty_name, m.purpose AS purpose, m.recorded_by AS recorded_by, m.authorized_by AS authorized_by, m.counterparty_node_id AS counterparty_node_id,
+         t.id AS transfer_id, t.authorized_by AS transfer_authorized_by, t.recorded_by AS transfer_recorded_by
+       FROM ${TRUST_LEDGER_NODE_TABLE} n
+       JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id
+       JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id
+       LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id AND (m.node_id = n.id OR m.counterparty_node_id = n.id)
+       LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id AND t.from_node_id = n.id
+       WHERE n.trust_account_id = ?1 AND n.kind = 'matter'
+         AND e.effective_date >= ?2 AND e.effective_date <= ?3 AND e.recorded_at <= ?4
+       ORDER BY n.client_entity_id, n.matter_id, n.id, e.effective_date, e.recorded_at, e.id, l.line_index
+       LIMIT ?5`,
+    )
+    .bind(trustAccountId, periodStart, periodEnd, knownAsOf, limit);
+}
+
+// THE RECEIPTS-AND-DISBURSEMENTS JOURNAL: everything that moved this account's bank balance in the
+// period, as known at an instant.
+//
+// KEYED ON THE LEDGER ENTRY, never on `trust_movement`. An earned-fee transfer out of trust writes a
+// `trust_transfer` and no movement row, and a bank service charge writes a
+// `trust_firm_funds_movement` and no movement row either; a movement-keyed journal would omit both
+// while looking complete. Anything that moves the bank balance is an entry touching the trust bank
+// account, whatever composed it — the same rule the reconciliation's outstanding-item read holds.
+//
+// The bank leaf is an asset, so a debit adds and a credit subtracts; the per-entry SUM is the net
+// effect on the bank, which is what a running balance in a journal is built from.
+export function selectTrustBankJournalInPeriodStatement(
+  database: SqlDatabase,
+  bankLedgerAccountId: LedgerAccountId,
+  periodStart: string,
+  periodEnd: string,
+  knownAsOf: string,
+  limit: number = TRUST_REPORT_TRUNCATION_PROBE_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.recorded_at AS recorded_at, e.description AS description, e.reverses_entry_id AS reverses_entry_id,
+         SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor,
+         m.id AS movement_id, m.kind AS movement_kind, m.method AS method, m.reference AS reference, m.counterparty_name AS counterparty_name, m.purpose AS purpose, m.node_id AS node_id, m.counterparty_node_id AS counterparty_node_id, m.recorded_by AS recorded_by, m.authorized_by AS authorized_by,
+         t.id AS transfer_id, t.from_node_id AS transfer_from_node_id, t.recorded_by AS transfer_recorded_by, t.authorized_by AS transfer_authorized_by,
+         f.id AS firm_funds_movement_id, f.kind AS firm_funds_movement_kind, f.method AS firm_funds_method, f.reference AS firm_funds_reference, f.description AS firm_funds_description
+       FROM ${LEDGER_ENTRY_TABLE} e
+       JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id
+       LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id
+       LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id
+       LEFT JOIN ${TRUST_FIRM_FUNDS_MOVEMENT_TABLE} f ON f.entry_id = e.id
+       WHERE l.account_id = ?1 AND e.effective_date >= ?2 AND e.effective_date <= ?3 AND e.recorded_at <= ?4
+       GROUP BY e.id, e.effective_date, e.recorded_at, e.description, e.reverses_entry_id, m.id, m.kind, m.method, m.reference, m.counterparty_name, m.purpose, m.node_id, m.counterparty_node_id, m.recorded_by, m.authorized_by, t.id, t.from_node_id, t.recorded_by, t.authorized_by, f.id, f.kind, f.method, f.reference, f.description
+       ORDER BY e.effective_date, e.recorded_at, e.id
+       LIMIT ?5`,
+    )
+    .bind(bankLedgerAccountId, periodStart, periodEnd, knownAsOf, limit);
+}
+
+// THE BANK BALANCE AS OF A DATE, bounded by a knowledge instant — the journal's opening and closing
+// figures. The effective-axis-only twin (selectTrustBookBalanceAsOfStatement) stays exactly as it is,
+// because the three-way proof's book leg is settled; this is the reproducible reading of the same
+// quantity, and the journal's closing figure is proved equal to the settled one over the fixture book
+// when the knowledge bound covers everything recorded.
+export function selectTrustBookBalanceAsKnownStatement(
+  database: SqlDatabase,
+  bankLedgerAccountId: LedgerAccountId,
+  asOfDate: string,
+  knownAsOf: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS balance_minor FROM ${LEDGER_LINE_TABLE} l JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND e.recorded_at <= ?3`,
+    )
+    .bind(bankLedgerAccountId, asOfDate, knownAsOf);
+}
+
+// THE FIRM'S OWN CUSHION as of a date, bounded by a knowledge instant. Zero on an account that never
+// opened the bank-charge carve-out, which is what lets the pack's arithmetic be identical for both
+// kinds of account instead of branching on one.
+export function selectTrustFirmFundsTotalAsKnownStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  asOfDate: string,
+  knownAsOf: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND n.kind = 'firm_funds' AND e.effective_date <= ?2 AND e.recorded_at <= ?3`,
+    )
+    .bind(trustAccountId, asOfDate, knownAsOf);
+}
+
+// THE CLIENT LEG as of a date, bounded by a knowledge instant. `kind = 'matter'` is load-bearing here
+// for exactly the reason it is load-bearing on the settled statement: the tree also carries the
+// firm's own cushion, and folding that in would report that firm money is client money.
+export function selectTrustClientLedgerTotalAsKnownStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  asOfDate: string,
+  knownAsOf: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0) AS total_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${LEDGER_LINE_TABLE} l ON l.account_id = n.ledger_account_id JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = l.entry_id WHERE n.trust_account_id = ?1 AND n.kind = 'matter' AND e.effective_date <= ?2 AND e.recorded_at <= ?3`,
+    )
+    .bind(trustAccountId, asOfDate, knownAsOf);
+}
+
+// EVERY FIRM-FUNDS MOVEMENT in the period, as known at an instant — the cushion's own journal, kept
+// separate from the client one because the money is the firm's and folding it into a client total
+// would tie out while asserting that firm money is client money.
+export function selectTrustFirmFundsMovementsInPeriodStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  periodStart: string,
+  periodEnd: string,
+  knownAsOf: string,
+  limit: number = TRUST_REPORT_TRUNCATION_PROBE_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${FIRM_FUNDS_MOVEMENT_COLUMNS} FROM ${TRUST_FIRM_FUNDS_MOVEMENT_TABLE} WHERE trust_account_id = ?1 AND effective_date >= ?2 AND effective_date <= ?3 AND recorded_at <= ?4 ORDER BY effective_date, recorded_at, id LIMIT ?5`,
+    )
+    .bind(trustAccountId, periodStart, periodEnd, knownAsOf, limit);
+}
+
+// EVERY RECONCILIATION whose statement period ends inside the report period, as it stood at the
+// knowledge instant — with the firm's own frozen attestation, whole.
+//
+// A RECONCILIATION CLOSED AFTER THE KNOWLEDGE INSTANT READS AS OPEN, and its frozen figures do not
+// appear. That is not a nicety: a pack taken as at a Tuesday must not print an attestation the firm
+// made on the Wednesday, or the same triple would answer differently before and after the close and
+// the whole reproducibility claim would be false. Each frozen column is therefore gated on
+// `closed_at <= ?4` rather than on the stored status, and a NULL `closed_at` fails that comparison
+// on its own.
+//
+// `frozen_firm_funds_minor` is COALESCEd to zero for the rows that predate the column: those
+// reconciliations were attested honestly under the arithmetic that then applied, where the cushion
+// was not a separate leg, and rewriting them would be asserting a figure nobody stood behind.
+export function selectTrustReconciliationsInPeriodStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  periodStart: string,
+  periodEnd: string,
+  knownAsOf: string,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  const frozenAsKnown = (column: string, fallback: string | null = null): string => {
+    const value = fallback === null ? `r.${column}` : `COALESCE(r.${column}, ${fallback})`;
+    return `CASE WHEN r.closed_at <= ?4 THEN ${value} ELSE NULL END AS ${column}`;
+  };
+  return database
+    .prepare(
+      `SELECT r.id, r.trust_account_id, r.statement_id, r.opened_by, r.opened_at, r.supersedes_reconciliation_id, r.note,
+         CASE WHEN r.closed_at <= ?4 THEN 'closed' ELSE 'open' END AS status,
+         CASE WHEN r.closed_at <= ?4 THEN r.closed_by ELSE NULL END AS closed_by,
+         CASE WHEN r.closed_at <= ?4 THEN r.closed_at ELSE NULL END AS closed_at,
+         ${frozenAsKnown("frozen_statement_closing_minor")},
+         ${frozenAsKnown("frozen_outstanding_deposits_minor")},
+         ${frozenAsKnown("frozen_outstanding_disbursements_minor")},
+         ${frozenAsKnown("frozen_adjusted_bank_minor")},
+         ${frozenAsKnown("frozen_book_balance_minor")},
+         ${frozenAsKnown("frozen_client_total_minor")},
+         ${frozenAsKnown("frozen_unmatched_line_count")},
+         ${frozenAsKnown("frozen_unmatched_movement_count")},
+         ${frozenAsKnown("frozen_firm_funds_minor", "0")},
+         ${frozenAsKnown("frozen_balanced")},
+         s.period_start AS statement_period_start, s.period_end AS statement_period_end, s.closing_balance_minor AS statement_closing_balance_minor, s.statement_reference AS statement_reference
+       FROM ${TRUST_RECONCILIATION_TABLE} r
+       JOIN ${TRUST_BANK_STATEMENT_TABLE} s ON s.id = r.statement_id
+       WHERE r.trust_account_id = ?1 AND s.period_end >= ?2 AND s.period_end <= ?3 AND r.opened_at <= ?4
+       ORDER BY s.period_end, r.opened_at, r.id
+       LIMIT ?5`,
+    )
+    .bind(trustAccountId, periodStart, periodEnd, knownAsOf, limit);
+}
+
+// THE HOLDS IN FORCE at a knowledge instant, on every matter leaf under one trust account.
+//
+// A hold carries `placed_at` — a UTC instant — and no effective date, so "in force" is a question
+// about the KNOWLEDGE axis only: a hold is in force when it was placed on or before the instant and
+// no release recorded on or before that instant names it. There is deliberately no attempt to give
+// it an effective date it does not have; a pack states that this section is as at the knowledge
+// instant rather than as at the period end, because inventing an axis would be inventing a fact.
+export function selectTrustHoldsInForceAsKnownStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  knownAsOf: string,
+  limit: number = TRUST_REPORT_TRUNCATION_PROBE_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT h.id AS hold_id, h.node_id AS node_id, n.matter_id AS matter_id, n.client_entity_id AS client_entity_id, h.amount_minor AS amount_minor, h.currency AS currency, h.reason AS reason, h.placed_at AS placed_at, h.placed_by AS placed_by
+       FROM ${TRUST_HOLD_TABLE} h
+       JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = h.node_id
+       WHERE n.trust_account_id = ?1 AND h.releases_hold_id IS NULL AND h.placed_at <= ?2
+         AND NOT EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} r WHERE r.releases_hold_id = h.id AND r.placed_at <= ?2)
+       ORDER BY h.placed_at, h.id
+       LIMIT ?3`,
+    )
+    .bind(trustAccountId, knownAsOf, limit);
+}
+
+// THE ACCOUNT'S IDENTITY, for the cover of a document a firm hands somebody outside it: what the
+// firm calls the account, which office holds it, which institution it is at, and the last four of
+// the number.
+//
+// The last four is what the schema stores and is therefore what a report body can contain — there is
+// no full account number anywhere to leak. `selectTrustAccountStatement` deliberately does not carry
+// these: it is the read every money path runs, and a movement has no use for a caption.
+export function selectTrustAccountIdentityStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, name, location_id, jurisdiction, bank_name, account_number_last_four, currency, iolta, status, opened_on, closed_at, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
+    )
+    .bind(trustAccountId);
+}

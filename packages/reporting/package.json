@@ -1,0 +1,31 @@
+{
+  "name": "@magna-carta/reporting",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./temporal": "./src/temporal.ts",
+    "./completeness": "./src/completeness.ts",
+    "./reporting-validation": "./src/reporting-validation.ts",
+    "./trust-compliance/pack": "./src/trust-compliance/pack.ts",
+    "./trust-compliance/types": "./src/trust-compliance/types.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/trust": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

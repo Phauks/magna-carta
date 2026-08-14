@@ -66,6 +66,9 @@
       "path": "../money/tsconfig.build.json"
     },
     {
+      "path": "../reporting/tsconfig.build.json"
+    },
+    {
       "path": "../timekeeping/tsconfig.build.json"
     },
     {
