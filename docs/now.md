@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 705 nodes of the feature ledger in
+is the complete register rather than a digest: all 707 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,24 +19,24 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**705 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
+**707 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 246 | 35% |
+| Done | shipped | 248 | 35% |
 | Part-built | partial, in-build | 206 | 29% |
 | Ahead | designed, planned, researching, not-started | 212 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All capabilities** | | **705** | **100%** |
+| **All capabilities** | | **707** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 246 | 35% |
+| `shipped` | 248 | 35% |
 | `partial` | 191 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 19 | 3% |
@@ -45,11 +45,11 @@ below; these are the totals over that list.
 | `not-started` | 175 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **705** | **100%** |
+| **All statuses** | **707** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 246 of 705 (35%). Shipped plus partial is 437 (62%).**
+**Shipped alone is 248 of 707 (35%). Shipped plus partial is 439 (62%).**
 
 The 191 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -74,7 +74,7 @@ true and neither is the answer on its own.
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
-| Financial Core | 16 | 24 | 4 | 1 | 0 | 0 | 10 | 3 | 0 | 58 | 28% |
+| Financial Core | 18 | 24 | 4 | 1 | 0 | 0 | 10 | 3 | 0 | 60 | 30% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -89,11 +89,11 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **246** | **191** | **15** | **19** | **10** | **8** | **175** | **39** | **2** | **705** | **35%** |
+| **All areas** | **248** | **191** | **15** | **19** | **10** | **8** | **175** | **39** | **2** | **707** | **35%** |
 
 ## Where we have been
 
-**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**22 of 41 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
+**+42 shipped since the ledger began** — 204 on 2026-07-14, 246 on 2026-08-14, across 31 days. The
 ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
-snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
+That is **9.5 capabilities shipped a week** across the whole series, and **16.3 a week** over the 15
+snapshots since the last gap (2026-08-11 to 2026-08-14, +7 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,11 +136,12 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `96b53e11` | 245 | 189 | 15 | 19 | 13 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `cb9225bb` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 41 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -184,20 +185,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 0 | 0 |
+| Reports | 11 | 11 | 0 | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
-Core (+8), AI & Inference (+7). **17 of 27 areas have shipped nothing in that time**:
+Core (+8), AI & Inference (+7). **16 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
-Plans. An area standing still here has not necessarily been idle — a node moves in this table only
-when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
-and not in this one.
+Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
+in this one.
 
 ## Waiting on you
 
@@ -697,7 +698,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 58 nodes, 28% shipped. 16 done, 28 part-built, 11 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 60 nodes, 30% shipped. 18 done, 28 part-built, 11 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -727,6 +728,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
     - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: No screen reads a client ledger; the balances, holds and movement history are API-only._
     - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
+    - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
+    - `financial.trust.unclaimed-funds` · `shipped` · **Unclaimed client funds diligence file** — Finding client money that has sat unmoved, recording the diligence done to return it, and closing the file against a payment somebody already made - never moving money and never asserting an obligation. _Note: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced._
     - `financial.trust.no-commingling` · `shipped` · **No commingling** — Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
     - `financial.trust.jurisdiction-engine` · `partial` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
       - `financial.trust.jurisdiction-engine.rules-catalog` · `designed` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data. _Note: Research corpus complete and adversarially verified; the build-data pipeline exists only in the design._
