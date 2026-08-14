@@ -70,6 +70,12 @@ import {
   CUSTODIAN_PLAN_SCAN_ALLOWLIST,
 } from "./custodian-measurements.ts";
 import {
+  reportsHotPathPlans,
+  reportsMeasurementHandle,
+  reportsMeasurements,
+  REPORTS_PLAN_SCAN_ALLOWLIST,
+} from "./reports-measurements.ts";
+import {
   calendarHotPathPlans,
   calendarMeasurementHandle,
   calendarMeasurements,
@@ -130,6 +136,10 @@ const scans = [
   ...findFullScans(trustHotPathPlans(snapshot), TRUST_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(custodianHotPathPlans(snapshot), CUSTODIAN_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(await calendarHotPathPlans(calendarHandle), CALENDAR_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(
+    reportsHotPathPlans(reportsMeasurementHandle(snapshot)),
+    REPORTS_PLAN_SCAN_ALLOWLIST,
+  ),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -188,6 +198,11 @@ const results = [
     { warmupIterations: 3, iterations: 30 },
   )),
   ...(await runMeasurements(calendarHandle, calendarMeasurements, {
+    warmupIterations: 3,
+    iterations: 30,
+  })),
+  // Reporting last, because it reads over everything the stages above laid down.
+  ...(await runMeasurements(reportsMeasurementHandle(snapshot), reportsMeasurements, {
     warmupIterations: 3,
     iterations: 30,
   })),

@@ -21,6 +21,7 @@ import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerBillingRoutes } from "./routes/billing.ts";
+import { registerReportsRoutes } from "./routes/reports.ts";
 import { registerTrustFirmFundsRoutes } from "./routes/trust-firm-funds.ts";
 import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
 import { registerTrustUnclaimedFundsRoutes } from "./routes/trust-unclaimed-funds.ts";
@@ -662,6 +663,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // The firm's OWN money in a trust account — the bank-charge carve-out, on its own capability and
   // in its own module, because firm money and client money never share a door.
   registerTrustFirmFundsRoutes(app, chokepoint);
+  // Reporting — projections over records the firm already holds. Read-only by construction: the
+  // reporting package composes nothing, and every route registered here is a GET.
+  registerReportsRoutes(app, chokepoint);
   // Unclaimed client funds: the dormancy read against a window the caller states, and the diligence
   // file that evidences the search. Nothing on that surface moves money.
   registerTrustUnclaimedFundsRoutes(app, chokepoint);

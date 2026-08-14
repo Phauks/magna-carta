@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 244 | 35% |
-| Part-built | partial, in-build | 201 | 28% |
-| Ahead | designed, planned, researching, not-started | 219 | 31% |
+| Done | shipped | 245 | 35% |
+| Part-built | partial, in-build | 203 | 29% |
+| Ahead | designed, planned, researching, not-started | 216 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **705** | **100%** |
 
@@ -36,11 +36,11 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 244 | 35% |
-| `partial` | 186 | 26% |
+| `shipped` | 245 | 35% |
+| `partial` | 188 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 21 | 3% |
-| `planned` | 13 | 2% |
+| `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
 | `not-started` | 177 | 25% |
 | `deferred` | 39 | 6% |
@@ -49,9 +49,9 @@ below; these are the totals over that list.
 
 ### What `partial` hides
 
-**Shipped alone is 244 of 705 (35%). Shipped plus partial is 430 (61%).**
+**Shipped alone is 245 of 705 (35%). Shipped plus partial is 433 (61%).**
 
-The 186 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 188 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 61% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -86,14 +86,14 @@ true and neither is the answer on its own.
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 1 | 0 | 16 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 16 | 13% |
 | Release Channels | 7 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 9 | 78% |
-| Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
+| Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **244** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **705** | **35%** |
+| **All areas** | **245** | **188** | **15** | **21** | **10** | **8** | **177** | **39** | **2** | **705** | **35%** |
 
 ## Where we have been
 
-**20 of 39 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+40 shipped since the ledger began** — 204 on 2026-07-14, 244 on 2026-08-14, across 31 days. The
+**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
 ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.0 capabilities shipped a week** across the whole series, and **11.7 a week** over the 13
-snapshots since the last gap (2026-08-11 to 2026-08-14, +5 shipped in 3 days).
+That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
+snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,10 +136,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
+| 2026-08-14 | `5ae1ca20` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 39 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -183,20 +184,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 0 | 0 |
+| Reports | 11 | 11 | 0 | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
-Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
+Inference (+7), Financial Core (+7). **16 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
-Plans. An area standing still here has not necessarily been idle — a node moves in this table only
-when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
-and not in this one.
+Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
+in this one.
 
 ## Waiting on you
 
@@ -209,6 +210,7 @@ and not in this one.
 - **Jurisdiction-configurable compliance engine** (`financial.trust.jurisdiction-engine`) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
 - **Public changelog/roadmap/status pages** (`product-updates.public-pages`) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
+- **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
 
@@ -257,9 +259,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
 - `release-channels.frontend` · **Channel frontend (Plan 2)** — Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
-- `reports` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
-- `reports.projections` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
-- `reports.trust-compliance` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
 - `reports.financial` · **Financial reports** — WIP, A/R aging, realization, and profitability reports.
 - `reports.productivity` · **Productivity reports** — Timekeeper and staff productivity reporting.
 - `reports.operational` · **Operational reports** — Operational reporting over firm activity.
@@ -1069,11 +1068,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 nodes, 0% shipped. 0 done, 0 part-built, 9 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 nodes, 9% shipped. 1 done, 2 part-built, 6 ahead, 2 parked.
 
-- `reports` · `planned` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
-  - `reports.projections` · `planned` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
-  - `reports.trust-compliance` · `planned` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
+- `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
+  - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
+  - `reports.trust-compliance` · `partial` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account. _Note: Backend only, no screen, and no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet._
   - `reports.financial` · `planned` · **Financial reports** — WIP, A/R aging, realization, and profitability reports. _Note: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at._
   - `reports.productivity` · `planned` · **Productivity reports** — Timekeeper and staff productivity reporting. _Note: Live-only (mutable store); no attainment figure, because the platform stores no billable-hour target._
   - `reports.operational` · `planned` · **Operational reports** — Operational reporting over firm activity.

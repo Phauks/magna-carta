@@ -232,6 +232,31 @@ export const PERMISSIONS = [
   // have no matter at all, so binding it to "matter" would name a resource half the rows do not
   // have — the same reasoning custody:* and trust:* carry.
   "notifications:read", // read one's own notification feed, unread counts, and mark items read or dismissed
+  // Reporting — projections over records the firm already holds, read across every matter and client
+  // at once. Its OWN namespace rather than a corner of trust:read and billing:read, on the reasoning
+  // that split trust:firmFunds off trust:manage: an aggregate spanning the whole firm is a different
+  // exposure from a per-matter read, and a member who may read one client's trust balance is not
+  // thereby a member who may read the firm's entire receivable position or every client's ledger in
+  // one document.
+  //
+  // Five keys rather than a read/produce pair, because the four report families are four different
+  // decisions a firm makes about one person. reports:productivity is deliberately its own key: a
+  // report about PEOPLE — what each timekeeper recorded, and how much of it was billable — is a
+  // different grant from a report about money, and a firm must be able to give a bookkeeper the
+  // financial reports without also handing them a supervision surface over every lawyer.
+  // reports:produce is separate again because turning a report into a filed, immutable firm record is
+  // an act with a consequence, where reading one on screen is not.
+  //
+  // All five bind resource: "firm" — every one of these reads spans matters and clients by
+  // construction, and the trust account a compliance pack is produced for belongs to an office
+  // rather than to a matter. Seeded to Owner and Admin only, which is deliberately narrow: a firm
+  // that wants its bookkeeper to run reconciliation packs reaches for a direct grant, which leaves a
+  // record.
+  "reports:trustCompliance", // read and produce the trust-compliance (bar-audit) pack for any trust account
+  "reports:financial", // receivables aging, work in progress, realization — firm-wide and per-office
+  "reports:productivity", // hours recorded by timekeeper across the firm
+  "reports:operational", // operational volumes — matters, invoices, movements, reconciliations
+  "reports:produce", // turn a report into a filed artifact and read the productions
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

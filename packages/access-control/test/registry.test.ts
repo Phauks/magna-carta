@@ -249,6 +249,16 @@ describe("permission registry", () => {
     expect(permissionsForNamespace("notifications")).toEqual(["notifications:read"]);
   });
 
+  it("permissionsForNamespace('reports') returns exactly the reports keys, in registry order", () => {
+    expect(permissionsForNamespace("reports")).toEqual([
+      "reports:trustCompliance",
+      "reports:financial",
+      "reports:productivity",
+      "reports:operational",
+      "reports:produce",
+    ]);
+  });
+
   it("permissionsForNamespace('billing') returns exactly the billing keys, in registry order", () => {
     expect(permissionsForNamespace("billing")).toEqual([
       "billing:read",

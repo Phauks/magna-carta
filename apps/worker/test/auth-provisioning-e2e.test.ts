@@ -334,6 +334,15 @@ describe("end-to-end", () => {
         // trust:read below (20260807T020000_notifications-delivery). A member's feed is their own,
         // scoped to their own user id and filtered by matter visibility before it returns a row.
         "notifications:read",
+        // Every reports key is Owner/Admin alone — narrower than the trust and billing reads a firm
+        // grants more widely, because an aggregate across every matter and client is a different
+        // exposure from a per-matter read. reports:productivity is narrower still in kind: a report
+        // about people rather than about money.
+        "reports:financial",
+        "reports:operational",
+        "reports:produce",
+        "reports:productivity",
+        "reports:trustCompliance",
         "shipping:manage",
         "support:cosign",
         "support:manage",

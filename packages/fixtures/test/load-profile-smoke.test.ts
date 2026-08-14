@@ -60,6 +60,12 @@ import {
   TRUST_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/trust-measurements.ts";
 import {
+  reportsHotPathPlans,
+  reportsMeasurementHandle,
+  reportsMeasurements,
+  REPORTS_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/reports-measurements.ts";
+import {
   custodianHotPathPlans,
   custodianMeasurementHandle,
   custodianMeasurements,
@@ -595,6 +601,40 @@ describe("load-profile smoke", () => {
     expect(calendarPlans.map((plan) => plan.label)).toContain("timeline.firm-window.firmEvent");
     expect(calendarPlans.map((plan) => plan.label)).toContain("booking.live-in-window");
     expect(findFullScans(calendarPlans, CALENDAR_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The reporting measured set: the two per-row reads a pack is built from, the per-leaf balance
+    // read behind its client-ledger section, and the whole document — each at one month and at
+    // twelve, because how the cost grows with the period is the fact that matters about a report
+    // produced for whatever period an examiner asks about.
+    const reportsHandle = reportsMeasurementHandle(snapshot);
+    const reportsResults = await runMeasurements(reportsHandle, reportsMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(reportsResults.map((result) => result.name).sort()).toEqual(
+      [
+        "reports-client-ledgers.one-month",
+        "reports-client-ledgers.twelve-months",
+        "reports-journal.one-month",
+        "reports-journal.twelve-months",
+        "reports-leaf-balances.as-of",
+        "reports-pack.one-month",
+        "reports-pack.twelve-months",
+      ].sort(),
+    );
+    for (const result of reportsResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // And nothing in the pack may scan: every read is bounded by one trust account and one period,
+    // so a scan would mean a document's cost grows with the firm's whole book rather than with the
+    // period it covers.
+    const reportsPlans = reportsHotPathPlans(reportsHandle);
+    expect(reportsPlans.map((plan) => plan.label).sort()).toEqual(
+      ["reports-client-ledgers", "reports-journal", "reports-leaf-balances"].sort(),
+    );
+    expect(findFullScans(reportsPlans, REPORTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });
