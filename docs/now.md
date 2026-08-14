@@ -93,7 +93,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**20 of 39 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+40 shipped since the ledger began** — 204 on 2026-07-14, 244 on 2026-08-14, across 31 days. The
+**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
 ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.0 capabilities shipped a week** across the whole series, and **11.7 a week** over the 13
-snapshots since the last gap (2026-08-11 to 2026-08-14, +5 shipped in 3 days).
+That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
+snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,10 +136,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
+| 2026-08-14 | `5ae1ca20` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 39 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -183,20 +184,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 0 | 0 |
+| Reports | 11 | 11 | 0 | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
-Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
+Inference (+7), Financial Core (+7). **16 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
-Plans. An area standing still here has not necessarily been idle — a node moves in this table only
-when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
-and not in this one.
+Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
+in this one.
 
 ## Waiting on you
 
@@ -209,6 +210,7 @@ and not in this one.
 - **Jurisdiction-configurable compliance engine** (`financial.trust.jurisdiction-engine`) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
 - **Public changelog/roadmap/status pages** (`product-updates.public-pages`) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
+- **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
 
