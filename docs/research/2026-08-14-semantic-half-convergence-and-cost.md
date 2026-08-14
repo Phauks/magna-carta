@@ -69,8 +69,9 @@ the whole reason this question can be asked now.
 | large       | 25,000    | 200,000  | 13.00 MiB            | 40–59                                          |
 
 Per-query ranged reads hold between **37 and 59** across a **96.5x** growth in index size. Read counts
-are deterministic: the smoke tier reproduced byte-for-byte on a different machine and a different day
+are deterministic: the smoke tier reproduced exactly on an independent run a day later
 (40, 37, 45, 40, 42, 49 for the six query classes), which is what makes them safe to price against.
+Milliseconds are not carried over from either run and are not priced anywhere below.
 
 The semantic half has no equivalent line. `apps/worker/src/search/semantic-search.ts` returns
 `engine-not-implemented`; `runHybridSearch` degrades to keyword-only; the benchmark's own
