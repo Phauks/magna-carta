@@ -220,9 +220,14 @@ describe("every custody-derived source carries the predicates its register read 
       required: [
         [
           "custody_movement.due_back_on IS NOT NULL",
-          "custody_movement.kind = 'checked_out'",
-          "custody_movement.item_id IS NULL",
           "custody_packet.status = 'out'",
+          // Which movement is wanted — the packet's latest check-out of the packet itself rather
+          // than of one item inside it — is asserted where that movement is picked out, on both
+          // sides of the pairing. Stating either condition a second time in the outer WHERE would
+          // filter nothing and would let the planner drive the read from the ledger instead of from
+          // the packets that are out.
+          "latest.kind = 'checked_out'",
+          "latest.item_id IS NULL",
           // The most recent check-out only: a back-dated correction to an old one must not resurrect
           // its deadline over a newer one.
           "ORDER BY latest.occurred_at DESC",
@@ -262,7 +267,10 @@ describe("every custody-derived source carries the predicates its register read 
 
     const overdue = custodian("queries.ts");
     expect(overdue).toContain("packet.status = 'out'");
-    expect(overdue).toContain("movement.item_id IS NULL");
+    // Which movement is wanted is asserted inside the subquery that picks it out, on this side of
+    // the pairing exactly as on the source's side.
+    expect(overdue).toContain("latest.kind = 'checked_out'");
+    expect(overdue).toContain("latest.item_id IS NULL");
     expect(overdue).toContain("ORDER BY latest.occurred_at DESC");
   });
 });

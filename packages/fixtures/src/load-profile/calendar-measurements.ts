@@ -278,17 +278,19 @@ export async function timelinePageBounds(
 // THE MATTER-SCOPED READS ARE GATED AND CLEAN: every one of the fourteen sources seeks its own
 // matter-keyed index, which is what a case timeline is supposed to look like.
 //
-// The FIRM-WIDE WINDOW is a different read, and these nine sources scan for it. That is not a
-// planner accident: their only useful index is keyed on `matter_id`, and a read with no matter to
-// key on has nothing to seek — so the date window is applied over the whole table. Two of them
-// (`time_entry`, `cost_entry`) carry no index on their date column at all and scan the heap.
+// The FIRM-WIDE WINDOW is a different read, and these sources scan for it. That is not a planner
+// accident: their only useful index is keyed on `matter_id`, and a read with no matter to key on has
+// nothing to seek — so the date window is applied over the whole table. Two of them (`time_entry`,
+// `cost_entry`) carry no index on their date column at all and scan the heap, as does `file` behind
+// `documentFiled`.
 //
 // They are exempted BY NAME rather than by prefix, and the list is the finding rather than a
 // dismissal of it: a source added to the registry is gated at both scopes until somebody looks at
 // its plan and decides, and any of these that gains a date-keyed index should come OFF this list in
-// the same change. Two firm-window sources are deliberately absent because they already seek —
-// `matterEvent` and `firmEvent` both walk a `(starts_on, id)` index, which is exactly the shape the
-// others are missing, and `matterLifecycle` seeks the audit log's event index.
+// the same change. Firm-window sources are absent from the list where they already seek —
+// `matterEvent` and `firmEvent` walk a `(starts_on, id)` index, which is exactly the shape the others
+// are missing; `matterLifecycle` seeks the audit log's event index; `custodyDueBack` drives from the
+// packets that are out rather than from the ledger.
 export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.matterDeadline",
   "timeline.firm-window.emailFiled",

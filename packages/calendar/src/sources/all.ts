@@ -592,7 +592,16 @@ const custodyReviewDueSource: TimelineSource = {
   project: projectRow("custodyReviewDue", matterSectionLink("custody")),
 };
 
-// When an original that went out is due back, over its own hand-written partial index.
+// When an original that went out is due back.
+//
+// Driven from the PACKET, not from the ledger. "Still out" is the selective fact — tens of packets
+// against a movement ledger that grows without bound — so the read seeks the packets that are out and
+// asks each one for its most recent check-out. Written the other way round, with the ledger as the
+// outer table and the packet joined to it, the planner has only `item_id` and `due_back_on` to choose
+// between and takes `item_id IS NULL`, which selects every packet-scoped movement the firm has ever
+// recorded; the most-recent-check-out subquery then runs over all of them to answer a question whose
+// answer is a handful of rows. The cost of that shape tracks the ledger's whole history rather than
+// the number of things that are out, and it does not fall when the scope narrows to one matter.
 const custodyDueBackSource: TimelineSource = {
   key: "custodyDueBack",
   kinds: ["dueBack"],
@@ -606,23 +615,19 @@ const custodyDueBackSource: TimelineSource = {
       request.scope.fromDate,
       request.scope.toDate,
     );
-    // Every predicate `selectOverdueCustodyCheckoutsStatement` carries, and for its reasons. "Still
-    // out" is read off the PACKET, because the derived status and the movement that set it commit in
-    // one batch — a packet that came back is not due back however overdue its old check-out row once
-    // was. The due-back date then comes from that packet's MOST RECENT check-out, so a back-dated
-    // correction to an old one cannot resurrect its deadline over a newer one.
+    // The same predicates `selectOverdueCustodyCheckoutsStatement` carries, and for its reasons.
+    // "Still out" is read off the PACKET, because the derived status and the movement that set it
+    // commit in one batch — a packet that came back is not due back however overdue its old check-out
+    // row once was. The due-back date then comes from that packet's MOST RECENT check-out, so a
+    // back-dated correction to an old one cannot resurrect its deadline over a newer one.
+    //
+    // `kind` and `item_id` are asserted ONLY inside the join's subquery, which is what picks the
+    // movement out. Repeating them here as well would say nothing new — a row the subquery returned
+    // already satisfies both — while handing the planner a second, worse way into the table.
     const conditions = [
       ...window.conditions,
       "custody_movement.due_back_on IS NOT NULL",
-      "custody_movement.kind = 'checked_out'",
-      "custody_movement.item_id IS NULL",
       "custody_packet.status = 'out'",
-      `custody_movement.id = (
-         SELECT latest.id FROM custody_movement AS latest
-          WHERE latest.packet_id = custody_movement.packet_id
-            AND latest.kind = 'checked_out'
-            AND latest.item_id IS NULL
-          ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1)`,
     ];
     const bindings = [...window.bindings];
     if (request.scope.matterId !== undefined) {
@@ -632,7 +637,12 @@ const custodyDueBackSource: TimelineSource = {
     return [
       boundedSelect(request.database, {
         request,
-        from: "custody_movement JOIN custody_packet ON custody_packet.id = custody_movement.packet_id",
+        from: `custody_packet JOIN custody_movement ON custody_movement.id = (
+                 SELECT latest.id FROM custody_movement AS latest
+                  WHERE latest.packet_id = custody_packet.id
+                    AND latest.kind = 'checked_out'
+                    AND latest.item_id IS NULL
+                  ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1)`,
         sortColumn: "custody_movement.due_back_on",
         idColumn: "custody_movement.id",
         matterExpression: "custody_packet.matter_id",
