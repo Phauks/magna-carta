@@ -1624,6 +1624,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      '@magna-carta/reporting':
+        specifier: workspace:*
+        version: link:../reporting
       '@magna-carta/timekeeping':
         specifier: workspace:*
         version: link:../timekeeping

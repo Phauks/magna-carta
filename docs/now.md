@@ -24,9 +24,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 244 | 35% |
-| Part-built | partial, in-build | 201 | 28% |
-| Ahead | designed, planned, researching, not-started | 219 | 31% |
+| Done | shipped | 245 | 35% |
+| Part-built | partial, in-build | 203 | 29% |
+| Ahead | designed, planned, researching, not-started | 216 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **705** | **100%** |
 
@@ -34,11 +34,11 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 244 | 35% |
-| `partial` | 186 | 26% |
+| `shipped` | 245 | 35% |
+| `partial` | 188 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 21 | 3% |
-| `planned` | 13 | 2% |
+| `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
 | `not-started` | 177 | 25% |
 | `deferred` | 39 | 6% |
@@ -47,9 +47,9 @@ below; these are the totals over that list.
 
 ### What `partial` hides
 
-**Shipped alone is 244 of 705 (35%). Shipped plus partial is 430 (61%).**
+**Shipped alone is 245 of 705 (35%). Shipped plus partial is 433 (61%).**
 
-The 186 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 188 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 61% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -84,10 +84,10 @@ true and neither is the answer on its own.
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 1 | 0 | 16 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 16 | 13% |
 | Release Channels | 7 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 9 | 78% |
-| Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
+| Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **244** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **705** | **35%** |
+| **All areas** | **245** | **188** | **15** | **21** | **10** | **8** | **177** | **39** | **2** | **705** | **35%** |
 
 ## Waiting on you
 
@@ -148,9 +148,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
 - `release-channels.frontend` · **Channel frontend (Plan 2)** — Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
-- `reports` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
-- `reports.projections` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
-- `reports.trust-compliance` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
 - `reports.financial` · **Financial reports** — WIP, A/R aging, realization, and profitability reports.
 - `reports.productivity` · **Productivity reports** — Timekeeper and staff productivity reporting.
 - `reports.operational` · **Operational reports** — Operational reporting over firm activity.
@@ -173,7 +170,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
     - `ai.inference.port` · `shipped` · **InferencePort operations** — Streaming and durable/Workflow-invocable text generation plus a platform-fixed embedding operation; reasoning model an explicit per-call parameter, embedding model pinned to the Vectorize index.
     - `ai.inference.embedding-pin-window` · `shipped` · **Embedding pin held open until the first index** — The embedding model is changeable only while no vector index exists, because every stored vector is a function of the model that produced it. The catalog records that state and a fitness scan refuses to let the window close by accident — while the pin reads open, no source file may reach a vector index.
-    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one.
+    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one, and the FORM the provider publishes its pinned snapshot in, so a snapshot id that contradicts its own form fails at import rather than reaching a provenance record.
     - `ai.inference.reasoning-tier` · `shipped` · **Evergreen reasoning tier** — A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable. _Note: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision._
     - `ai.inference.pin-freshness` · `shipped` · **Model-pin staleness detection** — A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
     - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
@@ -960,11 +957,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 nodes, 0% shipped. 0 done, 0 part-built, 9 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 nodes, 9% shipped. 1 done, 2 part-built, 6 ahead, 2 parked.
 
-- `reports` · `planned` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
-  - `reports.projections` · `planned` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
-  - `reports.trust-compliance` · `planned` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
+- `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
+  - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
+  - `reports.trust-compliance` · `partial` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account. _Note: Backend only, no screen, and no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet._
   - `reports.financial` · `planned` · **Financial reports** — WIP, A/R aging, realization, and profitability reports. _Note: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at._
   - `reports.productivity` · `planned` · **Productivity reports** — Timekeeper and staff productivity reporting. _Note: Live-only (mutable store); no attainment figure, because the platform stores no billable-hour target._
   - `reports.operational` · `planned` · **Operational reports** — Operational reporting over firm activity.
