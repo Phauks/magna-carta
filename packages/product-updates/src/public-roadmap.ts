@@ -14,9 +14,13 @@ import {
 // page with nothing raised.
 //
 // Unlike the changelog, this document is not curated after assembly — it is rendered whole from the
-// feature ledger by tooling/doc-fragments/build-public-roadmap.mjs on every run, and a fitness
-// function fails when what is committed differs from a fresh render. That is why the roadmap can
+// feature ledger by tooling/doc-fragments/roadmap.mjs on every run. That is why the roadmap can
 // promise something the changelog cannot: the band beside an entry is true on the day it is read.
+//
+// The document is not written to disk today: there are no users, so the public rendering has no
+// audience, and a document nobody reads is a document nobody keeps honest. This parser is the seam
+// that stays ready — it is fully tested against a rendered document held in the tests, and the
+// ledger keys behind it are still linted, so nothing has to be rebuilt when the product has readers.
 
 // `## Building Now` — a band. The set is closed and shared with the assembler; see schema.ts.
 const BAND_HEADING = /^## (.+)$/;

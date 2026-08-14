@@ -45,13 +45,27 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
 | `awaiting-owner` | no       | One line: the question blocking this capability on an owner decision. Presence is the flag  |
 | `notes`          | no       | One line of qualification                                                                   |
 
-## The public view
+## The rendered view
 
-Two documents are rendered from this ledger by `vp run public-roadmap-build`, and neither is ever
-hand-edited: [`docs/public-roadmap.md`](../docs/public-roadmap.md), what users see, and
-[`docs/now.md`](../docs/now.md), the owner's one screen. `pnpm run lint:roadmap` fails when either
-differs from a fresh render, so a capability that ships moves between bands on the `status` flip
-alone. Design: [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
+[`docs/now.md`](../docs/now.md) — **the build register** — is rendered from this ledger by
+`vp run register-build` and is never hand-edited: every node, at its real status, with the counts
+over the whole set. `pnpm run lint:roadmap` fails when it differs from a fresh render, so a
+capability that ships moves in the register on the `status` flip alone. Design:
+[`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
+
+**Nine statuses, nine columns.** The register never bands statuses together. Collapsing them was
+tried and withdrawn: `partial` (a shipped backend with no screen on it) and `in-build` (being
+written right now) rendered under one heading, which is the largest loss of signal this source can
+suffer.
+
+## The public view, written and not published
+
+A second rendering exists for people using the product — grouped into horizon bands, publishing only
+nodes marked `audience: public` and only the sentence written for that purpose. **It is not written
+to disk.** There are no users yet, so it has no audience, and a document nobody reads is a document
+nobody keeps honest. The renderer, the keys below and the artifact schema in
+`@magna-carta/product-updates` are all kept ready and are all still linted, so the copy is sound on
+the day the product has readers.
 
 **A human writes the durable half of a public entry; the machine derives the volatile half.** You
 choose whether a node is public and what its sentence says — both facts that rarely change. The
