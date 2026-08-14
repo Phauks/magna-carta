@@ -9,7 +9,7 @@
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
   adrs: ADR-0012, ADR-0060, ADR-0167
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the search index is designed (spec + storage-architecture ADR) but unbuilt; review and production workflows do not exist.
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the keyword search index is built and dormant behind an unbound service, its semantic half designed and unbuilt; review and production workflows do not exist.
   audience: public
   public-summary: Load what the other side produced, process it, and work through it at the volumes litigation actually produces.
   notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
@@ -79,10 +79,10 @@
 - id: discovery.search
   name: Search
   scope: Full-text and semantic search over the discovery corpus.
-  status: designed
+  status: partial
   adrs: ADR-0012, ADR-0167
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: Stateful-service design accepted (index = immutable Tantivy splits in per-firm R2, pruned + range-read from an always-warm search Worker; catalog in the FirmDatabase DO; Vectorize namespace-per-firm; both behind one SearchIndexPort, fused by RRF). No index code on the tree yet.
+  evidence: The keyword half is built and dormant — the engine, its ranged reader over real per-firm R2, the worker that owns its container, and the token-guarded object host it reads through — and is measured by crates/search-eval. The semantic half is designed and unbuilt, and reciprocal rank fusion has never executed against real results, so nothing fuses two sets yet. Neither half is reachable: SearchIndexPort resolves to the deferred port until the app worker carries a SEARCH_SERVICE binding.
   audience: public
   public-name: Search across a review set
   public-summary: Search a review set by keyword and by meaning, and narrow it as you go.
@@ -91,7 +91,7 @@
 - id: discovery.search.keyword
   name: Tantivy keyword search
   scope: Tantivy (Rust) behind a swappable index interface.
-  status: designed
+  status: partial
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
   evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, generation gating, the range-reading directory (a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks — an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail), a SplitSearcher that holds a split open across queries (2 warm reads against 40 cold at the smoke tier), a ranged multi-split query, and the COMPACTION merge — a segment-level merge over ranged readers that applies a delete set and repacks, measured by crates/search-eval at 9x fewer ranged reads over 10 splits for the identical hits. The RangeReader's R2 adapter now exists end to end: containers/search wraps the crate in an axum service whose HttpRangeReader issues one HEAD plus exactly one closed-Range GET per engine read, apps/search-worker owns that Container with enableInternet false and intercepts its object calls (outboundByHost) into the app Worker, and apps/worker/src/search/split-object-host.ts verifies a per-operation corpus-scoped HMAC capability token, resolves the firm's bucket through the one home for that decision, refuses an unranged GET outright, and stamps a published split object_class search-split. All unit-tested, including the adapter over a real socket against a recording object host. Still dormant end to end — resolveSearchIndexPort returns the deferred port until SEARCH_SERVICE is bound, so activation is the deploy step in docs/deploy-queue.md. Deferred within the design: the container's warm split cache (a cached searcher would answer from bytes authorized on an earlier call, and its sizing needs a resident corpus) and the footer pruning digest, both within the same format. The app-Worker half of compaction — the threshold trigger, the per-corpus coordinator, the queue consumer, the atomic catalog swap, and the retirement sweep — is built and wired-but-dormant behind the same port.
 
