@@ -195,11 +195,11 @@
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
+  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, deposits/disbursements/reallocations, the authorization posture, the bank-charge cushion, the unclaimed-funds diligence file, three-way reconciliation and the fitness suite, over the 20260805T120000_trust-ledger and 20260805T200000_trust-reconciliation per-firm migrations; packages/trust-jurisdictions holds the typed profile model with Nevada encoded
   audience: public
   public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
   awaiting-owner: Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
-  notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+  notes: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
@@ -207,7 +207,8 @@
   status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
-  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
+  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; deposits, disbursements and matter-to-matter reallocations ship as domain operations in packages/trust/src/movements.ts behind required-idempotency routes
+  notes: No screen reads a client ledger; the balances, holds and movement history are API-only.
 
 - id: financial.trust.authorization-policy
   name: Disbursement authorization policy (per-firm)
@@ -246,24 +247,27 @@
 - id: financial.trust.multi-jurisdiction-accounts
   name: Multiple active jurisdictions per firm
   scope: Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: trust_account-to-location binding and per-account profile in the approved jurisdiction-schema design; location.jurisdiction column shipped as the seam
+  evidence: openTrustAccount in packages/trust/src/account-tree.ts binds every account to a location and to the jurisdiction derived from that office rather than chosen, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded none (jurisdiction-not-recorded in packages/trust/src/trust-validation.ts, deliberately distinct from not-encoded and not-verified)
+  notes: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for.
 
 - id: financial.trust.reconciliation
   name: Interactive three-way reconciliation
   scope: Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account.
-  status: not-started
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: in slice 3-2 scope per the phase-3 slice map; the jurisdiction-schema design covers cadence rules, not the workflow; no code
-  notes: Banking-plugin import additionally depends on an unbuilt banking integration.
+  adrs: ADR-0246
+  evidence: the whole workflow is on main behind routes — packages/trust/src/bank-statements.ts (the recorded period and its lines), packages/trust/src/statement-import.ts (a preview that stores nothing, then a confirmation quoting the preview's fingerprint), packages/trust/src/matching.ts (ranked candidates a person confirms; nothing matches on its own), packages/trust/src/three-way-proof.ts (the statement, book and client-ledger legs plus the firm-funds cushion, computed from dated rows), and packages/trust/src/reconciliation.ts (open, the frozen close, the proof read) over apps/worker/src/routes/trust-reconciliation.ts and the 20260805T200000_trust-reconciliation per-firm migration
+  notes: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration.
 
 - id: financial.trust.close-rule
   name: Zero-balance close precondition
   scope: Registers "all bills paid, no remaining balance" on the matter close-precondition hook.
-  status: not-started
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: the hook is shipped and deliberately empty (packages/matters/src/close-preconditions.ts); no registration exists
+  evidence: packages/trust/src/close-precondition.ts exports matterTrustClosePrecondition and readMatterTrustPositions, registered on the matter shell's hook by the composition root in apps/worker/src/routes/matters.ts; the same question is re-asked inside the close batch by refuseMatterCloseWithTrustBalanceStatement, so a deposit landing mid-close aborts it, and packages/trust/test/close-precondition.test.ts covers both layers
+  notes: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts.
 
 - id: financial.billing
   name: Billing and invoicing
