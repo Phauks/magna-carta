@@ -1609,3 +1609,21 @@ export function selectTrustHoldsInForceAsKnownStatement(
     )
     .bind(trustAccountId, knownAsOf, limit);
 }
+
+// THE ACCOUNT'S IDENTITY, for the cover of a document a firm hands somebody outside it: what the
+// firm calls the account, which office holds it, which institution it is at, and the last four of
+// the number.
+//
+// The last four is what the schema stores and is therefore what a report body can contain — there is
+// no full account number anywhere to leak. `selectTrustAccountStatement` deliberately does not carry
+// these: it is the read every money path runs, and a movement has no use for a caption.
+export function selectTrustAccountIdentityStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, name, location_id, jurisdiction, bank_name, account_number_last_four, currency, iolta, status, opened_on, closed_at, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
+    )
+    .bind(trustAccountId);
+}

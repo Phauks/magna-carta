@@ -14,7 +14,16 @@ export type ReportingValidationCode =
   | "reporting-knowledge-instant-not-an-instant"
   | "reporting-knowledge-instant-in-the-future"
   // The scope a bounded read is served for
-  | "reporting-period-exceeds-read-budget";
+  | "reporting-period-exceeds-read-budget"
+  // A SECTION THAT CAME BACK SHORT IS A REFUSAL, never a short section. A client ledger missing
+  // entries, or a journal missing a disbursement, presented as complete is worse than no document at
+  // all — a reader has no way to tell. Each per-row read asks for one row past its ceiling so a full
+  // list can be told from a truncated one, and hitting the ceiling refuses by name with the period
+  // that would have to be narrowed.
+  | "reporting-client-ledger-truncated"
+  | "reporting-journal-truncated"
+  | "reporting-cushion-journal-truncated"
+  | "reporting-holds-truncated";
 
 export class ReportingValidationError extends Error {
   constructor(
