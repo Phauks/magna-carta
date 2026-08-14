@@ -1,0 +1,53 @@
+{
+  // The dedicated discovery search-index worker. Stateless in itself: no D1, R2, or Queues. It owns the
+  // SearchIndexContainer Durable Object (a Container-backed DO running the Rust Tantivy engine) and is
+  // reached only via a service binding from the main app worker — it has no public routes.
+  //
+  // The index's state is NOT here: the splits live in each firm's own R2 bucket and the catalog in that
+  // firm's database. The container reaches those splits through outbound interception into the app
+  // worker's token-guarded /search-objects/* host, so it needs no R2 binding and no credentials of its
+  // own — which is why this worker binds nothing but the container and the app worker.
+  "name": "magna-carta-search",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The keyword-index Container (Container-backed, sqlite-class). The Rust engine serves on port 8080
+  // with outbound networking disabled; its only reachable host is intercepted, not routed.
+  // max_instances is a ceiling, not a fan-out: one instance runs per Durable Object id, so the capacity
+  // is only reachable because src/search-shard.ts addresses that many distinct names. SEARCH_SHARD_COUNT
+  // there must be changed with this number.
+  //
+  // standard-1 (4 GiB) is a starting point, not a measurement: the engine holds open searchers and their
+  // segment metadata for a firm's live splits, and the size of that working set is what decides the
+  // instance type. Right-size it against the load-profile fixtures once a real corpus is resident — the
+  // benchmark in crates/search-eval measures the engine, not the container's residency.
+  "containers": [
+    {
+      "class_name": "SearchIndexContainer",
+      "image": "../../containers/search/Dockerfile",
+      "max_instances": 3,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SEARCH_INDEX", "class_name": "SearchIndexContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SearchIndexContainer"] }],
+  // Service binding to the main app worker — the target of the engine's intercepted split-object calls
+  // (/search-objects/*). This worker holds no R2/D1/secret bindings; all object I/O flows through there.
+  "services": [{ "binding": "APP_WORKER", "service": "magna-carta" }],
+  // The */20 warm-poke is deliberately OFF while no firm has indexing enabled: with no queries, pinning
+  // a standard-1 instance resident bills its 4 GiB continuously for nothing. Without the poke the
+  // container reaches its 30-minute sleepAfter and scales to zero, so it bills only while it is working.
+  // Add "*/20 * * * *" when the first firm turns indexing on — that keeps the open searchers resident so
+  // the first query of a session is not a cold open. The handler stays wired in index.ts, so re-enabling
+  // it is this one line.
+  "triggers": {
+    "crons": [],
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}
