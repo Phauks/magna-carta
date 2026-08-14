@@ -6,7 +6,13 @@ sub-slice 3·6·1 (tasks 1–7) and its companion design. Backend only — the U
 owner. The remaining four sub-slices (financial, productivity, operational, delivery) are not in
 this stream.
 
-**Status.** building
+**Status.** built (backend) — open for review
+
+## What landed
+
+Everything below except the filed pack artifact and its production record, which are named as
+unbuilt: they need a renderer this repository cannot run, and shipping two append-only tables nothing
+writes into would be schema a later slice works around rather than a seam it uses.
 
 ## What this stream builds
 
