@@ -289,8 +289,15 @@ export async function timelinePageBounds(
 // its plan and decides, and any of these that gains a date-keyed index should come OFF this list in
 // the same change. Firm-window sources are absent from the list where they already seek —
 // `matterEvent` and `firmEvent` walk a `(starts_on, id)` index, which is exactly the shape the others
-// are missing; `matterLifecycle` seeks the audit log's event index; `custodyDueBack` drives from the
-// packets that are out rather than from the ledger.
+// are missing; `matterLifecycle` seeks the audit log's event index; `custodyMovement` walks an
+// `(occurred_at, id)` index; and `custodyDueBack` drives from the packets that are out rather than
+// from the ledger.
+//
+// The seven that remain are a decision rather than a backlog. Each costs at most 1.7 ms of this one
+// read at the profile corpus, and between them they are the platform's hottest write paths — the
+// trade of an index on every one of them against a few milliseconds on federation's weakest read is
+// not worth taking yet. `file` behind `documentFiled` is the one to revisit first, because the
+// document corpus grows fastest; the number to revisit it against is this measurement.
 export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.matterDeadline",
   "timeline.firm-window.emailFiled",
@@ -299,7 +306,6 @@ export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.timeEntry",
   "timeline.firm-window.costEntry",
   "timeline.firm-window.conflictsCheck",
-  "timeline.firm-window.custodyMovement",
   "timeline.firm-window.trustMovement",
 ];
 

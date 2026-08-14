@@ -421,6 +421,13 @@
       "when": 1786676400000,
       "tag": "20260813T030000_conflicts-recheck-ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1786752000000,
+      "tag": "20260814T000000_calendar-and-custody-index-fixes",
+      "breakpoints": true
     }
   ]
 }
