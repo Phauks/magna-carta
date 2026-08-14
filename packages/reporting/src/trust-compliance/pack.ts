@@ -582,6 +582,9 @@ export async function assembleTrustCompliancePack(
   const reconciliations: TrustCompliancePackReconciliation[] = [];
   const unmatchedStatementLines: TrustComplianceUnmatchedLine[] = [];
   for (const row of reconciliationRows.results) {
+    // Resolved once and used twice: the snapshot the proof is computed against and the attestation
+    // the pack prints have to be the same reading of the same row, not two of them.
+    const frozenProof = frozenProofOf(row);
     // THE LIVE PROOF IS THE TRUST PACKAGE'S OWN. It is called, never reimplemented — including its
     // refusal when the outstanding-item list is longer than one reconciliation can account for,
     // which propagates unchanged and produces no pack at all. A pack that quietly omitted the
@@ -596,11 +599,10 @@ export async function assembleTrustCompliancePack(
       openedAt: row.opened_at,
       closedBy: row.closed_by as UserId | null,
       closedAt: row.closed_at,
-      frozenProof: frozenProofOf(row),
+      frozenProof,
       supersedesReconciliationId: row.supersedes_reconciliation_id as TrustReconciliationId | null,
       note: row.note,
     });
-    const frozenProof = frozenProofOf(row);
     reconciliations.push({
       reconciliationId: row.id as TrustReconciliationId,
       statementId: row.statement_id as TrustBankStatementId,
