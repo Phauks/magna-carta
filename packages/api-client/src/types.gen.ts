@@ -3998,6 +3998,274 @@ export type TrustFirmFundsMovementRecord = {
     recordedAt: string;
 };
 
+export type TrustCompliancePack = {
+    cover: TrustComplianceCover;
+    reconciliations: Array<TrustComplianceReconciliation>;
+    reconciliationNote: string | null;
+    proofAtProductionNote: string;
+    clientLedgers: Array<TrustComplianceClientLedger>;
+    journal: {
+        openingBalanceMinor: number;
+        closingBalanceMinor: number;
+        entries: Array<TrustComplianceJournalEntry>;
+    };
+    cushion: TrustComplianceCushion;
+    exceptions: TrustComplianceExceptions;
+    provenance: {
+        requestedBy: string | null;
+        computedAt: string;
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf: string | null;
+        packShapeVersion: number;
+        options: {
+            zeroBalanceLedgers: 'include' | 'omit';
+            authorizers: 'include' | 'omit';
+        };
+    };
+};
+
+export type TrustComplianceCover = {
+    trustAccountId: string;
+    trustAccountName: string;
+    locationId: string;
+    currency: string;
+    pooledInterestBearing: boolean;
+    accountStatus: 'open' | 'closed';
+    bankName: string | null;
+    accountNumberLastFour: string | null;
+    jurisdiction: TrustComplianceJurisdiction;
+    bankChargeCarveOutOpen: boolean;
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+};
+
+export type TrustComplianceJurisdiction = {
+    available: true;
+    jurisdiction: string;
+    requirement: string;
+    citation: string;
+    binding: boolean;
+} | {
+    available: false;
+    jurisdiction: string | null;
+    refusalCode: string;
+    refusalDetail: string;
+};
+
+export type ReportReproducibility = {
+    reproducible: true;
+    periodStart: string;
+    periodEnd: string;
+    knownAsOf: string;
+} | {
+    reproducible: false;
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+};
+
+export type ReportCompleteness = {
+    scope: 'complete';
+} | {
+    scope: 'complete-not-itemized';
+    notItemizedMatterCount: number;
+} | {
+    scope: 'screened';
+    excludedMatterCount: number;
+};
+
+export type TrustComplianceReconciliation = {
+    reconciliationId: string;
+    statementId: string;
+    statementPeriodStart: string;
+    statementPeriodEnd: string;
+    statementReference: string | null;
+    openedBy: string;
+    openedAt: string;
+    statusAsKnown: 'open' | 'closed';
+    closedBy: string | null;
+    closedAt: string | null;
+    frozenProof: TrustComplianceFrozenProof;
+    proofAtProduction: {
+        computedAt: string;
+        boundedByKnowledgeInstant: false;
+        proof: TrustComplianceLiveProof;
+        differencesFromAttestation: Array<TrustComplianceProofDifference>;
+    };
+};
+
+export type TrustComplianceFrozenProof = {
+    statementClosingMinor: number;
+    outstandingDepositsMinor: number;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    firmFundsMinor: number;
+    unmatchedLineCount: number;
+    unmatchedItemCount: number;
+    balanced: boolean;
+} | null;
+
+export type TrustComplianceLiveProof = {
+    trustAccountId: string;
+    statementId: string;
+    asOfDate: string;
+    currency: string;
+    statementClosingMinor: number;
+    outstandingDeposits: Array<TrustComplianceBankItem>;
+    outstandingDepositsMinor: number;
+    outstandingDisbursements: Array<TrustComplianceBankItem>;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    firmFundsMinor: number;
+    unmatchedStatementLines: Array<TrustComplianceStatementLine>;
+    balanced: boolean;
+    disagreements: Array<{
+        leg: string;
+        differenceMinor: number;
+    }>;
+};
+
+export type TrustComplianceBankItem = {
+    entryId: string;
+    effectiveDate: string;
+    description: string;
+    bankDeltaMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    transferId: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustComplianceStatementLine = {
+    id: string;
+    statementId: string;
+    postedOn: string;
+    direction: string;
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+    sourceRowNumber: number | null;
+};
+
+export type TrustComplianceProofDifference = {
+    leg: string;
+    attestedMinor: number;
+    liveMinor: number;
+    differenceMinor: number;
+};
+
+export type TrustComplianceClientLedger = {
+    clientEntityId: string | null;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    matters: Array<TrustComplianceMatterLedger>;
+};
+
+export type TrustComplianceMatterLedger = {
+    nodeId: string;
+    matterId: string | null;
+    ledgerAccountId: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    entries: Array<TrustComplianceLedgerEntry>;
+};
+
+export type TrustComplianceLedgerEntry = {
+    entryId: string;
+    effectiveDate: string;
+    recordedAt: string;
+    description: string;
+    reversesEntryId: string | null;
+    direction: 'debit' | 'credit';
+    amountMinor: number;
+    deltaMinor: number;
+    runningBalanceMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    method: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+    purpose: string | null;
+    transferId: string | null;
+    authorizedBy: string | null;
+    recordedBy: string | null;
+};
+
+export type TrustComplianceJournalEntry = {
+    entryId: string;
+    effectiveDate: string;
+    recordedAt: string;
+    description: string;
+    reversesEntryId: string | null;
+    bankDeltaMinor: number;
+    runningBalanceMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    transferId: string | null;
+    firmFundsMovementId: string | null;
+    firmFundsMovementKind: string | null;
+    method: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+    purpose: string | null;
+    nodeId: string | null;
+    counterpartyNodeId: string | null;
+    authorizedBy: string | null;
+    recordedBy: string | null;
+};
+
+export type TrustComplianceCushion = {
+    nodeId: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    movements: Array<{
+        firmFundsMovementId: string;
+        kind: 'firm_funds_deposit' | 'bank_charge';
+        effectiveDate: string;
+        recordedAt: string;
+        amountMinor: number;
+        method: string;
+        reference: string | null;
+        description: string;
+        recordedBy: string;
+    }>;
+} | null;
+
+export type TrustComplianceExceptions = {
+    holdsInForceAtKnowledgeInstant: Array<{
+        holdId: string;
+        nodeId: string;
+        matterId: string | null;
+        clientEntityId: string | null;
+        amountMinor: number;
+        reason: string;
+        placedAt: string;
+        placedBy: string | null;
+    }>;
+    atProduction: {
+        computedAt: string;
+        boundedByKnowledgeInstant: false;
+        outstandingBankItems: Array<TrustComplianceBankItem>;
+        unmatchedStatementLines: Array<{
+            reconciliationId: string;
+            line: TrustComplianceStatementLine;
+        }>;
+        storedBalanceDisagreements: Array<{
+            ledgerAccountId: string;
+            storedBalanceMinor: number;
+            computedBalanceMinor: number;
+        }>;
+    };
+};
+
 export type TrustDormantBalancesResponse = {
     quietOnOrBefore: string;
     balances: Array<TrustDormantBalanceRecord>;
@@ -20752,6 +21020,55 @@ export type TrustRecordBankChargeResponses = {
 };
 
 export type TrustRecordBankChargeResponse = TrustRecordBankChargeResponses[keyof TrustRecordBankChargeResponses];
+
+export type ReportsTrustCompliancePackData = {
+    body?: never;
+    path: {
+        trustAccountId: string;
+    };
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        zeroBalanceLedgers?: 'include' | 'omit';
+        authorizers?: 'include' | 'omit';
+    };
+    url: '/api/v1/reports/trust-compliance/{trustAccountId}';
+};
+
+export type ReportsTrustCompliancePackErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:trustCompliance
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates, it ends before it starts, the knowledge instant is not a UTC instant or is in the future, the period holds more of this account's activity than one document can carry, or the account's outstanding items are more than one reconciliation can account for
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTrustCompliancePackError = ReportsTrustCompliancePackErrors[keyof ReportsTrustCompliancePackErrors];
+
+export type ReportsTrustCompliancePackResponses = {
+    /**
+     * The pack for this trust account and period
+     */
+    200: TrustCompliancePack;
+};
+
+export type ReportsTrustCompliancePackResponse = ReportsTrustCompliancePackResponses[keyof ReportsTrustCompliancePackResponses];
 
 export type TrustDormantBalancesData = {
     body?: never;

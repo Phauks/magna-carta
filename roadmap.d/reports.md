@@ -7,9 +7,9 @@
 - id: reports
   name: Reports
   scope: Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
-  status: planned
+  status: partial
   slices: 3-6-financial-reporting
-  evidence: Design and implementation plan on branch claude/financial-reporting (docs/specs/2026-08-13-financial-reporting-design.md and -implementation-plan.md); no reporting package, report definitions, or report UI yet.
+  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/worker/src/routes/reports.ts serves it. The financial, productivity and operational families and the delivery surface are unbuilt, and no report has a screen.
   audience: public
   public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.
@@ -17,18 +17,21 @@
 - id: reports.projections
   name: Ledger projections
   scope: Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
-  status: planned
+  status: shipped
   slices: 3-6-financial-reporting, 0-3-ledger-core-fixtures
   adrs: ADR-0072
-  evidence: Ledger core with posting/reversal is on main; the projection contract is designed (bitemporal effective-date plus recorded_at knowledge instant), no projection layer built.
+  evidence: packages/reporting/src/temporal.ts holds the (period, knowledge instant) contract and its validation; the bitemporal select builders are in packages/trust/src/statements.ts and packages/reporting/test/reproducibility.test.ts proves a stated triple re-derives across a backdated correction.
+  notes: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused.
 
 - id: reports.trust-compliance
   name: Trust-compliance reports
   scope: Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
-  status: planned
+  status: partial
   slices: 3-6-financial-reporting, 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0246
-  evidence: Trust accounting is shipped end to end including the frozen three-way proof; the bar-audit pack is the first sub-slice of the reporting plan, rendering the frozen attestation rather than recomputing it.
+  evidence: packages/reporting/src/trust-compliance/pack.ts assembles the cover, reconciliations, client ledgers, journal, firm cushion, exceptions and provenance; GET /api/v1/reports/trust-compliance/{trustAccountId} serves it on reports:trustCompliance; packages/reporting/test/agreement.test.ts proves each decomposition equals the aggregate trust owns.
+  awaiting-owner: What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
+  notes: Backend only, no screen, and no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet.
 
 - id: reports.financial
   name: Financial reports
@@ -75,7 +78,7 @@
   status: planned
   slices: 3-6-financial-reporting
   adrs: ADR-0162
-  evidence: PDF rides the existing assembly-to-conversion edge in sub-slice 3·6·1; CSV and Excel are planned in sub-slice 3·6·5.
+  evidence: The trust-compliance pack is served as JSON; PDF rides the existing assembly-to-conversion edge, whose engines are not deployed, and CSV and Excel are planned in sub-slice 3·6·5.
 
 - id: reports.custom-builder
   name: Custom report builder
