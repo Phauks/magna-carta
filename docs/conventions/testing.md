@@ -22,6 +22,34 @@ A component is properly covered when it has: a **catalog entry** (definition/rev
 - The three fixture entry points: asserted **scenarios** (`trustOverdraftBlocked`, `conflictHit`, three-way reconciliation), **demo-firm bundle**, **load profile**.
 - Fixtures **never run in production** (guarded).
 
+## Work that outlives the test
+
+A response is not the end of the work. Handlers deliberately push work off the response path
+(`executionCtx.waitUntil`), and a test that asserts on the response returns while that work is still
+running. When the last test in a file returns, the harness tears the environment down — and the
+background work is mid-conversation with the test host, because resolving a module on first use and
+emitting a structured log line are both calls to it. Those calls are closed underneath the work and
+reject into a promise nobody holds, so the run fails on an error no test produced, in a file that
+passed. Whether it lands at all depends on how far the work happened to get, which is why it
+presents as a flake and why unrelated changes appear to cause or cure it.
+
+**The rule: background work is waited for, never suppressed.** An unhandled-rejection handler, an
+expected-warning marker, or anything else that hides the teardown error leaves the work racing the
+teardown and only removes the evidence.
+
+Every piece of fire-and-forget work therefore goes through a helper that accounts for it, and the
+harness waits for the count to reach zero after each test. In the Worker that is
+`trackBackgroundWork` / `runInBackground` (`apps/worker/src/background.ts`) and the global
+`afterEach` barrier in `apps/worker/test/support/settle-background-work.ts`, registered for every
+file through `setupFiles`. A new fire-and-forget path that skips the helper is invisible to the
+barrier, which is the one way to reopen this: the barrier's own test
+(`apps/worker/test/background-work-barrier.test.ts`) proves it can still see work being started, so
+a barrier that has quietly become vacuous fails rather than passing instantly.
+
+Waiting is a poll on a counter rather than an `await` of the promises, because the work runs in the
+I/O context of the request that started it: awaiting across that boundary is refused by the runtime
+("Cannot perform I/O on behalf of a different request").
+
 ## Owner manual verification checklist (UI slices)
 
 Every slice that ships UI also ships a **manual verification checklist** — a definition-of-done deliverable, owner-directed (2026-06-11, slice 1·1 design cycle). It is a short document of concrete, clickable walkthrough steps the owner performs to visually confirm the feature behaves as intended (e.g. "create a year-scoped numbering scheme; confirm the live preview renders `2026-0001`; create a consultation; confirm it has no number and appears in your Consultations folder"). It complements — never replaces — the automated layers above: automated tests prove the code's behavior; the checklist gives the owner a structured visual pass over the product's behavior. Checklists live with the slice's docs in [`docs/specs/`](../specs/) (one per slice, written during the build, kept current with UI changes).

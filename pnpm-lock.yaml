@@ -958,6 +958,12 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/encryption':
         specifier: workspace:*
@@ -1897,6 +1903,9 @@ importers:
       '@magna-carta/calendar':
         specifier: workspace:*
         version: link:../calendar
+      '@magna-carta/conflicts':
+        specifier: workspace:*
+        version: link:../conflicts
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access

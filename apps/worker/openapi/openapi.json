@@ -6115,6 +6115,11 @@
               "preliminary",
               "comprehensive",
               "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
               "periodic_rescan"
             ]
           },
@@ -6211,6 +6216,11 @@
               "preliminary",
               "comprehensive",
               "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
               "periodic_rescan"
             ]
           },
@@ -6409,6 +6419,9 @@
               "$ref": "#/components/schemas/ConflictsPosturePendingRecheck"
             }
           },
+          "periodicRescan": {
+            "$ref": "#/components/schemas/ConflictsPosturePeriodicRescan"
+          },
           "undisposedByTier": {
             "type": "array",
             "items": {
@@ -6434,6 +6447,7 @@
           "latestCheck",
           "scopeShortfall",
           "pendingRecheck",
+          "periodicRescan",
           "undisposedByTier",
           "dispositionsByKind",
           "unavailableSources"
@@ -6604,6 +6618,28 @@
           "causeReference",
           "causeOccurredAt",
           "requestedAt"
+        ]
+      },
+      "ConflictsPosturePeriodicRescan": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "intervalDays": {
+            "type": "integer"
+          },
+          "lastRunAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "intervalDays",
+          "lastRunAt"
         ]
       },
       "ConflictsPostureUndisposedTier": {
@@ -37225,7 +37261,7 @@
     },
     "/api/v1/matters/{matterId}/conflicts-posture": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
         "operationId": "conflicts.matterPosture",
         "tags": [
           "conflicts"

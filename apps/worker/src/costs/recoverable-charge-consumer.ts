@@ -14,6 +14,10 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { MAGNUS_TURN_SUBMITTED_TOPIC } from "@magna-carta/magnus/turn";
+import { RECHECK_CAUSE_TOPICS } from "@magna-carta/conflicts/recheck-cause";
+import { CONFLICTS_RECHECK_REQUESTED_TOPIC } from "@magna-carta/conflicts/topics";
+import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
+import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../emails/capture-address-service.ts";
 import { consumeCaptureRouteRegistration } from "../emails/capture-route-consumer.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
@@ -60,6 +64,10 @@ export interface PerFirmQueueMessage {
   readonly payload: string;
   readonly aggregateKey: string | null;
   readonly seq: number | null;
+  // When the outbox row was written, and therefore when the business write it describes committed.
+  // Optional because a message enqueued before the relay carried it through has none; a handler that
+  // needs it falls back to its own clock rather than refusing the message.
+  readonly causeOccurredAt?: string;
 }
 
 // Recognizes a cost_entry.recovery_ref UNIQUE violation. After the 24h idempotency-TTL purge the
@@ -86,11 +94,56 @@ type PerFirmTopicHandler = (
 ) => Promise<void>;
 
 // Topic → handler. Mirrors CONTROL_PLANE_CONSUMERS; add a row to own a new per-firm topic.
+//
+// The conflicts entries are the one BLOCK rather than one row: every corpus-change topic that could
+// alter an already-checked matter's answer routes to the same request handler, and the catalogue of
+// which topics those are belongs to the conflicts package rather than to this table. Spreading it
+// here means adding a cause is one entry in that catalogue and nothing at all in this file.
 const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   "shipment.purchased": handleShipmentPurchased,
   [CAPTURE_ROUTE_TOPIC]: handleCaptureRouteRegistration,
   [MAGNUS_TURN_SUBMITTED_TOPIC]: handleMagnusTurnSubmitted,
+  ...Object.fromEntries(
+    RECHECK_CAUSE_TOPICS.map((topic) => [topic, handleConflictsRecheckCause] as const),
+  ),
+  [CONFLICTS_RECHECK_REQUESTED_TOPIC]: handleConflictsRecheckRun,
 };
+
+// A corpus change that could have changed an already-checked matter's answer: resolve the affected
+// matters and record a ledger row for each. This handler NEVER runs a check — request and run are
+// separate so a slow check cannot back-pressure the recording of causes, and the recording is what
+// makes staleness visible.
+//
+// The message's cause instant is the OUTBOX ROW's own creation time rather than now: the interval a
+// firm can point to is between the corpus change and the check that answered it, not between the
+// queue getting round to it and the check.
+function handleConflictsRecheckCause(
+  _env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  return consumeRecheckRequest(
+    firmDatabase,
+    {
+      topic: message.topic,
+      payload: message.payload,
+      causeOccurredAt: message.causeOccurredAt ?? new Date().toISOString(),
+    },
+    logger,
+  );
+}
+
+// The drain signal for one matter: claim every cause open against it, run ONE check that names them
+// all, stamp each claimed request with that check.
+function handleConflictsRecheckRun(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  return consumeRecheckRun(env, message.firmId, firmDatabase, message.payload, logger);
+}
 
 // Hands a submitted assistant turn from the per-firm outbox onto the assistant's own queue, which is
 // what gives that work its own dead-letter queue and concurrency rather than sharing this bus's. The

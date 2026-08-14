@@ -62,6 +62,22 @@ and never calls external services.
   `"Nothing surfaced."`
 - `src/sources.ts` — the one home for what a check can search, what it cannot, and why:
   `availabilityOf` (the write side), `unavailabilityReason` and `displayNameForSource` (the read side)
+- `src/topics.ts` — the two outbox topics this package publishes, as one frozen set:
+  `conflicts.recheck.requested` (the drain signal, written in the same batch as the ledger rows) and
+  `conflicts.hit.surfaced` (the notification's subscription, emitted only by an automated run that
+  found something)
+- `src/recheck-settings.ts` — the firm's re-check configuration (`maxMattersPerEvent`, whether the
+  scheduled re-scan runs and how often, the batch size) plus the last-run marker and `periodicRescanIsDue`
+- `src/recheck-cause.ts` — `resolveAffectedMatters`: one bounded indexed query per cause topic
+  answering "which already-checked matters could this corpus change have changed the answer for", and
+  `triggerForCauseTopic`. `directory.entity.created` deliberately resolves to **nothing**
+- `src/recheck-request.ts` — `recordRecheckRequests`: the write half of the request path. Writes a
+  ledger row for **every** affected matter and queues at most `maxMattersPerEvent` of them
+- `src/recheck-run.ts` — `satisfyRecheckRequestsForMatter`: claim a matter's open causes, coalesce
+  every one into a single check that names them all, stamp each claimed row. Shared by the queue
+  consumer and the cron backstop so the two can never answer a matter differently
+- `src/recheck-statements.ts` — SQL for `conflicts_recheck_request`: the `ON CONFLICT DO NOTHING`
+  insert, the guarded satisfaction stamp, the per-matter and oldest-first reads
 - `src/statements.ts` — SQL statement builders for the three tables; `CONFLICTS_CHECK_TABLE` /
   `CONFLICTS_HIT_TABLE` / `CONFLICTS_DISPOSITION_TABLE` names, tracked by the schema-name-sync fitness
   test; INSERT only — there is no update or delete builder for any of the three tables
@@ -124,6 +140,31 @@ and never calls external services.
   to break it carries an inline `conflicts-vocabulary:allow — <reason>` marker on the same line; a
   verdict-shaped **field name** has no such escape hatch.
 
+- **A cause is coalesced, never discarded, and never trimmed.** Every affected matter gets a
+  `conflicts_recheck_request` row — the caps in `recheck-settings.ts` bound how many are ATTEMPTED in
+  one queue invocation, never how many are recorded, because a trimmed set is a conflict the platform
+  noticed and then forgot. Several causes accumulated for one matter collapse into ONE check whose
+  `cause_json` names them all; the drain running out of budget leaves rows open, which is a visible
+  state the posture read reports. The ledger's own rules are enforced by triggers rather than by
+  convention: the cause columns cannot be rewritten, a satisfaction cannot be reopened, and no row is
+  ever deleted — the interval between a cause and the check that answered it is the evidence that the
+  firm's procedure noticed something, and no check row alone can show it.
+- **The automated path cannot conclude anything.** `recheck-cause.ts`, `recheck-request.ts`,
+  `recheck-run.ts`, and the worker's two consumers must never import `disposition.ts` or call
+  `recordDisposition`. A run that nobody asked for, under nobody's authority, writing a row that names
+  a member as having concluded something is the one failure this subsystem cannot recover from — so it
+  is enforced on the source text by `test/automated-path-cannot-dispose.test.ts` and the worker's
+  `test/conflicts-recheck-consumers.test.ts`, and a database trigger refusing a disposition whose
+  reviewer is not a live member lands with the adjudication read models as the second layer. Request
+  and run are separate consumers for a different reason and the same discipline: a slow check must not
+  back-pressure the recording of causes, so the request consumer never imports `runConflictsCheck`.
+- **An automated run is nobody's act.** `actorUserId` is null and `effectivePermissions` is empty on
+  the context the worker builds for it (`apps/worker/src/conflicts/recheck-context.ts`). The matching
+  channels compare sealed identifiers by blind index, which needs no permission and writes no decrypt
+  audit; a path that needed a real decrypt would fail there, loudly, which is the correct outcome for
+  machinery running under nobody's authority. `trigger_source` records what set the run going, kept
+  beside `actor_user_id` rather than derived from it — an absent actor says nobody is being credited,
+  not whether a person, an event, or the clock started it.
 - **Staleness is derived, never written.** `scopeShortfall` compares the latest check's recorded scope
   against the **live** `conflicts.policy` row on every read, so raising the firm floor makes the
   shortfall appear immediately on every affected matter with no sweep and no write. This is the
@@ -163,6 +204,9 @@ and never calls external services.
 - **The posture read does not check that the matter exists**, and that is deliberate: a 404 on an
   unknown matter would make "never checked" and "no such matter" the same answer, which is the
   conflation the whole read exists to prevent. `neverChecked` is the answer for both.
+- **`pendingRecheck` is read for a never-checked matter too.** A matter nobody has ever run a check on
+  can still be owed one — a party added to a matter that predates the engine — and reporting nothing
+  pending because there is no check would hide exactly the case that most needs saying.
 - The posture read's counts are scoped to the **latest** check. An earlier check's hits stay on the
   record and are read through that check; cross-check hit identity (a re-surfaced hit that cites an
   earlier conclusion) is the adjudication read model's job and lands with it.

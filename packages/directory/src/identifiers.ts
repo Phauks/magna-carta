@@ -21,6 +21,7 @@ import { directoryAuditStatement } from "./audit.ts";
 import { assertEntityExists } from "./entity-kind.ts";
 import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.ts";
+import { DIRECTORY_IDENTIFIER_ADDED_TOPIC } from "./topics.ts";
 import type { IdentifierType } from "./types.ts";
 
 // Sensitive typed identifiers (SSN, EIN, driver's license, account number, DOB, SSN-last-four) live in
@@ -268,7 +269,18 @@ export async function addIdentifier(
         identifierId,
       ),
     ],
-    outboxMessages: [],
+    // One outbox row, in the batch this write was already composing. An SSN or EIN entered after a
+    // matter was screened makes an exact-identifier match possible where none could fire before, so
+    // the arrival is announced. The payload names the entity, the identifier ROW, and its TYPE —
+    // never the value and never the blind index. A blind index is a stable fingerprint of the
+    // plaintext: putting one on a relayed message would let anything that reads the bus correlate a
+    // person across firms without ever decrypting anything.
+    outboxMessages: [
+      {
+        topic: DIRECTORY_IDENTIFIER_ADDED_TOPIC,
+        payload: { identifierId, entityId, identifierType: input.type },
+      },
+    ],
     responseCode: 201,
     responseBody: { ok: true },
     value: undefined,

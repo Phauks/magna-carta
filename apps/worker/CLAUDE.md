@@ -238,3 +238,8 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 - Tests run in `@cloudflare/vitest-pool-workers` (Miniflare) with real bindings from `wrangler.jsonc`; a
   DO test uses `runInDurableObject`. R2 `put` of an unknown-length stream stores nothing — confirmed
   against Miniflare — which is why the bundle build uses multipart.
+- **Fire-and-forget work goes through `src/background.ts`** — `runInBackground` from a handler,
+  `trackBackgroundWork` where the promise is handed to `waitUntil` directly. A path that skips it is
+  invisible to the test harness's teardown barrier and will eventually fail a run in a file that
+  passed; the rule and the reasoning are in
+  [`docs/conventions/testing.md`](../../docs/conventions/testing.md) (_Work that outlives the test_).

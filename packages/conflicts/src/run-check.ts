@@ -13,14 +13,33 @@ import { type MatchPartyInput, matchParty } from "./matching.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
 import { availabilityOf, PRIOR_FIRM_HISTORY_SOURCE } from "./sources.ts";
-import { insertCheckStatement, insertHitStatement } from "./statements.ts";
-import type { ConflictsTrigger, SourceAvailability, SourceClass } from "./types.ts";
+import {
+  CONFLICTS_CHECK_TABLE,
+  CONFLICTS_HIT_TABLE,
+  insertCheckStatement,
+  insertHitStatement,
+} from "./statements.ts";
+import { CONFLICTS_HIT_SURFACED_TOPIC } from "./topics.ts";
+import type {
+  ConflictsCause,
+  ConflictsTrigger,
+  ConflictsTriggerSource,
+  SourceAvailability,
+  SourceClass,
+} from "./types.ts";
 
 export interface RunCheckInput {
   readonly trigger: ConflictsTrigger;
   readonly matterId?: string;
   readonly subjectEntityIds: readonly string[];
   readonly scope: ScopeRequest;
+  // How the run was started. Omitted means a person asked for it, which is what every caller that
+  // predates the automated paths means and what the row records as NULL.
+  readonly triggerSource?: ConflictsTriggerSource;
+  // The corpus changes this run covers. Several accumulated causes are named on ONE check rather
+  // than producing one check each, and every one of them is listed — coalescing collapses causes
+  // into a single check, never out of existence.
+  readonly causes?: readonly ConflictsCause[];
 }
 
 // The entity id prefixes are self-describing (see packages/directory/src/entity-kind.ts, which this
@@ -92,6 +111,30 @@ async function readIdentifierReferences(
     .bind(...entityIds)
     .all<{ id: string; identifier_type: string }>();
   return results.map((row) => ({ id: row.id, type: row.identifier_type }));
+}
+
+// Whether any earlier check on this matter surfaced anything at all. One bounded existence probe over
+// the (check_id) index, read BEFORE the batch is composed like everything else here — D1 has no
+// interactive transactions.
+//
+// It answers one question and only for the notification: a matter that has never surfaced a hit and
+// now surfaces one has changed in a way somebody should be told about, whatever tier it landed at.
+// Nothing about the check itself depends on it, and nothing is written from it.
+async function matterHasEarlierHits(
+  context: DirectoryIdentifierContext,
+  matterId: string,
+): Promise<boolean> {
+  const { results } = await context.database
+    .prepare(
+      `SELECT 1 AS present
+         FROM ${CONFLICTS_HIT_TABLE}
+         JOIN ${CONFLICTS_CHECK_TABLE} ON ${CONFLICTS_CHECK_TABLE}.id = ${CONFLICTS_HIT_TABLE}.check_id
+        WHERE ${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?1
+        LIMIT 1`,
+    )
+    .bind(matterId)
+    .all<{ present: number }>();
+  return results.length > 0;
 }
 
 export async function runConflictsCheck(
@@ -177,6 +220,24 @@ export async function runConflictsCheck(
 
   const checkId = newIdentifier("conflictsCheck", options.randomSource);
   const now = options.clock.now();
+  const triggerSource = input.triggerSource ?? null;
+
+  // WHETHER TO ANNOUNCE THIS RUN. A check a person asked for never announces: the person who asked is
+  // looking at the result, and a notification for it would train the firm to ignore the channel by
+  // the time an automated one matters. An automated check announces when it found something a person
+  // has not seen — the strongest two evidence tiers, or a matter's first hit ever, whatever its tier.
+  //
+  // Both facts are known here, from this run's own hits plus one existence probe, so the announcement
+  // carries counts and nothing downstream has to query for anything. A hit written in this batch is
+  // undisposed by construction: its identifier was minted a few lines ago, so no disposition can name
+  // it, and there is nothing to check for.
+  const strongUndisposedHits = hits.filter((hit) => hit.tier <= 2).length;
+  const announce =
+    triggerSource !== null &&
+    triggerSource !== "manual" &&
+    input.matterId !== undefined &&
+    hits.length > 0 &&
+    (strongUndisposedHits > 0 || !(await matterHasEarlierHits(context, input.matterId)));
 
   // Identifiers are recorded BY REFERENCE. No plaintext value ever enters the log.
   const inputs = {
@@ -199,6 +260,13 @@ export async function runConflictsCheck(
         inputsJson: JSON.stringify(inputs),
         floorRaised: scope.floorRaised,
         actorUserId: options.actorUserId,
+        triggerSource,
+        // Every cause the run covers, or null when a person asked for it and the cause is simply
+        // that they did.
+        causeJson:
+          input.causes === undefined || input.causes.length === 0
+            ? null
+            : JSON.stringify(input.causes),
         createdAt: now,
       }),
       ...hits.map((hit) =>
@@ -216,7 +284,25 @@ export async function runConflictsCheck(
       ),
       conflictsAuditStatement(context.database, options, "conflicts.check.run", checkId),
     ],
-    outboxMessages: [],
+    // The announcement, in the same atomic batch as the check and its hits, so the message exists if
+    // and only if the rows it describes committed. COUNTS AND HANDLES ONLY: no entity name, no
+    // matched field, no identifier of any kind. A notification row outlives the access check that
+    // justified it, so what it may carry has to be decided where the privileged data is, which is
+    // here — the subject is resolved behind the deep link through this package's own access-checked
+    // read, exactly as every other notification's is.
+    outboxMessages: announce
+      ? [
+          {
+            topic: CONFLICTS_HIT_SURFACED_TOPIC,
+            payload: {
+              checkId,
+              matterId: input.matterId,
+              hitCount: hits.length,
+              strongHitCount: strongUndisposedHits,
+            },
+          },
+        ]
+      : [],
     responseCode: 201,
     responseBody: { id: checkId },
     value: checkId,
