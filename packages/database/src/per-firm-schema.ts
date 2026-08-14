@@ -3103,6 +3103,10 @@ export const custodyPacket = sqliteTable(
     index("custody_packet_current_location_index").on(table.currentLocationId),
     index("custody_packet_matter_index").on(table.matterId),
     index("custody_packet_depositor_index").on(table.depositorEntityId),
+    // The register list's sort, on every page including keyset pages. Both columns are immutable, so
+    // this is written when a packet is created and not by the status and location updates a movement
+    // makes.
+    index("custody_packet_created_index").on(table.createdAt, table.id),
     check("custody_packet_name_check", sql`length(${table.name}) > 0`),
     check("custody_packet_number_check", sql`length(${table.custodyNumber}) > 0`),
     check("custody_packet_number_source_check", sql`${table.numberSource} IN ('drawn', 'manual')`),
@@ -3302,7 +3306,10 @@ export const custodyMovement = sqliteTable(
   (table) => [
     // The packet history read, keyset-paginated newest first; also the order the register renders.
     index("custody_movement_packet_occurred_index").on(table.packetId, table.occurredAt, table.id),
-    index("custody_movement_item_index").on(table.itemId),
+    // The firm-wide calendar window, which reads movements by date with no packet to key on. This
+    // ledger grows for as long as the firm holds the property, so a date read with nothing to seek
+    // walks more of it every year. The table is append-only, so the index is insert-only.
+    index("custody_movement_occurred_index").on(table.occurredAt, table.id),
     index("custody_movement_borrower_entity_index").on(table.borrowerEntityId),
     check(
       "custody_movement_kind_check",
@@ -5609,8 +5616,10 @@ export const matterEventParticipant = sqliteTable(
   (table) => [
     index("matter_event_participant_event_index").on(table.eventId),
     // "What is on this member's calendar" — the firm calendar's member filter, resolved as a
-    // predicate rather than by reading every event and discarding most of them.
-    index("matter_event_participant_member_index").on(table.memberUserId),
+    // predicate rather than by reading every event and discarding most of them. The predicate
+    // supplies BOTH columns, so both are indexed and the lookup is a covering seek; keyed on the
+    // member first so it also answers "which events is this member on" without an event in hand.
+    index("matter_event_participant_member_event_index").on(table.memberUserId, table.eventId),
     index("matter_event_participant_entity_index").on(table.entityId),
     check(
       "matter_event_participant_kind_check",

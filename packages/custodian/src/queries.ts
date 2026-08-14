@@ -157,6 +157,18 @@ export interface OverdueCustodyCheckout {
 // The ledger then supplies the due-back date from that packet's MOST RECENT check-out — most recent
 // by occurred_at, because a back-dated correction to an old check-out must not resurrect its
 // deadline over a newer one.
+//
+// The PACKET is therefore also the driving table, and the shape of this statement is what makes it
+// so. "Out" is the selective fact here — a firm has tens of packets out against a ledger that grows
+// without bound for as long as it holds them — so the sweep seeks those packets and asks each one for
+// its latest check-out, one indexed seek per packet. Turned around, with the ledger outer and the
+// packet joined to it, the planner's only usable predicate is `item_id IS NULL`; that matches every
+// packet-scoped movement ever recorded, and the correlated subquery below then runs once per matched
+// row. Same answer, and a cost that grows with the firm's whole history instead of with what is out.
+//
+// `kind` and `item_id` appear only inside that subquery for the same reason: a row it returns
+// satisfies both by construction, so repeating them in the outer WHERE adds no filtering and gives
+// the planner a second way in.
 export function selectOverdueCustodyCheckoutsStatement(
   database: SqlDatabase,
   asOfDate: string,
@@ -164,25 +176,22 @@ export function selectOverdueCustodyCheckoutsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT movement.packet_id AS packet_id,
+      `SELECT packet.id AS packet_id,
               packet.custody_number AS custody_number,
               movement.due_back_on AS due_back_on,
               movement.borrower_kind AS borrower_kind
-         FROM ${CUSTODY_MOVEMENT_TABLE} AS movement
-         JOIN ${CUSTODY_PACKET_TABLE} AS packet ON packet.id = movement.packet_id
-        WHERE movement.kind = 'checked_out'
-          AND movement.item_id IS NULL
-          AND movement.due_back_on IS NOT NULL
-          AND movement.due_back_on < ?1
-          AND packet.status = 'out'
-          AND movement.id = (
+         FROM ${CUSTODY_PACKET_TABLE} AS packet
+         JOIN ${CUSTODY_MOVEMENT_TABLE} AS movement ON movement.id = (
                 SELECT latest.id FROM ${CUSTODY_MOVEMENT_TABLE} AS latest
-                 WHERE latest.packet_id = movement.packet_id
+                 WHERE latest.packet_id = packet.id
                    AND latest.kind = 'checked_out'
                    AND latest.item_id IS NULL
                  ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1
               )
-        ORDER BY movement.due_back_on ASC, movement.packet_id ASC
+        WHERE packet.status = 'out'
+          AND movement.due_back_on IS NOT NULL
+          AND movement.due_back_on < ?1
+        ORDER BY movement.due_back_on ASC, packet.id ASC
         LIMIT ?2`,
     )
     .bind(asOfDate, limit);

@@ -90,9 +90,9 @@ Before choosing an architecture, the honest inventory. Every table below is ship
 | `document_assembly`               | `created_at` (instant)              | `matter_id`                       | Yes — `document_assembly_matter_id_created_at_id_index`   |
 | `time_entry`                      | `work_date` (civil date)            | `matter_id`                       | Partly — the shipped indexes serve the billing reads      |
 | `cost_entry`                      | date (civil date)                   | `matter_id`                       | Partly — as above                                         |
-| `custody_movement`                | `occurred_at` (instant)             | via `custody_packet.matter_id`    | Yes per packet — `custody_movement_packet_occurred_index` |
+| `custody_movement`                | `occurred_at` (instant)             | via `custody_packet.matter_id`    | Yes — per packet, and by date for the firm window         |
 | `custody_packet` / `custody_item` | `review_on` (civil date)            | via `custody_packet.matter_id`    | Yes — the hand-written `custody_*_review_index` partials  |
-| `custody_movement.due_back_on`    | civil date                          | via the packet                    | Yes — the hand-written `custody_movement_due_back_index`  |
+| `custody_movement.due_back_on`    | civil date                          | via the packet                    | Not needed — the read seeks the packets that are out      |
 | `trust_movement`                  | `effective_date` (civil date)       | via `trust_ledger_node.matter_id` | Yes per node — `trust_movement_node_effective_date_index` |
 | `conflicts_check`                 | `created_at` (instant)              | `subject_matter_id` (nullable)    | No index on the matter column                             |
 | `shipment` / `tracking_event`     | carrier timestamps                  | via the custody movement          | Not for this read                                         |

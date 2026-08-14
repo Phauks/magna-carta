@@ -91,10 +91,10 @@ To confirm a repair by hand: `generate-per-firm-migrations` on an unchanged sche
 ## Gotchas
 
 - **The drizzle schema is not the whole database.** Raw partial indexes (`custody_*_review_index`,
-  `custody_movement_due_back_index`, `index_split_document_version_unique`), the
-  `directory_name_fts` FTS5 table and its shadow tables, and a self-referencing foreign key on
-  `custody_location.parent_location_id` exist in the migrations but not in the TypeScript schema, so
-  no snapshot records them and no generate will ever reproduce them. Anything that compares the
+  `index_split_document_version_unique`), the `directory_name_fts` FTS5 table and its shadow tables,
+  and a self-referencing foreign key on `custody_location.parent_location_id` exist in the migrations
+  but not in the TypeScript schema, so no snapshot records them and no generate will ever reproduce
+  them. Anything that compares the
   applied chain against the schema must expect those extras. Conversely
   `document_template.current_version_id` declares a foreign key the migration deliberately omits (it
   would close a cycle with `document_template_version`).
