@@ -164,6 +164,52 @@ describe("the preview", () => {
   });
 });
 
+describe("the preview fingerprint", () => {
+  // The whole point of the fingerprint is that the file a person reviewed is the file that gets
+  // stored, so the canonical text it is taken over has to be readable ONE way. Running the fields
+  // together with a separator between them cannot promise that: a bank writes whatever it likes into
+  // a reference or a payee column — including the character a separator would have to reserve — and
+  // a file carrying that character inside a field canonicalizes exactly as the same characters
+  // arranged one field to the left do. Two files, one fingerprint, and the confirmation cannot tell
+  // which one a person actually looked at.
+  //
+  // Built with fromCharCode rather than written into the string, because the character is invisible
+  // in an editor and in a diff — which is most of the reason a reserved separator is a poor thing to
+  // rest a guarantee on.
+  const SEPARATOR_A_FILE_MAY_CONTAIN = String.fromCharCode(1);
+  const fingerprintOfFile = (reference: string, counterparty: string) =>
+    previewTrustStatementImport(
+      [
+        "Date,Description,Check Number,Payee,Amount",
+        `2026-08-02,DEPOSIT,${reference},${counterparty},50.00`,
+      ].join("\n"),
+      importOptions,
+    ).fingerprint;
+
+  it("distinguishes two files whose fields differ only in where the boundary falls", () => {
+    expect(fingerprintOfFile(`INV-9${SEPARATOR_A_FILE_MAY_CONTAIN}ACME`, "LTD")).not.toBe(
+      fingerprintOfFile("INV-9", `ACME${SEPARATOR_A_FILE_MAY_CONTAIN}LTD`),
+    );
+  });
+
+  // The same shift in the shape a person would actually produce it: a digit that moved out of the
+  // money column and into the text beside it.
+  it("distinguishes a figure that shifted across the money column", () => {
+    const shifted = (amount: string, description: string) =>
+      previewTrustStatementImport(
+        ["Date,Description,Amount", `2026-08-02,${description},${amount}`].join("\n"),
+        importOptions,
+      ).fingerprint;
+    expect(shifted("23.00", "45 ACME")).not.toBe(shifted("2345.00", " ACME"));
+  });
+
+  it("gives the same file the same fingerprint every time", () => {
+    expect(previewTrustStatementImport(GOOD_FILE, importOptions).fingerprint).toBe(
+      previewTrustStatementImport(GOOD_FILE, importOptions).fingerprint,
+    );
+  });
+});
+
 describe("confirming the import", () => {
   it("records the statement only on an explicit confirmation, and reports what it stored", async () => {
     const fixture = await trustFixture({ jurisdiction: "US-NV" });

@@ -81,6 +81,7 @@ describe("problem-type URI registry", () => {
         "trust-reconciliation-already-accounted-for",
         "trust-statement-import-refused",
         "trust-reconciliation-refused",
+        "trust-reconciliation-truncated",
         "trust-firm-funds-refused",
         "trust-firm-funds-insufficient",
         "trust-unclaimed-funds-refused",

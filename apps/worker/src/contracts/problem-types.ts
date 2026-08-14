@@ -330,6 +330,15 @@ export const PROBLEM_TYPES = {
   // outstanding item on this account as of the period. DISTINCT from `validation` — the request is
   // well-formed; the record it describes is not one the rules permit.
   "trust-reconciliation-refused": "trust-reconciliation-refused",
+  // A reconciliation whose reads hit their ceiling (HTTP 422): more outstanding book items than one
+  // period can account for, or more unaccounted-for statement lines than one period can attest to.
+  // The cap is detected rather than silent, and the answer is a refusal rather than a short list —
+  // every figure a proof reports is derived from those lists and a close FREEZES them as the firm's
+  // attestation, so a truncated read produces a confidently wrong number rather than an obviously
+  // incomplete one. DISTINCT from `trust-reconciliation-refused`, which says the rules refuse the
+  // record described: nothing here is improper, and the remedy the detail names is the caller's —
+  // reconcile the earlier periods, or record the statement as several shorter ones.
+  "trust-reconciliation-truncated": "trust-reconciliation-truncated",
   // Something the rules refuse about the FIRM'S OWN money in a trust account (HTTP 422): the account
   // keeps no bank-charge cushion because nobody opened one, the account is the pooled
   // interest-bearing kind the researched rules exempt from service charges (so there is no charge for
