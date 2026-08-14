@@ -53,6 +53,17 @@ over the whole set. `pnpm run lint:roadmap` fails when it differs from a fresh r
 capability that ships moves in the register on the `status` flip alone. Design:
 [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
 
+**A node holds one status and forgets the last one, so the register's history is reconstructed from
+git.** The same build re-parses this ledger as it stood at every past commit that touched
+`roadmap.d/` on the trunk and keeps the counts in
+[`docs/register-history.json`](../docs/register-history.json), which the register renders as _Where
+we have been_. An ordinary run reads only the commits that file does not already hold — normally
+one — so it stays cheap; a commit whose ledger does not parse under the current schema is recorded
+as unread with the parser's reason and rendered as a hole, never estimated. After changing the
+parser or the status vocabulary, run `vp run register-build --rebuild-history` (or
+`node tooling/doc-fragments/build-register-history.mjs --rebuild`) so commits that have become
+readable join the series.
+
 ## The gate against the repository
 
 `pnpm run lint:roadmap` holds the rendered documents to the ledger. It cannot tell whether the

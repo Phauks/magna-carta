@@ -1,0 +1,190 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadHistory, snapshotAt, updateHistory } from "./build-register-history.mjs";
+import { serializeHistory } from "./register-history.mjs";
+
+// These exercise the reconstruction against a real repository, because what is being tested is
+// exactly the reading of past commits: a stubbed git would test the stub. The repository is three
+// commits of a toy ledger, one of which is written in a schema the parser does not accept.
+
+let root = null;
+let file = null;
+
+function git(...args) {
+  execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
+}
+
+function node(id, status) {
+  return `- id: ${id}\n  name: ${id}\n  scope: A capability.\n  status: ${status}\n`;
+}
+
+function commitLedger(message, files) {
+  mkdirSync(join(root, "roadmap.d"), { recursive: true });
+  for (const [name, body] of Object.entries(files)) {
+    writeFileSync(join(root, "roadmap.d", name), body);
+  }
+  git("add", "-A");
+  git("-c", "commit.gpgsign=false", "commit", "-q", "-m", message);
+}
+
+function area(title, ...nodes) {
+  return `# ${title}\n\n<!-- Feature ledger fragment. -->\n\n${nodes.join("\n")}`;
+}
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), "register-history-"));
+  file = join(root, "history.json");
+  git("init", "-q");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "Ledger Test");
+  git("config", "commit.gpgsign", "false");
+});
+
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  root = null;
+});
+
+describe("reading the ledger out of git", () => {
+  it("records one snapshot per commit that touched the ledger, oldest first", () => {
+    commitLedger("first", {
+      "trust.md": area("Trust", node("trust.ledger", "shipped")),
+      "README.md": "# Not an area file\n\nProse the parser never sees.\n",
+    });
+    commitLedger("second", {
+      "trust.md": area("Trust", node("trust.ledger", "shipped"), node("trust.charges", "planned")),
+    });
+    writeFileSync(join(root, "unrelated.txt"), "not the ledger\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "third");
+
+    const { history } = updateHistory({ root, file });
+
+    expect(history.snapshots).toHaveLength(2);
+    expect(history.snapshots.map((snapshot) => snapshot.total)).toEqual([1, 2]);
+    expect(history.snapshots[1].statuses).toMatchObject({ shipped: 1, planned: 1 });
+    expect(history.snapshots[1].areas).toEqual([{ name: "trust.md", total: 2, shipped: 1 }]);
+  });
+
+  it("gives no row to a commit that touched only the ledger's README, which holds no node", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    commitLedger("format note", { "README.md": "# Feature-ledger fragments\n\nThe format.\n" });
+
+    expect(updateHistory({ root, file }).history.snapshots).toHaveLength(1);
+  });
+
+  it("records a commit the parser cannot read as unread, with the parser's own reason", () => {
+    commitLedger("legacy vocabulary", {
+      "trust.md": area("Trust", node("trust.ledger", "built")),
+    });
+    commitLedger("vocabulary corrected", {
+      "trust.md": area("Trust", node("trust.ledger", "shipped")),
+    });
+
+    const { history } = updateHistory({ root, file });
+
+    expect(history.snapshots[0]).toMatchObject({ read: false });
+    expect(history.snapshots[0].reason).toMatch(/trust\.md.*unknown status "built"/);
+    // The unreadable commit stops nothing: the next one is read normally, which is what makes the
+    // gap a hole in the series rather than the end of it.
+    expect(history.snapshots[1]).toMatchObject({ read: true, total: 1 });
+  });
+
+  it("names every area that failed, not only the first", () => {
+    commitLedger("two malformed areas", {
+      "trust.md": area("Trust", node("trust.ledger", "built")),
+      "ai.md": area("AI", node("ai.magnus", "underway")),
+    });
+
+    const [snapshot] = updateHistory({ root, file }).history.snapshots;
+    expect(snapshot.reason).toContain("ai.md");
+    expect(snapshot.reason).toContain("trust.md");
+  });
+
+  it("writes a file that reads back as the history it just built", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    const { history } = updateHistory({ root, file });
+    expect(loadHistory(file)).toEqual(history);
+  });
+});
+
+describe("the append path", () => {
+  it("reads only the commits the file does not already hold", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    const first = updateHistory({ root, file });
+    expect(first.added).toHaveLength(1);
+
+    commitLedger("second", {
+      "trust.md": area("Trust", node("trust.ledger", "shipped"), node("trust.charges", "shipped")),
+    });
+    const second = updateHistory({ root, file });
+
+    expect(second.added).toHaveLength(1);
+    expect(second.added[0].total).toBe(2);
+    expect(second.history.snapshots).toHaveLength(2);
+    // The earlier row is carried through untouched rather than recomputed.
+    expect(second.history.snapshots[0]).toEqual(first.history.snapshots[0]);
+  });
+
+  it("does nothing at all when the file already holds every commit", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    updateHistory({ root, file });
+    const before = readFileSync(file, "utf8");
+
+    const again = updateHistory({ root, file });
+    expect(again.added).toEqual([]);
+    expect(readFileSync(file, "utf8")).toBe(before);
+  });
+
+  it("recomputes every row on a rebuild, which is how a parser change reaches the past", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    const { history } = updateHistory({ root, file });
+
+    const stale = structuredClone(history);
+    stale.snapshots[0].total = 999;
+    writeFileSync(file, serializeHistory(stale));
+    expect(updateHistory({ root, file }).history.snapshots[0].total).toBe(999);
+
+    expect(updateHistory({ root, file, rebuild: true }).history.snapshots[0].total).toBe(1);
+  });
+
+  it("drops a snapshot whose commit is no longer on the first-parent history, and reports it", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    const { history } = updateHistory({ root, file });
+    const orphaned = structuredClone(history);
+    orphaned.snapshots.push({
+      commit: "f".repeat(40),
+      date: "2026-07-14",
+      read: false,
+      reason: "from a branch that was rewritten",
+    });
+    writeFileSync(file, serializeHistory(orphaned));
+
+    const { history: pruned, dropped } = updateHistory({ root, file });
+    expect(dropped.map((snapshot) => snapshot.commit)).toEqual(["f".repeat(40)]);
+    expect(pruned.snapshots).toHaveLength(1);
+  });
+
+  it("leaves the file exactly as it is when the git history cannot be walked", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    updateHistory({ root, file });
+    const before = readFileSync(file, "utf8");
+
+    const { unavailable } = updateHistory({ root, file, ref: "no-such-ref" });
+
+    expect(unavailable).not.toBeNull();
+    expect(readFileSync(file, "utf8")).toBe(before);
+  });
+});
+
+describe("snapshotAt", () => {
+  it("reports a commit that cannot be listed as unread rather than throwing the run over", () => {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    const snapshot = snapshotAt(root, { commit: "0".repeat(40), date: "2026-07-14" });
+    expect(snapshot.read).toBe(false);
+    expect(snapshot.reason).toMatch(/could not be listed/);
+  });
+});

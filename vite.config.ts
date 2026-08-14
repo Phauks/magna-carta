@@ -38,8 +38,11 @@ export default defineConfig({
       "STATUS.json",
       // Assembled by tooling/doc-fragments/build-register.mjs from roadmap.d/* — same case again:
       // the generator owns the exact bytes and tooling/lint-roadmap.mjs re-derives and diff-gates
-      // them, so formatter reflow would fight the assembler and fail the gate.
+      // them, so formatter reflow would fight the assembler and fail the gate. The register's
+      // reconstruction of its own past is written by the same build, in a layout chosen so that one
+      // landed commit appends one readable block of lines; reflowing it would cost that.
       "docs/now.md",
+      "docs/register-history.json",
     ],
   },
   // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,

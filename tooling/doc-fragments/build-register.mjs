@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { build as buildHistory } from "./build-register-history.mjs";
 import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 
 // Regenerate docs/now.md — the complete build register — from the roadmap.d/* feature ledger.
@@ -30,19 +31,24 @@ export function loadAreas(dir = LEDGER_DIR) {
   return names.map((name) => parseArea(readFileSync(join(dir, name), "utf8"), name));
 }
 
-export function render(areas) {
-  return { register: renderBuildRegister(areas) };
+export function render(areas, history = null) {
+  return { register: renderBuildRegister(areas, history) };
 }
 
-export function build() {
+export function build(argv = []) {
   if (!existsSync(LEDGER_DIR)) throw new Error("roadmap.d/ not found");
   const areas = loadAreas();
-  const { register } = render(areas);
+  // The "where we have been" series first, so this run's own commit is in the document it renders.
+  // Cheap by construction: it reads only the commits its file does not already hold, normally none
+  // or one. Pass --rebuild-history to recompute the whole series — what to run after a change to the
+  // ledger parser, since a commit that used to be unreadable may have become readable.
+  const history = buildHistory(argv.includes("--rebuild-history") ? ["--rebuild"] : []);
+  const { register } = render(areas, history);
   writeFileSync(REGISTER, register);
   const nodes = areas.reduce((total, area) => total + area.nodes.length, 0);
   console.log(`roadmap: rendered docs/now.md from ${nodes} node(s) across ${areas.length} area(s)`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  build();
+  build(process.argv.slice(2));
 }

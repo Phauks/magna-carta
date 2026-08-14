@@ -372,7 +372,98 @@ describe("renderBuildRegister", () => {
     expect(rendered).toContain("_No capability is marked `planned` or `designed`._");
   });
 
-  it("draws no trend line, because the ledger holds no history to draw one from", () => {
-    expect(renderBuildRegister(areas)).toContain("**This is where we are, not where we were.**");
+  it("draws no trend line when the reconstruction of the ledger's past is not there to draw one from", () => {
+    const rendered = renderBuildRegister(areas);
+    expect(rendered).toContain("**This is where we are, not where we were.**");
+    expect(rendered).not.toContain("## Where we have been");
+  });
+});
+
+// One read commit of a two-node ledger. The letter stands in for a commit hash, which only has to be
+// forty hex characters to be a valid key.
+function snapshot(letter, date, shipped, cut, areaCounts) {
+  const statuses = Object.fromEntries(LEDGER_STATUSES.map((status) => [status, 0]));
+  return {
+    commit: letter.repeat(40),
+    date,
+    read: true,
+    total: shipped + cut,
+    statuses: { ...statuses, shipped, cut },
+    areas: areaCounts,
+  };
+}
+
+describe("renderBuildRegister — where we have been", () => {
+  const areas = [
+    parseArea(
+      area(shippedPublicNode, "- id: trust.recon\n  name: Recon\n  scope: Recon.\n  status: cut\n"),
+      "trust.md",
+    ),
+  ];
+
+  const history = {
+    format: 1,
+    generatedBy: "vp run register-build",
+    snapshots: [
+      snapshot("a", "2026-07-14", 1, 1, [{ name: "trust.md", total: 2, shipped: 1 }]),
+      {
+        commit: "b".repeat(40),
+        date: "2026-07-18",
+        read: false,
+        reason: 'roadmap.d/trust.md: line 4: "trust.ledger" has unknown status "built"',
+      },
+      snapshot("c", "2026-07-28", 3, 1, [{ name: "trust.md", total: 4, shipped: 3 }]),
+    ],
+  };
+
+  const rendered = renderBuildRegister(areas, history);
+
+  it("says how much of the history it could read, in the first sentence of the section", () => {
+    expect(rendered).toContain("## Where we have been");
+    expect(rendered).toContain("**2 of 3 commits read, 2026-07-14 to 2026-07-28 — 14 days.**");
+  });
+
+  it("prints one row per read commit, with every status in its own column", () => {
+    expect(rendered).toContain(
+      "| 2026-07-14 | `aaaaaaaa` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 2 | — | — | 0 |",
+    );
+    expect(rendered).toContain(
+      "| 2026-07-28 | `cccccccc` | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 4 | +2 | +2 | 1 |",
+    );
+  });
+
+  it("lists a commit it could not parse as a gap, with the reason, and interpolates nothing", () => {
+    expect(rendered).toContain("**1 of the 3 commits do not parse under today's ledger schema**");
+    expect(rendered).toContain(
+      '| 2026-07-18 | `bbbbbbbb` | roadmap.d/trust.md: line 4: "trust.ledger" has unknown status "built" |',
+    );
+    // The reconstruction never invents the missing row: the unread commit has no counts anywhere.
+    expect(rendered).not.toContain("| 2026-07-18 | `bbbbbbbb` | 2 |");
+  });
+
+  it("states the rate as a rate and derives no completion date from it", () => {
+    expect(rendered).toContain("**+2 shipped since the ledger began**");
+    expect(rendered).toContain("**1.0 capabilities shipped a week**");
+    expect(rendered).toContain(
+      "**No completion date is derived from any of this, and none can be.**",
+    );
+  });
+
+  it("shows what moved per area, under the area's own title", () => {
+    expect(rendered).toContain("| Trust accounting | 2 | 4 | 1 | 3 | +2 |");
+    expect(rendered).toContain("**Fastest since the first snapshot:** Trust accounting (+2)");
+  });
+
+  it("replaces the old claim that no trend can be drawn, and keeps the limits that are still true", () => {
+    expect(rendered).not.toContain("**This is where we are, not where we were.**");
+    expect(rendered).toContain("**Where we are, and where we have been.**");
+    expect(rendered).toContain(
+      "shows when a node's **status** changed and never when the work happened",
+    );
+  });
+
+  it("renders nothing about the past when every commit in the series went unread", () => {
+    const allUnread = { ...history, snapshots: [history.snapshots[1]] };
+    expect(renderBuildRegister(areas, allUnread)).not.toContain("## Where we have been");
   });
 });

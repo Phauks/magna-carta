@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadHistory } from "./doc-fragments/build-register-history.mjs";
 import { containsEmoji } from "./doc-fragments/changelog.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
 import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
@@ -84,8 +85,26 @@ for (const area of areas) {
 
 // The drift gate. Only meaningful if every area parsed — a partial ledger renders a shorter document
 // and would report the difference as drift rather than as the parse failure it is.
+//
+// The register renders from two committed inputs, so the gate re-derives from both: the ledger, and
+// the reconstruction of its own past in docs/register-history.json. Reading the history file here
+// rather than rebuilding it is the point — the gate must be fast and must not depend on the git
+// history being present, and the file is what the document was rendered from.
 if (problems.length === 0) {
-  for (const [path, rendered] of [["docs/now.md", renderBuildRegister(areas)]]) {
+  let history = null;
+  try {
+    history = loadHistory();
+  } catch (error) {
+    problems.push(`docs/register-history.json is malformed: ${error.message}`);
+  }
+  if (history === null && problems.length === 0) {
+    problems.push(
+      "docs/register-history.json is missing — the register's history is reconstructed into it and rendered from it, never written by hand; run `vp run register-build`",
+    );
+  }
+  for (const [path, rendered] of problems.length > 0
+    ? []
+    : [["docs/now.md", renderBuildRegister(areas, history)]]) {
     const absolute = join(ROOT, path);
     const onDisk = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
     if (onDisk === rendered) continue;

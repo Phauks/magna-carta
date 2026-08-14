@@ -7,12 +7,14 @@ nothing collapsed and nothing curated away.
 
 **Assembled, never hand-edited.** Run `vp run register-build` after changing a ledger node.
 
-**This is where we are, not where we were.** The ledger records only each capability's current
-status — it keeps no history at all, so no trend line can be drawn from it without inventing one,
-and none is drawn here. [`CHANGELOG.md`](../CHANGELOG.md) is the dated record of what shipped and
-when; it is the only place a real "where we have been" can be read today. Slice-by-slice build
-stages live in [`STATUS.md`](../STATUS.md), the narrative of what each stream is doing lives in
-[`ROADMAP.md`](../ROADMAP.md), and what each of the nine statuses means lives in
+**Where we are, and where we have been.** The ledger records only each capability's current status,
+but it is version controlled, so its counts at every past commit are read back in
+[Where we have been](#where-we-have-been) below rather than estimated. Two limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened, and a capability added to
+the ledger late arrives as a jump in the total rather than as work done.
+[`CHANGELOG.md`](../CHANGELOG.md) is still the dated record of what shipped and when.
+Slice-by-slice build stages live in [`STATUS.md`](../STATUS.md), the narrative of what each stream
+is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statuses means lives in
 [`roadmap.d/README.md`](../roadmap.d/README.md).
 
 ## Where the program stands
@@ -88,6 +90,125 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
 | **All areas** | **244** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **705** | **35%** |
+
+## Where we have been
+
+**20 of 39 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+own, so this series is reconstructed: for every commit on the trunk that touched
+[`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
+that renders the counts above, and the result is kept in
+[`docs/register-history.json`](register-history.json).
+
+### What has moved
+
+**+40 shipped since the ledger began** — 204 on 2026-07-14, 244 on 2026-08-14, across 31 days. The
+ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
+31% to 35% against a denominator that was moving too.
+
+That is **9.0 capabilities shipped a week** across the whole series, and **11.7 a week** over the 13
+snapshots since the last gap (2026-08-11 to 2026-08-14, +5 shipped in 3 days).
+
+**No completion date is derived from any of this, and none can be.** The ledger puts no size or
+effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
+corpus and a second authentication factor as the same amount of work. A rate is a rate.
+
+### Every snapshot
+
+| Date | Commit | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Nodes added | Shipped added | Unread before |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-07-14 | `ad6526da` | 204 | 146 | 16 | 32 | 3 | 9 | 212 | 39 | 2 | 663 | — | — | 0 |
+| 2026-07-14 | `ccbddcf8` | 204 | 146 | 16 | 32 | 3 | 9 | 212 | 39 | 2 | 663 | 0 | 0 | 0 |
+| 2026-08-04 | `31f5b5f7` | 205 | 150 | 16 | 31 | 3 | 8 | 209 | 39 | 2 | 663 | 0 | +1 | 0 |
+| 2026-08-04 | `0d72292e` | 205 | 150 | 16 | 35 | 3 | 8 | 205 | 39 | 2 | 663 | 0 | 0 | 0 |
+| 2026-08-04 | `ff3676b0` | 206 | 150 | 16 | 35 | 3 | 8 | 205 | 39 | 2 | 664 | +1 | +1 | 0 |
+| 2026-08-04 | `3573106d` | 206 | 156 | 16 | 35 | 3 | 8 | 200 | 39 | 2 | 665 | +1 | 0 | 0 |
+| 2026-08-04 | `a97e0bf7` | 212 | 158 | 16 | 29 | 3 | 8 | 200 | 39 | 2 | 667 | +2 | +6 | 0 |
+| 2026-08-11 | `5902e0aa` | 239 | 181 | 15 | 24 | 4 | 8 | 188 | 39 | 2 | 700 | +33 | +27 | 19 |
+| 2026-08-13 | `ee1d92bf` | 241 | 181 | 15 | 24 | 4 | 8 | 188 | 39 | 2 | 702 | +2 | +2 | 0 |
+| 2026-08-13 | `7db7f650` | 241 | 181 | 15 | 24 | 13 | 8 | 179 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-13 | `5eaa6752` | 241 | 181 | 15 | 24 | 13 | 8 | 179 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-13 | `3022b4b3` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-13 | `25fba751` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `f30366ad` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `0a1860c0` | 241 | 182 | 15 | 24 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `3c764ff0` | 241 | 184 | 15 | 22 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `bb884fdc` | 241 | 184 | 15 | 22 | 13 | 8 | 178 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
+| 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
+| 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
+
+### The gaps
+
+**19 of the 39 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
+counts are absent from the table above, no line is drawn through them, and the changes on either
+side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
+`--rebuild` after a parser change to pick up any that have since become readable.
+
+| Date | Commit | Why it could not be read |
+| --- | --- | --- |
+| 2026-08-04 | `a98c78df` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-04 | `a0130bbf` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `f03fb4d5` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `6f422b1d` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `18c23915` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `57a0b679` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `7bee0801` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `324664c9` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-05 | `0377a9b9` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-06 | `8fd3ea9a` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-06 | `e8837e3f` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-06 | `227b4acd` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-07 | `45003814` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-07 | `93eee6c5` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-07 | `846dbd4e` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-10 | `681f4b98` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-11 | `953e9a0c` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-11 | `bafaf62d` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+| 2026-08-11 | `c164cc0c` | roadmap.d/document-automation.md: line 14: "document-automation.conditional-assembly" has unknown status "built" (expected one of shipped, partial, in-build, designed, planned, researching, not-started, deferred, cut) |
+
+### Movement by area
+
+| Area | Nodes then | Nodes now | Shipped then | Shipped now | Shipped added |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| AI & Inference | 17 | 29 | 8 | 15 | +7 |
+| Authentication, Access Control & Encryption | 30 | 30 | 13 | 13 | 0 |
+| Calendar and Rules-Based Docketing | 8 | 13 | 0 | 5 | +5 |
+| Communications Layer | 19 | 21 | 2 | 3 | +1 |
+| Community & Feedback Forum | 11 | 11 | 0 | 0 | 0 |
+| Conflicts Check | 9 | 9 | 1 | 1 | 0 |
+| Core Domain — Directory, Matters & Locations | 58 | 72 | 21 | 31 | +10 |
+| Custodian (Safe Custody) | 10 | 12 | 0 | 6 | +6 |
+| Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
+| Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
+| Document Automation | 8 | 9 | 0 | 1 | +1 |
+| Documents | 115 | 115 | 59 | 60 | +1 |
+| Financial Core | 55 | 58 | 8 | 15 | +7 |
+| Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
+| Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
+| Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
+| Notifications | 15 | 15 | 0 | 1 | +1 |
+| Observability & Diagnostics | 24 | 24 | 11 | 11 | 0 |
+| Payments | 9 | 9 | 0 | 0 | 0 |
+| Performance & Concurrency | 13 | 13 | 6 | 6 | 0 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 82 | 82 | 30 | 30 | 0 |
+| Client Portal | 16 | 16 | 0 | 0 | 0 |
+| Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
+| Release Channels | 9 | 9 | 7 | 7 | 0 |
+| Reports | 11 | 11 | 0 | 0 | 0 |
+| Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
+| Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
+
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
+Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
+Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
+System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
+Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
+Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
+Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
+Plans. An area standing still here has not necessarily been idle — a node moves in this table only
+when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
+and not in this one.
 
 ## Waiting on you
 
@@ -173,7 +294,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
     - `ai.inference.port` · `shipped` · **InferencePort operations** — Streaming and durable/Workflow-invocable text generation plus a platform-fixed embedding operation; reasoning model an explicit per-call parameter, embedding model pinned to the Vectorize index.
     - `ai.inference.embedding-pin-window` · `shipped` · **Embedding pin held open until the first index** — The embedding model is changeable only while no vector index exists, because every stored vector is a function of the model that produced it. The catalog records that state and a fitness scan refuses to let the window close by accident — while the pin reads open, no source file may reach a vector index.
-    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one.
+    - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one, and the FORM the provider publishes its pinned snapshot in, so a snapshot id that contradicts its own form fails at import rather than reaching a provenance record.
     - `ai.inference.reasoning-tier` · `shipped` · **Evergreen reasoning tier** — A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable. _Note: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision._
     - `ai.inference.pin-freshness` · `shipped` · **Model-pin staleness detection** — A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
     - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
