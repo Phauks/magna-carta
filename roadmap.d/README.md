@@ -53,6 +53,17 @@ over the whole set. `pnpm run lint:roadmap` fails when it differs from a fresh r
 capability that ships moves in the register on the `status` flip alone. Design:
 [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
 
+## The gate against the repository
+
+`pnpm run lint:roadmap` holds the rendered documents to the ledger. It cannot tell whether the
+**ledger** is true, so `pnpm run lint:ledger-staleness` holds the ledger to the repository: every path
+a node names must resolve, every `adrs` entry must be an `ADR-NNNN` with a file, a node whose status
+asserts there is no code may not point at code no other node accounts for, and a parent may not claim
+less than its own children. Deliberately quiet — six exact rules, no guessing at prose — and a node
+the tree genuinely cannot match carries `ledger-staleness:allow — <reason>` in its `notes`. Design and
+the rules rejected for firing on correct nodes:
+[`docs/specs/2026-08-14-feature-ledger-staleness-detection.md`](../docs/specs/2026-08-14-feature-ledger-staleness-detection.md).
+
 **Nine statuses, nine columns.** The register never bands statuses together. Collapsing them was
 tried and withdrawn: `partial` (a shipped backend with no screen on it) and `in-build` (being
 written right now) rendered under one heading, which is the largest loss of signal this source can

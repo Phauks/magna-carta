@@ -8,7 +8,7 @@
   name: Notifications subsystem
   scope: One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   status: partial
-  adrs: ADR-0059, notifications-delivery-half, notifications-retention-and-swept-unread
+  adrs: ADR-0059, ADR-0251, ADR-0258
   spec: docs/specs/2026-08-06-notifications-delivery-design.md
   evidence: packages/notifications + five per-firm tables + the read API shipped; the comparison-driven sweep, preferences, and the email digest are later sub-slices, and there is no user interface.
   audience: public
@@ -19,7 +19,7 @@
   name: Notification type registry
   scope: Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable.
   status: shipped
-  adrs: ADR-0059, notifications-delivery-half
+  adrs: ADR-0059, ADR-0251
   evidence: packages/notifications/src/registry.ts, with the declaration rules held by packages/notifications/test/registry-fitness.test.ts.
   notes: Nine types registered; a type also declares the outbox topic it subscribes to, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level.
 
@@ -73,7 +73,7 @@
   name: notify() raise port & co-located raises
   scope: Single raise port with high-value raises co-located on unbypassable paths (audit-log write for money/trust, task write path, conflicts/portal/deadline/job seams); fan-out off the hot path via Queues.
   status: partial
-  adrs: notifications-delivery-half
+  adrs: ADR-0251
   evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; nine of the thirty-one existing topics are registered.
   notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. The comparison-shaped points (deadlines, custody reminders) and the job coordinators are the next sub-slice.
 
@@ -106,6 +106,6 @@
   name: Confidentiality & read-time enforcement
   scope: External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories.
   status: partial
-  adrs: ADR-0059, notifications-delivery-half
+  adrs: ADR-0059, ADR-0251
   evidence: The closed fact grammar (packages/notifications/src/facts-grammar.ts) refuses a text-valued declaration; every read composes the visible-matter predicate in SQL before the LIMIT, proved for all of them by packages/notifications/test/wall-fitness.test.ts.
   notes: The external-channel half lands with the email digest. Audited dispatch lands with the preference slice.

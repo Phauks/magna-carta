@@ -125,6 +125,7 @@ export default defineConfig({
       "tooling/check-scoped/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
+      "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",
