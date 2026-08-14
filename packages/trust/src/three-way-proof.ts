@@ -1,6 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
   LedgerEntryId,
+  TrustBankStatementId,
   TrustBankStatementLineId,
   TrustMovementId,
   TrustTransferId,
@@ -107,6 +108,25 @@ function assertOutstandingItemsComplete(rowCount: number, asOfDate: string): voi
   }
 }
 
+// The same probe on the other list the proof is built from, for the same reason. The two reads are
+// capped independently and a caller reads whichever one it needs, so the guarantee cannot be one
+// check standing in front of both. It held only by arithmetic before: a statement is separately
+// capped at a line count that happens to sit below this ceiling, which nothing in either constant
+// states and no test would have caught if either moved. `frozen_unmatched_line_count` is one of the
+// figures a close freezes as the firm's attestation, so a short list here is the same failure the
+// outstanding read refuses — a confidently wrong answer rather than an obviously incomplete one.
+function assertUnmatchedStatementLinesComplete(
+  rowCount: number,
+  statementId: TrustBankStatementId,
+): void {
+  if (rowCount > MAX_TRUST_RECONCILIATION_ROWS) {
+    throw new TrustValidationError(
+      "reconciliation-unmatched-lines-truncated",
+      `statement ${statementId} has more than ${MAX_TRUST_RECONCILIATION_ROWS} lines this reconciliation has not accounted for, which is more than one reconciliation can attest to: record the period as several shorter statements and reconcile each of them`,
+    );
+  }
+}
+
 function toLineSnapshot(row: StatementLineRow): TrustBankStatementLineSnapshot {
   return {
     id: row.id as TrustBankStatementLineId,
@@ -121,6 +141,26 @@ function toLineSnapshot(row: StatementLineRow): TrustBankStatementLineSnapshot {
   };
 }
 
+// THE unmatched statement lines of one reconciliation: the lines of the statement it covers that no
+// active match in it ties to a ledger entry. Every surface that shows a member unmatched lines reads
+// them through here, and so does the proof that counts them — the list a person works through and
+// the list a close attests to must be one list. A second derivation of the same word (filtering the
+// statement's lines against the reconciliation's active matches in memory, say) produces an equally
+// plausible list from different rows, and would drift the first time either definition learned
+// something about withdrawn matches or superseded periods that the other did not.
+export async function readUnmatchedTrustBankStatementLines(
+  database: SqlDatabase,
+  reconciliation: TrustReconciliationSnapshot,
+): Promise<readonly TrustBankStatementLineSnapshot[]> {
+  const { results } = await selectUnmatchedTrustBankStatementLinesStatement(
+    database,
+    reconciliation.id,
+    reconciliation.statementId,
+  ).all<StatementLineRow>();
+  assertUnmatchedStatementLinesComplete(results.length, reconciliation.statementId);
+  return results.map(toLineSnapshot);
+}
+
 // The outstanding items and the two ledger totals, read for one reconciliation. Split out so the
 // close path freezes exactly what a reader of the live proof would have seen, rather than from a
 // second computation that would eventually drift from this one.
@@ -132,29 +172,27 @@ export async function computeTrustThreeWayProof(
   const statement = await readTrustBankStatement(database, reconciliation.statementId);
   const asOfDate = statement.periodEnd;
 
-  // Four reads, none of them per-row: the two as-of totals, the outstanding items, and the lines
-  // this reconciliation has not accounted for.
-  const [bookRows, clientRows, firmFundsRows, itemRows, lineRows] = await Promise.all([
-    selectTrustBookBalanceAsOfStatement(database, account.bankLedgerAccountId, asOfDate).all<
-      Required<Pick<TotalRow, "balance_minor">>
-    >(),
-    selectTrustClientLedgerTotalAsOfStatement(database, account.id, asOfDate).all<
-      Required<Pick<TotalRow, "total_minor">>
-    >(),
-    selectTrustFirmFundsTotalAsOfStatement(database, account.id, asOfDate).all<
-      Required<Pick<TotalRow, "total_minor">>
-    >(),
-    selectOutstandingTrustBankItemsStatement(
-      database,
-      account.bankLedgerAccountId,
-      asOfDate,
-    ).all<OutstandingItemRow>(),
-    selectUnmatchedTrustBankStatementLinesStatement(
-      database,
-      reconciliation.id,
-      statement.id,
-    ).all<StatementLineRow>(),
-  ]);
+  // Five reads, none of them per-row: the three as-of totals, the outstanding items, and the lines
+  // this reconciliation has not accounted for. The last one carries its own truncation refusal, so
+  // both lists the proof is derived from are known to be whole before any figure is computed.
+  const [bookRows, clientRows, firmFundsRows, itemRows, unmatchedStatementLines] =
+    await Promise.all([
+      selectTrustBookBalanceAsOfStatement(database, account.bankLedgerAccountId, asOfDate).all<
+        Required<Pick<TotalRow, "balance_minor">>
+      >(),
+      selectTrustClientLedgerTotalAsOfStatement(database, account.id, asOfDate).all<
+        Required<Pick<TotalRow, "total_minor">>
+      >(),
+      selectTrustFirmFundsTotalAsOfStatement(database, account.id, asOfDate).all<
+        Required<Pick<TotalRow, "total_minor">>
+      >(),
+      selectOutstandingTrustBankItemsStatement(
+        database,
+        account.bankLedgerAccountId,
+        asOfDate,
+      ).all<OutstandingItemRow>(),
+      readUnmatchedTrustBankStatementLines(database, reconciliation),
+    ]);
 
   assertOutstandingItemsComplete(itemRows.results.length, asOfDate);
 
@@ -220,7 +258,7 @@ export async function computeTrustThreeWayProof(
     bookBalanceMinor,
     clientLedgerTotalMinor,
     firmFundsMinor,
-    unmatchedStatementLines: lineRows.results.map(toLineSnapshot),
+    unmatchedStatementLines,
     balanced: disagreements.length === 0,
     disagreements,
   };

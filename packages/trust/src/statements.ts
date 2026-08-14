@@ -968,11 +968,19 @@ export function selectActiveTrustReconciliationMatchesStatement(
 // unlike the outstanding-item read, which asks whether an item has reached any statement at all —
 // because the proof is about one period and a line's fate in some other reconciliation says nothing
 // about whether this one accounted for it.
+//
+// THE ONE DEFINITION of an unmatched statement line. Every surface that shows a member unmatched
+// lines, and the proof that counts them, reads them here: two definitions of the same word would
+// each produce a plausible list, so the day they disagreed nothing would say so.
 export function selectUnmatchedTrustBankStatementLinesStatement(
   database: SqlDatabase,
   reconciliationId: TrustReconciliationId,
   statementId: TrustBankStatementId,
-  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+  // One past the cap by default, on the same terms as the outstanding-item read: the extra row is
+  // never data, only the signal that the ceiling bound. A statement is separately capped at
+  // MAX_TRUST_BANK_STATEMENT_LINES, which today sits below this ceiling — but nothing here depends
+  // on the two constants keeping that order, which is the point of asking.
+  limit: number = TRUST_RECONCILIATION_TRUNCATION_PROBE_ROWS,
 ): SqlStatement {
   return database
     .prepare(

@@ -20,6 +20,8 @@
 // so that a diff gate can hold it, and a clock in the output would break that every day. A renderer
 // that wants a build time stamps its own — see packages/product-updates.
 
+import { short, summariseHistory } from "./register-history.mjs";
+
 export const LEDGER_STATUSES = [
   "shipped",
   "partial",
@@ -304,7 +306,7 @@ export const ROLL_UPS = [
   { name: "Parked", statuses: ["deferred", "cut"] },
 ];
 
-const REGISTER_PREAMBLE = (nodeCount, areaCount) => `# Now — the build register
+const REGISTER_PREAMBLE = (nodeCount, areaCount, summary) => `# Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
 is the complete register rather than a digest: all ${nodeCount} nodes of the feature ledger in
@@ -313,19 +315,35 @@ nothing collapsed and nothing curated away.
 
 **Assembled, never hand-edited.** Run \`vp run register-build\` after changing a ledger node.
 
-**This is where we are, not where we were.** The ledger records only each capability's current
-status — it keeps no history at all, so no trend line can be drawn from it without inventing one,
-and none is drawn here. [\`CHANGELOG.md\`](../CHANGELOG.md) is the dated record of what shipped and
-when; it is the only place a real "where we have been" can be read today. Slice-by-slice build
-stages live in [\`STATUS.md\`](../STATUS.md), the narrative of what each stream is doing lives in
-[\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine statuses means lives in
+${summary === null ? PREAMBLE_WITHOUT_HISTORY : PREAMBLE_WITH_HISTORY}
+Slice-by-slice build stages live in [\`STATUS.md\`](../STATUS.md), the narrative of what each stream
+is doing lives in [\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine statuses means lives in
 [\`roadmap.d/README.md\`](../roadmap.d/README.md).`;
 
-export function renderBuildRegister(areas) {
+// The ledger holds one status per node and forgets the last one, so for a year this document said
+// that no trend line could be drawn from it without inventing one. That was true of the ledger and
+// false of the repository: roadmap.d/ is version controlled, and the ledger at any past commit
+// parses under the same parser this document is rendered with. The limits named here are the ones
+// that survive the reconstruction, and they are real.
+const PREAMBLE_WITH_HISTORY = `**Where we are, and where we have been.** The ledger records only each capability's current status,
+but it is version controlled, so its counts at every past commit are read back in
+[Where we have been](#where-we-have-been) below rather than estimated. Two limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened, and a capability added to
+the ledger late arrives as a jump in the total rather than as work done.
+[\`CHANGELOG.md\`](../CHANGELOG.md) is still the dated record of what shipped and when.`;
+
+const PREAMBLE_WITHOUT_HISTORY = `**This is where we are, not where we were.** The reconstruction of the ledger's past —
+[\`docs/register-history.json\`](register-history.json) — is missing from this copy, so no trend is
+drawn below; run \`vp run register-build\` to rebuild it. Nothing here is estimated in its absence.
+[\`CHANGELOG.md\`](../CHANGELOG.md) is the dated record of what shipped and when.`;
+
+export function renderBuildRegister(areas, history = null) {
   const nodes = allNodes(areas);
-  const sections = [REGISTER_PREAMBLE(nodes.length, areas.length)];
+  const summary = history === null ? null : summariseHistory(history);
+  const sections = [REGISTER_PREAMBLE(nodes.length, areas.length, summary)];
 
   sections.push(section("Where the program stands", renderStanding(areas, nodes)));
+  if (summary !== null) sections.push(section("Where we have been", renderHistory(summary, areas)));
   sections.push(section("Waiting on you", renderAwaiting(nodes)));
   sections.push(section("Being built now", renderStatusList(nodes, ["in-build"])));
   sections.push(section("Next up", renderStatusList(nodes, ["planned", "designed"])));
@@ -489,6 +507,197 @@ export function wholePercentages(values, total) {
     remaining -= 1;
   }
   return result;
+}
+
+// --- where we have been -------------------------------------------------------------------------
+
+// The reconstructed series, rendered the way the rest of this document renders: counts first, one
+// row per commit that was read, and the commits that could not be read listed as themselves rather
+// than smoothed over. The arithmetic is in register-history.mjs; everything here is presentation.
+//
+// Deliberately absent: a projected completion date. The ledger puts no size or effort on a node, so
+// a date extrapolated from node counts would be arithmetic over units that are not comparable — a
+// jurisdiction research corpus and a second authentication factor are one node each. Rates are
+// printed as rates and left as rates.
+function renderHistory(summary, areas) {
+  const total = summary.rows.length + summary.unread.length;
+  const parts = [
+    wrap(
+      `**${summary.rows.length} of ${total} commits read, ${summary.first.date} to` +
+        ` ${summary.last.date} — ${summary.spanDays} days.** The ledger keeps no history of its own,` +
+        " so this series is reconstructed: for every commit on the trunk that touched" +
+        " [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same" +
+        " parser that renders the counts above, and the result is kept in" +
+        " [`docs/register-history.json`](register-history.json).",
+    ),
+    "",
+    "### What has moved",
+    "",
+    renderMovement(summary),
+    "",
+    "### Every snapshot",
+    "",
+    renderSnapshotTable(summary),
+  ];
+
+  if (summary.unread.length > 0) {
+    parts.push("", "### The gaps", "", renderGaps(summary, total));
+  }
+
+  parts.push("", "### Movement by area", "", renderAreaMovement(summary, areas));
+  return parts.join("\n");
+}
+
+function renderMovement(summary) {
+  const lines = [
+    wrap(
+      `**${signed(summary.shippedChange)} shipped since the ledger began** —` +
+        ` ${summary.shippedFirst} on ${summary.first.date}, ${summary.shippedLast} on` +
+        ` ${summary.last.date}, across ${summary.spanDays} days. The ledger itself grew by` +
+        ` ${signed(summary.totalChange)} nodes over the same period (${summary.totalFirst} to` +
+        ` ${summary.totalLast}), so the share shipped went from` +
+        ` ${share(summary.shippedFirst, summary.totalFirst)} to` +
+        ` ${share(summary.shippedLast, summary.totalLast)} against a denominator that was moving too.`,
+    ),
+    "",
+  ];
+
+  const rates = [
+    summary.ratePerWeek === null
+      ? null
+      : `**${summary.ratePerWeek.toFixed(1)} capabilities shipped a week** across the whole series`,
+    summary.sinceLastGap === null || summary.sinceLastGap.ratePerWeek === null
+      ? null
+      : `**${summary.sinceLastGap.ratePerWeek.toFixed(1)} a week** over the ${summary.sinceLastGap.snapshots} snapshots` +
+        ` since the last gap (${summary.sinceLastGap.from.date} to ${summary.sinceLastGap.to.date},` +
+        ` ${signed(summary.sinceLastGap.shippedChange)} shipped in ${summary.sinceLastGap.days} days)`,
+  ].filter((rate) => rate !== null);
+
+  lines.push(
+    wrap(
+      rates.length === 0
+        ? "The series spans less than a day, so there is no rate to state yet."
+        : `That is ${rates.join(", and ")}.`,
+    ),
+    "",
+    wrap(
+      "**No completion date is derived from any of this, and none can be.** The ledger puts no size" +
+        " or effort on a node, so a date extrapolated from these counts would treat a jurisdiction" +
+        " research corpus and a second authentication factor as the same amount of work. A rate is" +
+        " a rate.",
+    ),
+  );
+  return lines.join("\n");
+}
+
+// One row per commit that was read, oldest first. `Unread before` is how many commits sat between
+// this row and the one above it without being read — the column that stops a change of +27 from
+// looking like one commit's work when nineteen commits are missing from the middle of it.
+function renderSnapshotTable(summary) {
+  const rows = [
+    `| Date | Commit | ${LEDGER_STATUSES.map((status) => `\`${status}\``).join(" | ")} | Total | Nodes added | Shipped added | Unread before |`,
+    `| --- | --- | ${LEDGER_STATUSES.map(() => "---:").join(" | ")} | ---: | ---: | ---: | ---: |`,
+  ];
+  for (const row of summary.rows) {
+    const counts = LEDGER_STATUSES.map((status) => row.statuses[status] ?? 0).join(" | ");
+    rows.push(
+      `| ${row.date} | \`${short(row.commit)}\` | ${counts} | ${row.total} |` +
+        ` ${row.totalChange === null ? "—" : signed(row.totalChange)} |` +
+        ` ${row.shippedChange === null ? "—" : signed(row.shippedChange)} | ${row.unreadBefore} |`,
+    );
+  }
+  return rows.join("\n");
+}
+
+// Every unread commit, grouped under the reason it could not be read. The reasons are what a later
+// reader uses to decide whether the parser has since caught up — re-run the reconstruction with
+// --rebuild and a commit that has become readable joins the series — so every distinct reason is
+// printed in full. It is printed ONCE per group rather than once per commit: a run of commits that
+// all failed on the same character is one fact about the ledger's schema, and repeating its sentence
+// down a column buries that fact under its own restatement instead of stating it.
+function renderGaps(summary, total) {
+  const byReason = new Map();
+  for (const snapshot of summary.unread) {
+    const group = byReason.get(snapshot.reason);
+    if (group === undefined) byReason.set(snapshot.reason, [snapshot]);
+    else group.push(snapshot);
+  }
+  const dates = summary.unread.map((snapshot) => snapshot.date);
+  const parts = [
+    wrap(
+      `**${summary.unread.length} of the ${total} commits do not parse under today's ledger schema**` +
+        ` — they run from ${dates[0]} to ${dates.at(-1)}, and` +
+        ` ${byReason.size === 1 ? "every one of them fails for the same reason" : `they fail for ${byReason.size} distinct reasons`}.` +
+        " They are recorded as holes: their counts are absent from the table above, no line is drawn" +
+        " through them, and the changes on either side of a hole are stated across it rather than" +
+        " apportioned to it. Re-run the reconstruction with `--rebuild` after a parser change to pick" +
+        " up any that have since become readable.",
+    ),
+  ];
+  for (const [reason, snapshots] of byReason) {
+    const commits = snapshots
+      .map((snapshot) => `\`${short(snapshot.commit)}\` (${snapshot.date})`)
+      .join(", ");
+    parts.push(
+      "",
+      wrap(
+        `**${snapshots.length} commit${snapshots.length === 1 ? "" : "s"}, ${snapshots[0].date} to` +
+          ` ${snapshots.at(-1).date}** — ${asSentenceFragment(reason)}`,
+      ),
+      "",
+      wrap(commits),
+    );
+  }
+  return parts.join("\n");
+}
+
+// Area movement between the first and the last read snapshot, in the ledger's own area order. Not
+// sorted by how much moved: this table is read beside the per-area matrix above, and two tables of
+// the same areas in two orders is a reconciliation the reader should not have to do.
+function renderAreaMovement(summary, areas) {
+  const titles = new Map(areas.map((area) => [area.name, area.title]));
+  const rows = [
+    "| Area | Nodes then | Nodes now | Shipped then | Shipped now | Shipped added |",
+    "| --- | ---: | ---: | ---: | ---: | ---: |",
+  ];
+  for (const area of summary.areas) {
+    rows.push(
+      `| ${titles.get(area.name) ?? area.name} | ${area.thenTotal ?? "—"} | ${area.nowTotal ?? "—"} |` +
+        ` ${area.thenShipped ?? "—"} | ${area.nowShipped ?? "—"} |` +
+        ` ${area.shippedChange === null ? "—" : signed(area.shippedChange)} |`,
+    );
+  }
+
+  const moved = summary.areas
+    .filter((area) => (area.shippedChange ?? 0) > 0)
+    .toSorted((left, right) => right.shippedChange - left.shippedChange);
+  const still = summary.areas.filter((area) => (area.shippedChange ?? 0) === 0);
+  const name = (area) => `${titles.get(area.name) ?? area.name} (${signed(area.shippedChange)})`;
+
+  return [
+    rows.join("\n"),
+    "",
+    wrap(
+      moved.length === 0
+        ? "No area has shipped a capability since the first snapshot."
+        : `**Fastest since the first snapshot:** ${moved.slice(0, 3).map(name).join(", ")}.` +
+            ` **${still.length} of ${summary.areas.length} areas have shipped nothing in that time**` +
+            `${still.length === 0 ? "" : `: ${still.map((area) => titles.get(area.name) ?? area.name).join(", ")}`}.` +
+            " An area standing still here has not necessarily been idle — a node moves in this table" +
+            " only when it reaches `shipped`, so work that went from nothing to `partial` shows up in" +
+            " the nodes columns and not in this one.",
+    ),
+  ].join("\n");
+}
+
+function signed(value) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+// A parser's message is the one string rendered here that was not written to be rendered: it can
+// carry newlines, which would end the sentence it is quoted inside partway through.
+function asSentenceFragment(text) {
+  return text.replaceAll("\n", " ").trim();
 }
 
 // --- the short lists --------------------------------------------------------------------------

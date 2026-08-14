@@ -52,7 +52,9 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   nothing) then `confirmTrustStatementImport` (stores, only against the previewed fingerprint)
 - `src/reconciliation.ts` — `openTrustReconciliation` / `closeTrustReconciliation` (the freeze) /
   `readTrustThreeWayProof`
-- `src/three-way-proof.ts` — `computeTrustThreeWayProof` and the outstanding-item read
+- `src/three-way-proof.ts` — `computeTrustThreeWayProof` plus the two reads it is derived from, which
+  every other surface shares: `readOutstandingTrustBankItems` and
+  `readUnmatchedTrustBankStatementLines`
 - `src/matching.ts` — `suggestTrustStatementMatches` (pure, suggests only) and the two composers a
   person's confirmation goes through
 - `src/fitness.ts` — re-proves the invariants over stored data
@@ -206,15 +208,31 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   stored balance is a live figure with no as-of, and a reconciliation is an assertion about a moment.
   Book and client agree by construction while the composition guard holds, so a `book-to-client`
   disagreement means something reached the ledger without going through it.
-- **A proof is never computed from a truncated outstanding list.** The outstanding-item read is capped
-  so a runaway period cannot pull an unbounded result set into a request handler, and the cap is
-  DETECTED rather than silent: the read asks for one row past `MAX_TRUST_RECONCILIATION_ROWS` and the
-  proof refuses `reconciliation-outstanding-items-truncated` when it comes back. A truncated list does
-  not produce a short answer, it produces a confidently wrong one — every figure the proof derives is
-  computed from that list, they stay internally consistent with each other, and a close freezes all of
-  them as the firm's attestation. The read deliberately has NO lower date bound: a check written two
-  years ago and never cleared is still outstanding, which is exactly what reconciliation exists to
-  surface.
+- **A proof is never computed from a truncated list — and BOTH of its lists carry the probe.** The
+  outstanding-item read and the unmatched-statement-line read are each capped so a runaway period
+  cannot pull an unbounded result set into a request handler, and each cap is DETECTED rather than
+  silent: the read asks for one row past `MAX_TRUST_RECONCILIATION_ROWS`, and the proof refuses
+  `reconciliation-outstanding-items-truncated` or `reconciliation-unmatched-lines-truncated` when that
+  row comes back. A truncated list does not produce a short answer, it produces a confidently wrong
+  one — every figure the proof derives is computed from those lists, they stay internally consistent
+  with each other, and a close freezes all of them as the firm's attestation, `unmatchedLineCount`
+  included. Each read carries its OWN probe: the line read was whole only because a statement is
+  separately capped at `MAX_TRUST_BANK_STATEMENT_LINES`, which happens to sit lower — an arithmetic
+  accident neither constant states, and one nothing would have caught if either moved. The
+  outstanding read deliberately has NO lower date bound: a check written two years ago and never
+  cleared is still outstanding, which is exactly what reconciliation exists to surface.
+- **"Unmatched statement line" has ONE definition.**
+  `selectUnmatchedTrustBankStatementLinesStatement`, reached through
+  `readUnmatchedTrustBankStatementLines`, is it: the lines of the statement a reconciliation covers
+  that no ACTIVE match in that reconciliation ties to a ledger entry. The proof counts them, the
+  close freezes the count, and the matching surface shows a member the same list — the list a person
+  works through and the list the period attests to must be one list, exactly as the outstanding-item
+  list is. Deriving it a second time (subtracting the active matches from the statement's lines in
+  memory, say) produces an equally plausible answer from different rows, so the day the two parted
+  company nothing would say so. Note the scope difference from the outstanding read, which is
+  deliberate on both sides: the line read is scoped to ONE reconciliation and therefore has no
+  business with superseded periods, while the item read asks whether an item has reached any
+  statement at all and so must ignore matches on a superseded reconciliation.
 - **An unbalanced proof is recorded, never forced.** No plug figure, no rounding to agreement, no
   "unreconciled difference" line that absorbs the gap. The proof names WHICH leg is out and by how
   much, and `closeTrustReconciliation` freezes that answer whether or not it balanced — a close that
