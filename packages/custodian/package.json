@@ -48,7 +48,8 @@
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/matters": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

@@ -103,6 +103,22 @@ describe("the number draw under concurrency", () => {
     expect(isNumberAllocationConflict(new Error("disk I/O error"))).toBe(false);
   });
 
+  // The draw mechanism is shared with matters and billing, and the predicate that recognises a lost
+  // draw is told which allocation table it is asking about. Another sequence's collision is not this
+  // sequence's to retry: swallowing one would re-run a custody draw over an error nothing here caused.
+  it("does not mistake another sequence's allocation collision for a custody draw race", () => {
+    expect(
+      isNumberAllocationConflict(
+        new Error(
+          "UNIQUE constraint failed: matter_number_allocation.scope_key, matter_number_allocation.drawn_value",
+        ),
+      ),
+    ).toBe(false);
+    expect(isNumberAllocationConflict(new Error("invoice_number_allocation is append-only"))).toBe(
+      false,
+    );
+  });
+
   // A rendered number that collides with a manually assigned one draws no allocation row, so only
   // the custody_number unique index can see it. The retry advances past the taken value.
   it("skips past a manual number the counter would have rendered", async () => {
