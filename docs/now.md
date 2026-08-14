@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 245 | 35% |
-| Part-built | partial, in-build | 203 | 29% |
-| Ahead | designed, planned, researching, not-started | 216 | 30% |
+| Done | shipped | 246 | 35% |
+| Part-built | partial, in-build | 206 | 29% |
+| Ahead | designed, planned, researching, not-started | 212 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **705** | **100%** |
 
@@ -36,24 +36,24 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 245 | 35% |
-| `partial` | 188 | 27% |
+| `shipped` | 246 | 35% |
+| `partial` | 191 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 21 | 3% |
+| `designed` | 19 | 3% |
 | `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
-| `not-started` | 177 | 25% |
+| `not-started` | 175 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **705** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 245 of 705 (35%). Shipped plus partial is 433 (61%).**
+**Shipped alone is 246 of 705 (35%). Shipped plus partial is 437 (62%).**
 
-The 188 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 191 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
-distance from 35% to 61% is approximately the program's interface debt: work that is engineered and
+distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
 overstates what a user can do; reading the smaller one understates what has been built. Both are
 true and neither is the answer on its own.
@@ -68,13 +68,13 @@ true and neither is the answer on its own.
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
 | Community & Feedback Forum | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 1 | 0 | 11 | 0% |
 | Conflicts Check | 1 | 1 | 0 | 0 | 0 | 1 | 6 | 0 | 0 | 9 | 11% |
-| Core Domain — Directory, Matters & Locations | 31 | 33 | 0 | 2 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
+| Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
-| Financial Core | 15 | 22 | 4 | 2 | 0 | 0 | 12 | 3 | 0 | 58 | 26% |
+| Financial Core | 16 | 24 | 4 | 1 | 0 | 0 | 10 | 3 | 0 | 58 | 28% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -89,7 +89,7 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **245** | **188** | **15** | **21** | **10** | **8** | **177** | **39** | **2** | **705** | **35%** |
+| **All areas** | **246** | **191** | **15** | **19** | **10** | **8** | **175** | **39** | **2** | **705** | **35%** |
 
 ## Where we have been
 
@@ -136,7 +136,7 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `5ae1ca20` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `96b53e11` | 245 | 189 | 15 | 19 | 13 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
 
 ### The gaps
 
@@ -172,7 +172,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
 | Document Automation | 8 | 9 | 0 | 1 | +1 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
-| Financial Core | 55 | 58 | 8 | 15 | +7 |
+| Financial Core | 55 | 58 | 8 | 16 | +8 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
 | Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
@@ -184,20 +184,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 1 | +1 |
+| Reports | 11 | 11 | 0 | 0 | 0 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
-Inference (+7), Financial Core (+7). **16 of 27 areas have shipped nothing in that time**:
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
+Core (+8), AI & Inference (+7). **17 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
-area standing still here has not necessarily been idle — a node moves in this table only when it
-reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
-in this one.
+Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
+Plans. An area standing still here has not necessarily been idle — a node moves in this table only
+when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
+and not in this one.
 
 ## Waiting on you
 
@@ -244,7 +244,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `community.moderation` · **Moderation and abuse handling** — Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
-- `locations.usage.trust-accounts` · **Location on trust accounts** — Each trust account associated with a Location; jurisdiction trust-rule profile binds per account.
 - `locations.usage.custodian` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `custodian.retention-destruction` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
@@ -254,7 +253,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.conversion.office` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
-- `financial.trust.multi-jurisdiction-accounts` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
@@ -418,7 +416,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 72 nodes, 43% shipped. 31 done, 33 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 72 nodes, 43% shipped. 31 done, 34 part-built, 6 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -467,7 +465,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `locations.staff-assignment` · `shipped` · **Staff assignment** — Users belong to one or more locations with exactly one designated primary.
   - `locations.usage` · `partial` · **Location consumers** — The surfaces a Location feeds — matters, trust accounts, Custodian roots, generated output
     - `locations.usage.matters` · `shipped` · **Location on matters** — Optional home-Location reference supplying number prefix and firm-default fallback.
-    - `locations.usage.trust-accounts` · `designed` · **Location on trust accounts** — Each trust account associated with a Location; jurisdiction trust-rule profile binds per account. _Note: No trust-account code in tree yet._
+    - `locations.usage.trust-accounts` · `partial` · **Location on trust accounts** — Each trust account associated with a Location; jurisdiction trust-rule profile binds per account. _Note: The per-account binding ships; the rule profile it binds to is not yet resolved anywhere - packages/trust/src/jurisdiction.ts still refuses every requirement until a reviewed corpus is bound._
     - `locations.usage.custodian` · `designed` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
     - `locations.usage.documents-billing` · `not-started` · **Location identity on generated output** — Location fields feed the data dictionary so generated documents and invoices carry correct office identity. _Note: The source data (remit-to, addresses) is shipped; no consumer exists._
   - `locations.access-model` · `shipped` · **Location as filter, not gate** — Location is a view/reporting filter; data stays firm-wide open by default; hard per-location separation is a reserved seam.
@@ -699,7 +697,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 58 nodes, 26% shipped. 15 done, 26 part-built, 14 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 58 nodes, 28% shipped. 16 done, 28 part-built, 11 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -726,15 +724,15 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
     - `financial.time.passive-capture` · `deferred` · **Passive/automatic time capture** — Automatic activity capture feeding a draft-approve queue. _Note: Seam only; no capture code._
-  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
-    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
+  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
+    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: No screen reads a client ledger; the balances, holds and movement history are API-only._
     - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
     - `financial.trust.no-commingling` · `shipped` · **No commingling** — Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
     - `financial.trust.jurisdiction-engine` · `partial` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
       - `financial.trust.jurisdiction-engine.rules-catalog` · `designed` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data. _Note: Research corpus complete and adversarially verified; the build-data pipeline exists only in the design._
-    - `financial.trust.multi-jurisdiction-accounts` · `designed` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
-    - `financial.trust.reconciliation` · `not-started` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: Banking-plugin import additionally depends on an unbuilt banking integration._
-    - `financial.trust.close-rule` · `not-started` · **Zero-balance close precondition** — Registers "all bills paid, no remaining balance" on the matter close-precondition hook.
+    - `financial.trust.multi-jurisdiction-accounts` · `partial` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location. _Note: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for._
+    - `financial.trust.reconciliation` · `partial` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration._
+    - `financial.trust.close-rule` · `shipped` · **Zero-balance close precondition** — Registers "all bills paid, no remaining balance" on the matter close-precondition hook. _Note: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts._
   - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main._
     - `financial.billing.fee-models` · `shipped` · **Fee models** — The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen _Note: Built all at once per the owner's docket override of the staged default._
       - `financial.billing.fee-models.hourly` · `shipped` · **Hourly billing** — Hourly bills from billable WIP time at resolved rates.

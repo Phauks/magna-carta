@@ -33,6 +33,7 @@ describe("the fixtures the gate self-tests against", () => {
         scenario.nodes,
         treeOf(scenario.tree),
         new Set(scenario.decisions ?? []),
+        new Map(Object.entries(scenario.slices ?? {})),
       );
       expect(found.map((problem) => problem.rule).toSorted()).toEqual(
         [...scenario.expect].toSorted(),
@@ -129,6 +130,54 @@ describe("the status groups", () => {
       treeOf([]),
     );
     expect(found.map((problem) => problem.node.id)).toEqual(["a", "a.b"]);
+  });
+
+  it("reads a slice's built stage, and only that stage", () => {
+    // `ui`, `tested` and the rest describe work around the code rather than whether it exists, so a
+    // slice whose build has not begun contradicts nothing however far its other stages have run.
+    const nodes = [
+      node({ id: "trust.reconciliation", status: "not-started", slices: ["3-2"] }),
+      node({ id: "trust.holds", status: "shipped", slices: ["3-2"] }),
+    ];
+    expect(findStaleness(nodes, treeOf([]), new Set(), new Map([["3-2", "todo"]]))).toEqual([]);
+    expect(findStaleness(nodes, treeOf([]), new Set(), new Map([["3-2", "n/a"]]))).toEqual([]);
+    for (const state of ["in-progress", "done"]) {
+      const found = findStaleness(nodes, treeOf([]), new Set(), new Map([["3-2", state]]));
+      expect(
+        found.map((problem) => problem.rule),
+        state,
+      ).toEqual(["slice-already-delivered"]);
+    }
+  });
+
+  it("takes a sibling's code as corroboration only when it is under the same slice", () => {
+    const found = findStaleness(
+      [
+        node({ id: "trust.reconciliation", status: "not-started", slices: ["3-2"] }),
+        node({ id: "trust.holds", status: "shipped", slices: ["0-3-ledger-core"] }),
+      ],
+      treeOf([]),
+      new Set(),
+      new Map([
+        ["3-2", "in-progress"],
+        ["0-3-ledger-core", "done"],
+      ]),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("does not read an area root's peers as its siblings", () => {
+    // A one-segment id is an area root; the other roots are other areas, not work beside it.
+    const found = findStaleness(
+      [
+        node({ id: "portal", status: "not-started", slices: ["2-1"] }),
+        node({ id: "documents", status: "shipped", slices: ["2-1"] }),
+      ],
+      treeOf([]),
+      new Set(),
+      new Map([["2-1", "done"]]),
+    );
+    expect(found).toEqual([]);
   });
 
   it("does not let a sibling with a shared id prefix count as a descendant", () => {

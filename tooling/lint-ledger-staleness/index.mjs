@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArea } from "../doc-fragments/roadmap.mjs";
+import { parseFragment } from "../doc-fragments/status.mjs";
 import { SELF_TEST, findStaleness } from "./rules.mjs";
 
 // Fitness function: the roadmap.d/* feature ledger against the REPOSITORY.
@@ -10,11 +11,12 @@ import { SELF_TEST, findStaleness } from "./rules.mjs";
 // render of the ledger — and that pair is what keeps a derived document from drifting off its source.
 // Neither of them can tell whether the SOURCE is true. This one can, for the claims a node makes that
 // a filesystem can answer: the paths it names, the decisions it cites, and the statuses that assert
-// there is no code.
+// there is no code — plus the one claim that needs no filesystem at all, where a node's status
+// contradicts the `built:` stage of the status.d fragment the node itself names.
 //
-// It is deliberately quiet. Six rules, each exact, every one measured against the whole ledger before
-// it was kept and three more thrown away for firing on correct nodes. The rules and the measurements
-// are in rules.mjs; the reasoning behind the whole shape is in
+// It is deliberately quiet. Eight rules, each exact, every one measured against the whole ledger
+// before it was kept and three more thrown away for firing on correct nodes. The rules and the
+// measurements are in rules.mjs; the reasoning behind the whole shape is in
 // docs/specs/2026-08-14-feature-ledger-staleness-detection.md.
 //
 // Escape hatch: `ledger-staleness:allow — <reason>` in a node's `notes`, suppressing only the three
@@ -39,6 +41,28 @@ export function readLedger(root) {
     }
   }
   return { areas, problems };
+}
+
+// Every slice slug the status.d fragment set defines, mapped to that fragment's `built:` state. Only
+// the one stage is read: rule 7 asks whether the stream tracking a capability has produced code, and
+// `built` is the stage that answers it — `ui`, `tested` and the rest describe work around the code
+// rather than its existence. A fragment that does not parse is skipped rather than fatal, because
+// lint:status is the gate that owns fragment validity and reporting it twice helps nobody; the
+// consequence here is only that rule 7 stays silent for the nodes naming it.
+export function readSliceBuildStates(root) {
+  const states = new Map();
+  const directory = join(root, "status.d");
+  if (!existsSync(directory)) return states;
+  for (const name of readdirSync(directory)) {
+    if (!name.endsWith(".md") || RESERVED.has(name) || name.startsWith("_")) continue;
+    try {
+      const fragment = parseFragment(readFileSync(join(directory, name), "utf8"), name);
+      states.set(name.replace(/\.md$/, ""), fragment.stages.built.state);
+    } catch {
+      continue;
+    }
+  }
+  return states;
 }
 
 // Every accepted decision number. Pending fragments are deliberately NOT included: a pending slug in
@@ -66,9 +90,14 @@ export function readDecisionNumbers(root) {
 // reading as permanently green. Idiom borrowed from tooling/lint-conflicts-vocabulary/.
 function runSelfTest() {
   const failures = [];
-  for (const { name, nodes, tree, decisions, expect } of SELF_TEST) {
+  for (const { name, nodes, tree, decisions, slices, expect } of SELF_TEST) {
     const exists = (path) => tree.includes(path);
-    const found = findStaleness(nodes, exists, new Set(decisions ?? []))
+    const found = findStaleness(
+      nodes,
+      exists,
+      new Set(decisions ?? []),
+      new Map(Object.entries(slices ?? {})),
+    )
       .map((problem) => problem.rule)
       .toSorted();
     const wanted = [...expect].toSorted();
@@ -103,10 +132,12 @@ function main() {
   }
 
   const nodes = areas.flatMap((area) => area.nodes);
+  const sliceBuildStates = readSliceBuildStates(ROOT);
   const found = findStaleness(
     nodes,
     (path) => existsSync(join(ROOT, path)),
     readDecisionNumbers(ROOT),
+    sliceBuildStates,
   );
 
   if (found.length > 0) {
@@ -126,9 +157,10 @@ function main() {
   }
 
   console.log(
-    `Feature ledger matches the tree (${nodes.length} node(s) across ${areas.length} area(s)):` +
-      " every path named resolves, every decision cited exists, and no node claiming there is no code" +
-      " points at any.",
+    `Feature ledger matches the tree (${nodes.length} node(s) across ${areas.length} area(s),` +
+      ` ${sliceBuildStates.size} slice fragment(s)): every path named resolves, every decision cited` +
+      " exists, no node claiming there is no code points at any, and no node sits `not-started` in a" +
+      " subtree its own build stream has already delivered into.",
   );
 }
 

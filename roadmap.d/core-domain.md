@@ -401,11 +401,11 @@
 - id: locations.usage.trust-accounts
   name: Location on trust accounts
   scope: Each trust account associated with a Location; jurisdiction trust-rule profile binds per account.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: trust_account-to-location binding specified in the approved trust jurisdiction-schema design; location.jurisdiction column already on main as the seam
-  notes: No trust-account code in tree yet.
+  evidence: the trust_account row carries location_id and the jurisdiction derived from that office, written by openTrustAccount in packages/trust/src/account-tree.ts, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded no jurisdiction
+  notes: The per-account binding ships; the rule profile it binds to is not yet resolved anywhere - packages/trust/src/jurisdiction.ts still refuses every requirement until a reviewed corpus is bound.
 
 - id: locations.usage.custodian
   name: Location as Custodian root

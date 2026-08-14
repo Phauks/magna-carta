@@ -68,11 +68,15 @@ readable join the series.
 
 `pnpm run lint:roadmap` holds the rendered documents to the ledger. It cannot tell whether the
 **ledger** is true, so `pnpm run lint:ledger-staleness` holds the ledger to the repository: every path
-a node names must resolve, every `adrs` entry must be an `ADR-NNNN` with a file, a node whose status
-asserts there is no code may not point at code no other node accounts for, and a parent may not claim
-less than its own children. Deliberately quiet — six exact rules, no guessing at prose — and a node
-the tree genuinely cannot match carries `ledger-staleness:allow — <reason>` in its `notes`. Design and
-the rules rejected for firing on correct nodes:
+a node names must resolve, every `slices` entry must be a `status.d/` fragment, every `adrs` entry
+must be an `ADR-NNNN` with a file, a node whose status asserts there is no code may not point at code
+no other node accounts for, and a parent may not claim less than its own children. One rule needs no
+filesystem at all: a `not-started` node whose slice fragment reports `built:` under way, with a
+**sibling** already shipped under that same slice, is two committed documents contradicting each
+other — and it is the only rule that can see a node which describes its own absence in prose without
+naming a path. Deliberately quiet — eight exact rules, no guessing at prose — and a node the tree
+genuinely cannot match carries `ledger-staleness:allow — <reason>` in its `notes`. Design and the
+rules rejected for firing on correct nodes:
 [`docs/specs/2026-08-14-feature-ledger-staleness-detection.md`](../docs/specs/2026-08-14-feature-ledger-staleness-detection.md).
 
 **Nine statuses, nine columns.** The register never bands statuses together. Collapsing them was

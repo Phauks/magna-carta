@@ -15,7 +15,9 @@
 //   - "a node's slice tag has built files, so it cannot be pre-code" — 13 hits, 13 of them false. A
 //     slice tag is shared across nodes at different maturities: calendar.sync, messaging.port and
 //     payments.port are all genuinely not started and all tagged to a port system that is genuinely
-//     built. Only a third of nodes carry a tag at all.
+//     built. Only a third of nodes carry a tag at all. (Rule 7 later recovered this signal, by
+//     reading the slice's own `built:` stage instead of the tree and by demanding that the stream
+//     have already delivered a SIBLING of the node. Same input, 19 hits down to 2, none false.)
 //   - "an affirmative build claim inside a pre-code node" ("is built", "now exists", "unit-tested")
 //     — 22 hits, 22 of them false, every one the same good idiom: a pre-code node explaining what it
 //     is waiting on ("the bulk-download engine it reuses is shipped; no portal-scoped path"). The
@@ -33,6 +35,11 @@
 // neither on purpose — they make no claim about code in either direction, so no rule may read them.
 export const PRE_CODE_STATUSES = ["not-started", "designed", "planned"];
 export const HAS_CODE_STATUSES = ["shipped", "partial", "in-build"];
+
+// The `built:` states of a status.d fragment that say a build stream has produced code. Taken from
+// STATES in tooling/doc-fragments/status.mjs; `todo` and `n/a` are the other two and neither asserts
+// that anything was written.
+export const BUILDING_STAGE_STATES = ["in-progress", "done"];
 
 // The trees that hold code. docs/, status.d/, changelog.d/ and roadmap.d/ are deliberately absent:
 // the ledger names those by prefix rather than by filename ("status.d/2-1", "docs/decisions/0027"),
@@ -82,6 +89,12 @@ function prosePaths(node) {
 // and the reverse. Without this a rule would fire on every difference in citation depth.
 function sameSubtree(left, right) {
   return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+// The dotted id one level up. "" for a root node, which is an area root and has no meaningful
+// siblings — the other roots are other areas.
+function parentId(id) {
+  return id.split(".").slice(0, -1).join(".");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -290,6 +303,101 @@ export function notStartedWithSpec(node) {
   ];
 }
 
+// ---------------------------------------------------------------------------------------------
+// Rule 7 — a build stream that has already delivered beside this node. No filesystem involved.
+// ---------------------------------------------------------------------------------------------
+//
+// A `not-started` node, every slice it names reporting `built: in-progress` or `built: done`, and a
+// SIBLING tagged to one of those same slices holding code.
+//
+// This closes the blind spot the other rules are structurally unable to see. Rules 1, 2 and 4 all key
+// on a node NAMING A PATH; a node that describes absence in prose ("no code", "no registration
+// exists") names nothing, so nothing looks at it, and two nodes stayed `not-started` that way over a
+// package with sixteen modules and a route file behind them. This rule reads no prose at all: a node
+// carries `slices:`, a status.d fragment carries `built:`, and both are committed documents.
+//
+// TWO NARROWINGS, BOTH LOAD-BEARING, BOTH MEASURED ON THE WHOLE LEDGER.
+//
+//   - The sibling requirement. Without it: 19 hits, of which 14 are the same correct idiom — a
+//     capability tagged to the slice that built the SUBSTRATE it will reuse. `payments.port` and
+//     `calendar.sync` are tagged to the port system, every `portal.capabilities.*` to the document
+//     slice whose engine it will call, `discovery.review.email-threading` to the shipped email parse
+//     core. Each says so in its own evidence, and each is genuinely not started. What separates them
+//     from a stale node is WHERE the stream's output landed: their substrate lives in another
+//     subtree, while a stream that has already shipped this node's own siblings is demonstrably
+//     working inside this subtree. Siblings only, not ancestors — a `partial` parent over pre-code
+//     children is the most common and most correct shape in the ledger (rule 3 says the same), so an
+//     ancestor corroborates nothing. Not descendants either: a has-code descendant is rule 3's.
+//   - `not-started` alone, not the whole pre-code group. Widening to `designed` and `planned` adds
+//     exactly two hits: one stale (`financial.trust.multi-jurisdiction-accounts`) and one correct
+//     (`matter-assets.carry-forward`, whose slice is mid-build and has honestly not reached it).
+//     One-for-one is not a ratio this file keeps a rule at. The distinction that survives is real
+//     rather than fitted: `designed` and `planned` are ATTESTED pre-code states — a spec or a plan
+//     was written for this capability and somebody recorded that the build had not begun — whereas
+//     `not-started` is the vocabulary's "no artifact or spec yet" — the state a node is born in and
+//     keeps until someone revisits it. A `not-started` node inside a subtree a stream has already
+//     delivered into is precisely the node nobody revisited.
+//
+// Multi-slice: EVERY slice the node names must report built. A capability tracked under two streams
+// is built by both, so one still at `todo` is an honest reason for it to be pre-code — three nodes in
+// roadmap.d/reports.md are exactly that shape. Slices with no fragment are excluded from the test
+// (rule 8 reports them); a node naming none at all is silent, which is 164 of the 175 `not-started`
+// nodes — most of the ledger is out of this rule's reach by construction, and that is the point.
+//
+// Measured: 2 hits, both the known-stale nodes, no false positives.
+export function sliceAlreadyDelivered(node, allNodes, _exists, _decisions, sliceBuildStates) {
+  if (node.status !== "not-started") return [];
+  const known = node.slices.filter((slug) => sliceBuildStates.has(slug));
+  if (known.length === 0) return [];
+  if (!known.every((slug) => BUILDING_STAGE_STATES.includes(sliceBuildStates.get(slug)))) return [];
+
+  const parent = parentId(node.id);
+  if (parent === "") return [];
+  const delivered = allNodes.filter(
+    (other) =>
+      other.id !== node.id &&
+      parentId(other.id) === parent &&
+      HAS_CODE_STATUSES.includes(other.status) &&
+      other.slices.some((slug) => known.includes(slug)),
+  );
+  if (delivered.length === 0) return [];
+
+  const streams = known.map((slug) => `\`${slug}\` (\`built: ${sliceBuildStates.get(slug)}\`)`);
+  return [
+    {
+      rule: "slice-already-delivered",
+      node,
+      detail:
+        `is \`not-started\` — "no artifact or spec yet" — but the build stream tracking it,` +
+        ` ${streams.join(" and ")}, has already delivered beside it:` +
+        ` ${delivered.map((other) => `\`${other.id}\` (\`${other.status}\`)`).join(", ")}` +
+        " under the same slice",
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Rule 8 — a slice tag names a fragment that does not exist.
+// ---------------------------------------------------------------------------------------------
+//
+// The same cheap guard rule 4 is, for the same reason and over the other kind of reference. Rule 7
+// reasons from "this slug has a fragment reporting built", so a slug that quietly stops resolving —
+// a fragment renamed, a slice re-slugged — turns rule 7 off for that node with nothing raised.
+// Nothing else in the repository checks that a ledger `slices:` entry resolves: lint-status validates
+// the fragments themselves and lint-roadmap only compares the rendered documents to the ledger.
+//
+// Measured: 267 slice tags across 235 nodes, naming 55 distinct fragments, all 267 resolving — a
+// zero-cost guard installed while the invariant is still clean.
+export function unresolvedSlice(node, _allNodes, _exists, _decisions, sliceBuildStates) {
+  return node.slices
+    .filter((slug) => !sliceBuildStates.has(slug))
+    .map((slug) => ({
+      rule: "unresolved-slice",
+      node,
+      detail: `\`slices\` names \`${slug}\`, which has no fragment in status.d/ — renamed or removed`,
+    }));
+}
+
 // The three rules the per-node allowance can suppress: exactly the ones that reason about the tree.
 const SUPPRESSIBLE = new Set(["unaccounted-code", "absent-path-resolves", "unresolved-path"]);
 
@@ -300,6 +408,8 @@ const RULES = [
   unresolvedPath,
   unresolvedDecision,
   notStartedWithSpec,
+  sliceAlreadyDelivered,
+  unresolvedSlice,
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -517,11 +627,99 @@ export const SELF_TEST = [
     tree: ["packages/unclaimed-by-anyone", "packages/also-unclaimed"],
     expect: [],
   },
+  {
+    // The third real node that went stale, reduced to the fields that matter. It names no path at
+    // all — "no code" is the whole of its evidence — so rules 1, 2 and 4 are blind to it by
+    // construction, and only the two committed documents disagreeing can catch it.
+    name: "instance 3: `not-started` while the stream that tracks it has shipped its siblings",
+    nodes: [
+      fixture({
+        id: "financial.trust.reconciliation",
+        status: "not-started",
+        slices: ["3-2-trust-accounting-jurisdiction-compliance"],
+        evidence: "in slice 3-2 scope per the phase-3 slice map; no code",
+      }),
+      fixture({
+        id: "financial.trust.no-commingling",
+        status: "shipped",
+        slices: ["3-2-trust-accounting-jurisdiction-compliance"],
+      }),
+    ],
+    tree: [],
+    slices: { "3-2-trust-accounting-jurisdiction-compliance": "in-progress" },
+    expect: ["slice-already-delivered"],
+  },
+  {
+    // The 14 nodes the sibling requirement exists to keep quiet: a capability tagged to the slice
+    // that built the substrate it will one day reuse. The shipped thing is in another subtree.
+    name: "the permitted form: tagged to the slice that built the substrate it will reuse",
+    nodes: [
+      fixture({
+        id: "portal.capabilities.download",
+        status: "not-started",
+        slices: ["2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download"],
+      }),
+      fixture({ id: "portal.capabilities.upload", status: "not-started" }),
+      fixture({
+        id: "documents.bulk-download",
+        status: "shipped",
+        slices: ["2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download"],
+      }),
+    ],
+    tree: [],
+    slices: { "2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download": "done" },
+    expect: [],
+  },
+  {
+    name: "a node on two streams, one of which has not begun, is not contradicted",
+    nodes: [
+      fixture({
+        id: "reports.trust-compliance",
+        status: "not-started",
+        slices: ["3-6-financial-reporting", "3-2-trust-accounting-jurisdiction-compliance"],
+      }),
+      fixture({
+        id: "reports.financial",
+        status: "shipped",
+        slices: ["3-2-trust-accounting-jurisdiction-compliance"],
+      }),
+    ],
+    tree: [],
+    slices: {
+      "3-6-financial-reporting": "todo",
+      "3-2-trust-accounting-jurisdiction-compliance": "in-progress",
+    },
+    expect: [],
+  },
+  {
+    name: "`designed` and `planned` are attested pre-code states, so rule 7 does not read them",
+    nodes: [
+      fixture({ id: "matter-assets.carry-forward", status: "planned", slices: ["4-3-assets"] }),
+      fixture({ id: "matter-assets.register", status: "shipped", slices: ["4-3-assets"] }),
+      fixture({ id: "matter-assets.schedule", status: "designed", slices: ["4-3-assets"] }),
+    ],
+    tree: [],
+    slices: { "4-3-assets": "in-progress" },
+    expect: [],
+  },
+  {
+    name: "a slice tag with no fragment behind it",
+    nodes: [fixture({ status: "partial", slices: ["3-2-renamed-away"] })],
+    tree: [],
+    slices: {},
+    expect: ["unresolved-slice"],
+  },
 ];
 
-// Every problem across every node. `exists` and `decisionNumbers` are injected so the whole rule set
-// runs against a fixture in the test rather than against a paraphrase of itself.
-export function findStaleness(nodes, exists, decisionNumbers = new Set()) {
+// Every problem across every node. `exists`, `decisionNumbers` and `sliceBuildStates` (a Map from a
+// status.d slug to that fragment's `built:` state) are injected so the whole rule set runs against a
+// fixture in the test rather than against a paraphrase of itself.
+export function findStaleness(
+  nodes,
+  exists,
+  decisionNumbers = new Set(),
+  sliceBuildStates = new Map(),
+) {
   const problems = [];
   for (const node of nodes) {
     const allowed = allowance(node);
@@ -535,7 +733,7 @@ export function findStaleness(nodes, exists, decisionNumbers = new Set()) {
       });
     }
     for (const rule of RULES) {
-      for (const problem of rule(node, nodes, exists, decisionNumbers)) {
+      for (const problem of rule(node, nodes, exists, decisionNumbers, sliceBuildStates)) {
         if (allowed !== null && allowed.reason !== "" && SUPPRESSIBLE.has(problem.rule)) continue;
         problems.push(problem);
       }
