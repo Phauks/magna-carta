@@ -177,20 +177,37 @@ function parseCivilDate(text: string, format: TrustStatementDateFormat): string 
 // Identifies exactly these parsed rows so a confirmation cannot be attached to a different file. It
 // is a fingerprint and not a signature: it detects a substituted or edited file between the preview
 // and the confirmation, which is the mistake this flow is actually guarding against.
+//
+// Every field of a row is written into the canonical text as `<character length>:<text>`, which is
+// what makes that text UNAMBIGUOUS rather than merely reproducible: a reader has exactly one way to
+// cut it back into fields, so no two different sets of fields can produce the same string.
+//
+// A separator character cannot do that job here. A description, a reference, and a counterparty name
+// are whatever the firm's institution wrote into the file, and this parser passes every character of
+// them through — including the control characters a separator would have to reserve. Any file
+// carrying the separator byte inside a field is a file whose canonical text can be cut in two places,
+// and one of those cuttings is a set of fields nobody supplied: a figure that shifted across a field
+// boundary — amount 23 beside description "45 ACME" against amount 2345 beside description " ACME" —
+// is exactly the edit that reproduces the fingerprint the preview already returned. The length
+// prefix removes the reservation, and with it the class of edit it could not see.
 function fingerprintOf(rows: readonly TrustStatementImportRow[]): string {
+  const lengthPrefixed = (value: string | number | null): string => {
+    const text = value === null ? "" : String(value);
+    return `${text.length}:${text}`;
+  };
   const canonical = rows
     .map((row) =>
       [
-        row.rowNumber,
-        row.postedOn,
-        row.direction,
-        row.amountMinor,
-        row.description,
-        row.reference ?? "",
-        row.counterpartyName ?? "",
-      ].join(""),
+        lengthPrefixed(row.rowNumber),
+        lengthPrefixed(row.postedOn),
+        lengthPrefixed(row.direction),
+        lengthPrefixed(row.amountMinor),
+        lengthPrefixed(row.description),
+        lengthPrefixed(row.reference),
+        lengthPrefixed(row.counterpartyName),
+      ].join(""),
     )
-    .join("");
+    .join("");
   // FNV-1a, 32 bits, over the canonical text plus its length — enough to catch an edited file, and
   // deliberately not presented as anything stronger.
   let hash = 0x811c9dc5;

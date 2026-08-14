@@ -76,7 +76,11 @@ export type TrustValidationCode =
   | "reconciliation-statement-mismatch"
   | "unknown-trust-reconciliation-match"
   | "match-belongs-to-another-reconciliation"
+  // Two reads feed a proof, and neither may be a silently short list: the book items still in
+  // transit, and the statement lines the period has not accounted for. A close freezes a figure
+  // derived from each, so a truncated list is not a short answer but a confidently wrong one.
   | "reconciliation-outstanding-items-truncated"
+  | "reconciliation-unmatched-lines-truncated"
   | "match-is-a-withdrawal"
   | "match-already-withdrawn"
   | "statement-line-already-matched"

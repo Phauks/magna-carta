@@ -326,6 +326,59 @@ describe("the three-way proof", () => {
     ).rejects.toMatchObject({ code: "reconciliation-outstanding-items-truncated" });
   });
 
+  // The proof rests on TWO lists, and the second one had no probe at all. It was whole only because
+  // a statement is separately capped at a line count that happens to sit below this ceiling — an
+  // arithmetic accident nothing in either constant states, and nothing would have caught if either
+  // moved. `frozen_unmatched_line_count` is one of the figures a close freezes as the firm's
+  // attestation, so a short list here is the same failure a short outstanding list is.
+  it("refuses the proof rather than computing it from a truncated unmatched-line list", async () => {
+    const fixture = await fixtureWithJurisdiction();
+    const statement = await recordStatement(fixture, 500000, [
+      {
+        postedOn: "2026-08-02",
+        direction: "deposit",
+        amountMinor: 500000,
+        description: "DEPOSIT CHECK 1041",
+      },
+    ]);
+    const reconciliationId = await openedReconciliation(fixture, statement.statementId);
+
+    // One past the ceiling, written straight onto the statement: the composer caps a statement at
+    // its own, lower limit, and what is under test is the row count the READ sees.
+    const filler = MAX_TRUST_RECONCILIATION_ROWS;
+    for (let start = 0; start < filler; start += 500) {
+      const statements = [];
+      for (let index = start; index < Math.min(start + 500, filler); index += 1) {
+        statements.push(
+          fixture.database
+            .prepare(
+              "INSERT INTO trust_bank_statement_line (id, statement_id, posted_on, direction, amount_minor, description, reference, counterparty_name, source_row_number, recorded_at) VALUES (?1, ?2, '2026-08-02', 'deposit', 1, ?3, NULL, NULL, NULL, ?4)",
+            )
+            .bind(
+              newIdentifier("trustBankStatementLine"),
+              statement.statementId,
+              `Unaccounted line ${index}`,
+              clock.now(),
+            ),
+        );
+      }
+      await fixture.database.batch(statements);
+    }
+
+    await expect(readTrustThreeWayProof(fixture.database, reconciliationId)).rejects.toMatchObject({
+      code: "reconciliation-unmatched-lines-truncated",
+    });
+    // And the close refuses with it, rather than freezing a count it could not see all of.
+    await expect(
+      closeTrustReconciliation(fixture.database, reconciliationId, RECONCILER, options),
+    ).rejects.toMatchObject({ code: "reconciliation-unmatched-lines-truncated" });
+    // And so does the surface a member works the same list from, which reads it through the same
+    // function — a member shown a silently short list would believe they had worked the whole one.
+    await expect(
+      readTrustMatchSuggestions(fixture.database, reconciliationId),
+    ).rejects.toMatchObject({ code: "reconciliation-unmatched-lines-truncated" });
+  });
+
   // The classic deposit in transit: recorded before the period ended, credited by the bank after it.
   // The adjustment is what makes the two sides agree, and the item is named rather than absorbed.
   it("adjusts for a deposit in transit and still balances", async () => {
@@ -468,6 +521,99 @@ describe("matching", () => {
     );
     const { proof } = await readTrustThreeWayProof(fixture.database, reconciliationId);
     expect(proof.unmatchedStatementLines).toHaveLength(1);
+  });
+
+  // ONE definition of "unmatched line". The proof counts them and a close freezes the count; the
+  // matching surface shows a member the same list to work through. Derived twice — once in SQL and
+  // once by subtracting the active matches in memory — both forms answer plausibly, so the day they
+  // stopped agreeing nothing would say so and a firm would clear a list its own attestation did not
+  // count. This walks the cases where two such derivations would part company first.
+  it("shows the matching surface exactly the lines the proof counts as unmatched", async () => {
+    const fixture = await fixtureWithJurisdiction();
+    const webb = await depositInto(fixture, "Webb", 500000, "2026-08-02", "1041");
+    const statement = await recordStatement(fixture, 497500, [
+      {
+        postedOn: "2026-08-02",
+        direction: "deposit",
+        amountMinor: 500000,
+        description: "DEPOSIT CHECK 1041",
+        reference: "1041",
+      },
+      {
+        postedOn: "2026-08-04",
+        direction: "withdrawal",
+        amountMinor: 2500,
+        description: "MONTHLY SERVICE CHARGE",
+      },
+    ]);
+    const reconciliationId = await openedReconciliation(fixture, statement.statementId);
+    const lines = await readTrustBankStatementLines(fixture.database, statement.statementId);
+    const depositLine = lines.find((line) => line.description === "DEPOSIT CHECK 1041");
+
+    // The two reads, asked the same question, at every step below.
+    const agreedUnmatchedLineIds = async (id: typeof reconciliationId) => {
+      const { proof } = await readTrustThreeWayProof(fixture.database, id);
+      const suggested = await readTrustMatchSuggestions(fixture.database, id);
+      const fromProof = proof.unmatchedStatementLines.map((line) => line.id);
+      expect(suggested.unmatchedLines.map((line) => line.id)).toEqual(fromProof);
+      return fromProof;
+    };
+
+    expect(await agreedUnmatchedLineIds(reconciliationId)).toHaveLength(2);
+
+    const match = await composeTrustReconciliationMatch(
+      fixture.database,
+      {
+        reconciliationId,
+        statementLineId: depositLine?.id as never,
+        entryId: webb.entryId,
+        matchedBy: RECONCILER,
+      },
+      options,
+    );
+    await commit(fixture.database, match.effect);
+    expect(await agreedUnmatchedLineIds(reconciliationId)).toEqual([
+      lines.find((line) => line.description === "MONTHLY SERVICE CHARGE")?.id,
+    ]);
+
+    // A WITHDRAWN match: active-ness is derived from the absence of a withdrawal row rather than
+    // from a column, so a reader that missed the withdrawal would hide a line a person has to work.
+    const withdrawal = await composeTrustReconciliationUnmatch(
+      fixture.database,
+      { matchId: match.matchId, reconciliationId, withdrawnBy: RECONCILER },
+      options,
+    );
+    await commit(fixture.database, withdrawal.effect);
+    expect(await agreedUnmatchedLineIds(reconciliationId)).toHaveLength(2);
+
+    // A SUPERSEDED period. Both line reads are scoped to one reconciliation, which is what the
+    // outstanding-item read deliberately is not: a line's fate in some other period says nothing
+    // about whether THIS one accounted for it, so the replacement starts with both lines open and
+    // the superseded period keeps reporting what it matched.
+    const kept = await composeTrustReconciliationMatch(
+      fixture.database,
+      {
+        reconciliationId,
+        statementLineId: depositLine?.id as never,
+        entryId: webb.entryId,
+        matchedBy: RECONCILER,
+      },
+      options,
+    );
+    await commit(fixture.database, kept.effect);
+    const redone = await openTrustReconciliation(
+      fixture.database,
+      {
+        statementId: statement.statementId,
+        supersedesReconciliationId: reconciliationId,
+        openedBy: RECONCILER,
+      },
+      options,
+    );
+    await commit(fixture.database, redone.effect);
+
+    expect(await agreedUnmatchedLineIds(redone.reconciliationId)).toHaveLength(2);
+    expect(await agreedUnmatchedLineIds(reconciliationId)).toHaveLength(1);
   });
 
   it("offers no candidate when the amount or the direction does not correspond", async () => {

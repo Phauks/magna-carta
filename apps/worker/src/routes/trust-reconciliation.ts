@@ -827,6 +827,22 @@ function readReconciliationErrorResponse(
       detail: error.message,
     });
   }
+  // Both of the reconciliation's capped reads, under one type. Neither says the record is improper —
+  // they say the period is larger than one proof can see all of, and a proof computed from a list
+  // that stopped at its ceiling is short by exactly the items nobody saw. Falling through to the
+  // catch-all below would tell a firm the trust rules refuse its reconciliation, which is the one
+  // reading of the situation that is not true.
+  if (
+    error.code === "reconciliation-outstanding-items-truncated" ||
+    error.code === "reconciliation-unmatched-lines-truncated"
+  ) {
+    return problemJson(c, {
+      type: "trust-reconciliation-truncated",
+      title: "This reconciliation is larger than one proof can account for",
+      status: 422,
+      detail: error.message,
+    });
+  }
   return problemJson(c, {
     type: "trust-reconciliation-refused",
     title: "The trust rules refuse this",
