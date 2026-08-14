@@ -356,6 +356,11 @@ export default defineConfig({
     }),
   ],
   test: {
+    // Every file gets the background-work barrier: routes start work that outlives their response
+    // (the request-path outbox sweep), and an environment torn down while that work is still talking
+    // to the test host rejects its in-flight calls into nothing. The setup file's afterEach waits for
+    // the worker to go quiet — see test/support/settle-background-work.ts for the full mechanism.
+    setupFiles: ["./test/support/settle-background-work.ts"],
     // 16 CPUs but a RAM-constrained dev box (~3 GB free under normal load): each test file boots a
     // Miniflare/workerd VM holding the full app + bindings + the three stub service workers, so the
     // default CPU-wide file parallelism OOMs the box (exit 137). Cap the concurrent VMs to fit
