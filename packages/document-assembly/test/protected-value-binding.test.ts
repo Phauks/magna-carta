@@ -107,6 +107,7 @@ function manifestOf(...keys: readonly string[]): FieldManifest {
     fields,
     totalOccurrences: fields.length,
     unconvertedMergeFields: [],
+    legacyFormFields: [],
     blocks: [],
     computedFields: [],
   };

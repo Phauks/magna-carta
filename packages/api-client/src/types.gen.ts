@@ -4857,6 +4857,7 @@ export type RegisteredTemplate = {
     mergeFieldsConverted: boolean;
     mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    legacyFormFields: Array<TemplateLegacyFormField>;
     confirmedFieldMappings: Array<{
         fieldName: string;
         mergeKey: string;
@@ -4882,6 +4883,15 @@ export type TemplateUnconvertedMergeField = {
     occurrences: number;
     form: string;
     mapsToKnownField: boolean;
+    frozenText: string;
+};
+
+export type TemplateLegacyFormField = {
+    fieldName: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    helpText: string;
     frozenText: string;
 };
 
@@ -4943,6 +4953,7 @@ export type TemplateFields = {
     normalizerVersion: number;
     fields: Array<TemplateFieldEntry>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    legacyFormFields: Array<TemplateLegacyFormField>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 

@@ -112,6 +112,26 @@ function mergeFieldParagraph(fieldName: string, cachedResult = `«${fieldName}»
   );
 }
 
+// The complex field construct Word writes for a LEGACY FORM FIELD — the fill-in-the-blank field the
+// appellate court forms and a great deal of legacy firm precedent are built from. The `w:ffData` block
+// hangs off the `begin` fldChar and carries the field's Word-minted bookmark and the author's prompt;
+// the cached result is the "click here" text the document prints today.
+function legacyFormFieldParagraph(name: string, statusText: string, result: string): string {
+  return (
+    "<w:p>" +
+    '<w:r><w:fldChar w:fldCharType="begin"><w:ffData>' +
+    `<w:name w:val="${name}"/><w:enabled/>` +
+    `<w:statusText w:type="text" w:val="${statusText}"/>` +
+    '<w:textInput><w:default w:val="Click here to enter text."/></w:textInput>' +
+    "</w:ffData></w:fldChar></w:r>" +
+    '<w:r><w:instrText xml:space="preserve"> FORMTEXT </w:instrText></w:r>' +
+    '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+    `<w:r><w:t>${result}</w:t></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+    "</w:p>"
+  );
+}
+
 // The package shape a macro-bearing upload takes: the payload part, the content-type Default that
 // declares it, the relationship that reaches it, and the macro-enabled main-document declaration.
 function macroBearingOverrides(): TemplateOverrides {
@@ -220,7 +240,16 @@ interface RegisteredTemplateBody {
     occurrences: number;
     frozenText: string;
   }[];
+  legacyFormFields: {
+    fieldName: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    helpText: string;
+    frozenText: string;
+  }[];
   confirmedFieldMappings: { fieldName: string; mergeKey: string }[];
+  warnings: { code: string; part: string; detail: string }[];
 }
 
 async function registerTemplate(
@@ -485,6 +514,57 @@ describe("template registration", () => {
     };
     expect(manifest.unconvertedMergeFields).toEqual([
       expect.objectContaining({ fieldName: "matter.number", frozenText: "2019-CV-00041" }),
+    ]);
+  });
+
+  it("REGISTERS a legacy Word form-field template and SAYS which fields it will not bind", async () => {
+    // The defect this covers: a template built entirely from Word form fields used to register clean,
+    // declare no keys, and report no absence — the only thing it said was that it carried no merge
+    // fields, so every assembly produced the same document. It then filed carrying the form's own
+    // "Click here to enter caption". Nothing converts these: the only name one carries is a
+    // Word-minted bookmark, and deriving a merge key from that would be a guess at what a firm's
+    // document means. So the obligation is that registration states the absence.
+    const response = await registerTemplate(
+      templateDocx({
+        body: legacyFormFieldParagraph(
+          "Caption",
+          "enter name of party/parties appealing",
+          "Click here to enter caption",
+        ),
+      }),
+      "Appellate Form",
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.legacyFormFields).toEqual([
+      expect.objectContaining({
+        fieldName: "Caption",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 1,
+        helpText: "enter name of party/parties appealing",
+        frozenText: "Click here to enter caption",
+      }),
+    ]);
+    // No name is invented for it, so nothing downstream can read one as a binding the firm made.
+    expect(body.unconvertedMergeFields).toEqual([]);
+    expect(body.mergeFieldsDetected).toEqual([]);
+    expect(body.fieldCount).toBe(0);
+    const warning = body.warnings.find((entry) => entry.code === "legacy-form-field");
+    expect(warning?.detail).toContain("Caption");
+    // The template is NOT described as one that carries nothing to fill in.
+    expect(body.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+
+    // The field inspector carries it too — where an author goes to find out why the document filed
+    // with a prompt in it.
+    const fields = await get(
+      `/api/v1/templates/${body.templateId}/versions/${body.versionId}/fields`,
+    );
+    const manifest = (await fields.json()) as {
+      legacyFormFields: { fieldName: string; frozenText: string }[];
+    };
+    expect(manifest.legacyFormFields).toEqual([
+      expect.objectContaining({ fieldName: "Caption", frozenText: "Click here to enter caption" }),
     ]);
   });
 

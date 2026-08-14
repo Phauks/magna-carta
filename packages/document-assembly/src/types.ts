@@ -89,6 +89,11 @@ export interface FieldManifest {
   // "this template has blanks the merge engine will not fill", which is what makes them visible to the
   // absence model instead of invisible to it.
   readonly unconvertedMergeFields: readonly UnconvertedMergeField[];
+  // The LEGACY WORD FORM FIELDS this version carries. A separate list from the unconverted merge
+  // fields on purpose: those name a field the engine could bind if the firm asked, and these name a
+  // construct it will not bind at all. Blending them would offer conversion as the remedy for
+  // something conversion does not answer.
+  readonly legacyFormFields: readonly LegacyFormField[];
   readonly blocks: readonly ManifestBlock[];
   readonly computedFields: readonly ManifestComputedField[];
 }
@@ -125,6 +130,39 @@ export interface UnconvertedMergeField {
   readonly frozenText: string;
 }
 
+// One LEGACY WORD FORM FIELD a registered template version carries — the `w:fldChar` complex field whose
+// instruction is FORMTEXT, FORMCHECKBOX, or FORMDROPDOWN and which carries a `w:ffData` block. Word's
+// own protected-form machinery, and the construct most of the appellate court forms and a great deal of
+// legacy firm precedent are built from.
+//
+// NOTHING BINDS ONE, AND NOTHING HERE INVENTS A NAME FOR IT. `fieldName` is the `w:ffData` bookmark name
+// exactly as Word recorded it — `Text1`, `Check1`, whatever the author typed — which is an identifier
+// for the field, not a claim about what it means: it is reported so a person can find the field in Word,
+// never as a merge key. Deriving `client.displayName` from a bookmark called `PartyName`, or from the
+// help text beside it, would be the same silent binding decision on privileged content that the
+// name-guessing rule refuses one construct over.
+//
+// So the entry exists to make the ABSENCE visible: this template has holes the merge engine will not
+// fill, here is what each prints today, and here is the prompt whoever authored it wrote for whoever
+// fills it in. Recorded rather than refused for the reason an unconverted merge field is — an
+// unregisterable template is one nobody can inspect.
+export interface LegacyFormField {
+  // The `w:ffData` bookmark name, empty when the construct carries none. Never a merge key.
+  readonly fieldName: string;
+  readonly kind: LegacyFormFieldKind;
+  readonly part: string;
+  readonly occurrences: number;
+  // The author's own prompt for the field — Word's status-bar text or help text. Empty when neither is
+  // set. It is the one place a legacy form field says what it wants, so it is what a person mapping the
+  // template by hand reads first.
+  readonly helpText: string;
+  // What the document prints where the field sits — the field's own placeholder text, which is what
+  // gets filed if nobody notices. Empty when the construct carries no result.
+  readonly frozenText: string;
+}
+
+export type LegacyFormFieldKind = "text" | "checkbox" | "dropDown";
+
 // A normalization finding that does NOT stop registration — the template is registrable, but the author
 // should see what the pass did or noticed. A finding that makes a template unusable is a registration
 // failure with a location instead (see NormalizationFailure in normalize.ts), never a warning: a
@@ -134,6 +172,7 @@ export interface NormalizationWarning {
   readonly code:
     | "merge-field-converted" // a Word MERGEFIELD construct was rewritten into the canonical brace form
     | "merge-field-unconverted" // Word MERGEFIELD constructs were left as authored and will render frozen text
+    | "legacy-form-field" // legacy Word form fields, which nothing binds and no opt-in converts
     | "no-placeholders"; // the package registered cleanly but carries no merge fields at all
   readonly part: string;
   readonly detail: string;

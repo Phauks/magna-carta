@@ -86,8 +86,10 @@ export interface CompleteDocumentAssemblyRow {
   readonly outcome: Extract<AssemblyOutcome, "succeeded" | "succeeded_with_absences">;
   // The KEYS that could not be resolved, never the values that could.
   readonly absentFieldKeys: readonly string[];
-  // The NAMES of the Word merge fields the template carried unconverted, which this document therefore
-  // renders as frozen cached text. Names only — the frozen text itself stays in the template's manifest.
+  // The NAMES of the Word fields nothing substituted — merge fields the template carried unconverted,
+  // and legacy form fields, which nothing binds at all — so this document renders each as the text the
+  // template already held. Names only, so a reader can find each field in the document; the text itself
+  // stays in the template's manifest.
   readonly frozenFieldNames: readonly string[];
   readonly completedAt: string;
 }

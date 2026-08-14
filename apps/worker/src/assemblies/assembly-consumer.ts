@@ -187,6 +187,9 @@ function parseManifest(json: string): FieldManifest {
       unconvertedMergeFields: Array.isArray(parsed.unconvertedMergeFields)
         ? parsed.unconvertedMergeFields
         : [],
+      // Absent on a manifest stored before legacy form fields were detected. Re-registering the
+      // template is what makes them reportable, since a template version's manifest is immutable.
+      legacyFormFields: Array.isArray(parsed.legacyFormFields) ? parsed.legacyFormFields : [],
       // Absent on a manifest stored before blocks and computed fields existed, which is a template
       // that carried neither. The read plans its batched reads from the keys these carry, so an
       // older manifest simply asks for fewer.
@@ -198,6 +201,7 @@ function parseManifest(json: string): FieldManifest {
       fields: [],
       totalOccurrences: 0,
       unconvertedMergeFields: [],
+      legacyFormFields: [],
       blocks: [],
       computedFields: [],
     };
@@ -216,7 +220,7 @@ export function assembledDocumentName(
   const clean = (value: string): string =>
     // eslint-disable-next-line no-control-regex -- the C0 range is exactly what has to go from a name
     value
-      .replace(/[ -/\\:*?"<>|]/g, " ")
+      .replace(/[\u0000-\u001f/\\:*?"<>|]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   const base = [clean(templateName), clean(matterLabel)].filter((part) => part !== "").join(" - ");
@@ -398,10 +402,26 @@ async function assembleOne(
   // manifest recorded them at registration precisely so this point can report them, and an assembly
   // carrying any completes `succeeded_with_absences`: like an absence, it is a document that needs a
   // human before it is filed.
+  //
+  // The template's LEGACY WORD FORM FIELDS join the same list, because they are the same failure: a
+  // hole nothing substitutes, printing the template's own "click here to enter text" where a person is
+  // meant to have typed. They are labelled by kind as well as name, since Word mints a bookmark like
+  // `Text1` and a firm's author rarely renames it — and a form field the author never named at all is
+  // still a hole, so it is listed by its kind rather than dropped for want of a label.
   // sort on the freshly-mapped copy (nothing else holds it), matching the worker's TS lib target.
-  const frozenFieldNames = manifest.unconvertedMergeFields.map((field) => field.fieldName).sort();
+  const frozenFieldNames = [
+    ...manifest.unconvertedMergeFields.map((field) => field.fieldName),
+    ...manifest.legacyFormFields.map((field) =>
+      field.fieldName === ""
+        ? `unnamed Word ${field.kind} form field`
+        : `${field.fieldName} (Word ${field.kind} form field)`,
+    ),
+  ].sort();
   for (const field of manifest.unconvertedMergeFields) {
     logger.count(documentAssemblyFrozenField.metricName, { form: field.form });
+  }
+  for (const field of manifest.legacyFormFields) {
+    logger.count(documentAssemblyFrozenField.metricName, { form: `form-field-${field.kind}` });
   }
   const needsReview = merged.absences.length > 0 || frozenFieldNames.length > 0;
 

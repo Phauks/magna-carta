@@ -50,4 +50,14 @@ _Add a new file here per language as it enters the codebase (e.g. SQL migrations
 - **What is NOT covered.** This rule governs **code**. Documentation — the white paper, ADRs, specs, conventions, per-area `CLAUDE.md` files, `CHANGELOG`/`ROADMAP`/`STATUS` — cites ADRs and specs freely; that is its job. Generated files (`*.gen.ts`, the OpenAPI snapshot) are exempt (fix their source, then regenerate).
 - **Enforcement.** A CI source-scan fitness function, `pnpm run lint:process-refs` ([`tooling/lint-process-references.mjs`](../../tooling/lint-process-references.mjs)), hard-bans the unambiguous citations (ADR numbers, design-spec/`§`, numbered decisions, white paper, spike) across code and fails the build on any. Forward-looking slice/phase notes are allowed by the rule and left to review rather than scanned (telling them from backward labels mechanically is unreliable).
 
+## No raw control characters in source
+
+**A control character is written as an escape, never as the byte itself.** `"\0"`, not a literal NUL; `"\u001b"`, not a literal escape byte. Tab, newline, and carriage return are the three exceptions — those a source file holds raw.
+
+- **Why:** the raw byte is invisible. It does not show in a file read, in `git diff`, in a review pane, or in most editors, so the source reads as one thing and means another. This is not theoretical: a separator written as a literal NUL read as `.join("")` to two separate readers on the same day and produced a wrong diagnosis of a real defect. The escape is the same value at runtime, costs one character, and says what the byte is.
+- **Fix:** write the escape. `\0`, `\b`, `\v`, `\f` where a short form exists, `\uNNNN` otherwise — the scan prints the exact replacement for each finding.
+- **This includes tests.** A test whose subject IS the control byte is the case where the escape helps most: `Array.from("PK\u0003\u0004", …)` names the zip local-file-header magic, and the raw form names nothing.
+- **Escape hatch:** a `control-characters:allow — <reason>` comment on the same line, for the rare case where writing the escape would change what the line proves. A bare marker with no reason fails the scan.
+- **Enforcement.** A CI source-scan fitness function, `pnpm run lint:control-characters` ([`tooling/lint-control-characters.mjs`](../../tooling/lint-control-characters.mjs)), over the same code extensions as the process-reference scan, plus Markdown — a code sample in a document gets copied into source, so an invisible byte there travels. It self-tests on every run, because a check that never fires over invisible bytes is indistinguishable from a clean tree. Data files and binary fixtures are not scanned — a control byte in a corpus is the corpus.
+
 > Hard invariants (no emojis, no shell for file ops, docs-in-commit) live in the root [`CLAUDE.md`](../../CLAUDE.md) — not duplicated here.

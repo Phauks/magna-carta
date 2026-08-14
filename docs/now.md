@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 244 | 35% |
+| Done | shipped | 245 | 35% |
 | Part-built | partial, in-build | 201 | 28% |
-| Ahead | designed, planned, researching, not-started | 219 | 31% |
+| Ahead | designed, planned, researching, not-started | 218 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **705** | **100%** |
 
@@ -36,20 +36,20 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 244 | 35% |
+| `shipped` | 245 | 35% |
 | `partial` | 186 | 26% |
 | `in-build` | 15 | 2% |
 | `designed` | 21 | 3% |
 | `planned` | 13 | 2% |
 | `researching` | 8 | 1% |
-| `not-started` | 177 | 25% |
+| `not-started` | 176 | 25% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **705** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 244 of 705 (35%). Shipped plus partial is 430 (61%).**
+**Shipped alone is 245 of 705 (35%). Shipped plus partial is 431 (61%).**
 
 The 186 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -72,7 +72,7 @@ true and neither is the answer on its own.
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
-| Document Automation | 1 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 9 | 11% |
+| Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Financial Core | 15 | 22 | 4 | 2 | 0 | 0 | 12 | 3 | 0 | 58 | 26% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
@@ -89,7 +89,7 @@ true and neither is the answer on its own.
 | Reports | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 2 | 0 | 11 | 0% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **244** | **186** | **15** | **21** | **13** | **8** | **177** | **39** | **2** | **705** | **35%** |
+| **All areas** | **245** | **186** | **15** | **21** | **13** | **8** | **176** | **39** | **2** | **705** | **35%** |
 
 ## Where we have been
 
@@ -566,7 +566,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 11% shipped. 1 done, 7 part-built, 1 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 22% shipped. 2 done, 7 part-built, 0 ahead, 0 parked.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
@@ -575,7 +575,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
   - `document-automation.pdf-form-filling` · `partial` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Binding firm-supplied fillable PDFs to the same data dictionary is slice 2-6-3._
-  - `document-automation.field-mapping-library` · `not-started` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established.
+  - `document-automation.field-mapping-library` · `shipped` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established. _Note: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in._
   - `document-automation.filing-grade-generation` · `partial` · **Filing-grade generation** — Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
 
 ### Documents

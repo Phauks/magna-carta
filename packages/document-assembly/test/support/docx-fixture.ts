@@ -80,6 +80,55 @@ export function simpleMergeFieldParagraph(fieldName: string): string {
   );
 }
 
+export interface LegacyFormFieldFixture {
+  // The instruction the construct carries. FORMTEXT, FORMCHECKBOX, and FORMDROPDOWN are the three
+  // Word writes for a legacy form field.
+  readonly instruction?: string;
+  // The `w:ffData` bookmark name. Word mints `Text1`, `Check1`, `Dropdown1` and a firm's author
+  // rarely renames them, which is the whole reason a name here is not a merge key.
+  readonly name?: string;
+  // The status-bar prompt the author wrote for whoever fills the field in — the one place a legacy
+  // form field says what it wants.
+  readonly statusText?: string;
+  // The words the document prints where the field sits today.
+  readonly result?: string;
+  // The `w:ffData` child that declares the field's kind.
+  readonly inputElement?: string;
+}
+
+// The complex-field shape Word writes for a LEGACY FORM FIELD: a `begin` fldChar carrying the
+// `w:ffData` block, a FORMTEXT/FORMCHECKBOX/FORMDROPDOWN instruction, and the field's own placeholder
+// text as the cached result. Nevada's appellate forms and a great deal of legacy firm precedent are
+// built entirely from these, so the fixture reproduces the real shape rather than a reduction of it.
+export function legacyFormFieldParagraph(fixture: LegacyFormFieldFixture = {}): string {
+  const instruction = fixture.instruction ?? "FORMTEXT";
+  const name = fixture.name ?? "Text1";
+  const statusText = fixture.statusText ?? "";
+  const result = fixture.result ?? "Click here to enter text.";
+  const inputElement =
+    fixture.inputElement ??
+    (instruction === "FORMCHECKBOX"
+      ? '<w:checkBox><w:sizeAuto/><w:default w:val="0"/></w:checkBox>'
+      : instruction === "FORMDROPDOWN"
+        ? '<w:ddList><w:listEntry w:val="Appellant"/><w:listEntry w:val="Respondent"/></w:ddList>'
+        : '<w:textInput><w:default w:val="Click here to enter text."/></w:textInput>');
+  const formFieldData =
+    "<w:ffData>" +
+    `<w:name w:val="${name}"/><w:enabled/><w:calcOnExit w:val="0"/>` +
+    (statusText === "" ? "" : `<w:statusText w:type="text" w:val="${statusText}"/>`) +
+    inputElement +
+    "</w:ffData>";
+  return (
+    "<w:p>" +
+    `<w:r><w:fldChar w:fldCharType="begin">${formFieldData}</w:fldChar></w:r>` +
+    `<w:r><w:instrText xml:space="preserve"> ${instruction} </w:instrText></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+    `<w:r><w:t>${result}</w:t></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+    "</w:p>"
+  );
+}
+
 const DEFAULT_CONTENT_TYPES = `${DECLARATION}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="${MAIN_DOCUMENT_CONTENT_TYPE}"/></Types>`;
 
 const DEFAULT_RELS = `${DECLARATION}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;

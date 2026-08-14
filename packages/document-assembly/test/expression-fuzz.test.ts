@@ -246,7 +246,7 @@ describe("structure-aware fuzzing over the grammar", () => {
 
 const ALPHABET = [
   ..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,()\"\\'`{}[]<>=!+-*/%^&|~?:;# \t\n",
-  " ",
+  "\0",
   "ÿ",
   "中",
   "😀",
