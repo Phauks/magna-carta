@@ -1,3 +1,4 @@
+import { MAX_BATCH_STATEMENTS } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { BUDGETED_EDGE_CLASSES, type BudgetedEdgeClass } from "./edge-classes.ts";
 import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
@@ -23,6 +24,42 @@ export const DEFAULT_EDGE_CLASS_BUDGETS: EdgeClassBudgets = Object.freeze({
 // so reaching it is recorded and reported rather than quietly shortening the answer.
 export const DEFAULT_CLOSURE_CAP = 500;
 
+// THE SECOND BOUND, AND WHY ONE BOUND WAS NOT ENOUGH.
+//
+// `closureCap` bounds how many entities the walk reaches. It does not bound the work, because hits do
+// not scale with the closure — they scale with the closure TIMES the corpus. The load profile's corpus
+// sweep (`conflictsCandidateBounds` in
+// packages/fixtures/src/load-profile/conflicts-measurements.ts) pins the closure and grows the
+// directory: candidates per reached entity rise linearly with the corpus, at roughly six tenths of the
+// organization corpus for an organization subject and roughly a tenth of the person corpus for a
+// person. Around ninety-nine per cent of that volume is the trigram channel with no other signal
+// beside it, because a trigram-OR match asks only whether two names share ONE three-character window
+// and multi-word names nearly always do.
+//
+// So the uneven consequence is worth stating plainly: a firm with a deep corporate group is fine, and
+// a firm with a large Directory is not — and the second is the ordinary case. A cap on the walk cannot
+// see that, so the run carries a second cap on what it WRITES.
+//
+// This is a capacity refusal, not a threshold. A threshold removes a candidate because of what its
+// evidence is, at any volume, and this package has none and never will. This removes candidates only
+// when one run exceeds a stated capacity, records exactly how many and at which evidence tiers, and
+// says in words that the search is incomplete — the same contract the closure cap already carries.
+export const DEFAULT_CANDIDATE_CAP = 5_000;
+
+// Statements a check's batch carries beside its BOUNDED hits: the idempotency record, the check row,
+// the audit row, the notification, and the imputation hits — which are bounded by the matter's own
+// party list rather than by the candidate cap, since an identity join finding a firm member who
+// genuinely IS a party is the strongest thing this engine produces and is never refused. Sized well
+// past the route's cap on subject parties so even a matter staffed entirely by the firm's own members
+// leaves room; its only job is to keep the two bounds from colliding.
+const CHECK_BATCH_OVERHEAD_STATEMENTS = 500;
+
+// A candidate cap raised past what one atomic batch may carry would turn a truncation the platform can
+// report into a check that fails outright, which is strictly worse: a bounded answer on the record
+// beats no answer at all. The two bounds therefore compose mechanically rather than by convention —
+// nothing a firm can store in its settings row can put them in conflict.
+export const MAX_CANDIDATE_CAP = MAX_BATCH_STATEMENTS - CHECK_BATCH_OVERHEAD_STATEMENTS;
+
 // The firm's mandatory minimum. A per-run selection may only ADD sources above this floor, never
 // subtract below it — otherwise narrowing the scope manufactures a clean check, and the log would
 // faithfully record a clean result for a search that never ran. The party class is always in the
@@ -33,6 +70,7 @@ export interface ConflictsPolicy {
   readonly defaultDepth: number;
   readonly edgeClassBudgets: EdgeClassBudgets;
   readonly closureCap: number;
+  readonly candidateCap: number;
 }
 
 export interface ScopeRequest {
@@ -51,6 +89,9 @@ export interface ScopeRequest {
   // A per-run closure cap. Omitted means the firm's setting. Like depth, this is a default rather
   // than a floor: a caller may run with a smaller cap, and the cap in force is recorded either way.
   readonly closureCap?: number;
+  // A per-run candidate cap. Same posture as `closureCap`: omitted means the firm's setting, a caller
+  // may run under a smaller one, and whichever is in force is recorded on the check row.
+  readonly candidateCap?: number;
 }
 
 export interface ResolvedScope {
@@ -62,6 +103,7 @@ export interface ResolvedScope {
   readonly depth: number;
   readonly edgeClassBudgets: EdgeClassBudgets;
   readonly closureCap: number;
+  readonly candidateCap: number;
   // True when the request fell below the floor and was raised. Recorded on the check row so an
   // auditor sees that a narrower scope was asked for and refused.
   readonly floorRaised: boolean;
@@ -73,9 +115,16 @@ export const DEFAULT_CONFLICTS_POLICY: ConflictsPolicy = {
   defaultDepth: 1,
   edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
   closureCap: DEFAULT_CLOSURE_CAP,
+  candidateCap: DEFAULT_CANDIDATE_CAP,
 };
 
 const SETTING_KEY = "conflicts.policy";
+
+// A cap value, from a setting or from a request, normalized the one way. Clamped at both ends: never
+// negative, and never past what one atomic batch can carry.
+function resolveCandidateCap(value: number): number {
+  return Math.min(MAX_CANDIDATE_CAP, Math.max(0, Math.trunc(value)));
+}
 
 // over_inclusive is a strict superset of balanced, so it is the higher floor.
 const STRICTNESS_RANK: Record<Strictness, number> = { balanced: 0, over_inclusive: 1 };
@@ -126,6 +175,10 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
       ? Math.max(0, Math.trunc(policy.closureCap))
       : Math.max(0, Math.trunc(request.closureCap));
 
+  const candidateCap = resolveCandidateCap(
+    request.candidateCap === undefined ? policy.candidateCap : request.candidateCap,
+  );
+
   return {
     sources: orderSources(requested),
     strictness,
@@ -133,6 +186,7 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     depth: Math.max(...BUDGETED_EDGE_CLASSES.map((edgeClass) => edgeClassBudgets[edgeClass])),
     edgeClassBudgets,
     closureCap,
+    candidateCap,
     floorRaised,
   };
 }
@@ -186,6 +240,13 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
       typeof parsed.closureCap === "number" && Number.isFinite(parsed.closureCap)
         ? Math.max(0, Math.trunc(parsed.closureCap))
         : DEFAULT_CONFLICTS_POLICY.closureCap,
+    // A firm that configured a policy before the candidate cap existed gets the shipped default rather
+    // than an absent bound: an unbounded run is the state this cap exists to end, so "the row does not
+    // say" resolves to the bound, never to none.
+    candidateCap:
+      typeof parsed.candidateCap === "number" && Number.isFinite(parsed.candidateCap)
+        ? resolveCandidateCap(parsed.candidateCap)
+        : DEFAULT_CONFLICTS_POLICY.candidateCap,
   };
 }
 

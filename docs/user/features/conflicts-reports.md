@@ -109,6 +109,16 @@ separate permission from running a check.
   so plainly, and tells you how many further records it knew were connected and did not search. That
   sentence is the point of the limit: an incomplete search you know about is workable, and one you do
   not know about is the failure this whole feature exists to prevent.
+- **There is a second limit, on how many results one check may record, and it works the same way.**
+  Following relationships and finding matches are two different costs. A check that follows a hundred
+  connected records asks about each of them across your whole directory, so the number of results it
+  can produce grows with the size of your directory rather than with the size of the corporate group.
+  Your firm sets a limit on that too. If a check goes past it, the report says the results were cut
+  short, how many it found, how many it recorded, and — the line to read first — how many of the ones
+  it left out were strong evidence rather than a loose name resemblance. Strong evidence is kept:
+  where something has to be left out, it is the weakest first, and a match between two parties on the
+  matter you are checking is never left out at all. If you see a check reporting this, it is worth
+  raising: it usually means the search is casting far wider than it needs to for your directory.
 - **Relationships that have ended are still followed.** A divorced spouse, a subsidiary sold last
   year, a directorship someone resigned — the check follows all of them, and marks on the result that
   the connection had already ended. That is deliberate: the rules that most often decide a conflict

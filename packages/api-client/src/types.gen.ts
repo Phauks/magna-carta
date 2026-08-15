@@ -1561,6 +1561,7 @@ export type ConflictsScopeRequest = {
         representation?: number;
     };
     closureCap?: number;
+    candidateCap?: number;
 };
 
 export type ConflictsCheckWithHitsResponse = {
@@ -1581,6 +1582,7 @@ export type ConflictsCheckDetail = {
     depth: number;
     floorRaised: boolean;
     traversal: ConflictsTraversalRecord;
+    candidates: ConflictsCandidateRecord;
     actorUserId: string | null;
     createdAt: string;
 };
@@ -1594,6 +1596,18 @@ export type ConflictsTraversalRecord = {
     entitiesReached: number | null;
     unexploredFrontierSize: number | null;
     unexpandedReachedCount: number | null;
+} | null;
+
+export type ConflictsCandidateRecord = {
+    candidateCap: number | null;
+    truncated: boolean;
+    candidatesSurfaced: number | null;
+    candidatesWritten: number | null;
+    candidatesRefused: number | null;
+    refusedByTier: Array<{
+        tier: number;
+        count: number;
+    }>;
 } | null;
 
 export type ConflictsHitDetail = {
@@ -1656,6 +1670,7 @@ export type ConflictsPostureScope = {
     depth: number;
     floorRaised: boolean;
     traversal: ConflictsTraversalRecord;
+    candidates: ConflictsCandidateRecord;
 };
 
 export type ConflictsPostureScopeShortfall = {

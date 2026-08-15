@@ -1,4 +1,5 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { RefusedTierCount } from "./candidate-bound.ts";
 import { readHitDispositionStates } from "./disposition.ts";
 import { readConflictsRecheckSettings, readConflictsRescanState } from "./recheck-settings.ts";
 import { readPendingRecheckRequests } from "./recheck-statements.ts";
@@ -45,6 +46,9 @@ export interface ScopeInForce {
   // How far the graph walk was allowed to go and whether it got there. Null on a check written before
   // the traversal record existed — "the row does not say", never "the walk completed".
   readonly traversal: TraversalRecord | null;
+  // How many candidates the run was allowed to write and whether it had to refuse any. Null on a check
+  // written before the candidate record existed, which reads the same way `traversal: null` does.
+  readonly candidates: CandidateRecord | null;
 }
 
 export interface LatestCheckRecord {
@@ -215,6 +219,24 @@ export interface TraversalRecord {
   readonly unexpandedReachedCount: number | null;
 }
 
+// HOW MANY CANDIDATES THE RUN WROTE, AND HOW MANY IT REFUSED — read back off the check row verbatim.
+//
+// The closure cap bounds the walk; this bounds what the walk's matching produced, which is the walk
+// times the corpus and therefore the quantity that actually grows. `truncated` is the load-bearing
+// field and it is never inferred: the run itself decides whether the cap bit, and the row says so.
+export interface CandidateRecord {
+  readonly candidateCap: number | null;
+  readonly truncated: boolean;
+  // Present only on a truncated run.
+  readonly candidatesSurfaced: number | null;
+  readonly candidatesWritten: number | null;
+  readonly candidatesRefused: number | null;
+  // Which evidence tiers lost candidates. All tier 4 is the ordinary shape of an over-broad trigram
+  // channel; anything stronger in here means the run was far enough over the bound to lose real
+  // evidence, and a reader has to be able to see that at a glance.
+  readonly refusedByTier: readonly RefusedTierCount[];
+}
+
 export interface CheckInputs {
   readonly subjectEntityIds: readonly string[];
   readonly expandedEntityIds: readonly string[];
@@ -222,9 +244,12 @@ export interface CheckInputs {
   // Null on a row written before the traversal record existed. Null is "the row does not say", which
   // is a different fact from "the walk completed" and is reported as its own thing.
   readonly traversal: TraversalRecord | null;
+  // Null on a row written before the candidate record existed, and read the same way.
+  readonly candidates: CandidateRecord | null;
 }
 
 const NO_TRAVERSAL_RECORD = null;
+const NO_CANDIDATE_RECORD = null;
 
 function parseTraversalRecord(value: unknown): TraversalRecord | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -255,12 +280,42 @@ function parseTraversalRecord(value: unknown): TraversalRecord | null {
   };
 }
 
+function parseCandidateRecord(value: unknown): CandidateRecord | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return NO_CANDIDATE_RECORD;
+  }
+  const record = value as Record<string, unknown>;
+  const finiteNumber = (candidate: unknown): number | null =>
+    typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
+  const refusedByTier: RefusedTierCount[] = [];
+  const storedRefused = record["refusedByTier"];
+  if (Array.isArray(storedRefused)) {
+    for (const entry of storedRefused) {
+      if (typeof entry !== "object" || entry === null) continue;
+      const tier = finiteNumber((entry as Record<string, unknown>)["tier"]);
+      const count = finiteNumber((entry as Record<string, unknown>)["count"]);
+      if (tier === null || count === null) continue;
+      if (tier !== 1 && tier !== 2 && tier !== 3 && tier !== 4) continue;
+      refusedByTier.push({ tier, count });
+    }
+  }
+  return {
+    candidateCap: finiteNumber(record["candidateCap"]),
+    truncated: record["truncated"] === true,
+    candidatesSurfaced: finiteNumber(record["candidatesSurfaced"]),
+    candidatesWritten: finiteNumber(record["candidatesWritten"]),
+    candidatesRefused: finiteNumber(record["candidatesRefused"]),
+    refusedByTier,
+  };
+}
+
 export function parseCheckInputs(inputsJson: string): CheckInputs {
   const empty: CheckInputs = {
     subjectEntityIds: [],
     expandedEntityIds: [],
     skippedIdentifierTypes: [],
     traversal: NO_TRAVERSAL_RECORD,
+    candidates: NO_CANDIDATE_RECORD,
   };
   let parsed: unknown;
   try {
@@ -277,6 +332,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     expandedEntityIds: stringArray(record["expandedEntityIds"]),
     skippedIdentifierTypes: stringArray(record["skippedIdentifierTypes"]),
     traversal: parseTraversalRecord(record["traversal"]),
+    candidates: parseCandidateRecord(record["candidates"]),
   };
 }
 
@@ -449,6 +505,7 @@ export async function readMatterConflictsPosture(
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
         traversal: inputs.traversal,
+        candidates: inputs.candidates,
       },
       subjectEntityCount: inputs.subjectEntityIds.length,
       expandedEntityCount: inputs.expandedEntityIds.length,

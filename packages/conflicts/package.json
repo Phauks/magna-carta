@@ -26,6 +26,7 @@
     "./recheck-cause": "./src/recheck-cause.ts",
     "./recheck-run": "./src/recheck-run.ts",
     "./recheck-request": "./src/recheck-request.ts",
+    "./candidate-bound": "./src/candidate-bound.ts",
     "./edge-classes": "./src/edge-classes.ts",
     "./subject-facts": "./src/subject-facts.ts"
   },

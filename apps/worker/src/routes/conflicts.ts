@@ -15,6 +15,7 @@ import {
 } from "@magna-carta/conflicts/posture";
 import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
+import { MAX_CANDIDATE_CAP } from "@magna-carta/conflicts/settings";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
   CONFLICTS_TRIGGERS,
@@ -174,6 +175,11 @@ const ScopeRequest = z
     // The most entities this run may expand to. Omitted means the firm's setting. Reaching it stops
     // the traversal and the check records that it was truncated, with how much it did not reach.
     closureCap: z.number().int().min(0).max(MAX_CLOSURE_CAP).optional(),
+    // The most candidates this run may record. Omitted means the firm's setting. The closure cap
+    // bounds how many entities are reached; this bounds what reaching them produced, which grows with
+    // the Directory rather than with the graph. Reaching it records that the candidate set was
+    // truncated, how many were refused, and at which evidence tiers.
+    candidateCap: z.number().int().min(0).max(MAX_CANDIDATE_CAP).optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -246,6 +252,24 @@ const TraversalRecord = z
   })
   .openapi("ConflictsTraversalRecord");
 
+const CandidateRecord = z
+  .object({
+    candidateCap: z.number().int().nullable(),
+    // True when the cap refused candidates the channels had already surfaced. Reported for the same
+    // reason a truncated traversal is: the platform searched less than the hit count in front of the
+    // reader would otherwise imply, and it has to say so rather than let the count speak for itself.
+    truncated: z.boolean(),
+    candidatesSurfaced: z.number().int().nullable(),
+    candidatesWritten: z.number().int().nullable(),
+    candidatesRefused: z.number().int().nullable(),
+    // The refused set by evidence tier. Strongest evidence is kept, so all tier 4 is the ordinary
+    // shape; anything stronger means the run was far enough over the bound to lose real evidence.
+    refusedByTier: z.array(
+      z.object({ tier: z.number().int().min(1).max(4), count: z.number().int() }),
+    ),
+  })
+  .openapi("ConflictsCandidateRecord");
+
 const CheckDetail = z
   .object({
     id: z.string(),
@@ -260,6 +284,8 @@ const CheckDetail = z
     depth: z.number().int(),
     floorRaised: z.boolean(),
     traversal: TraversalRecord.nullable(),
+    // Null on a check written before the candidate record existed, read exactly as `traversal` is.
+    candidates: CandidateRecord.nullable(),
     actorUserId: z.string().nullable(),
     createdAt: z.string(),
   })
@@ -292,6 +318,8 @@ const PostureScope = z
     // Null on a check written before the traversal record existed — "the row does not say", which is
     // a different fact from "the walk completed" and is never flattened into it.
     traversal: TraversalRecord.nullable(),
+    // Null on a check written before the candidate record existed, read exactly as `traversal` is.
+    candidates: CandidateRecord.nullable(),
   })
   .openapi("ConflictsPostureScope");
 
@@ -680,6 +708,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
           expandedEntityCount: inputs.expandedEntityIds.length,
           skippedIdentifierTypes: inputs.skippedIdentifierTypes,
           traversal: inputs.traversal,
+          candidates: inputs.candidates,
         },
         hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
         sources,
@@ -694,6 +723,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
         traversal: inputs.traversal,
+        candidates: inputs.candidates,
         actorUserId: checkRow.actor_user_id,
         createdAt: checkRow.created_at,
       };

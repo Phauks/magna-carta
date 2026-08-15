@@ -16,7 +16,10 @@ import { addIdentifier } from "@magna-carta/directory/identifiers";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import { expect, test } from "vitest";
 import { matchParty } from "../src/matching.ts";
+import { parseCheckInputs, readMatterConflictsPosture } from "../src/posture.ts";
+import { describeCheck } from "../src/report-text.ts";
 import { runConflictsCheck } from "../src/run-check.ts";
+import { DEFAULT_CANDIDATE_CAP } from "../src/settings.ts";
 
 // The exact-name probe and the directory channels both need a full DirectoryIdentifierContext
 // (firm key material, effective permissions, clock, seeded randomness) — reproduced here from
@@ -482,4 +485,133 @@ test("a check that hits the closure cap records the truncation, and the posture 
   expect(traversal.entitiesReached).toBe(5);
   // The number that makes the bound acceptable: how much was reachable and NOT searched.
   expect(traversal["unexploredFrontierSize"]).toBeGreaterThan(0);
+});
+
+test("an unbounded candidate set is refused loudly, and the record adds up", async () => {
+  // THE SECOND BOUND. The closure cap bounds the walk; hits scale with the walk TIMES the corpus, so a
+  // small closure over a large corpus still produces an unbounded set. This corpus is deliberately the
+  // shape that produces it: multi-word organization names, which share a three-character window with
+  // nearly every other name, so the trigram channel returns most of the corpus for every subject.
+  const { ctx, options } = await conflictsTestContext("candidate-truncation");
+  for (let index = 0; index < 25; index += 1) {
+    await createOrganization(
+      ctx.database,
+      { legalName: `Meridian Holdings and Partners ${index} Limited` },
+      options,
+    );
+  }
+  const subject = await createOrganization(
+    ctx.database,
+    { legalName: "Meridian Holdings and Partners Group" },
+    options,
+  );
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [subject],
+      scope: { sources: ["party"], strictness: "balanced", candidateCap: 4 },
+    },
+    options,
+  );
+
+  const row = await readCheck(ctx.database, checkId);
+  const candidates = (JSON.parse(row.inputs_json) as { candidates: Record<string, unknown> })
+    .candidates;
+  expect(candidates.truncated).toBe(true);
+  expect(candidates.candidateCap).toBe(4);
+  expect(candidates.candidatesWritten).toBe(4);
+  expect(candidates.candidatesSurfaced as number).toBeGreaterThan(4);
+  expect(candidates.candidatesRefused).toBe(
+    (candidates.candidatesSurfaced as number) - (candidates.candidatesWritten as number),
+  );
+
+  // The bound governs what is WRITTEN, so the log has to match the record rather than merely agree
+  // with it in spirit.
+  const hits = await readHits(ctx.database, checkId);
+  expect(hits).toHaveLength(4);
+});
+
+test("a run under the cap records the cap in force and no truncation", async () => {
+  const { ctx, options } = await conflictsTestContext("candidate-untruncated");
+  const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [clientId],
+      scope: { sources: ["party"], strictness: "balanced" },
+    },
+    options,
+  );
+
+  const row = await readCheck(ctx.database, checkId);
+  const candidates = (JSON.parse(row.inputs_json) as { candidates: Record<string, unknown> })
+    .candidates;
+  // The cap in force is recorded on every check, truncating or not — a reader of a years-old row must
+  // be able to tell what the run was allowed to do, not only what it happened to need.
+  expect(candidates.candidateCap).toBe(DEFAULT_CANDIDATE_CAP);
+  expect(candidates.truncated).toBe(false);
+  // Nothing was refused, so the refusal counts are absent rather than present-and-zero — the same
+  // rule the completed traversal follows.
+  expect(candidates["candidatesRefused"]).toBeUndefined();
+});
+
+test("the truncated candidate record reaches the posture read and the report statement", async () => {
+  const { ctx, options } = await conflictsTestContext("candidate-posture");
+  for (let index = 0; index < 25; index += 1) {
+    await createOrganization(
+      ctx.database,
+      { legalName: `Meridian Holdings and Partners ${index} Limited` },
+      options,
+    );
+  }
+  const subject = await createOrganization(
+    ctx.database,
+    { legalName: "Meridian Holdings and Partners Group" },
+    options,
+  );
+  const matterId = "matter_candidatebound";
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [subject],
+      scope: { sources: ["party"], strictness: "balanced", candidateCap: 3 },
+    },
+    options,
+  );
+  expect(checkId).toBeTruthy();
+
+  const posture = await readMatterConflictsPosture(ctx.database, matterId);
+  expect(posture.latestCheck?.scope.candidates?.truncated).toBe(true);
+  expect(posture.latestCheck?.scope.candidates?.candidateCap).toBe(3);
+  expect(posture.latestCheck?.scope.candidates?.refusedByTier.length).toBeGreaterThan(0);
+
+  const row = await readCheck(ctx.database, checkId);
+  const inputs = parseCheckInputs(row.inputs_json);
+  const statement = describeCheck(
+    {
+      createdAt: row.created_at,
+      trigger: row.trigger,
+      actorUserId: row.actor_user_id,
+      strictness: "balanced",
+      depth: row.depth,
+      floorRaised: row.floor_raised === 1,
+      subjectEntityCount: inputs.subjectEntityIds.length,
+      expandedEntityCount: inputs.expandedEntityIds.length,
+      skippedIdentifierTypes: inputs.skippedIdentifierTypes,
+      traversal: inputs.traversal,
+      candidates: inputs.candidates,
+    },
+    (await readHits(ctx.database, checkId)).map((hit) => ({
+      evidenceTier: hit.evidence_tier as 1 | 2 | 3 | 4,
+    })),
+    [{ source: "party", availability: "searched", reason: null }],
+  );
+  expect(statement.some((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"))).toBe(true);
 });

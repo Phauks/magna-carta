@@ -43,6 +43,7 @@ import {
 } from "../src/load-profile/editing-measurements.ts";
 import {
   conflictsHotPathPlans,
+  conflictsCandidateBounds,
   conflictsMatcherBounds,
   conflictsMeasurementHandle,
   conflictsMeasurements,
@@ -265,6 +266,21 @@ describe("load-profile smoke", () => {
       expect(bound.subjectCount).toBeGreaterThan(1);
       // The claim the whole batch exists to make: fewer queries than there are subjects to match.
       expect(bound.statementCount).toBeLessThan(bound.subjectCount);
+    }
+
+    // Where the candidates come from. The closure cap bounds the walk; these report the quantity the
+    // SECOND cap exists for, which is the walk times the corpus — so the assertion is not on a number
+    // (it moves with the profile scale) but on the breakdown being present and adding up, and on the
+    // trigram channel being the bulk of it, which is the finding the candidate bound answers.
+    const candidateBounds = await conflictsCandidateBounds(conflictsHandle);
+    expect(candidateBounds.map((bound) => bound.label)).toEqual([
+      "conflicts.candidates-per-person-subject",
+      "conflicts.candidates-per-organization-subject",
+    ]);
+    for (const bound of candidateBounds) {
+      expect(bound.subjectCount).toBeGreaterThan(1);
+      expect(bound.corpusOfKind).toBeGreaterThan(bound.subjectCount);
+      expect(bound.trigramOnlyCandidates).toBeLessThanOrEqual(bound.candidateCount);
     }
 
     // The document-automation measured set runs under its own (async) handle — it parses the probe
