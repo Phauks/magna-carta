@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 708 nodes of the feature ledger in
+is the complete register rather than a digest: all 733 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,41 +19,41 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**708 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
+**733 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 254 | 36% |
-| Part-built | partial, in-build | 210 | 29% |
-| Ahead | designed, planned, researching, not-started | 203 | 29% |
-| Parked | deferred, cut | 41 | 6% |
-| **All capabilities** | | **708** | **100%** |
+| Done | shipped | 255 | 35% |
+| Part-built | partial, in-build | 211 | 29% |
+| Ahead | designed, planned, researching, not-started | 224 | 30% |
+| Parked | deferred, cut | 43 | 6% |
+| **All capabilities** | | **733** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 254 | 36% |
-| `partial` | 195 | 28% |
+| `shipped` | 255 | 35% |
+| `partial` | 196 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 25 | 4% |
-| `planned` | 10 | 1% |
+| `designed` | 38 | 5% |
+| `planned` | 18 | 2% |
 | `researching` | 6 | 1% |
-| `not-started` | 162 | 23% |
-| `deferred` | 39 | 5% |
+| `not-started` | 162 | 22% |
+| `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **708** | **100%** |
+| **All statuses** | **733** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 254 of 708 (36%). Shipped plus partial is 449 (63%).**
+**Shipped alone is 255 of 733 (35%). Shipped plus partial is 451 (62%).**
 
-The 195 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 196 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
-distance from 36% to 63% is approximately the program's interface debt: work that is engineered and
+distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
 overstates what a user can do; reading the smaller one understates what has been built. Both are
 true and neither is the answer on its own.
@@ -74,6 +74,7 @@ true and neither is the answer on its own.
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
+| Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
 | Financial Core | 19 | 25 | 4 | 1 | 0 | 0 | 8 | 3 | 0 | 60 | 32% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
@@ -87,13 +88,15 @@ true and neither is the answer on its own.
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 16 | 13% |
 | Release Channels | 7 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 9 | 78% |
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
+| Self-Serve Provisioning and Entitlements | 1 | 1 | 0 | 7 | 0 | 0 | 0 | 0 | 0 | 9 | 11% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
-| **All areas** | **254** | **195** | **15** | **25** | **10** | **6** | **162** | **39** | **2** | **708** | **36%** |
+| Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
+| **All areas** | **255** | **196** | **15** | **38** | **18** | **6** | **162** | **41** | **2** | **733** | **35%** |
 
 ## Where we have been
 
-**30 of 49 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**32 of 51 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -106,7 +109,7 @@ ledger itself grew by +45 nodes over the same period (663 to 708), so the share 
 31% to 36% against a denominator that was moving too.
 
 That is **10.9 capabilities shipped a week** across the whole series, and **26.3 a week** over the
-23 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
+25 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -146,10 +149,12 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-15 | `6a5dc585` | 254 | 195 | 15 | 25 | 10 | 7 | 161 | 39 | 2 | 708 | 0 | +5 | 0 |
 | 2026-08-15 | `dd2ac00d` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 | 2026-08-15 | `d35ae516` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `67f39333` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `9bd40bd7` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 49 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 51 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -209,10 +214,14 @@ that went from nothing to `partial` shows up in the nodes columns and not in thi
 
 ## Waiting on you
 
-**16 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
+- **Numbering schemes** (`exhibits.numbering`) — Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
+- **In-text exhibit references** (`exhibits.references`) — Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
+- **Issued-set freeze** (`exhibits.issue`) — Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
+- **Compiled exhibit package** (`exhibits.package`) — Whether a compiled package paginates itself by default, and in which corner. The Nevada rule read for this design requires exhibits over ten pages to be numbered in the lower right — which is exactly where a page produced in discovery already carries its Bates stamp — and no reliable detector for an existing stamp exists, so a false negative overprints a number that was already served and a false positive drops pagination a rule requires. Defaulting on makes the common filing correct and risks overprinting; defaulting off makes every package a member has to remember to configure. Exhibits design flag E5.
 - **Client intake / CRM** (`intake`) — Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
 - **Lead pipeline** (`intake.lead-pipeline`) — Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 - **Public intake forms** (`intake.public-forms`) — Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And Turnstile, which the operations runbook still lists as an unchecked standing item: a public form should not ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
@@ -225,10 +234,20 @@ that went from nothing to `partial` shows up in the nodes columns and not in thi
 - **Card rail (fallback)** (`payments.card`) — Is the trust rail in scope at all before a returned-deposit movement kind exists, given a chargeback against trust is unrecordable today? Payments design flags K2 and K3.
 - **Operating-only surcharge** (`payments.surcharge`) — Confirm surcharge stays out of the first slice — it needs a new typed jurisdiction requirement in the restriction bucket, 56 jurisdictions of primary-source research with attorney review, and card-network registration. Payments design flag K6.
 - **Public changelog/roadmap/status pages** (`product-updates.public-pages`) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
+- **Reaping an abandoned tenant** (`self-serve.reaping`) — The clock. Notices, dormancy, suspension, an export window and only then a proposal to destroy — the design proposes a ladder measured in months from last human activity, with a much shorter one for a tenant that was provisioned and never used, and settles none of the numbers. What turns on them is how long the platform carries a stranger's abandoned workspace and how much warning a lawyer who went quiet actually receives; the design deliberately recovers the recurring cost early in the ladder so the platform is never under cost pressure to shorten the destruction end of it. Self-serve provisioning design flag F2.
+- **Entitlement model** (`self-serve.entitlements`) — Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.
+- **Quota ceilings** (`self-serve.entitlements.quotas`) — The free tier's actual numbers: the storage ceiling, the member ceiling and the matter ceiling. This is the flag the founding-a-firm screen is waiting on — it already tells a visitor their firm starts on the free tier while nothing in the tree defines what that tier is, and the registration screen, the upgrade panel, the refusal body and the enforcement are all meant to read the same catalog so a limit cannot be right in one place and stale in another. Two recommendations on shape rather than value: the member ceiling is the single most effective anti-abuse limit and should be small, and the storage ceiling should be small enough that an abandoned free tenant's bytes are never individually worth worrying about. Self-serve provisioning design flag F1.
+- **Free evaluation tier** (`self-serve.free-tier`) — Whether trust accounting unlocks on verification or for any paying firm. The design argues verification: a card proves somebody will pay and does not prove a real practice is holding real client funds, and withholding trust from a free tenant is also what makes the rule against reaping a firm holding client money absolute rather than a judgement call. Unlocking it for any paying firm is a real revenue edge and it means an unverified stranger with a card keeps a ledger the platform's own jurisdiction rules have not certified. Self-serve provisioning design flag F3.
+- **Firm verification** (`self-serve.verification`) — What verification is at launch — a human reviewing each firm, or an attestation the firm makes that a person spot-checks and an operator can revoke. Review is stronger and becomes a bottleneck at exactly the volume self-serve exists to reach; attestation plus spot-check is the recommendation, and it decides whether this ships as a review queue or as a form. Either way there is no national registry to call and per-state scraping is a maintenance liability, so the first version records a claimed bar number and jurisdiction and control of a matching domain, and must never be worded anywhere as though the platform checked something it did not. Self-serve provisioning design flag F4.
 - **Tasks and workflows** (`tasks`) — Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.
 - **Matter plans** (`tasks.matter-plans`) — Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
+- **Pasted-text translation** (`translation.pasted-text`) — Whether a pasted run is recorded or ephemeral. Recommended recorded: a firm has to be able to answer what it sent to which engine, about which client and when, and a retention story with a hole in it labelled the paste box is not one — the platform already answered the same question the same way for what a member types into its assistant. Ephemeral is the intuitive answer and it means privileged text passes through a place nothing accounts for. Recording it costs a run row and an object per paste. Translation design flag T4.
+- **Document translation** (`translation.documents`) — Whether a translated document is a new file beside its source or a new version of it. Recommended a derived sibling linked to the source version: a version chain means successive states of one document, and a Spanish original and its English rendering are two documents that both stay current, so folding them into one chain means a member downloading the latest version of a Spanish contract silently gets English. Choosing the version chain instead removes the link table and breaks the "show me the original" read. Translation design flag T5.
+- **Side-by-side and target-only renditions** (`translation.renditions`) — Whether the statement that this is machine output appears as a visible header on every generated rendition, or only in the closing provenance appendix. Recommended the header, removable only by a human certification path if one is ever built: an appendix is the part that gets detached first, and the artifact that survives detachment is a fluent translation with nothing on it saying no person has read it. The appendix-only answer produces a cleaner document a firm can hand over, and a cleaner document is exactly the one that gets mistaken for a certified one. Translation design flag T8.
+- **Translation provenance record** (`translation.provenance-record`) — Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
+- **Translation engines and consent gates** (`translation.engines`) — Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**14 would change something that already runs.** These are not holding anybody up.
+**16 would change something that already runs.** These are not holding anybody up.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -238,12 +257,14 @@ that went from nothing to `partial` shows up in the nodes columns and not in thi
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Search** (`discovery.search`) — Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 - **Filing-grade generation** (`document-automation.filing-grade-generation`) — The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.
+- **Trial admission tracking** (`exhibits.admission-tracking`) — Whether recording admission at trial is in scope as a later capability at all. The design assumes it stays out: it has a different audience and its own evidentiary weight, and a half-kept record of what a court admitted is worse than none. A yes makes it a capability with its own model rather than three columns bolted to an exhibit set. Exhibits design flag E7.
 - **Trust accounting** (`financial.trust`) — Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
 - **Jurisdiction-configurable compliance engine** (`financial.trust.jurisdiction-engine`) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 - **Interactive three-way reconciliation** (`financial.trust.reconciliation`) — The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
 - **Corrections after finalization** (`financial.billing.corrections`) — What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
 - **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
+- **Human-attested certification** (`translation.certification`) — Whether the platform offers human-attested certification at all. It is the difference between a reading aid and something a firm can file — under the governing federal standard a competent person may run an engine, review the output line by line and then sign, at which point the certificate is true — and it is also the part with the most ways to go wrong, so the recommendation is yes but only once the artifacts it would certify exist. A no means the product ships permanently as an explicitly non-certifying reading aid, which changes nothing else in this area. Translation design flag T3.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
 
@@ -285,6 +306,14 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
 - `documents.conversion.office` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
+- `exhibits` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
+- `exhibits.register` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own.
+- `exhibits.sets` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move.
+- `exhibits.numbering` · **Numbering schemes** — Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
+- `exhibits.references` · **In-text exhibit references** — A reference in a matter document that cites the exhibit's identity and renders its label, inserted from a picker rather than typed, resolved when the document is produced.
+- `exhibits.issue` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards.
+- `exhibits.list` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary.
+- `exhibits.package` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
@@ -302,6 +331,19 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `reports.location-rollups` · **Per-location roll-ups** — Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
 - `reports.scheduling` · **Scheduled generation** — Scheduled/automated report generation, archival, and optional email delivery.
 - `reports.exports` · **Exports** — PDF, Excel/CSV, and print export of reports.
+- `self-serve.firm-lifecycle` · **Firm lifecycle states** — The states a firm passes through beyond provisioning — dormant, suspended, closing and closed, plus the read-only state a lapsed subscription lands in — and the activity signal that moves it between them.
+- `self-serve.reaping` · **Reaping an abandoned tenant** — The warning ladder for a free workspace nobody has touched, what destruction means when it finally happens, and which firms may never be proposed for it at all.
+- `self-serve.entitlements` · **Entitlement model** — A tier catalog in code naming permission keys, a per-firm tier and its overrides in the control plane, and the mask that intersects a principal's permissions with what their firm's tier permits at the one existing chokepoint.
+- `self-serve.entitlements.quotas` · **Quota ceilings** — The numeric limits — stored bytes, members, matters, files — checked where they are consumed rather than at the permission chokepoint, and refused with the same upgrade-required answer.
+- `self-serve.free-tier` · **Free evaluation tier** — What a free workspace withholds and why — the capabilities withheld because an unverified firm should not do them, and the ones withheld because they spend real money or a scarce account resource per use.
+- `self-serve.verification` · **Firm verification** — A second axis beside the tier — evidence that a real practice exists — unlocking the capabilities withheld for integrity rather than for cost.
+- `self-serve.upgrade-seam` · **Upgrade and lapse seam** — The single writer that moves a firm's tier, what a future payments integration must supply to call it, and what happens to a paid firm whose subscription lapses.
+- `translation` · **Translation services** — Machine translation of pasted text and of matter documents, aligned side-by-side and target-only renditions, and a provenance record of how each translation was produced.
+- `translation.pasted-text` · **Pasted-text translation** — A member pastes a passage, names a language pair, and reads the result aligned beside the original on the matter-free tool surface.
+- `translation.documents` · **Document translation** — Translating an uploaded or already-filed document end to end — conversion where needed, per-page native or recognized text extraction, segmentation into aligned units, and where the translation lands in the matter.
+- `translation.renditions` · **Side-by-side and target-only renditions** — The generated artifacts — an editable side-by-side document with the source and target in adjacent columns, its printable, and the translation on its own for handing to a client.
+- `translation.provenance-record` · **Translation provenance record** — A stored, immutable record of how one translation was produced — source bytes and their hash, the extraction route per page, any conversion, the engine and its pinned snapshot, the languages, who ran it and when, and whether any human edited the output.
+- `translation.engines` · **Translation engines and consent gates** — Which engine may see a privileged document under which consent — the on-platform engine behind the feature gate alone, and a frontier model through the shipped inference chokepoint behind all three gates.
 
 ## The register
 
@@ -734,6 +776,20 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.email.inspector-tool` · `shipped` · **Email Inspector tool** — Worker route + tool exposing the parse engine.
   - `documents.engine-host` · `shipped` · **Engine-host harness** — Shared hosting seam (format / wasm_edge / host) so pure-Rust file engines run identically as WASM edges and container services. _Note: Status fragment marks tested todo._
 
+### Exhibits and Exhibit Lists
+
+[`roadmap.d/exhibits.md`](../roadmap.d/exhibits.md) — 9 nodes, 0% shipped. 0 done, 0 part-built, 8 ahead, 1 parked.
+
+- `exhibits` · `planned` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages. _Note: Court e-filing, docket integration and trial-presentation software stay outside this capability, and so does any jurisdiction numbering-rules catalog — two departments of one Nevada courthouse currently direct incompatible schemes, so numbering ships as copyable presets rather than as rules._
+  - `exhibits.register` · `planned` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own. _Note: An exhibit never spans matters — one document used in two matters is two exhibits over one file, because the two matters have different access boundaries and different filings. A production's Bates range rides the exhibit as recorded provenance and is never computed from the label._
+  - `exhibits.sets` · `planned` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move. _Note: A draft label is deliberately not a column — a fact that is a function of two other facts must not also be stored, because three renumber-sweep write paths are three chances to disagree with the function._
+  - `exhibits.numbering` · `planned` · **Numbering schemes** — Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
+  - `exhibits.references` · `planned` · **In-text exhibit references** — A reference in a matter document that cites the exhibit's identity and renders its label, inserted from a picker rather than typed, resolved when the document is produced.
+  - `exhibits.issue` · `planned` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards. _Note: The platform has no court e-filing integration and does not pretend to observe a filing, so issuing is a recorded human assertion. A withdrawn exhibit keeps its label forever and no later exhibit reuses it._
+  - `exhibits.list` · `planned` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary. _Note: The starter template prints the Offered, Objection and Admitted columns blank, because that is what a court hands the clerk; recording what happened in them is a separate capability._
+  - `exhibits.package` · `planned` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file. _Note: A separator page is never stored as a matter document — it exists only inside a package and is regenerated from the label every build, because a stored separator page is a stale label waiting to be filed._
+  - `exhibits.admission-tracking` · `deferred` · **Trial admission tracking** — Recording what happened to an exhibit in the courtroom — offered, objected to, admitted — against the exhibit set.
+
 ### Financial Core
 
 [`roadmap.d/financial.md`](../roadmap.d/financial.md) — 60 nodes, 32% shipped. 19 done, 29 part-built, 9 ahead, 3 parked.
@@ -1122,6 +1178,20 @@ to change a line here, edit the node in its area file and re-run the build.
   - `reports.custom-builder` · `deferred` · **Custom report builder** — User-defined custom reports.
   - `reports.dashboards` · `deferred` · **Live dashboards** — Live operational/financial dashboards.
 
+### Self-Serve Provisioning and Entitlements
+
+[`roadmap.d/self-serve.md`](../roadmap.d/self-serve.md) — 9 nodes, 11% shipped. 1 done, 1 part-built, 7 ahead, 0 parked.
+
+- `self-serve` · `partial` · **Self-serve provisioning and entitlements** — A stranger founding a firm without a platform operator, the free evaluation tier and what it withholds, the entitlement mask that enforces it, the lifecycle of an abandoned tenant, and the seam a future payments integration fills. _Note: Pricing, the terms of service, payments themselves and per-subject erasure are all outside this capability; the design defines the seam a payments integration writes through and builds none of it._
+  - `self-serve.registration` · `shipped` · **Self-serve firm registration** — The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed. _Note: Backend only — the founding, details and confirmation screens exist as components but are not wired to a route, which the authentication area's own interface node already accounts for. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script._
+  - `self-serve.firm-lifecycle` · `designed` · **Firm lifecycle states** — The states a firm passes through beyond provisioning — dormant, suspended, closing and closed, plus the read-only state a lapsed subscription lands in — and the activity signal that moves it between them. _Note: Only an active firm is enumerated by the fleet-wide sweep, which is what makes dormancy a cost recovery rather than a step toward deletion — the recurring cost of an abandoned tenant is recovered long before anything is destroyed._
+  - `self-serve.reaping` · `designed` · **Reaping an abandoned tenant** — The warning ladder for a free workspace nobody has touched, what destruction means when it finally happens, and which firms may never be proposed for it at all. _Note: A firm holding client money, any hold, or any custody packet out is never auto-proposed at all, and a final notice that was not delivered stops the clock rather than counting as a warning._
+  - `self-serve.entitlements` · `designed` · **Entitlement model** — A tier catalog in code naming permission keys, a per-firm tier and its overrides in the control plane, and the mask that intersects a principal's permissions with what their firm's tier permits at the one existing chokepoint. _Note: This is a mask over the existing permission vocabulary, not a second authorization system — no vocabulary of its own, no enforcement point of its own, no per-route declaration; the only new thing on the wire is which refusal a denial renders._
+    - `self-serve.entitlements.quotas` · `designed` · **Quota ceilings** — The numeric limits — stored bytes, members, matters, files — checked where they are consumed rather than at the permission chokepoint, and refused with the same upgrade-required answer. _Note: An over-quota firm is never deleted down to fit — new writes are refused and everything it already holds stays._
+  - `self-serve.free-tier` · `designed` · **Free evaluation tier** — What a free workspace withholds and why — the capabilities withheld because an unverified firm should not do them, and the ones withheld because they spend real money or a scarce account resource per use. _Note: The lock list is short on purpose — matters, the directory, conflicts, time, costs, documents, automation, custody, the calendar and search are all deliberately not withheld, because a free tier that showcases nothing showcases nothing._
+  - `self-serve.verification` · `designed` · **Firm verification** — A second axis beside the tier — evidence that a real practice exists — unlocking the capabilities withheld for integrity rather than for cost.
+  - `self-serve.upgrade-seam` · `designed` · **Upgrade and lapse seam** — The single writer that moves a firm's tier, what a future payments integration must supply to call it, and what happens to a paid firm whose subscription lapses. _Note: On upgrade nothing moves — the firm, its bucket, its database and every byte stay exactly where they are and one column changes, which is the property a shared workspace for free tenants would destroy. A lapsed paid firm is never reaped and is never downgraded to the free tier: it goes read-only with export open, indefinitely, because applying free-tier ceilings to a firm holding real matters means either destroying data to fit or leaving it permanently over-quota._
+
 ### Settings & Configuration
 
 [`roadmap.d/settings.md`](../roadmap.d/settings.md) — 17 nodes, 24% shipped. 4 done, 9 part-built, 4 ahead, 0 parked.
@@ -1152,3 +1222,15 @@ to change a line here, edit the node in its area file and re-run the build.
   - `tasks.task-lists` · `not-started` · **Task lists** — Tasks with assignments and due dates on matters.
   - `tasks.matter-plans` · `not-started` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
   - `tasks.workflow-model` · `not-started` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
+
+### Translation Services
+
+[`roadmap.d/translation.md`](../roadmap.d/translation.md) — 7 nodes, 0% shipped. 0 done, 0 part-built, 6 ahead, 1 parked.
+
+- `translation` · `designed` · **Translation services** — Machine translation of pasted text and of matter documents, aligned side-by-side and target-only renditions, and a provenance record of how each translation was produced. _Note: Spoken interpretation is a person and not a feature; translation memory, glossaries and term bases, product localization, and any automated judgement of translation quality are all outside this capability._
+  - `translation.pasted-text` · `designed` · **Pasted-text translation** — A member pastes a passage, names a language pair, and reads the result aligned beside the original on the matter-free tool surface.
+  - `translation.documents` · `designed` · **Document translation** — Translating an uploaded or already-filed document end to end — conversion where needed, per-page native or recognized text extraction, segmentation into aligned units, and where the translation lands in the matter.
+  - `translation.renditions` · `designed` · **Side-by-side and target-only renditions** — The generated artifacts — an editable side-by-side document with the source and target in adjacent columns, its printable, and the translation on its own for handing to a client.
+  - `translation.provenance-record` · `designed` · **Translation provenance record** — A stored, immutable record of how one translation was produced — source bytes and their hash, the extraction route per page, any conversion, the engine and its pinned snapshot, the languages, who ran it and when, and whether any human edited the output. _Note: It is never called an audit report — audit already names this platform's access and event auditing — and it carries no signature block, no seal, no ruled line and no confidence score, because a document that invites a signature is a certificate with the signature not yet applied._
+  - `translation.engines` · `designed` · **Translation engines and consent gates** — Which engine may see a privileged document under which consent — the on-platform engine behind the feature gate alone, and a frontier model through the shipped inference chokepoint behind all three gates. _Note: The engine actually used is recorded per run rather than as a policy statement, so a firm asked later what saw a client's document has an answer for each translation._
+  - `translation.certification` · `deferred` · **Human-attested certification** — A named person reviews the aligned translation, edits it, and signs a certificate of accuracy declaring their own competence in the language pair and the completeness of the rendering. _Note: The platform supplies the form and records who signed it and when; it never asserts that a signer is competent, because it has no way to know and that declaration is the signer's to make._
