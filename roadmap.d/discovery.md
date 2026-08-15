@@ -20,7 +20,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine half is built — crates/discovery-core (identification, native extraction, normalization, chunking, five-algorithm digests, near-duplicate fingerprint, guarded archive expansion) hosted by containers/discovery + apps/discovery-worker — and so is the corpus it produces facts for: the review-set model, the load lanes, and the fan-out coordinator. The queue lane that carries a document from the corpus to the engine, and the wiring into the shipped index pipeline, are not built.
+  evidence: The engine, the corpus, and now the lane between them — the DISCOVERY_PROCESS queue with its own dead-letter queue, the keyset-paged dispatch walk off the load coordinator's durable cursor, and the consumer that writes extracted text and a metadata sidecar to R2 and ends every document in exactly one terminal state. Deduplication, container families, the load manifest and the exception report, and the wiring into the shipped index pipeline are not built.
   notes: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages.
 
 - id: discovery.pipeline.engine
@@ -30,7 +30,25 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: crates/discovery-core (dual-target, no C-backed feature on any path, asserted by a manifest test) behind containers/discovery + apps/discovery-worker; the passage chunker moved out of packages/search/src/extraction.ts with its corpus.
-  notes: Backend only, no user surface. The composite extraction port that routes to it — and closes the born-digital-PDF gap platform-wide — is a later sub-slice.
+  notes: Backend only, no user surface. The composite extraction port now routes to it — see discovery.pipeline.extraction-port.
+
+- id: discovery.pipeline.extraction-port
+  name: Composite extraction port
+  scope: Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran.
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: apps/worker/src/search/text-extraction.ts routes through DISCOVERY_SERVICE, falls back to the in-Worker PDF reader plus recognition when it is unbound, and converts a legacy binary through the consented office container before reading the conversion with the memory-safe engine; the route and the recognized-page count land on review_document (20260815T000000_discovery-processing-route) and the per-page provenance in the R2 sidecar.
+  notes: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands.
+
+- id: discovery.pipeline.processing-lane
+  name: Processing queue lane
+  scope: The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state.
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: The DISCOVERY_PROCESS queue and its dead-letter queue, the keyset-paged dispatch walk in apps/worker/src/discovery/dispatch-processing.ts resuming from the coordinator's durable cursor, and apps/worker/src/discovery/process-consumer.ts writing extracted text and the metadata sidecar to R2, the derived scalars to the row, and a named exception code for every non-success.
+  notes: Deduplication, container families, and the manifest and exception-report artifacts written at load completion are the remainder of this sub-slice.
 
 - id: discovery.pipeline.review-set
   name: Review-set model
@@ -73,7 +91,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine can enumerate and expand an archive under five guards (crates/discovery-core/src/archive.rs) — the narrow exception to the opaque-archive rule, scoped to the discovery load path. Nothing calls it yet; File Manager archives stay opaque.
+  evidence: The engine can enumerate and expand an archive under five guards (crates/discovery-core/src/archive.rs) — the narrow exception to the opaque-archive rule, scoped to the discovery load path. Processing recognizes an archive and records it as container-not-expanded rather than as a file that held no words; the expansion into a family is not wired. File Manager archives stay opaque.
   notes: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all.
 
 - id: discovery.search

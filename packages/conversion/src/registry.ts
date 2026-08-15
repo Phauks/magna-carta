@@ -14,6 +14,40 @@ export const FORMATS: readonly Format[] = [
     extensions: ["docx"],
   },
   {
+    id: "xlsx",
+    label: "Excel (XLSX)",
+    mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    extensions: ["xlsx"],
+  },
+  {
+    id: "pptx",
+    label: "PowerPoint (PPTX)",
+    mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    extensions: ["pptx"],
+  },
+  // The legacy binary office formats. They are SOURCES ONLY — there is an edge out of each and none
+  // back in, because writing a 1997 binary format is not something anybody should be helped to do,
+  // and the reason these are here at all is that a production received from another party is full of
+  // them and nothing memory-safe reads them.
+  {
+    id: "doc",
+    label: "Word 97-2003 (DOC)",
+    mediaType: "application/msword",
+    extensions: ["doc"],
+  },
+  {
+    id: "xls",
+    label: "Excel 97-2003 (XLS)",
+    mediaType: "application/vnd.ms-excel",
+    extensions: ["xls"],
+  },
+  {
+    id: "ppt",
+    label: "PowerPoint 97-2003 (PPT)",
+    mediaType: "application/vnd.ms-powerpoint",
+    extensions: ["ppt"],
+  },
+  {
     id: "odt",
     label: "OpenDocument Text",
     mediaType: "application/vnd.oasis.opendocument.text",
@@ -76,6 +110,18 @@ const officeEdges: readonly ConversionEdge[] = [
   { from: "odt", to: "pdf", engineId: "libreoffice", recipeRef: "pdf", weight: 1 },
   { from: "docx", to: "odt", engineId: "libreoffice", recipeRef: "odt", weight: 1 },
   { from: "wpd", to: "odt", engineId: "libreoffice", recipeRef: "odt", weight: 1 },
+  // Legacy binary to its modern equivalent. This is the ONLY route the platform has into a 1997
+  // binary office file: no memory-safe parser for them exists at usable fidelity, so the consented,
+  // network-isolated office container is the whole answer, and these three edges are what make a
+  // legacy document readable — by the file converter a member drives, and by the discovery
+  // extraction router, which converts and then reads the conversion with its own pure-Rust engine.
+  { from: "doc", to: "docx", engineId: "libreoffice", recipeRef: "docx", weight: 1 },
+  { from: "xls", to: "xlsx", engineId: "libreoffice", recipeRef: "xlsx", weight: 1 },
+  { from: "ppt", to: "pptx", engineId: "libreoffice", recipeRef: "pptx", weight: 1 },
+  // The modern packages onward to PDF, so pathfinding can chain doc->docx->pdf and a member asking
+  // for a PDF of a legacy document gets one hop-chain rather than a dead end.
+  { from: "xlsx", to: "pdf", engineId: "libreoffice", recipeRef: "pdf", weight: 1 },
+  { from: "pptx", to: "pdf", engineId: "libreoffice", recipeRef: "pdf", weight: 1 },
 ];
 
 // email->PDF (deferred) and A/V transcode (deferred).

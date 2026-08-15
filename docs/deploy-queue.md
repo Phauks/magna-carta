@@ -165,6 +165,44 @@ for the same documents merged. That is why this is a deploy-blocking capability 
 search rather than a later tuning pass. Figures come from
 `crates/search-eval`; how to reproduce them is in that crate's README.
 
+## Discovery processing lane — a queue pair, then a container worker, in that order
+
+The discovery processing slice landed with a new queue, its deadletter, and a service
+binding to the discovery engine worker. **The queue pair comes first and is not
+optional:** a declared consumer whose queue does not exist fails the deploy outright,
+the same hazard the compaction activation above carries.
+
+1. Create `magna-carta-production-discovery-process` **and**
+   `magna-carta-production-discovery-process-deadletter`.
+2. Deploy `magna-carta-discovery` — the standalone engine worker that owns the
+   `DiscoveryEngineContainer`. Its image builds in Cloudflare Workers Builds from
+   `containers/discovery/Dockerfile` with the repo root as build context. Validate the
+   config first with
+   `pnpm --filter @magna-carta/discovery-worker exec wrangler deploy --dry-run --containers-rollout=none`.
+3. Deploy the app worker. Its `wrangler.jsonc` already carries the `DISCOVERY_PROCESS`
+   producer binding, the consumer at concurrency 4, and the `DISCOVERY_SERVICE` service
+   binding to `magna-carta-discovery`. No new secret, no new bucket.
+
+**Step 3 will fail while step 2 is undone.** A service binding naming a worker that does
+not exist is a deploy-time error, not a runtime fallback — unlike an _absent_ binding,
+which the extraction port handles by falling back. Deploy the engine worker or remove the
+binding; do not deploy the app worker against a name with nothing behind it.
+
+**The order between 2 and 3 is not cosmetic.** With the queue live and the engine worker
+absent, every review document parks `pending` with a reason on its row and its load will
+not reach `complete` — visible, recoverable, and exactly the state the design intends
+while an engine is undeployed. Re-running the load's dispatch after step 2 drains it.
+
+**Why concurrency 4, so nobody raises it as a knob.** Extraction runs in the discovery
+Container, which is sized for this burst (`max_instances: 20`) and scales to zero between
+loads, so the Container's own ceiling is what bounds throughput. This number bounds how
+much of the account's 250-invocation consumer budget one bulk load may take, which is the
+whole reason the lane is separate from files ingest in the first place.
+
+**Not yet activated by this deploy:** the LibreOffice conversion engine (its own section
+below). Until `CONVERT` is bound and that container is deployed, a legacy `.doc`, `.xls`
+or `.ppt` in a review set parks rather than being recorded unreadable.
+
 ## New configuration the next deploy must carry
 
 - **`R2_BUCKET_NAME`** — new `wrangler.jsonc` var on the app worker (landed with the

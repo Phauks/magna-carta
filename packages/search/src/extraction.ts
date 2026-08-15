@@ -15,10 +15,42 @@ export type TextExtractionFailureReason =
   | "unextractable"
   | "adapter-error";
 
+// WHAT WENT WRONG, as distinct from WHAT THE PIPELINE SHOULD DO ABOUT IT. The reason above answers
+// the second question and has exactly three answers because the pipeline does exactly three things.
+// This answers the first, and a corpus report has to be able to say it: "we could not read this, and
+// it was an encrypted Word document" is a defensible sentence in front of a court, where "extraction
+// failed" is not. The two are separate fields because they are separate facts — `encrypted` and
+// `unsupportedFormat` are both terminal, and a reader who only had the disposition could not tell a
+// document nobody has the key to from one nothing can parse.
+//
+// The first seven are the discovery engine's own stable codes, byte-identical to the strings
+// crates/discovery-core/src/error.rs emits, so the mapping across the wire is an equality check
+// rather than a translation table that can drift. The last four are the router's own: an engine that
+// is not deployed, a conversion that could not run or could not read its own output, and an archive
+// whose entries are separate documents rather than text.
+export const EXTRACTION_FAILURE_CODES = [
+  "corrupt",
+  "encrypted",
+  "passwordProtected",
+  "unsupportedFormat",
+  "limitExceeded",
+  "containerGuardTripped",
+  "noTextExtracted",
+  "recognitionFailed",
+  "conversionUnavailable",
+  "conversionFailed",
+  "needsExpansion",
+] as const;
+export type ExtractionFailureCode = (typeof EXTRACTION_FAILURE_CODES)[number];
+
 export interface TextExtractionFailure {
   readonly ok: false;
   readonly reason: TextExtractionFailureReason;
   readonly detail?: string;
+  // Absent only where the router genuinely has no diagnosis — a bare adapter error from a service
+  // that did not answer. Never inferred from `reason`, because a guess recorded beside real codes
+  // reads exactly like one of them.
+  readonly code?: ExtractionFailureCode;
 }
 
 // Where one page's text came from. Extraction is composite and decided per page, not per document: a
@@ -38,6 +70,52 @@ export interface PageProvenance {
   readonly hasText: boolean;
 }
 
+// WHICH ENGINE READ THE DOCUMENT. Provenance above is per page and says whether a page's words are
+// the author's characters or a machine's reading of a picture of them; this is per document and says
+// which service produced them. They answer different questions and a corpus report needs both: a
+// firm asked how it read a production has to be able to name the engine, and an engine's version is
+// what makes a re-processing years later able to state what changed.
+//
+// `discovery-engine` is the pure-Rust engine (crates/discovery-core behind containers/discovery) —
+// the native route for every format it knows. `pdf-text-layer` is the in-Worker WASM PDF reader,
+// which is the route when the engine is not bound. `recognition` is the OCR service, reached only
+// for pages the native route reported as pixels. `office-conversion` is the LibreOffice container,
+// reached only for a legacy binary the native route cannot open at all.
+export const EXTRACTION_ENGINES = [
+  "discovery-engine",
+  "pdf-text-layer",
+  "recognition",
+  "office-conversion",
+] as const;
+export type ExtractionEngine = (typeof EXTRACTION_ENGINES)[number];
+
+// The per-document facts an extraction produces in the same pass as the text, for the same cost.
+// Every one of them is expensive to retrofit — recovering a page count or a document date later
+// means re-reading every byte of the corpus, which at discovery scale is a second processing run
+// rather than a migration — and every one of them is nullable, because a route that cannot produce
+// one says so rather than inventing it.
+export interface ExtractedDocumentFacts {
+  // The engine's own stable format label, from its closed vocabulary. Never derived from a file name.
+  readonly formatIdentified: string | null;
+  readonly pageCount: number | null;
+  // The best available internal date, and WHERE IT CAME FROM. The source travels with the value
+  // because a sent time and a file-system timestamp are not the same kind of evidence, and a sort
+  // column that mixed them without saying so would be a corpus ordered by two different facts.
+  readonly documentDate: string | null;
+  readonly documentDateSource: string | null;
+  // The near-duplicate signature over the normalized text, hex. Computed inside the extraction pass
+  // where the text is already in memory; clustering over it is a later slice.
+  readonly textFingerprint: string | null;
+}
+
+export const NO_DOCUMENT_FACTS: ExtractedDocumentFacts = {
+  formatIdentified: null,
+  pageCount: null,
+  documentDate: null,
+  documentDateSource: null,
+  textFingerprint: null,
+};
+
 export type TextExtractionResult =
   | {
       readonly ok: true;
@@ -45,12 +123,17 @@ export type TextExtractionResult =
       // One entry per page the extractor looked at, in page order. Empty for a format that has no
       // pages at all, which is why it is not a substitute for `passages`.
       //
-      // A FORWARD SEAM: nothing persists this yet. The index consumer reads `passages` and the catalog
-      // records document count, size, and schema generation — so the native/ocr distinction described
-      // above is produced correctly and then discarded. Saying so here rather than leaving it implied,
-      // because a reader who assumes the corpus report is already possible would be wrong: it needs a
-      // store on the split row first, which is the change that makes this field readable.
+      // The search half of the pipeline still discards this: the index consumer reads `passages` and
+      // the catalog records document count, size, and schema generation, so a split row cannot yet
+      // answer which of its pages were recognized. The discovery half DOES persist it, on the review
+      // document, which is what makes the exception report able to say "page 7 went to recognition
+      // and came back empty" rather than only "this document is short".
       readonly pages: readonly PageProvenance[];
+      // The engines that contributed, in the order they ran, deduplicated. NEVER EMPTY on a success:
+      // a document that produced text produced it somewhere, and a route recorded as nothing is the
+      // silence the whole subsystem exists to refuse.
+      readonly route: readonly ExtractionEngine[];
+      readonly facts: ExtractedDocumentFacts;
     }
   | TextExtractionFailure;
 
@@ -66,20 +149,31 @@ export interface TextExtractionPort {
 export function extracted(
   passages: readonly Passage[],
   pages: readonly PageProvenance[] = [],
+  route: readonly ExtractionEngine[] = [],
+  facts: ExtractedDocumentFacts = NO_DOCUMENT_FACTS,
 ): TextExtractionResult {
-  return { ok: true, passages, pages };
+  return { ok: true, passages, pages, route, facts };
 }
 
-export function extractionEngineNotImplemented(): TextExtractionFailure {
-  return { ok: false, reason: "engine-not-implemented" };
+export function extractionEngineNotImplemented(detail?: string): TextExtractionFailure {
+  return detail === undefined
+    ? { ok: false, reason: "engine-not-implemented" }
+    : { ok: false, reason: "engine-not-implemented", detail };
 }
 
-export function unextractable(detail: string): TextExtractionFailure {
-  return { ok: false, reason: "unextractable", detail };
+export function unextractable(detail: string, code?: ExtractionFailureCode): TextExtractionFailure {
+  return code === undefined
+    ? { ok: false, reason: "unextractable", detail }
+    : { ok: false, reason: "unextractable", detail, code };
 }
 
-export function extractionAdapterError(detail: string): TextExtractionFailure {
-  return { ok: false, reason: "adapter-error", detail };
+export function extractionAdapterError(
+  detail: string,
+  code?: ExtractionFailureCode,
+): TextExtractionFailure {
+  return code === undefined
+    ? { ok: false, reason: "adapter-error", detail }
+    : { ok: false, reason: "adapter-error", detail, code };
 }
 
 // One page's text and where it came from, as the composite extractor assembles it.
@@ -125,7 +219,17 @@ export function passagesFromPages(
 //
 // The kept entry is the one with lines, and `native` wins a tie — the document's own text layer is the
 // exact characters the author typed, where recognition is a reading of a picture of them.
-export function extractedFromPages(pages: readonly ExtractedPage[]): TextExtractionResult {
+//
+// The route is an ARGUMENT rather than something inferred from the page provenances, because the two
+// are not the same fact and inferring one from the other would be wrong in both directions: a page
+// read `native` says nothing about whether the discovery engine or the in-Worker PDF reader read it,
+// and a document routed through conversion and then read natively has an engine in its route that no
+// page provenance mentions.
+export function extractedFromPages(
+  pages: readonly ExtractedPage[],
+  route: readonly ExtractionEngine[],
+  facts: ExtractedDocumentFacts = NO_DOCUMENT_FACTS,
+): TextExtractionResult {
   const byPageIndex = new Map<number, ExtractedPage>();
   for (const page of pages) {
     // A negative index would become page 0 in a passage, which is not a page anyone can turn to.
@@ -145,7 +249,23 @@ export function extractedFromPages(pages: readonly ExtractedPage[]): TextExtract
       provenance: page.provenance,
       hasText: withText.has(`page-${page.pageIndex}`),
     })),
+    dedupedRoute(route),
+    facts,
   );
+}
+
+// The route in the order the engines ran, each named once. Deduplicated because a mixed document
+// sends several pages through recognition and a conversion re-reads through the engine that asked
+// for it — and "recognition, recognition, recognition" says nothing "recognition" does not.
+function dedupedRoute(route: readonly ExtractionEngine[]): readonly ExtractionEngine[] {
+  const seen = new Set<ExtractionEngine>();
+  const ordered: ExtractionEngine[] = [];
+  for (const engine of route) {
+    if (seen.has(engine)) continue;
+    seen.add(engine);
+    ordered.push(engine);
+  }
+  return ordered;
 }
 
 // Which of two readings of the same page to keep. Text beats no text, then native beats ocr; failing
