@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RawScanResult } from "@magna-carta/file-manager/scan-port";
+import { ScanFaultError } from "@magna-carta/file-manager/verdict";
 import {
   containerScanAdapter,
   type ScanContainerFetcher,
@@ -91,7 +92,10 @@ describe("containerScanAdapter", () => {
     expect(new URL(seen[1]!).searchParams.has("shardKey")).toBe(false);
   });
 
-  it("throws on a non-200 response (never returns clean)", async () => {
+  it("throws the typed scan fault on a 5xx (never returns clean)", async () => {
+    // Typed, because a caller answering a person has to tell an unreachable engine apart from a
+    // genuine fault: a 5xx here is a placeholder worker or a Container that is not up, and the
+    // diagnostic route turns it into a 503 rather than a 500 with an Error ID.
     const adapter = containerScanAdapter(
       fakeContainer(
         {
@@ -104,7 +108,14 @@ describe("containerScanAdapter", () => {
         500,
       ),
     );
-    await expect(adapter.scan(emptyBody(), meta)).rejects.toThrow();
+    await expect(adapter.scan(emptyBody(), meta)).rejects.toThrow(ScanFaultError);
+  });
+
+  it("throws a plain fault on a 4xx (this adapter and the service disagree; no deploy fixes it)", async () => {
+    const adapter = containerScanAdapter(fakeContainer({ error: "bad request" }, 400));
+    const rejection: unknown = await adapter.scan(emptyBody(), meta).catch((error) => error);
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).not.toBeInstanceOf(ScanFaultError);
   });
 
   it("throws on a malformed body (an unrecognized shape is a fault)", async () => {

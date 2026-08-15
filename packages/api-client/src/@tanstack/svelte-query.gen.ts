@@ -2235,7 +2235,7 @@ export const documentsForceReleaseMutation = (options?: Partial<Options<Document
 };
 
 /**
- * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
+ * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Where no engine is wired at all the verdict is an honest `unscanned` (never a false `clean`); where the engine is wired but unreachable the answer is a 503, because an unreachable engine is not a verdict.
  */
 export const scanDiagnoseMutation = (options?: Partial<Options<ScanDiagnoseData>>): MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> => {
     const mutationOptions: MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> = {

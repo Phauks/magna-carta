@@ -1066,7 +1066,7 @@ export const documentsReconcile = <ThrowOnError extends boolean = false>(options
 export const documentsForceRelease = <ThrowOnError extends boolean = false>(options: Options<DocumentsForceReleaseData, ThrowOnError>): RequestResult<DocumentsForceReleaseResponses, DocumentsForceReleaseErrors, ThrowOnError> => (options.client ?? client).post<DocumentsForceReleaseResponses, DocumentsForceReleaseErrors, ThrowOnError>({ url: '/api/v1/documents/{fileId}/force-release', ...options });
 
 /**
- * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
+ * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Where no engine is wired at all the verdict is an honest `unscanned` (never a false `clean`); where the engine is wired but unreachable the answer is a 503, because an unreachable engine is not a verdict.
  */
 export const scanDiagnose = <ThrowOnError extends boolean = false>(options: Options<ScanDiagnoseData, ThrowOnError>): RequestResult<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError> => (options.client ?? client).post<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError>({
     bodySerializer: null,

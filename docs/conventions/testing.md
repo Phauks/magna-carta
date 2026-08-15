@@ -50,6 +50,43 @@ Waiting is a poll on a counter rather than an `await` of the promises, because t
 I/O context of the request that started it: awaiting across that boundary is refused by the runtime
 ("Cannot perform I/O on behalf of a different request").
 
+## Injected dependencies: one test builds the composition root as production does
+
+A test that injects a dependency has decided what that dependency is. Where production supplies
+something else — a placeholder that throws, a resolver that returns nothing, an absent binding — the
+suite is green about a path no member can walk, and the greener it is the longer that lasts. Shipping
+shipped exactly that: the end-to-end test injected a working in-memory credential store, production
+wired a builder that threw while the integration registry was assembled, and a member could create a
+shipment draft, fail to buy it with a server error, and be told by that error to connect a carrier
+account — which failed the same way. The source file documented the seam in a comment directly above
+the throw. What was missing was not the knowledge; it was a test that had ever asked.
+
+**The rule: every injection seam has at least one test that supplies nothing and asserts what a real
+request gets.** Build the app the way `index.ts` does — no overrides — drive the surface, and assert
+the actual status and body. The assertion is the point even when the answer is good: an honest
+refusal that nothing pins is one edit away from becoming a `500`.
+
+Two things follow from it.
+
+- **A deferred backing is a typed outcome, never a throw at the seam.** A throw where the dependency
+  is constructed happens before anything can classify it, so the mapping a route already carries is
+  unreachable and the member gets an Error ID for a thing the platform knows the answer to. The
+  vocabulary already exists and is not to be reinvented per subsystem: `engine-not-implemented`
+  (`packages/conversion/src/port.ts`, `packages/search/src/port.ts`),
+  `credential-store-not-implemented` (`packages/integrations/src/dispatch.ts`), `ScanFaultError`
+  (`packages/file-manager/src/verdict.ts`). Map it to a status whose registered contract in
+  `apps/worker/src/contracts/problem-types.ts` is actually true — `service-unavailable` promises a
+  deploy clears it, `not-implemented` does not.
+- **A stub service binding in the test pool is a test double too.** `apps/worker/vitest.config.ts`
+  registers a stub worker for every service binding, and a stub that answers correctly proves only
+  that the route works against a healthy service. The state a deployment actually spends time in is
+  bound-but-unreachable — a placeholder worker, a Container that is not up — so drive that case by
+  passing a failing binding in the request's env, not by trusting the stub.
+
+Seams that genuinely have no production placeholder — a clock, a seed, a network adapter whose
+production form is the real network — need no such test, and saying which ones those are is part of
+the review, not a step skipped in silence.
+
 ## Owner manual verification checklist (UI slices)
 
 Every slice that ships UI also ships a **manual verification checklist** — a definition-of-done deliverable, owner-directed (2026-06-11, slice 1·1 design cycle). It is a short document of concrete, clickable walkthrough steps the owner performs to visually confirm the feature behaves as intended (e.g. "create a year-scoped numbering scheme; confirm the live preview renders `2026-0001`; create a consultation; confirm it has no number and appears in your Consultations folder"). It complements — never replaces — the automated layers above: automated tests prove the code's behavior; the checklist gives the owner a structured visual pass over the product's behavior. Checklists live with the slice's docs in [`docs/specs/`](../specs/) (one per slice, written during the build, kept current with UI changes).

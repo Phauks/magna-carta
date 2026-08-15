@@ -10846,6 +10846,10 @@ export type ScanDiagnoseErrors = {
      * The body exceeds the firm's inspectable-size cap
      */
     413: Problem;
+    /**
+     * The scan engine is wired but unreachable, so no verdict can be given
+     */
+    503: Problem;
 };
 
 export type ScanDiagnoseError = ScanDiagnoseErrors[keyof ScanDiagnoseErrors];
