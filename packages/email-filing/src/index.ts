@@ -19,12 +19,10 @@ export type {
   CaptureWritePlan,
   PersistedOriginal,
 } from "./capture.ts";
-export {
-  checkFilingConflict,
-  raiseEmailFiledNotification,
-  DKIM_VERDICT_UNVERIFIED,
-} from "./seams.ts";
-export type { FilingConflictInput, FilingConflictResult, EmailFiledNotification } from "./seams.ts";
+export { checkFilingConflict, DKIM_VERDICT_UNVERIFIED } from "./seams.ts";
+export type { FilingConflictInput, FilingConflictResult } from "./seams.ts";
+export { EMAIL_FILED_TOPIC, EMAIL_FILING_OUTBOX_TOPICS } from "./topics.ts";
+export type { EmailFiledPayload, EmailFilingOutboxTopic } from "./topics.ts";
 export {
   candidateMatterNumbers,
   rankMatterSuggestions,

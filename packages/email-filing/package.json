@@ -16,7 +16,8 @@
     "./capture-token": "./src/capture-token.ts",
     "./capture-address": "./src/capture-address.ts",
     "./auto-file-rules": "./src/auto-file-rules.ts",
-    "./seams": "./src/seams.ts"
+    "./seams": "./src/seams.ts",
+    "./topics": "./src/topics.ts"
   },
   "scripts": {
     "test": "vp test run"

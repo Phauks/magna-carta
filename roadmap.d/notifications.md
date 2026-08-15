@@ -74,7 +74,7 @@
   scope: Single raise port with high-value raises co-located on unbypassable paths (audit-log write for money/trust, task write path, conflicts/portal/deadline/job seams); fan-out off the hot path via Queues.
   status: partial
   adrs: ADR-0251
-  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; nine of the thirty-one existing topics are registered.
+  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; ten topics are registered, the newest being email.filed, which email filing now commits on both of its paths to a filed link (packages/email-filing/src/topics.ts).
   notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. The comparison-shaped points (deadlines, custody reminders) and the job coordinators are the next sub-slice.
 
 - id: notifications.scheduling

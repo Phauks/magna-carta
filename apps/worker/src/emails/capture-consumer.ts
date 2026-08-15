@@ -18,9 +18,11 @@ import {
   insertEmailMessageStatement,
   insertEmailParticipantStatement,
   insertEmailThreadStatement,
+  readEmailMatterLinksForMessage,
   touchEmailMessageStatement,
 } from "@magna-carta/data-access/email-filing-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { AutoFileDecision } from "@magna-carta/email-filing/auto-file-rules";
 import {
   captureEmail,
@@ -47,7 +49,7 @@ import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
 import { createAutoFileDecisionPort } from "./auto-file-evaluation.ts";
 import { createDkimKeyLookup } from "./dkim-dns-resolver.ts";
-import { raiseEmailFiledNotification } from "@magna-carta/email-filing/seams";
+import { EMAIL_FILED_TOPIC } from "@magna-carta/email-filing/topics";
 
 const emailWasm = emailWasmModule as unknown as WebAssembly.Module;
 
@@ -186,6 +188,32 @@ export async function handleCaptureMessage(
       // in which the ledger claims a filing that rolled back, and would need an idempotency story of
       // its own; here a redelivery replays the recorded decision instead of deciding again.
       statements.push(...autoFileStatements(firmDatabase, plan, timestamp));
+      // "An email reached this matter" — the notification's emission point, and a row in this same
+      // batch rather than a call afterwards, so it exists exactly when the filing does and rolls back
+      // with it. An automatic filing announces itself exactly as an accepted one does: the firm is
+      // told mail landed on the matter without having to go looking.
+      //
+      // Written only when a filing actually happens. The link insert is ON CONFLICT DO NOTHING, so a
+      // second filer forwarding a message this matter already holds changes nothing, and a claim that
+      // it just arrived would be false. A brand-new message cannot already carry a link, which is why
+      // only the dedup path pays the read.
+      const outboxMessages: OutboxMessage[] = [];
+      const filedLink = plan.link !== null && plan.link.state === "filed" ? plan.link : null;
+      if (filedLink !== null) {
+        const alreadyOnThisMatter =
+          plan.dedupState === "existing" &&
+          (await readEmailMatterLinksForMessage(firmDatabase, plan.emailMessageId)).some(
+            (existing) => existing.matterId === filedLink.matterId,
+          );
+        if (!alreadyOnThisMatter) {
+          outboxMessages.push({
+            topic: EMAIL_FILED_TOPIC,
+            // Two identifiers. No subject, no address, no participant list — what a reader needs
+            // resolves behind the deep link through email filing's own access-checked read.
+            payload: { emailMessageId: plan.emailMessageId, matterId: filedLink.matterId },
+          });
+        }
+      }
       // One atomic batch: the capture writes + the idempotency record, keyed on the capture job id.
       // A redelivery replays without re-writing; a concurrent same-message capture that loses the
       // dedup_key race rolls back wholesale and re-runs, converging on the one record.
@@ -201,7 +229,7 @@ export async function handleCaptureMessage(
         key: captureIdempotencyKey(message.jobId),
         fingerprint: message.jobId,
         effect: async () => ({
-          write: { statements, outboxMessages: [] },
+          write: { statements, outboxMessages },
           responseCode: 200,
           responseBody: canonicalJsonStringify({
             emailMessageId: plan.emailMessageId,
@@ -254,19 +282,6 @@ export async function handleCaptureMessage(
     correlationId,
     logger,
   });
-
-  // "email filed to matter" is raised off the hot path, carrying a deep link and never body content.
-  // Still a no-op — see packages/email-filing/src/seams.ts for what actually stands between this
-  // call and a delivered notification now that the notifications package exists. An automatic filing
-  // raises it exactly as a manual one does — the firm is told a message reached the matter, and by
-  // what, without having to go looking.
-  if (result.linkState === "filed" && result.matterId !== null) {
-    raiseEmailFiledNotification({
-      firmId: message.firmId,
-      matterId: result.matterId,
-      emailMessageId: result.emailMessageId,
-    });
-  }
 
   // The staged pointer is transient — the verbatim original now lives under its content-addressed key.
   await env.R2.delete(message.stagedR2Key);

@@ -1949,6 +1949,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/email-filing':
+        specifier: workspace:*
+        version: link:../email-filing
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../file-manager

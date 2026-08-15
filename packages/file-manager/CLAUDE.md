@@ -115,9 +115,12 @@ runs logic mid-transaction.
   the `magna-carta-production-files-ingest-bulk` queue (higher-throughput, background). Both lanes share
   the same `runIngest` core and metering under the `files/` dimension — the dimension is unchanged by
   lane.
-- **Metering is exact in D1, reconciled against R2.** The rollup moves in the same batch as the version
-  it counts; the scheduled R2 LIST corrects drift (R2 reports the default tier as `""`/PascalCase —
-  `normalizeR2StorageClass` maps it to the lowercase token before the diff).
+- **Metering is exact in D1, reconciled against R2, and copied nowhere.** The rollup moves in the same
+  batch as the version it counts; the scheduled R2 LIST corrects drift (R2 reports the default tier as
+  `""`/PascalCase — `normalizeR2StorageClass` maps it to the lowercase token before the diff). No
+  analytics store holds a per-firm copy and no trend is kept: `metering-statements.ts` records why, and
+  a storage history — if one is ever wanted — is a periodic snapshot row in the firm's own database,
+  never a data point indexed by the firm in a cross-firm aggregate dataset.
 - **Weekly re-scan sweep (`0 4 * * 0`).** A cron trigger re-queues `unscanned` versions for
   re-inspection when a new scan engine becomes available.
 

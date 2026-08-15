@@ -197,10 +197,15 @@ calendar event changes and email filings become transactional topics; delivered 
 
 ### Task 2.2 — the email-filing topic
 
-- [ ] Add an `email.filed` outbox message in the same batch that promotes a link to `filed`, so the
-      guarantee is transactional rather than best-effort. `raiseEmailFiledNotification` keeps its
-      signature and stays a no-op in the package as the documented call site.
-- [ ] Register the type. Payload and `facts` carry identifiers only — never a subject line.
+- [x] Add an `email.filed` outbox message in the same batch that promotes a link to `filed`, so the
+      guarantee is transactional rather than best-effort. Built on **both** paths that reach `filed` —
+      the staff accept route and the capture consumer (accept-on-capture, and an auto-file rule
+      choosing to file) — with the topic named once in `packages/email-filing/src/topics.ts`.
+      **Deviation:** `raiseEmailFiledNotification` is deleted rather than kept as the documented call
+      site. Once the row is written at the same place the no-op documents nothing the row does not,
+      and a no-op call beside a real emission reads as a second mechanism. Recorded as
+      `ADR-an-email-filing-announces-itself-with-a-row-not-a-call`.
+- [x] Register the type. Payload and `facts` carry identifiers only — never a subject line.
 
 ### Task 2.3 — the per-firm sweep
 
