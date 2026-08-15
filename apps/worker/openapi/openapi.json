@@ -36214,7 +36214,7 @@
     },
     "/api/v1/scan/diagnose": {
       "post": {
-        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).",
+        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Where no engine is wired at all the verdict is an honest `unscanned` (never a false `clean`); where the engine is wired but unreachable the answer is a 503, because an unreachable engine is not a verdict.",
         "operationId": "scan.diagnose",
         "tags": [
           "scan"
@@ -36272,6 +36272,16 @@
           },
           "413": {
             "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The scan engine is wired but unreachable, so no verdict can be given",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -46,9 +46,15 @@ routes requests through the chokepoint into those packages.
   `container-scan-adapter.ts` (POST→`RawScanResult`, zod-validated, throw-not-clean; the per-firm verdict
   is computed app-side from those raw facts). The scan engine itself
   runs in its own Worker (`apps/scan-worker`, service `magna-carta-scan`), which owns the `ScanContainer`
-  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding. That
-  binding is a **deploy-time activation** — it cannot run under the local test pool (a stub stands in for
-  it), so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
+  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding.
+  **Three states, not two, and only the first two are verdicts.** No binding at all → the engine-less
+  adapter's honest `unscanned`/`no-engine`. Bound and answering → a real verdict. Bound and answering
+  5xx — a placeholder worker, a Container that is not up — → `ScanFaultError`, which the ingest
+  consumer retries on and `routes/scan-diagnose.ts` answers as a `503`, because a member asking whether
+  a file is safe must not be handed an Error ID for an engine that is simply not there. The test pool
+  **binds a stub** (`vitest.config.ts`), so `env.SCAN_SERVICE` is defined in tests and the container
+  adapter — not the engine-less one — is what runs; drive the unreachable case by passing a failing
+  binding in the request env, as `test/scan-unreachable-engine-seam.test.ts` does.
 - `wrangler.jsonc` — bindings (D1/R2/Queues/DO/Analytics/Email), the `secrets.required` deploy gate, the
   queue producers/consumers, the Cron triggers, and the `durable_objects` + `migrations` ledger.
 - `openapi/openapi.json` — the committed contract snapshot. **Never hand-edit;** run
