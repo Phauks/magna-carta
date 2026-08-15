@@ -29,7 +29,10 @@ export function checkFilingConflict(_input: FilingConflictInput): FilingConflict
 
 // ── Notifications raise-point.
 // "email filed to matter" is a notification type raised off the hot path, carrying a deep link and
-// never body content. A no-op until the Notifications subsystem ships; the raise site is placed now.
+// never body content. STILL A NO-OP, and the reason has changed: `@magna-carta/notifications` has
+// shipped, but it SUBSCRIBES to outbox topics rather than accepting a raise, and email filing
+// commits no outbox row for a filing. Wiring it is a topic on the filing write path plus one
+// registry entry — not a body swap here — and this signature is what marks where that topic goes.
 
 export interface EmailFiledNotification {
   readonly firmId: string;
@@ -38,8 +41,8 @@ export interface EmailFiledNotification {
 }
 
 export function raiseEmailFiledNotification(_notification: EmailFiledNotification): void {
-  // Intentionally empty: the Notifications subsystem consumes this raise site when it ships. It will
-  // carry only a deep link to the filed email, never the message body.
+  // Intentionally empty. Whatever eventually delivers this carries only a deep link to the filed
+  // email, never the message body.
 }
 
 // ── DKIM verdict boundary.

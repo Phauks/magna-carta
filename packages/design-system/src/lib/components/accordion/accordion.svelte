@@ -5,9 +5,10 @@
    *
    * NOTE: the expand/collapse HEIGHT animation is deferred. It needs Bits' runtime
    * `--bits-accordion-content-height` var, which the purity-gated components.css cannot reference
-   * (var(--mc-…)/keywords only, no escape), so it's a JS-driven animation — and the first JS
-   * animation must introduce the `prefersReducedMotion` JS gate, which doesn't exist yet. The
-   * chevron rotation marks open/closed in the meantime.
+   * (var(--mc-…)/keywords only, no escape), so it has to be a JS-driven animation. The motion gate
+   * it would have to consult now exists (`prefersReducedMotion` in ../../internal/motion-preference.ts,
+   * the same reader signature motion and view transitions call), so only the animation itself is
+   * outstanding. The chevron rotation marks open/closed in the meantime.
    */
   import { Accordion as AccordionPrimitive } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";

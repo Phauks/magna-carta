@@ -39,11 +39,7 @@ export async function resolveNotificationRecipients(
     case "responsible-member":
       return { recipientUserIds: await responsibleMember(context), substituted: false };
     case "matter-team":
-      // DECLARED AND UNRESOLVABLE TODAY: there is no per-matter team table, so "the people working
-      // this matter" narrows to the one member the schema can actually name. Narrowing rather than
-      // widening is the safe direction — the alternative would be telling everybody in the firm
-      // about every matter, which is both a disclosure and a reason to switch notifications off.
-      return { recipientUserIds: await responsibleMember(context), substituted: true };
+      return { recipientUserIds: await matterTeam(context), substituted: false };
     case "actor":
       return {
         recipientUserIds: context.actorUserId === null ? [] : [context.actorUserId],
@@ -75,6 +71,53 @@ async function responsibleMember(context: RecipientResolutionContext): Promise<r
     .all<{ responsible_member_id: string }>();
   const row = results[0];
   return row === undefined ? [] : [row.responsible_member_id as UserId];
+}
+
+// THE PEOPLE WORKING THIS MATTER, NOW: the matter's responsible member, plus every member holding a
+// currently-valid `matter_assignment` row on it. One statement, both arms, deduplicated in SQL and
+// clamped there — the same shape `capabilityHolders` below takes, and for the same reason.
+//
+// The responsible member is ALWAYS an arm of this read, never conditional on holding an assignment
+// row. `matter.responsible_member_id` is that fact's one home and the assignment write path
+// (packages/matters/src/matter-assignment.ts) refuses a role that normalizes to it, so the attorney
+// who owns the file is structurally incapable of appearing in the assignment table — resolving "the
+// team" from assignments alone would omit exactly the person most entitled to hear. It is also why
+// a matter with no assignments resolves to that one member rather than to nobody: a team of one is
+// a correct answer, where an empty one would silently drop a critical notice (a quarantined file on
+// an unstaffed matter still needs somebody told).
+//
+// The two arms filter membership differently, on purpose. The responsible arm is byte-for-byte the
+// `responsible-member` resolver's read, so the two audiences can never disagree about the same
+// person. The assignment arm additionally requires an ACTIVE member: an assignment row outlives the
+// member's departure by design — staffing history is a matter record and ends only by an explicit
+// act — so a departed member's still-open assignment is the ordinary case rather than the
+// exception, and this audience reaches email, which a deactivated member's feed does not.
+//
+// The validity window's two recorded forms are told apart exactly as the staffing read in
+// packages/document-assembly/src/merge-statements.ts tells them apart, and for the same reason: a
+// bound written at creation is a CIVIL DATE (YYYY-MM-DD) inclusive of its whole day, while a
+// `valid_to` stamped by the end-assignment path is the ending INSTANT, exclusive from that moment.
+// Both comparisons are lexicographic, which is chronological for both forms. A second convention
+// here would mean an assignment that staffs a document and does not staff its notifications.
+async function matterTeam(context: RecipientResolutionContext): Promise<readonly UserId[]> {
+  if (context.matterId === null) return [];
+  const { results } = await context.database
+    .prepare(
+      "SELECT user_id FROM (" +
+        "SELECT matter.responsible_member_id AS user_id FROM matter WHERE matter.id = ?1" +
+        " UNION " +
+        "SELECT assignment.member_user_id AS user_id FROM matter_assignment AS assignment" +
+        " JOIN member ON member.user_id = assignment.member_user_id AND member.status = 'active'" +
+        " WHERE assignment.matter_id = ?1" +
+        " AND (assignment.valid_from IS NULL OR assignment.valid_from <= ?2)" +
+        " AND (assignment.valid_to IS NULL" +
+        " OR (length(assignment.valid_to) = 10 AND assignment.valid_to >= substr(?2, 1, 10))" +
+        " OR (length(assignment.valid_to) > 10 AND assignment.valid_to > ?2))" +
+        ") ORDER BY user_id LIMIT ?3",
+    )
+    .bind(context.matterId, context.now(), MAX_RECIPIENTS_PER_EVENT + 1)
+    .all<{ user_id: string }>();
+  return results.map((row) => row.user_id as UserId);
 }
 
 // Members whose EFFECTIVE permissions include the capability: a role grant, or an unexpired direct

@@ -93,8 +93,9 @@ One entry in `NOTIFICATION_TYPES`, and nothing else anywhere:
 1. **Name the topic by its producing package's exported constant.** Two spellings of one emission
    point is a silent failure — an unrecognized topic on the per-firm bus is acked and ignored by
    design, so a typo does not throw, it just stops delivering.
-2. **Declare the audience** from the closed set, and mark any substitution (`matter-team` resolves to
-   `responsible-member` today because there is no per-matter team table).
+2. **Declare the audience** from the closed set, and mark any substitution in
+   `audienceSubstitutedFrom`. No type declares one today — a substitution is a recipient list the
+   platform narrowed silently, and a fitness test holds that to being a deliberate edit.
 3. **Declare `matterAnchored` honestly**, and give an anchored type a `matterResolution` that can
    actually reach a matter. An anchored row without one is not unfiltered, it is _unfilterable_.
 4. **Declare `facts` inside the grammar**, and write `buildFacts` to always supply every declared
@@ -135,6 +136,17 @@ is not enforced.
   when it is worth it, is a capability column on the event resolved by this same shared read.
 - **`matter-number` is a declared and unbuilt email detail level.** It is in the vocabulary so a
   firm's stored ceiling is not silently rewritten when the level ships; nothing renders it today.
+- **`matter-team` is the responsible member PLUS the currently-valid `matter_assignment` rows.** The
+  responsible member is always an arm of that read and never conditional on holding an assignment:
+  `matter.responsible_member_id` is that fact's one home and the assignment write path refuses a
+  role that normalizes to it, so resolving the team from assignments alone would omit exactly the
+  person most entitled to hear. An unstaffed matter therefore resolves to that one member rather
+  than to nobody. The assignment arm additionally requires an **active** member, where the
+  responsible arm does not — an assignment row outlives a member's departure by design, and this
+  audience reaches email where a deactivated member's feed does not. The validity window is read
+  exactly as `packages/document-assembly/src/merge-statements.ts` reads it (a creation bound is a
+  civil date inclusive of its day; an end-assignment bound is the ending instant, exclusive), so an
+  assignment that staffs a document also staffs its notifications.
 - **`designated` resolves to nobody** until the firm-tier trust-compliance designation is built. An
   audience nobody has configured resolves to nobody, never to the firm — defaulting it would be
   inventing a disclosure out of an absent setting.

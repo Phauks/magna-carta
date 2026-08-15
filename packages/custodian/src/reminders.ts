@@ -13,10 +13,10 @@ import { calendarDate } from "./review-service.ts";
 //   - The register's reports read it directly, so the reminders are usable today with nothing else
 //     built. A firm looks at the list; that is a legitimate answer for a subsystem whose events are
 //     measured in years.
-//   - When the Notifications registry lands, delivery subscribes to THIS function rather than
-//     growing a second definition of "what is due". Wiring a delivery channel is then a change in
-//     the notifications layer, not a redesign here — and the two reminder reasons cannot drift apart
-//     into two schedulers with two answers.
+//   - The notifications registry has since landed and has NO custody entry yet. When one is added
+//     it subscribes to THIS function rather than growing a second definition of "what is due", so
+//     wiring a delivery channel stays a change in the notifications layer and not a redesign here,
+//     and the two reminder reasons cannot drift apart into two schedulers with two answers.
 //
 // Nothing here carries an owner name, a borrower, an item description, or a location name. A
 // reminder identifies the OBJECT (a handle and its custody number, which the recipient already has

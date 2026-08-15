@@ -176,8 +176,10 @@ export function meterCorrectionStatements(
 }
 
 // The Analytics Engine trend seam (decided: AE writes ride a telemetry port). Emits one data point
-// per meter bucket, indexed by firm. When the telemetry package lands it implements this port; until
-// then a local adapter records the points. Trends are advisory — D1 stays authoritative.
+// per meter bucket, indexed by firm. NOTHING IMPLEMENTS THIS PORT TODAY — `@magna-carta/telemetry`
+// exists and owns the platform's event and metric surfaces, but it does not implement this one, and
+// no caller passes an adapter, so no meter trend point is written anywhere. Trends are advisory and
+// D1 stays authoritative, which is why that is a gap rather than a defect.
 export interface MeterTelemetry {
   writeDataPoint(point: { indexes: string[]; blobs: string[]; doubles: number[] }): void;
 }

@@ -10,7 +10,11 @@
    * WHAT IS NOT REAL YET: the data. Every field, template, and proposal comes from the in-repo
    * fixture catalog through the mock provider (lib/document-assembly/merge-field-catalog-source.ts,
    * the one place that changes when the live endpoints land), and choosing Assemble reports the
-   * collected values rather than starting a job — there is no assembly API to call.
+   * collected values rather than starting a job. The submit route itself is NOT the gap — it exists
+   * (apps/worker/src/routes/assemblies.ts, POST /api/v1/matters/{matterId}/assemblies, with a poll
+   * beside it). What this surface still lacks is the matter it would submit against and a template
+   * catalog read from the server rather than from fixtures, which is the same wiring the mock
+   * provider stands in for.
    *
    * The visual design is deliberately plain: this is the structure for the owner to design against,
    * built from design-system components and tokens so that reshaping it is a layout question rather

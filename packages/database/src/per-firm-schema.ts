@@ -6602,8 +6602,10 @@ export const matterAssetValuation = sqliteTable(
       .references(() => matterAsset.id),
     // When set, the row is that ENCUMBRANCE's balance as of a date rather than the asset's value as
     // of a date — one append-only table, one trigger set, one as-of query shape, and net equity as one
-    // read with a sign flip. Declared now and unused until the encumbrance table lands in slice 4·3·2;
-    // adding it later would mean rebuilding a table whose triggers have to be dropped to do it.
+    // read with a sign flip. `matter_asset_encumbrance` has since landed and this column carries its
+    // balances: the asset's own as-of reads filter on `encumbrance_id IS NULL`
+    // (packages/matter-assets/src/valuation-statements.ts), and equity is the two sides differenced.
+    // Declaring it up front is what avoided rebuilding a table whose triggers have to be dropped.
     encumbranceId: text("encumbrance_id"),
     asOfDate: text("as_of_date").notNull(), // civil date — the date the figure speaks to
     amountMinor: integer("amount_minor"),
