@@ -30,8 +30,8 @@
   scope: Templates authored as .docx for formatting control, bound to the data dictionary.
   status: partial
   adrs: ADR-0211
-  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the seven catalogue routes. Authoring in the browser is slice 2-6-4; content controls are a named seam.
-  notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in.
+  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the seven catalogue routes. Authoring in the browser is slice 2-6-4; BINDING a content control is still a named seam, though an unfilled one is now detected and reported.
+  notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences.
 
 - id: document-automation.data-dictionary
   name: Data dictionary

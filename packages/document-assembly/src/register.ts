@@ -17,6 +17,7 @@ import type {
   LegacyFormField,
   MergeFieldDetection,
   NormalizationWarning,
+  UnboundContentControl,
 } from "./types.ts";
 
 // The registration pipeline, in the one order that is defensible.
@@ -39,6 +40,11 @@ import type {
 // converts one, because the only name it carries is a Word-minted bookmark and deriving a merge key
 // from that would be a guess at what the firm's document means. So it is detected and reported —
 // registration, the field list, and every assembly — and left exactly where it is. See normalize.ts.
+//
+// An unfilled CONTENT CONTROL is the fourth, and rides the third's path exactly: detected, reported at
+// every surface, never rewritten. What differs is only the argument for the refusal to convert, which
+// normalize.ts writes out — a control carries an author's own alias and tag, so the missing thing is a
+// human's confirmation of what that name means, not evidence.
 //
 // Everything expensive here runs ONCE per template version, at the moment a human is looking at the
 // result — never on the assembly path, where a user is waiting and a failure is least actionable.
@@ -76,6 +82,9 @@ export interface TemplatePreparation {
   // and with one difference the caller must not blur: there is no opt-in that binds these, so the only
   // remedies are to replace them in Word or to file the document knowing where its blanks are.
   readonly legacyFormFields: readonly LegacyFormField[];
+  // The content controls the upload carries that nothing will fill in. Same standing as the line above:
+  // reported so the firm knows where its document has holes, with no opt-in that closes them.
+  readonly unboundContentControls: readonly UnboundContentControl[];
   // The name-to-key mappings this registration confirmed, for the firm's mapping library. Empty unless
   // conversion ran.
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
@@ -97,6 +106,7 @@ export type TemplatePreparationResult =
       // firm which of its fields nothing will bind, rather than saving that up for the attempt that
       // finally passes.
       readonly legacyFormFields: readonly LegacyFormField[];
+      readonly unboundContentControls: readonly UnboundContentControl[];
       readonly macroProjectFound: boolean;
     };
 
@@ -108,6 +118,7 @@ function failure(
     macroFindings?: readonly MacroResidueFinding[];
     mergeFieldDetections?: readonly MergeFieldDetection[];
     legacyFormFields?: readonly LegacyFormField[];
+    unboundContentControls?: readonly UnboundContentControl[];
     macroProjectFound?: boolean;
   } = {},
 ): TemplatePreparationResult {
@@ -119,6 +130,7 @@ function failure(
     macroFindings: extras.macroFindings ?? [],
     mergeFieldDetections: extras.mergeFieldDetections ?? [],
     legacyFormFields: extras.legacyFormFields ?? [],
+    unboundContentControls: extras.unboundContentControls ?? [],
     macroProjectFound: extras.macroProjectFound ?? false,
   };
 }
@@ -186,6 +198,7 @@ export async function prepareTemplateVersion(
         normalizationFailures: normalized.failures,
         mergeFieldDetections: normalized.mergeFieldDetections,
         legacyFormFields: normalized.legacyFormFields,
+        unboundContentControls: normalized.unboundContentControls,
         macroProjectFound,
       },
     );
@@ -204,6 +217,7 @@ export async function prepareTemplateVersion(
     return failure("scrub-failed", "the template's drafting history could not be removed", {
       mergeFieldDetections: normalized.mergeFieldDetections,
       legacyFormFields: normalized.legacyFormFields,
+      unboundContentControls: normalized.unboundContentControls,
       macroProjectFound,
     });
   }
@@ -243,6 +257,7 @@ export async function prepareTemplateVersion(
       macrosStripped: strip,
       mergeFieldDetections: normalized.mergeFieldDetections,
       legacyFormFields: normalized.legacyFormFields,
+      unboundContentControls: normalized.unboundContentControls,
       mergeFieldsConverted: options.convertMergeFields === true,
       confirmedMergeFieldMappings: normalized.confirmedMappings,
     },

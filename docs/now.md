@@ -93,7 +93,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**24 of 43 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
-ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
+ledger itself grew by +44 nodes over the same period (663 to 707), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
-snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
+That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
+17 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,11 +136,14 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `68f53033` | 245 | 186 | 15 | 21 | 13 | 8 | 176 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `cb9225bb` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `3efca761` | 248 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 707 | +2 | +2 | 0 |
+| 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 43 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -172,7 +175,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
 | Document Automation | 8 | 9 | 0 | 2 | +2 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
-| Financial Core | 55 | 58 | 8 | 15 | +7 |
+| Financial Core | 55 | 60 | 8 | 18 | +10 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
 | Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
@@ -184,20 +187,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 0 | 0 |
+| Reports | 11 | 11 | 0 | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
-Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
+Core (+10), AI & Inference (+7). **16 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
-Plans. An area standing still here has not necessarily been idle — a node moves in this table only
-when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
-and not in this one.
+Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
+in this one.
 
 ## Waiting on you
 
@@ -567,7 +570,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
-  - `document-automation.docx-templates` · `partial` · **DOCX template authoring** — Templates authored as .docx for formatting control, bound to the data dictionary. _Note: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in._
+  - `document-automation.docx-templates` · `partial` · **DOCX template authoring** — Templates authored as .docx for formatting control, bound to the data dictionary. _Note: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences._
   - `document-automation.data-dictionary` · `partial` · **Data dictionary** — Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
