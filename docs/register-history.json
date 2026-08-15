@@ -981,11 +981,11 @@
       ]
     },
     {
-      "commit": "6de9776a38314f70483f2ab67e435746d629d0de",
-      "date": "2026-08-15",
+      "commit": "ff1f49e3607621091ad681b023ba385c38f911f3",
+      "date": "2026-08-14",
       "read": true,
-      "total": 708,
-      "statuses": {"shipped":249,"partial":191,"in-build":15,"designed":25,"planned":10,"researching":8,"not-started":169,"deferred":39,"cut":2},
+      "total": 707,
+      "statuses": {"shipped":249,"partial":191,"in-build":15,"designed":19,"planned":10,"researching":8,"not-started":174,"deferred":39,"cut":2},
       "areas": [
         {"name":"ai.md","total":29,"shipped":15},
         {"name":"auth.md","total":30,"shipped":13},
@@ -1005,7 +1005,7 @@
         {"name":"maintenance-agents.md","total":12,"shipped":0},
         {"name":"notifications.md","total":15,"shipped":1},
         {"name":"observability.md","total":24,"shipped":11},
-        {"name":"payments.md","total":10,"shipped":0},
+        {"name":"payments.md","total":9,"shipped":0},
         {"name":"performance.md","total":13,"shipped":6},
         {"name":"platform.md","total":82,"shipped":30},
         {"name":"portal.md","total":16,"shipped":0},
@@ -1017,8 +1017,8 @@
       ]
     },
     {
-      "commit": "1de2b022610492c067bd5086746ef29755edb4c2",
-      "date": "2026-08-15",
+      "commit": "5184145eff2095c70ff0a2357d8bced22dcf424b",
+      "date": "2026-08-14",
       "read": true,
       "total": 708,
       "statuses": {"shipped":249,"partial":191,"in-build":15,"designed":25,"planned":10,"researching":8,"not-started":169,"deferred":39,"cut":2},

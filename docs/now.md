@@ -27,8 +27,8 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 249 | 35% |
-| Part-built | partial, in-build | 206 | 29% |
-| Ahead | designed, planned, researching, not-started | 212 | 30% |
+| Part-built | partial, in-build | 207 | 29% |
+| Ahead | designed, planned, researching, not-started | 211 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **708** | **100%** |
 
@@ -37,21 +37,21 @@ below; these are the totals over that list.
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 249 | 35% |
-| `partial` | 191 | 27% |
+| `partial` | 192 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 25 | 4% |
 | `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
-| `not-started` | 169 | 24% |
+| `not-started` | 168 | 24% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **708** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 249 of 708 (35%). Shipped plus partial is 440 (62%).**
+**Shipped alone is 249 of 708 (35%). Shipped plus partial is 441 (62%).**
 
-The 191 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 192 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -67,7 +67,7 @@ true and neither is the answer on its own.
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
 | Community & Feedback Forum | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 1 | 0 | 11 | 0% |
-| Conflicts Check | 1 | 1 | 0 | 0 | 0 | 1 | 6 | 0 | 0 | 9 | 11% |
+| Conflicts Check | 1 | 2 | 0 | 0 | 0 | 1 | 5 | 0 | 0 | 9 | 11% |
 | Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
@@ -89,11 +89,11 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **249** | **191** | **15** | **25** | **10** | **8** | **169** | **39** | **2** | **708** | **35%** |
+| **All areas** | **249** | **192** | **15** | **25** | **10** | **8** | **168** | **39** | **2** | **708** | **35%** |
 
 ## Where we have been
 
-**26 of 45 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**26 of 45 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-15, across 32 days. The
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
 ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.8 capabilities shipped a week** across the whole series, and **17.5 a week** over the 19
-snapshots since the last gap (2026-08-11 to 2026-08-15, +10 shipped in 4 days).
+That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
+19 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -140,8 +140,8 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
 | 2026-08-14 | `3efca761` | 248 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 707 | +2 | +2 | 0 |
 | 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
-| 2026-08-15 | `6de9776a` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
-| 2026-08-15 | `1de2b022` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
+| 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
 
 ### The gaps
 
@@ -418,11 +418,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 9 nodes, 11% shipped. 1 done, 1 part-built, 7 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 9 nodes, 11% shipped. 1 done, 2 part-built, 6 ahead, 0 parked.
 
-- `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log. _Note: Remote branch slice-4-1-conflicts exists but contains merge commits only (docs/maintenance/reports/2026-07-14-baseline.md) — not counted as in-build._
+- `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
-  - `conflicts.triggers` · `not-started` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
+  - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   - `conflicts.matching-engine` · `researching` · **Matching engine** — Candidate generation and scoring over names/identifiers (exact, fuzzy, phonetic, alias/blind-index) with related-party edge expansion. _Note: Phonetic and normalization primitives already shipped in packages/directory._
     - `conflicts.matching-engine.strictness` · `not-started` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable.
   - `conflicts.search-depth` · `not-started` · **Configurable search depth** — Structured Directory/matter scan by default; optional document-content scan.
