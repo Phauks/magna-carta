@@ -8,12 +8,13 @@
   name: Conflicts Check
   scope: Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   status: partial
+  slices: slice-4-1-conflicts
   adrs: ADR-0013
-  evidence: Matching seams shipped inside the Directory package; the conflicts-check feature itself has no code or spec.
+  spec: docs/specs/2026-07-09-slice-4-1-conflicts-design.md
+  evidence: packages/conflicts on main — the check orchestrator, the four blocking channels over the Directory corpus, the append-only three-table log, the disposition stream, the re-check ledger and its consumers, plus apps/worker/src/routes/conflicts.ts. No web surface yet, and the intake trigger has no intake flow to fire from.
   audience: public
   public-name: Conflicts checking
   public-summary: Check a prospective client or matter against everyone the firm has acted for or against, and keep a permanent record of what the check returned and who cleared it.
-  notes: Remote branch slice-4-1-conflicts exists but contains merge commits only (docs/maintenance/reports/2026-07-14-baseline.md) — not counted as in-build.
 
 - id: conflicts.directory-seams
   name: Directory matching seams
@@ -26,8 +27,9 @@
 - id: conflicts.triggers
   name: Check triggers
   scope: Run checks at intake, whenever a party is added, and on optional periodic re-scans.
-  status: not-started
-  evidence: No conflicts-check invocation exists anywhere in the codebase.
+  status: partial
+  slices: slice-4-1-conflicts
+  evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/worker/src/conflicts/, and apps/worker/src/conflicts/periodic-rescan.ts; TRIGGER_BY_TOPIC already records a matter.created check as preliminary and a matter.opened or matter.reopened one as comprehensive. Missing is the check that runs BEFORE a matter exists to raise an event about — the pre-engagement screen an intake flow would fire, which no topic can reach because there is no matter row yet.
 
 - id: conflicts.matching-engine
   name: Matching engine

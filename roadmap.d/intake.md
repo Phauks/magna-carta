@@ -8,7 +8,7 @@
   name: Client intake / CRM
   scope: Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, and receptionist call intake.
   status: not-started
-  evidence: No intake package, forms, pipeline, or spec; the white paper flags the whole area needs-development with a follow-up spec required.
+  evidence: No intake package, forms, or pipeline. The follow-up spec the white paper asked for is written (docs/specs/2026-08-15-client-intake-design.md) and is Proposed pending owner flags, so nothing here moves off not-started and no node carries a spec key yet.
   audience: public
   public-name: Client intake
   public-summary: Take an enquiry, check it for conflicts, and turn it into a matter without typing anything twice.
@@ -36,17 +36,17 @@
   scope: Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
   status: not-started
   adrs: ADR-0013
-  evidence: Directory captures entities today, but no conflicts check exists to trigger.
+  evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts, and its trigger catalog already carries the preliminary and comprehensive names nothing yet calls; what is missing is the intake flow that would fire them.
 
 - id: intake.crm
   name: CRM fields and activities
   scope: CRM-style fields and activity tracking on prospects.
   status: not-started
-  evidence: Explicitly unspecified; the shipped custom-fields engine (packages/custom-fields) is a substrate only.
+  evidence: The fields half needs no engine — packages/custom-fields targets matter and entity, which is exactly what a promoted lead is made of. The activity half has no substrate at all: the platform carries no note, comment or timeline entity on any record.
 
 - id: intake.conversion
   name: Lead-to-matter conversion
   scope: Converting a prospect/prospective matter into an open matter.
   status: not-started
   adrs: ADR-0080
-  evidence: The matter lifecycle already models consultation/prospective status (packages/matters), a shipped seam; no conversion flow from an intake pipeline exists.
+  evidence: Conversion is the shipped open transition in packages/matters/src/matter-service.ts, which draws the number in the matter's own atomic batch; what is missing is the intake preconditions in front of it and the pipeline it converts from.
