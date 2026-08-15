@@ -6,8 +6,41 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-15 (the Tools catalog audit added five steps, the first of which gates every
-other deploy — see the section immediately below)._
+_Last updated: 2026-08-15 (the CI outage was traced to an account billing block, not a workflow bug;
+its owner step is the section immediately below and it gates every merge, not just every deploy)._
+
+## GitHub Actions is blocked account-side — one billing step, and it gates all CI
+
+**Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
+refused to start any billable job for `Phauks/magna-carta`, so the gate of record has not executed a
+single step in that time. The diagnosis and its evidence are in
+[`operations.md`](conventions/operations.md) under _Quality gates_; this entry is only the step.
+
+**What to click.** GitHub → **Settings** → **Billing and licensing** → **Budgets and alerts** (and the
+**Payment information** tab beside it). Check, in this order:
+
+1. **A valid payment method is on file and no recent charge has failed.** A failed payment blocks
+   Actions on its own, and settling it is what unblocks it — raising a limit will not.
+2. **The Actions spending limit is greater than $0.** The account is on the Free plan, which includes
+   2,000 Actions minutes a month for private repositories; `magna-carta` is private, so every gate
+   minute is billed against that allotment. Once it is spent, a $0 limit is a hard stop, and GitHub's
+   documented behaviour with no valid payment method is that "usage is blocked once you use up your
+   quota."
+3. **Whether the monthly allotment has simply reset.** The block began 2026-08-05. If the billing
+   month has since rolled over and jobs still do not start, the cause is item 1 or 2, not the quota.
+
+**How to confirm it worked**, without guessing: re-run any gate workflow and look at a job's
+`runner_id`. A job that GitHub refused to start reports `runner_id: 0` with an empty `runner_name` and
+has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
+the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
+
+**What it is costing.** Every merge since 2026-08-05 has landed on the strength of local verification
+alone. Two specific checks are CI-authoritative and remain unanswered — see the scan-policy item under
+_Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
+
+**Do not "fix" this by editing the workflow.** The runner labels in `gate.yml` are correct and were
+verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage
+reproduces identically on `ubuntu-latest`, and predates `ubuntu-slim` entering the repository.
 
 ## Tools catalog — five steps, and the first one gates every other deploy
 

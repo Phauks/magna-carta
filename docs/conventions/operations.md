@@ -354,6 +354,47 @@ Workers Builds builds and deploys but runs no checks, so the checks live in two 
 > nightly sweep, and the whole-repo lint tier are suspended while the Actions budget is exhausted; the
 > pull-request gate still runs in full. The posture, the merge bar it implies, and the revert checklist
 > are in [`build-performance.md`](build-performance.md) — this note is a pointer, not a second home.
+>
+> **The austerity did not go far enough: since 2026-08-05 the account has been unable to start _any_
+> billable job, so the pull-request tier is not running either.** The gate of record has executed no
+> steps since that date. Unblocking it is an owner billing step on the
+> [deploy queue](../deploy-queue.md); the recognition rule immediately below is how to tell that state
+> from a failing build.
+
+#### A job that never started is not a job that failed — check `runner_id` before believing a red gate
+
+The gate spent ten days reporting `failure` while running nothing, and nobody caught it, because a run
+that dies before it starts is **indistinguishable at a glance from a normal red build**: the workflow
+appears in the Actions tab, the checks go red on the pull request, and branch protection blocks the
+merge exactly as it would for a real test failure. The difference is only visible one level down.
+
+**The fingerprint of a job GitHub refused to start:**
+
+- `runner_id: 0` and `runner_name: ""` on the job — the decisive signal. A job that ran always names a
+  runner. This is the one field to check, and it is the one the run's own web page does not show.
+- Wall-clock of a few **seconds**, with `started_at` equal to `created_at`.
+- **No logs at all** — the log endpoint 404s, because no runner ever produced any.
+- No annotation and no failing step, since there were no steps.
+- Typically **every** job in the run, across every label, plus the same shape in unrelated workflows.
+
+`gh api repos/Phauks/magna-carta/actions/runs/<run-id>/jobs --jq '.jobs[] | {name, conclusion, runner_id}'`
+prints the whole run's verdict in one line of output. A `runner_id` of `0` on a job that concluded
+`failure` means **CI did not run**; treat the change as unverified rather than broken, and check the
+deploy queue for the account-side block rather than debugging the diff.
+
+**What this is not.** It is not a runner-label problem. `gate.yml` uses `ubuntu-latest` and
+`ubuntu-slim`, both current GitHub-hosted labels, and the label choice per job is recorded in the
+workflow's own `RUNNERS` header. The 2026-08-05 outage reproduced identically on `ubuntu-latest` and on
+`assemble-docs.yml`, which has no `ubuntu-slim` in it, and it began three hours **before** `ubuntu-slim`
+first entered the repository. Re-litigating the labels costs three times the runner rate and fixes
+nothing.
+
+**The dependency shape makes one dead job look like a dozen.** Nearly every job in `gate.yml` needs
+`changes` for its path filter, so when `changes` cannot start, the rest report `skipped` and the
+aggregate `gate` job is the only other thing that runs. A red `gate` over a field of `skipped` is
+therefore the normal appearance of this failure, not evidence about any particular check. That
+fan-out is deliberate and worth keeping — it is what makes a docs-only push cost two minutes — but it
+does mean the run summary attributes the outage to whichever job happens to sit at the root.
 
 - **The whole-repo gate of record is GitHub Actions** (`.github/workflows/gate.yml`), run on every pull request into `main` and every push to `main`. It reproduces the full environment (pnpm install, the Docker WASM build, the Playwright browser the vitest browser runner needs) and runs `pnpm audit`, the full **`pnpm check`**, the governance lints, migration integrity, the full **`vp test`**, all four contract-drift checks (OpenAPI snapshot, generated client, Spectral, design-token), and — for a changed container — its acceptance suite (scan EICAR, recovery, bundle). It is a **fan-out DAG**, not one serial job: a `changes` job path-filters the diff, a `wasm` job builds the Rust→WASM once (cached across runs on the crate sources, shared to consumers as an artefact), and the check dimensions run as independent parallel jobs, each skipped when the diff cannot affect it (a docs-only push runs only `format` + `governance`, ~2 min). Wall-clock is the tallest single dimension (the type-aware lint pass), not the sum. **Branch protection must require the aggregate `gate` job** — not the individual jobs and not "the gate workflow" — because it is the one status that stays green whether a dimension ran or was path-filtered out; requiring a job that a given diff skips would wedge the merge. The first green run was 2026-07-13 (`git push origin main:release` still deploys separately; CI gates the merge, not the deploy).
 - **The local `pre-push` hook** (`tooling/git-hooks/pre-push`) is a fast tripwire, not the gate of record: it runs `pnpm audit`, **`pnpm check:scoped`** (fmt + lint + `tsc -b` + svelte-check/Rust, scoped to the diff), the governance lints, and the migration-integrity test — the checks the current diff can actually break, finishing in seconds rather than the tens of minutes the whole-repo gate takes. It keeps the cloud push loop quick while CI does the exhaustive sweep. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it — the safety net is CI, so a skipped hook is caught at the merge, not shipped. To run the whole-repo gate locally before a push: `pnpm check && vp test`.
