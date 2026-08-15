@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 733 nodes of the feature ledger in
+is the complete register rather than a digest: all 735 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**733 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**735 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -27,17 +27,17 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 255 | 35% |
-| Part-built | partial, in-build | 212 | 29% |
+| Part-built | partial, in-build | 214 | 29% |
 | Ahead | designed, planned, researching, not-started | 223 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **733** | **100%** |
+| **All capabilities** | | **735** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 255 | 35% |
-| `partial` | 197 | 27% |
+| `partial` | 199 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
 | `planned` | 18 | 2% |
@@ -45,13 +45,13 @@ below; these are the totals over that list.
 | `not-started` | 161 | 22% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **733** | **100%** |
+| **All statuses** | **735** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 255 of 733 (35%). Shipped plus partial is 452 (62%).**
+**Shipped alone is 255 of 735 (35%). Shipped plus partial is 454 (62%).**
 
-The 197 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 199 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -71,7 +71,7 @@ true and neither is the answer on its own.
 | Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
-| Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
+| Discovery (e-discovery) | 4 | 14 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 25 | 16% |
 | Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
@@ -92,11 +92,11 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **255** | **197** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **733** | **35%** |
+| **All areas** | **255** | **199** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **735** | **35%** |
 
 ## Where we have been
 
-**34 of 53 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**35 of 54 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -109,7 +109,7 @@ ledger itself grew by +70 nodes over the same period (663 to 733), so the share 
 31% to 35% against a denominator that was moving too.
 
 That is **11.2 capabilities shipped a week** across the whole series, and **28.0 a week** over the
-27 snapshots since the last gap (2026-08-11 to 2026-08-15, +16 shipped in 4 days).
+28 snapshots since the last gap (2026-08-11 to 2026-08-15, +16 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -153,10 +153,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-15 | `9bd40bd7` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 | 2026-08-15 | `6beeb58e` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | +25 | +1 | 0 |
 | 2026-08-15 | `07e3e6d1` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | 0 | 0 | 0 |
+| 2026-08-15 | `5995edb0` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 53 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 54 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -623,11 +624,13 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 23 nodes, 17% shipped. 4 done, 12 part-built, 5 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 25 nodes, 16% shipped. 4 done, 14 part-built, 5 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
   - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
-    - `discovery.pipeline.engine` · `shipped` · **Discovery engine core** — Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion. _Note: Backend only, no user surface. The composite extraction port that routes to it — and closes the born-digital-PDF gap platform-wide — is a later sub-slice._
+    - `discovery.pipeline.engine` · `shipped` · **Discovery engine core** — Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion. _Note: Backend only, no user surface. The composite extraction port now routes to it — see discovery.pipeline.extraction-port._
+    - `discovery.pipeline.extraction-port` · `partial` · **Composite extraction port** — Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran. _Note: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands._
+    - `discovery.pipeline.processing-lane` · `partial` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: Deduplication, container families, and the manifest and exception-report artifacts written at load completion are the remainder of this sub-slice._
     - `discovery.pipeline.review-set` · `partial` · **Review-set model** — The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest. _Note: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403._
     - `discovery.pipeline.load-lanes` · `partial` · **Load source lanes** — Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system. _Note: direct-collection is declared and refused BY NAME so its absence is visible rather than mysterious — it needs a collection tool, not an ingest path. Assistant transcripts are likewise refused by name until their lane lands with the review surface._
   - `discovery.ocr` · `shipped` · **OCR engine** — PaddleOCR PP-OCR models run as ONNX through a Rust ort pipeline, one pinned versioned model set for server Container and desktop. _Note: UI todo; ocr-raster-cap-and-skip-gate branch in flight; Tesseract/ocrs fallbacks and docTR head-to-head resolve in the future discovery subsystem spec._

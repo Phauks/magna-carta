@@ -27,6 +27,8 @@ import {
   runStorageReconciliation,
 } from "./scheduled.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
+import { discoveryProcessQueue } from "./discovery/process-consumer.ts";
+import type { DiscoveryProcessMessage } from "./discovery/discovery-process-types.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
 import { searchCompactionQueue } from "./search/compaction-consumer.ts";
 import type { SearchCompactionMessage } from "./search/compaction-types.ts";
@@ -98,6 +100,12 @@ const EMAILS_CAPTURE_QUEUE = "magna-carta-production-emails-capture";
 // extracts one document version's text, builds its split, and converges the per-firm split catalog.
 const SEARCH_INDEX_QUEUE = "magna-carta-production-search-index";
 const SEARCH_COMPACTION_QUEUE = "magna-carta-production-search-compaction";
+
+// The discovery processing queue's name — the queue() handler routes its batches to the processing
+// consumer, which reads one review document's bytes through the composite extraction port, writes its
+// text and metadata sidecar to R2, and ends the document in exactly one terminal state. Its own lane,
+// apart from every ingest lane, so a quarter-million-document load cannot starve interactive upload.
+const DISCOVERY_PROCESS_QUEUE = "magna-carta-production-discovery-process";
 
 // The document-assembly queue's name — the queue() handler routes its batches to the assembly consumer,
 // which merges one template version against one matter and files the result through the ingest gate.
@@ -221,6 +229,10 @@ export default {
     // The assistant's queue routes to its consumer (re-read the gates -> window -> model -> settle).
     if (batch.queue === MAGNUS_QUEUE) {
       return magnusQueue(batch as MessageBatch<MagnusTurnJob>, env);
+    }
+    // The discovery processing queue routes to the processing consumer (read -> extract -> record).
+    if (batch.queue === DISCOVERY_PROCESS_QUEUE) {
+      return discoveryProcessQueue(batch as MessageBatch<DiscoveryProcessMessage>, env);
     }
     // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
     if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {

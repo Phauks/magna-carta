@@ -182,6 +182,18 @@ export type Bindings = {
   DISCOVERY_LOAD_JOB: DurableObjectNamespace<
     import("./discovery/discovery-load-coordinator.ts").DiscoveryLoadCoordinator
   >;
+  // The per-document processing lane. One review document per message — identifiers and keys only,
+  // never bytes — kept apart from every ingest lane so a quarter-million-document load cannot starve
+  // interactive file upload.
+  DISCOVERY_PROCESS: Queue<
+    import("./discovery/discovery-process-types.ts").DiscoveryProcessMessage
+  >;
+  // The dedicated discovery engine worker (magna-carta-discovery), reached over a service binding. It
+  // owns the pure-Rust extraction Container (crates/discovery-core): identify from bytes, native text
+  // extraction, page counts, document dates, and the near-duplicate fingerprint. Optional: absent in
+  // every test environment and until the deploy-time binding is added; while unset, the extraction
+  // port falls back to the in-Worker PDF reader plus recognition, which reads strictly less.
+  DISCOVERY_SERVICE?: Fetcher;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).

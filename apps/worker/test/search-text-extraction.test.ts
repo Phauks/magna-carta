@@ -50,6 +50,62 @@ function portOver(service: Pick<Fetcher, "fetch"> | undefined) {
   return resolveTextExtractionPort({ OCR_SERVICE: service } as unknown as Bindings);
 }
 
+// A stand-in for the discovery engine Container. It answers `/read` with whatever reading the case
+// wants and counts its calls, so a test can assert which engine actually looked at a document.
+interface EngineReadingBody {
+  readonly outcome: "read" | "needsConversion" | "needsExpansion";
+  readonly identification: { readonly format: string; readonly confidence: string };
+  readonly passages: readonly { chunkId: string; text: string; page: number }[];
+  readonly pageCount?: number | null;
+  readonly documentDate?: { value: string; source: string } | null;
+  readonly pagesNeedingRecognition: readonly number[];
+  readonly textFingerprint?: string | null;
+}
+
+function reading(overrides: Partial<EngineReadingBody> = {}): EngineReadingBody {
+  return {
+    outcome: "read",
+    identification: { format: "pdf", confidence: "certain" },
+    passages: [],
+    pageCount: null,
+    documentDate: null,
+    pagesNeedingRecognition: [],
+    textFingerprint: null,
+    ...overrides,
+  };
+}
+
+function fakeEngine(
+  ...answers: readonly (EngineReadingBody | { status: number; code?: string })[]
+) {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    service: {
+      fetch: async () => {
+        const answer = answers[Math.min(calls, answers.length - 1)];
+        calls++;
+        if (answer !== undefined && "status" in answer) {
+          return Response.json({ code: answer.code ?? "corrupt" }, { status: answer.status });
+        }
+        return Response.json(answer);
+      },
+    } satisfies Pick<Fetcher, "fetch">,
+  };
+}
+
+function enginePort(
+  engine: Pick<Fetcher, "fetch"> | undefined,
+  ocr?: Pick<Fetcher, "fetch">,
+  convert?: Pick<Fetcher, "fetch">,
+) {
+  return resolveTextExtractionPort({
+    DISCOVERY_SERVICE: engine,
+    OCR_SERVICE: ocr,
+    CONVERT: convert,
+  } as unknown as Bindings);
+}
+
 const asPdf = { contentType: "application/pdf" };
 
 describe("composite text extraction", () => {
@@ -171,6 +227,206 @@ describe("composite text extraction", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("unextractable");
+  });
+});
+
+describe("the discovery engine is the native route when it is bound", () => {
+  const bytes = new TextEncoder().encode("any document at all");
+
+  it("reads through the engine and records that the engine is what read it", async () => {
+    const engine = fakeEngine(
+      reading({
+        identification: { format: "officeOpenXmlDocument", confidence: "certain" },
+        passages: [{ chunkId: "page-0", text: "The seller shall indemnify.", page: 1 }],
+        pageCount: 1,
+        documentDate: { value: "2026-03-04T00:00:00Z", source: "documentProperties" },
+        textFingerprint: "9f2c1a04bb37de55",
+      }),
+    );
+    const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(engine.calls()).toBe(1);
+    // THE ROUTE IS THE POINT. A corpus that recorded only the text could not say which engine read
+    // it, and the answer to "how did you read this production" would be a shrug.
+    expect(result.route).toEqual(["discovery-engine"]);
+    expect(result.facts.formatIdentified).toBe("officeOpenXmlDocument");
+    expect(result.facts.pageCount).toBe(1);
+    expect(result.facts.documentDate).toBe("2026-03-04T00:00:00Z");
+    expect(result.facts.textFingerprint).toBe("9f2c1a04bb37de55");
+    expect(result.passages[0]?.text).toBe("The seller shall indemnify.");
+  });
+
+  it("never sends a born-digital document to recognition", async () => {
+    // The defect this whole port exists to close, restated for the engine route: recognition skips a
+    // page that already has a text layer, so a document routed there alone comes back empty.
+    const engine = fakeEngine(
+      reading({ passages: [{ chunkId: "page-0", text: "born digital", page: 1 }] }),
+    );
+    const recognition = fakeRecognition([]);
+    const result = await enginePort(engine.service, recognition.service).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(recognition.calls()).toBe(0);
+  });
+
+  it("sends only the pixel pages on, and says so in the route", async () => {
+    const engine = fakeEngine(
+      reading({
+        passages: [{ chunkId: "page-0", text: "the contract", page: 1 }],
+        pagesNeedingRecognition: [1],
+        pageCount: 2,
+      }),
+    );
+    const recognition = fakeRecognition([
+      { pageIndex: 0, lines: [{ text: "A SECOND READING OF PAGE ONE" }] },
+      { pageIndex: 1, lines: [{ text: "THE APPENDED SCAN" }] },
+    ]);
+    const result = await enginePort(engine.service, recognition.service).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.route).toEqual(["discovery-engine", "recognition"]);
+    // Page 0 keeps the engine's reading; recognition's answer for it is discarded, or the page would
+    // be in the index twice — once as written and once as read off a picture of it.
+    expect(result.pages).toEqual([
+      { pageIndex: 0, provenance: "native", hasText: true },
+      { pageIndex: 1, provenance: "ocr", hasText: true },
+    ]);
+    expect(result.passages[0]?.text).toBe("the contract");
+    expect(result.passages[1]?.text).toBe("THE APPENDED SCAN");
+  });
+
+  it("keeps a page recognition never answered for, as a page that came back empty", async () => {
+    // A gap in the provenance list would be indistinguishable from a page nothing ever looked at.
+    const engine = fakeEngine(reading({ pagesNeedingRecognition: [0, 1], pageCount: 2 }));
+    const recognition = fakeRecognition([{ pageIndex: 0, lines: [{ text: "PAGE ONE" }] }]);
+    const result = await enginePort(engine.service, recognition.service).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.pages).toEqual([
+      { pageIndex: 0, provenance: "ocr", hasText: true },
+      { pageIndex: 1, provenance: "ocr", hasText: false },
+    ]);
+  });
+
+  it("parks a scan when the recognizer is not deployed rather than calling it unreadable", async () => {
+    const engine = fakeEngine(reading({ pagesNeedingRecognition: [0], pageCount: 1 }));
+    const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("engine-not-implemented");
+  });
+
+  it("turns each of the engine's named refusals into a diagnosis the report can print", async () => {
+    for (const [code, expected] of [
+      ["encrypted", "encrypted"],
+      ["passwordProtected", "passwordProtected"],
+      ["corrupt", "corrupt"],
+      ["unsupportedFormat", "unsupportedFormat"],
+      ["limitExceeded", "limitExceeded"],
+      ["noTextExtracted", "noTextExtracted"],
+    ] as const) {
+      const engine = fakeEngine({ status: 422, code });
+      const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.reason).toBe("unextractable");
+      expect(result.code).toBe(expected);
+    }
+  });
+
+  it("treats a refusal code it does not recognize as transient, never as a named exception", async () => {
+    // An unnamed reason means the engine and this worker are at different versions — a deployment
+    // fact, not a fact about the document. Recording it under one of the named codes would put a
+    // sentence in an exception report that nobody checked.
+    const engine = fakeEngine({ status: 422, code: "somethingNewTheEngineLearned" });
+    const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBeUndefined();
+  });
+
+  it("says an archive needs expanding rather than that it holds no words", async () => {
+    const engine = fakeEngine(
+      reading({
+        outcome: "needsExpansion",
+        identification: { format: "zipArchive", confidence: "certain" },
+      }),
+    );
+    const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("needsExpansion");
+  });
+
+  it("parks a legacy binary while the office container is undeployed", async () => {
+    // The route exists and the engine that walks it does not yet. Parked, not failed: a document the
+    // platform can read once a Container lands must not be recorded as one it cannot read.
+    const engine = fakeEngine(
+      reading({
+        outcome: "needsConversion",
+        identification: { format: "legacyWordDocument", confidence: "certain" },
+      }),
+    );
+    const result = await enginePort(engine.service).extract({ bytes, contentType: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("engine-not-implemented");
+  });
+
+  it("converts a legacy binary, reads the CONVERSION, and keeps the legacy format on the record", async () => {
+    // The conversion is not the answer, it is a way to reach one: the text still comes out of the
+    // memory-safe engine. And the identified format stays the legacy one, because the review document
+    // must record what arrived rather than what the platform turned it into on the way to reading it.
+    const engine = fakeEngine(
+      reading({
+        outcome: "needsConversion",
+        identification: { format: "legacyWordDocument", confidence: "certain" },
+      }),
+      reading({
+        identification: { format: "officeOpenXmlDocument", confidence: "certain" },
+        passages: [{ chunkId: "page-0", text: "a 1997 memorandum", page: 1 }],
+        pageCount: 1,
+      }),
+    );
+    const convert: Pick<Fetcher, "fetch"> = {
+      fetch: async () =>
+        new Response(new TextEncoder().encode("converted package"), {
+          headers: { "content-type": "application/octet-stream" },
+        }),
+    };
+    const result = await enginePort(engine.service, undefined, convert).extract({
+      bytes,
+      contentType: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.route).toEqual(["office-conversion", "discovery-engine"]);
+    expect(result.facts.formatIdentified).toBe("legacyWordDocument");
+    expect(result.passages[0]?.text).toBe("a 1997 memorandum");
+  });
+
+  it("reports an engine that did not answer as transient, so the queue retries it", async () => {
+    const engine: Pick<Fetcher, "fetch"> = {
+      fetch: async () => new Response("upstream", { status: 503 }),
+    };
+    const result = await enginePort(engine).extract({ bytes, contentType: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
   });
 });
 
