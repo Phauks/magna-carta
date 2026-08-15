@@ -256,7 +256,8 @@ export async function handleCaptureMessage(
   });
 
   // "email filed to matter" is raised off the hot path, carrying a deep link and never body content.
-  // A no-op until the Notifications subsystem ships; the raise site is placed now. An automatic filing
+  // Still a no-op — see packages/email-filing/src/seams.ts for what actually stands between this
+  // call and a delivered notification now that the notifications package exists. An automatic filing
   // raises it exactly as a manual one does — the firm is told a message reached the matter, and by
   // what, without having to go looking.
   if (result.linkState === "filed" && result.matterId !== null) {

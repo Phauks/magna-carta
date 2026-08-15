@@ -5,9 +5,9 @@
  * resolves to, and the human label for each subject group. A covering test asserts this layer
  * stays complete against the catalog, so a tool added to the catalog cannot render blank.
  *
- * Every tool is `soon` today: no tool has its own page yet. As each tool's page is built, its
- * entry advances (alpha/beta/ready) and the listing entry becomes launchable — nothing here is
- * faked meanwhile.
+ * A tool stays `soon` until its own page exists; two have one today (the network speed test and
+ * the WHOIS lookup, both `alpha`). As each remaining tool's page is built, its entry advances
+ * (alpha/beta/ready) and the listing entry becomes launchable — nothing here is faked meanwhile.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";

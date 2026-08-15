@@ -123,9 +123,8 @@ export const NOTIFICATION_AUDIENCES = Object.freeze([
   "capability-holders",
   // A firm-tier designation. Resolves to nobody until the designation setting is built.
   "designated",
-  // DECLARED AND UNRESOLVABLE TODAY: there is no per-matter team table. It substitutes to
-  // responsible-member, and the substitution is marked in the registry so the day a team model
-  // lands the change is one resolver rather than a hunt through types.
+  // The matter's responsible member plus everyone holding a currently-valid `matter_assignment` row
+  // on it — the people carrying the file right now, ended assignments excluded.
   "matter-team",
 ] as const);
 export type NotificationAudience = (typeof NOTIFICATION_AUDIENCES)[number];

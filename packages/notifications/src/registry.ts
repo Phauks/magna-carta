@@ -61,10 +61,11 @@ export interface NotificationType {
   readonly audience: NotificationAudience;
   // Set exactly when `audience` is `capability-holders`: the capability whose holders hear it.
   readonly audienceCapability?: KnownPermission;
-  // Set when a declared audience is not resolvable yet and something narrower stands in. Today only
-  // `matter-team` substitutes (to `responsible-member`), because there is no per-matter team table.
-  // Declaring the substitution here means the day one lands the change is ONE resolver rather than
-  // a hunt through every type that meant "the team".
+  // Set when a declared audience is not resolvable yet and something narrower stands in, so the day
+  // the real one lands the change is ONE resolver rather than a hunt through every type. NO TYPE
+  // DECLARES ONE TODAY — `matter-team` did until `matter_assignment` gave it a real team to resolve,
+  // and that swap was exactly the one-resolver edit this field exists to buy. The seam stays for the
+  // next audience that needs it; a fitness test holds the "none today" to being deliberate.
   readonly audienceSubstitutedFrom?: NotificationAudience;
   // The actor is excluded by default: nobody needs telling they did the thing they just did. A type
   // sets this where a confirmation is genuinely the point.
@@ -193,12 +194,9 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     category: "documents",
     severity: "critical",
     mandatory: false,
-    // The matter's responsible member. Declared as `matter-team` because the people who should hear
-    // that a file on their matter was pulled are the people working it — which is a team, and there
-    // is no team table. The substitution is recorded rather than hidden so it is one resolver to
-    // change when one exists.
+    // The people working the matter — its responsible member and everyone currently assigned to it.
+    // A file on a matter being pulled is the whole team's problem, not only the owner's.
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: FILE_QUARANTINED_TOPIC,
     subjectKind: "fileVersion",
@@ -221,7 +219,6 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     severity: "critical",
     mandatory: false,
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: FILE_RESCAN_INFECTED_TOPIC,
     subjectKind: "fileVersion",
@@ -241,7 +238,6 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     severity: "attention",
     mandatory: false,
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: DOCUMENT_CHECKIN_CONFLICT_TOPIC,
     subjectKind: "fileVersion",

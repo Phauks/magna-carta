@@ -32,8 +32,8 @@ beforeAll(async () => {
   poolFirmId = (
     await seedFirm({ name: "File Integrity Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
-  // tools:fileIntegrity is seeded in a later migration. Grant it directly so the route tests
-  // run before that migration lands.
+  // tools:fileIntegrity is already seeded onto Owner/Admin by the baseline migration; granting it
+  // directly is an idempotent belt so this suite does not depend on migration ordering.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
     .bind("rolePermission_FileIntegrityOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:fileIntegrity")
