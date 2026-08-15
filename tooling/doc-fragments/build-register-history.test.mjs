@@ -38,6 +38,9 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "register-history-"));
   file = join(root, "history.json");
   git("init", "-q");
+  // Named explicitly rather than left to init.defaultBranch: the reconstruction only writes on the
+  // trunk, so which branch the fixture is on is part of what these tests are asserting.
+  git("symbolic-ref", "HEAD", "refs/heads/main");
   git("config", "user.email", "test@example.com");
   git("config", "user.name", "Ledger Test");
   git("config", "commit.gpgsign", "false");
@@ -177,6 +180,69 @@ describe("the append path", () => {
 
     expect(unavailable).not.toBeNull();
     expect(readFileSync(file, "utf8")).toBe(before);
+  });
+});
+
+describe("off the trunk", () => {
+  // `git log --first-parent` on a branch walks the BRANCH's line. Every trunk commit that landed
+  // after the branch was cut is unreachable from it, so a rebuild there does not read a shorter
+  // history — it deletes the committed snapshot of every one of those landings, in a file that is
+  // committed. These fix the direction of that inference: unreachable from here is a fact about
+  // here.
+  function trunkWithTwoLandings() {
+    commitLedger("first", { "trust.md": area("Trust", node("trust.ledger", "shipped")) });
+    git("branch", "cut-here");
+    commitLedger("second", {
+      "trust.md": area("Trust", node("trust.ledger", "shipped"), node("trust.charges", "shipped")),
+    });
+    return updateHistory({ root, file }).history;
+  }
+
+  it("leaves every committed snapshot alone on a branch cut before the later landings", () => {
+    expect(trunkWithTwoLandings().snapshots).toHaveLength(2);
+    const onTrunk = readFileSync(file, "utf8");
+
+    git("checkout", "-q", "cut-here");
+    const { history, offTrunk } = updateHistory({ root, file });
+
+    expect(offTrunk).toMatch(/cut-here/);
+    expect(readFileSync(file, "utf8")).toBe(onTrunk);
+    expect(history.snapshots).toHaveLength(2);
+  });
+
+  it("declines a full rebuild there too, which is the destructive one", () => {
+    trunkWithTwoLandings();
+    const onTrunk = readFileSync(file, "utf8");
+
+    git("checkout", "-q", "cut-here");
+    expect(updateHistory({ root, file, rebuild: true }).offTrunk).not.toBeNull();
+    expect(readFileSync(file, "utf8")).toBe(onTrunk);
+  });
+
+  it("declines at a revision that names no branch, such as a point back along the trunk", () => {
+    trunkWithTwoLandings();
+    const onTrunk = readFileSync(file, "utf8");
+
+    // The shape of the accident: a ref inside the trunk's own line still cannot see what came after
+    // it, and rebuilding from there would delete exactly those readings.
+    expect(updateHistory({ root, file, ref: "main~1" }).offTrunk).toMatch(/names no branch/);
+    expect(readFileSync(file, "utf8")).toBe(onTrunk);
+  });
+
+  it("still writes on the trunk itself, so the refusal is about the ref and not about writing", () => {
+    trunkWithTwoLandings();
+    commitLedger("third", {
+      "trust.md": area(
+        "Trust",
+        node("trust.ledger", "shipped"),
+        node("trust.charges", "shipped"),
+        node("trust.reconciliation", "planned"),
+      ),
+    });
+
+    const { history, offTrunk } = updateHistory({ root, file });
+    expect(offTrunk).toBeNull();
+    expect(history.snapshots).toHaveLength(3);
   });
 });
 

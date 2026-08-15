@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { eligibleWorktrees, isArtifactDir, landedBranches, normalizePath } from "./select.mjs";
+import {
+  eligibleWorktrees,
+  isArtifactDir,
+  landedBranches,
+  landingCommit,
+  MAX_LANDING_CANDIDATES,
+  normalizePath,
+} from "./select.mjs";
 
 const WORKTREES = [
   { path: "C:/dev/magna-carta-worktrees/main-merge", branch: "main", detached: false },
@@ -47,53 +54,83 @@ describe("normalizePath", () => {
   });
 });
 
-describe("landedBranches", () => {
-  const BASELINE_COMMIT = "c0ffee";
-  const BASELINE_TREE = "aaaa";
+describe("landingCommit", () => {
+  // A trunk that squash-merged a branch at `squash`, then moved on twice, and each later commit
+  // touched a file the branch also touched. Trunk commits are oldest first, as the caller supplies
+  // them; the baseline (`newest`) is checked before the walk, so it leads the list.
+  const trees = { newest: "t-newest", squash: "t-squash", after: "t-after" };
+  const CANDIDATES = ["newest", "squash", "after"];
 
-  // "squash-landed" reproduces how pull requests land here: own commits, no content of its own left
-  // to contribute. "fresh-workspace" is a worktree just created off the baseline — indistinguishable
-  // from landed by content alone, which is why the tip check comes first.
-  const tips = {
-    "squash-landed": "1111",
-    "still-open": "2222",
-    conflicting: "3333",
-    "ancestry-merged": "4444",
-    "fresh-workspace": BASELINE_COMMIT,
-  };
-  const mergeResults = {
-    "squash-landed": BASELINE_TREE,
-    "still-open": "bbbb",
-    conflicting: null,
-    "ancestry-merged": "cccc",
-    "fresh-workspace": BASELINE_TREE,
-  };
-  const call = (candidateBranches, ancestryMerged = new Set()) =>
-    landedBranches({
-      candidateBranches,
-      baselineCommit: BASELINE_COMMIT,
-      baselineTree: BASELINE_TREE,
-      tipOf: (branch) => tips[branch],
-      ancestryMerged,
-      mergeResultTree: (branch) => mergeResults[branch],
+  // Merging the branch into the commit that squashed it changes nothing. Merging it into the
+  // baseline two commits later would re-apply its hunks over newer content, so that tree differs —
+  // which is the whole decay: the branch landed, and the current-tip comparison says it did not.
+  const mergeResults = { newest: "t-merged-newest", squash: "t-squash", after: "t-merged-after" };
+
+  const call = (results = mergeResults, candidateCommits = CANDIDATES) =>
+    landingCommit({
+      candidateCommits,
+      treeOf: (commit) => trees[commit],
+      mergeResultTree: (commit) => results[commit],
     });
 
-  it("counts a squash-merged branch as landed, which ancestry alone never sees", () => {
+  it("finds the commit a squash-merged branch landed in, long after the trunk moved past it", () => {
+    expect(call()).toBe("squash");
+  });
+
+  it("still answers on the day of the merge, when the baseline is itself the landing commit", () => {
+    expect(call({ ...mergeResults, newest: "t-newest" })).toBe("newest");
+  });
+
+  it("reports no landing for a branch whose work is still outstanding", () => {
+    expect(call({ newest: "x", squash: "y", after: "z" })).toBe(null);
+  });
+
+  it("treats a conflicting merge as not landed there, and keeps looking", () => {
+    // A conflict yields null. It must not be mistaken for a match, and it must not end the search:
+    // the branch may still be subsumed by a later commit that resolved the same files.
+    expect(call({ newest: null, squash: "t-squash", after: null })).toBe("squash");
+  });
+
+  it("stops after the candidate cap rather than merging against unbounded history", () => {
+    const many = Array.from({ length: MAX_LANDING_CANDIDATES + 5 }, (_, index) => `c${index}`);
+    const landsPastTheCap = { [`c${MAX_LANDING_CANDIDATES + 2}`]: "t-hit" };
+    const found = landingCommit({
+      candidateCommits: many,
+      treeOf: (commit) => (commit in landsPastTheCap ? landsPastTheCap[commit] : `t-${commit}`),
+      mergeResultTree: (commit) => landsPastTheCap[commit] ?? "t-other",
+    });
+    expect(found).toBe(null);
+  });
+});
+
+describe("landedBranches", () => {
+  // "squash-landed" reproduces how pull requests land here: commits of its own, and a trunk commit
+  // that already subsumes them. "empty-workspace" is a worktree nobody has committed in — it has no
+  // commit the baseline lacks, so every content test calls it landed and its build output is live.
+  const landings = {
+    "squash-landed": "abc123",
+    "still-open": null,
+    "empty-workspace": "abc123",
+  };
+  const call = (candidateBranches, empty = ["empty-workspace"]) =>
+    landedBranches({
+      candidateBranches,
+      contributesNoCommit: (branch) => empty.includes(branch),
+      landingCommitOf: (branch) => landings[branch],
+    });
+
+  it("counts a branch that landed by squash merge, which ancestry alone never sees", () => {
     expect([...call(["squash-landed", "still-open"])]).toEqual(["squash-landed"]);
   });
 
-  it("still counts an ancestry-merged branch as landed", () => {
-    expect([...call(["ancestry-merged"], new Set(["ancestry-merged"]))]).toEqual([
-      "ancestry-merged",
-    ]);
+  it("never counts a workspace with no commits of its own — that is live, not finished", () => {
+    expect(call(["empty-workspace"]).size).toBe(0);
   });
 
-  it("never counts a worktree sitting on the baseline — that is live, not finished", () => {
-    expect(call(["fresh-workspace"], new Set(["fresh-workspace"])).size).toBe(0);
-  });
-
-  it("treats a conflicting merge as not landed", () => {
-    expect(call(["conflicting"]).size).toBe(0);
+  it("keeps that guard for a stale workspace, not only one sitting on the baseline commit", () => {
+    // The guard is about having delivered nothing, not about being up to date. A worktree cut a week
+    // ago and never committed in has drifted far behind the baseline and is just as live.
+    expect(call(["empty-workspace"], ["empty-workspace"]).size).toBe(0);
   });
 });
 

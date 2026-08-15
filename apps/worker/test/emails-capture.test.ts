@@ -2,11 +2,10 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   filedMatterIdsForMessage,
-  findByDedupKey,
   readMatterEmails,
 } from "@magna-carta/data-access/email-filing-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import type { EmailMessageId, FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { handleCaptureMessage, type EmailsCaptureMessage } from "../src/emails/capture-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -97,6 +96,18 @@ async function capture(
   });
 }
 
+// Which message a matter's filing points at. Dedup is firm-wide, so one `email_message` table
+// accumulates across every test below and holds several rows by the time the later ones run. An
+// unqualified `SELECT id FROM email_message LIMIT 1` therefore returns whichever row the primary-key
+// index happens to order first — and that key is a randomly generated identifier, so the row it
+// yields changes from run to run. Every assertion here is about ONE named message, so each names the
+// matter it was filed onto and resolves the message through that matter's link.
+async function messageFiledOnMatter(matterId: MatterId): Promise<EmailMessageId> {
+  const page = await readMatterEmails(firmDatabase, matterId, undefined);
+  expect(page.data).toHaveLength(1);
+  return page.data[0]!.emailMessageId;
+}
+
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = (await seedFirm({ name: "Email Filing Capture Firm" })).firmId;
@@ -115,9 +126,12 @@ describe("email capture consumer", () => {
   it("captures an .eml into a message, participants, and a filed link the matter view shows", async () => {
     await capture(fixture("simple.eml"), { matterId: matterOne });
 
+    // Unbounded on purpose. The claim is that one capture creates exactly ONE message record, and a
+    // `LIMIT 1` makes that claim unfalsifiable — the row count would then be capped at the number the
+    // assertion is looking for.
     const message = await firmDatabase
-      .prepare("SELECT id, dedup_key, dkim_verdict, original_r2_key FROM email_message LIMIT 1")
-      .all<{ id: string; dedup_key: string; dkim_verdict: string; original_r2_key: string }>();
+      .prepare("SELECT id, dkim_verdict, original_r2_key FROM email_message")
+      .all<{ id: string; dkim_verdict: string; original_r2_key: string }>();
     expect(message.results).toHaveLength(1);
     expect(message.results[0]?.dkim_verdict).toBe("unverified");
     expect(message.results[0]?.original_r2_key.startsWith("emails/")).toBe(true);
@@ -127,9 +141,8 @@ describe("email capture consumer", () => {
       .all<{ n: number }>();
     expect(participants.results[0]?.n ?? 0).toBeGreaterThan(0);
 
-    const page = await readMatterEmails(firmDatabase, matterOne, undefined);
-    expect(page.data).toHaveLength(1);
-    expect(page.data[0]?.linkState).toBe("filed");
+    // The matter view shows that same record as a filed link.
+    expect(await messageFiledOnMatter(matterOne)).toBe(message.results[0]?.id);
 
     // The verbatim original landed in R2 under its content-addressed key.
     const original = await env.R2.get(message.results[0]!.original_r2_key);
@@ -146,10 +159,12 @@ describe("email capture consumer", () => {
       .all<{ n: number }>();
     expect(after.results[0]?.n).toBe(before.results[0]?.n); // no second message
 
-    const hit = await firmDatabase
-      .prepare("SELECT id FROM email_message LIMIT 1")
-      .all<{ id: string }>();
-    const filed = await filedMatterIdsForMessage(firmDatabase, hit.results[0]!.id as never);
+    // The record the SECOND matter's filing points at — and it is the same record the first matter is
+    // filed on, which is what "one record, two links" means.
+    const filed = await filedMatterIdsForMessage(
+      firmDatabase,
+      await messageFiledOnMatter(matterTwo),
+    );
     expect(filed).toContain(matterOne);
     expect(filed).toContain(matterTwo); // now on two matters
   });
@@ -191,12 +206,12 @@ describe("email capture consumer", () => {
     await capture(fixture("simple.eml"), { matterId: matter });
     const first = await filedTopics();
     expect(first).toHaveLength(1);
-    const message = await firmDatabase
-      .prepare("SELECT id FROM email_message LIMIT 1")
-      .all<{ id: string }>();
+    // The topic must name the message THIS matter was just filed with. By now the firm holds several
+    // captured messages, so the payload is checked against the message the matter's own link resolves
+    // to — the link and the topic are written in one batch, and this is the assertion that they agree.
     // Identifiers only — no subject, no address, no participant list crosses the bus.
     expect(JSON.parse(first[0]?.payload ?? "{}")).toEqual({
-      emailMessageId: message.results[0]?.id,
+      emailMessageId: await messageFiledOnMatter(matter),
       matterId: matter,
     });
 
