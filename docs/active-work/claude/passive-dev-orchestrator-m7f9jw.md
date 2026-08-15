@@ -329,12 +329,23 @@ The sixth belongs with them, and it was a tool lying rather than a probe:
   report now distinguishes "found nothing" from "declined everything".
 
   Two general lessons, both cheap to reuse. **`git merge-base --is-ancestor` and everything
-  built on it is useless here** — to ask whether a branch has landed, merge it into
-  `origin/main` in memory (`git merge-tree --write-tree`) and see whether the tree changes.
-  And **a freshly created worktree passes every "does it add anything?" test**, because it
-  adds nothing yet; without an explicit check that the branch tip differs from the baseline
-  commit, a cleaner will happily delete a live agent's build directory. The first draft of
-  the fix did exactly that, and the dry run is the only reason it did not happen.
+  built on it is useless here** — worse than useless, since the only branches it reports are
+  ones with no commits of their own. And **a freshly created worktree passes every "does it
+  add anything?" test**, because it adds nothing yet; without an explicit check, a cleaner
+  will happily delete a live agent's build directory. The first draft of the fix did exactly
+  that, and the dry run is the only reason it did not happen.
+
+  **Corrected 2026-08-15 — the replacement lesson was itself half wrong, and this note taught
+  it.** Merging a branch into `origin/main` in memory (`git merge-tree --write-tree`) and
+  checking the tree is unchanged answers "would merging this change `main` **today**", which
+  is the right question only on the day the branch merges. Once `main` touches any file the
+  branch also touched, the re-merge stops being a no-op and the test reads "not landed" for a
+  branch that provably landed — permanently, and more wrongly the longer the worktree sits.
+  Measured on `main`: 7 of 63 landed branches detected, and 94 empty workspaces selected for
+  deletion. Ask instead **where** the content landed — walk `main` forward from the merge base
+  and take the first commit the branch merges into without changing it. That commit never
+  moves, so the answer never expires. The rule now lives in `CLAUDE.md` under _Parallel
+  worktrees & branches_; the implementation is `tooling/clean/select.mjs`.
 
 Disk hygiene generally: `du -sh` over `.claude/worktrees` **times out at two minutes** once
 there are a couple of dozen of them. `df -h .` is the fast answer, and on this host "Avail"

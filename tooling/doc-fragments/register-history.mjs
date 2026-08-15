@@ -173,11 +173,20 @@ export function missingCommits(history, commits) {
   return commits.filter((entry) => !known.has(entry.commit));
 }
 
-// Order is the log's order, oldest first, never the order rows were appended. A snapshot whose
-// commit is no longer in the log (a rewritten branch, a squashed merge) is dropped and reported
-// rather than left in place: a series carrying commits that are not in the history it claims to
-// describe is worse than a shorter one.
-export function orderSnapshots(history, commits, additions = []) {
+// Order is the log's order, oldest first, never the order rows were appended.
+//
+// A snapshot the log does not list gets one of two fates, and telling them apart is the whole point.
+// Absent from the walk is NOT evidence that the snapshot is wrong — it is evidence about the ref
+// being walked, which sees only its own line of descent. So the question asked is whether the commit
+// still EXISTS: a commit git can no longer resolve was rewritten or garbage-collected and its
+// snapshot describes nothing, so it is dropped and reported; a commit that still exists is retained
+// in date order and reported as retained. A reconstruction that deletes readings it can no longer
+// see from where it is standing is not a shorter history, it is a wrong one — and the file is
+// committed, so the deletion lands in the repository.
+//
+// `commitExists` defaults to keeping everything: the pure model has no repository to ask, and the
+// safe default for a caller that cannot answer is to delete nothing.
+export function orderSnapshots(history, commits, additions = [], commitExists = () => true) {
   const byCommit = new Map();
   for (const snapshot of [...history.snapshots, ...additions]) {
     byCommit.set(snapshot.commit, snapshot);
@@ -190,7 +199,19 @@ export function orderSnapshots(history, commits, additions = []) {
       byCommit.delete(entry.commit);
     }
   }
-  return { snapshots, dropped: [...byCommit.values()] };
+
+  const dropped = [];
+  const retained = [];
+  for (const snapshot of byCommit.values()) {
+    (commitExists(snapshot.commit) ? retained : dropped).push(snapshot);
+  }
+  // A retained snapshot has no position in a walk that cannot see it, so it takes the one its date
+  // gives it — before the first snapshot dated after it, and after everything dated on or before.
+  for (const snapshot of retained) {
+    const at = snapshots.findIndex((placed) => placed.date > snapshot.date);
+    snapshots.splice(at === -1 ? snapshots.length : at, 0, snapshot);
+  }
+  return { snapshots, dropped, retained };
 }
 
 // --- the arithmetic ------------------------------------------------------------------------------

@@ -28,11 +28,19 @@ import { LEDGER_STATUSES, parseArea } from "./roadmap.mjs";
 // A commit whose ledger does not parse under today's schema is recorded as unread with the parser's
 // own reason, and rendered as a hole. It is never estimated and never interpolated across: the point
 // of a reconstruction is that every number in it was read off something.
+//
+// The reconstruction is a TRUNK-ONLY operation, and refuses to write anywhere else. On a feature
+// branch `git log --first-parent` walks the branch's line, not the trunk's, so every trunk landing
+// after the branch point is simply absent from it — and rebuilding from that walk does not produce a
+// shorter history, it deletes the committed snapshot of every one of those landings. Off the trunk
+// the committed file is read and left exactly as it is; the register renders from it, and so does
+// the roadmap gate, so declining to rebuild never puts the gate out of reach.
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const HISTORY_FILE = join(ROOT, "docs", "register-history.json");
 const LEDGER_DIRECTORY = "roadmap.d";
 const RESERVED = new Set(["README.md"]);
+const TRUNK_BRANCH = "main";
 
 // git's own stderr is captured rather than passed through: a commit this run cannot read is an
 // expected outcome that gets recorded with its reason, not a failure to shout about.
@@ -128,13 +136,62 @@ export function loadHistory(file = HISTORY_FILE) {
   return parseHistory(readFileSync(file, "utf8"));
 }
 
+function resolves(root, revision) {
+  try {
+    git(root, ["rev-parse", "--verify", "--quiet", revision]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Why this ref is not the trunk, or null when it is.
+//
+// Answered from the ref's NAME, not from the shape of the commit graph, because the two cases that
+// have to be told apart are graph-identical: `main` holding commits that are not pushed yet, and a
+// branch cut from that same commit holding commits of its own, differ in nothing but what they are
+// called. A detached HEAD names itself "HEAD" and is off the trunk, which is right — it sees only
+// the line below wherever it is standing. A repository with no trunk branch at all (a fixture, an
+// export, a single-branch clone) has no trunk to be off, so whatever it is on counts as one.
+export function offTrunkReason(root = ROOT, ref = "HEAD") {
+  if (
+    !resolves(root, `refs/heads/${TRUNK_BRANCH}`) &&
+    !resolves(root, `refs/remotes/origin/${TRUNK_BRANCH}`)
+  ) {
+    return null;
+  }
+  let name;
+  try {
+    name = git(root, ["rev-parse", "--abbrev-ref", ref]).trim();
+  } catch {
+    // A ref that does not resolve is not off the trunk, it is absent. Say nothing here and let the
+    // walk fail, so the run reports the ref it could not find rather than a place it is not.
+    return null;
+  }
+  if (name === TRUNK_BRANCH || name === `origin/${TRUNK_BRANCH}`) return null;
+  // A revision that names no branch — a raw commit, `HEAD~57` — abbreviates to nothing; a detached
+  // HEAD abbreviates to the word itself. Both are the same answer: nowhere with a trunk's name on it.
+  if (name === "" || name === "HEAD") return `${ref} names no branch, so it is not ${TRUNK_BRANCH}`;
+  return `this is ${name}, not ${TRUNK_BRANCH}`;
+}
+
 export function updateHistory({
   root = ROOT,
   file = HISTORY_FILE,
   ref = "HEAD",
   rebuild = false,
 } = {}) {
-  const existing = (rebuild ? null : loadHistory(file)) ?? emptyHistory();
+  const committed = loadHistory(file);
+  const existing = (rebuild ? null : committed) ?? emptyHistory();
+  const idle = { added: [], dropped: [], retained: [], unavailable: null, offTrunk: null };
+
+  // Off the trunk before anything is read, so no walk of the wrong line can reach the file. The
+  // committed history is returned whole — including on a rebuild, which off-trunk would otherwise
+  // recompute the series from a walk that cannot see most of it.
+  const offTrunk = offTrunkReason(root, ref);
+  if (offTrunk !== null) {
+    return { ...idle, history: committed ?? emptyHistory(), offTrunk };
+  }
 
   let commits;
   try {
@@ -142,25 +199,33 @@ export function updateHistory({
   } catch (error) {
     // No git, or no history to walk (a shallow clone, an export). The committed file is still the
     // truth about every commit it already holds, so it is left exactly as it is.
-    return { history: existing, added: [], dropped: [], unavailable: firstLine(error) };
+    return { ...idle, history: existing, unavailable: firstLine(error) };
   }
 
   const wanted = missingCommits(existing, commits);
   const additions = wanted.map((entry) => snapshotAt(root, entry));
-  const { snapshots, dropped } = orderSnapshots(existing, commits, additions);
+  const { snapshots, dropped, retained } = orderSnapshots(existing, commits, additions, (commit) =>
+    resolves(root, `${commit}^{commit}`),
+  );
   const history = { ...emptyHistory(), snapshots };
   writeFileSync(file, serializeHistory(history));
-  return { history, added: additions, dropped, unavailable: null };
+  return { history, added: additions, dropped, retained, unavailable: null, offTrunk: null };
 }
 
 export function build(argv = []) {
   const rebuild = argv.includes("--rebuild");
   const refFlag = argv.find((argument) => argument.startsWith("--ref="));
-  const { history, added, dropped, unavailable } = updateHistory({
+  const { history, added, dropped, retained, unavailable, offTrunk } = updateHistory({
     ref: refFlag === undefined ? "HEAD" : refFlag.slice("--ref=".length),
     rebuild,
   });
 
+  if (offTrunk !== null) {
+    console.log(
+      `register history: not rebuilt — ${offTrunk}. The series describes ${TRUNK_BRANCH}, and this ref cannot see the landings after it was cut; the committed file is left untouched and the register renders from it. Rebuild on ${TRUNK_BRANCH}.`,
+    );
+    return history;
+  }
   if (unavailable !== null) {
     console.log(`register history: git history unavailable (${unavailable}) — file left unchanged`);
     return history;
@@ -174,9 +239,14 @@ export function build(argv = []) {
   for (const snapshot of addedUnread) {
     console.log(`  ${short(snapshot.commit)} ${snapshot.date} unread — ${snapshot.reason}`);
   }
+  for (const snapshot of retained) {
+    console.log(
+      `  ${short(snapshot.commit)} ${snapshot.date} retained — off this walk, but the commit is still in the repository`,
+    );
+  }
   for (const snapshot of dropped) {
     console.log(
-      `  ${short(snapshot.commit)} ${snapshot.date} dropped — no longer on the first-parent history`,
+      `  ${short(snapshot.commit)} ${snapshot.date} dropped — the commit no longer exists in the repository`,
     );
   }
   return history;

@@ -2,15 +2,22 @@
 // automatically from the tracked post-merge hook when a branch lands in main
 // (tooling/git-hooks/post-merge). Deletes ONLY git-ignored artifact directories (target/,
 // .svelte-kit, .wrangler, .vite, dist, build, coverage) inside worktrees whose branch has landed in
-// main — by ancestry OR by content, since pull requests here land as squash merges and a squashed
-// branch is never an ancestor — never the active worktree, never node_modules, never tracked source. The
+// main — found by locating the trunk commit the branch's content entered, since pull requests here
+// land as squash merges and a squashed branch is never an ancestor of anything — never the active
+// worktree, never node_modules, never tracked source. The
 // git check-ignore confirmation is the safety net: a directory that merely shares an artifact name
 // but is tracked is never removed. Flags: --dry-run (report only), --all-worktrees (sweep every
 // worktree except the current one — still git-ignored dirs only).
 import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { eligibleWorktrees, isArtifactDir, landedBranches, normalizePath } from "./select.mjs";
+import {
+  eligibleWorktrees,
+  isArtifactDir,
+  landedBranches,
+  landingCommit,
+  normalizePath,
+} from "./select.mjs";
 
 const flags = new Set(process.argv.slice(2));
 const dryRun = flags.has("--dry-run");
@@ -48,41 +55,85 @@ function baselineRef() {
   }
 }
 
-// The tree a two-way merge of `branch` into the baseline would produce, or null when that merge
-// conflicts (or the git build predates `merge-tree --write-tree`).
-function mergeResultTreeAgainst(baseline) {
+// How many of a branch's changed paths are used to narrow the landing search. The landing commit
+// touches all of them, so any one of them selects it; sampling keeps a branch that rewrote a
+// thousand files from overflowing the argument list.
+const LANDING_PATH_SAMPLE = 50;
+
+function nonEmptyLines(output) {
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+// The tree a merge of `branch` into `commit` would produce, or null when that merge conflicts (or
+// the git build predates `merge-tree --write-tree`).
+function mergeResultTree(commit, branch) {
+  try {
+    return git(["merge-tree", "--write-tree", commit, branch]).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Does the branch hold no commit the baseline lacks? True for a workspace nobody has committed in
+// yet, however far behind the trunk it has drifted — the live-worktree guard in select.mjs.
+function contributesNoCommitTo(baseline) {
   return (branch) => {
     try {
-      return git(["merge-tree", "--write-tree", baseline, branch]).trim();
+      git(["merge-base", "--is-ancestor", branch, baseline]);
+      return true;
     } catch {
-      return null;
+      return false;
     }
   };
 }
 
-function ancestryMergedInto(baseline) {
-  const branches = new Set();
-  for (const line of git(["branch", "--merged", baseline, "--format=%(refname:short)"]).split(
-    "\n",
-  )) {
-    const name = line.trim();
-    if (name) branches.add(name);
-  }
-  return branches;
+// The trunk commits a branch could have landed in, oldest first, with the baseline itself checked
+// before them.
+//
+// Narrowing to commits that touch files the branch itself changed is what keeps the search bounded.
+// Unfiltered, a branch sitting sixty commits behind is sixty whole-tree merges — about twelve
+// seconds here, per branch, on every merge to main. Narrowed, the list is normally a single commit:
+// the squash that landed the branch. The baseline goes first so a branch that merged moments ago,
+// which is what the post-merge hook mostly sees, costs one comparison.
+function landingCandidatesAgainst(baseline, baselineCommit) {
+  return (branch) => {
+    let mergeBase;
+    try {
+      mergeBase = git(["merge-base", baseline, branch]).trim();
+    } catch {
+      return []; // no shared history: there is no trunk this branch could have landed into
+    }
+    const paths = nonEmptyLines(git(["diff", "--name-only", mergeBase, branch])).slice(
+      0,
+      LANDING_PATH_SAMPLE,
+    );
+    if (paths.length === 0) return [baselineCommit];
+    const walked = nonEmptyLines(
+      git(["rev-list", "--reverse", baseline, `^${mergeBase}`, "--", ...paths]),
+    );
+    return [baselineCommit, ...walked.filter((commit) => commit !== baselineCommit)];
+  };
 }
 
-// Branches whose work is already in the baseline. The ancestry test (`git branch --merged`) alone
-// reported nothing for months while landed worktrees accumulated gigabytes of build output, because
-// pull requests land here as squash merges and a squashed branch is not an ancestor of anything.
+// Branches whose work is already in the baseline. Asking whether merging a branch into the trunk's
+// current tip would change anything is only right on the day it merges; this asks where the branch's
+// content entered the trunk, which stays answerable however far the trunk has moved on since.
 function mergedBranches(candidateBranches) {
   const baseline = baselineRef();
+  const baselineCommit = git(["rev-parse", baseline]).trim();
+  const candidatesFor = landingCandidatesAgainst(baseline, baselineCommit);
   return landedBranches({
     candidateBranches,
-    baselineCommit: git(["rev-parse", baseline]).trim(),
-    baselineTree: git(["rev-parse", `${baseline}^{tree}`]).trim(),
-    tipOf: (branch) => git(["rev-parse", branch]).trim(),
-    ancestryMerged: ancestryMergedInto(baseline),
-    mergeResultTree: mergeResultTreeAgainst(baseline),
+    contributesNoCommit: contributesNoCommitTo(baseline),
+    landingCommitOf: (branch) =>
+      landingCommit({
+        candidateCommits: candidatesFor(branch),
+        treeOf: (commit) => git(["rev-parse", `${commit}^{tree}`]).trim(),
+        mergeResultTree: (commit) => mergeResultTree(commit, branch),
+      }),
   });
 }
 
@@ -191,7 +242,7 @@ const targets = eligibleWorktrees({
 
 console.log(dryRun ? "clean (dry-run — nothing will be deleted)\n" : "clean\n");
 console.log(
-  `Artifact sweep — ${targets.length} worktree(s) (${allWorktrees ? "all except current" : "merged into main"}):`,
+  `Artifact sweep — ${targets.length} worktree(s) (${allWorktrees ? "all except current" : "landed in main"}):`,
 );
 
 // A sweep that selects nothing reads identically to a sweep that had nothing to do. Say which it

@@ -126,14 +126,29 @@ describe("merging with what is already on disk", () => {
     expect(dropped).toEqual([]);
   });
 
-  it("drops a snapshot whose commit has left the first-parent history, and says which", () => {
-    const { snapshots, dropped } = orderSnapshots(
+  it("drops a snapshot only when its commit has left the repository, and says which", () => {
+    const { snapshots, dropped, retained } = orderSnapshots(
+      known,
+      [{ commit: hash("c"), date: "2026-07-16" }],
+      [snapshot("c", "2026-07-16", ["trust.md", "shipped"])],
+      (commit) => commit !== hash("a"),
+    );
+    expect(snapshots.map((entry) => entry.commit)).toEqual([hash("c")]);
+    expect(dropped.map((entry) => entry.commit)).toEqual([hash("a")]);
+    expect(retained).toEqual([]);
+  });
+
+  it("keeps a snapshot the walk cannot see while its commit still exists, in date order", () => {
+    // Absent from this walk is a fact about the ref being walked — a branch sees only its own line
+    // of descent — so it is never on its own grounds to delete a committed reading.
+    const { snapshots, dropped, retained } = orderSnapshots(
       known,
       [{ commit: hash("c"), date: "2026-07-16" }],
       [snapshot("c", "2026-07-16", ["trust.md", "shipped"])],
     );
-    expect(snapshots.map((entry) => entry.commit)).toEqual([hash("c")]);
-    expect(dropped.map((entry) => entry.commit)).toEqual([hash("a")]);
+    expect(snapshots.map((entry) => entry.commit)).toEqual([hash("a"), hash("c")]);
+    expect(retained.map((entry) => entry.commit)).toEqual([hash("a")]);
+    expect(dropped).toEqual([]);
   });
 });
 
