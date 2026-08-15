@@ -135,3 +135,64 @@ test("a timestamp the formatter cannot read is passed through rather than guesse
 test("describeCheck is pure — the same facts produce the same sentences", () => {
   expect(describeCheck(CHECK, [], FULL_SOURCES)).toEqual(describeCheck(CHECK, [], FULL_SOURCES));
 });
+
+test("a truncated traversal is stated as an incomplete search, never as a completed one", () => {
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      traversal: {
+        edgeClassBudgets: { control: 1, family: 1, representation: 1 },
+        closureCap: 500,
+        truncated: true,
+        entitiesReached: 500,
+        unexploredFrontierSize: 137,
+        unexpandedReachedCount: 42,
+      },
+    },
+    [],
+    FULL_SOURCES,
+  );
+  const truncation = statements.find((statement) => statement.includes("TRUNCATED"));
+  expect(truncation).toBeDefined();
+  // The three facts that make the bound defensible: where it stopped, what it refused, and that what
+  // lies past the entities it did reach is unknown.
+  expect(truncation).toContain("500 entities reached against a cap of 500");
+  expect(truncation).toContain("137 further entities were reachable and not searched");
+  expect(truncation).toContain("42 reached entities were matched but not expanded");
+  expect(truncation).toContain("incomplete");
+  // "Nothing surfaced." is still the last line — the search ended and found nothing, and that remains
+  // a fact about the search. It is the truncation sentence above it that stops it reading as a sweep
+  // of the whole graph.
+  expect(statements.at(-1)).toBe("Nothing surfaced.");
+});
+
+test("a completed traversal states its budgets and claims no truncation", () => {
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      traversal: {
+        edgeClassBudgets: { control: 1, family: 2, representation: 1 },
+        closureCap: 500,
+        truncated: false,
+        entitiesReached: null,
+        unexploredFrontierSize: null,
+        unexpandedReachedCount: null,
+      },
+    },
+    [],
+    FULL_SOURCES,
+  );
+  const budgets = statements.find((statement) => statement.startsWith("Traversal budgets"));
+  expect(budgets).toContain("control 1 hop, family 2 hops, representation 1 hop");
+  expect(budgets).toContain("corporate family traversed transitively");
+  expect(budgets).toContain("Ended relationships were traversed");
+  expect(statements.some((statement) => statement.includes("TRUNCATED"))).toBe(false);
+});
+
+test("a check row that records no traversal says nothing about the walk, rather than implying it finished", () => {
+  // Null is a third state: not "completed", not "truncated", but "the row does not say". A row
+  // written before the traversal record existed must not be read as a complete sweep of the graph.
+  const statements = describeCheck(CHECK, [], FULL_SOURCES);
+  expect(statements.some((statement) => statement.startsWith("Traversal budgets"))).toBe(false);
+  expect(statements.some((statement) => statement.includes("TRUNCATED"))).toBe(false);
+});

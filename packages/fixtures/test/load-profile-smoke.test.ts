@@ -43,6 +43,7 @@ import {
 } from "../src/load-profile/editing-measurements.ts";
 import {
   conflictsHotPathPlans,
+  conflictsMatcherBounds,
   conflictsMeasurementHandle,
   conflictsMeasurements,
   CONFLICTS_PLAN_SCAN_ALLOWLIST,
@@ -240,11 +241,30 @@ describe("load-profile smoke", () => {
       iterations: 2,
     });
     expect(conflictsResults.map((result) => result.name).sort()).toEqual(
-      ["conflicts.run-check", "conflicts.imputation", "conflicts.co-party-check"].sort(),
+      [
+        "conflicts.run-check",
+        "conflicts.imputation",
+        "conflicts.co-party-check",
+        "conflicts.run-check-deep-graph",
+        "conflicts.run-check-truncating",
+      ].sort(),
     );
     for (const result of conflictsResults) {
       expect(result.iterations).toBe(2);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The batched matcher's statement count over the deep corporate group. Counted rather than timed:
+    // a timing shows an N+1 only once the corpus is large enough for the difference to clear the
+    // noise, while a count shows it the moment somebody puts a read back inside the loop.
+    const matcherBounds = await conflictsMatcherBounds(conflictsHandle);
+    expect(matcherBounds.map((bound) => bound.label)).toEqual([
+      "conflicts.matcher-batch-deep-graph",
+    ]);
+    for (const bound of matcherBounds) {
+      expect(bound.subjectCount).toBeGreaterThan(1);
+      // The claim the whole batch exists to make: fewer queries than there are subjects to match.
+      expect(bound.statementCount).toBeLessThan(bound.subjectCount);
     }
 
     // The document-automation measured set runs under its own (async) handle — it parses the probe

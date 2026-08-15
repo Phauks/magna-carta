@@ -235,6 +235,9 @@ test("the latest check is the one reported, and its scope comes back verbatim", 
     strictness: "over_inclusive",
     depth: 2,
     floorRaised: true,
+    // The seeded row carries no traversal record, and null is reported as "the row does not say" —
+    // never silently as a walk that completed.
+    traversal: null,
   });
   expect(posture.latestCheck?.subjectEntityCount).toBe(2);
   expect(posture.latestCheck?.expandedEntityCount).toBe(3);

@@ -2,7 +2,9 @@ import type { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import {
+  DEFAULT_CLOSURE_CAP,
   DEFAULT_CONFLICTS_POLICY,
+  DEFAULT_EDGE_CLASS_BUDGETS,
   readConflictsPolicy,
   resolveScope,
   type ConflictsPolicy,
@@ -12,6 +14,8 @@ const policy: ConflictsPolicy = {
   floorSources: ["party", "graph"],
   floorStrictness: "balanced",
   defaultDepth: 1,
+  edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
+  closureCap: DEFAULT_CLOSURE_CAP,
 };
 
 test("a request above the floor passes through untouched", () => {
@@ -77,7 +81,14 @@ test("depth below zero is clamped to zero", () => {
 });
 
 test("an omitted depth falls back to the firm's default depth, without raising the floor", () => {
-  const deepPolicy: ConflictsPolicy = { ...policy, defaultDepth: 3 };
+  // A firm's configured depth and its per-class budgets are one setting read together — readConflicts
+  // Policy derives the budgets from defaultDepth whenever a stored row predates them, so the two can
+  // never disagree in a policy that came off the database.
+  const deepPolicy: ConflictsPolicy = {
+    ...policy,
+    defaultDepth: 3,
+    edgeClassBudgets: { control: 3, family: 3, representation: 3 },
+  };
   const resolved = resolveScope(deepPolicy, {
     sources: ["party", "graph"],
     strictness: "balanced",
@@ -117,6 +128,8 @@ test("readConflictsPolicy: a well-formed stored row round-trips its values", asy
     floorSources: ["party", "graph"],
     floorStrictness: "over_inclusive",
     defaultDepth: 3,
+    edgeClassBudgets: { control: 2, family: 1, representation: 1 },
+    closureCap: 250,
   };
   seedConflictsPolicy(raw, JSON.stringify(stored));
 
@@ -124,6 +137,8 @@ test("readConflictsPolicy: a well-formed stored row round-trips its values", asy
   expect(resolved.floorSources).toEqual(["party", "graph"]);
   expect(resolved.floorStrictness).toBe("over_inclusive");
   expect(resolved.defaultDepth).toBe(3);
+  expect(resolved.edgeClassBudgets).toEqual({ control: 2, family: 1, representation: 1 });
+  expect(resolved.closureCap).toBe(250);
 });
 
 test("readConflictsPolicy: an empty stored floorSources still yields party in the floor", async () => {
@@ -153,4 +168,53 @@ test("readConflictsPolicy: malformed JSON in the stored value falls back to the 
   seedConflictsPolicy(raw, "{not json");
 
   await expect(readConflictsPolicy(database)).resolves.toEqual(DEFAULT_CONFLICTS_POLICY);
+});
+
+test("resolveScope: an explicit depth sets every budgeted edge class, as it always meant", () => {
+  const resolved = resolveScope(policy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+    depth: 3,
+  });
+  expect(resolved.edgeClassBudgets).toEqual({ control: 3, family: 3, representation: 3 });
+  expect(resolved.depth).toBe(3);
+});
+
+test("resolveScope: a per-class override wins over the uniform depth, and the recorded depth is the widest", () => {
+  const resolved = resolveScope(policy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+    depth: 1,
+    edgeClassBudgets: { control: 4 },
+  });
+  expect(resolved.edgeClassBudgets).toEqual({ control: 4, family: 1, representation: 1 });
+  // The one-number column carries the widest budget in force, so a reader of it alone is never told
+  // the traversal was shallower than it was.
+  expect(resolved.depth).toBe(4);
+});
+
+test("resolveScope: the closure cap defaults to the firm's and an explicit request is honoured", () => {
+  const base = resolveScope(policy, { sources: ["party"], strictness: "balanced" });
+  expect(base.closureCap).toBe(DEFAULT_CLOSURE_CAP);
+  const narrowed = resolveScope(policy, {
+    sources: ["party"],
+    strictness: "balanced",
+    closureCap: 25,
+  });
+  expect(narrowed.closureCap).toBe(25);
+});
+
+test("readConflictsPolicy: a stored row predating the typed budgets keeps its own depth for every class", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  // A firm that widened defaultDepth before per-class budgets existed means that number for every
+  // class. Falling back to the shipped default here would silently narrow the search for exactly the
+  // firms that took the trouble to widen it.
+  seedConflictsPolicy(
+    raw,
+    JSON.stringify({ floorSources: ["party"], floorStrictness: "balanced", defaultDepth: 3 }),
+  );
+
+  const resolved = await readConflictsPolicy(database);
+  expect(resolved.edgeClassBudgets).toEqual({ control: 3, family: 3, representation: 3 });
+  expect(resolved.closureCap).toBe(DEFAULT_CLOSURE_CAP);
 });

@@ -42,6 +42,9 @@ export interface ScopeInForce {
   readonly depth: number;
   // True when the requested scope fell below the firm's floor and was raised to it.
   readonly floorRaised: boolean;
+  // How far the graph walk was allowed to go and whether it got there. Null on a check written before
+  // the traversal record existed — "the row does not say", never "the walk completed".
+  readonly traversal: TraversalRecord | null;
 }
 
 export interface LatestCheckRecord {
@@ -192,10 +195,64 @@ export function parseCheckScope(scopeJson: string): Record<string, SourceAvailab
   return scope;
 }
 
+// HOW FAR THE WALK WENT, AND WHERE IT STOPPED — read back off the check row verbatim.
+//
+// `truncated` is the load-bearing field and it is never inferred: the walk itself decides whether the
+// closure cap stopped it, and the row says so. A truncated expansion reported as a completed one is
+// the depth version of reporting an unsearchable source as searched and clean, and both are the same
+// failure — the platform telling a firm it looked somewhere it did not look.
+export interface TraversalRecord {
+  // The hop budget per budgeted edge class, as resolved for that run. Empty on a check written before
+  // the traversal record existed, which reads as "not recorded" rather than as "no budget".
+  readonly edgeClassBudgets: Readonly<Record<string, number>>;
+  readonly closureCap: number | null;
+  readonly truncated: boolean;
+  // Present only on a truncated walk.
+  readonly entitiesReached: number | null;
+  // Distinct entities the cap refused to admit. These were never matched.
+  readonly unexploredFrontierSize: number | null;
+  // Entities that ARE in the closure and WERE matched, but whose own edges were never read.
+  readonly unexpandedReachedCount: number | null;
+}
+
 export interface CheckInputs {
   readonly subjectEntityIds: readonly string[];
   readonly expandedEntityIds: readonly string[];
   readonly skippedIdentifierTypes: readonly string[];
+  // Null on a row written before the traversal record existed. Null is "the row does not say", which
+  // is a different fact from "the walk completed" and is reported as its own thing.
+  readonly traversal: TraversalRecord | null;
+}
+
+const NO_TRAVERSAL_RECORD = null;
+
+function parseTraversalRecord(value: unknown): TraversalRecord | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return NO_TRAVERSAL_RECORD;
+  }
+  const record = value as Record<string, unknown>;
+  const finiteNumber = (candidate: unknown): number | null =>
+    typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
+  const budgets: Record<string, number> = {};
+  const storedBudgets = record["edgeClassBudgets"];
+  if (
+    typeof storedBudgets === "object" &&
+    storedBudgets !== null &&
+    !Array.isArray(storedBudgets)
+  ) {
+    for (const [edgeClass, budget] of Object.entries(storedBudgets as Record<string, unknown>)) {
+      const parsedBudget = finiteNumber(budget);
+      if (parsedBudget !== null) budgets[edgeClass] = parsedBudget;
+    }
+  }
+  return {
+    edgeClassBudgets: budgets,
+    closureCap: finiteNumber(record["closureCap"]),
+    truncated: record["truncated"] === true,
+    entitiesReached: finiteNumber(record["entitiesReached"]),
+    unexploredFrontierSize: finiteNumber(record["unexploredFrontierSize"]),
+    unexpandedReachedCount: finiteNumber(record["unexpandedReachedCount"]),
+  };
 }
 
 export function parseCheckInputs(inputsJson: string): CheckInputs {
@@ -203,6 +260,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     subjectEntityIds: [],
     expandedEntityIds: [],
     skippedIdentifierTypes: [],
+    traversal: NO_TRAVERSAL_RECORD,
   };
   let parsed: unknown;
   try {
@@ -218,6 +276,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     subjectEntityIds: stringArray(record["subjectEntityIds"]),
     expandedEntityIds: stringArray(record["expandedEntityIds"]),
     skippedIdentifierTypes: stringArray(record["skippedIdentifierTypes"]),
+    traversal: parseTraversalRecord(record["traversal"]),
   };
 }
 
@@ -389,6 +448,7 @@ export async function readMatterConflictsPosture(
         strictness: checkRow.strictness,
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
+        traversal: inputs.traversal,
       },
       subjectEntityCount: inputs.subjectEntityIds.length,
       expandedEntityCount: inputs.expandedEntityIds.length,

@@ -29,12 +29,22 @@ and never calls external services.
 - `src/evidence.ts` — `assignTier` (identifier > exact name > phonetic > trigram-only; a candidate
   with no recorded signal still lands at tier 4, never disappears), `describeEvidence` (the
   reviewer-facing explanation string list)
-- `src/expansion.ts` — `expandGraph`: breadth-first traversal over `directory_edge` via `readEdges`;
-  corporate-family edge types (`corporate_parent`/`corporate_subsidiary`/`corporate_successor`) bypass
-  the depth budget, every other edge type obeys it
+- `src/edge-classes.ts` — the edge-type → edge-class map (`corporate` / `control` / `family` /
+  `representation`) and `edgeClassOf`. One home, so the traversal, the settings, and the recorded
+  scope can never disagree about which class an edge type belongs to
+- `src/expansion.ts` — `expandGraph`: breadth-first traversal over `directory_edge`, one batched edge
+  read per round rather than one per node. Budgeted per edge class rather than by one integer;
+  corporate-family edge types bypass the budget entirely and are bounded only by the per-run closure
+  cap. Returns the closure **plus** a truncation record when the cap stopped it. Degree-based hub
+  suppression is refused here, in a comment, because this is where the temptation is
+- `src/subject-facts.ts` — `readSubjectFacts` (one entity) and `readSubjectFactsBatch` (one query per
+  node table over a whole closure). One home for "which node table, which columns, what does an
+  absent row mean", so the two can never answer it differently
 - `src/imputation.ts` — `findImputationHits`: identity join `matter_party` → `directory_person` →
   `member`, never a similarity matcher
-- `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchParty`
+- `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchPartyBatch`
+  (the set-valued matcher the check runs: each blocking channel once over the whole closure, plus a
+  set-valued exact-name probe), `matchParty`
   (wraps `findDuplicateCandidates` + a direct exact-normalized-name probe, since the directory's three
   blocking channels are phonetic/trigram/blind-index and exact-name has no channel of its own). Passes
   the subject's own entity id as `subjectEntityId` so the blind-index channel fires the **tier-1
@@ -170,6 +180,37 @@ and never calls external services.
   shortfall appear immediately on every affected matter with no sweep and no write. This is the
   posture `packages/calendar/src/overdue.ts` holds for an overdue deadline: the platform computes the
   comparison and reports it; it never writes a judgement onto a record and lets it rot.
+- **A truncated expansion is never reported as a completed one.** Traversal is bounded — an unbounded
+  walk over a real corporate group is an availability problem — but the bound is **recorded and
+  reported**, never applied silently. On reaching the per-run closure cap, `expandGraph` stops and
+  returns a truncation record; `runConflictsCheck` writes it into the check row's `inputs_json` under
+  `traversal`, the posture read carries it on `latestCheck.scope.traversal`, and `describeCheck`
+  states in words that the search of the graph is incomplete, with how many entities were refused. A
+  check row that predates the record reports `traversal: null` — "the row does not say", which is a
+  third state and is never flattened into either of the other two. This is the depth analogue of the
+  `unavailable`-is-never-`searched` rule below, and it fails the same way if broken: the platform
+  telling a firm it looked somewhere it did not look.
+- **The bound is on the SIZE of the closure, never on the SHAPE of the graph.** Degree-based hub
+  suppression — skip any node carrying more than N edges — is refused and stays refused. A clearing
+  bank or a registered agent on five hundred matters is precisely where a positional conflict lives,
+  and a search that quietly steps around it has narrowed itself with nothing on the record to say so.
+  Reaching a size cap is a fact a check can record; stepping around a hub is not. A firm may mark an
+  entity non-expandable — that is a recorded, attributable firm assertion, and a different thing from
+  a platform heuristic. Held by `test/expansion.test.ts`.
+- **Expired edges are traversed, with the expiry on the path step.** An ended relationship — a
+  divorced spouse, a subsidiary sold last year — is walked, not skipped: the rules that most often
+  decide a conflict are about FORMER clients and FORMER relationships, so a traversal that stopped at
+  currency would drop the dimension they turn on. `EdgeStep.expiredAtCheck` carries it so the reviewer
+  weighs it. Expiry is judged against the CHECK'S OWN clock (`ExpansionBudget.asOf`), never an ambient
+  `new Date()`, so a long walk cannot hold two opinions about when a relationship ended.
+- **The batched matcher returns exactly the per-entity matcher's hit set.** `matchPartyBatch` and
+  `readSubjectFactsBatch` exist to make the query count follow the channel count instead of the entity
+  count; they are held to returning the same answer, not a similar one, by
+  `test/matcher-equivalence.test.ts` over a real migrated corpus carrying every shape the channels
+  distinguish. A performance change here that alters which hits come back is not a refactor — it is a
+  missed conflict, which is a professional-conduct failure rather than a latency regression. Any
+  future channel added to one path must land in the other in the same change, and the equivalence test
+  must be extended to a corpus that exercises it.
 - **A source that cannot run records `unavailable`, never `searched`.** The `content` class and
   `prior_firm_history` have no corpus yet and are always `unavailable`. `imputation` is `unavailable`
   on a check with no `matterId` (there is nothing to join firm members against), regardless of how the
@@ -192,11 +233,28 @@ and never calls external services.
 
 ## Gotchas
 
-- `readEdges` (`packages/directory/src/edges.ts:127`) reads an ambient `new Date()`. Do not depend on
-  it for deterministic expansion tests — pin or ignore the time-sensitive fields instead.
+- `readEdges` in `packages/directory/src/edges.ts` reads an ambient `new Date()` when no `asOf` is
+  supplied. The traversal always supplies one (and `includeExpired`), so its own reads are pinned; any
+  other caller in this package must pass the check's clock rather than depending on wall time.
 - Corporate-family edges (`corporate_parent`/`corporate_subsidiary`/`corporate_successor`) bypass the
-  depth budget in `expandGraph` deliberately — a rename, merger, or successor entity must still match
-  regardless of hop count. Every other edge type obeys `depth` normally.
+  hop budget in `expandGraph` deliberately — a rename, merger, or successor entity must still match
+  regardless of chain length. Every other edge type spends its own class's budget, and an edge type
+  this build has never heard of takes the WIDEST budget in force rather than the narrowest: the schema
+  admits any non-empty string, and a new relationship type that quietly became unwalkable would be a
+  conflict the engine stopped looking for without anybody choosing that.
+- The shipped `conflicts_check.depth` column still exists and still means something: `resolveScope`
+  records the WIDEST resolved per-class budget there, so a reader of the column alone is never told
+  the traversal was shallower than it was. The per-class detail lives in `inputs_json.traversal`.
+- Per-class budgets are a Pareto-vector relaxation, not a scalar one. A path's cost is one number per
+  edge class, and collapsing that vector to its sum would let a path that has spent its whole family
+  budget look cheaper than one that spent two control hops and can still walk a family edge — which
+  drops real conflicts, silently. `expansion.ts` keeps the Pareto-minimal set of cost vectors per
+  entity for that reason; the reported path is the cheapest, then shortest, then lexicographically
+  first by edge id, so one corpus always yields one explanation.
+- Every set-valued read in this package chunks its IN list at 100 bindings, because that is D1's
+  bound-parameter cap (`MAX_BOUND_PARAMETERS` in `packages/ledger/src/statements.ts`). The query count
+  is therefore proportional to channels times ceil(entities / 100), not to entities times channels —
+  a small fan for a platform limit, not a return of the N+1.
 - Drizzle-kit cannot model triggers; the six append-only guard triggers live in the hand-written
   migration `.sql` (`packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`), like the
   Directory FTS5 triggers, and are verified by `packages/database/test/conflicts-append-only.test.ts`

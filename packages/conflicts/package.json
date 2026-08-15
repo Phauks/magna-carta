@@ -25,7 +25,9 @@
     "./recheck-statements": "./src/recheck-statements.ts",
     "./recheck-cause": "./src/recheck-cause.ts",
     "./recheck-run": "./src/recheck-run.ts",
-    "./recheck-request": "./src/recheck-request.ts"
+    "./recheck-request": "./src/recheck-request.ts",
+    "./edge-classes": "./src/edge-classes.ts",
+    "./subject-facts": "./src/subject-facts.ts"
   },
   "scripts": {
     "test": "vp test run"

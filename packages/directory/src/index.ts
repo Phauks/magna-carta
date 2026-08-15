@@ -15,16 +15,27 @@ export {
 export type { PronounColumns, PronounSet, PronounVerbNumber } from "./pronouns.ts";
 export { createOrganization, readOrganization } from "./organization.ts";
 export { addName, changeName } from "./name-history.ts";
-export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.ts";
+export {
+  createEdge,
+  readEdges,
+  readEdgesForEntities,
+  InvalidEdgeTypeError,
+  UnknownEntityError,
+} from "./edges.ts";
 export {
   assertEntityExists,
   entityKindFromId,
   nodeTableForEntityId,
   MergedEntityError,
 } from "./entity-kind.ts";
-export type { CreateEdgeInput, DirectoryEdge } from "./edges.ts";
-export { searchNames, findDuplicateCandidates } from "./search.ts";
-export type { NameSearchHit, FindDuplicateCandidatesInput, DuplicateCandidate } from "./search.ts";
+export type { CreateEdgeInput, DirectoryEdge, ReadEdgesOptions } from "./edges.ts";
+export { searchNames, findDuplicateCandidates, findDuplicateCandidatesBatch } from "./search.ts";
+export type {
+  NameSearchHit,
+  FindDuplicateCandidatesInput,
+  DuplicateCandidate,
+  BatchSubject,
+} from "./search.ts";
 export {
   addIdentifier,
   findByIdentifier,

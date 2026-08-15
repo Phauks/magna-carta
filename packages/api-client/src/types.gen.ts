@@ -1555,6 +1555,12 @@ export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
     depth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
 };
 
 export type ConflictsCheckWithHitsResponse = {
@@ -1574,9 +1580,21 @@ export type ConflictsCheckDetail = {
     strictness: 'balanced' | 'over_inclusive';
     depth: number;
     floorRaised: boolean;
+    traversal: ConflictsTraversalRecord;
     actorUserId: string | null;
     createdAt: string;
 };
+
+export type ConflictsTraversalRecord = {
+    edgeClassBudgets: {
+        [key: string]: number;
+    };
+    closureCap: number | null;
+    truncated: boolean;
+    entitiesReached: number | null;
+    unexploredFrontierSize: number | null;
+    unexpandedReachedCount: number | null;
+} | null;
 
 export type ConflictsHitDetail = {
     id: string;
@@ -1595,6 +1613,7 @@ export type ConflictsGraphPathStep = {
     edgeType: string;
     fromEntityId: string;
     toEntityId: string;
+    expiredAtCheck?: boolean;
 };
 
 export type ConflictsDispositionDetail = {
@@ -1636,6 +1655,7 @@ export type ConflictsPostureScope = {
     strictness: string;
     depth: number;
     floorRaised: boolean;
+    traversal: ConflictsTraversalRecord;
 };
 
 export type ConflictsPostureScopeShortfall = {

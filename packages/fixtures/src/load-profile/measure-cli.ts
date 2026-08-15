@@ -47,6 +47,7 @@ import {
 } from "./timekeeping-measurements.ts";
 import {
   conflictsHotPathPlans,
+  conflictsMatcherBounds,
   conflictsMeasurementHandle,
   conflictsMeasurements,
   CONFLICTS_PLAN_SCAN_ALLOWLIST,
@@ -118,6 +119,10 @@ const automationHandle = await documentAutomationMeasurementHandle(snapshot);
 // The calendar's plan probes are built from the registry's own statement builders and its join-key
 // pre-reads, so its handle and its plans are both resolved before the gate too.
 const calendarHandle = calendarMeasurementHandle(snapshot);
+// The conflicts handle is built before the gate too: the matcher's statement-count bound below binds
+// to it, and it is the number that catches an N+1 a plan cannot see and a timing would only show
+// once the corpus outgrew the noise.
+const conflictsHandle = await conflictsMeasurementHandle(snapshot, BASELINE_SEED);
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
@@ -179,11 +184,10 @@ const results = [
     timekeepingMeasurements,
     { warmupIterations: 3, iterations: 30 },
   )),
-  ...(await runMeasurements(
-    await conflictsMeasurementHandle(snapshot, BASELINE_SEED),
-    conflictsMeasurements,
-    { warmupIterations: 3, iterations: 30 },
-  )),
+  ...(await runMeasurements(conflictsHandle, conflictsMeasurements, {
+    warmupIterations: 3,
+    iterations: 30,
+  })),
   ...(await runMeasurements(automationHandle, documentAutomationMeasurements, {
     warmupIterations: 3,
     iterations: 30,
@@ -223,6 +227,16 @@ for (const bound of timelineBounds) {
   );
 }
 
+// The batched conflicts matcher's own count, for the same reason: the whole claim of the batch is
+// that its query count follows the channel count rather than the entity count, and only a count can
+// state that.
+const matcherBounds = await conflictsMatcherBounds(conflictsHandle);
+for (const bound of matcherBounds) {
+  console.log(
+    `${bound.label}: ${bound.statementCount} statements over ${bound.subjectCount} subjects`,
+  );
+}
+
 const baselineDirectory = join(import.meta.dirname, "..", "..", "baselines");
 mkdirSync(baselineDirectory, { recursive: true });
 const baselinePath = join(baselineDirectory, `${ledgerVolume.name}-v${ledgerVolume.version}.json`);
@@ -234,13 +248,22 @@ writeBaselineFile(baselinePath, {
   // from a different laptop, which is the one mistake the relative-numbers rule most invites.
   environment: baselineEnvironment(),
   results,
-  bounds: timelineBounds.map((bound) => ({
-    name: bound.label,
-    statementCount: bound.statementCount,
-    rowsRead: bound.rowsRead,
-    sourcesRead: bound.sourcesRead,
-    entriesReturned: bound.entriesReturned,
-  })),
+  bounds: [
+    ...timelineBounds.map((bound) => ({
+      name: bound.label,
+      statementCount: bound.statementCount,
+      rowsRead: bound.rowsRead,
+      sourcesRead: bound.sourcesRead,
+      entriesReturned: bound.entriesReturned,
+    })),
+    ...matcherBounds.map((bound) => ({
+      name: bound.label,
+      statementCount: bound.statementCount,
+      rowsRead: 0,
+      sourcesRead: bound.subjectCount,
+      entriesReturned: 0,
+    })),
+  ],
 });
 console.log(`baseline written: ${baselinePath}`);
 snapshot.close();

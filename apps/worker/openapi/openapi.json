@@ -6217,6 +6217,31 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 6
+          },
+          "edgeClassBudgets": {
+            "type": "object",
+            "properties": {
+              "control": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "family": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "representation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              }
+            }
+          },
+          "closureCap": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
           }
         },
         "required": [
@@ -6304,6 +6329,9 @@
           "floorRaised": {
             "type": "boolean"
           },
+          "traversal": {
+            "$ref": "#/components/schemas/ConflictsTraversalRecord"
+          },
           "actorUserId": {
             "type": [
               "string",
@@ -6323,8 +6351,58 @@
           "strictness",
           "depth",
           "floorRaised",
+          "traversal",
           "actorUserId",
           "createdAt"
+        ]
+      },
+      "ConflictsTraversalRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "edgeClassBudgets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "closureCap": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "entitiesReached": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "unexploredFrontierSize": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "unexpandedReachedCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "edgeClassBudgets",
+          "closureCap",
+          "truncated",
+          "entitiesReached",
+          "unexploredFrontierSize",
+          "unexpandedReachedCount"
         ]
       },
       "ConflictsHitDetail": {
@@ -6398,6 +6476,9 @@
           },
           "toEntityId": {
             "type": "string"
+          },
+          "expiredAtCheck": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -6571,13 +6652,17 @@
           },
           "floorRaised": {
             "type": "boolean"
+          },
+          "traversal": {
+            "$ref": "#/components/schemas/ConflictsTraversalRecord"
           }
         },
         "required": [
           "sources",
           "strictness",
           "depth",
-          "floorRaised"
+          "floorRaised",
+          "traversal"
         ]
       },
       "ConflictsPostureScopeShortfall": {

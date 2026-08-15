@@ -24,6 +24,16 @@ export interface ReportedSource {
   readonly reason: string | null;
 }
 
+// What the graph walk was allowed to do and whether it finished, as recorded on the check row.
+export interface ReportedTraversal {
+  readonly edgeClassBudgets: Readonly<Record<string, number>>;
+  readonly closureCap: number | null;
+  readonly truncated: boolean;
+  readonly entitiesReached: number | null;
+  readonly unexploredFrontierSize: number | null;
+  readonly unexpandedReachedCount: number | null;
+}
+
 export interface ReportedCheck {
   readonly createdAt: string;
   readonly trigger: string;
@@ -39,6 +49,9 @@ export interface ReportedCheck {
   // Identifier types the corpus cannot probe on their own, recorded so the log never implies they
   // were searched.
   readonly skippedIdentifierTypes: readonly string[];
+  // Null on a check written before the traversal record existed, which the statement reports as the
+  // row not saying rather than as the walk having completed.
+  readonly traversal?: ReportedTraversal | null;
 }
 
 export interface ReportedHit {
@@ -82,6 +95,60 @@ function searched(sources: readonly ReportedSource[], source: string): boolean {
   return sources.some((entry) => entry.source === source && entry.availability === "searched");
 }
 
+// The traversal's own account of itself: what it was allowed to walk, and — the sentence that
+// matters — whether it finished.
+//
+// A truncated expansion is NEVER reported as a completed one. It is the depth version of the rule
+// that a source with no corpus records `unavailable` and never reads as having been searched: in
+// both cases the platform looked at part of the world and has to say which part, because a firm
+// defending its procedure can defend "we searched 500 related entities and 137 more were reachable
+// and not searched" and cannot defend a number that quietly stopped meaning what it says.
+function describeTraversal(traversal: ReportedTraversal | null): string[] {
+  if (traversal === null) return [];
+  const statements: string[] = [];
+
+  const budgets = Object.entries(traversal.edgeClassBudgets).toSorted(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  if (budgets.length > 0) {
+    statements.push(
+      `Traversal budgets — ${budgets
+        .map(([edgeClass, budget]) => `${edgeClass} ${budget} hop${budget === 1 ? "" : "s"}`)
+        .join(
+          ", ",
+        )}; corporate family traversed transitively. Ended relationships were traversed ` +
+        `and each is marked on the path that reached through it.`,
+    );
+  }
+
+  if (!traversal.truncated) return statements;
+
+  const reached = traversal.entitiesReached;
+  const cap = traversal.closureCap;
+  const frontier = traversal.unexploredFrontierSize;
+  const unexpanded = traversal.unexpandedReachedCount;
+  const parts: string[] = [];
+  if (reached !== null && cap !== null) {
+    parts.push(`${reached} entities reached against a cap of ${cap}`);
+  } else if (cap !== null) {
+    parts.push(`the cap of ${cap} entities was reached`);
+  }
+  if (frontier !== null) {
+    parts.push(
+      `${frontier} further ${frontier === 1 ? "entity was" : "entities were"} reachable and not searched`,
+    );
+  }
+  if (unexpanded !== null && unexpanded > 0) {
+    parts.push(
+      `${unexpanded} reached ${unexpanded === 1 ? "entity was" : "entities were"} matched but not expanded, so what lies beyond ${unexpanded === 1 ? "it" : "them"} is unknown`,
+    );
+  }
+  statements.push(
+    `Graph — THE TRAVERSAL WAS TRUNCATED and this search of the graph is incomplete: ${parts.join("; ")}.`,
+  );
+  return statements;
+}
+
 // The full statement list for one check, in reading order. Each entry is one sentence or clause a
 // caller renders as its own line; the module does not join them, because the caller owns the medium.
 export function describeCheck(
@@ -116,6 +183,7 @@ export function describeCheck(
         ? `Graph — traversal budget 0, so no related entity was reached beyond the ${check.subjectEntityCount} subject parties themselves.`
         : `Graph — ${check.expandedEntityCount} entities reached from the subject parties, at a ${check.depth}-hop traversal budget.`,
     );
+    statements.push(...describeTraversal(check.traversal ?? null));
   }
 
   if (searched(sources, "imputation")) {
