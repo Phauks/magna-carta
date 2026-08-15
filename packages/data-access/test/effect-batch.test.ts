@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import { commitEffectBatch } from "../src/effect-batch.ts";
+import {
+  commitEffectBatch,
+  composeEffectBatch,
+  EffectBatchTooLargeError,
+  MAX_BATCH_STATEMENTS,
+} from "../src/effect-batch.ts";
 import { stubD1 } from "./support/stub-d1.ts";
 
 const NOW = () => "2026-06-09T00:00:00.000Z";
@@ -48,6 +53,67 @@ describe("commitEffectBatch", () => {
     const stub = stubD1();
     await commitEffectBatch(stub.database, { statements: [], outboxMessages: [] }, { now: NOW });
     expect(stub.batches).toHaveLength(0);
+  });
+
+  it("composes a batch at the ceiling without an argument-count limit", () => {
+    // The composer used to spread its statement list into `push`, which passes every element as a
+    // separate ARGUMENT and blows the engine stack somewhere in the low hundreds of thousands — a
+    // limit that moved with how deep the caller already was, so the same effect could compose on one
+    // path and abort on another. A batch AT the stated ceiling must compose, every time.
+    const stub = stubD1();
+    const statements = Array.from({ length: MAX_BATCH_STATEMENTS }, (_, index) =>
+      stub.database.prepare("INSERT INTO a (id) VALUES (?1)").bind(index),
+    );
+    const composed = composeEffectBatch(
+      stub.database,
+      { statements, outboxMessages: [] },
+      { now: NOW },
+    );
+    expect(composed).toHaveLength(MAX_BATCH_STATEMENTS);
+  });
+
+  it("refuses a batch past the ceiling, and the refusal says what to do instead", () => {
+    const stub = stubD1();
+    const statements = Array.from({ length: MAX_BATCH_STATEMENTS + 1 }, (_, index) =>
+      stub.database.prepare("INSERT INTO a (id) VALUES (?1)").bind(index),
+    );
+    let thrown: unknown;
+    try {
+      composeEffectBatch(stub.database, { statements, outboxMessages: [] }, { now: NOW });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(EffectBatchTooLargeError);
+    const error = thrown as EffectBatchTooLargeError;
+    expect(error.statementCount).toBe(MAX_BATCH_STATEMENTS + 1);
+    expect(error.maximumStatementCount).toBe(MAX_BATCH_STATEMENTS);
+    // Naming the remedy is the point of the refusal: splitting the batch would trade the ceiling for
+    // a partially committed write, so the message has to point at bounding the effect instead.
+    expect(error.message).toContain("bound the effect");
+    expect(error.message).toContain("never to split the batch");
+  });
+
+  it("counts the idempotency record and the outbox rows against the ceiling", () => {
+    // They ride the same transaction as the business statements, so a ceiling that ignored them would
+    // let a batch exceed it by exactly the rows the composer itself adds.
+    const stub = stubD1();
+    const statements = Array.from({ length: MAX_BATCH_STATEMENTS }, () =>
+      stub.database.prepare("INSERT INTO a (id) VALUES (1)"),
+    );
+    expect(() =>
+      composeEffectBatch(
+        stub.database,
+        { statements, outboxMessages: [] },
+        { idempotencyRecord: completedRecord(), now: NOW },
+      ),
+    ).toThrow(EffectBatchTooLargeError);
+    expect(() =>
+      composeEffectBatch(
+        stub.database,
+        { statements, outboxMessages: [{ topic: "probe", payload: {} }] },
+        { now: NOW },
+      ),
+    ).toThrow(EffectBatchTooLargeError);
   });
 
   it("a failed batch propagates and records nothing (all-or-nothing)", async () => {

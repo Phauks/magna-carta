@@ -2,9 +2,11 @@ import type { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import {
+  DEFAULT_CANDIDATE_CAP,
   DEFAULT_CLOSURE_CAP,
   DEFAULT_CONFLICTS_POLICY,
   DEFAULT_EDGE_CLASS_BUDGETS,
+  MAX_CANDIDATE_CAP,
   readConflictsPolicy,
   resolveScope,
   type ConflictsPolicy,
@@ -16,6 +18,7 @@ const policy: ConflictsPolicy = {
   defaultDepth: 1,
   edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
   closureCap: DEFAULT_CLOSURE_CAP,
+  candidateCap: DEFAULT_CANDIDATE_CAP,
 };
 
 test("a request above the floor passes through untouched", () => {
@@ -217,4 +220,42 @@ test("readConflictsPolicy: a stored row predating the typed budgets keeps its ow
   const resolved = await readConflictsPolicy(database);
   expect(resolved.edgeClassBudgets).toEqual({ control: 3, family: 3, representation: 3 });
   expect(resolved.closureCap).toBe(DEFAULT_CLOSURE_CAP);
+});
+
+test("the candidate cap defaults, is overridable per run, and never exceeds what one batch can carry", () => {
+  expect(resolveScope(policy, { sources: ["party"], strictness: "balanced" }).candidateCap).toBe(
+    DEFAULT_CANDIDATE_CAP,
+  );
+  // A run may ask for a narrower bound, exactly as it may ask for a narrower closure.
+  expect(
+    resolveScope(policy, { sources: ["party"], strictness: "balanced", candidateCap: 42 })
+      .candidateCap,
+  ).toBe(42);
+  // A cap raised past what one atomic batch can hold would turn a truncation the platform can report
+  // into a check that fails outright, so the two bounds compose mechanically rather than by
+  // convention: nothing a caller or a settings row can supply puts them in conflict.
+  expect(
+    resolveScope(policy, {
+      sources: ["party"],
+      strictness: "balanced",
+      candidateCap: MAX_CANDIDATE_CAP * 10,
+    }).candidateCap,
+  ).toBe(MAX_CANDIDATE_CAP);
+  expect(
+    resolveScope(policy, { sources: ["party"], strictness: "balanced", candidateCap: -5 })
+      .candidateCap,
+  ).toBe(0);
+});
+
+test("a stored policy predating the candidate cap resolves to the bound, never to none", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  seedConflictsPolicy(raw, '{"floorSources":["party"],"closureCap":250}');
+  const stored = await readConflictsPolicy(database);
+  // An unbounded run is the state the cap exists to end, so "the row does not say" has to resolve to
+  // the shipped bound rather than to no bound at all.
+  expect(stored.candidateCap).toBe(DEFAULT_CANDIDATE_CAP);
+
+  raw.exec("DELETE FROM setting WHERE key = 'conflicts.policy'");
+  seedConflictsPolicy(raw, '{"candidateCap":99999999}');
+  expect((await readConflictsPolicy(database)).candidateCap).toBe(MAX_CANDIDATE_CAP);
 });

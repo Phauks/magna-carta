@@ -6242,6 +6242,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 5000
+          },
+          "candidateCap": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9500
           }
         },
         "required": [
@@ -6332,6 +6337,9 @@
           "traversal": {
             "$ref": "#/components/schemas/ConflictsTraversalRecord"
           },
+          "candidates": {
+            "$ref": "#/components/schemas/ConflictsCandidateRecord"
+          },
           "actorUserId": {
             "type": [
               "string",
@@ -6352,6 +6360,7 @@
           "depth",
           "floorRaised",
           "traversal",
+          "candidates",
           "actorUserId",
           "createdAt"
         ]
@@ -6403,6 +6412,69 @@
           "entitiesReached",
           "unexploredFrontierSize",
           "unexpandedReachedCount"
+        ]
+      },
+      "ConflictsCandidateRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "candidateCap": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "candidatesSurfaced": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "candidatesWritten": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "candidatesRefused": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "refusedByTier": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tier": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "tier",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "candidateCap",
+          "truncated",
+          "candidatesSurfaced",
+          "candidatesWritten",
+          "candidatesRefused",
+          "refusedByTier"
         ]
       },
       "ConflictsHitDetail": {
@@ -6655,6 +6727,9 @@
           },
           "traversal": {
             "$ref": "#/components/schemas/ConflictsTraversalRecord"
+          },
+          "candidates": {
+            "$ref": "#/components/schemas/ConflictsCandidateRecord"
           }
         },
         "required": [
@@ -6662,7 +6737,8 @@
           "strictness",
           "depth",
           "floorRaised",
-          "traversal"
+          "traversal",
+          "candidates"
         ]
       },
       "ConflictsPostureScopeShortfall": {

@@ -165,6 +165,11 @@ export interface MeasuredBound {
   readonly rowsRead: number;
   readonly sourcesRead: number;
   readonly entriesReturned: number;
+  // Counts a bound reports that are none of the four above — a per-channel breakdown, a corpus size.
+  // Named rather than folded into one of the fixed fields, because a reader diffing two baselines has
+  // to be able to tell what a number IS, and a count filed under a field it does not mean is worse
+  // than no count at all.
+  readonly counts?: Readonly<Record<string, number>>;
 }
 
 export interface BaselineFile {

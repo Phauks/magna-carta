@@ -4,6 +4,7 @@ import { readMatterParties } from "@magna-carta/directory/party";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
+import { boundCandidateHits, type CandidateTruncation } from "./candidate-bound.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
 import { expandGraph, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits } from "./imputation.ts";
@@ -127,14 +128,15 @@ export async function runConflictsCheck(
   // five-hundred-entity cap without this is roughly two and a half thousand queries in one
   // invocation, which is why the batching lands in the same change as the widening rather than after
   // a measurement — it is the foundation the cap stands on, not an optimization of it.
-  const hits: Array<{
+  interface CandidateHit {
     entityId: string;
     sourceClass: SourceClass;
     coParty: boolean;
     tier: number;
     matchedFields: string[];
     path: unknown;
-  }> = [];
+  }
+  const similarityHits: CandidateHit[] = [];
 
   const subjectFacts = await readSubjectFactsBatch(
     context,
@@ -158,7 +160,7 @@ export async function runConflictsCheck(
       // client's parent company) or a co-party name/identifier collision — so it is recorded, flagged
       // co-party so a reviewer triages it apart from a conflict with a prior client, never dropped.
       if (match.entityId === entity.entityId) continue;
-      hits.push({
+      similarityHits.push({
         entityId: match.entityId,
         sourceClass: entity.path.length === 0 ? "party" : "graph",
         coParty: seedIds.has(match.entityId),
@@ -168,6 +170,19 @@ export async function runConflictsCheck(
       });
     }
   }
+
+  // The candidate bound applies HERE, to the similarity channels only — they are the pair whose output
+  // is the closure times the corpus. Imputation below is an identity join over one matter's own party
+  // list: it is bounded by the matter, it is tier 1 by construction, and a bound that could refuse a
+  // firm member who genuinely IS a party would be refusing the strongest thing the engine can find.
+  //
+  // The bound sits after the matcher rather than inside it on purpose. `matchPartyBatch` is held to
+  // returning exactly the per-entity matcher's hit set by test/matcher-equivalence.test.ts, and a bound
+  // reaching into either path would make that proof about a narrowed answer instead of the answer.
+  // Bounding the run's OUTPUT leaves the matchers identical and the proof intact by construction.
+  const bounded = boundCandidateHits(similarityHits, scope.candidateCap);
+  const hits: CandidateHit[] = [...bounded.hits];
+  const candidateTruncation: CandidateTruncation | null = bounded.truncation;
 
   if (inScope.has("imputation") && input.matterId !== undefined) {
     for (const imputed of await findImputationHits(context.database, [input.matterId])) {
@@ -242,6 +257,23 @@ export async function runConflictsCheck(
             entitiesReached: expansion.truncation.entitiesReached,
             unexploredFrontierSize: expansion.truncation.unexploredFrontierSize,
             unexpandedReachedCount: expansion.truncation.unexpandedReachedCount,
+          }),
+    },
+    // WHAT THE RUN SURFACED VERSUS WHAT IT WROTE. Recorded beside `traversal` and read the same way:
+    // the cap in force always, and — when it bit — how many candidates were refused and at which
+    // tiers. `truncated: false` is the ordinary case and says the written hits are everything the
+    // channels found; a row predating this record carries no `candidates` key at all, which reads as
+    // the row not saying rather than as the search having been complete.
+    candidates: {
+      candidateCap: scope.candidateCap,
+      truncated: candidateTruncation !== null,
+      ...(candidateTruncation === null
+        ? {}
+        : {
+            candidatesSurfaced: candidateTruncation.candidatesSurfaced,
+            candidatesWritten: candidateTruncation.candidatesWritten,
+            candidatesRefused: candidateTruncation.candidatesRefused,
+            refusedByTier: candidateTruncation.refusedByTier,
           }),
     },
   };

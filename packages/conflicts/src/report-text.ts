@@ -34,6 +34,17 @@ export interface ReportedTraversal {
   readonly unexpandedReachedCount: number | null;
 }
 
+// How many candidates the run was allowed to write and whether it had to refuse any, as recorded on
+// the check row.
+export interface ReportedCandidates {
+  readonly candidateCap: number | null;
+  readonly truncated: boolean;
+  readonly candidatesSurfaced: number | null;
+  readonly candidatesWritten: number | null;
+  readonly candidatesRefused: number | null;
+  readonly refusedByTier: ReadonlyArray<{ readonly tier: EvidenceTier; readonly count: number }>;
+}
+
 export interface ReportedCheck {
   readonly createdAt: string;
   readonly trigger: string;
@@ -52,6 +63,8 @@ export interface ReportedCheck {
   // Null on a check written before the traversal record existed, which the statement reports as the
   // row not saying rather than as the walk having completed.
   readonly traversal?: ReportedTraversal | null;
+  // Null on a check written before the candidate record existed, and treated the same way.
+  readonly candidates?: ReportedCandidates | null;
 }
 
 export interface ReportedHit {
@@ -149,6 +162,41 @@ function describeTraversal(traversal: ReportedTraversal | null): string[] {
   return statements;
 }
 
+// The candidate bound's own account of itself, and — the sentence that matters — whether it bit.
+//
+// A run that refused candidates has searched less than the reader would otherwise assume from the hit
+// count in front of them, so the count is stated against what the channels actually surfaced. The
+// per-tier breakdown is spelled out rather than summarized: a run that refused only trigram-overlap
+// candidates and a run that refused an exact-identifier match are not the same event, and a single
+// number would render them identically.
+function describeCandidateBound(candidates: ReportedCandidates | null): string[] {
+  if (candidates === null || !candidates.truncated) return [];
+
+  const surfaced = candidates.candidatesSurfaced;
+  const written = candidates.candidatesWritten;
+  const refused = candidates.candidatesRefused;
+  const cap = candidates.candidateCap;
+  const parts: string[] = [];
+  if (surfaced !== null && written !== null) {
+    parts.push(`${surfaced} candidates surfaced and ${written} were recorded`);
+  }
+  if (cap !== null) parts.push(`the cap in force was ${cap}`);
+  if (refused !== null) {
+    const byTier = candidates.refusedByTier
+      .map((entry) => `tier ${entry.tier}: ${entry.count}`)
+      .join(", ");
+    parts.push(
+      byTier.length === 0
+        ? `${refused} ${refused === 1 ? "candidate was" : "candidates were"} refused`
+        : `${refused} ${refused === 1 ? "candidate was" : "candidates were"} refused (${byTier})`,
+    );
+  }
+  return [
+    `Candidates — THE CANDIDATE SET WAS TRUNCATED and this search is incomplete: ${parts.join("; ")}. ` +
+      `The strongest evidence was kept; a co-party surfacing is never refused.`,
+  ];
+}
+
 // The full statement list for one check, in reading order. Each entry is one sentence or clause a
 // caller renders as its own line; the module does not join them, because the caller owns the medium.
 export function describeCheck(
@@ -211,10 +259,19 @@ export function describeCheck(
     );
   }
 
+  const candidates = check.candidates ?? null;
+  statements.push(...describeCandidateBound(candidates));
+
   if (hits.length === 0) {
-    // The only conclusion the platform draws, and it is a statement about the search ending rather
-    // than about the matter. Nothing here may grow into a clearance.
-    statements.push("Nothing surfaced.");
+    // "Nothing surfaced." is a fact about the machine's own behaviour, and it is only a fact when the
+    // machine wrote everything it found. A run whose cap refused every candidate found plenty and
+    // recorded none, so the truncation sentence above is the whole and only account of it — appending
+    // this one would state the exact opposite of what happened.
+    if (candidates === null || !candidates.truncated) {
+      // The only conclusion the platform draws, and it is a statement about the search ending rather
+      // than about the matter. Nothing here may grow into a clearance.
+      statements.push("Nothing surfaced.");
+    }
     return statements;
   }
 
@@ -222,8 +279,12 @@ export function describeCheck(
     .toSorted(([left], [right]) => left - right)
     .map(([tier, count]) => `tier ${tier}: ${count}`)
     .join(", ");
+  // "Surfaced" and "recorded" are the same number on an unbounded run and are NOT on a bounded one, so
+  // the closing sentence changes verb rather than letting the reader take a written count for
+  // everything the channels found. The truncation statement above carries the surfaced figure.
+  const verb = candidates !== null && candidates.truncated ? "recorded" : "surfaced";
   statements.push(
-    `${hits.length} ${hits.length === 1 ? "candidate" : "candidates"} surfaced for review (${byTier}).`,
+    `${hits.length} ${hits.length === 1 ? "candidate" : "candidates"} ${verb} for review (${byTier}).`,
   );
   return statements;
 }

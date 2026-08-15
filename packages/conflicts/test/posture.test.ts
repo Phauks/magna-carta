@@ -238,6 +238,9 @@ test("the latest check is the one reported, and its scope comes back verbatim", 
     // The seeded row carries no traversal record, and null is reported as "the row does not say" —
     // never silently as a walk that completed.
     traversal: null,
+    // Same rule for the candidate record: a row written before the bound existed does not say how
+    // many candidates the run was allowed to write, and that is a third state, not "all of them".
+    candidates: null,
   });
   expect(posture.latestCheck?.subjectEntityCount).toBe(2);
   expect(posture.latestCheck?.expandedEntityCount).toBe(3);

@@ -46,6 +46,7 @@ import {
   TIMEKEEPING_PLAN_SCAN_ALLOWLIST,
 } from "./timekeeping-measurements.ts";
 import {
+  conflictsCandidateBounds,
   conflictsHotPathPlans,
   conflictsMatcherBounds,
   conflictsMeasurementHandle,
@@ -237,6 +238,17 @@ for (const bound of matcherBounds) {
   );
 }
 
+// Where the candidates come from, and how many of them there are per subject. The closure cap bounds
+// the walk; these bound nothing — they REPORT the quantity the second cap exists for, so that reading
+// two baselines taken at different profile scales shows the slope against the corpus rather than one
+// number at one size.
+const candidateBounds = await conflictsCandidateBounds(conflictsHandle);
+for (const bound of candidateBounds) {
+  console.log(
+    `${bound.label}: ${bound.candidateCount} candidates over ${bound.subjectCount} subjects against a corpus of ${bound.corpusOfKind} (trigram-only ${bound.trigramOnlyCandidates}, phonetic ${bound.phoneticCandidates}, exact name ${bound.exactNameCandidates}, identifier ${bound.identifierCandidates})`,
+  );
+}
+
 const baselineDirectory = join(import.meta.dirname, "..", "..", "baselines");
 mkdirSync(baselineDirectory, { recursive: true });
 const baselinePath = join(baselineDirectory, `${ledgerVolume.name}-v${ledgerVolume.version}.json`);
@@ -262,6 +274,20 @@ writeBaselineFile(baselinePath, {
       rowsRead: 0,
       sourcesRead: bound.subjectCount,
       entriesReturned: 0,
+    })),
+    ...candidateBounds.map((bound) => ({
+      name: bound.label,
+      statementCount: 0,
+      rowsRead: 0,
+      sourcesRead: bound.subjectCount,
+      entriesReturned: bound.candidateCount,
+      counts: {
+        corpusOfKind: bound.corpusOfKind,
+        trigramOnlyCandidates: bound.trigramOnlyCandidates,
+        phoneticCandidates: bound.phoneticCandidates,
+        exactNameCandidates: bound.exactNameCandidates,
+        identifierCandidates: bound.identifierCandidates,
+      },
     })),
   ],
 });

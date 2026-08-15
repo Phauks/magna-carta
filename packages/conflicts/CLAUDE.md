@@ -37,6 +37,11 @@ and never calls external services.
   corporate-family edge types bypass the budget entirely and are bounded only by the per-run closure
   cap. Returns the closure **plus** a truncation record when the cap stopped it. Degree-based hub
   suppression is refused here, in a comment, because this is where the temptation is
+- `src/candidate-bound.ts` — `boundCandidateHits`: the second bound. The closure cap bounds the walk;
+  this bounds what the walk's matching produced, which is the walk times the corpus. Applied to the
+  similarity channels' output in `run-check.ts` and nowhere near either matcher, so the batched/
+  per-entity equivalence proof stays a proof about the whole answer. Keeps the strongest evidence,
+  never refuses a co-party hit, and returns a truncation record counting the refusal by tier
 - `src/subject-facts.ts` — `readSubjectFacts` (one entity) and `readSubjectFactsBatch` (one query per
   node table over a whole closure). One home for "which node table, which columns, what does an
   absent row mean", so the two can never answer it differently
@@ -190,6 +195,24 @@ and never calls external services.
   third state and is never flattened into either of the other two. This is the depth analogue of the
   `unavailable`-is-never-`searched` rule below, and it fails the same way if broken: the platform
   telling a firm it looked somewhere it did not look.
+- **There are TWO bounds, because a cap on the walk is not a cap on the work.** Hits scale as the
+  closure TIMES the corpus, not as the closure: with the closure pinned, candidates per subject rise
+  linearly with the Directory — measured at roughly six tenths of the organization corpus for an
+  organization subject and a tenth of the person corpus for a person, with around ninety-nine per cent
+  of the volume being candidates whose ONLY signal is trigram overlap, because a trigram-OR match asks
+  whether two names share ONE three-character window and multi-word names nearly always do. So
+  `candidateCap` sits beside `closureCap` on `ConflictsPolicy` and bounds what a run WRITES. Four
+  rules, and they are the reason it is not a threshold: below the cap nothing is chosen, reordered, or
+  recorded; when it must refuse it keeps the strongest evidence and records the refusal per tier, so a
+  run that lost anything above tier 4 is visibly alarming; a **co-party surfacing is never refused**
+  (subject parties bypass the closure cap for the same reason, and the bypass has the same
+  consequence); and it lives outside both matchers, so `test/matcher-equivalence.test.ts` still proves
+  the batched path returns exactly the per-entity path's hit set rather than the same narrowed one.
+  The record travels the road `traversal` already does — check row, posture read, report sentence —
+  and a run whose cap refused everything deliberately does **not** end `"Nothing surfaced."`, which is
+  a fact about the machine having written everything it found. Re-measured by
+  `conflictsCandidateBounds` in `packages/fixtures/src/load-profile/conflicts-measurements.ts`; two
+  baselines at different profile scales are the corpus sweep.
 - **The bound is on the SIZE of the closure, never on the SHAPE of the graph.** Degree-based hub
   suppression — skip any node carrying more than N edges — is refused and stays refused. A clearing
   bank or a registered agent on five hundred matters is precisely where a positional conflict lives,
@@ -251,6 +274,11 @@ and never calls external services.
   drops real conflicts, silently. `expansion.ts` keeps the Pareto-minimal set of cost vectors per
   entity for that reason; the reported path is the cheapest, then shortest, then lexicographically
   first by edge id, so one corpus always yields one explanation.
+- `composeEffectBatch` refuses a batch past `MAX_BATCH_STATEMENTS` (10,000), and every hit of a check
+  rides one batch with the check row. `resolveScope` therefore clamps `candidateCap` below that
+  ceiling: a firm that raised the cap past what one transaction can carry would turn a truncation the
+  platform reports into a check that fails outright, and a bounded answer on the record beats none.
+  The two bounds compose mechanically rather than by convention — see `MAX_CANDIDATE_CAP`.
 - Every set-valued read in this package chunks its IN list at 100 bindings, because that is D1's
   bound-parameter cap (`MAX_BOUND_PARAMETERS` in `packages/ledger/src/statements.ts`). The query count
   is therefore proportional to channels times ceil(entities / 100), not to entities times channels —

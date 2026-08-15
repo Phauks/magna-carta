@@ -196,3 +196,87 @@ test("a check row that records no traversal says nothing about the walk, rather 
   expect(statements.some((statement) => statement.startsWith("Traversal budgets"))).toBe(false);
   expect(statements.some((statement) => statement.includes("TRUNCATED"))).toBe(false);
 });
+
+test("a truncated candidate set is stated in words, with the refusal broken out by tier", () => {
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      candidates: {
+        candidateCap: 5000,
+        truncated: true,
+        candidatesSurfaced: 211_199,
+        candidatesWritten: 5000,
+        candidatesRefused: 206_199,
+        refusedByTier: [
+          { tier: 3, count: 12 },
+          { tier: 4, count: 206_187 },
+        ],
+      },
+    },
+    [{ evidenceTier: 4 }],
+    FULL_SOURCES,
+  );
+  const truncation = statements.find((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"));
+  expect(truncation).toBeDefined();
+  expect(truncation).toContain("211199 candidates surfaced and 5000 were recorded");
+  expect(truncation).toContain("the cap in force was 5000");
+  // The per-tier breakdown is the whole point: a run that refused only trigram overlap and one that
+  // lost a phonetic match are not the same event, and one number would render them identically.
+  expect(truncation).toContain("tier 3: 12");
+  expect(truncation).toContain("tier 4: 206187");
+});
+
+test("a run whose cap refused everything never ends with Nothing surfaced", () => {
+  // "Nothing surfaced." is a fact about the machine writing everything it found. A run that found
+  // plenty and recorded none did not do that, and appending the sentence would state the opposite of
+  // what happened — the exact shape of a search reported as more complete than it was.
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      candidates: {
+        candidateCap: 0,
+        truncated: true,
+        candidatesSurfaced: 9,
+        candidatesWritten: 0,
+        candidatesRefused: 9,
+        refusedByTier: [{ tier: 4, count: 9 }],
+      },
+    },
+    [],
+    FULL_SOURCES,
+  );
+  expect(statements).not.toContain("Nothing surfaced.");
+  expect(statements.some((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"))).toBe(true);
+});
+
+test("a check whose row carries no candidate record says nothing about the bound", () => {
+  // A row written before the record existed does not say what the run was allowed to write, and the
+  // report treats that as the row not saying — never as a run that wrote everything.
+  const statements = describeCheck(CHECK, [{ evidenceTier: 4 }], FULL_SOURCES);
+  expect(statements.some((line) => line.includes("CANDIDATE SET"))).toBe(false);
+});
+
+test("a bounded run says its candidates were RECORDED, not that they were everything that surfaced", () => {
+  // On an unbounded run the two words name the same number. On a bounded one they do not, and the
+  // closing sentence is the last thing a reader sees — leaving it saying "surfaced" would let a
+  // written count be read as everything the channels found.
+  const bounded = describeCheck(
+    {
+      ...CHECK,
+      candidates: {
+        candidateCap: 2,
+        truncated: true,
+        candidatesSurfaced: 40,
+        candidatesWritten: 2,
+        candidatesRefused: 38,
+        refusedByTier: [{ tier: 4, count: 38 }],
+      },
+    },
+    [{ evidenceTier: 4 }, { evidenceTier: 4 }],
+    FULL_SOURCES,
+  );
+  expect(bounded.at(-1)).toBe("2 candidates recorded for review (tier 4: 2).");
+
+  const unbounded = describeCheck(CHECK, [{ evidenceTier: 4 }], FULL_SOURCES);
+  expect(unbounded.at(-1)).toBe("1 candidate surfaced for review (tier 4: 1).");
+});

@@ -118,17 +118,18 @@ export async function conflictsMeasurementHandle(
 // hit row.
 //
 // At this profile's shape (a ~600-entity corporate group over a ~700-organization corpus) a walk at
-// the shipped default closure cap composes several hundred thousand INSERTs into one batch, and
-// `composeEffectBatch` in packages/data-access/src/effect-batch.ts spreads its statement list into
-// `Array.prototype.push`, which has a hard engine argument ceiling and throws
-// `RangeError: Maximum call stack size exceeded` well before that. Both halves of that are findings
-// rather than something this module may paper over: the batch composer has an undocumented upper
-// bound, and the closure cap bounds ENTITIES while the cost it actually governs is entities times
-// corpus.
+// the shipped default closure cap composes several hundred thousand INSERTs into one batch. Both
+// halves of that were findings when this module first recorded them, and both are now fixed at the
+// seams that own them: `composeEffectBatch` in packages/data-access/src/effect-batch.ts no longer
+// spreads its statement list (an argument-count ceiling in the middle of a data path) and refuses an
+// unbounded batch at a stated ceiling instead; and the conflicts run carries a SECOND bound, on
+// candidates, beside the one on the closure — see packages/conflicts/src/candidate-bound.ts.
+// `conflictsCandidateBounds` below is the measurement that decided the shape of that fix and is what
+// re-measures it.
 //
-// So the caps here are sized to exercise the traversal and the truncation record without measuring
-// the engine's argument limit. They are deliberately not the shipped defaults, and the gap between
-// them is the finding.
+// So the caps here are sized to exercise the traversal and the truncation record without composing a
+// batch whose size is a statement about the corpus rather than about the walk. They are deliberately
+// not the shipped defaults, and the gap between them is the finding.
 const DEEP_GRAPH_CLOSURE_CAP = 40;
 
 // Below the group's size, so this walk always meets its bound and the cost of stopping honestly —
@@ -275,6 +276,118 @@ export async function conflictsMatcherBounds(
       statementCount,
     },
   ];
+}
+
+// WHERE THE CANDIDATES ACTUALLY COME FROM — the axis a timing cannot show and a plan cannot see.
+//
+// The closure cap bounds the walk. This counts what the walk COSTS, which is a different quantity: the
+// candidates one subject produces are proportional to the CORPUS, so the run's total is the closure
+// times the corpus and the cap bounds one factor of a product. Counted rather than timed for the same
+// reason the matcher bound above is: at any one corpus a timing says nothing about the slope, and the
+// slope is the whole finding.
+//
+// The corpus axis is swept by running the harness at several profile multipliers — that is what
+// `scaleProfile` is for, and two baselines at different scales ARE the sweep. Reading them together
+// shows candidates rising linearly in the corpus with the closure pinned, at very different rates per
+// subject kind: multi-word organization names share a three-character window with nearly every other
+// organization, and two-token person names share one far less often. `trigramOnlyCandidates` is the
+// number that matters — a candidate whose ONLY signal is a shared trigram is the volume, and the
+// phonetic and identifier channels stay corpus-independent beside it.
+export interface ConflictsCandidateBound {
+  readonly label: string;
+  readonly subjectCount: number;
+  // The whole live corpus of the subject's own kind, which is what the name channels search.
+  readonly corpusOfKind: number;
+  readonly candidateCount: number;
+  readonly trigramOnlyCandidates: number;
+  readonly phoneticCandidates: number;
+  readonly exactNameCandidates: number;
+  readonly identifierCandidates: number;
+}
+
+async function countLiveEntities(
+  handle: ConflictsMeasurementHandle,
+  table: string,
+): Promise<number> {
+  const { results } = await handle.identifierContext.database
+    .prepare(`SELECT COUNT(*) AS live FROM ${table} WHERE deleted_at IS NULL`)
+    .all<{ live: number }>();
+  return results[0]?.live ?? 0;
+}
+
+async function candidateBoundFor(
+  handle: ConflictsMeasurementHandle,
+  label: string,
+  entityIds: readonly string[],
+  corpusOfKind: number,
+): Promise<ConflictsCandidateBound> {
+  const facts = await readSubjectFactsBatch(handle.identifierContext, entityIds);
+  const subjects = entityIds
+    .map((entityId) => facts.get(entityId))
+    .filter((subject) => subject !== undefined);
+  const matches = await matchPartyBatch(handle.identifierContext, subjects, "balanced");
+
+  let candidateCount = 0;
+  let trigramOnlyCandidates = 0;
+  let phoneticCandidates = 0;
+  let exactNameCandidates = 0;
+  let identifierCandidates = 0;
+  for (const candidates of matches.values()) {
+    for (const { evidence } of candidates) {
+      candidateCount += 1;
+      if (evidence.phoneticMatch) phoneticCandidates += 1;
+      if (evidence.exactNormalizedName) exactNameCandidates += 1;
+      if (evidence.identifierTypes.length > 0) identifierCandidates += 1;
+      if (
+        evidence.trigramMatch &&
+        !evidence.phoneticMatch &&
+        !evidence.exactNormalizedName &&
+        evidence.identifierTypes.length === 0
+      ) {
+        trigramOnlyCandidates += 1;
+      }
+    }
+  }
+
+  return {
+    label,
+    subjectCount: subjects.length,
+    corpusOfKind,
+    candidateCount,
+    trigramOnlyCandidates,
+    phoneticCandidates,
+    exactNameCandidates,
+    identifierCandidates,
+  };
+}
+
+// The busiest N entities of each kind, read deterministically. Both kinds are measured because the
+// name channels filter on entity kind, so a corpus that grew only in one of them moves only one of
+// these numbers — and collapsing them into one figure would hide which.
+const CANDIDATE_BOUND_SUBJECTS = 10;
+
+export async function conflictsCandidateBounds(
+  handle: ConflictsMeasurementHandle,
+): Promise<ConflictsCandidateBound[]> {
+  const bounds: ConflictsCandidateBound[] = [];
+  for (const [kind, table] of [
+    ["person", "directory_person"],
+    ["organization", "directory_organization"],
+  ] as const) {
+    const { results } = await handle.identifierContext.database
+      .prepare(`SELECT id FROM ${table} WHERE deleted_at IS NULL ORDER BY id LIMIT ?1`)
+      .bind(CANDIDATE_BOUND_SUBJECTS)
+      .all<{ id: string }>();
+    bounds.push(
+      await candidateBoundFor(
+        handle,
+        `conflicts.candidates-per-${kind}-subject`,
+        results.map((row) => row.id),
+        await countLiveEntities(handle, table),
+      ),
+    );
+  }
+  return bounds;
 }
 
 // Nothing is allowlisted: every EXPLAIN'd conflicts hot path must walk an index.
