@@ -18,7 +18,6 @@ from a branch name straight to its note.
 
 ```markdown
 ---
-branch: <your-branch>
 worktree: C:/dev/magna-carta-worktrees/<your-branch>
 area: <one-line scope>
 status: designing | building | review | blocked
@@ -28,14 +27,24 @@ touches: packages/foo, STATUS.md, docs/Decision-Log.md
 One short paragraph: what this stream is doing and anything a concurrent stream should not step on.
 ```
 
+The branch is **not** a key — it is the path, which is why the path has to mirror it exactly. A note
+that repeats its branch inside itself keeps the same fact twice and the two are free to disagree.
+
 `touches` lists the files/areas you expect to edit — especially **cross-cutting files** (`STATUS.md`,
 `ROADMAP.md`, `CLAUDE.md`, the white paper, `docs/conventions/`). It is how overlaps are surfaced.
 
 ## Seeing everything in flight
 
-`vp run worktrees` prints the live registry: every git worktree merged with these notes, each
+`vp run worktrees` prints the live registry: every stream in flight merged with these notes, each
 stream's divergence from `main` (so drift is visible), and any **touch-overlaps** between streams.
-The index is printed, never committed, so it is always accurate and never a contended file.
+The index is printed, never committed, which is what keeps it from becoming a contended file — it is
+not what keeps it accurate. Accuracy comes from the tool deciding for itself which streams are still
+in flight, rather than trusting that a note on disk means work is happening.
+
+A stream counts as in flight while it has a workspace or its branch has not landed. Everything the
+tool cannot fold into those two sections it names instead of dropping: notes for branches that have
+landed (delete them), notes whose branch resolves to no ref (misnamed, or never pushed), and notes
+with no frontmatter block (invisible, so they warn nobody).
 
 Run it **before starting a stream or editing a cross-cutting file** (golden rule in the root
 `CLAUDE.md`).
@@ -43,4 +52,7 @@ Run it **before starting a stream or editing a cross-cutting file** (golden rule
 ## When your stream merges
 
 Delete `docs/active-work/<branch>.md` in the same change that removes the worktree and branch (see
-the worktree-lifecycle rule in the root `CLAUDE.md`). A note left behind is a stale stream.
+the worktree-lifecycle rule in the root `CLAUDE.md`).
+
+`vp run worktrees` lists the ones you forgot, so a missed deletion is a line of output rather than a
+false collision warning — but delete them anyway. The list is a backstop, not the routine.

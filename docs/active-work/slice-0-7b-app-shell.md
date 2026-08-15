@@ -1,3 +1,11 @@
+---
+branch: slice-0-7b-app-shell
+worktree: C:/dev/magna-carta-worktrees/slice-0-7b-app-shell
+area: UI (Fable) — App Shell, auth UI, appearance settings
+status: building
+touches: apps/web, packages/design-system
+---
+
 # slice-0-7b-app-shell — the real App Shell, auth UI, appearance settings
 
 **Stream:** UI (Fable). Stage 1 of the UI roadmap (ROADMAP.md, "UI roadmap — the
