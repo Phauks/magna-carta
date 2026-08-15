@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 707 nodes of the feature ledger in
+is the complete register rather than a digest: all 708 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**707 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
+**708 capabilities across 27 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -28,9 +28,9 @@ below; these are the totals over that list.
 | --- | --- | ---: | ---: |
 | Done | shipped | 249 | 35% |
 | Part-built | partial, in-build | 206 | 29% |
-| Ahead | designed, planned, researching, not-started | 211 | 30% |
+| Ahead | designed, planned, researching, not-started | 212 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All capabilities** | | **707** | **100%** |
+| **All capabilities** | | **708** | **100%** |
 
 ### Every status
 
@@ -39,17 +39,17 @@ below; these are the totals over that list.
 | `shipped` | 249 | 35% |
 | `partial` | 191 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 19 | 3% |
+| `designed` | 25 | 4% |
 | `planned` | 10 | 1% |
 | `researching` | 8 | 1% |
-| `not-started` | 174 | 25% |
+| `not-started` | 169 | 24% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **707** | **100%** |
+| **All statuses** | **708** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 249 of 707 (35%). Shipped plus partial is 440 (62%).**
+**Shipped alone is 249 of 708 (35%). Shipped plus partial is 440 (62%).**
 
 The 191 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -80,7 +80,7 @@ true and neither is the answer on its own.
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
 | Notifications | 1 | 6 | 0 | 0 | 0 | 0 | 4 | 4 | 0 | 15 | 7% |
 | Observability & Diagnostics | 11 | 5 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 24 | 46% |
-| Payments | 0 | 0 | 0 | 1 | 0 | 0 | 8 | 0 | 0 | 9 | 0% |
+| Payments | 0 | 0 | 0 | 7 | 0 | 0 | 3 | 0 | 0 | 10 | 0% |
 | Performance & Concurrency | 6 | 4 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 13 | 46% |
 | Platform — Delivery, Architecture, Tenancy & Data Conventions | 30 | 20 | 2 | 1 | 0 | 0 | 22 | 6 | 1 | 82 | 37% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 1 | 0 | 16 | 0% |
@@ -89,11 +89,11 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **249** | **191** | **15** | **19** | **10** | **8** | **174** | **39** | **2** | **707** | **35%** |
+| **All areas** | **249** | **191** | **15** | **25** | **10** | **8** | **169** | **39** | **2** | **708** | **35%** |
 
 ## Where we have been
 
-**21 of 40 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**24 of 43 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+41 shipped since the ledger began** — 204 on 2026-07-14, 245 on 2026-08-14, across 31 days. The
-ledger itself grew by +42 nodes over the same period (663 to 705), so the share shipped went from
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
+ledger itself grew by +44 nodes over the same period (663 to 707), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.3 capabilities shipped a week** across the whole series, and **14.0 a week** over the 14
-snapshots since the last gap (2026-08-11 to 2026-08-14, +6 shipped in 3 days).
+That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
+17 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -136,11 +136,14 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `4feb0ed5` | 241 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 702 | 0 | 0 | 0 |
 | 2026-08-14 | `c692886a` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | +3 | +3 | 0 |
 | 2026-08-14 | `eb1129f2` | 244 | 186 | 15 | 21 | 13 | 8 | 177 | 39 | 2 | 705 | 0 | 0 | 0 |
-| 2026-08-14 | `68f53033` | 245 | 186 | 15 | 21 | 13 | 8 | 176 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `cb9225bb` | 245 | 188 | 15 | 21 | 10 | 8 | 177 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `d5499591` | 246 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 705 | 0 | +1 | 0 |
+| 2026-08-14 | `3efca761` | 248 | 191 | 15 | 19 | 10 | 8 | 175 | 39 | 2 | 707 | +2 | +2 | 0 |
+| 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 40 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 43 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -172,7 +175,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
 | Document Automation | 8 | 9 | 0 | 2 | +2 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
-| Financial Core | 55 | 58 | 8 | 15 | +7 |
+| Financial Core | 55 | 60 | 8 | 18 | +10 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
 | Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
@@ -184,20 +187,20 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
-| Reports | 11 | 11 | 0 | 0 | 0 |
+| Reports | 11 | 11 | 0 | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), AI &
-Inference (+7), Financial Core (+7). **17 of 27 areas have shipped nothing in that time**:
+**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
+Core (+10), AI & Inference (+7). **16 of 27 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
 System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
 Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
 Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Reports, Settings & Configuration, Tasks and Workflows / Matter
-Plans. An area standing still here has not necessarily been idle — a node moves in this table only
-when it reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns
-and not in this one.
+Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
+area standing still here has not necessarily been idle — a node moves in this table only when it
+reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
+in this one.
 
 ## Waiting on you
 
@@ -209,6 +212,11 @@ and not in this one.
 - **Trust accounting** (`financial.trust`) — Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
 - **Jurisdiction-configurable compliance engine** (`financial.trust.jurisdiction-engine`) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
+- **Payments** (`payments`) — Does the first slice ship the manually recorded receipt (cheque, cash, wire) decoupled from any processor, given a firm cannot record one today? Payments design flag K1.
+- **Payments port** (`payments.port`) — Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
+- **Manually recorded receipt** (`payments.manual-receipt`) — Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
+- **Card rail (fallback)** (`payments.card`) — Is the trust rail in scope at all before a returned-deposit movement kind exists, given a chargeback against trust is unrecordable today? Payments design flags K2 and K3.
+- **Operating-only surcharge** (`payments.surcharge`) — Confirm surcharge stays out of the first slice — it needs a new typed jurisdiction requirement in the restriction bucket, 56 jurisdictions of primary-source research with attorney review, and card-network registration. Payments design flag K6.
 - **Public changelog/roadmap/status pages** (`product-updates.public-pages`) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
 - **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 
@@ -254,6 +262,12 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
+- `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
+- `payments.port` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
+- `payments.manual-receipt` · **Manually recorded receipt** — Record a cheque, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
+- `payments.ach` · **ACH rail (default)** — Bank-transfer rail presented as the default, prominent option with small flat/capped fees.
+- `payments.card` · **Card rail (fallback)** — Card acceptance as the convenience fallback.
+- `payments.trust-separation` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
 - `release-channels.frontend` · **Channel frontend (Plan 2)** — Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
@@ -893,16 +907,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Payments
 
-[`roadmap.d/payments.md`](../roadmap.d/payments.md) — 9 nodes, 0% shipped. 0 done, 0 part-built, 9 ahead, 0 parked.
+[`roadmap.d/payments.md`](../roadmap.d/payments.md) — 10 nodes, 0% shipped. 0 done, 0 part-built, 10 ahead, 0 parked.
 
-- `payments` · `not-started` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
-  - `payments.port` · `not-started` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
-  - `payments.ach` · `not-started` · **ACH rail (default)** — Bank-transfer rail presented as the default, prominent option with small flat/capped fees.
-  - `payments.card` · `not-started` · **Card rail (fallback)** — Card acceptance as the convenience fallback.
-  - `payments.trust-separation` · `not-started` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
+- `payments` · `designed` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
+  - `payments.port` · `designed` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
+  - `payments.manual-receipt` · `designed` · **Manually recorded receipt** — Record a cheque, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
+  - `payments.ach` · `designed` · **ACH rail (default)** — Bank-transfer rail presented as the default, prominent option with small flat/capped fees.
+  - `payments.card` · `designed` · **Card rail (fallback)** — Card acceptance as the convenience fallback.
+  - `payments.trust-separation` · `designed` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
   - `payments.surcharge` · `not-started` · **Operating-only surcharge** — Optional card surcharge/convenience fee on operating (never trust) payments, gated by jurisdiction config; debit never surcharged.
   - `payments.helcim` · `not-started` · **Helcim launch adapter** — Launch adapter covering both rails — interchange-plus cards and capped-fee ACH.
-  - `payments.pci-scope` · `designed` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
+  - `payments.pci-scope` · `designed` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A. _Note: The white paper's Payments area still describes in-DOM hosted-fields tokenization, which the accepted decision rejected by name as SAQ A-EP; correct it when that area is next edited._
   - `payments.alternate-adapters` · `not-started` · **Alternate adapter seams** — Stripe/Dwolla for cheaper ACH at scale, Adyen for high card volume, Confido/Gravity Legal as trust-compliance fallback.
 
 ### Performance & Concurrency
