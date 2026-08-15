@@ -1,6 +1,7 @@
 import { createFirmSecretCredentialStore } from "@magna-carta/data-access/firm-secret-credential-store";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { createConnectionStore } from "@magna-carta/data-access/integration-connection-store";
+import { unbuiltCredentialStore } from "@magna-carta/integrations/credentials";
 import type { IntegrationManifest } from "@magna-carta/integrations/manifest";
 import {
   createIntegrationRegistry,
@@ -40,13 +41,18 @@ export function listManifests(): readonly IntegrationManifest[] {
 
 // One integration registry per request, over the firm's D1 (ConnectionStore) + its firm_secret
 // CredentialStore, with every plugin's adapter registered. Replaces the shipping-specific builder.
+// A deployment whose per-firm secret read is not wired yet hands the registry the framework's
+// unbuilt-store value, so every credentialed operation refuses by name instead of the construction
+// blowing up on the first request that needed one.
 export function buildIntegrationRegistry(
   firmDatabase: SqlDatabase,
   runtime: PluginRuntime,
 ): IntegrationRegistry {
+  const secrets = runtime.secretStoreForFirm(firmDatabase);
   const registry = createIntegrationRegistry({
     connectionStore: createConnectionStore(firmDatabase),
-    credentialStore: createFirmSecretCredentialStore(runtime.secretStoreForFirm(firmDatabase)),
+    credentialStore:
+      secrets === null ? unbuiltCredentialStore : createFirmSecretCredentialStore(secrets),
   });
   for (const plugin of workerPlugins) plugin.registerAdapter?.(registry, runtime);
   return registry;

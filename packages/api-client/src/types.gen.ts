@@ -25765,6 +25765,10 @@ export type ShippingConnectErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
 };
 
 export type ShippingConnectError = ShippingConnectErrors[keyof ShippingConnectErrors];
@@ -25865,6 +25869,10 @@ export type ShippingRateShipmentErrors = {
      */
     429: Problem;
     /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
+    /**
      * The postage provider rejected the request or is unavailable
      */
     502: Problem;
@@ -25922,6 +25930,10 @@ export type ShippingPurchaseErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
     /**
      * The postage provider rejected the request or is unavailable
      */
@@ -26013,6 +26025,10 @@ export type ShippingTrackingErrors = {
      */
     429: Problem;
     /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
+    /**
      * The postage provider rejected the request or is unavailable
      */
     502: Problem;
@@ -26070,6 +26086,10 @@ export type ShippingRefundErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
     /**
      * The postage provider rejected the request or is unavailable
      */

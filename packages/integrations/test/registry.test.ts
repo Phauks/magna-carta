@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Credential, CredentialStore } from "../src/credentials.ts";
+import {
+  unbuiltCredentialStore,
+  type Credential,
+  type CredentialStore,
+} from "../src/credentials.ts";
 import type {
   ConnectionLookup,
   ConnectionStore,
@@ -144,6 +148,42 @@ describe("createIntegrationRegistry.resolve", () => {
     expect(
       await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" }),
     ).toEqual({ ok: false, reason: "not-connected" });
+  });
+
+  it("reports an unbuilt credential read as its own outcome, not as not-connected", async () => {
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore(connectedRow),
+      credentialStore: unbuiltCredentialStore,
+    });
+    registry.register(makeAdapter(credentialed));
+    expect(
+      await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" }),
+    ).toEqual({ ok: false, reason: "credential-store-not-implemented" });
+  });
+
+  it("reports the unbuilt credential read even when nothing is connected", async () => {
+    // The connection row is what "not connected" is about, and it is absent here — but the answer
+    // is still the seam, because connecting one could not help: the key would have nowhere to go.
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore(null),
+      credentialStore: unbuiltCredentialStore,
+    });
+    registry.register(makeAdapter(credentialed));
+    expect(
+      await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" }),
+    ).toEqual({ ok: false, reason: "credential-store-not-implemented" });
+  });
+
+  it("still resolves a credential-less adapter when the credential read is unbuilt", async () => {
+    // A credential-less adapter never asks for a credential, so an unbuilt read must not take the
+    // catalog-only integrations down with the credentialed ones.
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore(null),
+      credentialStore: unbuiltCredentialStore,
+    });
+    registry.register(makeAdapter(credentialLess));
+    const result = await registry.resolve<EchoPort>("free-category", { firmId: "firm_1" });
+    expect(result.ok).toBe(true);
   });
 
   it("resolves with the connection's capability snapshot, not the adapter's descriptor", async () => {

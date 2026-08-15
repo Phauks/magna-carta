@@ -61,12 +61,13 @@ email-capture steps already on this queue.
    leave the platform on a firm that has not opted in. The secret is worth setting only after a firm
    turns the setting on.
 
-**One thing on this list is NOT a deploy step, and no amount of deploying fixes it.** Shipping's
-rate-shop, label purchase, tracking and refund all return 500 — `firmSecretStoreNotYetAvailable` in
-`apps/worker/src/plugins/secret-store.ts` throws because the per-firm credential read is an unbuilt
-seam awaiting the marketplace slice. Connecting a real EasyPost key and deploying everything above
-would leave it exactly as it is. Draft shipment creation succeeds regardless, so a member can create
-a shipment that can never be bought.
+**One thing on this list is NOT a deploy step, and no amount of deploying fixes it.** Shipping cannot
+connect a postage account at all — `firmSecretStoreNotYetAvailable` in
+`apps/worker/src/plugins/secret-store.ts` reports the per-firm credential read as unbuilt, an
+absence awaiting the marketplace slice. Connecting a real EasyPost key and deploying everything above
+would leave it exactly as it is. Connect, rate-shop, purchase, tracking and refund answer `501
+not-implemented` (they returned `500` until 2026-08-15); draft creation still succeeds, because a
+draft is the firm's own addresses and parcel and needs no carrier.
 
 ## Search engine activation — a new worker, a new container image, one binding
 

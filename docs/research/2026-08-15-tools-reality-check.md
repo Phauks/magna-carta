@@ -340,6 +340,15 @@ Two consequences worth stating plainly:
 The parent ledger node already said `live firm secret deferred`. The `easypost-adapter` child, at
 `shipped`, did not; it does now.
 
+**Resolved the same day, in the form this finding named.** The seam was given the typed absence: the
+integration framework's `Dispatch` gained a fourth reason, `credential-store-not-implemented`,
+`SecretStoreForFirm` returns `SecretStore | null` instead of throwing, and shipping maps the outcome
+to `501 not-implemented`. Connecting a postage account now refuses first and by name — it was a
+`500` too, which this finding did not exercise, and it is the one act a member would have reached
+for. The credential read itself is still unbuilt, so the classification above stands; what changed is
+that its absence is legible instead of fatal. Draft creation still succeeds, deliberately: a draft is
+the firm's own addresses and parcel and needs no carrier.
+
 ### 13. Safe Website Viewer (`safe-website-viewer`)
 
 - **Route:** `POST /api/v1/safe-browse` (`apps/worker/src/routes/safe-browse.ts`), permission

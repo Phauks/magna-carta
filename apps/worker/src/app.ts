@@ -710,8 +710,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // a permission never seeded to any firm role. Only a diagnostic support session carries it.
   registerSupportDiagnosticsRoute(app, chokepoint);
 
-  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
-  // that throws until the marketplace wires the live credential read), overridable in tests.
+  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam,
+  // which reports itself unbuilt until the marketplace wires the live credential read), overridable
+  // in tests.
   const pluginRuntime: PluginRuntime = {
     httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
     secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,

@@ -10,9 +10,14 @@ The ports-and-adapters foundation every integration plugs into. Pure package —
   ones declare `{ kind: "oauth", scope: "firm" | "user" }` — the port picks the scope.
 - Canonical records carry `remoteId` + opt-in `raw`; build the schema with `canonicalRecordSchema`,
   which validates the boundary (external data is untrusted).
-- `resolve()` returns a typed `Dispatch` — `not-connected` / `capability-unsupported` / `adapter-error`,
-  never a throw. Adapters map vendor errors into `IntegrationProblem` (the `category` drives retry +
-  the connection health state machine).
+- `resolve()` returns a typed `Dispatch` — `not-connected` / `capability-unsupported` /
+  `credential-store-not-implemented` / `adapter-error`, never a throw. Adapters map vendor errors into
+  `IntegrationProblem` (the `category` drives retry + the connection health state machine).
+- **A deployment with no per-firm credential read is a first-class outcome, not a throw.** Hand the
+  registry `unbuiltCredentialStore` and every credentialed resolution answers
+  `credential-store-not-implemented`. Never fold it into `not-connected`: a firm fixes that one by
+  connecting an account, and this one only a build fixes, so the two send a member to different
+  places. Same shape as `engine-not-implemented` in `packages/conversion/src/port.ts`.
 
 **Seams built with the first credentialed adapter (email/calendar):** the per-firm
 `integration_connection` D1 repository, the slice-1·2 `firm_secret`-backed `CredentialStore`, the

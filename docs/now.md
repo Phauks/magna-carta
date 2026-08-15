@@ -93,7 +93,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**30 of 49 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**32 of 51 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -106,7 +106,7 @@ ledger itself grew by +45 nodes over the same period (663 to 708), so the share 
 31% to 36% against a denominator that was moving too.
 
 That is **10.9 capabilities shipped a week** across the whole series, and **26.3 a week** over the
-23 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
+25 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -146,10 +146,12 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-15 | `6a5dc585` | 254 | 195 | 15 | 25 | 10 | 7 | 161 | 39 | 2 | 708 | 0 | +5 | 0 |
 | 2026-08-15 | `dd2ac00d` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 | 2026-08-15 | `d35ae516` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `67f39333` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `9bd40bd7` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 49 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 51 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -817,7 +819,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
-    - `integrations.port-framework.connections-credentials` · `partial` · **Connection & credential model** — Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle. _Note: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification._
+    - `integrations.port-framework.connections-credentials` · `partial` · **Connection & credential model** — Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle. _Note: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing._
   - `integrations.platform-foundation` · `shipped` · **Manifest-driven registration** — One declarative IntegrationManifest per integration; central registry drives route mounting, adapter resolution, and PluginRuntime wiring.
   - `integrations.c-transition` · `deferred` · **Plugin transport progression (C seam)** — In-process plugins now; service-binding Workers (C1) and Workers-for-Platforms isolation for third-party plugins (C2) behind the PluginRuntime seam.
   - `integrations.marketplace` · `not-started` · **Third-party plugin marketplace** — Marketplace catalog of third-party plugins deployed in a dispatch namespace.
@@ -830,7 +832,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.ports.messaging-voice` · `not-started` · **Messaging (SMS/MMS/RCS) & voice/telephony ports** — Communications-layer channel ports; Telnyx launch adapter, swappable to Twilio/Bandwidth/Plivo.
     - `integrations.ports.password-manager` · `researching` · **Password manager / secrets vault port** — Staff credential sync from the firm's vault (Bitwarden candidate launch adapter); scope of retrieval vs management open.
   - `integrations.shipping` · `partial` · **Shipping & postage** — EasyPost adapter behind a typed ShippingPort: address validation, rate-shopping, label purchase, tracking, refund.
-    - `integrations.shipping.easypost-adapter` · `shipped` · **EasyPost adapter & firm routes** — Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables. _Note: Rate-shop, purchase, track and refund all 500 today — the firm-secret credential read is an unbuilt seam (firmSecretStoreNotYetAvailable), so connecting a real key changes nothing; draft creation succeeds regardless. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md._
+    - `integrations.shipping.easypost-adapter` · `shipped` · **EasyPost adapter & firm routes** — Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables. _Note: The firm-secret credential read is still an unbuilt seam (firmSecretStoreNotYetAvailable), so no postage account can be connected and no label can be rated or bought — but the seam now REFUSES rather than throws. Connect, rate-shop, purchase, track and refund answer 501 not-implemented from the credential-store-not-implemented dispatch outcome; before 2026-08-15 all five answered 500. Draft creation succeeds by design (a draft needs no carrier). Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.shipping.certified-mail` · `shipped` · **Certified mail** — USPS Certified Mail with return receipt and signature as a first-class shipment option.
     - `integrations.shipping.tracking-webhook` · `deferred` · **Push-webhook tracking ingress** — Vendor webhook ingestion replacing pull-on-demand tracking.
     - `integrations.shipping.cost-recovery` · `shipped` · **Postage cost-recovery seam** — shipment.purchased event recording postage against the matter for cost recovery.
