@@ -26,7 +26,7 @@
 - id: community.board.screens
   name: Board screens
   scope: The category index, the post and thread, the composer, the roadmap board, and the operator's moderation queue.
-  status: not-started
+  status: designed
   spec: docs/specs/2026-08-13-community-board-remaining-slices-plan.md
   evidence: apps/web is untouched; the routes the screens consume are live and enumerated in the plan.
 

@@ -39,11 +39,11 @@ below; these are the totals over that list.
 | `shipped` | 259 | 35% |
 | `partial` | 199 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 32 | 4% |
+| `designed` | 33 | 5% |
 | `planned` | 18 | 3% |
 | `researching` | 6 | 1% |
-| `not-started` | 163 | 22% |
-| `deferred` | 40 | 6% |
+| `not-started` | 162 | 22% |
+| `deferred` | 40 | 5% |
 | `cut` | 3 | 0% |
 | **All statuses** | **735** | **100%** |
 
@@ -66,7 +66,7 @@ true and neither is the answer on its own.
 | Authentication, Access Control & Encryption | 13 | 9 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 30 | 43% |
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
-| Community & Feedback Forum | 4 | 3 | 0 | 4 | 0 | 0 | 1 | 0 | 1 | 13 | 31% |
+| Community & Feedback Forum | 4 | 3 | 0 | 5 | 0 | 0 | 0 | 0 | 1 | 13 | 31% |
 | Conflicts Check | 5 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 56% |
 | Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **259** | **199** | **15** | **32** | **18** | **6** | **163** | **40** | **3** | **735** | **35%** |
+| **All areas** | **259** | **199** | **15** | **33** | **18** | **6** | **162** | **40** | **3** | **735** | **35%** |
 
 ## Where we have been
 
@@ -294,6 +294,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Next up
 
+- `community.board.screens` · **Board screens** — The category index, the post and thread, the composer, the roadmap board, and the operator's moderation queue.
 - `community.escalation-bridge` · **Private-report escalation bridge** — One-way, user-opted escalation of a private diagnostic report into a public feature request or known-issue check.
 - `community.known-issues` · **Known-issues view** — Public known-issues view mirroring the live status content.
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
@@ -471,7 +472,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 - `community` · `partial` · **Community and feedback forum** — Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
   - `community.board` · `partial` · **The board — one surface, two post kinds** — Requests (votable, status pipeline, on the roadmap) and questions (votable answers, no pipeline) on one board; distinct-firm ranking, the roadmap as a projection by status, and a question converting to a request in one operator action.
-    - `community.board.screens` · `not-started` · **Board screens** — The category index, the post and thread, the composer, the roadmap board, and the operator's moderation queue.
+    - `community.board.screens` · `designed` · **Board screens** — The category index, the post and thread, the composer, the roadmap board, and the operator's moderation queue.
     - `community.board.tenancy` · `shipped` · **The cross-firm tenancy exception** — The board's records in control-plane D1 with a never-rendered firm identifier, argued as a named exception to the firm-scoped data-access rule rather than assumed.
   - `community.package` · `shipped` · **Extractable community package** — Clean @magna-carta/community package, platform-level and isolated from the per-firm data-access layer.
   - `community.confidentiality` · `shipped` · **Confidentiality boundary** — Posting always opt-in and user-authored; nothing flows automatically from private matters or the private bug pipeline into the public forum.
