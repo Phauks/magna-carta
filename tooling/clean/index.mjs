@@ -11,13 +11,8 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import {
-  eligibleWorktrees,
-  isArtifactDir,
-  landedBranches,
-  landingCommit,
-  normalizePath,
-} from "./select.mjs";
+import { landedBranchesIn, listWorktrees } from "../branch-landing/index.mjs";
+import { eligibleWorktrees, isArtifactDir, normalizePath } from "./select.mjs";
 
 const flags = new Set(process.argv.slice(2));
 const dryRun = flags.has("--dry-run");
@@ -27,114 +22,11 @@ function git(args, cwd = process.cwd()) {
   return execFileSync("git", args, { cwd }).toString();
 }
 
-function listWorktrees() {
-  const worktrees = [];
-  let current = null;
-  for (const line of git(["worktree", "list", "--porcelain"]).split("\n")) {
-    if (line.startsWith("worktree ")) {
-      current = { path: line.slice("worktree ".length).trim(), branch: null, detached: false };
-      worktrees.push(current);
-    } else if (line.startsWith("branch ")) {
-      current.branch = line.slice("branch ".length).trim().replace("refs/heads/", "");
-    } else if (line.trim() === "detached") {
-      current.detached = true;
-    }
-  }
-  return worktrees;
-}
-
-// The ref every "is this landed?" question is asked against. `origin/main` is what pull requests
-// actually merge into; a local `main` in a long-lived clone drifts behind it and answers for a
-// state nobody is on any more. Fall back to the local ref only when there is no remote-tracking one.
-function baselineRef() {
-  try {
-    git(["rev-parse", "--verify", "--quiet", "origin/main"]);
-    return "origin/main";
-  } catch {
-    return "main";
-  }
-}
-
-// How many of a branch's changed paths are used to narrow the landing search. The landing commit
-// touches all of them, so any one of them selects it; sampling keeps a branch that rewrote a
-// thousand files from overflowing the argument list.
-const LANDING_PATH_SAMPLE = 50;
-
-function nonEmptyLines(output) {
-  return output
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
-// The tree a merge of `branch` into `commit` would produce, or null when that merge conflicts (or
-// the git build predates `merge-tree --write-tree`).
-function mergeResultTree(commit, branch) {
-  try {
-    return git(["merge-tree", "--write-tree", commit, branch]).trim();
-  } catch {
-    return null;
-  }
-}
-
-// Does the branch hold no commit the baseline lacks? True for a workspace nobody has committed in
-// yet, however far behind the trunk it has drifted — the live-worktree guard in select.mjs.
-function contributesNoCommitTo(baseline) {
-  return (branch) => {
-    try {
-      git(["merge-base", "--is-ancestor", branch, baseline]);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-}
-
-// The trunk commits a branch could have landed in, oldest first, with the baseline itself checked
-// before them.
-//
-// Narrowing to commits that touch files the branch itself changed is what keeps the search bounded.
-// Unfiltered, a branch sitting sixty commits behind is sixty whole-tree merges — about twelve
-// seconds here, per branch, on every merge to main. Narrowed, the list is normally a single commit:
-// the squash that landed the branch. The baseline goes first so a branch that merged moments ago,
-// which is what the post-merge hook mostly sees, costs one comparison.
-function landingCandidatesAgainst(baseline, baselineCommit) {
-  return (branch) => {
-    let mergeBase;
-    try {
-      mergeBase = git(["merge-base", baseline, branch]).trim();
-    } catch {
-      return []; // no shared history: there is no trunk this branch could have landed into
-    }
-    const paths = nonEmptyLines(git(["diff", "--name-only", mergeBase, branch])).slice(
-      0,
-      LANDING_PATH_SAMPLE,
-    );
-    if (paths.length === 0) return [baselineCommit];
-    const walked = nonEmptyLines(
-      git(["rev-list", "--reverse", baseline, `^${mergeBase}`, "--", ...paths]),
-    );
-    return [baselineCommit, ...walked.filter((commit) => commit !== baselineCommit)];
-  };
-}
-
-// Branches whose work is already in the baseline. Asking whether merging a branch into the trunk's
-// current tip would change anything is only right on the day it merges; this asks where the branch's
-// content entered the trunk, which stays answerable however far the trunk has moved on since.
+// Branches whose work is already in the trunk. The landing search itself lives in
+// tooling/branch-landing, shared with the active-work registry.
 function mergedBranches(candidateBranches) {
-  const baseline = baselineRef();
-  const baselineCommit = git(["rev-parse", baseline]).trim();
-  const candidatesFor = landingCandidatesAgainst(baseline, baselineCommit);
-  return landedBranches({
-    candidateBranches,
-    contributesNoCommit: contributesNoCommitTo(baseline),
-    landingCommitOf: (branch) =>
-      landingCommit({
-        candidateCommits: candidatesFor(branch),
-        treeOf: (commit) => git(["rev-parse", `${commit}^{tree}`]).trim(),
-        mergeResultTree: (commit) => mergeResultTree(commit, branch),
-      }),
-  });
+  const { landed } = landedBranchesIn({ branches: candidateBranches, cwd: process.cwd() });
+  return landed;
 }
 
 // True when `path` is git-ignored. check-ignore is run with cwd inside the target worktree so the

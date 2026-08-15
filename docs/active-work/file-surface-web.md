@@ -1,3 +1,11 @@
+---
+branch: file-surface-web
+worktree: C:/dev/magna-carta-worktrees/file-surface-web
+area: matter file surface in apps/web — abandoned, partly landed, superseded (see below)
+status: abandoned
+touches:
+---
+
 # file-surface-web
 
 > **Disposition (2026-08-12): abandoned, partly landed, superseded for the matter host.** The branch

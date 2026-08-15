@@ -131,6 +131,7 @@ export default defineConfig({
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
+      "tooling/branch-landing/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",
       "tooling/test-single-flight/vitest.config.ts",
     ],
