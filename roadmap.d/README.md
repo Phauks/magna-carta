@@ -79,6 +79,15 @@ genuinely cannot match carries `ledger-staleness:allow — <reason>` in its `not
 rules rejected for firing on correct nodes:
 [`docs/specs/2026-08-14-feature-ledger-staleness-detection.md`](../docs/specs/2026-08-14-feature-ledger-staleness-detection.md).
 
+**An absence claim is not required to name a path.** Writing _"no code"_ or _"no messaging port
+defined"_ in `evidence` is correct and stays correct: a capability that was never built has no
+location to name, and an invented path would be a fiction no rule can check. Requiring one was
+measured at 96 hits over 708 nodes and rejected, along with the narrower ledger-against-itself form
+that reads absence claims about other areas — the measurements and the five stale nodes that form
+found by hand are in the design linked below. **Naming the path when there is one is still worth
+doing**, because that is what puts a claim inside reach of rules 1, 2 and 4; it is an invitation,
+not a gate.
+
 **Nine statuses, nine columns.** The register never bands statuses together. Collapsing them was
 tried and withdrawn: `partial` (a shipped backend with no screen on it) and `in-build` (being
 written right now) rendered under one heading, which is the largest loss of signal this source can

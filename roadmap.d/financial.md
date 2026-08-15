@@ -112,8 +112,8 @@
   scope: One-click, user-initiated conversion of a calendar event into a time entry.
   status: deferred
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: the 3-1 design reserves source=calendar and the API shape as a dormant seam until the future Calendar subsystem
-  notes: No Calendar subsystem exists yet.
+  evidence: the 3-1 design reserves source=calendar and the API shape as a dormant seam; the Calendar event model it would read from has since shipped in packages/calendar, and nothing on the timekeeping side consumes it
+  notes: Still deferred by decision rather than by absence — the conversion is a one-click act on a calendar surface, and no calendar surface exists to click on.
 
 - id: financial.time.entry-model
   name: Entry anatomy and audit
@@ -150,7 +150,7 @@
   status: shipped
   slices: 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
   evidence: packages/billing-core/src/lifecycle.ts (transition rules, isFrozen) + review-gate.ts (approvalRequired setting)
-  notes: The Billed transition is exercised at invoice finalize, which is not built yet.
+  notes: The Billed transition is driven at invoice finalize by packages/billing/src/finalize.ts, which may move an entry into billed and never back out; the capture screens the gate would appear on are not built.
 
 - id: financial.time.wip
   name: Time is WIP, not a ledger posting
@@ -158,7 +158,7 @@
   status: partial
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger
-  notes: WIP store shipped; the WIP-to-A/R conversion belongs to the unbuilt billing slice.
+  notes: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store.
 
 - id: financial.time.my-day
   name: My Day visibility
@@ -290,7 +290,7 @@
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
   status: partial
-  evidence: the invoice spine, all four fee models, and the corrections after finalization are on main (packages/billing-core, packages/billing); invoice composition, WIP-to-A/R posting at finalize, taxes, delivery and LEDES are not built
+  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, and the corrections after finalization are on main (packages/billing-core, packages/billing) behind apps/worker/src/routes/billing.ts; tax computation, invoice delivery, the renderer and LEDES export are not built
   audience: public
   public-name: Billing and invoices
   public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
@@ -354,8 +354,10 @@
 - id: financial.billing.invoice-composition
   name: Invoice composition
   scope: Bills combine time/fees plus costs plus taxes.
-  status: not-started
-  evidence: no invoice model in tree
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/worker/src/routes/billing.ts.
+  notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
 
 - id: financial.billing.location-letterhead
   name: Location letterhead and remit-to on invoices
@@ -366,8 +368,10 @@
 - id: financial.billing.wip-to-ar
   name: WIP to A/R posting at finalize
   scope: At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
-  status: not-started
-  evidence: the phase-3 slice map assigns all WIP-to-A/R posting (time and cost) to the billing slice; no posting service exists
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: finalizeInvoice in packages/billing/src/finalize.ts locks every claimed entry into billed through the shared freeze contract, resolves each line's posting role (fee income, client costs advanced for a hard cost, cost-recovery income for a soft one, tax payable, fee adjustments) and writes the receivable ledger entry in the same batch, guarded so an entry that moved underneath the read fails the commit rather than leaving a finalized invoice with an unlocked entry; served by the finalize route in apps/worker/src/routes/billing.ts.
+  notes: Backend only, no screen.
 
 - id: financial.billing.ledes
   name: LEDES e-billing
@@ -421,7 +425,7 @@
   status: partial
   slices: 3-3-costs-expenses-disbursements
   evidence: hard-cost capture as billable WIP in packages/costs
-  notes: Capture shipped; the receivable posting and bill-back happen at the unbuilt billing slice per the slice map.
+  notes: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built.
 
 - id: financial.costs.soft
   name: Soft/in-house costs

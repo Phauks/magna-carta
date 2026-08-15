@@ -168,4 +168,4 @@
   scope: All communication across all three channels logged to the matter/Directory under the redact-by-default telemetry discipline.
   status: not-started
   adrs: ADR-0017
-  evidence: The redaction discipline is platform standard; no communications log exists because no channels are built.
+  evidence: The redaction discipline is platform standard, and the email channel already files correspondence onto a matter through packages/email-filing; what is absent is the unified cross-channel log this node names — there is no communications-log table and no read that spans channels, and the messaging and voice channels it would also cover have no code.
