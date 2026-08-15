@@ -12,18 +12,21 @@
   audience: public
   public-name: Client intake
   public-summary: Take an enquiry, check it for conflicts, and turn it into a matter without typing anything twice.
+  awaiting-owner: Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
 
 - id: intake.lead-pipeline
   name: Lead pipeline
   scope: Pipeline stages and lead lifecycle feeding prospective matters.
   status: not-started
   evidence: No lead entity or pipeline; stages and lifecycle are explicitly unspecified.
+  awaiting-owner: Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 
 - id: intake.public-forms
   name: Public intake forms
   scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
   status: not-started
   evidence: No form builder or public intake route exists.
+  awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And Turnstile, which the operations runbook still lists as an unchecked standing item: a public form should not ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 
 - id: intake.call-intake
   name: Receptionist call intake
@@ -37,6 +40,7 @@
   status: not-started
   adrs: ADR-0013
   evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts, and its trigger catalog already carries the preliminary and comprehensive names nothing yet calls; what is missing is the intake flow that would fire them.
+  awaiting-owner: A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 
 - id: intake.crm
   name: CRM fields and activities
@@ -50,3 +54,4 @@
   status: not-started
   adrs: ADR-0080
   evidence: Conversion is the shipped open transition in packages/matters/src/matter-service.ts, which draws the number in the matter's own atomic batch; what is missing is the intake preconditions in front of it and the pipeline it converts from.
+  awaiting-owner: A professional-conduct question rather than a product one. When the four conversion preconditions are unmet — an open re-check request among them — does opening the matter refuse outright, or proceed on an override with a recorded reason? The conditions are facts about the firm's own procedure rather than conclusions about the client, so gating on them concludes nothing; but a hard refusal will, at some point, stop a firm opening a matter on a day it needed to. The design refuses only to leave an override untraced. Client intake design flag J2.

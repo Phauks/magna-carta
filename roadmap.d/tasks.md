@@ -12,6 +12,7 @@
   audience: public
   public-name: Tasks and matter plans
   public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
+  awaiting-owner: Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.
 
 - id: tasks.task-lists
   name: Task lists
@@ -24,6 +25,7 @@
   scope: Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
   status: not-started
   evidence: No template or instantiation machinery; matter lifecycle (packages/matters) exists as the substrate it would hook, and matter_assignment is the live team table a template's role would resolve against. The design narrows auto-instantiation to propose-and-confirm and ships no platform templates.
+  awaiting-owner: Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
 
 - id: tasks.workflow-model
   name: Workflow model

@@ -93,7 +93,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**28 of 47 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**29 of 48 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-15, across 32 days. The
+**+50 shipped since the ledger began** — 204 on 2026-07-14, 254 on 2026-08-15, across 32 days. The
 ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
-31% to 35% against a denominator that was moving too.
+31% to 36% against a denominator that was moving too.
 
-That is **9.8 capabilities shipped a week** across the whole series, and **17.5 a week** over the 21
-snapshots since the last gap (2026-08-11 to 2026-08-15, +10 shipped in 4 days).
+That is **10.9 capabilities shipped a week** across the whole series, and **26.3 a week** over the
+22 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -143,11 +143,12 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
 | 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
 | 2026-08-14 | `85140ca7` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
-| 2026-08-15 | `218cc0da` | 249 | 192 | 15 | 25 | 10 | 7 | 169 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `6a5dc585` | 254 | 195 | 15 | 25 | 10 | 7 | 161 | 39 | 2 | 708 | 0 | +5 | 0 |
+| 2026-08-15 | `dd2ac00d` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 47 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 48 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -172,14 +173,14 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Calendar and Rules-Based Docketing | 8 | 13 | 0 | 5 | +5 |
 | Communications Layer | 19 | 21 | 2 | 3 | +1 |
 | Community & Feedback Forum | 11 | 11 | 0 | 0 | 0 |
-| Conflicts Check | 9 | 9 | 1 | 1 | 0 |
+| Conflicts Check | 9 | 9 | 1 | 5 | +4 |
 | Core Domain — Directory, Matters & Locations | 58 | 72 | 21 | 31 | +10 |
 | Custodian (Safe Custody) | 10 | 12 | 0 | 6 | +6 |
 | Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
 | Document Automation | 8 | 9 | 0 | 2 | +2 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
-| Financial Core | 55 | 60 | 8 | 18 | +10 |
+| Financial Core | 55 | 60 | 8 | 19 | +11 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
 | Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
@@ -195,34 +196,48 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+10), Financial
-Core (+10), AI & Inference (+7). **16 of 27 areas have shipped nothing in that time**:
-Authentication, Access Control & Encryption, Community & Feedback Forum, Conflicts Check, Design
-System, UI Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance
-Agents, Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery,
-Architecture, Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing
-Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An
-area standing still here has not necessarily been idle — a node moves in this table only when it
-reaches `shipped`, so work that went from nothing to `partial` shows up in the nodes columns and not
-in this one.
+**Fastest since the first snapshot:** Financial Core (+11), Core Domain — Directory, Matters &
+Locations (+10), AI & Inference (+7). **15 of 27 areas have shipped nothing in that time**:
+Authentication, Access Control & Encryption, Community & Feedback Forum, Design System, UI
+Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance Agents,
+Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery, Architecture,
+Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing Documentation, Release
+Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An area standing still here
+has not necessarily been idle — a node moves in this table only when it reaches `shipped`, so work
+that went from nothing to `partial` shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Client-consent model** (`ai.consent`) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
+- **Authentication, access control and encryption** (`auth`) — The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
 - **Feedback board** (`community.board`) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
+- **Conflicts Check** (`conflicts`) — The deepening design is written and unbuilt, and three of its calls decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether the balanced default searches former, maiden and alias names — today only the over-inclusive band does, so a married-name change is invisible at the setting nearly every firm will run. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F1, F2 and F11.
 - **Pronouns on a person** (`directory.pronouns`) — Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
+- **Matters** (`matters`) — The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
+- **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Search** (`discovery.search`) — Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
+- **Filing-grade generation** (`document-automation.filing-grade-generation`) — The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.
 - **Trust accounting** (`financial.trust`) — Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
 - **Jurisdiction-configurable compliance engine** (`financial.trust.jurisdiction-engine`) — An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
+- **Interactive three-way reconciliation** (`financial.trust.reconciliation`) — The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
-- **Payments** (`payments`) — Does the first slice ship the manually recorded receipt (cheque, cash, wire) decoupled from any processor, given a firm cannot record one today? Payments design flag K1.
+- **Corrections after finalization** (`financial.billing.corrections`) — What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
+- **Client intake / CRM** (`intake`) — Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
+- **Lead pipeline** (`intake.lead-pipeline`) — Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
+- **Public intake forms** (`intake.public-forms`) — Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And Turnstile, which the operations runbook still lists as an unchecked standing item: a public form should not ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
+- **Conflict check at intake** (`intake.conflict-check`) — A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
+- **Lead-to-matter conversion** (`intake.conversion`) — A professional-conduct question rather than a product one. When the four conversion preconditions are unmet — an open re-check request among them — does opening the matter refuse outright, or proceed on an override with a recorded reason? The conditions are facts about the firm's own procedure rather than conclusions about the client, so gating on them concludes nothing; but a hard refusal will, at some point, stop a firm opening a matter on a day it needed to. The design refuses only to leave an override untraced. Client intake design flag J2.
+- **Payments** (`payments`) — The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
 - **Payments port** (`payments.port`) — Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
+- **ACH rail (default)** (`payments.ach`) — Who presses the button on the first electronic payment, given the client portal is not started. Staff-operated only, where the firm opens the hosted modal on the client's behalf in the office or over the phone; a one-time pay link, on the precedent of the one-time link that already proves a mailbox; or wait for the portal and ship no electronic rail until then. This decides whether the first payments slice has any client-facing surface at all. Payments design flag K7.
 - **Card rail (fallback)** (`payments.card`) — Is the trust rail in scope at all before a returned-deposit movement kind exists, given a chargeback against trust is unrecordable today? Payments design flags K2 and K3.
 - **Operating-only surcharge** (`payments.surcharge`) — Confirm surcharge stays out of the first slice — it needs a new typed jurisdiction requirement in the restriction bucket, 56 jurisdictions of primary-source research with attorney review, and card-network registration. Payments design flag K6.
 - **Public changelog/roadmap/status pages** (`product-updates.public-pages`) — Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
 - **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
+- **Tasks and workflows** (`tasks`) — Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.
+- **Matter plans** (`tasks.matter-plans`) — Two calls about how far a plan may reach. Whether the platform ever ships curated matter plans of its own — the design ships none and gives the malpractice argument, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and keeping the vocabulary at one value is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
 
 Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.
 

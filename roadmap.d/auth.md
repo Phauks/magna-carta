@@ -13,6 +13,7 @@
   audience: public
   public-name: Accounts and permissions
   public-summary: A named account for everyone at the firm, with roles that decide what each person can open, change and see.
+  awaiting-owner: The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
 
 - id: auth.first-party-login
   name: First-party login

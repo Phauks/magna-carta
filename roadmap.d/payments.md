@@ -14,7 +14,7 @@
   audience: public
   public-name: Client payments
   public-summary: Let a client pay a bill by bank transfer or card, with card fees kept away from trust money.
-  awaiting-owner: Does the first slice ship the manually recorded receipt (cheque, cash, wire) decoupled from any processor, given a firm cannot record one today? Payments design flag K1.
+  awaiting-owner: The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
 
 - id: payments.port
   name: Payments port
@@ -45,6 +45,7 @@
   adrs: ADR-0032
   spec: docs/specs/2026-08-15-payments-design.md
   evidence: Decision recorded; no code. Designed for the operating destination; the trust destination is gated.
+  awaiting-owner: Who presses the button on the first electronic payment, given the client portal is not started. Staff-operated only, where the firm opens the hosted modal on the client's behalf in the office or over the phone; a one-time pay link, on the precedent of the one-time link that already proves a mailbox; or wait for the portal and ship no electronic rail until then. This decides whether the first payments slice has any client-facing surface at all. Payments design flag K7.
 
 - id: payments.card
   name: Card rail (fallback)
