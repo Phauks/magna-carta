@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 249 | 35% |
-| Part-built | partial, in-build | 207 | 29% |
-| Ahead | designed, planned, researching, not-started | 211 | 30% |
+| Done | shipped | 254 | 36% |
+| Part-built | partial, in-build | 210 | 29% |
+| Ahead | designed, planned, researching, not-started | 203 | 29% |
 | Parked | deferred, cut | 41 | 6% |
 | **All capabilities** | | **708** | **100%** |
 
@@ -36,24 +36,24 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 249 | 35% |
-| `partial` | 192 | 27% |
+| `shipped` | 254 | 36% |
+| `partial` | 195 | 28% |
 | `in-build` | 15 | 2% |
 | `designed` | 25 | 4% |
 | `planned` | 10 | 1% |
-| `researching` | 8 | 1% |
-| `not-started` | 168 | 24% |
-| `deferred` | 39 | 6% |
+| `researching` | 7 | 1% |
+| `not-started` | 161 | 23% |
+| `deferred` | 39 | 5% |
 | `cut` | 2 | 0% |
 | **All statuses** | **708** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 249 of 708 (35%). Shipped plus partial is 441 (62%).**
+**Shipped alone is 254 of 708 (36%). Shipped plus partial is 449 (63%).**
 
-The 192 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 195 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
-distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
+distance from 36% to 63% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
 overstates what a user can do; reading the smaller one understates what has been built. Both are
 true and neither is the answer on its own.
@@ -67,14 +67,14 @@ true and neither is the answer on its own.
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
 | Community & Feedback Forum | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 1 | 0 | 11 | 0% |
-| Conflicts Check | 1 | 2 | 0 | 0 | 0 | 1 | 5 | 0 | 0 | 9 | 11% |
+| Conflicts Check | 5 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 56% |
 | Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 4 | 12 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 23 | 17% |
 | Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
-| Financial Core | 18 | 24 | 4 | 1 | 0 | 0 | 10 | 3 | 0 | 60 | 30% |
+| Financial Core | 19 | 25 | 4 | 1 | 0 | 0 | 8 | 3 | 0 | 60 | 32% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -89,11 +89,11 @@ true and neither is the answer on its own.
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **249** | **192** | **15** | **25** | **10** | **8** | **168** | **39** | **2** | **708** | **35%** |
+| **All areas** | **254** | **195** | **15** | **25** | **10** | **7** | **161** | **39** | **2** | **708** | **36%** |
 
 ## Where we have been
 
-**27 of 46 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**27 of 46 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-15, across 32 days. The
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
 ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.8 capabilities shipped a week** across the whole series, and **17.5 a week** over the 20
-snapshots since the last gap (2026-08-11 to 2026-08-15, +10 shipped in 4 days).
+That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
+20 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -142,7 +142,7 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
 | 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
 | 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
-| 2026-08-15 | `7c4abfb4` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-14 | `85140ca7` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
@@ -419,17 +419,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 9 nodes, 11% shipped. 1 done, 2 part-built, 6 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 9 nodes, 56% shipped. 5 done, 4 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
   - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
-  - `conflicts.matching-engine` · `researching` · **Matching engine** — Candidate generation and scoring over names/identifiers (exact, fuzzy, phonetic, alias/blind-index) with related-party edge expansion. _Note: Phonetic and normalization primitives already shipped in packages/directory._
-    - `conflicts.matching-engine.strictness` · `not-started` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable.
-  - `conflicts.search-depth` · `not-started` · **Configurable search depth** — Structured Directory/matter scan by default; optional document-content scan.
-  - `conflicts.firm-wide-scope` · `not-started` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph.
-  - `conflicts.clearance` · `not-started` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected.
-  - `conflicts.log` · `not-started` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log.
+  - `conflicts.matching-engine` · `shipped` · **Matching engine** — Candidate generation over names and identifiers (exact identifier, exact normalized name, phonetic, trigram) with related-party edge expansion, ordered by evidence tier. _Note: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open._
+    - `conflicts.matching-engine.strictness` · `partial` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable. _Note: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly._
+  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default; optional document-content scan. _Note: Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen._
+  - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
+  - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
+  - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._
 
 ### Core Domain — Directory, Matters & Locations
 
@@ -443,7 +443,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `directory.pronouns` · `partial` · **Pronouns on a person** — Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute. _Note: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner._
   - `directory.edges` · `partial` · **Typed edges** — First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to. _Note: Backend shipped; edge management UI not built._
     - `directory.edges.affiliations` · `partial` · **Affiliations (person-org)** — Typed, dated person-to-organization links (officer, employee, partner, member, registered agent, attorney-at-firm) with per-contact flags (primary, billing, do-not-contact). _Note: Typed/dated edges shipped; the promised contact flags (primary/billing/do-not-contact) were not found in the schema or package._
-    - `directory.edges.relationships` · `partial` · **Relationships (person-person, org-org)** — Typed relationship edges — spouse/family, guardian/ward, trustee, beneficiary, business partner; corporate parent/subsidiary/successor/affiliate — feeding conflicts, estate planning, corporate work. _Note: Backend shipped; conflicts engine that consumes these is not built (slice-4-1-conflicts branch has no work yet)._
+    - `directory.edges.relationships` · `partial` · **Relationships (person-person, org-org)** — Typed relationship edges — spouse/family, guardian/ward, trustee, beneficiary, business partner; corporate parent/subsidiary/successor/affiliate — feeding conflicts, estate planning, corporate work. _Note: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built._
     - `directory.edges.representation` · `partial` · **Representation edges** — Counsel-represents-party edges scoped within a matter. _Note: Backend edge type shipped; no UI._
     - `directory.edges.role-assignments` · `partial` · **Matter role assignments** — Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter. _Note: Backend shipped; party management UI not built._
   - `directory.identifiers` · `partial` · **Typed identifiers** — Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation. _Note: Backend shipped; UI not built._
@@ -462,7 +462,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: Depends on document automation._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
   - `matters.lifecycle` · `partial` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: Backend shipped; lifecycle UI not built._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built); the conflicts engine that runs at intake is not built (slice-4-1-conflicts branch empty)._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The zero-balance rule registration belongs to the trust slice and is not yet registered._
     - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: Backend and file-manager primitives on main; the Files UI is queued behind the app shell (status.d/1-1 next)._
@@ -714,7 +714,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 60 nodes, 30% shipped. 18 done, 28 part-built, 11 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 60 nodes, 32% shipped. 19 done, 29 part-built, 9 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -730,13 +730,13 @@ to change a line here, edit the node in its area file and re-run the build.
         - `financial.time.capture.timer.offline-desktop` · `not-started` · **Offline timer in Tauri** — Timer works offline in the desktop shell, then syncs.
       - `financial.time.capture.manual` · `partial` · **Manual entry and quick-add** — Duration or start-end entry, free backdating, one-line quick-add parsing ("0.5 Smith — drafted demand letter"). _Note: Backend shipped; entry UI not built._
       - `financial.time.capture.weekly-grid` · `partial` · **Weekly timesheet grid** — Matters-by-days grid for catching up a whole week. _Note: Backend query shipped; the grid itself is UI, not built._
-      - `financial.time.capture.calendar-drafts` · `deferred` · **Calendar-derived drafts** — One-click, user-initiated conversion of a calendar event into a time entry. _Note: No Calendar subsystem exists yet._
+      - `financial.time.capture.calendar-drafts` · `deferred` · **Calendar-derived drafts** — One-click, user-initiated conversion of a calendar event into a time entry. _Note: Still deferred by decision rather than by absence — the conversion is a one-click act on a calendar surface, and no calendar surface exists to click on._
     - `financial.time.entry-model` · `shipped` · **Entry anatomy and audit** — Date, timekeeper, required matter, duration, narrative, billable flag, resolved rate, optional UTBMS codes, non-billable category; every change audited.
     - `financial.time.increments-rounding` · `shipped` · **Increments and rounding** — Configurable minimum increment (default 0.1 hr) and rounding rule; firm default with per-client/per-matter override.
     - `financial.time.rates` · `shipped` · **Effective-dated rate engine** — Resolution chain matter rate, client rate, timekeeper standard, role default; multiple rate cards; an entry keeps the rate in force on its date.
     - `financial.time.narrative` · `partial` · **Narrative ergonomics** — Snippet/abbreviation expansion, recent-narrative reuse, per-task-code templates. _Note: Template store shipped; expansion/reuse ergonomics are capture-UI behaviors, not built._
-    - `financial.time.lifecycle` · `shipped` · **Draft-to-Billed lifecycle with optional review gate** — Draft (editable) to Billed (locked) by default; firm-configurable Submitted/Approved gate, off by default; post-bill corrections are new adjusting entries. _Note: The Billed transition is exercised at invoice finalize, which is not built yet._
-    - `financial.time.wip` · `partial` · **Time is WIP, not a ledger posting** — Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing. _Note: WIP store shipped; the WIP-to-A/R conversion belongs to the unbuilt billing slice._
+    - `financial.time.lifecycle` · `shipped` · **Draft-to-Billed lifecycle with optional review gate** — Draft (editable) to Billed (locked) by default; firm-configurable Submitted/Approved gate, off by default; post-bill corrections are new adjusting entries. _Note: The Billed transition is driven at invoice finalize by packages/billing/src/finalize.ts, which may move an entry into billed and never back out; the capture screens the gate would appear on are not built._
+    - `financial.time.wip` · `partial` · **Time is WIP, not a ledger posting** — Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing. _Note: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store._
     - `financial.time.my-day` · `partial` · **My Day visibility** — Running billable/non-billable totals, missing-time detection, billable-hour targets (daily/monthly/annual), per-matter and calendar-overlay views. _Note: Backend shipped; the My Day view is UI, not built; calendar overlay is a deferred Calendar-subsystem seam._
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
@@ -760,16 +760,16 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.fee-models.retainer` · `partial` · **Retainer/evergreen** — Retainer and evergreen billing with auto-replenishment alerts below threshold. _Note: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event._
     - `financial.billing.corrections` · `shipped` · **Corrections after finalization** — Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application. _Note: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision._
       - `financial.billing.corrections.contingency-residual` · `shipped` · **Contingency shrunk-basis residual** — Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding. _Note: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it._
-    - `financial.billing.invoice-composition` · `not-started` · **Invoice composition** — Bills combine time/fees plus costs plus taxes.
+    - `financial.billing.invoice-composition` · `partial` · **Invoice composition** — Bills combine time/fees plus costs plus taxes. _Note: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen._
     - `financial.billing.location-letterhead` · `not-started` · **Location letterhead and remit-to on invoices** — Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
-    - `financial.billing.wip-to-ar` · `not-started` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
+    - `financial.billing.wip-to-ar` · `shipped` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock. _Note: Backend only, no screen._
     - `financial.billing.ledes` · `partial` · **LEDES e-billing** — Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
       - `financial.billing.ledes.e-billing-flag` · `shipped` · **Per-matter e-billing flag** — Per-matter flag driving required-code validation upstream in time and cost capture. _Note: Landed early per the phase-3 slice map coordination pin._
       - `financial.billing.ledes.guideline-validation` · `not-started` · **Billing-guideline validation** — Validation against client billing guidelines (rate caps, block-billing/increment rules, required codes) before submission.
       - `financial.billing.ledes.submission` · `not-started` · **Electronic submission path** — A path to electronic invoice submission.
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
-    - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped; the receivable posting and bill-back happen at the unbuilt billing slice per the slice map._
+    - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
     - `financial.costs.soft` · `partial` · **Soft/in-house costs** — In-house costs (printing, copies) tracked separately from hard costs. _Note: Backend shipped; UI not built._
     - `financial.costs.markup-trust` · `deferred` · **Markup and pay-from-trust** — Cost markup and paying costs from trust. _Note: Deliberate exclusion with an open seam._
     - `financial.costs.auto-capture` · `partial` · **Integration auto-capture** — Automatic cost capture from integrations (PACER filing fees, shipping, banking operating disbursements). _Note: Arrives plugin-by-plugin per the white paper._

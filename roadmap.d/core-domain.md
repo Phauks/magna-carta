@@ -81,7 +81,7 @@
   status: partial
   slices: 1-3-directory
   evidence: EDGE_TYPES includes relationship, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts
-  notes: Backend shipped; conflicts engine that consumes these is not built (slice-4-1-conflicts branch has no work yet).
+  notes: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.
 
 - id: directory.edges.representation
   name: Representation edges
@@ -240,7 +240,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
   evidence: prospective status with no number/counter in matter-service.ts; consultation queries with staleness in queries.ts
-  notes: Backend shipped; Consultations folder view is UI (not built); the conflicts engine that runs at intake is not built (slice-4-1-conflicts branch empty).
+  notes: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
 
 - id: matters.lifecycle.close-preconditions
   name: Close-precondition hook

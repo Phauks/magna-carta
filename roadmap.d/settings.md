@@ -101,7 +101,7 @@
   name: Notification preferences category
   scope: Per-user type/category-by-channel routing matrix with locked mandatory categories.
   status: not-started
-  evidence: No notifications settings surface; depends on the unbuilt notifications registry.
+  evidence: No notifications settings surface. The notification type registry it would render is shipped (packages/notifications/src/registry.ts); what this page still waits on is the per-category preference matrix and the firm policy floor, which are a later notifications sub-slice.
 
 - id: settings.area-ui.documents-templates-category
   name: Documents & templates category
