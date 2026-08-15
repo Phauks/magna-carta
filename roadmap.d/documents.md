@@ -667,6 +667,7 @@
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
   evidence: apps/worker/src/routes/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
+  notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
 - id: documents.ocr.raster-cap
   name: Raster cap & skip gate

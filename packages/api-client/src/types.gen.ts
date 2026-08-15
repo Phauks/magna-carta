@@ -5670,6 +5670,10 @@ export type WhoisGetErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)
+     */
+    501: Problem;
 };
 
 export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];

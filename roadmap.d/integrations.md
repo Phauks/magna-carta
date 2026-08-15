@@ -129,6 +129,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094
   evidence: packages/shipping/src/easypost/ + shipment routes; per status.d fragment built done, tests todo.
+  notes: Rate-shop, purchase, track and refund all 500 today — the firm-secret credential read is an unbuilt seam (firmSecretStoreNotYetAvailable), so connecting a real key changes nothing; draft creation succeeds regardless. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.shipping.certified-mail
   name: Certified mail
@@ -193,6 +194,7 @@
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
   evidence: apps/worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
+  notes: Backend only — no screen yet. Entity counts verified correct against a seeded firm; storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools-area.network-speed-test
   name: Network speed test
@@ -208,13 +210,14 @@
   audience: public
   public-name: Built-in tools
   public-summary: Small utilities where you need them: company and attorney-license lookups, county property records, domain and website checks, and file inspection.
-  notes: Backends shipped across the set; tool UIs ride the design-system shell wave
+  notes: Backends shipped across the set; tool UIs ride the design-system shell wave. Measured 2026-08-15 — 19 catalog manifests, 11 backends returning verified-correct answers, 2 with a page a person can open (WHOIS, speed test); the rest read "soon". docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.government-links
   name: Government & licensing links
   scope: Curated deep-links to government portals, business registries, and attorney-license lookups (renamed from parcels).
   status: shipped
   evidence: packages/government-links/src (business/, licensing/, property/, registry.ts); docs/research/attorney-license-lookup-coverage.md.
+  notes: Coverage is uneven by domain and that is what a firm feels — business and attorney-licence are all 51 jurisdictions, property is 835 assessor sites across only 22 (Nevada and the Mountain West; no TX/FL/NY/IL/PA/OH/GA/NC/MI/NJ), plus 17 recorder sites and no GIS. Links verified live 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.property-links
   name: Property external links
@@ -224,7 +227,7 @@
   adrs: ADR-0093
   spec: docs/specs/2026-06-16-property-links-design.md
   evidence: packages/property-links on main; UI rides the Locations surface.
-  notes: County-assessor provider enrichment in flight on branch property-links-assessor.
+  notes: County-assessor provider has landed (src/providers/county-assessor.ts), so five providers resolve. Redfin/Maps/assessor links verified live 2026-08-15; Zillow and Realtor.com answer bot mitigation to a non-browser client and stay unverified. On a partial address the Zillow/Redfin/Maps links silently drop state and ZIP — the UI must require the structured address. docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.whois
   name: WHOIS lookup
@@ -232,7 +235,7 @@
   status: shipped
   adrs: ADR-0120, ADR-0121
   evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts + changelog.d/whois-lookup-tool-page.md.
-  notes: Report enrichment in flight on branch whois-report-enrichment.
+  notes: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.safe-browse
   name: Safe website viewer
@@ -240,6 +243,7 @@
   status: partial
   adrs: ADR-0119, ADR-0120
   evidence: packages/safe-browse/src/capture.ts + apps/worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
+  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.
 
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber
@@ -248,7 +252,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   evidence: packages/metadata + apps/worker/src/routes/metadata.ts.
-  notes: HEIC/PDF and a Container engine deferred.
+  notes: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-integrity
   name: File hash & integrity
@@ -257,6 +261,7 @@
   slices: file-hash-integrity
   adrs: ADR-0143
   evidence: packages/file-integrity + apps/worker/src/routes/file-integrity.ts.
+  notes: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-type
   name: File type verifier
@@ -265,6 +270,7 @@
   slices: file-type-verifier
   adrs: ADR-0160
   evidence: packages/file-type + apps/worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
+  notes: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md.
 
 - id: integrations.tools.ssrf-guard
   name: Outbound SSRF guard

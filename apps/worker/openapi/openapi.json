@@ -23912,6 +23912,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
