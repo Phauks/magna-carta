@@ -2,6 +2,7 @@ import type { KnownPermission } from "@magna-carta/access-control/registry";
 import { CONFLICTS_HIT_SURFACED_TOPIC } from "@magna-carta/conflicts/topics";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
+import { EMAIL_FILED_TOPIC } from "@magna-carta/email-filing/topics";
 import {
   DOCUMENT_CHECKIN_CONFLICT_TOPIC,
   FILE_QUARANTINED_TOPIC,
@@ -259,6 +260,37 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: matterSectionLink("files"),
+  },
+  {
+    key: "email.filed",
+    category: "email",
+    severity: "informational",
+    mandatory: false,
+    // The people carrying the file. Correspondence arriving on a matter is the team's fact, not only
+    // the responsible member's — a paralegal working the file needs to know the other side wrote in.
+    audience: "matter-team",
+    // Whoever filed it does not need telling they filed it. The automatic path has no actor to
+    // exclude, and its recipients are the same team — a rule filing mail to a matter is precisely the
+    // case where nobody performed the act and everybody on the file wants to hear about it.
+    includeActor: false,
+    subscribesTo: EMAIL_FILED_TOPIC,
+    subjectKind: "emailMessage",
+    subjectPayloadKey: "emailMessageId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Deliberately empty, and this is the type where that matters most. An email's subject line is
+    // routinely the client's name, the opposing party, or the substance of the advice, and the sender
+    // address names who the firm is talking to — both are exactly the strings a notification row must
+    // not hold, because the row outlives the access check that justified writing it. Neither reaches
+    // this package at all: the producing payload carries two identifiers, so there is nothing here to
+    // decline. What a reader needs resolves behind the deep link, through email filing's own
+    // access-checked read.
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("emails"),
   },
   {
     key: "system.matter.closed",

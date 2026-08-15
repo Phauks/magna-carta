@@ -106,6 +106,69 @@ async function seedFiledMessage(
   return emailMessageId;
 }
 
+// The same message, staged rather than filed — the state the accept route promotes out of.
+async function seedStagedMessage(messageIdValue: string): Promise<EmailMessageId> {
+  const threadId = newIdentifier("emailThread");
+  const emailMessageId = newIdentifier("emailMessage");
+  await firmDatabase.batch([
+    insertEmailThreadStatement(
+      firmDatabase,
+      { id: threadId as EmailThreadId, subjectNormalized: "hi", firstSeenAt: clock.now() },
+      clock.now(),
+    ),
+    insertEmailMessageStatement(
+      firmDatabase,
+      {
+        id: emailMessageId,
+        messageIdValue,
+        messageIdProvenance: "header",
+        subject: "Settlement offer — Herrera",
+        sentAt: clock.now(),
+        receivedAt: clock.now(),
+        fromDisplay: null,
+        fromAddress: "a@example.test",
+        threadId: threadId as EmailThreadId,
+        inReplyTo: null,
+        contentSha256: `sha-${messageIdValue}`,
+        dedupKey: `messageId:header:${messageIdValue}`,
+        originalR2Key: `emails/${messageIdValue}/original`,
+        referencesRemoteContent: false,
+        integrity: "{}",
+        dkimVerdict: "unverified",
+        dkimVerdictReason: null,
+        dkimVerifiedDomain: null,
+        sourceFormat: "eml",
+        capturedVia: "api",
+      },
+      clock.now(),
+    ),
+    insertEmailMatterLinkStatement(
+      firmDatabase,
+      {
+        id: newIdentifier("emailMatterLink") as EmailMatterLinkId,
+        emailMessageId,
+        matterId,
+        state: "staged",
+        linkedBy: null,
+        linkedAt: null,
+        capturedVia: "api",
+      },
+      clock.now(),
+    ),
+  ]);
+  return emailMessageId;
+}
+
+async function filedTopicRows(
+  emailMessageId: EmailMessageId,
+): Promise<{ topic: string; payload: string }[]> {
+  const { results } = await firmDatabase
+    .prepare("SELECT topic, payload FROM outbox WHERE topic = ?1 AND payload LIKE ?2")
+    .bind("email.filed", `%${emailMessageId}%`)
+    .all<{ topic: string; payload: string }>();
+  return results;
+}
+
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = (await seedFirm({ name: "Email Filing Routes Firm" })).firmId;
@@ -291,6 +354,68 @@ describe("emails routes", () => {
     expect(body.dkimVerdict).toBe("pass");
     expect(body.dkimVerdictReason).toBe("passed");
     expect(body.dkimVerifiedDomain).toBe("example.test");
+  });
+
+  // The notification's emission point. A member accepting a staged link has to leave a durable row
+  // behind in the same batch as the promotion — nothing subscribes to a function call, and a call
+  // fires just as happily for a batch that rolled back.
+  it("commits an email.filed topic carrying two identifiers when a staged link is accepted", async () => {
+    const emailMessageId = await seedStagedMessage("<accept@example.test>");
+    const res = await SELF.fetch(
+      `https://x/api/v1/matters/${matterId}/emails/${emailMessageId}/accept`,
+      { method: "POST", headers: { cookie: ownerCookie } },
+    );
+    expect(res.status).toBe(200);
+    const { results: links } = await firmDatabase
+      .prepare("SELECT state FROM email_matter_link WHERE email_message_id = ?1")
+      .bind(emailMessageId)
+      .all<{ state: string }>();
+    expect(links[0]?.state).toBe("filed");
+
+    const rows = await filedTopicRows(emailMessageId);
+    expect(rows).toHaveLength(1);
+    // Identifiers only. The subject on this message names a client on purpose: a payload that carried
+    // it would put it on a queue, in a notification row, and in whatever a firm's members forward.
+    expect(JSON.parse(rows[0]?.payload ?? "{}")).toEqual({ emailMessageId, matterId });
+  });
+
+  // A second accept promotes nothing — the UPDATE is guarded on `staged`. Announcing a filing anyway
+  // would tell the matter's team twice about one email.
+  it("writes nothing on a repeated accept and still answers filed", async () => {
+    const emailMessageId = await seedStagedMessage("<accept-twice@example.test>");
+    const accept = (): Promise<Response> =>
+      SELF.fetch(`https://x/api/v1/matters/${matterId}/emails/${emailMessageId}/accept`, {
+        method: "POST",
+        headers: { cookie: ownerCookie },
+      });
+    expect((await accept()).status).toBe(200);
+    const second = await accept();
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual({ emailMessageId, matterId, state: "filed" });
+    expect(await filedTopicRows(emailMessageId)).toHaveLength(1);
+    const { results: audits } = await firmDatabase
+      .prepare("SELECT id FROM audit_log WHERE event = 'emails.filed' AND subject_id = ?1")
+      .bind(emailMessageId)
+      .all<{ id: string }>();
+    expect(audits).toHaveLength(1);
+  });
+
+  // Somebody deliberately took this message off the matter. Accepting it back is not a promotion the
+  // route performs, and the old answer — 200 "filed" over a row still sitting in `unlinked` — said it
+  // had.
+  it("refuses to accept a link somebody unlinked (404) and raises no topic", async () => {
+    const emailMessageId = await seedStagedMessage("<accept-unlinked@example.test>");
+    const unlink = await SELF.fetch(
+      `https://x/api/v1/matters/${matterId}/emails/${emailMessageId}`,
+      { method: "DELETE", headers: { cookie: ownerCookie } },
+    );
+    expect(unlink.status).toBe(200);
+    const res = await SELF.fetch(
+      `https://x/api/v1/matters/${matterId}/emails/${emailMessageId}/accept`,
+      { method: "POST", headers: { cookie: ownerCookie } },
+    );
+    expect(res.status).toBe(404);
+    expect(await filedTopicRows(emailMessageId)).toHaveLength(0);
   });
 
   it("unlinks an email from a matter without deleting the message", async () => {

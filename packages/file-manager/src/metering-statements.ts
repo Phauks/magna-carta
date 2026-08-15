@@ -175,19 +175,28 @@ export function meterCorrectionStatements(
   );
 }
 
-// The Analytics Engine trend seam (decided: AE writes ride a telemetry port). Emits one data point
-// per meter bucket, indexed by firm. NOTHING IMPLEMENTS THIS PORT TODAY — `@magna-carta/telemetry`
-// exists and owns the platform's event and metric surfaces, but it does not implement this one, and
-// no caller passes an adapter, so no meter trend point is written anywhere. Trends are advisory and
-// D1 stays authoritative, which is why that is a gap rather than a defect.
-export interface MeterTelemetry {
-  writeDataPoint(point: { indexes: string[]; blobs: string[]; doubles: number[] }): void;
-}
-
-export function emitMeterDataPoint(telemetry: MeterTelemetry, firmId: string, row: MeterRow): void {
-  telemetry.writeDataPoint({
-    indexes: [firmId],
-    blobs: [row.storageClass, row.artifactRole, row.prefix],
-    doubles: [row.bytes, row.objectCount],
-  });
-}
+// NO STORAGE TREND IS KEPT, AND THAT IS DELIBERATE — read this before adding one back.
+//
+// The rows above are a CURRENT rollup: they say what a firm stores now and never what it stored last
+// month. A per-firm growth curve is a real question (capacity, cost, a firm's own usage page), and it
+// used to have a seam here — an Analytics Engine port taking a raw data point per meter bucket,
+// indexed by the firm id. Nothing ever implemented it, and it could not have been implemented as
+// shaped:
+//
+//   - An Analytics Engine index is a tenant identifier written in clear. Everywhere else the platform
+//     lets a firm handle reach that dataset it is HMAC-pseudonymized first and dropped outright when
+//     the pepper is absent (packages/telemetry/src/pseudonymize.ts), because the dataset is a
+//     cross-firm aggregate store the firm does not control and cannot have redacted afterwards.
+//     A meter indexed by firm inverts that in one line.
+//   - The dataset has one column contract and one door: every write goes through the declared metric
+//     catalog in packages/telemetry/src/metrics.ts, which fixes blob 1 as the metric name and the rest
+//     from the metric's declared dimension order, scrubs each value, and drops what it cannot place.
+//     A second writer laying out its own blobs is the unguarded door that catalog exists to close.
+//   - Analytics Engine retention is short by design. A capacity or billing history outlives it, so it
+//     is the wrong store for the question even with the two problems above solved.
+//
+// So the trend is not deferred behind a port, it is declined here. If a firm's storage history is
+// wanted, it is a periodic snapshot ROW — one per firm per interval, in this firm's own database,
+// read by the surface that already reports current totals (usage.ts → the firm-usage route) — and the
+// operational rate signals that genuinely belong in Analytics Engine already ride declared counters
+// (`storage.reconciliation.corrected`, `storage.dimension.stamped`).

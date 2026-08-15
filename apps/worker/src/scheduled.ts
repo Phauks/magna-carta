@@ -514,8 +514,9 @@ async function readMeterRows(database: ProxyBatchDatabase): Promise<MeterRow[]> 
 //
 // PER-FIRM BUCKET SEAM: the LIST runs against the bucket resolveFirmBucket (files/firm-bucket.ts)
 // gives for this firm — the same resolver the upload and ingest paths use, so the pass counts the
-// bytes those paths actually wrote. D1 stays authoritative; the analytics trend seam (the telemetry
-// package) consumes the corrected meter on its own path.
+// bytes those paths actually wrote. D1 stays authoritative and is the only reader of the corrected
+// meter — no analytics store holds a copy of it, and packages/file-manager/src/metering-statements.ts
+// records why a per-firm storage trend is declined rather than deferred.
 export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
   // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
   // (golden rule 4; the console ban is structural).
