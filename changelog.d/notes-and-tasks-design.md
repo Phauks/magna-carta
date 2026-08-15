@@ -6,7 +6,7 @@ audience: internal
 **The note primitive and the tasks subsystem are designed, in that order, and the first finding is that
 the activity stream everyone was about to build has been shipped since the case-calendar slice.**
 
-**Both reported gaps are real, and were verified rather than inherited.** All 176 per-firm tables were
+**Both reported gaps are real, and were verified rather than inherited.** All 175 per-firm tables were
 enumerated: there is no `note`, `comment`, `annotation`, `activity` or `timeline` table. What exists
 are scalar `note` / `notes` columns on a dozen individual records — custody movements, trust movements
 and reconciliations, invoices, matter assets, resource bookings — each one nullable free text on one

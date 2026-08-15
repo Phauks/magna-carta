@@ -22,7 +22,7 @@ notifications subsystem's own next sub-slice; the client portal.
 Four nodes in `roadmap.d/tasks.md`, three `not-started` and one `researching`. Their evidence holds
 almost entirely and is corrected in one respect by this branch (section 10).
 
-There is no task table among the 176 per-firm tables, no `TaskId` among the 166 identifier types in
+There is no task table among the 175 per-firm tables, no `TaskId` among the 166 identifier types in
 `packages/identifiers/src/types.ts`, no task package, and no route. The only trace anywhere is
 `apps/web/src/lib/matters/sections.ts`, whose `other` section is described as "Everything else the
 matter accumulates — research, tasks, and tool output — finds its home here." A catch-all mentioning

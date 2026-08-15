@@ -1,6 +1,6 @@
 # Notes, activity, tasks and matter plans — implementation plan
 
-**This plan does not start.** Ten build-gating owner flags across the two designs —
+**This plan does not start.** Eleven build-gating owner flags across the two designs —
 **W1 through W8 and W11 through W13** — decide what is in it. W1 decides whether stage 1 exists at
 all; W2 decides whether stage 2 does; W4 decides whether stage 1 ships database triggers; W5 and W6
 decide two confidentiality postures the code has to be written against rather than retrofitted to; W7
@@ -66,7 +66,7 @@ The whole primitive, on one attachment axis, with no client-facing surface anywh
     idempotency requirement; the `notes` section in `apps/web/src/lib/matters/sections.ts` climbs off
     maturity stage `soon`.
 12. **Documentation.** `packages/notes/CLAUDE.md`; a `docs/user/` task page; the changelog fragment;
-    the ledger nodes, whose existence is itself an owner decision (design section 11 / section 1).
+    the ledger nodes, whose existence is itself an owner decision (notes design, sections 1 and 12).
 
 **Depends on nothing outside the repository.**
 

@@ -22,7 +22,7 @@ else); tasks and matter plans, which are the companion spec.
 A note is the most ordinary thing a practice-management product has, so "the platform has none" is
 surprising enough to verify rather than accept. It was verified four ways, and it holds.
 
-**No table.** Every `CREATE TABLE` across `packages/database/drizzle/per-firm/` was enumerated — 176
+**No table.** Every `CREATE TABLE` across `packages/database/drizzle/per-firm/` was enumerated — 175
 tables. There is no `note`, no `comment`, no `annotation`, no `activity`, no `timeline`, and no
 `memo`. What exists are **scalar `note` / `notes` columns** on individual records: `custody_movement`,
 `custody_item`, `custody_stocktake_sighting`, `trust_movement`, `trust_reconciliation`,
@@ -36,12 +36,12 @@ several for things nobody has built (`PortalGrantId` is reserved with no portal)
 `NoteId`, `CommentId`, or `ActivityId`. When this platform intends to build something, it reserves the
 handle first; nothing reserved one here.
 
-**No ledger node.** `roadmap.d/` was searched across all 28 area files. No node describes a note, a
+**No ledger node.** `roadmap.d/` was searched across all 27 area files. No node describes a note, a
 comment, an activity stream, or a timeline entity. `intake.crm` names the absence
 ("the platform carries no note, comment or timeline entity on any record") and `tasks` names its own,
 but no node claims the capability. **The register has no home for this and this design does not add
 one** — a missing node is an owner decision about whether the register grows, not a gap to paper over
-(section 11).
+(section 12).
 
 **The user interface already promises it.** `apps/web/src/lib/matters/sections.ts` reserves a
 `notes` section at maturity stage `soon`, described as "Matter notes and memoranda — dated,
@@ -54,7 +54,7 @@ The second reported gap holds too. `matter` carries `closed_at` (baseline migrat
 `20260704T041516_baseline.sql`, and the only later `ALTER TABLE matter` adds `system_key`) and no
 reason column of any kind. Its status vocabulary is `prospective | open | closed`. A declined
 engagement, a lost pitch, a matter closed because the client died, and a matter closed because the
-work finished are the same row. Section 10 decides where that belongs.
+work finished are the same row. Section 11 decides where that belongs.
 
 ---
 
