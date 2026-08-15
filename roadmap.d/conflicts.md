@@ -15,6 +15,7 @@
   audience: public
   public-name: Conflicts checking
   public-summary: Check a prospective client or matter against everyone the firm has acted for or against, and keep a permanent record of what the check returned and who cleared it.
+  awaiting-owner: The deepening design is written and unbuilt, and three of its calls decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether the balanced default searches former, maiden and alias names — today only the over-inclusive band does, so a married-name change is invisible at the setting nearly every firm will run. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F1, F2 and F11.
 
 - id: conflicts.directory-seams
   name: Directory matching seams
