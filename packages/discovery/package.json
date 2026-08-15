@@ -25,7 +25,9 @@
     "./review-set-access-service": "./src/review-set-access-service.ts",
     "./coding-statements": "./src/coding-statements.ts",
     "./coding-panel-service": "./src/coding-panel-service.ts",
-    "./coding-service": "./src/coding-service.ts"
+    "./coding-service": "./src/coding-service.ts",
+    "./processing": "./src/processing.ts",
+    "./processing-statements": "./src/processing-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

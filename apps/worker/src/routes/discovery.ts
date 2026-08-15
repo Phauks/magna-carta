@@ -62,7 +62,12 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { discoveryLoadJobName } from "../discovery/discovery-load-types.ts";
+import {
+  discoveryEngineGeneration,
+  runProcessingDispatchTurn,
+} from "../discovery/dispatch-processing.ts";
 import { runInternalLoadTurn } from "../discovery/run-internal-load.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { registerDiscoveryCodingRoutes } from "./discovery-coding.ts";
 
@@ -690,6 +695,9 @@ const runInternalLoadRoute = defineOpenAPIRoute(loadMeta("runInternalLoad"), {
               loadId: z.string(),
               plannedCount: z.number(),
               allocatedCount: z.number(),
+              // How many of the allocated documents this turn queued to be read. Reading happens off
+              // the request entirely — this number says what was asked for, never what came back.
+              dispatchedCount: z.number(),
               complete: z.boolean(),
             })
             .openapi("RunInternalLoadResponse"),
@@ -1185,12 +1193,48 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
           now: options.clock.now,
           randomSource: options.randomSource,
         });
+
+        // The processing walk starts only once every row the load will ever hold is committed. A
+        // dispatch that overlapped allocation would queue a corpus that was still growing, and the
+        // reconciliation the load completes against would be counted against a moving number.
+        //
+        // Nothing here reads a byte. The walk puts one message per document on the discovery lane and
+        // returns; extraction runs in the consumer, against the engine Container, off this request
+        // and off every other hot path.
+        let dispatchedCount = 0;
+        let dispatchComplete = false;
+        // A firm with no provisioned bucket has nowhere its documents' bytes could be, so there is
+        // nothing to point a reader at. The rows stay, the load stays `processing`, and the
+        // coordinator says why — parked work the platform owes rather than a failure of this request,
+        // which committed exactly what it was asked to.
+        if (turn.complete && firm.bucketName === null) {
+          await coordinator.markWaiting("the firm has no provisioned object storage");
+        }
+        if (turn.complete && firm.bucketName !== null) {
+          const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+          const dispatch = await runProcessingDispatchTurn({
+            database: firm.firmDatabase,
+            coordinator,
+            queue: c.env.DISCOVERY_PROCESS,
+            firmId: sessionFirmId,
+            bucketName,
+            matterId: reviewSet.matter_id,
+            reviewSetId: load.review_set_id,
+            loadId,
+            engineGeneration: discoveryEngineGeneration(c.env),
+          });
+          dispatchedCount = dispatch.dispatched;
+          dispatchComplete = dispatch.complete;
+        }
         return c.json(
           {
             loadId,
             plannedCount: turn.plannedCount,
             allocatedCount: turn.allocatedCount,
-            complete: turn.complete,
+            dispatchedCount,
+            // COMPLETE MEANS BOTH WALKS ARE DONE. A caller that stopped re-running here because
+            // allocation finished would leave the tail of the corpus queued to nobody.
+            complete: turn.complete && dispatchComplete,
           },
           202,
         );

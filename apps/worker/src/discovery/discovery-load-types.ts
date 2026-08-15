@@ -7,7 +7,14 @@
 export type DiscoveryLoadJobStatus =
   | "declared"
   | "allocating"
+  // Every row the load will ever hold is committed. The corpus exists; nothing has read it yet.
   | "allocated"
+  // The processing lane has been asked to read every one of those rows. TERMINAL FOR THE COORDINATOR
+  // and not for the load: what the documents came back as is the consumer's business, and the load
+  // reaches `complete` only when its own reconciliation adds up. A separate status from `allocated`
+  // because "the corpus exists" and "everything in it has been queued to be read" are two facts, and
+  // a resumed turn has to know which one it is looking at.
+  | "dispatched"
   // Not a failure: work owed and not lost. A coordinator parks here when the material it was told to
   // expect has not arrived yet, and leaves it by being started again.
   | "waiting"
@@ -25,6 +32,11 @@ export interface DiscoveryLoadJobState {
   readonly plannedCount: number;
   // How many review documents have actually committed.
   readonly allocatedCount: number;
+  // How far the PROCESSING fan-out has walked, as the identifier of the last review document it
+  // enqueued. Null before the walk starts. A KEYSET cursor rather than an offset, and durable for the
+  // same reason the allocation cursor is: a load at the ceiling is hundreds of pages, and one that
+  // had to start the walk over after a deploy would re-enqueue a quarter of a million messages.
+  readonly dispatchCursor: string | null;
   // Why the job is waiting or failed; null otherwise. A stable sentence, never file content.
   readonly reason: string | null;
 }
@@ -34,6 +46,7 @@ export const UNKNOWN_LOAD_JOB: DiscoveryLoadJobState = {
   cursor: 0,
   plannedCount: 0,
   allocatedCount: 0,
+  dispatchCursor: null,
   reason: "unknown load",
 };
 
@@ -57,6 +70,8 @@ export interface DiscoveryLoadCoordinatorRpc {
   start(message: DiscoveryLoadPlanMessage): Promise<DiscoveryLoadJobState>;
   checkpoint(progress: { cursor: number; allocatedCount: number }): Promise<void>;
   markAllocated(allocatedCount: number): Promise<void>;
+  checkpointDispatch(cursor: string): Promise<void>;
+  markDispatched(): Promise<void>;
   markWaiting(reason: string): Promise<void>;
   markFailed(reason: string): Promise<void>;
   status(): Promise<DiscoveryLoadJobState>;

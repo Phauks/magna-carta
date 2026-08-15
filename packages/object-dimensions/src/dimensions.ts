@@ -63,7 +63,15 @@ export type MatterScopedObjectClass =
   // from the documents it was built from, which is what makes it safe to expire, and the class is what
   // tells a reader of the bucket that these bytes are an index rather than a document. A split belongs
   // to exactly one corpus, and a corpus is a matter today, so it stamps that matter.
-  | "search-split";
+  | "search-split"
+  // The text a discovery review document extracted to, and the per-document metadata sidecar beside
+  // it. Both are DERIVED caches — rebuildable by re-processing the source bytes, which is what makes
+  // them collectable when a review set closes — and both belong to the one matter the review set is
+  // on. They are stamped apart from a working document deliberately: these bytes are a reading of
+  // material an opposing party produced, and a bucket-wide filter has to be able to exclude them
+  // without knowing a key layout.
+  | "review-extracted-text"
+  | "review-document-metadata";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -99,6 +107,8 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "shipping-label",
   "review-coding-selection",
   "search-split",
+  "review-extracted-text",
+  "review-document-metadata",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
