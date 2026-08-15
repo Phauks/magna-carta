@@ -99,7 +99,7 @@ jobs:
   changes:
     # 8 s measured: a `git diff` plus a dependency-free node classifier, no install and no build. The
     # slim runner's preinstalled git and node are the whole toolchain this needs.
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
