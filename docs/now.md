@@ -96,7 +96,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**32 of 51 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**34 of 53 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -104,12 +104,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+50 shipped since the ledger began** — 204 on 2026-07-14, 254 on 2026-08-15, across 32 days. The
-ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
-31% to 36% against a denominator that was moving too.
+**+51 shipped since the ledger began** — 204 on 2026-07-14, 255 on 2026-08-15, across 32 days. The
+ledger itself grew by +70 nodes over the same period (663 to 733), so the share shipped went from
+31% to 35% against a denominator that was moving too.
 
-That is **10.9 capabilities shipped a week** across the whole series, and **26.3 a week** over the
-25 snapshots since the last gap (2026-08-11 to 2026-08-15, +15 shipped in 4 days).
+That is **11.2 capabilities shipped a week** across the whole series, and **28.0 a week** over the
+27 snapshots since the last gap (2026-08-11 to 2026-08-15, +16 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -151,10 +151,12 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-15 | `d35ae516` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 | 2026-08-15 | `67f39333` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
 | 2026-08-15 | `9bd40bd7` | 254 | 195 | 15 | 25 | 10 | 6 | 162 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-15 | `6beeb58e` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | +25 | +1 | 0 |
+| 2026-08-15 | `07e3e6d1` | 255 | 196 | 15 | 38 | 18 | 6 | 162 | 41 | 2 | 733 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 51 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 53 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -186,6 +188,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Discovery (e-discovery) | 20 | 23 | 3 | 4 | +1 |
 | Document Automation | 8 | 9 | 0 | 2 | +2 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
+| Exhibits and Exhibit Lists | — | 9 | — | 0 | 0 |
 | Financial Core | 55 | 60 | 8 | 19 | +11 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
@@ -199,18 +202,21 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
 | Reports | 11 | 11 | 0 | 1 | +1 |
+| Self-Serve Provisioning and Entitlements | — | 9 | — | 1 | +1 |
 | Settings & Configuration | 17 | 17 | 4 | 4 | 0 |
 | Tasks and Workflows / Matter Plans | 4 | 4 | 0 | 0 | 0 |
+| Translation Services | — | 7 | — | 0 | 0 |
 
 **Fastest since the first snapshot:** Financial Core (+11), Core Domain — Directory, Matters &
-Locations (+10), AI & Inference (+7). **15 of 27 areas have shipped nothing in that time**:
+Locations (+10), AI & Inference (+7). **17 of 30 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Design System, UI
-Consistency & Design Quality, Client Intake / CRM, Integrations & Plugins, Maintenance Agents,
-Observability & Diagnostics, Payments, Performance & Concurrency, Platform — Delivery, Architecture,
-Tenancy & Data Conventions, Client Portal, Product Updates & User-Facing Documentation, Release
-Channels, Settings & Configuration, Tasks and Workflows / Matter Plans. An area standing still here
-has not necessarily been idle — a node moves in this table only when it reaches `shipped`, so work
-that went from nothing to `partial` shows up in the nodes columns and not in this one.
+Consistency & Design Quality, Exhibits and Exhibit Lists, Client Intake / CRM, Integrations &
+Plugins, Maintenance Agents, Observability & Diagnostics, Payments, Performance & Concurrency,
+Platform — Delivery, Architecture, Tenancy & Data Conventions, Client Portal, Product Updates &
+User-Facing Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter
+Plans, Translation Services. An area standing still here has not necessarily been idle — a node
+moves in this table only when it reaches `shipped`, so work that went from nothing to `partial`
+shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
@@ -490,7 +496,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   - `conflicts.matching-engine` · `shipped` · **Matching engine** — Candidate generation over names and identifiers (exact identifier, exact normalized name, phonetic, trigram) with related-party edge expansion, ordered by evidence tier. _Note: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open._
     - `conflicts.matching-engine.strictness` · `partial` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable. _Note: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly._
-  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default; optional document-content scan. _Note: Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen._
+  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default; optional document-content scan. _Note: Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._

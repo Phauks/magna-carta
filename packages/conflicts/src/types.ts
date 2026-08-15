@@ -79,4 +79,10 @@ export interface EdgeStep {
   readonly edgeType: string;
   readonly fromEntityId: string;
   readonly toEntityId: string;
+  // True when the relationship had already ended at the instant the check read the corpus. An ended
+  // relationship is TRAVERSED, not skipped — the rules on former clients are the ones that most often
+  // decide a conflict, so a search that stopped at currency would drop the dimension they turn on —
+  // and the fact travels on the step so a reviewer weighs a divorced spouse or a sold subsidiary as
+  // what it is. Absent on a path recorded before the traversal carried the flag.
+  readonly expiredAtCheck?: boolean;
 }

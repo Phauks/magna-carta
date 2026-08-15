@@ -54,6 +54,10 @@ information:
   comparison is made fresh every time you look, so it is never out of date.
 - **What could not be searched, and why?** Every source that had nothing behind it, named, with the
   reason. A source that could not run is never reported as a source that ran and found nothing.
+- **Did the search of related people and companies finish?** How far the check was allowed to follow
+  relationships, and — if it hit the limit on how many connected records one check may look at — that
+  it stopped early, and how many further records it knew about and did not search. A search that
+  stopped early is never shown as one that finished.
 - **What has nobody answered?** How many of the check's results are still waiting for a person to look
   at them, grouped by how strong the evidence is. A result nobody has reviewed is shown as unanswered,
   not quietly aged out.
@@ -95,6 +99,28 @@ separate permission from running a check.
 - **Two parties on the same matter can surface against each other.** That is not a bug in the search:
   a company you are acting against turning out to be your client's parent is exactly the sort of thing
   worth seeing. It is marked so you can tell it apart from a clash with a different client.
+- **Following relationships has a limit, and the report tells you when it was hit.** A check follows
+  the relationships you have recorded — a company's parent, a person's spouse, who sits on which
+  board — outwards from the parties on the matter. How far it goes is your firm's setting, and it is
+  set separately for each kind of relationship, because "follow a company's renames and mergers as far
+  as they go" and "do not walk from a spouse to her employer's other directors" are different
+  instructions. There is also a limit on how many connected records one check may look at in total,
+  because a large corporate group can run to thousands. If a check reaches that limit it stops, says
+  so plainly, and tells you how many further records it knew were connected and did not search. That
+  sentence is the point of the limit: an incomplete search you know about is workable, and one you do
+  not know about is the failure this whole feature exists to prevent.
+- **Relationships that have ended are still followed.** A divorced spouse, a subsidiary sold last
+  year, a directorship someone resigned — the check follows all of them, and marks on the result that
+  the connection had already ended. That is deliberate: the rules that most often decide a conflict
+  are about former clients and former relationships, so a search that stopped at what is current today
+  would miss exactly the cases that matter. Whether an ended connection still matters is your
+  judgement, and the report gives you what you need to make it.
+- **A record with hundreds of connections is never skipped for being busy.** A bank, a registered
+  agent, or a state filing office can sit on hundreds of unrelated relationships, and it would be easy
+  to make searches faster by stepping around them. Magna Carta does not, because a bank that appears
+  on five hundred of your matters is exactly where a positional conflict lives. The limit is on how
+  many records one check looks at in total, which the report can tell you about — never on which
+  records it is willing to look at, which it could not.
 - **Some kinds of identifier are never searched on their own.** A date of birth or the last four
   digits of a number match far too many people to be useful as a search on their own, so they are not
   used that way, and every report names them so you know they were left out.

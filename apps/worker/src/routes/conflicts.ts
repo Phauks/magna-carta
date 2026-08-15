@@ -140,6 +140,9 @@ const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za
 // door with a 422 rather than a 500 or a stalled worker.
 const MAX_SUBJECT_ENTITIES = 200;
 const MAX_GRAPH_DEPTH = 6;
+// The largest closure one request may ask the traversal to expand to. The firm's own setting is the
+// default; this refuses a caller-supplied number that would make one request walk the whole corpus.
+const MAX_CLOSURE_CAP = 5000;
 
 const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
@@ -157,6 +160,20 @@ const ScopeRequest = z
     // (0 included) is honored as given, capped so no single request can walk an unbounded traversal.
     // The resolved depth is always recorded on the check.
     depth: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+    // Per-edge-class hop budgets. A class omitted here falls back to `depth`, then to the firm's own
+    // setting, so a caller written before typed budgets existed keeps meaning exactly what it meant.
+    // Corporate-family edges carry no budget: they are traversed transitively, bounded only by the
+    // closure cap, because a rename or merger chain of any length is one legal person continuing.
+    edgeClassBudgets: z
+      .object({
+        control: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+        family: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+        representation: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+      })
+      .optional(),
+    // The most entities this run may expand to. Omitted means the firm's setting. Reaching it stops
+    // the traversal and the check records that it was truncated, with how much it did not reach.
+    closureCap: z.number().int().min(0).max(MAX_CLOSURE_CAP).optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -177,6 +194,10 @@ const GraphPathStep = z
     edgeType: z.string(),
     fromEntityId: z.string(),
     toEntityId: z.string(),
+    // True when the relationship had already ended when the check read the corpus. An ended
+    // relationship is traversed rather than skipped, and the reviewer weighs the expiry. Absent on a
+    // path recorded before the traversal carried the flag.
+    expiredAtCheck: z.boolean().optional(),
   })
   .openapi("ConflictsGraphPathStep");
 
@@ -208,6 +229,23 @@ const HitDetail = z
   })
   .openapi("ConflictsHitDetail");
 
+const TraversalRecord = z
+  .object({
+    // The hop budget in force per budgeted edge class. Corporate family is absent: it is transitive.
+    edgeClassBudgets: z.record(z.string(), z.number().int()),
+    closureCap: z.number().int().nullable(),
+    // True when the closure cap stopped the walk. A truncated expansion is never reported as a
+    // completed one, for the same reason a source with no corpus is never reported as searched: the
+    // platform looked at part of the world and has to say which part.
+    truncated: z.boolean(),
+    entitiesReached: z.number().int().nullable(),
+    // Entities the cap refused to admit. These were never matched.
+    unexploredFrontierSize: z.number().int().nullable(),
+    // Entities that ARE in the closure and WERE matched, but whose own edges were never read.
+    unexpandedReachedCount: z.number().int().nullable(),
+  })
+  .openapi("ConflictsTraversalRecord");
+
 const CheckDetail = z
   .object({
     id: z.string(),
@@ -221,6 +259,7 @@ const CheckDetail = z
     strictness: z.enum(STRICTNESS_LEVELS),
     depth: z.number().int(),
     floorRaised: z.boolean(),
+    traversal: TraversalRecord.nullable(),
     actorUserId: z.string().nullable(),
     createdAt: z.string(),
   })
@@ -250,6 +289,9 @@ const PostureScope = z
     strictness: z.string(),
     depth: z.number().int(),
     floorRaised: z.boolean(),
+    // Null on a check written before the traversal record existed — "the row does not say", which is
+    // a different fact from "the walk completed" and is never flattened into it.
+    traversal: TraversalRecord.nullable(),
   })
   .openapi("ConflictsPostureScope");
 
@@ -637,6 +679,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
           subjectEntityCount: inputs.subjectEntityIds.length,
           expandedEntityCount: inputs.expandedEntityIds.length,
           skippedIdentifierTypes: inputs.skippedIdentifierTypes,
+          traversal: inputs.traversal,
         },
         hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
         sources,
@@ -650,6 +693,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         strictness: checkRow.strictness,
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
+        traversal: inputs.traversal,
         actorUserId: checkRow.actor_user_id,
         createdAt: checkRow.created_at,
       };

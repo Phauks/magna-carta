@@ -1,5 +1,27 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { BUDGETED_EDGE_CLASSES, type BudgetedEdgeClass } from "./edge-classes.ts";
 import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
+
+// A hop budget per budgeted edge class. Corporate family carries no entry: it is traversed
+// transitively at zero cost and bounded only by `closureCap`, because a rename or merger chain of any
+// length is the same legal person continuing.
+export type EdgeClassBudgets = Readonly<Record<BudgetedEdgeClass, number>>;
+
+// The default hop budget for every budgeted class, and the default per-run closure cap. Both are
+// numbers that decide what gets searched rather than how the search is coded, so both are firm
+// settings and neither is hard-coded at a call site: the values here are the shipped default the firm
+// starts from, and the value in force is recorded on every check row.
+export const DEFAULT_EDGE_CLASS_BUDGETS: EdgeClassBudgets = Object.freeze({
+  control: 1,
+  family: 1,
+  representation: 1,
+});
+
+// The most entities one run may expand to. A bound has to exist — an unbounded traversal over a real
+// corporate group is an availability problem, and a Directory holding a clearing bank can put
+// thousands of entities in one closure. What must never happen is the bound being applied silently,
+// so reaching it is recorded and reported rather than quietly shortening the answer.
+export const DEFAULT_CLOSURE_CAP = 500;
 
 // The firm's mandatory minimum. A per-run selection may only ADD sources above this floor, never
 // subtract below it — otherwise narrowing the scope manufactures a clean check, and the log would
@@ -9,6 +31,8 @@ export interface ConflictsPolicy {
   readonly floorSources: readonly SourceClass[];
   readonly floorStrictness: Strictness;
   readonly defaultDepth: number;
+  readonly edgeClassBudgets: EdgeClassBudgets;
+  readonly closureCap: number;
 }
 
 export interface ScopeRequest {
@@ -18,13 +42,26 @@ export interface ScopeRequest {
   // (`ConflictsPolicy.defaultDepth`); an explicit value (including 0) is honored as given. Unlike
   // sources and strictness, depth is a default, not a floor — a caller may deliberately search
   // shallower than the default, and the recorded `depth` on the check row keeps that transparent.
+  //
+  // It is also the uniform budget: supplying it sets every budgeted edge class to that number, which
+  // is exactly what it has always meant. `edgeClassBudgets` overrides it per class.
   readonly depth?: number;
+  // Per-class overrides. A class the caller omits falls back to `depth`, then to the firm's setting.
+  readonly edgeClassBudgets?: Partial<Record<BudgetedEdgeClass, number>>;
+  // A per-run closure cap. Omitted means the firm's setting. Like depth, this is a default rather
+  // than a floor: a caller may run with a smaller cap, and the cap in force is recorded either way.
+  readonly closureCap?: number;
 }
 
 export interface ResolvedScope {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
+  // The single hop number the shipped `conflicts_check.depth` column carries. It is the WIDEST of the
+  // resolved per-class budgets, so a reader of the column alone is never told the traversal was
+  // shallower than it was; the per-class detail is recorded beside it.
   readonly depth: number;
+  readonly edgeClassBudgets: EdgeClassBudgets;
+  readonly closureCap: number;
   // True when the request fell below the floor and was raised. Recorded on the check row so an
   // auditor sees that a narrower scope was asked for and refused.
   readonly floorRaised: boolean;
@@ -34,6 +71,8 @@ export const DEFAULT_CONFLICTS_POLICY: ConflictsPolicy = {
   floorSources: ["party"],
   floorStrictness: "balanced",
   defaultDepth: 1,
+  edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
+  closureCap: DEFAULT_CLOSURE_CAP,
 };
 
 const SETTING_KEY = "conflicts.policy";
@@ -67,13 +106,33 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
   // Depth defaults to the firm's configured value when the caller omits it; an explicit value (0
   // included) is honored. Defaulting is not a floor-raise — the caller asked for nothing narrower —
   // so it never sets floorRaised.
-  const depth =
-    request.depth === undefined ? Math.max(0, policy.defaultDepth) : Math.max(0, request.depth);
+  const requestedDepth =
+    request.depth === undefined ? undefined : Math.max(0, Math.trunc(request.depth));
+
+  // Per class, in order of specificity: an explicit per-class override, then the caller's uniform
+  // depth, then the firm's per-class setting. The middle rung is what keeps every caller written
+  // against the shipped single `depth` field meaning exactly what it always meant.
+  const edgeClassBudgets = Object.fromEntries(
+    BUDGETED_EDGE_CLASSES.map((edgeClass) => {
+      const override = request.edgeClassBudgets?.[edgeClass];
+      if (override !== undefined) return [edgeClass, Math.max(0, Math.trunc(override))];
+      if (requestedDepth !== undefined) return [edgeClass, requestedDepth];
+      return [edgeClass, Math.max(0, Math.trunc(policy.edgeClassBudgets[edgeClass]))];
+    }),
+  ) as unknown as EdgeClassBudgets;
+
+  const closureCap =
+    request.closureCap === undefined
+      ? Math.max(0, Math.trunc(policy.closureCap))
+      : Math.max(0, Math.trunc(request.closureCap));
 
   return {
     sources: orderSources(requested),
     strictness,
-    depth,
+    // The widest budget in force, so the one-number column never understates the traversal.
+    depth: Math.max(...BUDGETED_EDGE_CLASSES.map((edgeClass) => edgeClassBudgets[edgeClass])),
+    edgeClassBudgets,
+    closureCap,
     floorRaised,
   };
 }
@@ -113,12 +172,40 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
     ? (parsed.floorStrictness as Strictness)
     : DEFAULT_CONFLICTS_POLICY.floorStrictness;
 
+  const defaultDepth =
+    typeof parsed.defaultDepth === "number" && Number.isFinite(parsed.defaultDepth)
+      ? Math.max(0, Math.trunc(parsed.defaultDepth))
+      : DEFAULT_CONFLICTS_POLICY.defaultDepth;
+
   return {
     floorSources,
     floorStrictness,
-    defaultDepth:
-      typeof parsed.defaultDepth === "number"
-        ? parsed.defaultDepth
-        : DEFAULT_CONFLICTS_POLICY.defaultDepth,
+    defaultDepth,
+    edgeClassBudgets: parseEdgeClassBudgets(parsed.edgeClassBudgets, defaultDepth),
+    closureCap:
+      typeof parsed.closureCap === "number" && Number.isFinite(parsed.closureCap)
+        ? Math.max(0, Math.trunc(parsed.closureCap))
+        : DEFAULT_CONFLICTS_POLICY.closureCap,
   };
+}
+
+// A firm that configured `defaultDepth` before the typed budgets existed still means that number for
+// every class, so a stored row with no `edgeClassBudgets` resolves to the depth it does carry — never
+// to the shipped default. Falling back to the shipped default here would silently NARROW the search
+// for exactly the firms that took the trouble to widen it, which is the one direction this subsystem
+// may never move without saying so.
+function parseEdgeClassBudgets(stored: unknown, defaultDepth: number): EdgeClassBudgets {
+  const record =
+    typeof stored === "object" && stored !== null && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : {};
+  return Object.fromEntries(
+    BUDGETED_EDGE_CLASSES.map((edgeClass) => {
+      const value = record[edgeClass];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return [edgeClass, Math.max(0, Math.trunc(value))];
+      }
+      return [edgeClass, defaultDepth];
+    }),
+  ) as unknown as EdgeClassBudgets;
 }

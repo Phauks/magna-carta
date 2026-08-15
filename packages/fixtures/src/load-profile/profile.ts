@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 9;
+export const GENERATOR_VERSION = 10;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -98,6 +98,15 @@ export interface DirectoryVolume {
   readonly identifiersPerEntity: number;
   // Fraction of persons linked to a matter as a party in a role (linkMatterParty).
   readonly matterPartyFraction: number;
+  // A deep corporate group: one chain of corporate_successor edges (a rename/merger lineage the
+  // conflicts traversal follows transitively at no hop cost) and one wide fan of subsidiaries hanging
+  // off the chain's head. Sized past the conflicts closure cap on purpose — a traversal that never
+  // meets its own bound never exercises the truncation record, and the truncation record is the part
+  // that must never silently report an incomplete search as a complete one.
+  readonly corporateGroup: {
+    readonly chainLength: number;
+    readonly fanWidth: number;
+  };
 }
 
 // The custom-field volume laid over the practice + directory: firm-defined fields attached to the
@@ -481,7 +490,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 13,
+  version: 14,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -525,6 +534,10 @@ export const ledgerVolume: LedgerVolumeProfile = {
     edgesPerEntity: { min: 0, max: 3 },
     identifiersPerEntity: 250,
     matterPartyFraction: 0.35,
+    // A real holding structure: a lineage a dozen renames deep, and a parent with six hundred
+    // subsidiaries — past the 500-entity default closure cap, so the deep-graph measurement below
+    // measures a traversal that actually truncates.
+    corporateGroup: { chainLength: 12, fanWidth: 600 },
   },
   shipping: {
     shipmentCount: 300,
@@ -698,6 +711,12 @@ export function scaleProfile(
       personCount: scaleCount(profile.directory.personCount, 12),
       organizationCount: scaleCount(profile.directory.organizationCount, 4),
       identifiersPerEntity: scaleCount(profile.directory.identifiersPerEntity, 6),
+      corporateGroup: {
+        // The chain floor keeps a lineage longer than any hop budget so the transitive corporate walk
+        // is still exercised at the smoke multiplier; the fan floor keeps it cheap.
+        chainLength: scaleCount(profile.directory.corporateGroup.chainLength, 4),
+        fanWidth: scaleCount(profile.directory.corporateGroup.fanWidth, 8),
+      },
     },
     shipping: {
       ...profile.shipping,

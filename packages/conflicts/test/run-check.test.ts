@@ -412,3 +412,74 @@ test("a replayed idempotency key writes exactly one check", async () => {
     .all();
   expect(results[0].count).toBe(1);
 });
+
+test("a completed walk records the budgets and caps in force, and does not record a truncation", async () => {
+  const { ctx, options } = await conflictsTestContext("traversal-record");
+  const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [clientId],
+      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1, closureCap: 50 },
+    },
+    options,
+  );
+
+  const row = await readCheck(ctx.database, checkId);
+  const traversal = (JSON.parse(row.inputs_json) as { traversal: Record<string, unknown> })
+    .traversal;
+  expect(traversal.edgeClassBudgets).toEqual({ control: 1, family: 1, representation: 1 });
+  expect(traversal.corporateFamily).toBe("transitive");
+  expect(traversal.closureCap).toBe(50);
+  expect(traversal.expiredEdgesTraversed).toBe(true);
+  expect(traversal.truncated).toBe(false);
+  // A completed walk has no boundary to describe, so the truncation counts are absent rather than
+  // present-and-zero: a zero frontier would read as "we checked, and there was nothing beyond".
+  expect(traversal["unexploredFrontierSize"]).toBeUndefined();
+});
+
+test("a check that hits the closure cap records the truncation, and the posture read surfaces it", async () => {
+  const { ctx, options } = await conflictsTestContext("traversal-truncation");
+  const hub = await createOrganization(ctx.database, { legalName: "Hub Holdings" }, options);
+  for (let index = 0; index < 20; index += 1) {
+    const spoke = await createOrganization(
+      ctx.database,
+      { legalName: `Spoke ${index} Limited` },
+      options,
+    );
+    await createEdge(
+      ctx.database,
+      {
+        from: hub,
+        to: spoke,
+        edgeType: "corporate_subsidiary",
+        role: null,
+        note: null,
+        validFrom: null,
+        validTo: null,
+      },
+      options,
+    );
+  }
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [hub],
+      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1, closureCap: 5 },
+    },
+    options,
+  );
+
+  const row = await readCheck(ctx.database, checkId);
+  const traversal = (JSON.parse(row.inputs_json) as { traversal: Record<string, unknown> })
+    .traversal;
+  expect(traversal.truncated).toBe(true);
+  expect(traversal.closureCap).toBe(5);
+  expect(traversal.entitiesReached).toBe(5);
+  // The number that makes the bound acceptable: how much was reachable and NOT searched.
+  expect(traversal["unexploredFrontierSize"]).toBeGreaterThan(0);
+});
