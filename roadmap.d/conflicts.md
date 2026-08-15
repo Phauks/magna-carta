@@ -29,7 +29,7 @@
   scope: Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   status: partial
   slices: slice-4-1-conflicts
-  evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/worker/src/conflicts/, and apps/worker/src/conflicts/periodic-rescan.ts. The intake trigger is the one that has no caller, because the intake flow that would fire it is unbuilt.
+  evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/worker/src/conflicts/, and apps/worker/src/conflicts/periodic-rescan.ts; TRIGGER_BY_TOPIC already records a matter.created check as preliminary and a matter.opened or matter.reopened one as comprehensive. Missing is the check that runs BEFORE a matter exists to raise an event about — the pre-engagement screen an intake flow would fire, which no topic can reach because there is no matter row yet.
 
 - id: conflicts.matching-engine
   name: Matching engine

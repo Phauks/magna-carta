@@ -93,7 +93,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**26 of 45 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
+**27 of 46 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-15, across 32 days. The
 ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
-19 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
+That is **9.8 capabilities shipped a week** across the whole series, and **17.5 a week** over the 20
+snapshots since the last gap (2026-08-11 to 2026-08-15, +10 shipped in 4 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -142,10 +142,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
 | 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
 | 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
+| 2026-08-15 | `7c4abfb4` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 45 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 46 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with

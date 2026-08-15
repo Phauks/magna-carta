@@ -39,12 +39,18 @@ three-table log plus the disposition stream, the event-driven re-check ledger, i
 consumers, and the scheduled backstop. There is a conflicts check to trigger, it has a public
 surface at `apps/worker/src/routes/conflicts.ts`, and it has been callable since conflicts slice 1.
 
-**Better than that: the trigger vocabulary intake needs already shipped, and nothing calls it.**
+**Better than that: the trigger vocabulary intake needs already shipped, and it is already live.**
 `CONFLICTS_TRIGGERS` in `packages/conflicts/src/types.ts` opens with `"preliminary"` and
-`"comprehensive"`. Neither name is produced by any caller in the tree — the six that follow are the
-re-check causes and the periodic rescan. Those two were minted for this subsystem and left waiting,
-and the correct reading of the ledger's stale line is not "conflicts is missing" but "intake is the
-caller conflicts was built expecting."
+`"comprehensive"`, and `TRIGGER_BY_TOPIC` in `packages/conflicts/src/recheck-cause.ts` already
+produces both: a `matter.created` event records a check as `preliminary`, and `matter.opened` and
+`matter.reopened` record theirs as `comprehensive`.
+
+What intake adds is the one call that vocabulary cannot reach today, because it happens **before a
+matter exists to raise an event about**. The topic-driven path can only fire once a matter row is
+there; a check at the moment a member accepts a submission has entity ids and no matter at all. So
+intake is not supplying a missing producer — it is supplying the earliest one, and the correct
+reading of the ledger's stale line is not "conflicts is missing" but "the check exists and intake is
+the caller that reaches it first."
 
 `roadmap.d/conflicts.md` carries the same staleness from the other side — its parent node still says
 "the conflicts-check feature itself has no code or spec" over a shipped package with two specs, and

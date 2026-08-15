@@ -7,9 +7,11 @@ audience: internal
 blocked on has been waiting for it.** The feature ledger claimed `intake.conflict-check` was stuck
 because "no conflicts check exists to trigger." `packages/conflicts` has been on `main` since slice 1
 — the orchestrator, the reporting posture, the append-only log, the disposition stream, the
-event-driven re-check ledger, its two queue consumers and the cron backstop — and better than that,
-`CONFLICTS_TRIGGERS` opens with `"preliminary"` and `"comprehensive"`, two names no caller in the tree
-produces. They were minted for intake and left waiting. `roadmap.d/conflicts.md` carried the same
+event-driven re-check ledger, its two queue consumers and the cron backstop — and the trigger
+vocabulary intake needs is live already: `TRIGGER_BY_TOPIC` records a `matter.created` check as
+`preliminary` and a `matter.opened` or `matter.reopened` one as `comprehensive`. What intake adds is
+the call that vocabulary cannot reach today, because it happens before a matter exists to raise an
+event about. `roadmap.d/conflicts.md` carried the same
 staleness from the other side and is corrected too: its parent still said the feature "has no code or
 spec" over a shipped package with two specs, and `conflicts.triggers` still said no check invocation
 existed anywhere after slice 2 shipped four event producers, two consumers and a scheduled backstop.
