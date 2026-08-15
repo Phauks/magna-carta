@@ -87,9 +87,9 @@ export interface CompleteDocumentAssemblyRow {
   // The KEYS that could not be resolved, never the values that could.
   readonly absentFieldKeys: readonly string[];
   // The NAMES of the Word fields nothing substituted — merge fields the template carried unconverted,
-  // and legacy form fields, which nothing binds at all — so this document renders each as the text the
-  // template already held. Names only, so a reader can find each field in the document; the text itself
-  // stays in the template's manifest.
+  // legacy form fields, and content controls nothing will fill in, none of which anything binds — so
+  // this document renders each as the text the template already held. Names only, so a reader can find
+  // each field in the document; the text itself stays in the template's manifest.
   readonly frozenFieldNames: readonly string[];
   readonly completedAt: string;
 }

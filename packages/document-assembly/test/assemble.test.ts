@@ -11,6 +11,7 @@ import {
 import type { MergeContext, MergeValue } from "../src/types.ts";
 import {
   buildDocx,
+  contentControlParagraph,
   documentXml,
   footerXml,
   footnotesXml,
@@ -166,6 +167,25 @@ describe("substitution", () => {
       'xml:space="preserve"',
     );
     expect(visibleTextOf(partsOfResultBytes(result.bytes))).toBe("a  spaced  b");
+  });
+
+  it("files an unfilled content control's prompt, which is why registration has to report it", () => {
+    // Substitution has no view of a hole it was never asked to fill: the control is not a placeholder,
+    // so this pass walks straight past it and the document goes out saying "Click here to enter text."
+    // where the client's name belongs, with nothing here able to notice. The manifest entry recorded at
+    // registration is the whole defence, which is what makes its absence a defect rather than a gap.
+    const bytes = normalizedTemplateBytes({
+      document: documentXml(
+        paragraphOfRuns("Dear "),
+        contentControlParagraph({ alias: "Client Name" }),
+      ),
+    });
+    const result = assemble(bytes, contextOf({}));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(visibleTextOf(partsOfResultBytes(result.bytes))).toContain("Click here to enter text.");
+    expect(result.absences).toEqual([]);
+    expect(result.substitutions).toBe(0);
   });
 });
 

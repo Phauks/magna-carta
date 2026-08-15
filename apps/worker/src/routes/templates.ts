@@ -21,7 +21,10 @@ import {
   readFieldMapping,
 } from "@magna-carta/document-assembly/field-mapping-statements";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
-import type { ConfirmedMergeFieldMapping } from "@magna-carta/document-assembly/normalize";
+import {
+  contentControlLabel,
+  type ConfirmedMergeFieldMapping,
+} from "@magna-carta/document-assembly/normalize";
 import { prepareTemplateVersion } from "@magna-carta/document-assembly/register";
 import {
   composeTemplateArchive,
@@ -43,6 +46,7 @@ import type {
   LegacyFormField,
   MergeFieldDetection,
   NormalizationWarning,
+  UnboundContentControl,
 } from "@magna-carta/document-assembly/types";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { computeVerdict } from "@magna-carta/file-manager/verdict";
@@ -226,6 +230,25 @@ const LegacyFormFieldSchema = z
   })
   .openapi("TemplateLegacyFormField");
 
+// One CONTENT CONTROL the version carries that nothing will fill in — a `w:sdt` showing its unfilled
+// placeholder, or one bound to data stored in the template's own package. Its own schema again, and for
+// a reason beyond tidiness: `alias` and `tag` are names an AUTHOR gave the control, where a legacy form
+// field's name is one Word minted, so a reader deciding what to do about it is looking at different
+// evidence. Neither is a merge key — no human has confirmed what either means — and both are here so a
+// person can find the control in Word.
+const UnboundContentControlSchema = z
+  .object({
+    alias: z.string(),
+    tag: z.string(),
+    kind: z.string(),
+    part: z.string(),
+    occurrences: z.number(),
+    showingPlaceholder: z.boolean(),
+    dataBound: z.boolean(),
+    frozenText: z.string(),
+  })
+  .openapi("TemplateUnboundContentControl");
+
 const RegisteredTemplateResponse = z
   .object({
     templateId: z.string(),
@@ -248,6 +271,10 @@ const RegisteredTemplateResponse = z
     // converts them, so a non-empty list means documents assembled from this template print the
     // template's own fill-in-the-blank prompts where a person is meant to type.
     legacyFormFields: z.array(LegacyFormFieldSchema),
+    // The content controls the stored version carries that nothing will fill in. A non-empty list means
+    // documents assembled from this template print a prompt, or text left over from the document the
+    // template was made from, where a person is meant to type.
+    unboundContentControls: z.array(UnboundContentControlSchema),
     // The name-to-key mappings this registration added to the firm's field-mapping library, so a later
     // import of documents from the same source arrives already mapped.
     confirmedFieldMappings: z.array(z.object({ fieldName: z.string(), mergeKey: z.string() })),
@@ -301,6 +328,8 @@ const TemplateFieldsResponse = z
     unconvertedMergeFields: z.array(UnconvertedMergeFieldSchema),
     // The other half again: fields the engine will never bind, whatever anyone opts in to.
     legacyFormFields: z.array(LegacyFormFieldSchema),
+    // And the regions Word writes today that nothing fills in either.
+    unboundContentControls: z.array(UnboundContentControlSchema),
     warnings: z.array(NormalizationWarningSchema),
   })
   .openapi("TemplateFields");
@@ -854,6 +883,7 @@ function registrationFeedback(prepared: PreparedUpload) {
     mergeFieldsDetected: prepared.mergeFieldDetections,
     unconvertedMergeFields: prepared.manifest.unconvertedMergeFields,
     legacyFormFields: prepared.manifest.legacyFormFields,
+    unboundContentControls: prepared.manifest.unboundContentControls,
     confirmedFieldMappings: prepared.confirmedMergeFieldMappings,
     warnings: prepared.warnings,
   };
@@ -882,6 +912,7 @@ interface PreparedUpload {
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
   readonly mergeFieldsConverted: boolean;
   readonly legacyFormFields: readonly LegacyFormField[];
+  readonly unboundContentControls: readonly UnboundContentControl[];
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
   readonly contentSha256: string;
 }
@@ -1038,6 +1069,20 @@ async function prepareStagedUpload(
             path: detection.part,
             code: "word-merge-field",
             detail: `"${detection.fieldName}" appears ${detection.occurrences} time${detection.occurrences === 1 ? "" : "s"} and would become {{${detection.mappedKey}}}${detection.mapsToKnownField ? "" : ", which is not a merge field this firm has"}.`,
+          })),
+          // The two constructs NOTHING binds ride the refusal as well, so a template rejected for an
+          // authoring mistake somewhere else still tells the firm where its other holes are — rather
+          // than saving that up for the attempt that finally passes, by which point the author has
+          // stopped looking for surprises.
+          ...preparation.legacyFormFields.map((field) => ({
+            path: field.part,
+            code: "legacy-form-field",
+            detail: `${field.fieldName === "" ? `an unnamed Word ${field.kind} form field` : `"${field.fieldName}"`} appears ${field.occurrences} time${field.occurrences === 1 ? "" : "s"} and nothing fills it in${field.frozenText === "" ? "" : `, so the document prints "${field.frozenText}"`}.`,
+          })),
+          ...preparation.unboundContentControls.map((control) => ({
+            path: control.part,
+            code: "unbound-content-control",
+            detail: `${contentControlLabel(control)} appears ${control.occurrences} time${control.occurrences === 1 ? "" : "s"} and nothing fills it in${control.frozenText === "" ? "" : `, so the document prints "${control.frozenText}"`}.`,
           })),
         ],
       }),
@@ -1413,6 +1458,9 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           }),
           unconvertedMergeFields: manifest.unconvertedMergeFields.map((field) => ({ ...field })),
           legacyFormFields: manifest.legacyFormFields.map((field) => ({ ...field })),
+          unboundContentControls: manifest.unboundContentControls.map((control) => ({
+            ...control,
+          })),
           warnings: warnings.map((warning) => ({
             code: warning.code,
             part: warning.part,
@@ -1566,6 +1614,11 @@ function parseManifestJson(json: string): FieldManifest {
       // registered saying nothing about the construct, which is the defect the field exists to end;
       // re-registering such a template is what gets it reported, since a version is immutable.
       legacyFormFields: Array.isArray(parsed.legacyFormFields) ? parsed.legacyFormFields : [],
+      // Likewise absent on a manifest stored before content controls were looked at, which is every
+      // version registered before that pass existed rather than a version that carried none.
+      unboundContentControls: Array.isArray(parsed.unboundContentControls)
+        ? parsed.unboundContentControls
+        : [],
       // Likewise absent on a manifest stored before conditions, repeats, and calculations existed —
       // which is a template that carried none, since registration refused a block marker outright then.
       blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
@@ -1577,6 +1630,7 @@ function parseManifestJson(json: string): FieldManifest {
       totalOccurrences: 0,
       unconvertedMergeFields: [],
       legacyFormFields: [],
+      unboundContentControls: [],
       blocks: [],
       computedFields: [],
     };

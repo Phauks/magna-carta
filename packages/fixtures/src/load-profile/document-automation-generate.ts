@@ -193,6 +193,7 @@ function manifestFor(
     totalOccurrences,
     unconvertedMergeFields: [],
     legacyFormFields: [],
+    unboundContentControls: [],
     blocks: [],
     computedFields: [],
   };
@@ -273,6 +274,7 @@ function expressionManifestFor(
     totalOccurrences,
     unconvertedMergeFields: [],
     legacyFormFields: [],
+    unboundContentControls: [],
     blocks,
     computedFields,
   };
@@ -293,6 +295,7 @@ function preparationFor(manifest: FieldManifest, bytes: Uint8Array): TemplatePre
     mergeFieldDetections: [],
     mergeFieldsConverted: false,
     legacyFormFields: [],
+    unboundContentControls: [],
     confirmedMergeFieldMappings: [],
   };
 }

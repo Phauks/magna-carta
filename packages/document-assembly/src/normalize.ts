@@ -20,6 +20,7 @@ import { readPartText, writePartText, type PartMap } from "./ooxml/package.ts";
 import { contentPartNames } from "./ooxml/parts.ts";
 import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
 import type {
+  ContentControlKind,
   FieldManifest,
   LegacyFormField,
   LegacyFormFieldKind,
@@ -30,6 +31,7 @@ import type {
   MergeValueType,
   NormalizationWarning,
   PlaceholderForm,
+  UnboundContentControl,
   UnconvertedMergeField,
 } from "./types.ts";
 
@@ -41,7 +43,11 @@ import type {
 //
 // `{{key}}` text delimiters are the canonical form a paralegal types, and a registered template version
 // carries exactly that one form, so nothing downstream has to understand two. Content controls
-// (`w:sdt`) are a named seam, deferred until a browser authoring surface can emit them.
+// (`w:sdt`) are a named seam for BINDING, deferred until a browser authoring surface can emit them —
+// but an unfilled one is a hole in the document today, so it is detected and reported now (see the
+// content-control walk below). A template's own `{{key}}` sitting INSIDE a control keeps working
+// exactly as it does anywhere else: both walks recurse through `w:sdtContent` like any other element,
+// which is what makes a control transparent to substitution rather than a second placeholder syntax.
 //
 // A Word MERGEFIELD construct is an equivalent authoring form that CAN be converted into brace form
 // here — but conversion is OPT-IN, never automatic. Rewriting a firm's uploaded template is a change to
@@ -66,6 +72,72 @@ import type {
 // document means. The engine does not guess what a Word field name means, and a legacy form field is
 // that rule's hardest case rather than its exception. Whether to offer a conversion at all is an owner
 // decision, not a default this pass may take on its own.
+
+// A CONTENT CONTROL (`w:sdt`) is the fourth construct, and the only one of the four Word still writes
+// when an author inserts a blank today. It is reported on the same terms as a legacy form field and for
+// the same reason — a control showing its unfilled placeholder prints "Click here to enter text." into
+// every document assembled from the template, and a template built entirely from them otherwise
+// registers saying it has no fields at all.
+//
+// It is NOT converted, and the argument is one step different from the form-field one, so it is written
+// out rather than borrowed: a form field's only name is a bookmark Word minted (`Text1`), while a
+// content control's `w:alias` and `w:tag` are typed by whoever authored the document. That is real
+// evidence — the same kind a `MERGEFIELD` name carries — so the reason not to convert is not "there is
+// nothing to map from". It is that a name only means something once a HUMAN HAS CONFIRMED IT, which is
+// the whole purpose of the field-mapping library, and that rewriting a firm's uploaded document is
+// opt-in here without exception (`convertMergeFields`, `stripMacros`). An opt-in that maps an alias
+// through that library is buildable on exactly what this pass records; it is an owner decision, not a
+// default this pass may take on its own.
+
+interface ContentControlKindDeclaration {
+  readonly kind: ContentControlKind;
+  // How the kind is said in a sentence a person reads. It rides the same table as the kind, so a
+  // registration warning and an assembly's frozen field list cannot describe one control two ways.
+  readonly phrase: string;
+}
+
+// The type element in `w:sdtPr` that says what a control holds, keyed by LOCAL NAME. The prefix is
+// deliberately not matched: a check box is `w14:checkbox` and a repeating section is
+// `w15:repeatingSection`, from Word's later extension namespaces, and keying on a prefix would silently
+// miss both wherever a producer binds those namespaces to different ones. Within a properties block
+// there is nothing else these local names could be.
+const CONTENT_CONTROL_KINDS: ReadonlyMap<string, ContentControlKindDeclaration> = new Map([
+  ["text", { kind: "plainText", phrase: "plain text" }],
+  ["richText", { kind: "richText", phrase: "rich text" }],
+  ["date", { kind: "date", phrase: "date picker" }],
+  ["dropDownList", { kind: "dropDownList", phrase: "drop-down list" }],
+  ["comboBox", { kind: "comboBox", phrase: "combo box" }],
+  ["checkbox", { kind: "checkBox", phrase: "check box" }],
+  ["picture", { kind: "picture", phrase: "picture" }],
+  ["docPartObj", { kind: "buildingBlock", phrase: "building block" }],
+  ["docPartList", { kind: "buildingBlock", phrase: "building block" }],
+  ["repeatingSection", { kind: "repeatingSection", phrase: "repeating section" }],
+  ["repeatingSectionItem", { kind: "repeatingSectionItem", phrase: "repeating section item" }],
+  ["citation", { kind: "citation", phrase: "citation" }],
+  ["bibliography", { kind: "bibliography", phrase: "bibliography" }],
+  ["equation", { kind: "equation", phrase: "equation" }],
+  ["group", { kind: "group", phrase: "group" }],
+] as const);
+
+const CONTENT_CONTROL_PHRASES: ReadonlyMap<ContentControlKind, string> = new Map([
+  ...[...CONTENT_CONTROL_KINDS.values()].map(
+    (declaration) => [declaration.kind, declaration.phrase] as const,
+  ),
+  ["unspecified", "untyped"] as const,
+]);
+
+// The one place a content control is turned into words, so the registration warning and the assembly's
+// frozen-field list cannot name the same control two ways. The alias comes first because it is what
+// Word's own properties dialog calls the title and what an author reading the document sees.
+export function contentControlLabel(
+  control: Pick<UnboundContentControl, "alias" | "tag" | "kind">,
+): string {
+  const phrase = CONTENT_CONTROL_PHRASES.get(control.kind) ?? "untyped";
+  const name = control.alias !== "" ? control.alias : control.tag;
+  return name === ""
+    ? `an untitled Word ${phrase} content control`
+    : `${name} (Word ${phrase} content control)`;
+}
 
 // The three field instructions Word writes for a legacy form field. A field whose instruction is
 // anything else — PAGE, DATE, TOC, REF — is Word's own and is left entirely alone.
@@ -123,6 +195,10 @@ export interface NormalizationResult {
   // for an unrelated authoring mistake must still tell the firm that it also carries fields nothing
   // will ever bind — otherwise that fact only appears on the attempt that happens to succeed.
   readonly legacyFormFields: readonly LegacyFormField[];
+  // Every content control the pass found that nothing will fill in, carried beside the manifest copy for
+  // the reason the two lists above are: a refused registration has no manifest, and a template rejected
+  // for an authoring mistake elsewhere must still say which of its regions will print a prompt.
+  readonly unboundContentControls: readonly UnboundContentControl[];
   // The name-to-key mappings a conversion just CONFIRMED — emitted only when the caller opted in, and
   // only for names that mapped onto a merge field the dictionary has. This is what the firm's mapping
   // library records, so the next import of a document from the same source reuses the answer instead of
@@ -545,6 +621,216 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
     index += 1;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The content-control walk — `w:sdt` regions nothing will fill in
+// ---------------------------------------------------------------------------------------------
+
+// A read, never a rewrite: nothing in this section returns a node. It runs over the tree the merge-field
+// pass produced rather than the one that was parsed, so the text it reports is the text the STORED bytes
+// will print — if a conversion just turned a `MERGEFIELD` inside a control into a placeholder, the
+// control no longer prints what it printed on upload.
+
+interface ContentControlTally {
+  alias: string;
+  tag: string;
+  kind: ContentControlKind;
+  occurrences: number;
+  showingPlaceholder: boolean;
+  dataBound: boolean;
+  frozenText: string;
+}
+
+interface ContentControlProperties {
+  readonly alias: string;
+  readonly tag: string;
+  readonly kind: ContentControlKind;
+  readonly showingPlaceholder: boolean;
+  readonly dataBound: boolean;
+}
+
+// `w14:checkbox` -> "checkbox". The properties block mixes the main namespace with Word's extension
+// ones, and only the local name is stable across producers.
+function localNameOf(tag: string): string {
+  const separator = tag.lastIndexOf(":");
+  return separator === -1 ? tag : tag.slice(separator + 1);
+}
+
+function directChild(node: XmlNode, localName: string): XmlNode | undefined {
+  const nodeName = nodeTag(node);
+  if (nodeName === undefined) return undefined;
+  const children = node[nodeName];
+  if (!Array.isArray(children)) return undefined;
+  for (const child of children as XmlNode[]) {
+    const childTag = nodeTag(child);
+    if (childTag !== undefined && localNameOf(childTag) === localName) return child;
+  }
+  return undefined;
+}
+
+function stringAttributeOf(node: XmlNode, attribute: string): string {
+  const value = attributesOf(node)[attribute];
+  return typeof value === "string" ? value : "";
+}
+
+// The `w:sdtPr` block's facts. Undefined when the control carries no properties block at all, which is a
+// control that declares neither a placeholder state nor a data binding and so has nothing to report.
+function contentControlPropertiesOf(control: XmlNode): ContentControlProperties | undefined {
+  const properties = directChild(control, "sdtPr");
+  if (properties === undefined) return undefined;
+  const propertiesTag = nodeTag(properties);
+  const children = propertiesTag === undefined ? undefined : properties[propertiesTag];
+  if (!Array.isArray(children)) return undefined;
+
+  let alias = "";
+  let tag = "";
+  let kind: ContentControlKind = "unspecified";
+  let showingPlaceholder = false;
+  let dataBound = false;
+  for (const child of children as XmlNode[]) {
+    const childTag = nodeTag(child);
+    if (childTag === undefined) continue;
+    const localName = localNameOf(childTag);
+    if (localName === "alias") alias = stringAttributeOf(child, "@_w:val");
+    else if (localName === "tag") tag = stringAttributeOf(child, "@_w:val");
+    else if (localName === "showingPlcHdr") showingPlaceholder = true;
+    else if (localName === "dataBinding") dataBound = true;
+    else {
+      const declared = CONTENT_CONTROL_KINDS.get(localName);
+      if (declared !== undefined) kind = declared.kind;
+    }
+  }
+  return { alias, tag, kind, showingPlaceholder, dataBound };
+}
+
+// Aggregated by kind, name, AND state, the way the other two constructs aggregate: a person reading the
+// report needs to know which regions are unfilled and how many times each appears. The state is part of
+// the key rather than merged into it because "this one shows a prompt" and "this one prints stale bound
+// data" are different sentences with different repairs, and a control that is both is a third case
+// rather than an average of the two.
+function recordContentControl(
+  tally: Map<string, ContentControlTally>,
+  properties: ContentControlProperties,
+  frozenText: string,
+): void {
+  const key = [
+    properties.kind,
+    properties.alias,
+    properties.tag,
+    `${properties.showingPlaceholder ? "p" : ""}${properties.dataBound ? "b" : ""}`,
+  ].join("\0");
+  const existing = tally.get(key);
+  if (existing === undefined) {
+    tally.set(key, {
+      alias: properties.alias,
+      tag: properties.tag,
+      kind: properties.kind,
+      occurrences: 1,
+      showingPlaceholder: properties.showingPlaceholder,
+      dataBound: properties.dataBound,
+      frozenText,
+    });
+    return;
+  }
+  existing.occurrences += 1;
+  if (existing.frozenText === "") existing.frozenText = frozenText;
+}
+
+// Every content control in a sibling list, including the ones nested inside another control's content —
+// a repeating section is a control whose body is more of them, and reporting only the outermost would
+// hide every blank inside it.
+function collectContentControls(
+  nodes: readonly XmlNode[],
+  tally: Map<string, ContentControlTally>,
+): void {
+  for (const node of nodes) {
+    const tag = nodeTag(node);
+    if (tag === undefined) continue;
+    if (localNameOf(tag) === "sdt") {
+      const properties = contentControlPropertiesOf(node);
+      // Only a control the DOCUMENT ITSELF declares unfilled is recorded. A control holding text an
+      // author typed is content, not a hole, and Word wraps ordinary content in controls constantly —
+      // reporting those would put a warning on documents with nothing wrong with them.
+      if (
+        properties !== undefined &&
+        (properties.showingPlaceholder || properties.dataBound) &&
+        // A repeating section ITEM is the wrapper a repeat puts around each copy of its body, never a
+        // blank of its own. It inherits nothing to fill in, so recording it would report one hole per
+        // iteration of holes that are already reported inside it.
+        properties.kind !== "repeatingSectionItem"
+      ) {
+        const content = directChild(node, "sdtContent");
+        // Clipped, because a control can wrap a whole page and this string is stored on every version's
+        // manifest. What a reader needs is the words they will find in the assembled document.
+        recordContentControl(
+          tally,
+          properties,
+          content === undefined ? "" : excerptOf(visibleTextOf(content)),
+        );
+      }
+    }
+    const children = node[tag];
+    if (Array.isArray(children)) collectContentControls(children as XmlNode[], tally);
+  }
+}
+
+function contentControlLabelsOf(controls: readonly ContentControlTally[]): string {
+  return controls.map(contentControlLabel).sort().join(", ");
+}
+
+function contentControlPrintedTextOf(controls: readonly ContentControlTally[]): string {
+  const printed = controls.map((control) => control.frozenText).filter((text) => text !== "");
+  return [...new Set(printed)].sort().join(", ");
+}
+
+// What registration says about a part's unfilled controls. The remedy is the same sentence the legacy
+// form fields get, and deliberately so: today there is no opt-in that binds either construct, and the
+// only honest answer is the one an author can act on in Word.
+function contentControlWarnings(
+  partName: string,
+  controls: readonly ContentControlTally[],
+): readonly NormalizationWarning[] {
+  const warnings: NormalizationWarning[] = [];
+  const showingPlaceholder = controls.filter((control) => control.showingPlaceholder);
+  // A control that is both is reported as showing its placeholder and only that: it prints a prompt,
+  // which is the more urgent of the two things true about it, and naming it twice would read as two
+  // separate controls.
+  const dataBound = controls.filter((control) => control.dataBound && !control.showingPlaceholder);
+
+  if (showingPlaceholder.length > 0) {
+    const count = showingPlaceholder.length;
+    const printed = contentControlPrintedTextOf(showingPlaceholder);
+    warnings.push({
+      code: "unbound-content-control",
+      part: partName,
+      detail:
+        `${count} content control${count === 1 ? "" : "s"} in this part ${count === 1 ? "is" : "are"} showing unfilled placeholder text: ` +
+        `${contentControlLabelsOf(showingPlaceholder)}.` +
+        " A content control is Word's own fill-in-the-blank region, and this system does not fill one in:" +
+        ` every document assembled from this template prints ${printed === "" ? "whatever each one holds" : `the prompt text (${printed})`}` +
+        " where a person is meant to type. Replace each one in Word with this system's {{field}} form," +
+        " choosing the merge field it should have been.",
+    });
+  }
+
+  if (dataBound.length > 0) {
+    const count = dataBound.length;
+    const printed = contentControlPrintedTextOf(dataBound);
+    warnings.push({
+      code: "unbound-content-control",
+      part: partName,
+      detail:
+        `${count} content control${count === 1 ? "" : "s"} in this part ${count === 1 ? "is" : "are"} bound to data stored inside the template itself: ` +
+        `${contentControlLabelsOf(dataBound)}.` +
+        " Nothing here writes that data, so every document assembled from this template prints what the" +
+        ` document this template was made from last put there${printed === "" ? "" : ` (${printed})`},` +
+        " rather than a value from the matter. Replace each one in Word with this system's {{field}}" +
+        " form, choosing the merge field it should have been.",
+    });
+  }
+
+  return warnings;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1104,6 +1390,7 @@ export function normalizeTemplate(
   const detections: MergeFieldDetection[] = [];
   const unconverted: UnconvertedMergeField[] = [];
   const legacyFormFields: LegacyFormField[] = [];
+  const unboundContentControls: UnboundContentControl[] = [];
   const confirmed = new Map<string, string>();
   const convert = options.convertMergeFields === true;
   const resolveName = options.resolveMergeFieldName ?? identityMergeFieldNameResolver;
@@ -1230,6 +1517,27 @@ export function normalizeTemplate(
       });
     }
 
+    const contentControls = new Map<string, ContentControlTally>();
+    collectContentControls(converted, contentControls);
+    for (const control of contentControls.values()) {
+      unboundContentControls.push({
+        alias: control.alias,
+        tag: control.tag,
+        kind: control.kind,
+        part: partName,
+        occurrences: control.occurrences,
+        showingPlaceholder: control.showingPlaceholder,
+        dataBound: control.dataBound,
+        frozenText: control.frozenText,
+      });
+    }
+    // One warning per STATE, not one per part: what a control showing a prompt needs said about it and
+    // what a data-bound one needs said are different sentences, and a paragraph that hedges between them
+    // says neither clearly. They rarely co-occur.
+    for (const warning of contentControlWarnings(partName, [...contentControls.values()])) {
+      warnings.push(warning);
+    }
+
     const state: PartWalkState = {
       partName,
       accumulators,
@@ -1280,6 +1588,9 @@ export function normalizeTemplate(
     // the document is static, when in fact it is full of blanks nothing will fill. The form-field
     // warning is the true statement about that template, and this one must not be emitted beside it.
     legacyFormFields.length === 0 &&
+    // Exactly the same for a template whose blanks are content controls, which is the shape a document
+    // authored in Word today takes.
+    unboundContentControls.length === 0 &&
     blocks.length === 0 &&
     manifestComputedFields.length === 0
   ) {
@@ -1300,6 +1611,13 @@ export function normalizeTemplate(
       : left.part.localeCompare(right.part);
 
   legacyFormFields.sort(byPartThenName);
+  // A content control has no single name field to sort on — it may carry an alias, a tag, both, or
+  // neither — so it sorts on the one label everything else describes it by.
+  unboundContentControls.sort((left, right) =>
+    left.part === right.part
+      ? contentControlLabel(left).localeCompare(contentControlLabel(right))
+      : left.part.localeCompare(right.part),
+  );
 
   return {
     parts: normalized,
@@ -1308,6 +1626,7 @@ export function normalizeTemplate(
       totalOccurrences,
       unconvertedMergeFields: unconverted.sort(byPartThenName),
       legacyFormFields,
+      unboundContentControls,
       blocks,
       computedFields: manifestComputedFields,
     },
@@ -1315,6 +1634,7 @@ export function normalizeTemplate(
     failures,
     mergeFieldDetections: detections.sort(byPartThenName),
     legacyFormFields,
+    unboundContentControls,
     confirmedMappings: [...confirmed.entries()]
       .map(([fieldName, mergeKey]) => ({ fieldName, mergeKey }))
       .sort((left, right) => left.fieldName.localeCompare(right.fieldName)),
