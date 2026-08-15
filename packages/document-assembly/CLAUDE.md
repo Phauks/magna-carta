@@ -56,6 +56,25 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   — "every assembly produces the same document" — and filed carrying `Click here to enter caption`.
   **It is a separate manifest list from `unconvertedMergeFields` on purpose:** blending them would offer
   "register again asking for conversion" as the remedy for a construct conversion does not answer.
+- **AN UNFILLED CONTENT CONTROL is reported too, and the reason it is not converted is a step different
+  from the form field's.** A `w:sdt` whose `w:sdtPr` carries `w:showingPlcHdr` is a region printing its
+  own prompt — "Click here to enter text." — and one carrying `w:dataBinding` reads a custom XML part
+  nothing here writes and the metadata scrub removes, so it prints whatever the document this template
+  was made from last put there. Both are
+  recorded on `unboundContentControls` (alias, tag, kind, part, occurrences, state, printed text), with
+  the same reach as the form-field list: registration warns, the field list shows it, a refusal names it,
+  and every assembly reports it and lands on `succeeded_with_absences`. **A control that is NEITHER is
+  deliberately silent** — Word wraps ordinary content in controls constantly, and a filled one prints
+  text an author typed, which is content rather than a hole. **The evidence for a NAME is better here
+  than for a form field:** `w:alias` and `w:tag` are typed by whoever authored the document, where
+  `Text1` is Word-minted, so the argument against binding is not "there is nothing to map from" — it is
+  that a name means something only once a human has CONFIRMED it (which is what the field-mapping
+  library is for), and that every rewrite of a firm's document here is opt-in. That makes a future
+  alias-through-the-mapping-library conversion buildable on exactly what this records, and an owner
+  decision rather than a default. **A third manifest list, not a widening of the second:** a legacy form
+  field is a dead construct whose only remedy is replacement, while a content control is what Word
+  produces today and the binding this engine intends to grow into, so the two stand for different
+  futures as well as different repairs — and their kind vocabularies do not overlap.
 - **The engine never guesses what a Word field name means.** `MergeFieldNameResolver` is identity by
   default; the firm's own confirmed mappings come from `src/field-mapping-statements.ts`, read ONCE per
   registration into the resolver (never a lookup per field), and written back in the same commit as the
@@ -414,8 +433,10 @@ from that one sentence.
 
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
   this stays one line at the composition root when a firm may hold amounts in more than one currency.
-- **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
-  splitting, deferred until a browser authoring surface can emit them.
+- **BINDING a content control (`w:sdt`)** — structurally the best placeholder binding and immune to run
+  splitting, deferred until a browser authoring surface can emit them. Detection is built (see the local
+  rule above); what is deferred is emitting one, and any opt-in that maps an author's `w:alias` onto a
+  merge key through the field-mapping library.
 - **An aggregable collection.** Every list-valued item field (`matter.parties`, the role collections) is
   text and a firm's own fields are all scalars, so nothing a firm can bind today is foldable: the
   aggregates are exercised against synthetic collections, as the money helpers are against synthetic

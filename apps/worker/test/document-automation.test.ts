@@ -132,6 +132,21 @@ function legacyFormFieldParagraph(name: string, statusText: string, result: stri
   );
 }
 
+// The shape Word writes for a CONTENT CONTROL — the construct it produces today wherever an author
+// inserts a blank. `w:showingPlcHdr` is Word's own record that what a reader sees is the control's
+// placeholder prompt rather than content anyone typed, and `w:alias` is the title its author gave it.
+function contentControlParagraph(alias: string, prompt: string): string {
+  return (
+    "<w:p><w:sdt><w:sdtPr>" +
+    `<w:alias w:val="${alias}"/><w:tag w:val="${alias.toLowerCase()}"/><w:id w:val="123456789"/>` +
+    '<w:placeholder><w:docPart w:val="DefaultPlaceholder_-1854013440"/></w:placeholder>' +
+    "<w:showingPlcHdr/><w:text/>" +
+    "</w:sdtPr><w:sdtContent>" +
+    `<w:r><w:rPr><w:rStyle w:val="PlaceholderText"/></w:rPr><w:t>${prompt}</w:t></w:r>` +
+    "</w:sdtContent></w:sdt></w:p>"
+  );
+}
+
 // The package shape a macro-bearing upload takes: the payload part, the content-type Default that
 // declares it, the relationship that reaches it, and the macro-enabled main-document declaration.
 function macroBearingOverrides(): TemplateOverrides {
@@ -246,6 +261,16 @@ interface RegisteredTemplateBody {
     part: string;
     occurrences: number;
     helpText: string;
+    frozenText: string;
+  }[];
+  unboundContentControls: {
+    alias: string;
+    tag: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    showingPlaceholder: boolean;
+    dataBound: boolean;
     frozenText: string;
   }[];
   confirmedFieldMappings: { fieldName: string; mergeKey: string }[];
@@ -566,6 +591,84 @@ describe("template registration", () => {
     expect(manifest.legacyFormFields).toEqual([
       expect.objectContaining({ fieldName: "Caption", frozenText: "Click here to enter caption" }),
     ]);
+  });
+
+  it("REGISTERS a content-control template and SAYS which regions nothing will fill in", async () => {
+    // The same defect as the legacy form field, in the construct Word writes today: a template whose
+    // blanks are content controls used to register clean, declare no keys, and warn only that it
+    // carried no merge fields — so every assembly of it produced the same document — and then file
+    // carrying "Click here to enter the caption". Nothing converts one either, though the reason is a
+    // step different: the alias and tag ARE an author's own words, so what is missing is a human's
+    // confirmation of what they mean, not evidence.
+    const response = await registerTemplate(
+      templateDocx({
+        body: contentControlParagraph("Caption", "Click here to enter the caption"),
+      }),
+      "Content Control Form",
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.unboundContentControls).toEqual([
+      expect.objectContaining({
+        alias: "Caption",
+        tag: "caption",
+        kind: "plainText",
+        part: "word/document.xml",
+        occurrences: 1,
+        showingPlaceholder: true,
+        dataBound: false,
+        frozenText: "Click here to enter the caption",
+      }),
+    ]);
+    // The author's own alias is reported, and it binds nothing: no key, no detection, no mapping.
+    expect(body.fieldCount).toBe(0);
+    expect(body.mergeFieldsDetected).toEqual([]);
+    expect(body.confirmedFieldMappings).toEqual([]);
+    const warning = body.warnings.find((entry) => entry.code === "unbound-content-control");
+    expect(warning?.detail).toContain("Caption");
+    expect(warning?.detail).toContain("Click here to enter the caption");
+    // The template is NOT described as one that carries nothing to fill in.
+    expect(body.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+
+    // The field inspector carries it too — where an author goes to find out why a filed document has
+    // a prompt in it.
+    const fields = await get(
+      `/api/v1/templates/${body.templateId}/versions/${body.versionId}/fields`,
+    );
+    const manifest = (await fields.json()) as {
+      unboundContentControls: { alias: string; frozenText: string }[];
+    };
+    expect(manifest.unboundContentControls).toEqual([
+      expect.objectContaining({ alias: "Caption", frozenText: "Click here to enter the caption" }),
+    ]);
+  });
+
+  it("names the fields nothing binds on a refusal, not only on the attempt that passes", async () => {
+    // A template refused for an authoring mistake somewhere else still has to say where its other
+    // holes are. Saving that up for the registration that finally succeeds is how an author fixes one
+    // problem, sees a success, and never learns about the rest.
+    const response = await registerTemplate(
+      templateDocx({
+        body:
+          paragraph("Matter {{matter.number and then prose") +
+          contentControlParagraph("Caption", "Click here to enter the caption") +
+          legacyFormFieldParagraph("Text1", "enter the party", "Click here to enter text."),
+      }),
+      "Refused Mixed Template",
+    );
+    expect(response.status).toBe(422);
+    const problem = (await response.json()) as {
+      errors?: { path: string; code: string; detail: string }[];
+    };
+    const codes = (problem.errors ?? []).map((error) => error.code);
+    expect(codes).toContain("unclosed-delimiter");
+    expect(codes).toContain("unbound-content-control");
+    expect(codes).toContain("legacy-form-field");
+    const control = (problem.errors ?? []).find(
+      (error) => error.code === "unbound-content-control",
+    );
+    expect(control?.detail).toContain("Caption");
+    expect(control?.detail).toContain("Click here to enter the caption");
   });
 
   it("converts Word merge fields when the caller opts in, and says that it did", async () => {
@@ -992,6 +1095,83 @@ describe("assembly, end to end through the ingest chokepoint", () => {
     const produced = new Uint8Array(await (object as R2ObjectBody).arrayBuffer());
     const documentText = new TextDecoder().decode(readZipEntry(produced, "word/document.xml"));
     expect(documentText).toContain("2019-CV-00041");
+  });
+
+  it("reports an unfilled content control on the assembly, and files the prompt it prints", async () => {
+    // The damage this whole path is about: substitution has no view of a hole it was never asked to
+    // fill, so the document goes out saying "Click here to enter the caption" where a person was meant
+    // to type. The manifest entry recorded at registration is what turns that from a silent filing into
+    // a document marked as needing a human.
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({
+          body:
+            paragraph("Matter {{matter.number}}") +
+            contentControlParagraph("Caption", "Click here to enter the caption"),
+        }),
+        "Content Control Letter",
+        {},
+        frozenCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+    expect(registered.unboundContentControls).toHaveLength(1);
+
+    const submitted = await post(
+      `/api/v1/matters/${frozenMatterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      frozenCookie,
+    );
+    const { assemblyId } = (await submitted.json()) as { assemblyId: string };
+    await documentAssemblyQueue(
+      makeBatch({
+        firmId: frozenFirmId,
+        bucketName: frozenBucketName,
+        assemblyId,
+        matterId: frozenMatterId,
+        templateVersionId: registered.versionId,
+        folderId: null,
+        requestedBy: frozenUserId,
+      }).batch,
+      env,
+    );
+
+    const state = (await (
+      await get(`/api/v1/matters/${frozenMatterId}/assemblies/${assemblyId}`, frozenCookie)
+    ).json()) as {
+      status: string;
+      outcome: string;
+      absentFieldKeys: string[];
+      frozenMergeFieldNames: string[];
+      fileVersionId: string;
+    };
+    expect(state.status).toBe("done");
+    // Every key the matter was asked for resolved, and the document still needs a human.
+    expect(state.absentFieldKeys).toEqual([]);
+    expect(state.frozenMergeFieldNames).toEqual(["Caption (Word plain text content control)"]);
+    expect(state.outcome).toBe("succeeded_with_absences");
+
+    // NAMES only on the row, never the prompt text — that is template content, not provenance.
+    const row = await queryFirstRow<{
+      frozen_field_names_json: string;
+      frozen_field_count: number;
+    }>(
+      "SELECT frozen_field_names_json, frozen_field_count FROM document_assembly WHERE id = ?1",
+      [assemblyId],
+      frozenFirmId,
+    );
+    expect(row?.frozen_field_count).toBe(1);
+    expect(row?.frozen_field_names_json).not.toContain("Click here to enter the caption");
+
+    // And the filed document really does carry the prompt, which is what the report is about.
+    const version = await queryFirstRow<{ r2_key: string }>(
+      "SELECT r2_key FROM file_version WHERE id = ?1",
+      [state.fileVersionId],
+      frozenFirmId,
+    );
+    const object = await env.R2.get(version?.r2_key ?? "");
+    const produced = new Uint8Array(await (object as R2ObjectBody).arrayBuffer());
+    const documentText = new TextDecoder().decode(readZipEntry(produced, "word/document.xml"));
+    expect(documentText).toContain("Click here to enter the caption");
   });
 
   it("refuses a submit against an archived template", async () => {

@@ -19,6 +19,7 @@ import {
 import { selectMatterEstateDateOfDeathStatement } from "@magna-carta/document-assembly/merge-statements";
 import { readTemplateVersionForAssembly } from "@magna-carta/document-assembly/template-statements";
 import { assetSubjectsIn } from "@magna-carta/document-assembly/asset-bindings";
+import { contentControlLabel } from "@magna-carta/document-assembly/normalize";
 import { manifestKeys, type FieldManifest } from "@magna-carta/document-assembly/types";
 import type { ProtectedIdentifierReader } from "@magna-carta/document-assembly/protected-bindings";
 import { readIdentifier } from "@magna-carta/directory/identifiers";
@@ -190,6 +191,10 @@ function parseManifest(json: string): FieldManifest {
       // Absent on a manifest stored before legacy form fields were detected. Re-registering the
       // template is what makes them reportable, since a template version's manifest is immutable.
       legacyFormFields: Array.isArray(parsed.legacyFormFields) ? parsed.legacyFormFields : [],
+      // Likewise absent on a manifest stored before content controls were looked at at all.
+      unboundContentControls: Array.isArray(parsed.unboundContentControls)
+        ? parsed.unboundContentControls
+        : [],
       // Absent on a manifest stored before blocks and computed fields existed, which is a template
       // that carried neither. The read plans its batched reads from the keys these carry, so an
       // older manifest simply asks for fewer.
@@ -202,6 +207,7 @@ function parseManifest(json: string): FieldManifest {
       totalOccurrences: 0,
       unconvertedMergeFields: [],
       legacyFormFields: [],
+      unboundContentControls: [],
       blocks: [],
       computedFields: [],
     };
@@ -408,6 +414,11 @@ async function assembleOne(
   // meant to have typed. They are labelled by kind as well as name, since Word mints a bookmark like
   // `Text1` and a firm's author rarely renames it — and a form field the author never named at all is
   // still a hole, so it is listed by its kind rather than dropped for want of a label.
+  //
+  // So do the template's UNFILLED CONTENT CONTROLS, which is the same hole in the construct Word writes
+  // today: a region showing "Click here to enter text.", or one bound to data inside the template that
+  // nothing here updates. Their label comes from the engine rather than being composed again here, so a
+  // registration warning and this list can never name the same control two different ways.
   // sort on the freshly-mapped copy (nothing else holds it), matching the worker's TS lib target.
   const frozenFieldNames = [
     ...manifest.unconvertedMergeFields.map((field) => field.fieldName),
@@ -416,12 +427,18 @@ async function assembleOne(
         ? `unnamed Word ${field.kind} form field`
         : `${field.fieldName} (Word ${field.kind} form field)`,
     ),
+    ...manifest.unboundContentControls.map(contentControlLabel),
   ].sort();
   for (const field of manifest.unconvertedMergeFields) {
     logger.count(documentAssemblyFrozenField.metricName, { form: field.form });
   }
   for (const field of manifest.legacyFormFields) {
     logger.count(documentAssemblyFrozenField.metricName, { form: `form-field-${field.kind}` });
+  }
+  for (const control of manifest.unboundContentControls) {
+    logger.count(documentAssemblyFrozenField.metricName, {
+      form: `content-control-${control.kind}`,
+    });
   }
   const needsReview = merged.absences.length > 0 || frozenFieldNames.length > 0;
 

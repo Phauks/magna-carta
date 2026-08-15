@@ -22111,6 +22111,12 @@
               "$ref": "#/components/schemas/TemplateLegacyFormField"
             }
           },
+          "unboundContentControls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundContentControl"
+            }
+          },
           "confirmedFieldMappings": {
             "type": "array",
             "items": {
@@ -22148,6 +22154,7 @@
           "mergeFieldsDetected",
           "unconvertedMergeFields",
           "legacyFormFields",
+          "unboundContentControls",
           "confirmedFieldMappings",
           "warnings"
         ]
@@ -22254,6 +22261,45 @@
           "part",
           "occurrences",
           "helpText",
+          "frozenText"
+        ]
+      },
+      "TemplateUnboundContentControl": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "showingPlaceholder": {
+            "type": "boolean"
+          },
+          "dataBound": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "alias",
+          "tag",
+          "kind",
+          "part",
+          "occurrences",
+          "showingPlaceholder",
+          "dataBound",
           "frozenText"
         ]
       },
@@ -22450,6 +22496,12 @@
               "$ref": "#/components/schemas/TemplateLegacyFormField"
             }
           },
+          "unboundContentControls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundContentControl"
+            }
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -22465,6 +22517,7 @@
           "fields",
           "unconvertedMergeFields",
           "legacyFormFields",
+          "unboundContentControls",
           "warnings"
         ]
       },

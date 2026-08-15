@@ -127,6 +127,30 @@ can see the whole list of what your firm has confirmed, and remove any entry you
 mapping is your firm's statement about your own documents, so you can withdraw it. Removing one changes
 nothing already registered.
 
+## If your template has fill-in-the-blank fields
+
+Word has two other ways to put a blank in a document, and neither is filled in by this system: the old
+**form fields** most court forms and older firm precedent are built from, and the **content controls**
+Word inserts today. Both look like a blank to whoever is reading the document, and both print their own
+prompt — "Click here to enter text." — into every document you build from that template.
+
+The template still registers, and registering it now lists each one: the name its author gave it, what
+kind of blank it is, and the exact words the document will print where it sits. The field list keeps
+showing them, and **every document you assemble reports them again** and is marked as needing review,
+in the same place a missing value would be. If the template is refused for some other reason, the
+report still names these — you do not have to fix everything else first to find out about them.
+
+**These cannot be converted for you, and we will not guess what one was meant to mean.** An old form
+field's only name is something Word made up, like `Text1`. A content control usually does carry a name
+you typed — but a name only means a particular merge field once somebody has said so, and nobody has.
+So the fix is yours to make: replace the blank in Word with a `{{field}}` naming the merge field it
+should have been.
+
+**A content control you have filled in is left alone and says nothing.** What it holds is your own
+text, and Word puts content controls around ordinary content all the time — a cover page, a citation, a
+table of contents. Only a control still showing its prompt, or one being filled from data stored inside
+the template itself, is reported.
+
 ## Updating a template
 
 A template is never edited in place. Upload a new version and the catalogue moves to it; every earlier

@@ -5126,6 +5126,7 @@ export type RegisteredTemplate = {
     mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
     legacyFormFields: Array<TemplateLegacyFormField>;
+    unboundContentControls: Array<TemplateUnboundContentControl>;
     confirmedFieldMappings: Array<{
         fieldName: string;
         mergeKey: string;
@@ -5160,6 +5161,17 @@ export type TemplateLegacyFormField = {
     part: string;
     occurrences: number;
     helpText: string;
+    frozenText: string;
+};
+
+export type TemplateUnboundContentControl = {
+    alias: string;
+    tag: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    showingPlaceholder: boolean;
+    dataBound: boolean;
     frozenText: string;
 };
 
@@ -5222,6 +5234,7 @@ export type TemplateFields = {
     fields: Array<TemplateFieldEntry>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
     legacyFormFields: Array<TemplateLegacyFormField>;
+    unboundContentControls: Array<TemplateUnboundContentControl>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 
