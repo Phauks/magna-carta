@@ -1,5 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { lookupRegistration } from "@magna-carta/whois";
+import { lookupRegistration, UnsupportedRegistry } from "@magna-carta/whois";
 import type { WhoisDeps } from "@magna-carta/whois/types";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import type { Bindings } from "../app.ts";
@@ -75,6 +75,11 @@ export const whoisRoute = defineOpenAPIRoute(whoisMeta, {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
     },
+    501: {
+      description:
+        "The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -100,6 +105,18 @@ export function registerWhoisRoute(
           200,
         );
       } catch (error) {
+        if (error instanceof UnsupportedRegistry) {
+          // Not a fault: roughly a sixth of the IANA TLD list publishes neither an RDAP service nor
+          // a port-43 host this platform knows. Say so plainly — an Error ID here would send someone
+          // to support over a registry that simply does not answer machine queries. The TLD is echoed
+          // because it is a public suffix, never the user's own query string.
+          return problemJson(c, {
+            type: "not-implemented",
+            status: 501,
+            title: "This registry cannot be looked up",
+            detail: `The ".${error.tld}" registry publishes no lookup service this tool can reach. Check the registry's own WHOIS page directly.`,
+          });
+        }
         if (error instanceof SsrfRejection) {
           // Never echo the raw query or resolved host into the response — return a generic
           // message that does not leak the user-supplied target or any resolved IP address.

@@ -6,8 +6,67 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-14 (the search engine's own worker and container are buildable; activating
-them is the step below)._
+_Last updated: 2026-08-15 (the Tools catalog audit added five steps, the first of which gates every
+other deploy — see the section immediately below)._
+
+## Tools catalog — five steps, and the first one gates every other deploy
+
+From the audit in [`docs/research/2026-08-15-tools-reality-check.md`](research/2026-08-15-tools-reality-check.md),
+which exercised all nineteen catalog tools against a local worker and the real internet. Listed in
+the order they have to happen. Nothing here duplicates the LibreOffice, search, bundle, sign or
+email-capture steps already on this queue.
+
+1. **Confirm `magna-carta-ocr` exists — do this before ANY app-worker deploy.**
+   `apps/worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`, and Cloudflare rejects a
+   deploy whose service binding names a Worker that does not exist (the same rule §14 and §16 of
+   `docs/conventions/operations.md` state for the bundle, convert and sign workers). But
+   `magna-carta-ocr` is in **none** of the three places such a worker is recorded: not the seven
+   Workers Builds connections in §12, not the placeholder list in §14, and not this queue. So either
+   it exists and nothing says so, or the next push is rejected outright — which would block every
+   tool in the catalog, not only OCR. `apps/ocr-worker` and `containers/ocr` are both committed and
+   buildable; if it does not exist, connect it as a Workers Build (or stand up a 503 placeholder of
+   that name, the `magna-carta-bundle` precedent) before the app worker goes.
+
+2. **Deploy `magna-carta-scan` carrying `/identify`.** One deploy unblocks two catalog tools that
+   both answer errors today: the **file type verifier** (`POST /api/v1/file-type/verify` → 503) and
+   the **malware scan** (`POST /api/v1/scan/diagnose` → 500). The route is already in the image
+   (`containers/scan/src/lib.rs`, `.route("/identify", post(identify))`); the worker is already
+   connected to Workers Builds, so this rides its next build. No new binding, no new secret.
+
+   **Note the malware scan's failure shape, so nobody reads it as a regression.** With the binding
+   declared but the engine unreachable the diagnostic returns a 500 with an Error ID, not the
+   `unscanned` verdict its own description promises — `resolveScanPort` selects the engine-less
+   adapter on the binding's **absence**, and the binding is never absent once declared. That is the
+   documented treatment of a bound-but-faulty engine (a fault, never a fabricated verdict), but it
+   means a placeholder or unhealthy scan worker shows up as a server error rather than a graceful
+   degradation.
+
+3. **Deploy `magna-carta-file-repair` — but fix its Build Watch Paths first.** The **file repair &
+   salvage** tool answers 503 until this worker is live. Its inclusion list names
+   `containers/file-repair-worker/*` while the container actually lives at `containers/file-repair/`,
+   so **no path matches the image** and a change to the repair engine never triggers a rebuild
+   (already recorded in `operations.md` §12; repeated here because deploying without correcting it
+   ships the old image). Correct it to `containers/file-repair/*`, then deploy.
+
+4. **Enable Browser Rendering on the account.** The **safe website viewer** is the only tool in the
+   catalog whose dependency is an account entitlement rather than a worker, a container or a secret
+   — `env.BROWSER` with `quickAction()` (the current `compatibility_date` already satisfies the
+   `>= 2026-03-24` requirement). There is nothing in the repository to deploy for it and nothing
+   local can exercise it: Miniflare exposes a `BROWSER` binding whose receiver has no `quickAction`,
+   so the route answers 500 in every local run no matter what changes.
+
+5. **Set `PANGRAM_API_KEY` — last, and only when a firm has asked.** **AI-text detection** refuses
+   twice today, both correctly: `422` because the firm's consent setting is off, and `422` again if
+   it were on with no key. The consent gate runs before any provider call, so no client text can
+   leave the platform on a firm that has not opted in. The secret is worth setting only after a firm
+   turns the setting on.
+
+**One thing on this list is NOT a deploy step, and no amount of deploying fixes it.** Shipping's
+rate-shop, label purchase, tracking and refund all return 500 — `firmSecretStoreNotYetAvailable` in
+`apps/worker/src/plugins/secret-store.ts` throws because the per-firm credential read is an unbuilt
+seam awaiting the marketplace slice. Connecting a real EasyPost key and deploying everything above
+would leave it exactly as it is. Draft shipment creation succeeds regardless, so a member can create
+a shipment that can never be bought.
 
 ## Search engine activation — a new worker, a new container image, one binding
 

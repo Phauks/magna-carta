@@ -85,6 +85,17 @@ export function classifyResult(result: WhoisResult): "rdap" | "raw" | "empty" {
  * for the member to quote.
  */
 export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
+  // 501 is checked before the server-fault band it sits in: the registry simply publishes no
+  // machine-readable lookup (no RDAP entry, no known port-43 host), which is the ordinary answer
+  // for roughly a sixth of the TLD list. Nothing went wrong, so nothing is worth quoting to support.
+  if (problem.status === 501) {
+    return {
+      tone: "info",
+      title: "This registry cannot be looked up",
+      message:
+        "That domain's registry does not publish a lookup service this tool can reach. Check the registry's own WHOIS page directly.",
+    };
+  }
   if (problem.status >= 500) {
     return {
       tone: "danger",

@@ -20,12 +20,27 @@ export function whoisHostForTld(tld: string): string | null {
 }
 
 /**
+ * The queried registry publishes neither an RDAP service (it is absent from the IANA bootstrap)
+ * nor a port-43 host this package knows. That is an ordinary and common outcome — roughly a sixth
+ * of the IANA TLD list is in this position — so it is a typed refusal the route can turn into an
+ * honest answer, never an unhandled throw that reaches a caller as an internal error.
+ */
+export class UnsupportedRegistry extends Error {
+  readonly tld: string;
+
+  constructor(tld: string) {
+    super(`No registration service is known for the ".${tld}" registry.`);
+    this.name = "UnsupportedRegistry";
+    this.tld = tld;
+  }
+}
+
+/**
  * Performs a port-43 WHOIS query for `target` using the injected `WhoisSocket`.
  *
  * The TLD is derived from the rightmost label of `target`. If no port-43 host is
- * known for that TLD, an error is thrown — the caller should ensure that
- * `whoisHostForTld` returns a non-null value before calling this function, or
- * handle the error appropriately.
+ * known for that TLD, `UnsupportedRegistry` is thrown so the caller can answer that
+ * the registry cannot be queried rather than reporting a server fault.
  *
  * Returns a `RegistrationResult` with `source: "whois-43"` and the unparsed
  * response text in `raw`. Structured fields (registrar, dates, etc.) are not
@@ -39,10 +54,7 @@ export async function queryLegacy(
   const host = whoisHostForTld(tld);
 
   if (host === null) {
-    throw new Error(
-      `No port-43 WHOIS host is known for TLD "${tld}" (target: "${target}"). ` +
-        `Add it to the WHOIS_HOSTS table in src/legacy.ts if a registry host exists.`,
-    );
+    throw new UnsupportedRegistry(tld);
   }
 
   const raw = await socket.query(host, target + "\r\n");
