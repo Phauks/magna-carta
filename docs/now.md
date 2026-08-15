@@ -41,8 +41,8 @@ below; these are the totals over that list.
 | `in-build` | 15 | 2% |
 | `designed` | 25 | 4% |
 | `planned` | 10 | 1% |
-| `researching` | 8 | 1% |
-| `not-started` | 168 | 24% |
+| `researching` | 7 | 1% |
+| `not-started` | 169 | 24% |
 | `deferred` | 39 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **708** | **100%** |
@@ -88,12 +88,12 @@ true and neither is the answer on its own.
 | Release Channels | 7 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 9 | 78% |
 | Reports | 1 | 2 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
-| Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 0 | 4 | 0% |
-| **All areas** | **249** | **192** | **15** | **25** | **10** | **8** | **168** | **39** | **2** | **708** | **35%** |
+| Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
+| **All areas** | **249** | **192** | **15** | **25** | **10** | **7** | **169** | **39** | **2** | **708** | **35%** |
 
 ## Where we have been
 
-**27 of 46 commits read, 2026-07-14 to 2026-08-15 — 32 days.** The ledger keeps no history of its
+**27 of 46 commits read, 2026-07-14 to 2026-08-14 — 31 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -101,12 +101,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-15, across 32 days. The
+**+45 shipped since the ledger began** — 204 on 2026-07-14, 249 on 2026-08-14, across 31 days. The
 ledger itself grew by +45 nodes over the same period (663 to 708), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **9.8 capabilities shipped a week** across the whole series, and **17.5 a week** over the 20
-snapshots since the last gap (2026-08-11 to 2026-08-15, +10 shipped in 4 days).
+That is **10.2 capabilities shipped a week** across the whole series, and **23.3 a week** over the
+20 snapshots since the last gap (2026-08-11 to 2026-08-14, +10 shipped in 3 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -142,7 +142,7 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-14 | `489d4225` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | +1 | 0 |
 | 2026-08-14 | `ff1f49e3` | 249 | 191 | 15 | 19 | 10 | 8 | 174 | 39 | 2 | 707 | 0 | 0 | 0 |
 | 2026-08-14 | `5184145e` | 249 | 191 | 15 | 25 | 10 | 8 | 169 | 39 | 2 | 708 | +1 | 0 | 0 |
-| 2026-08-15 | `7c4abfb4` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
+| 2026-08-14 | `85140ca7` | 249 | 192 | 15 | 25 | 10 | 8 | 168 | 39 | 2 | 708 | 0 | 0 | 0 |
 
 ### The gaps
 
@@ -1129,4 +1129,4 @@ to change a line here, edit the node in its area file and re-run the build.
 - `tasks` · `not-started` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
   - `tasks.task-lists` · `not-started` · **Task lists** — Tasks with assignments and due dates on matters.
   - `tasks.matter-plans` · `not-started` · **Matter plans** — Templated task/event/document sequences per matter type, auto-instantiated when a matter opens; pairs with document automation and the calendar.
-  - `tasks.workflow-model` · `researching` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.
+  - `tasks.workflow-model` · `not-started` · **Workflow model** — Template authoring, task dependencies/sequencing, assignment and reassignment, due-date derivation (including from docketing), notification/escalation, completion tracking.

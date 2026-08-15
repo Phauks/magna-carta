@@ -33,6 +33,6 @@ These are marked `> Needs development.` in the white paper (referenced by area, 
 - ~~Access control / RBAC~~ — **decided at the white-paper level (ADR-0068)**, no spec needed yet. _Ethical walls_ and _external-principal enforcement_ are deferred seams — a spec is written only when one is built.
 - **Conflicts matching engine** — white paper, _Conflicts Check_
 - **Rules-based docketing** — white paper, _Calendar and rules-based docketing_
-- **Tasks & workflows / matter plans** — white paper, _Tasks and workflows / matter plans_
+- ~~Tasks & workflows / matter plans~~ — **written and `Proposed`**: [`2026-08-15-tasks-and-matter-plans-design.md`](2026-08-15-tasks-and-matter-plans-design.md), standing on the primitive it needed, [`2026-08-15-notes-and-activity-design.md`](2026-08-15-notes-and-activity-design.md) (the note and activity entity the platform has never had), with [`2026-08-15-notes-and-tasks-implementation-plan.md`](2026-08-15-notes-and-tasks-implementation-plan.md). Pending owner flags.
 - **E-signature** — white paper, _Payments and e-signature_
 - **Client intake / CRM** — white paper, _Client intake / CRM_
