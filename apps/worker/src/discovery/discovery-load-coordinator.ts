@@ -36,9 +36,15 @@ export class DiscoveryLoadCoordinator
 {
   async start(message: DiscoveryLoadPlanMessage): Promise<DiscoveryLoadJobState> {
     const existing = (await this.ctx.storage.get<DiscoveryLoadJobState>("state")) ?? null;
-    // An allocated load is done. A re-declaration or a redelivery of the same load is a no-op, which
-    // is what makes the declare-then-run path safe to fire more than once for one act.
-    if (existing !== null && existing.status === "allocated") return existing;
+    // An allocated load has every row it will ever hold; a dispatched one has also been queued to be
+    // read. Either way a re-declaration or a redelivery of the same load is a no-op for allocation,
+    // which is what makes the declare-then-run path safe to fire more than once for one act.
+    if (
+      existing !== null &&
+      (existing.status === "allocated" || existing.status === "dispatched")
+    ) {
+      return existing;
+    }
     // `allocating` is shared rather than restarted: a second caller joins the turn in flight instead
     // of starting a competing walk over the same plan.
     if (existing !== null && existing.status === "allocating") return existing;
@@ -52,6 +58,7 @@ export class DiscoveryLoadCoordinator
       cursor: existing?.cursor ?? 0,
       plannedCount: existing?.plannedCount ?? 0,
       allocatedCount: existing?.allocatedCount ?? 0,
+      dispatchCursor: existing?.dispatchCursor ?? null,
       reason: null,
     };
     await this.ctx.storage.put("state", state);
@@ -93,8 +100,10 @@ export class DiscoveryLoadCoordinator
   async markAllocated(allocatedCount: number): Promise<void> {
     const state = await this.ctx.storage.get<DiscoveryLoadJobState>("state");
     // A confirmed completion is terminal and outranks every other state, including a timeout guess
-    // the alarm may have written while the last chunk was still committing.
-    if (state === undefined || state.status === "allocated") return;
+    // the alarm may have written while the last chunk was still committing. `dispatched` outranks it
+    // in turn: a load whose documents are already queued must not be walked back to "allocated".
+    if (state === undefined || state.status === "allocated" || state.status === "dispatched")
+      return;
     await this.ctx.storage.put("state", {
       ...state,
       status: "allocated",
@@ -105,12 +114,40 @@ export class DiscoveryLoadCoordinator
     await this.ctx.storage.deleteAlarm();
   }
 
+  // Advance the PROCESSING walk after a page has been enqueued. Once per page, never per document:
+  // a checkpoint per message would make the coordinator the bottleneck the paging exists to remove.
+  async checkpointDispatch(cursor: string): Promise<void> {
+    const state = await this.ctx.storage.get<DiscoveryLoadJobState>("state");
+    if (state === undefined || state.status === "dispatched") return;
+    // Monotonic, on the same reasoning the allocation cursor is: a checkpoint arriving from a stale
+    // turn cannot walk the cursor backwards and cause an already-enqueued page to be re-read as if it
+    // had not happened. Identifiers sort lexicographically and the walk orders by that same sort, so
+    // "further along" is a string comparison.
+    const furthest = state.dispatchCursor === null || cursor > state.dispatchCursor;
+    await this.ctx.storage.put("state", {
+      ...state,
+      dispatchCursor: furthest ? cursor : state.dispatchCursor,
+    });
+    await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
+  }
+
+  // Every document the load holds has been put on the processing lane. Terminal for the coordinator;
+  // what the documents came back as is the consumer's business and the load's reconciliation.
+  async markDispatched(): Promise<void> {
+    const state = await this.ctx.storage.get<DiscoveryLoadJobState>("state");
+    if (state === undefined) return;
+    await this.ctx.storage.put("state", { ...state, status: "dispatched", reason: null });
+    await this.ctx.storage.deleteAlarm();
+  }
+
   // Parked, not broken. The load is standing work the platform owes and has not lost, and it leaves
   // this state by being started again rather than by expiring — so the alarm comes off, or a waiting
   // load would later be relabelled a timeout.
   async markWaiting(reason: string): Promise<void> {
     const state = await this.ctx.storage.get<DiscoveryLoadJobState>("state");
-    if (state === undefined || state.status === "allocated") return;
+    if (state === undefined || state.status === "allocated" || state.status === "dispatched") {
+      return;
+    }
     await this.ctx.storage.put("state", { ...state, status: "waiting", reason });
     await this.ctx.storage.deleteAlarm();
   }
@@ -118,7 +155,9 @@ export class DiscoveryLoadCoordinator
   async markFailed(reason: string): Promise<void> {
     const state = await this.ctx.storage.get<DiscoveryLoadJobState>("state");
     // A completed allocation is terminal; a stale failure from a retried turn must not clobber it.
-    if (state === undefined || state.status === "allocated") return;
+    if (state === undefined || state.status === "allocated" || state.status === "dispatched") {
+      return;
+    }
     await this.ctx.storage.put("state", { ...state, status: "failed", reason });
     await this.ctx.storage.deleteAlarm();
   }

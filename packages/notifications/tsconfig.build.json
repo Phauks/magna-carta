@@ -27,6 +27,9 @@
       "path": "../conflicts/tsconfig.build.json"
     },
     {
+      "path": "../custodian/tsconfig.build.json"
+    },
+    {
       "path": "../data-access/tsconfig.build.json"
     },
     {

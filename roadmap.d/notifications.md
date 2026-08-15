@@ -10,7 +10,7 @@
   status: partial
   adrs: ADR-0059, ADR-0251, ADR-0258
   spec: docs/specs/2026-08-06-notifications-delivery-design.md
-  evidence: packages/notifications + five per-firm tables + the read API shipped; the comparison-driven sweep, preferences, and the email digest are later sub-slices, and there is no user interface.
+  evidence: packages/notifications + five per-firm tables + the read API + the comparison-driven per-firm sweep shipped; preferences and the email digest are later sub-slices, and there is no user interface.
   audience: public
   public-name: Notifications
   public-summary: Be told when something needs you, in the app and by email, and only ever about matters you already have access to.
@@ -21,7 +21,7 @@
   status: shipped
   adrs: ADR-0059, ADR-0251
   evidence: packages/notifications/src/registry.ts, with the declaration rules held by packages/notifications/test/registry-fitness.test.ts.
-  notes: Nine types registered; a type also declares the outbox topic it subscribes to, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level.
+  notes: Seventeen types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why.
 
 - id: notifications.recipients-preferences
   name: Recipients & preferences
@@ -74,14 +74,16 @@
   scope: Single raise port with high-value raises co-located on unbypassable paths (audit-log write for money/trust, task write path, conflicts/portal/deadline/job seams); fan-out off the hot path via Queues.
   status: partial
   adrs: ADR-0251
-  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; ten topics are registered, the newest being email.filed, which email filing now commits on both of its paths to a filed link (packages/email-filing/src/topics.ts).
-  notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. The comparison-shaped points (deadlines, custody reminders) and the job coordinators are the next sub-slice.
+  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; thirteen topics are registered, the newest three being the calendar's own matter-event write paths, which commit an outbox row in the batch they were already composing (packages/calendar/src/notifications.ts, packages/calendar/src/event-service.ts, packages/calendar/src/continuance-service.ts). The comparison-shaped points are raised by packages/notifications/src/sweep.ts, and a job coordinator's terminal state by packages/notifications/src/job-completion.ts.
+  notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. One of the five job coordinators (DocumentAssemblyJob) is wired; RecoveryJobCoordinator's type is registered and unwired, and the other three record no requester, which apps/worker/src/jobs/job-completion-notification.ts and the pending decision fragment explain per coordinator.
 
 - id: notifications.scheduling
   name: Scheduled reminders
   scope: Cron-triggered Workflow sweeping due reminders per firm; deadline dates computed in the court's zone.
-  status: not-started
-  evidence: No reminder sweep in apps/worker/src/scheduled.ts; the fan-out pattern exists elsewhere (backups) but not for reminders.
+  status: partial
+  evidence: runNotificationComparisonSweep in apps/worker/src/scheduled.ts runs on the daily cron over listReachableActiveFirms, calling packages/notifications/src/sweep.ts, which reads the calendar's own overdue arithmetic (packages/calendar/src/overdue.ts) and collectCustodyReminders (packages/custodian/src/reminders.ts); the once-per-civil-day bucket and the audience count are held by packages/notifications/test/comparison-sweep.test.ts and apps/worker/test/notifications-comparison-sweep.test.ts.
+  notes: Due and overdue deadlines and both custody reasons are swept. calendar.deadline.horizon is declared and raises nothing — it needs a firm-configured lead window that no setting defines, and a fitness test asserts the emission point resolves to no type so the gap cannot be mistaken for an oversight.
+  awaiting-owner: The deadline horizon's lead window. "An open deadline enters the firm's configured lead window" needs a number and a bound — a firm-tier setting on the retention window's pattern would cost little, but the default value is the question, and a lead the platform picks is a lead the firm did not choose. Nothing else in the sweep is blocked on it.
 
 - id: notifications.digest
   name: Digest rollup
@@ -93,8 +95,8 @@
   name: Freshness & delivery mechanics
   scope: Durable rows plus refetch-on-focus, cross-tab BroadcastChannel invalidation, cheap unread-count poll; job-completion rides the per-job Durable Object channel.
   status: partial
-  evidence: The durable rows and the cheap unread-count poll are shipped (GET /api/v1/notifications/unread-count, index-covered); focus refetch and cross-tab invalidation are UI and land with the bell.
-  notes: The poll also reports what the retention sweep took while unread, so a member returning from leave is told there is a gap rather than shown a zero.
+  evidence: The durable rows and the cheap unread-count poll are shipped (GET /api/v1/notifications/unread-count, index-covered); focus refetch and cross-tab invalidation are UI and land with the bell. A document assembly's terminal state writes the durable row beside its unchanged socket push (apps/worker/src/assemblies/assembly-coordinator.ts), proved by apps/worker/test/notifications-comparison-sweep.test.ts.
+  notes: The poll also reports what the retention sweep took while unread, so a member returning from leave is told there is a gap rather than shown a zero. Four of the five job coordinators still write no durable row — three record no requester and the bundle builder is single-flight across several of them.
 
 - id: notifications.freshness.per-user-do-push
   name: Per-user Durable Object push channel

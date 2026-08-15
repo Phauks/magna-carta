@@ -1,15 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
+import { CALENDAR_OUTBOX_TOPICS } from "@magna-carta/calendar/notifications";
+import {
+  CALENDAR_DEADLINE_DUE_EMISSION_POINT,
+  CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT,
+  CALENDAR_NOTIFICATION_EMISSION_POINTS,
+} from "@magna-carta/calendar/notifications";
 import { CONFLICTS_OUTBOX_TOPICS } from "@magna-carta/conflicts/topics";
 import { EMAIL_FILING_OUTBOX_TOPICS } from "@magna-carta/email-filing/topics";
 import { FILE_MANAGER_OUTBOX_TOPICS } from "@magna-carta/file-manager/topics";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
+import { LOCALLY_NAMED_EMISSION_POINTS } from "../src/emission-points.ts";
 import { validateFactsSchema } from "../src/facts-grammar.ts";
 import {
   categoryIsMandatory,
   notificationTypeForKey,
+  notificationTypesForComparisonPoint,
+  notificationTypesForJobCompletionPoint,
   notificationTypesForTopic,
   NOTIFICATION_TYPES,
 } from "../src/registry.ts";
@@ -33,12 +42,22 @@ import {
 // just quietly stops delivering.
 const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   ...MATTER_OUTBOX_TOPICS,
+  ...CALENDAR_OUTBOX_TOPICS,
   ...CONFLICTS_OUTBOX_TOPICS,
   ...EMAIL_FILING_OUTBOX_TOPICS,
   ...FILE_MANAGER_OUTBOX_TOPICS,
   LEDGER_ENTRY_POSTED_TOPIC,
   INVOICE_FINALIZED_TOPIC,
   INVOICE_VOIDED_TOPIC,
+]);
+
+// The emission points a COMPARISON kind may name. The calendar declares its own set — the deadline
+// points among them, wired to no write because no write makes a deadline become due — and the two
+// custody reasons have no producing constant at all, which emission-points.ts explains and this
+// list holds to being written down rather than being an unexplained gap.
+const COMPARISON_EMISSION_POINTS = new Set<string>([
+  ...CALENDAR_NOTIFICATION_EMISSION_POINTS,
+  ...LOCALLY_NAMED_EMISSION_POINTS,
 ]);
 
 // The one topic whose producer is a worker route rather than a domain package, so there is no
@@ -50,11 +69,91 @@ const TOPICS_WITHOUT_A_PRODUCING_PACKAGE_CONSTANT = new Set<string>(["incident.c
 describe("the notification registry", () => {
   it("subscribes only to topics a producing package exports (or a named exception)", () => {
     for (const type of NOTIFICATION_TYPES) {
+      if (type.raisedBy !== "outbox-topic") continue;
       const resolved =
         PRODUCING_PACKAGE_TOPICS.has(type.subscribesTo) ||
         TOPICS_WITHOUT_A_PRODUCING_PACKAGE_CONSTANT.has(type.subscribesTo);
       expect(resolved, `${type.key} subscribes to an unresolvable topic`).toBe(true);
     }
+  });
+
+  it("names a comparison point only from a set an owning package or this one declares", () => {
+    for (const type of NOTIFICATION_TYPES) {
+      if (type.raisedBy !== "comparison-sweep") continue;
+      expect(
+        COMPARISON_EMISSION_POINTS.has(type.subscribesTo),
+        `${type.key} names an unresolvable comparison point`,
+      ).toBe(true);
+    }
+  });
+
+  it("names a job-completion point only from the ones declared here", () => {
+    for (const type of NOTIFICATION_TYPES) {
+      if (type.raisedBy !== "job-coordinator") continue;
+      expect(
+        LOCALLY_NAMED_EMISSION_POINTS,
+        `${type.key} names an unresolvable job-completion point`,
+      ).toContain(type.subscribesTo);
+    }
+  });
+
+  it("keeps a comparison kind off the topic index, and a topic kind off the comparison index", () => {
+    // A comparison point that shared a spelling with a topic on the bus would otherwise be
+    // materialized twice: once by the sweep that owns it and once by the translator that mistook it
+    // for a subscription. The two indexes are what make that unwritable rather than unlikely.
+    for (const type of NOTIFICATION_TYPES) {
+      const onTopicIndex = notificationTypesForTopic(type.subscribesTo).includes(type);
+      const onComparisonIndex = notificationTypesForComparisonPoint(type.subscribesTo).includes(
+        type,
+      );
+      const onJobIndex = notificationTypesForJobCompletionPoint(type.subscribesTo).includes(type);
+      expect(
+        [onTopicIndex, onComparisonIndex, onJobIndex].filter(Boolean),
+        `${type.key} is indexed under the wrong number of production paths`,
+      ).toHaveLength(1);
+      expect(onTopicIndex, type.key).toBe(type.raisedBy === "outbox-topic");
+      expect(onComparisonIndex, type.key).toBe(type.raisedBy === "comparison-sweep");
+      expect(onJobIndex, type.key).toBe(type.raisedBy === "job-coordinator");
+    }
+  });
+
+  it("reaches more than one person wherever a matter has a team", () => {
+    // The audience narrowing that shipped once and reached exactly one person each time. A
+    // matter-anchored kind about work on a case is the whole team's fact; the two audiences that are
+    // deliberately narrow say so here rather than being discovered by reading every declaration.
+    const NARROW_BY_DESIGN = new Set<string>([
+      // A job is a reply to a request, and the requester is the only person who asked.
+      "jobs.documentAssembly.completed",
+      "jobs.recovery.completed",
+      // A matter's own lifecycle is the responsible member's fact. Closing and reopening are
+      // administrative acts about the file itself rather than about work on it, and the person
+      // accountable for the file is the person who has to notice.
+      "system.matter.closed",
+      "system.matter.reopened",
+    ]);
+    for (const type of NOTIFICATION_TYPES) {
+      if (!type.matterAnchored || NARROW_BY_DESIGN.has(type.key)) continue;
+      expect(
+        type.audience,
+        `${type.key} is matter-anchored and reaches one person; declare matter-team or say why not`,
+      ).not.toBe("responsible-member");
+    }
+  });
+
+  it("raises the two deadline comparisons and nothing else from the deadline points", () => {
+    // Both points are wired, and `horizon` deliberately is not: no firm setting names a lead window,
+    // and a lead the platform picked for a firm is a lead the firm did not choose.
+    expect(
+      notificationTypesForComparisonPoint(CALENDAR_DEADLINE_DUE_EMISSION_POINT).map(
+        (type) => type.key,
+      ),
+    ).toEqual(["deadlines.deadline.due"]);
+    expect(
+      notificationTypesForComparisonPoint(CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT).map(
+        (type) => type.key,
+      ),
+    ).toEqual(["deadlines.deadline.overdue"]);
+    expect(notificationTypesForComparisonPoint("calendar.deadline.horizon")).toEqual([]);
   });
 
   it("declares every enum-valued field from its own closed vocabulary", () => {
@@ -147,6 +246,7 @@ describe("the notification registry", () => {
 
   it("resolves a topic to every type subscribing to it, and an unknown topic to none", () => {
     for (const type of NOTIFICATION_TYPES) {
+      if (type.raisedBy !== "outbox-topic") continue;
       expect(notificationTypesForTopic(type.subscribesTo)).toContain(type);
     }
     // The ORDINARY case for most of the bus, and the reason the translator must never throw on it.

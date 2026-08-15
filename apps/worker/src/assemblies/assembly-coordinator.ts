@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import { DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT } from "@magna-carta/notifications/emission-points";
 import type { Bindings } from "../app.ts";
+import { notifyJobCompletion } from "../jobs/job-completion-notification.ts";
 import type {
   DocumentAssemblyCoordinator,
   DocumentAssemblyJobState,
@@ -40,6 +42,13 @@ export class DocumentAssemblyJob
       fileId: null,
       fileVersionId: null,
       reason: null,
+      // Carried now so a terminal transition later can address the firm's database and name the
+      // person who asked. The message is the only place these exist, and by the time the job
+      // finishes it is long gone.
+      firmId: message.firmId,
+      matterId: message.matterId,
+      assemblyId: message.assemblyId,
+      requestedBy: message.requestedBy,
     };
     await this.ctx.storage.put("state", state);
     await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
@@ -62,12 +71,14 @@ export class DocumentAssemblyJob
     // reporting the same result is a no-op rather than a second document.
     if (state === undefined || state.status === "done") return;
     await this.ctx.storage.put("state", {
+      ...state,
       status: "done",
       fileId,
       fileVersionId,
       reason: null,
     });
     await this.ctx.storage.deleteAlarm();
+    await this.announceTerminal(state, true);
   }
 
   async markFailed(reason: string): Promise<void> {
@@ -76,6 +87,35 @@ export class DocumentAssemblyJob
     if (state === undefined || state.status === "done" || state.status === "failed") return;
     await this.ctx.storage.put("state", { ...state, status: "failed", reason });
     await this.ctx.storage.deleteAlarm();
+    await this.announceTerminal(state, false);
+  }
+
+  // The durable row for the tab that was closed. Written AFTER the state transition has been
+  // persisted, never before: the job's own answer is the thing that matters, and a notification
+  // that failed must not be able to leave the coordinator un-transitioned. `notifyJobCompletion`
+  // swallows and logs its own failures for the same reason.
+  //
+  // A job that timed out and then reported success announces BOTH — the two are separate terminal
+  // reports and both happened, and the dedupe key carries the outcome so the later, truer one is
+  // not refused as a duplicate of the earlier guess.
+  private async announceTerminal(
+    state: DocumentAssemblyJobState,
+    succeeded: boolean,
+  ): Promise<void> {
+    if (state.firmId === undefined || state.assemblyId === undefined) return;
+    await notifyJobCompletion(this.env, {
+      firmId: state.firmId,
+      emissionPoint: DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT,
+      subjectId: state.assemblyId,
+      matterId: state.matterId ?? null,
+      requestedByUserId: state.requestedBy ?? null,
+      terminalOutcome: succeeded ? "done" : "failed",
+      payload: {
+        documentAssemblyId: state.assemblyId,
+        matterId: state.matterId ?? null,
+        succeeded,
+      },
+    });
   }
 
   async status(): Promise<DocumentAssemblyJobState> {
@@ -90,6 +130,9 @@ export class DocumentAssemblyJob
         status: "failed",
         reason: "assembly-timed-out",
       });
+      // A job nobody reported on is exactly the case the durable row exists for: whoever asked has
+      // been waiting on a poll or a socket for ten minutes and is almost certainly gone.
+      await this.announceTerminal(state, false);
     }
   }
 }

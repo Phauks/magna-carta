@@ -52,7 +52,8 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/merge.ts` — the k-way merge, the shared cursor, and the canonical-instant assertion
 - `src/timeline.ts` — one page across the registry: pre-reads, statements, merge, and the counts a
   measurement asserts against
-- `src/notifications.ts` — the ten emission points, declared and wired to nothing
+- `src/notifications.ts` — the ten emission points; the three matter-event ones are real outbox
+  topics, the other seven are declared and wired to nothing
 
 ## Invariants that apply here
 
@@ -116,6 +117,16 @@ ADR-0059, ADR-0068, ADR-0051.)
   ARITHMETIC: a computed deadline that is wrong is worse than none, because it gets trusted precisely
   because it was computed and the firm that would have looked the rule up does not.
   `test/window-and-arithmetic.test.ts` scans the sources for any date-arithmetic identifier.
+- **A matter-event write path announces itself in its own batch, and announces nothing else.** The
+  three matter-event emission points are outbox messages composed into the effect the service was
+  already returning: two identifiers, never a title, a description, a court reference, a location, or
+  a participant. The package still schedules nothing, resolves no recipient, and reads no preference.
+  **`rescheduled` means the setting MOVED** — the five columns that answer when it happens, compared
+  as stored — and never a title or room correction, because a notification is the one thing a reader
+  acts on without opening the record. **A continuance raises exactly one `rescheduled`, naming the
+  NEW setting**: the batch cancels a row and inserts another, but one thing happened in the world,
+  and announcing a cancellation plus a scheduling would say the hearing is off and then that a
+  different hearing exists. `test/event-topics.test.ts` holds all of it.
 - **Nothing writes "missed".** Overdue is `state = 'open'` and the due instant is past, computed at
   read time in `src/overdue.ts`. No sweep, no scheduled job, no state transition, and no column. A
   stored flag would need per-firm machinery for a fact that is a subtraction, could be stale where a

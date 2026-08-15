@@ -7,6 +7,7 @@
   "exports": {
     "./types": "./src/types.ts",
     "./facts-grammar": "./src/facts-grammar.ts",
+    "./emission-points": "./src/emission-points.ts",
     "./registry": "./src/registry.ts",
     "./materialize": "./src/materialize.ts",
     "./recipients": "./src/recipients.ts",
@@ -14,6 +15,8 @@
     "./read-statements": "./src/read-statements.ts",
     "./settings": "./src/settings.ts",
     "./translate": "./src/translate.ts",
+    "./sweep": "./src/sweep.ts",
+    "./job-completion": "./src/job-completion.ts",
     "./retention": "./src/retention.ts"
   },
   "scripts": {
@@ -24,6 +27,7 @@
     "@magna-carta/billing": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
+    "@magna-carta/custodian": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/email-filing": "workspace:*",

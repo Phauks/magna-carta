@@ -31,6 +31,7 @@ import {
   selectSweepableUnreadTallyStatement,
 } from "@magna-carta/notifications/retention";
 import { readNotificationRetentionDays } from "@magna-carta/notifications/settings";
+import { sweepFirmComparisonNotifications } from "@magna-carta/notifications/sweep";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
@@ -607,6 +608,82 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
     }
   }
   return { firmsReconciled, corrections };
+}
+
+// THE COMPARISON-DRIVEN NOTIFICATION PASS, on the daily cron over the SAME reachable-active-firm
+// enumeration every other per-firm sweep uses.
+//
+// Most of what a firm gets told about already happened: a write committed, an outbox row committed
+// beside it, and the queue carries it. Some of the most consequential things did not happen at all.
+// Nothing writes "this deadline is overdue" — the calendar refuses to keep that as a column, because
+// a stored flag needs machinery to maintain a fact that is a subtraction, can be stale where a
+// comparison cannot, and would have the platform assert something about a firm's conduct it is not
+// in a position to assert. Nothing in the custody register schedules anything either. Those are
+// comparisons, and a comparison needs somebody to perform it.
+//
+// This pass performs the ones the owning packages already ship and materializes what they return. It
+// does not restate what is due; a second definition would eventually disagree with the first.
+//
+// WHY DAILY. The dedupe key buckets by civil date, so a continuously-true comparison raises once per
+// day however often this runs — which makes the cadence a free variable and makes re-running safe.
+// Given that, the daily pass produces exactly the one row per day the bucket describes, where the
+// five-minute pass would perform 288 firm-wide deadline reads to produce the same single row. What
+// the cadence does decide is WHEN in a member's day the row appears, and a single daily pass lands
+// in the evening for the western time zones; a second daily pass is the fix if that matters, and it
+// costs a cron expression and no code.
+//
+// One firm's failure is quarantined and logged exactly as the outbox sweep quarantines a sick firm
+// database: every firm is addressable, so an unguarded throw here would abort the pass fleet-wide.
+export async function runNotificationComparisonSweep(env: Bindings): Promise<number> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let firmsSwept = 0;
+  for (const firm of firms) {
+    try {
+      const result = await sweepFirmComparisonNotifications({
+        database: firm.database,
+        now: new Date().toISOString(),
+      });
+      firmsSwept++;
+      // Counters and nothing else, on the SAME metrics the queue-driven path reports — a
+      // notification that was materialized is the same fact however it was raised, and two parallel
+      // metric families would mean every dashboard asking the question twice. The emission point
+      // rides the `topic` dimension because that is exactly what it is: a low-cardinality label
+      // naming what produced the row.
+      //
+      // Per emission point rather than per firm, because a kind that silently stops producing looks
+      // exactly like a kind nobody registered, and a sum over every kind hides it. No subject,
+      // matter, or recipient handle appears anywhere here.
+      for (const [emissionPoint, counts] of result.byEmissionPoint) {
+        const topic = { topic: emissionPoint };
+        if (counts.materializedEvents > 0) {
+          logger.count("notifications.materialized", topic, counts.materializedEvents);
+          logger.count("notifications.recipients", topic, counts.recipientRows);
+        }
+        if (counts.emptyAudiences > 0) {
+          logger.count("notifications.empty_audience", topic, counts.emptyAudiences);
+        }
+        if (counts.clampedRecipients > 0) {
+          logger.count("notifications.recipients_clamped", topic, counts.clampedRecipients);
+        }
+        if (counts.refusedFacts > 0) {
+          logger.count("notifications.refused_facts", topic, counts.refusedFacts);
+        }
+        if (counts.clampedFindings > 0) {
+          logger.count("notifications.comparison_clamped", topic, counts.clampedFindings);
+        }
+      }
+    } catch (caught) {
+      logOperationFailed(
+        logger,
+        `cron:notification-comparison:${firm.firmId}`,
+        caught,
+        correlationId,
+      );
+    }
+  }
+  return firmsSwept;
 }
 
 // The nightly notification-retention sweep, on the daily pass over the SAME reachable-active-firm

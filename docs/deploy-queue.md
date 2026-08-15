@@ -6,9 +6,40 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-15 (the Tools catalog audit added five steps, the first of which gates every
-other deploy — see the section immediately below; Turnstile activation is now an ordered set of
-steps with a UI prerequisite rather than a runbook checkbox)._
+_Last updated: 2026-08-15 (the CI outage was traced to an account billing block rather than a workflow fault — its owner step is the section immediately below and it gates every merge, not only every deploy; the Tools catalog audit added five steps; and Turnstile activation is now an ordered set of steps with a UI prerequisite rather than a runbook checkbox)._
+
+## GitHub Actions is blocked account-side — one billing step, and it gates all CI
+
+**Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
+refused to start any billable job for `Phauks/magna-carta`, so the gate of record has not executed a
+single step in that time. The diagnosis and its evidence are in
+[`operations.md`](conventions/operations.md) under _Quality gates_; this entry is only the step.
+
+**What to click.** GitHub → **Settings** → **Billing and licensing** → **Budgets and alerts** (and the
+**Payment information** tab beside it). Check, in this order:
+
+1. **A valid payment method is on file and no recent charge has failed.** A failed payment blocks
+   Actions on its own, and settling it is what unblocks it — raising a limit will not.
+2. **The Actions spending limit is greater than $0.** The account is on the Free plan, which includes
+   2,000 Actions minutes a month for private repositories; `magna-carta` is private, so every gate
+   minute is billed against that allotment. Once it is spent, a $0 limit is a hard stop, and GitHub's
+   documented behaviour with no valid payment method is that "usage is blocked once you use up your
+   quota."
+3. **Whether the monthly allotment has simply reset.** The block began 2026-08-05. If the billing
+   month has since rolled over and jobs still do not start, the cause is item 1 or 2, not the quota.
+
+**How to confirm it worked**, without guessing: re-run any gate workflow and look at a job's
+`runner_id`. A job that GitHub refused to start reports `runner_id: 0` with an empty `runner_name` and
+has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
+the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
+
+**What it is costing.** Every merge since 2026-08-05 has landed on the strength of local verification
+alone. Two specific checks are CI-authoritative and remain unanswered — see the scan-policy item under
+_Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
+
+**Do not "fix" this by editing the workflow.** The runner labels in `gate.yml` are correct and were
+verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage
+reproduces identically on `ubuntu-latest`, and predates `ubuntu-slim` entering the repository.
 
 ## Tools catalog — five steps, and the first one gates every other deploy
 
@@ -133,6 +164,44 @@ for the same documents merged. That is why this is a deploy-blocking capability 
 search rather than a later tuning pass. Figures come from
 `crates/search-eval`; how to reproduce them is in that crate's README.
 
+## Discovery processing lane — a queue pair, then a container worker, in that order
+
+The discovery processing slice landed with a new queue, its deadletter, and a service
+binding to the discovery engine worker. **The queue pair comes first and is not
+optional:** a declared consumer whose queue does not exist fails the deploy outright,
+the same hazard the compaction activation above carries.
+
+1. Create `magna-carta-production-discovery-process` **and**
+   `magna-carta-production-discovery-process-deadletter`.
+2. Deploy `magna-carta-discovery` — the standalone engine worker that owns the
+   `DiscoveryEngineContainer`. Its image builds in Cloudflare Workers Builds from
+   `containers/discovery/Dockerfile` with the repo root as build context. Validate the
+   config first with
+   `pnpm --filter @magna-carta/discovery-worker exec wrangler deploy --dry-run --containers-rollout=none`.
+3. Deploy the app worker. Its `wrangler.jsonc` already carries the `DISCOVERY_PROCESS`
+   producer binding, the consumer at concurrency 4, and the `DISCOVERY_SERVICE` service
+   binding to `magna-carta-discovery`. No new secret, no new bucket.
+
+**Step 3 will fail while step 2 is undone.** A service binding naming a worker that does
+not exist is a deploy-time error, not a runtime fallback — unlike an _absent_ binding,
+which the extraction port handles by falling back. Deploy the engine worker or remove the
+binding; do not deploy the app worker against a name with nothing behind it.
+
+**The order between 2 and 3 is not cosmetic.** With the queue live and the engine worker
+absent, every review document parks `pending` with a reason on its row and its load will
+not reach `complete` — visible, recoverable, and exactly the state the design intends
+while an engine is undeployed. Re-running the load's dispatch after step 2 drains it.
+
+**Why concurrency 4, so nobody raises it as a knob.** Extraction runs in the discovery
+Container, which is sized for this burst (`max_instances: 20`) and scales to zero between
+loads, so the Container's own ceiling is what bounds throughput. This number bounds how
+much of the account's 250-invocation consumer budget one bulk load may take, which is the
+whole reason the lane is separate from files ingest in the first place.
+
+**Not yet activated by this deploy:** the LibreOffice conversion engine (its own section
+below). Until `CONVERT` is bound and that container is deployed, a legacy `.doc`, `.xls`
+or `.ppt` in a review set parks rather than being recorded unreadable.
+
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
 Server-side human verification is built and ships **dormant**
@@ -195,6 +264,29 @@ answering `503`, and no visitor is being told it is their fault.
   with real presigning credentials.
 
 ## Behaviour changes the next deploy carries (no dashboard step)
+
+- **The daily cron pass starts raising deadline and custody notifications.** The
+  `0 3 * * *` trigger now runs a per-firm comparison sweep before the retention
+  sweep: overdue deadlines, deadlines due today, custody reviews that have come
+  round, and check-outs that have not come back become feed rows for the matter's
+  team (deadlines) or for whoever holds `custody:manage` (the register). No new
+  binding, no new secret, no new queue, no migration — the tables and the cron
+  expression already exist. Two things worth knowing before the push. **A firm
+  with a backlog is told about it on the first pass**, capped at 200 findings per
+  kind, so a firm that has never looked at its overdue list will see a large
+  first batch; the cap's clamp is reported on the `notifications.comparison_clamped`
+  counter, which is the signal that a firm is being told about some of its overdue
+  work and not the rest. And **the pass is once a day at 03:00 UTC**, which is the
+  evening before, locally, for the American zones — the dedupe key buckets by the
+  deadline's own civil day so the row lands on the correct date either way, but if
+  a morning arrival matters, adding a second daily cron (e.g. `0 15 * * *`) to
+  `apps/worker/wrangler.jsonc` is the whole fix: the second pass writes nothing
+  the first already wrote.
+
+  Deliberately still silent: `calendar.deadline.horizon`, the "entering the lead
+  window" reminder, which needs a firm-configured lead window that no setting
+  defines. It wants one number and a bound from you, on the retention window's
+  pattern.
 
 - **Discovery review sets narrow to their creator on migration.** The
   review-coding migration

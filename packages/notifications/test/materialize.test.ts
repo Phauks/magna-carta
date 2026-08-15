@@ -13,6 +13,7 @@ import { MAX_RECIPIENTS_PER_EVENT } from "../src/types.ts";
 function typeFixture(overrides: Partial<NotificationType> = {}): NotificationType {
   return {
     key: "system.matter.closed",
+    raisedBy: "outbox-topic",
     category: "system",
     severity: "informational",
     mandatory: false,

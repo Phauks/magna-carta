@@ -44,6 +44,9 @@ export interface ReviewDocumentRow {
   readonly format_identified: string | null;
   readonly sort_date: string | null;
   readonly sort_date_source: string | null;
+  readonly extraction_route: string | null;
+  readonly pages_recognized: number | null;
+  readonly processing_deferred_reason: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -53,7 +56,8 @@ const REVIEW_DOCUMENT_COLUMNS =
   "email_message_id, family_id, family_role, family_sequence, source_name, source_path, " +
   "size_bytes, content_sha256, content_md5, content_sha1, text_r2_key, metadata_r2_key, " +
   "page_count, text_fingerprint, dedup_group_id, is_dedup_primary, processing_state, " +
-  "format_identified, sort_date, sort_date_source, created_at, updated_at";
+  "format_identified, sort_date, sort_date_source, extraction_route, pages_recognized, " +
+  "processing_deferred_reason, created_at, updated_at";
 
 // What one allocated review document carries at LOAD time. Everything processing derives — the text
 // key, the page count, the fingerprint, the identified format — is absent here and filled in later,

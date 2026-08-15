@@ -125,6 +125,12 @@
       // swaps the catalog. What keeps the read path's cost tracking a threshold the platform chooses
       // rather than the number of documents ever indexed.
       { "binding": "SEARCH_COMPACTION", "queue": "magna-carta-production-search-compaction" },
+      // The discovery processing lane: the load coordinator's dispatch walk enqueues one review
+      // document per message; the consumer reads its bytes through the composite extraction port and
+      // ends it in exactly one terminal state. Its own queue, apart from every ingest lane, because a
+      // load at the ceiling is a quarter of a million documents and the alternative is a firm's
+      // interactive uploads queued behind an opposing party's production.
+      { "binding": "DISCOVERY_PROCESS", "queue": "magna-carta-production-discovery-process" },
       // The document-assembly queue: the DocumentAssemblyJob DO enqueues one message per assembly; the
       // consumer resolves the merge context, merges the template, and files the output through the same
       // upload/scan chokepoint every other byte crosses.
@@ -230,6 +236,24 @@
         "max_concurrency": 1,
         "dead_letter_queue": "magna-carta-production-search-compaction-deadletter",
       },
+      // The discovery processing consumer (the queue() handler routes this queue to the processing
+      // consumer): one review document per message -> read the source object -> the composite
+      // extraction port -> text and sidecar to R2 -> the row's terminal state and the load's counters.
+      // Concurrency 4 rather than the index lane's 2: extraction runs in the discovery Container,
+      // which is sized for exactly this burst and scales to zero between loads, and the ceiling that
+      // matters is the Container's own max_instances rather than this one. Deliberately well below
+      // the platform's 250 — a bulk load must not be able to saturate the account's consumer budget
+      // and slow the interactive lanes it was separated from.
+      //
+      // The dead-letter queue is LOAD-BEARING rather than hygiene: a message that lands there IS the
+      // record that a document was never read, and the load's reconciliation refuses to complete
+      // while its counts do not add up, so a dead letter surfaces as a load that will not close
+      // rather than as a document quietly missing from the corpus.
+      {
+        "queue": "magna-carta-production-discovery-process",
+        "max_concurrency": 4,
+        "dead_letter_queue": "magna-carta-production-discovery-process-deadletter",
+      },
       // The document-assembly consumer (the queue() handler routes this queue to the assembly
       // consumer): one job per message → resolve the merge context → merge over the already-normalized
       // template → file the output through initiateUpload/completeUploadSession. The work is a
@@ -269,6 +293,10 @@
   //   OCR_SERVICE: the text-recognition engine worker (POST /ocr); the ocr route 503s until it is bound.
   //   SIGN_SERVICE: the e-signature/seal worker (POST /seal), which alone holds the platform signing
   //     key; the documents/seal route 503s until it is bound (deferred activation).
+  //   DISCOVERY_SERVICE: the pure-Rust discovery engine worker (POST /read|/identify|/digest|
+  //     /archive/*). While unbound the composite extraction port falls back to the in-Worker PDF
+  //     reader plus recognition, which reads strictly less — every non-PDF review document parks
+  //     rather than being recorded unreadable.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
@@ -277,6 +305,7 @@
     { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
     { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
     { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
+    { "binding": "DISCOVERY_SERVICE", "service": "magna-carta-discovery" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for

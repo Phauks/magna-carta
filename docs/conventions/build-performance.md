@@ -278,6 +278,20 @@ reduced until they reset (owner decision, 2026-08-05). Every suspension carries 
 `TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset` in the file it touches, so
 finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 
+> **The austerity was not enough, and "still running" below is aspirational, not observed.** On the
+> same day this posture was written the account stopped being able to start **any** billable job, so
+> the pull-request tier described as "still running" has in fact run nothing since 2026-08-05. Every
+> merge since has rested on local verification alone. This is not something the workflow can fix and
+> not something that reverting the austerity would fix: it clears when the owner completes the billing
+> step on the [deploy queue](../deploy-queue.md). How to recognise the state — and why it is not a
+> runner-label problem — is in [`operations.md`](operations.md) under _Quality gates_.
+>
+> **Two consequences for the revert below.** The trigger for step 1 is not "the minutes reset" on its
+> own; it is **a gate run that demonstrably executed** (a job reporting a real `runner_id`). And the
+> austerity's own premise should be re-examined when it does: the suspended tiers were suspended to
+> conserve an allotment that has been exhausted for the whole period regardless, so restoring them
+> costs whatever they cost and the saving they bought was never realised.
+
 **Suspended** (in [`gate.yml`](../../.github/workflows/gate.yml)):
 
 - The **`schedule`** trigger — the nightly cold whole-repo sweep, the largest recurring spend, billed
@@ -308,8 +322,12 @@ whole-repo `pnpm check` and `pnpm test`, not just `pnpm check:scoped`) and state
 request, and the **orchestrator reviews** the change. A pull request whose local verification cannot be
 run in full says so plainly rather than implying a gate that did not happen.
 
-**Revert checklist** (when the minutes reset):
+**Revert checklist** (when the gate is observed to execute again — not merely when the calendar month
+turns; confirm a job reports a real `runner_id` first):
 
+0. Confirm the account-side block is cleared: the billing step on the [deploy queue](../deploy-queue.md)
+   is done, and a gate run has jobs with a non-zero `runner_id`. Until that holds, every step below
+   changes only what a workflow _would_ do, and nothing about what it does.
 1. `grep -r "TEMPORARY CI AUSTERITY" --exclude-dir=node_modules .` and restore each site: un-comment the
    `schedule` and `push` triggers in `gate.yml`, and restore `run_lint` in the `lint` job's `ALL` branch
    (deleting the suspension echo).

@@ -3398,6 +3398,7 @@ export type RunInternalLoadResponse = {
     loadId: string;
     plannedCount: number;
     allocatedCount: number;
+    dispatchedCount: number;
     complete: boolean;
 };
 
