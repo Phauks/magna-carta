@@ -707,20 +707,54 @@ function asSentenceFragment(text) {
 // budget, a repository setting — blocks real work just as hard and has no node to hang from, so the
 // section names its own boundary and points at that list. A "waiting on you" that silently omits
 // half of what is waiting is worse than no list at all: it is trusted, and it is wrong.
+//
+// SPLIT BY WHAT THE ANSWER COSTS, and derived rather than declared. A question on a capability with
+// no code yet is holding a build still: nothing can start until it is answered, and answering it
+// late is answering it after somebody has waited. A question on a capability that already runs is
+// refining something that works — it deserves an answer and it is not blocking anybody. Those are
+// different asks and a flat list makes them look alike, which is how "whether to add a field to a
+// person" ends up sitting between two decisions that each gate an unbuilt subsystem.
+//
+// The split reads the node's own status, so it needs no second key that could disagree with the
+// first: a status with no artifact behind it yet (not-started, researching, designed, planned) is
+// holding a build, and anything else is refining one. Deliberately not a `blocking: true` field —
+// that would be a fact about the node recorded twice, and the two copies would drift.
+const STATUSES_WITH_NOTHING_BUILT = new Set(["not-started", "researching", "designed", "planned"]);
+
 function renderAwaiting(nodes) {
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
-  return [
-    awaiting.length === 0
-      ? "_No capability is blocked on an owner decision._"
-      : awaiting
-          .map((node) => `- **${node.name}** (\`${node.id}\`) — ${node.awaitingOwner}`)
-          .join("\n"),
-    "",
-    "Decisions about a capability only. Account-side steps that no session can perform — a" +
-      " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
-      " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.",
-  ].join("\n");
+  if (awaiting.length === 0) {
+    return ["_No capability is blocked on an owner decision._", "", AWAITING_BOUNDARY].join("\n");
+  }
+
+  const line = (node) => `- **${node.name}** (\`${node.id}\`) — ${node.awaitingOwner}`;
+  const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
+  const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+
+  const parts = [];
+  if (holdingABuild.length > 0) {
+    parts.push(
+      `**${holdingABuild.length} answer${holdingABuild.length === 1 ? "" : "s"} would let work start.** Nothing is built behind these yet, and nothing can be until they land.`,
+      "",
+      holdingABuild.map(line).join("\n"),
+    );
+  }
+  if (refining.length > 0) {
+    if (parts.length > 0) parts.push("");
+    parts.push(
+      `**${refining.length} would change something that already runs.** These are not holding anybody up.`,
+      "",
+      refining.map(line).join("\n"),
+    );
+  }
+  parts.push("", AWAITING_BOUNDARY);
+  return parts.join("\n");
 }
+
+const AWAITING_BOUNDARY =
+  "Decisions about a capability only. Account-side steps that no session can perform — a" +
+  " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
+  " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.";
 
 // Every matching node, parents and children alike. An earlier version kept only the shallowest node
 // of each subtree, on the theory that a parent plus nine children is nine lines saying what one line

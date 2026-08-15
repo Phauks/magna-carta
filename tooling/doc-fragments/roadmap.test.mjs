@@ -259,6 +259,46 @@ describe("renderBuildRegister", () => {
     );
   });
 
+  it("separates a question holding a build from one refining what already runs", () => {
+    const withBoth = [
+      parseArea(
+        area(
+          [
+            "- id: trust.charges",
+            "  name: Bank charges on a trust account",
+            "  scope: Bank fees against a pooled trust account.",
+            "  status: designed",
+            "  awaiting-owner: Whether a bank charge may ever be met from the pooled balance.",
+            "",
+          ].join("\n"),
+          [
+            "- id: trust.recon",
+            "  name: Three-way reconciliation",
+            "  scope: Bank, book and client-ledger reconciliation.",
+            "  status: shipped",
+            "  awaiting-owner: Whether a closed period may be superseded more than once.",
+            "",
+          ].join("\n"),
+        ),
+        "trust.md",
+      ),
+    ];
+    const rendered = renderBuildRegister(withBoth);
+    expect(rendered).toContain("**1 answer would let work start.**");
+    expect(rendered).toContain("**1 would change something that already runs.**");
+    // The split is derived from the node's own status, so the shipped capability's question sits
+    // below the designed one however the ledger happens to order them.
+    expect(rendered.indexOf("Bank charges on a trust account** (`trust.charges`)")).toBeLessThan(
+      rendered.indexOf("Three-way reconciliation** (`trust.recon`)"),
+    );
+  });
+
+  it("omits a heading rather than printing a zero when every question is one kind", () => {
+    const rendered = renderBuildRegister(areas);
+    expect(rendered).toContain("**1 answer would let work start.**");
+    expect(rendered).not.toContain("would change something that already runs");
+  });
+
   it("lists what is in build and what is queued, from status alone", () => {
     const rendered = renderBuildRegister(areas);
     expect(rendered).toMatch(/## Being built now[\S\s]*Three-way reconciliation/);
