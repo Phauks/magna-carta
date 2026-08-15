@@ -38,6 +38,9 @@ ADR-0039.)
 - `src/coding-panel-service.ts` — the seeded panel, and creating/renaming/deactivating questions and
   tags
 - `src/coding-service.ts` — applying, removing, family and bulk gestures, and exact undo
+- `src/processing.ts` — how an extraction's derived facts are stored, and the sidecar's shape
+- `src/processing-statements.ts` — the dispatch read, the two terminal writes, the parked write, the
+  exception insert, and the two reads the exception report and the reconciliation stand on
 
 ## Invariants that apply here
 
@@ -65,6 +68,23 @@ ADR-0039.)
   with nobody able to tell, which in discovery is a defensibility failure rather than a cache miss.
   A `BEFORE UPDATE` trigger forbids a direct flip between the two terminal states — a re-processing
   resets to `pending` first, visibly.
+- **"We have not read it yet" is not one of them, and it is not an exception either.** A document an
+  UNDEPLOYED engine has not reached stays `pending` carrying `processing_deferred_reason`. Recording
+  it `excepted` would say the platform tried and the document could not be read — untrue, and worse,
+  it would put a number in an exception report a firm hands to opposing counsel that a later deploy
+  silently changes. The reason lives on the row so what a review set is still owed is one indexed
+  read over the corpus rather than a question only a dead-letter queue can answer, and it is cleared
+  on the next attempt so it can never be stale.
+- **A processed row always names the format it was read as AND the engine that read it.** The format
+  is held by a CHECK; the route is not, because there is no `ALTER TABLE ADD CONSTRAINT` in SQLite
+  and the per-firm lineage is additive-only. The write statement is the only path that sets
+  `processing_state = 'processed'` and it always binds both — `test/processing-statements.test.ts`
+  holds the rule where the schema cannot.
+- **The processing statements take no access predicate, and that is not an omission.** The access
+  list governs what a MEMBER may read; the processing consumer runs off a queue with no member and no
+  session, over a corpus the platform itself put there. There is nobody to check, and composing a
+  predicate with nobody bound would be a clause matching whatever the previous binding happened to
+  be. Anything a member reaches goes through `ACCESS_SCOPED_BUILDERS` and its fitness pass.
 - **A load completes only when `loaded = processed + excepted`.** Enforced as a row CHECK on
   `discovery_load` as well as by the service, so a write path nobody has built yet cannot get past
   it. The exception report is what converts "we produced everything we could read" from an assertion

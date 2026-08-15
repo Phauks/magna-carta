@@ -183,6 +183,12 @@ beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = (await seedFirm({ name: "Discovery Test Firm" })).firmId;
   await seedFirmKey(firmId);
+  // A firm that holds documents has a bucket to hold them in, and a load only finishes once its
+  // documents have been queued to be READ — which needs somewhere to read them from. Seeded here
+  // because seedFirm leaves the bucket unprovisioned, which is a state no firm with files is in.
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(firmId, "magna-carta-production-platform-files")
+    .run();
   firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
 
   const owner = await seedCredentialedUser("discovery-owner@example.com", {
@@ -371,7 +377,7 @@ describe("declaring a load", () => {
     // which is the stronger place for it: a body with no transcriptScope cannot reach code that
     // might supply one. There is no default anywhere on the path, in either direction.
     expect(response.status).toBe(422);
-    expect(String(((await response.json()) as { type: string }).type)).toContain("validation");
+    expect(String((await response.json()).type)).toContain("validation");
   });
 
   it("refuses an include by name rather than dropping it or pretending to honour it", async () => {

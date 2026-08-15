@@ -7222,6 +7222,22 @@ export const reviewDocument = sqliteTable(
     // date as the last resort. A privilege log is a function over exactly these fields.
     sortDate: text("sort_date"),
     sortDateSource: text("sort_date_source"),
+    // WHICH ENGINES READ IT, in the order they ran, comma-joined from the closed vocabulary in
+    // packages/search/src/extraction.ts. Extraction is composite — a text layer, a recognizer, and
+    // the office container for a format nothing memory-safe parses — and those are three different
+    // kinds of evidence. A firm asked how it read a production has to be able to name the engine.
+    // Not NOT NULL: a document that never processed has no route, and there is no ALTER TABLE ADD
+    // CONSTRAINT in SQLite to say "not null once processed" without rebuilding a shipped table.
+    extractionRoute: text("extraction_route"),
+    // How many pages came back from recognition rather than from the document's own text layer. The
+    // number a reviewer judges the text by: a search hit in recognized text is a machine's reading of
+    // a picture of a word, not the word the author typed.
+    pagesRecognized: integer("pages_recognized"),
+    // Why a document is still pending. An engine that is not deployed is not a verdict on the
+    // document, so it parks rather than being recorded `excepted` — and this is what makes the
+    // backlog enumerable from the corpus instead of from a queue somebody has to know to look in.
+    // Cleared on the next attempt, so it can never be stale.
+    processingDeferredReason: text("processing_deferred_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7235,6 +7251,15 @@ export const reviewDocument = sqliteTable(
       table.recordCustodianId,
     ),
     index("review_document_review_set_state_index").on(table.reviewSetId, table.processingState),
+    // The dispatch walk: one load's still-unprocessed documents, keyset-paged by id. Leading with the
+    // LOAD rather than the review set, which is the one discovery read whose scope is the load — at
+    // the ceiling a load is the whole review set, so a review-set-led index narrows nothing and the
+    // state filter becomes a scan on every one of the walk's hundreds of turns.
+    index("review_document_load_state_index").on(
+      table.discoveryLoadId,
+      table.processingState,
+      table.id,
+    ),
     // A family is ONE indexed read.
     index("review_document_family_index").on(
       table.reviewSetId,
@@ -7267,6 +7292,13 @@ export const reviewDocument = sqliteTable(
     check(
       "review_document_processed_names_format_check",
       sql`${table.processingState} <> 'processed' OR ${table.formatIdentified} IS NOT NULL`,
+    ),
+    // A count of recognized pages is a count. Stated as a column CHECK because that is the one place
+    // SQLite accepts a constraint on an ADD COLUMN; the route beside it has no CHECK because its
+    // value is an ordered list and a constraint over its combinations would be unreadable.
+    check(
+      "review_document_pages_recognized_check",
+      sql`${table.pagesRecognized} IS NULL OR ${table.pagesRecognized} >= 0`,
     ),
     check(
       "review_document_family_role_check",
