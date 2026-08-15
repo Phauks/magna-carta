@@ -33,38 +33,50 @@
 
 - id: conflicts.matching-engine
   name: Matching engine
-  scope: Candidate generation and scoring over names/identifiers (exact, fuzzy, phonetic, alias/blind-index) with related-party edge expansion.
-  status: researching
+  scope: Candidate generation over names and identifiers (exact identifier, exact normalized name, phonetic, trigram) with related-party edge expansion, ordered by evidence tier.
+  status: shipped
+  slices: slice-4-1-conflicts
   adrs: ADR-0013
-  evidence: White paper flags the engine as under-specified for an ethics-critical feature; a follow-up spec is required and does not exist.
-  notes: Phonetic and normalization primitives already shipped in packages/directory.
+  spec: docs/specs/2026-07-09-slice-4-1-conflicts-design.md
+  evidence: packages/conflicts/src/matching.ts runs the four blocking channels over the Directory corpus — blind-index identifier equality with no decrypt, an exact normalized-display probe, and the directory's phonetic and trigram channels — packages/conflicts/src/expansion.ts walks related-party edges as a 0-1 BFS where corporate parent/subsidiary/successor hops cost nothing, and packages/conflicts/src/evidence.ts assigns each candidate its tier; packages/conflicts/src/run-check.ts composes them, held by matching.test.ts and expansion.test.ts in packages/conflicts/test.
+  notes: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open.
 
 - id: conflicts.matching-engine.strictness
   name: Configurable strictness
   scope: Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable.
-  status: not-started
-  evidence: No strictness configuration exists; depends on the unspecified matching engine.
+  status: partial
+  slices: slice-4-1-conflicts
+  evidence: The two levels are a typed vocabulary in packages/conflicts/src/types.ts; matchOptionsFor in packages/conflicts/src/matching.ts picks the channels and name roles each level sees, so over_inclusive is a structural superset that also reads former names and aliases; resolveScope in packages/conflicts/src/settings.ts raises a per-run request to the firm's floor and records floorRaised on the check row, and the matter posture read reports a check that ran below the current floor. A caller selects it per run in the scope object on POST /api/v1/conflicts/checks.
+  notes: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly.
 
 - id: conflicts.search-depth
   name: Configurable search depth
   scope: Structured Directory/matter scan by default; optional document-content scan.
-  status: not-started
-  evidence: No depth configuration or document-content scan path exists.
+  status: partial
+  slices: slice-4-1-conflicts
+  evidence: The structured scan is the party, graph and imputation source classes registered in packages/conflicts/src/sources.ts, and traversal depth is configurable end to end — ConflictsPolicy.defaultDepth in packages/conflicts/src/settings.ts, an optional per-run depth on the check request capped at six hops, expandGraph in packages/conflicts/src/expansion.ts honoring it while corporate hops stay free, and the resolved depth written to every conflicts_check row so the posture read can report a check that ran shallower than the firm default.
+  notes: Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen.
 
 - id: conflicts.firm-wide-scope
   name: Firm-wide imputation
   scope: Conflicts impute across the whole firm and every office; locations never partition the conflicts graph.
-  status: not-started
-  evidence: No conflicts graph exists to scope; Directory and Locations models are in place as substrate.
+  status: shipped
+  slices: slice-4-1-conflicts
+  evidence: findImputationHits in packages/conflicts/src/imputation.ts joins the firm's members to a matter's parties by identity through the member_id link on the directory entity — never by name similarity — and a deactivated member still imputes; readConflictsPolicy in packages/conflicts/src/settings.ts unions the party class back into the floor on every read, so a stored policy cannot drop the firm-wide corpus. Held by packages/conflicts/test/imputation.test.ts and settings.test.ts.
+  notes: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph.
 
 - id: conflicts.clearance
   name: Human clearance
   scope: Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected.
-  status: not-started
-  evidence: No clearance workflow or UI exists.
+  status: shipped
+  slices: slice-4-1-conflicts
+  evidence: recordDisposition in packages/conflicts/src/disposition.ts appends one conflicts_disposition row per adjudication across the four kinds (cleared, waiver_obtained, wall_erected, representation_declined), refusing a blank rationale and an unknown hit, behind POST /api/v1/conflicts/hits/{hitId}/dispositions on conflicts:dispose; readHitDispositionStates resolves every hit's current word in one query, and the matter posture read reports hits no reviewer has answered by evidence tier alongside how the answered ones were disposed of and by whom.
+  notes: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything.
 
 - id: conflicts.log
   name: Immutable conflicts log
   scope: Every check and clearance recorded in an immutable, defensible log.
-  status: not-started
-  evidence: No conflicts log schema or write path exists; entry format is explicitly unspecified in the white paper.
+  status: shipped
+  slices: slice-4-1-conflicts
+  evidence: Three append-only per-firm tables — conflicts_check, conflicts_hit and conflicts_disposition in packages/database/src/per-firm-schema.ts — each carrying BEFORE UPDATE, BEFORE DELETE and a BEFORE INSERT guard against REPLACE, asserted by packages/database/test/conflicts-append-only.test.ts and probed at runtime by assertConflictsFitness in packages/conflicts/src/fitness.ts. A check row records the trigger, its source, the accumulated causes, the scope asked for against the scope that ran, the strictness, the depth and whether the floor was raised; packages/conflicts/src/report-text.ts renders that into the plain-language statement GET /api/v1/conflicts/checks/{checkId} returns beside the hits.
+  notes: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it.

@@ -188,7 +188,7 @@ Measured: **267** slice tags across 235 nodes naming 55 distinct fragments, all 
 
 ## What is deliberately not checked
 
-Three candidates were measured and **rejected**. Each is recorded because the measurement is the
+Five candidates were measured and **rejected**. Each is recorded because the measurement is the
 reason, and without it someone will propose them again.
 
 ### Rejected: a node's `slices:` tag has files, so it cannot be pre-code
@@ -242,6 +242,61 @@ caught **both** instances, and it is still the wrong check:
 The honest replacement for it is not a lint. It is the weekly docs-sync routine, which already audits
 the merge window for features that advanced without their node moving, and which reads the diff with
 judgement rather than a threshold.
+
+### Rejected: an absence assertion must name a path
+
+The blind spot this file already admits to — "an absence clause naming capabilities in prose rather
+than paths" — invites an elegant-looking answer. You cannot check an English sentence against a
+filesystem, but you can **refuse** the sentence: require that evidence asserting something does not
+exist also carry at least one repository path. _"No conflicts check exists to trigger"_ becomes
+_"no caller of `packages/conflicts` exists"_, and the moment it names a path rules 1, 2 and 4 can
+see it. A convention enforcement rather than a truth oracle, with the existing machinery doing the
+checking.
+
+**Measured: 96 raw hits on the ledger as it stood — 14% of every node.** That is not a lint finding, it is a
+migration, and it is an order of magnitude past the fourteen-line threshold at the top of this file.
+More decisively, the hits are not a fixable tail. They are the ledger's most common and most correct
+idiom: _"no code"_, _"none exists"_, _"No portal app or routes exist"_, _"no messaging port
+defined"_, _"Backend only — no UI"_. Every one names a capability that has **no location on the tree
+at all**, because it was never built anywhere. Forcing a path onto them means inventing one, and an
+invented path buys nothing: rule 4 correctly suppresses an unresolved path inside an absence claim,
+so the fiction is never checked until someone happens to create a file at exactly that name. The
+rule delivers falsifiability only where the author can predict where code will land — which is the
+`designed`/`planned` case, and precisely not the 175 born-`not-started` nodes it would fire on.
+
+There is a second, quieter reason. The failure this rule targets is the author's belief about the
+world being wrong. The convention asks them to state that belief more precisely — but writing
+_"no `packages/conflicts` caller exists"_ requires having looked the package up, and looking it up is
+what corrects the error. The convention cannot make somebody check.
+
+**A better formulation was found while measuring, and it also fails the bar.** Drop the filesystem
+entirely and compare the ledger against itself: _a node's prose asserts that a named capability does
+not exist, where that capability is another area root the ledger itself holds at a has-code status._
+No path, no English resolved against the tree, just two committed statements disagreeing — the same
+shape as rules 3 and 7. Measured: **8 hits, 5 true, 3 false**. Narrowing it (the matched term must be
+a standalone word, not part of a hyphenated compound, and must be followed by a subsystem noun) gives
+**6 hits, 5 true, 1 false**. The five true ones are real and were repaired by hand:
+`directory.edges.relationships` and `matters.lifecycle.consultations` both said the conflicts engine
+was not built over a shipped `packages/conflicts`; `financial.time.capture.calendar-drafts` said no
+Calendar subsystem existed over a shipped `packages/calendar`;
+`settings.area-ui.notifications-category` waited on an "unbuilt notifications registry" that had
+shipped; `observability.incidents.acknowledgement` called the whole notifications subsystem unbuilt.
+
+One false positive is one too many for this file, and it is not an accident of the pattern set. It is
+`ai.magnus.record` — _"the include-or-exclude control belongs to the discovery surface and is not
+built **here**"_ — a node scoping an absence to itself while naming a subsystem that exists. That
+construction is ordinary English and will recur, and the narrowings that would suppress it ("ignore a
+clause containing _here_") are fitted to the one sample rather than derived, which is the trap the
+affirmative-build-claim rejection above was already caught by. The rule's reach is small enough that
+the trade is not close: it can only see the 32 area-root slugs spelled exactly, so
+_"no screening runs at intake"_ is invisible to it either way.
+
+**What is kept instead is the matcher, not the rule.** The pattern set is a good search tool and a
+poor gate, and it earned its keep in that role: run by hand over `roadmap.d/`, it found the five
+nodes above plus a whole stale seam in `roadmap.d/financial.md` — `invoice-composition` reading
+`not-started` with "no invoice model in tree" over eight invoice tables, and `wip-to-ar` reading
+`not-started` with "no posting service exists" over a `finalizeInvoice` that posts the receivable.
+That is the honest division: judgement reads prose, the gate does not.
 
 ## Which of the two instances this catches
 

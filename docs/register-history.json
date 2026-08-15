@@ -1053,8 +1053,8 @@
       ]
     },
     {
-      "commit": "7c4abfb485db7314ecb25b7aefaa5014c6987148",
-      "date": "2026-08-15",
+      "commit": "85140ca768886e458d36589bd7b6c700d1ab6d86",
+      "date": "2026-08-14",
       "read": true,
       "total": 708,
       "statuses": {"shipped":249,"partial":192,"in-build":15,"designed":25,"planned":10,"researching":8,"not-started":168,"deferred":39,"cut":2},

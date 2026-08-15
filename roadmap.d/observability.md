@@ -91,7 +91,7 @@
   name: Reporter acknowledgement loop
   scope: Receipt and resolution status posted back to the reporter in-app/portal.
   status: not-started
-  evidence: No acknowledgement path; depends on the unbuilt notifications subsystem.
+  evidence: No acknowledgement path. The notifications backend it would raise through is shipped, but every delivery channel is still unbuilt and the in-app centre has no surface, so there is nothing to post a receipt back on.
 
 - id: observability.diagnostics-agent-pipeline
   name: Diagnostics agent pipeline
