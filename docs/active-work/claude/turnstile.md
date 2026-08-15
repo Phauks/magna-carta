@@ -1,4 +1,11 @@
-# claude/turnstile — human verification on the anonymous endpoints
+---
+worktree: .claude/worktrees/turnstile
+area: Human verification (Turnstile) on the anonymous endpoints — server side, dormant
+status: review
+touches: apps/worker/src/human-verification, apps/worker/src/app.ts, apps/worker/src/routes/registrations.ts, apps/worker/src/routes/invitations.ts, apps/worker/src/contracts/problem-types.ts, apps/worker/wrangler.jsonc, apps/worker/CLAUDE.md, apps/worker/openapi/openapi.json, packages/api-client, packages/telemetry/src/metrics.ts, apps/web/src/lib/auth/unbuilt-capabilities.ts, docs/deploy-queue.md, docs/conventions/operations.md, roadmap.d/auth.md, status.d/0-7b-auth-ui-deferred-surfaces.md, changelog.d/, docs/decisions/pending/
+---
+
+# Human verification on the anonymous endpoints
 
 **Scope.** Build the server side of Cloudflare Turnstile verification for the platform's anonymous
 write endpoints, dormant until the owner provisions the secret. Turnstile has been treated as
