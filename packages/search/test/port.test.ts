@@ -2,15 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "../src/corpus.ts";
 import {
+  compacted,
   found,
   indexed,
   removed,
   searchAdapterError,
   searchEngineNotImplemented,
+  type CompactResult,
   type IndexResult,
   type RemoveResult,
   type SearchIndexPort,
   type SearchQueryResult,
+  type SplitQueryTarget,
 } from "../src/port.ts";
 
 const FIRM = "firm_test0000000000000000000001" as FirmId;
@@ -19,7 +22,8 @@ const DOCUMENT = "file_test00000000000000000001" as FileId;
 const CORPUS = corpusOfMatter(MATTER);
 
 // A trivial in-memory implementation, proving the interface is implementable and documenting the shape
-// a real adapter fills. It ignores splitKeys and just matches on substring — enough to exercise the port.
+// a real adapter fills. It ignores the split targets and just matches on substring — enough to
+// exercise the port.
 class InMemorySearchIndex implements SearchIndexPort {
   private readonly texts = new Map<string, { documentId: FileId; chunkId: string; text: string }>();
 
@@ -51,12 +55,39 @@ class InMemorySearchIndex implements SearchIndexPort {
     return removed();
   }
 
-  async query(input: { text: string; limit: number }): Promise<SearchQueryResult> {
+  async query(input: {
+    text: string;
+    limit: number;
+    splits: readonly SplitQueryTarget[];
+  }): Promise<SearchQueryResult> {
+    // The exclusions are per split, so a document excluded from one split can still be returned by
+    // another — which is exactly the case this shape exists for: a re-indexed document is stale inside
+    // the merged split and current inside its own.
+    const excluded = new Set(
+      input.splits.flatMap((split) => [...split.excludeDocumentIds] as string[]),
+    );
     const hits = [...this.texts.values()]
-      .filter((row) => row.text.includes(input.text))
+      .filter((row) => row.text.includes(input.text) && !excluded.has(row.documentId))
       .slice(0, input.limit)
       .map((row) => ({ documentId: row.documentId, chunkId: row.chunkId, score: 1 }));
     return found(hits);
+  }
+
+  async compact(input: {
+    sources: readonly SplitQueryTarget[];
+    objectKey: string;
+  }): Promise<CompactResult> {
+    const excluded = input.sources.flatMap((source) => [...source.excludeDocumentIds]);
+    for (const [chunkId, row] of this.texts) {
+      if (excluded.includes(row.documentId)) this.texts.delete(chunkId);
+    }
+    return compacted({
+      objectKey: input.objectKey,
+      documentCount: this.texts.size,
+      sizeBytes: 2048,
+      schemaGeneration: 1,
+      excludedDocumentIds: excluded,
+    });
   }
 }
 
@@ -83,7 +114,7 @@ describe("SearchIndexPort", () => {
       text: "indemnify",
       mode: "keyword",
       limit: 10,
-      splitKeys: [],
+      splits: [],
     });
     expect(query.ok).toBe(true);
     if (query.ok) {
@@ -98,7 +129,7 @@ describe("SearchIndexPort", () => {
       text: "indemnify",
       mode: "keyword",
       limit: 10,
-      splitKeys: [],
+      splits: [],
     });
     expect(afterRemove.ok && afterRemove.hits).toHaveLength(0);
   });

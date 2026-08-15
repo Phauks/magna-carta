@@ -1349,10 +1349,30 @@
         "properties": {
           "directFilingPermitted": {
             "type": "boolean"
+          },
+          "circuitBreaker": {
+            "type": "object",
+            "properties": {
+              "maxFiresPerWindow": {
+                "type": "integer"
+              },
+              "recentFireWindow": {
+                "type": "integer"
+              },
+              "maxUndosInRecentFires": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "maxFiresPerWindow",
+              "recentFireWindow",
+              "maxUndosInRecentFires"
+            ]
           }
         },
         "required": [
-          "directFilingPermitted"
+          "directFilingPermitted",
+          "circuitBreaker"
         ]
       },
       "PatchAutoFilePolicyRequest": {
@@ -1360,6 +1380,31 @@
         "properties": {
           "directFilingPermitted": {
             "type": "boolean"
+          },
+          "circuitBreaker": {
+            "type": "object",
+            "properties": {
+              "maxFiresPerWindow": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              },
+              "recentFireWindow": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "maxUndosInRecentFires": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "maxFiresPerWindow",
+              "recentFireWindow",
+              "maxUndosInRecentFires"
+            ]
           }
         }
       },
@@ -6115,6 +6160,11 @@
               "preliminary",
               "comprehensive",
               "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
               "periodic_rescan"
             ]
           },
@@ -6167,6 +6217,31 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 6
+          },
+          "edgeClassBudgets": {
+            "type": "object",
+            "properties": {
+              "control": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "family": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "representation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              }
+            }
+          },
+          "closureCap": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
           }
         },
         "required": [
@@ -6180,6 +6255,12 @@
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
           },
+          "statement": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "hits": {
             "type": "array",
             "items": {
@@ -6189,6 +6270,7 @@
         },
         "required": [
           "check",
+          "statement",
           "hits"
         ]
       },
@@ -6204,6 +6286,11 @@
               "preliminary",
               "comprehensive",
               "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
               "periodic_rescan"
             ]
           },
@@ -6242,6 +6329,9 @@
           "floorRaised": {
             "type": "boolean"
           },
+          "traversal": {
+            "$ref": "#/components/schemas/ConflictsTraversalRecord"
+          },
           "actorUserId": {
             "type": [
               "string",
@@ -6261,8 +6351,58 @@
           "strictness",
           "depth",
           "floorRaised",
+          "traversal",
           "actorUserId",
           "createdAt"
+        ]
+      },
+      "ConflictsTraversalRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "edgeClassBudgets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "closureCap": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "entitiesReached": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "unexploredFrontierSize": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "unexpandedReachedCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "edgeClassBudgets",
+          "closureCap",
+          "truncated",
+          "entitiesReached",
+          "unexploredFrontierSize",
+          "unexpandedReachedCount"
         ]
       },
       "ConflictsHitDetail": {
@@ -6336,6 +6476,9 @@
           },
           "toEntityId": {
             "type": "string"
+          },
+          "expiredAtCheck": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -6379,6 +6522,314 @@
           "rationale",
           "reviewerUserId",
           "createdAt"
+        ]
+      },
+      "MatterConflictsPostureResponse": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "neverChecked": {
+            "type": "boolean"
+          },
+          "latestCheck": {
+            "$ref": "#/components/schemas/ConflictsPostureLatestCheck"
+          },
+          "scopeShortfall": {
+            "$ref": "#/components/schemas/ConflictsPostureScopeShortfall"
+          },
+          "pendingRecheck": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPosturePendingRecheck"
+            }
+          },
+          "periodicRescan": {
+            "$ref": "#/components/schemas/ConflictsPosturePeriodicRescan"
+          },
+          "undisposedByTier": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureUndisposedTier"
+            }
+          },
+          "dispositionsByKind": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureDispositionKind"
+            }
+          },
+          "unavailableSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsPostureUnavailableSource"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "neverChecked",
+          "latestCheck",
+          "scopeShortfall",
+          "pendingRecheck",
+          "periodicRescan",
+          "undisposedByTier",
+          "dispositionsByKind",
+          "unavailableSources"
+        ]
+      },
+      "ConflictsPostureLatestCheck": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ConflictsPostureScope"
+          },
+          "subjectEntityCount": {
+            "type": "integer"
+          },
+          "expandedEntityCount": {
+            "type": "integer"
+          },
+          "skippedIdentifierTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hitCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "trigger",
+          "actorUserId",
+          "scope",
+          "subjectEntityCount",
+          "expandedEntityCount",
+          "skippedIdentifierTypes",
+          "hitCount"
+        ]
+      },
+      "ConflictsPostureScope": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "searched",
+                "unavailable"
+              ]
+            }
+          },
+          "strictness": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "floorRaised": {
+            "type": "boolean"
+          },
+          "traversal": {
+            "$ref": "#/components/schemas/ConflictsTraversalRecord"
+          }
+        },
+        "required": [
+          "sources",
+          "strictness",
+          "depth",
+          "floorRaised",
+          "traversal"
+        ]
+      },
+      "ConflictsPostureScopeShortfall": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "party",
+                "graph",
+                "imputation",
+                "content"
+              ]
+            }
+          },
+          "strictness": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "firmFloor": {
+                "type": "string",
+                "enum": [
+                  "balanced",
+                  "over_inclusive"
+                ]
+              },
+              "ranUnder": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "firmFloor",
+              "ranUnder"
+            ]
+          },
+          "depth": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "firmDefault": {
+                "type": "integer"
+              },
+              "ranAt": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "firmDefault",
+              "ranAt"
+            ]
+          }
+        },
+        "required": [
+          "sources",
+          "strictness",
+          "depth"
+        ]
+      },
+      "ConflictsPosturePendingRecheck": {
+        "type": "object",
+        "properties": {
+          "causeTopic": {
+            "type": "string"
+          },
+          "causeReference": {
+            "type": "string"
+          },
+          "causeOccurredAt": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "causeTopic",
+          "causeReference",
+          "causeOccurredAt",
+          "requestedAt"
+        ]
+      },
+      "ConflictsPosturePeriodicRescan": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "intervalDays": {
+            "type": "integer"
+          },
+          "lastRunAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "intervalDays",
+          "lastRunAt"
+        ]
+      },
+      "ConflictsPostureUndisposedTier": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tier",
+          "count"
+        ]
+      },
+      "ConflictsPostureDispositionKind": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "reviewerUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "count",
+          "reviewerUserIds"
+        ]
+      },
+      "ConflictsPostureUnavailableSource": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "reason"
         ]
       },
       "CreatedConflictsDispositionResponse": {
@@ -16940,6 +17391,1260 @@
           "recordedAt"
         ]
       },
+      "TrustCompliancePack": {
+        "type": "object",
+        "properties": {
+          "cover": {
+            "$ref": "#/components/schemas/TrustComplianceCover"
+          },
+          "reconciliations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceReconciliation"
+            }
+          },
+          "reconciliationNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proofAtProductionNote": {
+            "type": "string"
+          },
+          "clientLedgers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceClientLedger"
+            }
+          },
+          "journal": {
+            "type": "object",
+            "properties": {
+              "openingBalanceMinor": {
+                "type": "integer"
+              },
+              "closingBalanceMinor": {
+                "type": "integer"
+              },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceJournalEntry"
+                }
+              }
+            },
+            "required": [
+              "openingBalanceMinor",
+              "closingBalanceMinor",
+              "entries"
+            ]
+          },
+          "cushion": {
+            "$ref": "#/components/schemas/TrustComplianceCushion"
+          },
+          "exceptions": {
+            "$ref": "#/components/schemas/TrustComplianceExceptions"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "requestedBy": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "computedAt": {
+                "type": "string"
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "knownAsOf": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "packShapeVersion": {
+                "type": "integer"
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "zeroBalanceLedgers": {
+                    "type": "string",
+                    "enum": [
+                      "include",
+                      "omit"
+                    ]
+                  },
+                  "authorizers": {
+                    "type": "string",
+                    "enum": [
+                      "include",
+                      "omit"
+                    ]
+                  }
+                },
+                "required": [
+                  "zeroBalanceLedgers",
+                  "authorizers"
+                ]
+              }
+            },
+            "required": [
+              "requestedBy",
+              "computedAt",
+              "periodStart",
+              "periodEnd",
+              "knownAsOf",
+              "packShapeVersion",
+              "options"
+            ]
+          }
+        },
+        "required": [
+          "cover",
+          "reconciliations",
+          "reconciliationNote",
+          "proofAtProductionNote",
+          "clientLedgers",
+          "journal",
+          "cushion",
+          "exceptions",
+          "provenance"
+        ]
+      },
+      "TrustComplianceCover": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "trustAccountName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "pooledInterestBearing": {
+            "type": "boolean"
+          },
+          "accountStatus": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jurisdiction": {
+            "$ref": "#/components/schemas/TrustComplianceJurisdiction"
+          },
+          "bankChargeCarveOutOpen": {
+            "type": "boolean"
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "trustAccountName",
+          "locationId",
+          "currency",
+          "pooledInterestBearing",
+          "accountStatus",
+          "bankName",
+          "accountNumberLastFour",
+          "jurisdiction",
+          "bankChargeCarveOutOpen",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness"
+        ]
+      },
+      "TrustComplianceJurisdiction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "jurisdiction": {
+                "type": "string"
+              },
+              "requirement": {
+                "type": "string"
+              },
+              "citation": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "available",
+              "jurisdiction",
+              "requirement",
+              "citation",
+              "binding"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "jurisdiction": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "refusalCode": {
+                "type": "string"
+              },
+              "refusalDetail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "available",
+              "jurisdiction",
+              "refusalCode",
+              "refusalDetail"
+            ]
+          }
+        ]
+      },
+      "ReportReproducibility": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "reproducible": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "knownAsOf": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reproducible",
+              "periodStart",
+              "periodEnd",
+              "knownAsOf"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reproducible": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "computedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reproducible",
+              "periodStart",
+              "periodEnd",
+              "computedAt"
+            ]
+          }
+        ]
+      },
+      "ReportCompleteness": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "complete"
+                ]
+              }
+            },
+            "required": [
+              "scope"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "complete-not-itemized"
+                ]
+              },
+              "notItemizedMatterCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scope",
+              "notItemizedMatterCount"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "screened"
+                ]
+              },
+              "excludedMatterCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scope",
+              "excludedMatterCount"
+            ]
+          }
+        ]
+      },
+      "TrustComplianceReconciliation": {
+        "type": "object",
+        "properties": {
+          "reconciliationId": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "statementPeriodStart": {
+            "type": "string"
+          },
+          "statementPeriodEnd": {
+            "type": "string"
+          },
+          "statementReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openedBy": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "statusAsKnown": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frozenProof": {
+            "$ref": "#/components/schemas/TrustComplianceFrozenProof"
+          },
+          "proofAtProduction": {
+            "type": "object",
+            "properties": {
+              "computedAt": {
+                "type": "string"
+              },
+              "boundedByKnowledgeInstant": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "proof": {
+                "$ref": "#/components/schemas/TrustComplianceLiveProof"
+              },
+              "differencesFromAttestation": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceProofDifference"
+                }
+              }
+            },
+            "required": [
+              "computedAt",
+              "boundedByKnowledgeInstant",
+              "proof",
+              "differencesFromAttestation"
+            ]
+          }
+        },
+        "required": [
+          "reconciliationId",
+          "statementId",
+          "statementPeriodStart",
+          "statementPeriodEnd",
+          "statementReference",
+          "openedBy",
+          "openedAt",
+          "statusAsKnown",
+          "closedBy",
+          "closedAt",
+          "frozenProof",
+          "proofAtProduction"
+        ]
+      },
+      "TrustComplianceFrozenProof": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "statementClosingMinor": {
+            "type": "integer"
+          },
+          "outstandingDepositsMinor": {
+            "type": "integer"
+          },
+          "outstandingDisbursementsMinor": {
+            "type": "integer"
+          },
+          "adjustedBankMinor": {
+            "type": "integer"
+          },
+          "bookBalanceMinor": {
+            "type": "integer"
+          },
+          "clientLedgerTotalMinor": {
+            "type": "integer"
+          },
+          "firmFundsMinor": {
+            "type": "integer"
+          },
+          "unmatchedLineCount": {
+            "type": "integer"
+          },
+          "unmatchedItemCount": {
+            "type": "integer"
+          },
+          "balanced": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "statementClosingMinor",
+          "outstandingDepositsMinor",
+          "outstandingDisbursementsMinor",
+          "adjustedBankMinor",
+          "bookBalanceMinor",
+          "clientLedgerTotalMinor",
+          "firmFundsMinor",
+          "unmatchedLineCount",
+          "unmatchedItemCount",
+          "balanced"
+        ]
+      },
+      "TrustComplianceLiveProof": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "statementClosingMinor": {
+            "type": "integer"
+          },
+          "outstandingDeposits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceBankItem"
+            }
+          },
+          "outstandingDepositsMinor": {
+            "type": "integer"
+          },
+          "outstandingDisbursements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceBankItem"
+            }
+          },
+          "outstandingDisbursementsMinor": {
+            "type": "integer"
+          },
+          "adjustedBankMinor": {
+            "type": "integer"
+          },
+          "bookBalanceMinor": {
+            "type": "integer"
+          },
+          "clientLedgerTotalMinor": {
+            "type": "integer"
+          },
+          "firmFundsMinor": {
+            "type": "integer"
+          },
+          "unmatchedStatementLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceStatementLine"
+            }
+          },
+          "balanced": {
+            "type": "boolean"
+          },
+          "disagreements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "leg": {
+                  "type": "string"
+                },
+                "differenceMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "leg",
+                "differenceMinor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "statementId",
+          "asOfDate",
+          "currency",
+          "statementClosingMinor",
+          "outstandingDeposits",
+          "outstandingDepositsMinor",
+          "outstandingDisbursements",
+          "outstandingDisbursementsMinor",
+          "adjustedBankMinor",
+          "bookBalanceMinor",
+          "clientLedgerTotalMinor",
+          "firmFundsMinor",
+          "unmatchedStatementLines",
+          "balanced",
+          "disagreements"
+        ]
+      },
+      "TrustComplianceBankItem": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "bankDeltaMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "description",
+          "bankDeltaMinor",
+          "movementId",
+          "movementKind",
+          "transferId",
+          "reference",
+          "counterpartyName"
+        ]
+      },
+      "TrustComplianceStatementLine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string"
+          },
+          "postedOn": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceRowNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "statementId",
+          "postedOn",
+          "direction",
+          "amountMinor",
+          "description",
+          "reference",
+          "counterpartyName",
+          "sourceRowNumber"
+        ]
+      },
+      "TrustComplianceProofDifference": {
+        "type": "object",
+        "properties": {
+          "leg": {
+            "type": "string"
+          },
+          "attestedMinor": {
+            "type": "integer"
+          },
+          "liveMinor": {
+            "type": "integer"
+          },
+          "differenceMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "leg",
+          "attestedMinor",
+          "liveMinor",
+          "differenceMinor"
+        ]
+      },
+      "TrustComplianceClientLedger": {
+        "type": "object",
+        "properties": {
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceMatterLedger"
+            }
+          }
+        },
+        "required": [
+          "clientEntityId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "matters"
+        ]
+      },
+      "TrustComplianceMatterLedger": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustComplianceLedgerEntry"
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "matterId",
+          "ledgerAccountId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "entries"
+        ]
+      },
+      "TrustComplianceLedgerEntry": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reversesEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "debit",
+              "credit"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "deltaMinor": {
+            "type": "integer"
+          },
+          "runningBalanceMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "recordedAt",
+          "description",
+          "reversesEntryId",
+          "direction",
+          "amountMinor",
+          "deltaMinor",
+          "runningBalanceMinor",
+          "movementId",
+          "movementKind",
+          "method",
+          "reference",
+          "counterpartyName",
+          "purpose",
+          "transferId",
+          "authorizedBy",
+          "recordedBy"
+        ]
+      },
+      "TrustComplianceJournalEntry": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reversesEntryId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bankDeltaMinor": {
+            "type": "integer"
+          },
+          "runningBalanceMinor": {
+            "type": "integer"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "movementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmFundsMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmFundsMovementKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counterpartyNodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "recordedAt",
+          "description",
+          "reversesEntryId",
+          "bankDeltaMinor",
+          "runningBalanceMinor",
+          "movementId",
+          "movementKind",
+          "transferId",
+          "firmFundsMovementId",
+          "firmFundsMovementKind",
+          "method",
+          "reference",
+          "counterpartyName",
+          "purpose",
+          "nodeId",
+          "counterpartyNodeId",
+          "authorizedBy",
+          "recordedBy"
+        ]
+      },
+      "TrustComplianceCushion": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "openingBalanceMinor": {
+            "type": "integer"
+          },
+          "closingBalanceMinor": {
+            "type": "integer"
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "firmFundsMovementId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "firm_funds_deposit",
+                    "bank_charge"
+                  ]
+                },
+                "effectiveDate": {
+                  "type": "string"
+                },
+                "recordedAt": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "recordedBy": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "firmFundsMovementId",
+                "kind",
+                "effectiveDate",
+                "recordedAt",
+                "amountMinor",
+                "method",
+                "reference",
+                "description",
+                "recordedBy"
+              ]
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "openingBalanceMinor",
+          "closingBalanceMinor",
+          "movements"
+        ]
+      },
+      "TrustComplianceExceptions": {
+        "type": "object",
+        "properties": {
+          "holdsInForceAtKnowledgeInstant": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "holdId": {
+                  "type": "string"
+                },
+                "nodeId": {
+                  "type": "string"
+                },
+                "matterId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "placedAt": {
+                  "type": "string"
+                },
+                "placedBy": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "holdId",
+                "nodeId",
+                "matterId",
+                "clientEntityId",
+                "amountMinor",
+                "reason",
+                "placedAt",
+                "placedBy"
+              ]
+            }
+          },
+          "atProduction": {
+            "type": "object",
+            "properties": {
+              "computedAt": {
+                "type": "string"
+              },
+              "boundedByKnowledgeInstant": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "outstandingBankItems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrustComplianceBankItem"
+                }
+              },
+              "unmatchedStatementLines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reconciliationId": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "$ref": "#/components/schemas/TrustComplianceStatementLine"
+                    }
+                  },
+                  "required": [
+                    "reconciliationId",
+                    "line"
+                  ]
+                }
+              },
+              "storedBalanceDisagreements": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ledgerAccountId": {
+                      "type": "string"
+                    },
+                    "storedBalanceMinor": {
+                      "type": "integer"
+                    },
+                    "computedBalanceMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ledgerAccountId",
+                    "storedBalanceMinor",
+                    "computedBalanceMinor"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "computedAt",
+              "boundedByKnowledgeInstant",
+              "outstandingBankItems",
+              "unmatchedStatementLines",
+              "storedBalanceDisagreements"
+            ]
+          }
+        },
+        "required": [
+          "holdsInForceAtKnowledgeInstant",
+          "atProduction"
+        ]
+      },
       "TrustDormantBalancesResponse": {
         "type": "object",
         "properties": {
@@ -18859,6 +20564,449 @@
           "renderShape"
         ]
       },
+      "BillingCreditNoteAck": {
+        "type": "object",
+        "properties": {
+          "creditNoteId": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "appliedMinor": {
+            "type": "integer"
+          },
+          "clientCreditMinor": {
+            "type": "integer"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "creditedMinor": {
+                  "type": "integer"
+                },
+                "appliedMinor": {
+                  "type": "integer"
+                },
+                "residualMinor": {
+                  "type": "integer"
+                },
+                "clientCreditId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "matterId",
+                "creditedMinor",
+                "appliedMinor",
+                "residualMinor",
+                "clientCreditId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "creditNoteId",
+          "invoiceId",
+          "totalMinor",
+          "appliedMinor",
+          "clientCreditMinor",
+          "matters"
+        ]
+      },
+      "BillingCreditNoteRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingCreditNoteLineRequest"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "reason",
+          "effectiveDate",
+          "lines"
+        ]
+      },
+      "BillingCreditNoteLineRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fee",
+              "cost",
+              "flat_fee",
+              "discount",
+              "adjustment",
+              "interest",
+              "tax"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "creditsInvoiceLineId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^invoiceLine_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId",
+          "kind",
+          "description",
+          "amountMinor"
+        ]
+      },
+      "BillingCreditNoteListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "effectiveDate": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "issuedAt": {
+                  "type": "string"
+                },
+                "totalMinor": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "amountMinor": {
+                        "type": "integer"
+                      },
+                      "creditsInvoiceLineId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "matterId",
+                      "kind",
+                      "description",
+                      "amountMinor",
+                      "creditsInvoiceLineId"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "reason",
+                "effectiveDate",
+                "currency",
+                "issuedAt",
+                "totalMinor",
+                "lines"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BillingApplicationAck": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "applicationId",
+          "invoiceId",
+          "matterId"
+        ]
+      },
+      "BillingWriteOffRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "matterId",
+          "amountMinor",
+          "reason",
+          "effectiveDate"
+        ]
+      },
+      "BillingClientCreditListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "matterId": {
+                  "type": "string"
+                },
+                "creditNoteId": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "dischargedMinor": {
+                  "type": "integer"
+                },
+                "remainingMinor": {
+                  "type": "integer"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "openedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "matterId",
+                "creditNoteId",
+                "amountMinor",
+                "dischargedMinor",
+                "remainingMinor",
+                "currency",
+                "openedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BillingApplyClientCreditAck": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string"
+          },
+          "clientCreditId": {
+            "type": "string"
+          },
+          "remainingMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applicationId",
+          "clientCreditId",
+          "remainingMinor"
+        ]
+      },
+      "BillingApplyClientCreditRequest": {
+        "type": "object",
+        "properties": {
+          "invoiceId": {
+            "type": "string",
+            "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+          },
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "invoiceId",
+          "matterId",
+          "amountMinor",
+          "effectiveDate"
+        ]
+      },
+      "BillingReverseApplicationAck": {
+        "type": "object",
+        "properties": {
+          "applicationId": {
+            "type": "string"
+          },
+          "reversesApplicationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "applicationId",
+          "reversesApplicationId"
+        ]
+      },
+      "BillingReverseApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "reason",
+          "effectiveDate"
+        ]
+      },
+      "BillingContingencyResidualResponse": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "entitlementMinor": {
+            "type": "integer"
+          },
+          "billedMinor": {
+            "type": "integer"
+          },
+          "residualMinor": {
+            "type": "integer"
+          },
+          "feeLines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "invoiceLineId": {
+                  "type": "string"
+                },
+                "chargedMinor": {
+                  "type": "integer"
+                },
+                "creditedMinor": {
+                  "type": "integer"
+                },
+                "invoiceMatterUnpaidMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "invoiceNumber",
+                "invoiceLineId",
+                "chargedMinor",
+                "creditedMinor",
+                "invoiceMatterUnpaidMinor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "entitlementMinor",
+          "billedMinor",
+          "residualMinor",
+          "feeLines"
+        ]
+      },
       "TimeEntryAck": {
         "type": "object",
         "properties": {
@@ -20042,6 +22190,18 @@
               "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
             }
           },
+          "legacyFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateLegacyFormField"
+            }
+          },
+          "unboundContentControls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundContentControl"
+            }
+          },
           "confirmedFieldMappings": {
             "type": "array",
             "items": {
@@ -20078,6 +22238,8 @@
           "mergeFieldsConverted",
           "mergeFieldsDetected",
           "unconvertedMergeFields",
+          "legacyFormFields",
+          "unboundContentControls",
           "confirmedFieldMappings",
           "warnings"
         ]
@@ -20153,6 +22315,76 @@
           "occurrences",
           "form",
           "mapsToKnownField",
+          "frozenText"
+        ]
+      },
+      "TemplateLegacyFormField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "helpText": {
+            "type": "string"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "kind",
+          "part",
+          "occurrences",
+          "helpText",
+          "frozenText"
+        ]
+      },
+      "TemplateUnboundContentControl": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "showingPlaceholder": {
+            "type": "boolean"
+          },
+          "dataBound": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "alias",
+          "tag",
+          "kind",
+          "part",
+          "occurrences",
+          "showingPlaceholder",
+          "dataBound",
           "frozenText"
         ]
       },
@@ -20343,6 +22575,18 @@
               "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
             }
           },
+          "legacyFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateLegacyFormField"
+            }
+          },
+          "unboundContentControls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundContentControl"
+            }
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -20357,6 +22601,8 @@
           "normalizerVersion",
           "fields",
           "unconvertedMergeFields",
+          "legacyFormFields",
+          "unboundContentControls",
           "warnings"
         ]
       },
@@ -20689,6 +22935,13 @@
               "null"
             ],
             "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+          },
+          "outputFormat": {
+            "type": "string",
+            "enum": [
+              "docx",
+              "pdf"
+            ]
           }
         },
         "required": [
@@ -20714,6 +22967,13 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "outputFormat": {
+            "type": "string",
+            "enum": [
+              "docx",
+              "pdf"
             ]
           },
           "fileId": {
@@ -20751,6 +23011,7 @@
           "assemblyId",
           "status",
           "outcome",
+          "outputFormat",
           "fileId",
           "fileVersionId",
           "absentFieldKeys",
@@ -21729,6 +23990,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24522,7 +26793,7 @@
     },
     "/api/v1/firm/email-auto-file-policy": {
       "get": {
-        "description": "Reads whether the firm permits captured email to be filed onto a matter without a person present. The setting is off for a firm that has never changed it, so a fresh firm always reads a valid configuration.",
+        "description": "Reads whether the firm permits captured email to be filed onto a matter without a person present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. A firm that has never changed them reads the platform defaults, so a fresh firm always reads a valid configuration.",
         "operationId": "emails.getAutoFilePolicy",
         "tags": [
           "emails"
@@ -24593,7 +26864,7 @@
         }
       },
       "patch": {
-        "description": "Sets whether the firm permits captured email to be filed onto a matter without a person present. This is a ceiling, not a default: while it is off, a rule that asks to file still only places the message on the matter for someone to confirm. Turning it on does not file anything that has already been captured. Only the supplied fields are changed; the write is batched atomically with an audit entry.",
+        "description": "Sets whether the firm permits captured email to be filed onto a matter without a person present, and the thresholds at which an auto-file rule's circuit breaker stops it filing. Direct filing is a ceiling, not a default: while it is off, a rule that asks to file still only places the message on the matter for someone to confirm. Turning it on does not file anything that has already been captured. The circuit breaker cannot be switched off — each threshold is a whole number inside a fixed range, and the undo threshold may not exceed the recent-fire window it is counted over. Only the supplied fields are changed; the write is batched atomically with an audit entry.",
         "operationId": "emails.updateAutoFilePolicy",
         "tags": [
           "emails"
@@ -34028,7 +36299,7 @@
     },
     "/api/v1/scan/diagnose": {
       "post": {
-        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).",
+        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Where no engine is wired at all the verdict is an honest `unscanned` (never a false `clean`); where the engine is wired but unreachable the answer is a 503, because an unreachable engine is not a verdict.",
         "operationId": "scan.diagnose",
         "tags": [
           "scan"
@@ -34086,6 +36357,16 @@
           },
           "413": {
             "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The scan engine is wired but unreachable, so no verdict can be given",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -36398,7 +38679,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it.",
+        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -36428,7 +38709,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The check and its hits",
+            "description": "The check, the statement of what it searched, and its hits",
             "content": {
               "application/json": {
                 "schema": {
@@ -36459,6 +38740,100 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-posture": {
+      "get": {
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "operationId": "conflicts.matterPosture",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's conflicts posture, derived at read time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -50780,7 +53155,7 @@
     },
     "/api/v1/review-sets/{reviewSetId}/record-custodians": {
       "get": {
-        "description": "Whose records are in this review set. Record custodians are scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.",
+        "description": "Whose records are in this review set. A Custodian of Record is scoped to the review set on purpose: the same name in two matters is not assertably the same person, and asserting it wrongly is a defensibility problem.",
         "operationId": "discovery.listRecordCustodians",
         "tags": [
           "discovery"
@@ -50810,7 +53185,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The review set's record custodians",
+            "description": "The review set's Custodians of Record",
             "content": {
               "application/json": {
                 "schema": {
@@ -50931,7 +53306,7 @@
         },
         "responses": {
           "201": {
-            "description": "The record custodian was created",
+            "description": "The Custodian of Record was created",
             "content": {
               "application/json": {
                 "schema": {
@@ -51013,7 +53388,7 @@
     },
     "/api/v1/record-custodians/{recordCustodianId}": {
       "patch": {
-        "description": "Corrects a record custodian in place, which re-points every document already attributed to it — and that is the intent: a production that named \"J. Smith\" and the person the firm later identified are one custodian, and a second row would split the attribution of documents already loaded under the first.",
+        "description": "Corrects a Custodian of Record in place, which re-points every document already attributed to it — and that is the intent: a production that named \"J. Smith\" and the person the firm later identified are one Custodian of Record, and a second row would split the attribution of documents already loaded under the first.",
         "operationId": "discovery.updateRecordCustodian",
         "tags": [
           "discovery"
@@ -51062,7 +53437,7 @@
         },
         "responses": {
           "200": {
-            "description": "The updated record custodian",
+            "description": "The updated Custodian of Record",
             "content": {
               "application/json": {
                 "schema": {
@@ -58267,6 +60642,151 @@
         }
       }
     },
+    "/api/v1/reports/trust-compliance/{trustAccountId}": {
+      "get": {
+        "description": "The trust-compliance pack for one trust account over one period: every movement of client money, each client's and each matter's ledger, what the firm attested to at each reconciliation, and every item that did not tie out. Give it a period and a knowledge instant and every figure re-derives from records that can never change, so the same request answers identically however much has been recorded since; omit the knowledge instant and the answer covers everything known now, which is stamped and is not claimed to reproduce. Two blocks are labelled as outside that claim and carry their own instant: the three-way proof shown beside each attestation, and the outstanding items, unmatched statement lines and stored-balance checks in the exceptions section — each is read through the one definition the trust and ledger records already have, and none of those definitions is taken as at a past moment. A period too large to return in one document is refused by name rather than answered short.",
+        "operationId": "reports.trustCompliancePack",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.trustCompliancePack",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:trustCompliance",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "include",
+                "omit"
+              ]
+            },
+            "required": false,
+            "name": "zeroBalanceLedgers",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "include",
+                "omit"
+              ]
+            },
+            "required": false,
+            "name": "authorizers",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pack for this trust account and period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCompliancePack"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:trustCompliance",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates, it ends before it starts, the knowledge instant is not a UTC instant or is in the future, the period holds more of this account's activity than one document can carry, or the account's outstanding items are more than one reconciliation can account for",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trust/unclaimed-funds/dormant-balances": {
       "get": {
         "description": "Lists the client ledgers on one trust account that still hold money and have had no movement since a date the caller states. The date is required and has no default: dormancy is a comparison made at read time, not a stored flag, and the periods that exist differ by jurisdiction and often gate a permission rather than an obligation — so there is no window the platform can pick on a firm's behalf. Each row reports the earliest receipt still on the ledger separately from the last activity, because the conduct rules' clocks run from receipt of the property. Nothing here is a verdict: no row says a balance is abandoned, and the firm may have spoken to that client this morning in a way this platform never saw.",
@@ -62117,6 +64637,818 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/invoices/{invoiceId}/credit-notes": {
+      "post": {
+        "description": "Issues a credit note against a bill that has already gone out. The bill itself is never edited and never withdrawn: the note is a second permanent record standing beside it, with its own lines, its own reason, and its own date. What the note credits comes off what the client still owes; anything beyond that is money already in the firm's hands, so it becomes a recorded credit the firm owes the client back rather than a negative bill. Where the note is correcting a specific charge, name that charge on the line — a fee worked out from a settlement or a recovery is billed as the increment over what earlier bills already charged, and only an attributed credit changes that arithmetic.",
+        "operationId": "billing.issueCreditNote",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.issueCreditNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:credit",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingCreditNoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The credit note was issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCreditNoteAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Every credit note issued against one bill, with its lines. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
+        "operationId": "billing.listCreditNotes",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.listCreditNotes",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bill's credit notes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCreditNoteListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/invoices/{invoiceId}/write-offs": {
+      "post": {
+        "description": "Gives up part or all of what a matter still owes on a bill, with the reason. This is a different fact from a credit note and is kept separate on the firm's books: a credit note says the firm charged something it should not have, a write-off says the charge was right and the money is not coming. It cannot exceed what is still owed — money already collected is refunded or credited instead.",
+        "operationId": "billing.writeOffBalance",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.writeOffBalance",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:credit",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingWriteOffRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The balance was written off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingApplicationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/clients/{clientEntityId}/credits": {
+      "get": {
+        "description": "What the firm still owes one client back, across all of their matters. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
+        "operationId": "billing.clientCredits",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.clientCredits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "clientEntityId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The client's open credits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingClientCreditListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/client-credits/{clientCreditId}/applications": {
+      "post": {
+        "description": "Sets money the firm owes a client against a later bill for that same client, discharging that much of the obligation. No money moves in either direction — the debt and the credit cancel. It may land on any matter of the same client, and never on another client's bill. The other two ways to give a credit back — a refund from the operating account, and a return to the client's trust ledger — move real money and are not performed here.",
+        "operationId": "billing.applyClientCredit",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.applyClientCredit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^clientCredit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "clientCreditId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingApplyClientCreditRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The credit was set against the bill",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingApplyClientCreditAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/applications/{applicationId}/reversal": {
+      "post": {
+        "description": "Unwinds value recorded against the wrong bill or the wrong matter, with the reason. The original record stays exactly as it is and the reversal is a new one linked to it, so both are readable afterwards. A transfer out of a client's trust ledger cannot be unwound here — putting that money back is a movement in the trust ledger, raised and authorized there — and neither can a credit note, which is a document the client may already hold and is answered by a further correction.",
+        "operationId": "billing.reverseApplication",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.reverseApplication",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:credit",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoiceApplication_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "applicationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingReverseApplicationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The application was reversed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingReverseApplicationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/matters/{matterId}/contingency-residual": {
+      "get": {
+        "description": "Compares what a matter's contingency fee has actually been billed against what the surviving recovery now entitles the firm to, and reports the difference. It is not zero when a recovery is voided or reduced after a bill went out, or when an advanced cost arrives late under a net-of-costs agreement: the bill was true when it was issued and cannot be edited, so the difference sits there until the firm decides what to do about it. The answer names each finalized fee line and what its bill still owes, because a credit note larger than the unpaid balance leaves the firm owing money back. Nothing is issued here — what a client is owed after a settlement collapses is the firm's decision to make.",
+        "operationId": "billing.contingencyResidual",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.contingencyResidual",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's contingency position",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingContingencyResidualResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -67335,7 +70667,7 @@
     },
     "/api/v1/matters/{matterId}/assemblies": {
       "post": {
-        "description": "Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one.",
+        "description": "Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done.",
         "operationId": "assemblies.submit",
         "tags": [
           "assemblies"
@@ -67458,7 +70790,7 @@
     },
     "/api/v1/matters/{matterId}/assemblies/{assemblyId}": {
       "get": {
-        "description": "Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences.",
+        "description": "Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences. outputFormat says what the job set out to produce, so a caller knows before the document lands whether it will be a PDF and can therefore be sealed.",
         "operationId": "assemblies.status",
         "tags": [
           "assemblies"
@@ -68196,6 +71528,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       },
@@ -68536,6 +71878,16 @@
               }
             }
           },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
             "content": {
@@ -68670,6 +72022,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -68874,6 +72236,16 @@
               }
             }
           },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
             "content": {
@@ -68998,6 +72370,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -69165,6 +72547,9 @@
     },
     {
       "name": "registrations"
+    },
+    {
+      "name": "reports"
     },
     {
       "name": "safeBrowse"

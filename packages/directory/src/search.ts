@@ -2,6 +2,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import {
   findByIdentifier,
   findEntitiesSharingIdentifiers,
+  findEntitiesSharingIdentifiersBatch,
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
 } from "./identifiers.ts";
@@ -506,6 +507,411 @@ async function resolveMergedId(database: SqlDatabase, entityId: string): Promise
 
   if (row.deleted_at === null) return entityId; // non-merged, non-deleted: pass through.
   return null; // soft-deleted — drop the candidate, mirrors the name channel predicate.
+}
+
+// ── Set-valued duplicate-candidate generation ─────────────────────────────────
+//
+// findDuplicateCandidatesBatch answers the same question as findDuplicateCandidates for a WHOLE SET
+// of subjects, running each blocking channel ONCE over the set instead of once per subject. The
+// conflicts graph traversal reaches hundreds of entities and asks this question of every one of them;
+// at one call each that is a query count proportional to entities times channels, which no request
+// budget survives.
+//
+// It is additive in the strict sense: findDuplicateCandidates keeps its exact signature, its exact
+// SQL, and its exact behaviour, and the entry-time duplicate-detection and merge callers are
+// untouched. The batch path reproduces the per-subject answer rather than approximating it, and
+// packages/conflicts/test/matcher-equivalence.test.ts proves the two return the same hit set over a
+// real corpus.
+//
+// Attribution — how a candidate found by one set-wide query is assigned back to the subject it
+// belongs to — is exact for each channel, and how is the whole trick:
+//   phonetic   — the matching CODE comes back with the row, and a code names its subjects.
+//   trigram    — the union of the per-subject trigram-OR expressions is one trigram-OR expression
+//                over the union of the trigrams, because a document matches an OR of trigrams exactly
+//                when it shares at least one of them. The candidate's own normalized_display comes
+//                back with the row, so the per-subject share test is re-run in TypeScript over a
+//                bounded set rather than guessed at.
+//   identifier — the SUBJECT side of the blind-index self-join is projected, so each hit names the
+//                subject whose sealed identifier matched it.
+
+// D1 caps bound parameters at 100 per query, so every set-valued read below chunks. The query count
+// is therefore O(channels x ceil(subjects / 100)) rather than O(subjects x channels): still
+// proportional to the channel count, with a small fan for the platform's bind cap.
+const MAX_SEARCH_BOUND_PARAMETERS = 100;
+
+function chunked<T>(values: readonly T[], size = MAX_SEARCH_BOUND_PARAMETERS): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < values.length; start += size) {
+    chunks.push(values.slice(start, start + size));
+  }
+  return chunks;
+}
+
+// One subject in a batch: the same name and identifier facts findDuplicateCandidates takes, plus the
+// key the caller wants its candidates returned under.
+export interface BatchSubject {
+  readonly key: string;
+  readonly kind: EntityKind;
+  readonly given?: string;
+  readonly family?: string;
+  readonly legalName?: string;
+  readonly subjectEntityId?: string;
+  readonly excludeEntityId?: string;
+}
+
+// Channel 1, set-valued. Returns, per matching phonetic code, the resolved entity ids carrying it.
+async function phoneticChannelBatch(
+  database: SqlDatabase,
+  kind: EntityKind,
+  codes: readonly string[],
+  matchOptions: MatchOptions,
+): Promise<Map<string, Set<string>>> {
+  const byCode = new Map<string, Set<string>>();
+  for (const chunk of chunked(codes)) {
+    const bindings: unknown[] = [kind];
+    const codePlaceholders = chunk.map((code) => {
+      bindings.push(code);
+      return `?${bindings.length}`;
+    });
+    let schemeFilter = "";
+    const schemes = matchOptions.schemes;
+    if (schemes !== undefined && schemes.length > 0) {
+      schemeFilter = `AND pc.scheme IN (${schemes
+        .map((scheme) => {
+          bindings.push(scheme);
+          return `?${bindings.length}`;
+        })
+        .join(", ")})`;
+    }
+    let nameRoleFilter = "";
+    const nameRoles = matchOptions.nameRoles;
+    if (nameRoles !== undefined && nameRoles.length > 0) {
+      nameRoleFilter = `AND dn.name_role IN (${nameRoles
+        .map((role) => {
+          bindings.push(role);
+          return `?${bindings.length}`;
+        })
+        .join(", ")})`;
+    }
+
+    // Identical to phoneticChannel's SQL but for projecting pc.code, so the row can be attributed.
+    const { results } = await database
+      .prepare(
+        `SELECT DISTINCT pc.code AS code, COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id
+         FROM directory_name_phonetic_code AS pc
+         JOIN directory_name AS dn ON pc.name_id = dn.id
+         LEFT JOIN directory_person AS dp ON dn.entity_kind = 'person' AND dp.id = dn.entity_id
+         LEFT JOIN directory_organization AS do ON dn.entity_kind = 'organization' AND do.id = dn.entity_id
+         WHERE dn.entity_kind = ?1
+           AND pc.code IN (${codePlaceholders.join(", ")})
+           AND dn.deleted_at IS NULL
+           ${schemeFilter}
+           ${nameRoleFilter}
+           AND (
+             (dn.entity_kind = 'person' AND dp.deleted_at IS NULL)
+             OR (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
+           )`,
+      )
+      .bind(...bindings)
+      .all<{ code: string; entity_id: string }>();
+
+    for (const row of results) {
+      const entities = byCode.get(row.code) ?? new Set<string>();
+      entities.add(row.entity_id);
+      byCode.set(row.code, entities);
+    }
+  }
+  return byCode;
+}
+
+// Channel 2, set-valued. One MATCH over the union of every subject's trigrams; the candidate's own
+// normalized_display comes back so the per-subject share test is exact.
+async function trigramChannelBatch(
+  database: SqlDatabase,
+  kind: EntityKind,
+  trigrams: readonly string[],
+  matchOptions: MatchOptions,
+): Promise<Array<{ entityId: string; normalizedDisplay: string }>> {
+  if (trigrams.length === 0) return [];
+  const matched: Array<{ entityId: string; normalizedDisplay: string }> = [];
+  // FTS5 caps the size of one MATCH expression in practice, and the union of a large subject set's
+  // trigrams is the one term list here that grows with the set, so it is chunked like the bindings.
+  for (const chunk of chunked(trigrams, 200)) {
+    const expression = chunk.map((trigram) => `"${trigram}"`).join(" OR ");
+    const bindings: unknown[] = [expression, kind];
+    let nameRoleFilter = "";
+    const nameRoles = matchOptions.nameRoles;
+    if (nameRoles !== undefined && nameRoles.length > 0) {
+      nameRoleFilter = `AND dn.name_role IN (${nameRoles
+        .map((role) => {
+          bindings.push(role);
+          return `?${bindings.length}`;
+        })
+        .join(", ")})`;
+    }
+    const { results } = await database
+      .prepare(
+        `SELECT DISTINCT COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id,
+                dn.normalized_display AS normalized_display
+         FROM directory_name_fts
+         JOIN directory_name AS dn ON directory_name_fts.rowid = dn.rowid
+         LEFT JOIN directory_person AS dp ON dn.entity_kind = 'person' AND dp.id = dn.entity_id
+         LEFT JOIN directory_organization AS do ON dn.entity_kind = 'organization' AND do.id = dn.entity_id
+         WHERE directory_name_fts MATCH ?1
+           AND dn.entity_kind = ?2
+           AND dn.deleted_at IS NULL
+           ${nameRoleFilter}
+           AND (
+             (dn.entity_kind = 'person' AND dp.deleted_at IS NULL)
+             OR (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
+           )`,
+      )
+      .bind(...bindings)
+      .all<{ entity_id: string; normalized_display: string }>();
+    for (const row of results) {
+      matched.push({ entityId: row.entity_id, normalizedDisplay: row.normalized_display });
+    }
+  }
+  return matched;
+}
+
+// Channel 3, set-valued. Delegates to the identifier chokepoint exactly as the per-subject channel
+// does — `value_blind_index` is named in identifiers.ts and nowhere else, which the package's
+// no-plaintext-escape probe enforces.
+async function identifierChannelBatch(
+  database: SqlDatabase,
+  subjectEntityIds: readonly string[],
+): Promise<Map<string, Map<string, Set<string>>>> {
+  const rawBySubject = new Map<string, Map<string, Set<string>>>();
+  for (const [subjectEntityId, hits] of await findEntitiesSharingIdentifiersBatch(
+    database,
+    subjectEntityIds,
+  )) {
+    const perSubject = new Map<string, Set<string>>();
+    for (const { entityId, identifierType } of hits) {
+      const types = perSubject.get(entityId) ?? new Set<string>();
+      types.add(identifierType);
+      perSubject.set(entityId, types);
+    }
+    rawBySubject.set(subjectEntityId, perSubject);
+  }
+  return rawBySubject;
+}
+
+// resolveMergedId, set-valued: one read per node table over every raw id, rather than two reads per
+// id. Returns the resolved master for each id, or null where the entity (or its master) is
+// soft-deleted or absent — the same three outcomes, in the same order of precedence.
+async function resolveMergedIdBatch(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+): Promise<Map<string, string | null>> {
+  const rows = new Map<string, { mergedIntoId: string | null; deletedAt: string | null }>();
+  const readInto = async (ids: readonly string[]): Promise<void> => {
+    const byTable = new Map<string, string[]>();
+    for (const id of ids) {
+      if (rows.has(id)) continue;
+      const table = nodeTableForEntityId(id);
+      byTable.set(table, [...(byTable.get(table) ?? []), id]);
+    }
+    for (const [table, tableIds] of byTable) {
+      for (const chunk of chunked(tableIds)) {
+        const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+        const { results } = await database
+          .prepare(
+            `SELECT id, merged_into_id, deleted_at FROM ${table} WHERE id IN (${placeholders})`,
+          )
+          .bind(...chunk)
+          .all<{ id: string; merged_into_id: string | null; deleted_at: string | null }>();
+        for (const row of results) {
+          rows.set(row.id, { mergedIntoId: row.merged_into_id, deletedAt: row.deleted_at });
+        }
+      }
+    }
+  };
+
+  await readInto(entityIds);
+  // One further pass for the masters a subordinate points at — merge chains are flattened at write
+  // time (merged_into_id always names a live entity), so one pass is the whole chain.
+  const masterIds = [...new Set(entityIds.map((id) => rows.get(id)?.mergedIntoId ?? null))].filter(
+    (id): id is string => id !== null,
+  );
+  await readInto(masterIds);
+
+  const resolved = new Map<string, string | null>();
+  for (const entityId of entityIds) {
+    const row = rows.get(entityId);
+    if (row === undefined) {
+      resolved.set(entityId, null);
+      continue;
+    }
+    if (row.mergedIntoId !== null) {
+      const master = rows.get(row.mergedIntoId);
+      resolved.set(
+        entityId,
+        master !== undefined && master.deletedAt === null ? row.mergedIntoId : null,
+      );
+      continue;
+    }
+    resolved.set(entityId, row.deletedAt === null ? entityId : null);
+  }
+  return resolved;
+}
+
+export async function findDuplicateCandidatesBatch(
+  context: DirectoryIdentifierContext,
+  subjects: readonly BatchSubject[],
+  matchOptions: MatchOptions = {},
+): Promise<Map<string, DuplicateCandidate[]>> {
+  const results = new Map<string, DuplicateCandidate[]>();
+  for (const subject of subjects) results.set(subject.key, []);
+  if (subjects.length === 0) return results;
+
+  // Per subject, the facts the three channels need, computed exactly as the per-subject path does.
+  const prepared = subjects.map((subject) => {
+    const input: FindDuplicateCandidatesInput = {
+      kind: subject.kind,
+      given: subject.given,
+      family: subject.family,
+      legalName: subject.legalName,
+      subjectEntityId: subject.subjectEntityId,
+      excludeEntityId: subject.excludeEntityId,
+      matchOptions,
+    };
+    const normalizedDisplay = normalizeName(displayNameFromInput(input));
+    const phoneticToken = phoneticTokenFromInput(input);
+    const codes = phoneticToken.length === 0 ? [] : phoneticCodes(phoneticToken).map((c) => c.code);
+    const queryTrigrams =
+      normalizedDisplay.length < TRIGRAM_MINIMUM_LENGTH
+        ? []
+        : [...new Set(extractTrigrams(normalizedDisplay))];
+    return {
+      subject,
+      // The same short-circuit findDuplicateCandidates applies: no usable name and no identifiers
+      // means no candidates at all, not an empty-query scan.
+      searchable:
+        normalizedDisplay.length >= TRIGRAM_MINIMUM_LENGTH ||
+        phoneticToken.length > 0 ||
+        subject.subjectEntityId !== undefined,
+      codes,
+      queryTrigrams,
+    };
+  });
+
+  const active = prepared.filter((entry) => entry.searchable);
+  const kinds = [...new Set(active.map((entry) => entry.subject.kind))].sort();
+
+  // Channel 1 and 2 run once per entity KIND, because both filter on dn.entity_kind exactly as the
+  // per-subject channels do. Two kinds is the maximum the Directory has.
+  const phoneticByKind = new Map<EntityKind, Map<string, Set<string>>>();
+  // Per kind, an INVERTED index from trigram to the entities whose name carries it — built once from
+  // the rows the union query returned. Attribution is then a union over each subject's own trigrams,
+  // the same shape the phonetic channel already has. Re-extracting each candidate's trigrams inside
+  // the per-subject loop instead is quadratic in (subjects x candidates), and on a several-hundred
+  // entity closure that arithmetic costs more than the queries the batching saved.
+  const trigramIndexByKind = new Map<EntityKind, Map<string, Set<string>>>();
+  for (const kind of kinds) {
+    const ofKind = active.filter((entry) => entry.subject.kind === kind);
+    const codes = [...new Set(ofKind.flatMap((entry) => entry.codes))].sort();
+    const trigrams = [...new Set(ofKind.flatMap((entry) => entry.queryTrigrams))].sort();
+    phoneticByKind.set(
+      kind,
+      codes.length === 0
+        ? new Map()
+        : await phoneticChannelBatch(context.database, kind, codes, matchOptions),
+    );
+    const wanted = new Set(trigrams);
+    const index = new Map<string, Set<string>>();
+    for (const row of await trigramChannelBatch(context.database, kind, trigrams, matchOptions)) {
+      // Only the trigrams some subject actually asked for can attribute anything, so the index holds
+      // those and nothing else.
+      for (const trigram of new Set(extractTrigrams(row.normalizedDisplay))) {
+        if (!wanted.has(trigram)) continue;
+        const entities = index.get(trigram) ?? new Set<string>();
+        entities.add(row.entityId);
+        index.set(trigram, entities);
+      }
+    }
+    trigramIndexByKind.set(kind, index);
+  }
+
+  // Channel 3 runs once over every subject that has a persisted entity to self-join from.
+  const subjectEntityIds = [
+    ...new Set(
+      active
+        .map((entry) => entry.subject.subjectEntityId)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ].sort();
+  const rawIdentifierHits = await identifierChannelBatch(context.database, subjectEntityIds);
+  const rawHitIds = [
+    ...new Set([...rawIdentifierHits.values()].flatMap((perSubject) => [...perSubject.keys()])),
+  ].sort();
+  const resolvedIds = await resolveMergedIdBatch(context.database, rawHitIds);
+
+  for (const entry of prepared) {
+    if (!entry.searchable) continue;
+    const signals = new Map<
+      string,
+      { channels: Set<MatchChannel>; identifierTypes: Set<string> }
+    >();
+    const signalFor = (entityId: string) => {
+      let signal = signals.get(entityId);
+      if (signal === undefined) {
+        signal = { channels: new Set<MatchChannel>(), identifierTypes: new Set<string>() };
+        signals.set(entityId, signal);
+      }
+      return signal;
+    };
+
+    for (const code of entry.codes) {
+      for (const entityId of phoneticByKind.get(entry.subject.kind)?.get(code) ?? []) {
+        signalFor(entityId).channels.add("phonetic");
+      }
+    }
+
+    // The share test the per-subject MATCH performs, answered from the inverted index: a candidate
+    // matches this subject exactly when it carries at least one of the subject's trigrams. FTS5
+    // indexes normalized_display verbatim with the trigram tokenizer, so the windows the index was
+    // built from are the tokens FTS5 holds — this is the same predicate, not an approximation of it.
+    const trigramIndex = trigramIndexByKind.get(entry.subject.kind);
+    if (trigramIndex !== undefined) {
+      for (const trigram of entry.queryTrigrams) {
+        for (const entityId of trigramIndex.get(trigram) ?? []) {
+          signalFor(entityId).channels.add("trigram");
+        }
+      }
+    }
+
+    const subjectEntityId = entry.subject.subjectEntityId;
+    if (subjectEntityId !== undefined) {
+      // Resolve first, then union the types onto the surviving master, so a subordinate and its
+      // master never appear as two candidates — the per-subject path's rule, unchanged.
+      const perSubject = rawIdentifierHits.get(subjectEntityId) ?? new Map<string, Set<string>>();
+      for (const [rawId, types] of perSubject) {
+        const resolvedId = resolvedIds.get(rawId) ?? null;
+        if (resolvedId === null) continue;
+        const signal = signalFor(resolvedId);
+        signal.channels.add("identifier");
+        for (const type of types) signal.identifierTypes.add(type);
+      }
+    }
+
+    if (entry.subject.excludeEntityId !== undefined) signals.delete(entry.subject.excludeEntityId);
+
+    results.set(
+      entry.subject.key,
+      [...signals.entries()]
+        .map(([entityId, signal]) => ({
+          entityId,
+          signalCount: signal.channels.size,
+          channels: [...signal.channels].sort(),
+          identifierTypes: [...signal.identifierTypes].sort(),
+        }))
+        .sort((a, b) => b.signalCount - a.signalCount || a.entityId.localeCompare(b.entityId)),
+    );
+  }
+
+  return results;
 }
 
 export async function findDuplicateCandidates(

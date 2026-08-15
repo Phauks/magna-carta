@@ -6,7 +6,131 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
+_Last updated: 2026-08-15 (the Tools catalog audit added five steps, the first of which gates every
+other deploy — see the section immediately below)._
+
+## Tools catalog — five steps, and the first one gates every other deploy
+
+From the audit in [`docs/research/2026-08-15-tools-reality-check.md`](research/2026-08-15-tools-reality-check.md),
+which exercised all nineteen catalog tools against a local worker and the real internet. Listed in
+the order they have to happen. Nothing here duplicates the LibreOffice, search, bundle, sign or
+email-capture steps already on this queue.
+
+1. **Confirm `magna-carta-ocr` exists — do this before ANY app-worker deploy.**
+   `apps/worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`, and Cloudflare rejects a
+   deploy whose service binding names a Worker that does not exist (the same rule §14 and §16 of
+   `docs/conventions/operations.md` state for the bundle, convert and sign workers). But
+   `magna-carta-ocr` is in **none** of the three places such a worker is recorded: not the seven
+   Workers Builds connections in §12, not the placeholder list in §14, and not this queue. So either
+   it exists and nothing says so, or the next push is rejected outright — which would block every
+   tool in the catalog, not only OCR. `apps/ocr-worker` and `containers/ocr` are both committed and
+   buildable; if it does not exist, connect it as a Workers Build (or stand up a 503 placeholder of
+   that name, the `magna-carta-bundle` precedent) before the app worker goes.
+
+2. **Deploy `magna-carta-scan` carrying `/identify`.** One deploy unblocks two catalog tools that
+   both answer errors today: the **file type verifier** (`POST /api/v1/file-type/verify` → 503) and
+   the **malware scan** (`POST /api/v1/scan/diagnose` → 500). The route is already in the image
+   (`containers/scan/src/lib.rs`, `.route("/identify", post(identify))`); the worker is already
+   connected to Workers Builds, so this rides its next build. No new binding, no new secret.
+
+   **Note the malware scan's failure shape, so nobody reads it as a regression.** With the binding
+   declared but the engine unreachable the diagnostic returns a 500 with an Error ID, not the
+   `unscanned` verdict its own description promises — `resolveScanPort` selects the engine-less
+   adapter on the binding's **absence**, and the binding is never absent once declared. That is the
+   documented treatment of a bound-but-faulty engine (a fault, never a fabricated verdict), but it
+   means a placeholder or unhealthy scan worker shows up as a server error rather than a graceful
+   degradation.
+
+3. **Deploy `magna-carta-file-repair` — but fix its Build Watch Paths first.** The **file repair &
+   salvage** tool answers 503 until this worker is live. Its inclusion list names
+   `containers/file-repair-worker/*` while the container actually lives at `containers/file-repair/`,
+   so **no path matches the image** and a change to the repair engine never triggers a rebuild
+   (already recorded in `operations.md` §12; repeated here because deploying without correcting it
+   ships the old image). Correct it to `containers/file-repair/*`, then deploy.
+
+4. **Enable Browser Rendering on the account.** The **safe website viewer** is the only tool in the
+   catalog whose dependency is an account entitlement rather than a worker, a container or a secret
+   — `env.BROWSER` with `quickAction()` (the current `compatibility_date` already satisfies the
+   `>= 2026-03-24` requirement). There is nothing in the repository to deploy for it and nothing
+   local can exercise it: Miniflare exposes a `BROWSER` binding whose receiver has no `quickAction`,
+   so the route answers 500 in every local run no matter what changes.
+
+5. **Set `PANGRAM_API_KEY` — last, and only when a firm has asked.** **AI-text detection** refuses
+   twice today, both correctly: `422` because the firm's consent setting is off, and `422` again if
+   it were on with no key. The consent gate runs before any provider call, so no client text can
+   leave the platform on a firm that has not opted in. The secret is worth setting only after a firm
+   turns the setting on.
+
+**One thing on this list is NOT a deploy step, and no amount of deploying fixes it.** Shipping cannot
+connect a postage account at all — `firmSecretStoreNotYetAvailable` in
+`apps/worker/src/plugins/secret-store.ts` reports the per-firm credential read as unbuilt, an
+absence awaiting the marketplace slice. Connecting a real EasyPost key and deploying everything above
+would leave it exactly as it is. Connect, rate-shop, purchase, tracking and refund answer `501
+not-implemented` (they returned `500` until 2026-08-15); draft creation still succeeds, because a
+draft is the firm's own addresses and parcel and needs no carrier.
+
+## Search engine activation — a new worker, a new container image, one binding
+
+`apps/search-worker` (`magna-carta-search`) and `containers/search` now exist: the
+Tantivy engine, its R2 range-read adapter, and the object host it reads through. Nothing
+about them is live — `resolveSearchIndexPort` returns the deferred port until the app
+worker has a `SEARCH_SERVICE` binding, so every index job still parks in `deferred` and
+no query reaches an engine.
+
+**A new container is its own Workers Build**, and the order matters because each step
+depends on the one before it:
+
+1. **Connect `magna-carta-search` to Workers Builds on `release`** and let it build the
+   container image (`containers/search/Dockerfile`, build context = repository root).
+   It declares the `SEARCH_INDEX` Durable Object binding, migration tag `v1`, and an
+   `APP_WORKER` service binding to `magna-carta`. No secret, no queue, no R2 binding —
+   the engine holds no credentials by design.
+2. **Deploy the app worker**, which mounts the split-object host the engine reads
+   through (`/search-objects/*`). This has to be live BEFORE the engine is reachable, or
+   the container's first read is forwarded to a worker with no route for it.
+3. **Add the `SEARCH_SERVICE` binding** to the app worker's `wrangler.jsonc`, pointing at
+   `magna-carta-search`, and deploy again. That single binding is what flips the port
+   from deferred to live; there is no code change, and the parked `deferred` jobs drain
+   on their next pass.
+4. **Arm the warm cron** (`"*/20 * * * *"` in `apps/search-worker/wrangler.jsonc`) once a
+   firm actually has `search.indexing_enabled` on. It is off deliberately: with no
+   queries, pinning a `standard-1` instance bills its 4 GiB continuously for nothing.
+
+**No R2 lifecycle rule for the split prefix, deliberately.** Splits are a derived cache
+and are rebuildable, but they are also the only thing a query reads — expiring them
+would silently empty a matter's search. Retirement of superseded splits is already the
+compaction sweep's job, on a grace period.
+
+**Nothing here needs a bucket step.** Splits are written into the firm's existing bucket
+under the prefix the write pipeline already uses, stamped `object_class: search-split`.
+
+## Split compaction — one queue pair to create before the app worker deploys
+
+Search split compaction landed with a new queue, its deadletter, and a new Durable
+Object class. **Create the queues first.** A declared consumer whose queue does not
+exist fails the deploy outright, the same hazard the email-capture activation below
+carries:
+
+1. Create `magna-carta-production-search-compaction` **and**
+   `magna-carta-production-search-compaction-deadletter`.
+2. Deploy the app worker. Its `wrangler.jsonc` already carries the producer binding, the
+   consumer at concurrency 1, the `SEARCH_COMPACTION_JOB` Durable Object binding, and
+   migration tag `v8-search-compaction-job`. Nothing else to set.
+
+No new secret and no bucket step: merged splits are written into the firm's existing
+bucket under the prefix the per-document splits already use.
+
+**Why the concurrency is 1, so nobody raises it as an optimization.** A merge reads and
+rewrites every byte of its sources. Several at once would multiply the R2 traffic of
+background housekeeping against exactly the query traffic compaction exists to reduce.
+Per-corpus single-flighting is the coordinator's job; this lane bounds how much merging
+the whole worker does at a time.
+
+**What it is worth, measured rather than assumed.** A query over 5,000 per-document
+splits issued 186,293 ranged reads — one R2 range GET each in a deployment — against 45
+for the same documents merged. That is why this is a deploy-blocking capability for
+search rather than a later tuning pass. Figures come from
+`crates/search-eval`; how to reproduce them is in that crate's README.
 
 ## New configuration the next deploy must carry
 
@@ -42,6 +166,32 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred
   commits ahead and growing; everything below rides the next push.
+
+## `magna-carta-edit` now gates a screen a person can reach
+
+This moved up the queue on 2026-08-12 and the reason is worth stating plainly:
+until now the Collabora editor was a capability nobody could get to, so its
+deploy was housekeeping. The matter document surface changed that. A person can
+open a matter, pick a document, and press the control that opens the editor —
+and the operation behind it is **entirely real**: the document moves to
+co-editing, the open is written to the audit log, and a signed token scoped to
+that one version is minted. Only the editor's own interface is missing, because
+it is served by a per-document container in the `magna-carta-edit` worker, which
+exists only once deployed.
+
+The screen does not pretend otherwise — it carries a badge saying the editor is
+a deployed-only step, and `apps/web/src/lib/documents/document-loop-availability.ts`
+records which steps are `live` and which are `deployed-only` so no consumer has
+to rediscover it. But the honest state is still an empty frame, and the deploy is
+what fills it. Two smaller things travel with it:
+
+- `dev-seed` registers no template, so **build-from-template is a real endpoint
+  with a genuinely empty list** on any fresh environment. Seeding one is queued
+  work, not a deploy step, but it is the other half of "the loop is clickable".
+- The registration confirmation mail sends the **bare token as its whole body**
+  with no link and no landing URL. The screen already accepts a typed code and
+  reads `?token=`, so it works the day the mail carries a link — until then the
+  only path through is copy-paste.
 
 ## Status page — the upstream-severity fix needs BOTH workers deployed
 
@@ -127,9 +277,37 @@ Runbook: `docs/conventions/operations.md` section 2a.
 
 ## Blocked-in-environment owner chores
 
-- Stale remote branch deletion (the git proxy denies ref deletions). Safe to
-  delete: `osv-scanner-audit-gate`, `fix-assembly-format-output`,
+- Stale remote branch deletion. The git proxy denies ref deletions: a
+  `git push --delete` returns 403 for every branch, not just some. Safe to delete:
+  `osv-scanner-audit-gate`, `fix-assembly-format-output`,
   `fix-assembly-push-no-verify`, `fix-pnpm-audit-endpoint-retirement`,
   `docs-assembly-retrigger`, `claude/docs-sync-routine-setup-c3hy7m`,
   `lint-scope-ignore-workflow-yaml`, plus any branch whose pull request has
   since merged (`docs-sync/2026-07-20` after #41's closure).
+
+  **The one-time fix is a repository setting, not a chore.** Turning on GitHub's
+  _Automatically delete head branches_ (Settings → General → Pull Requests)
+  retires this item permanently: every future merge cleans up after itself, and
+  no session needs a permission it cannot have. Worth doing before the next
+  batch sweep rather than after, so the sweep is the last one.
+
+## Before the first firm goes live — verify the trust authorization posture
+
+The authority-based trust posture ships seeded as version-1 data: whoever holds the
+authority releases money alone, and whoever does not raises a request to someone who
+does. That is the owner's directed rule and it is deliberate.
+
+**The seed relaxes any firm that already exists with no policy row** — from
+always-two-person to authority-solo. It is guarded by `WHERE NOT EXISTS`, so a firm
+that has already chosen a posture keeps it; the exposure is limited to firms created
+before the policy feature that never set one. The design's safety argument is that no
+such firm exists, and the repository cannot prove that.
+
+So before a real firm is served, run the check rather than trusting the argument:
+confirm no firm row lacks a stored authorization policy, and if one does, set its
+posture deliberately instead of letting the seed decide. A control that weakens
+without anyone choosing it is the one outcome this subsystem must not produce.
+
+Related and still open for the owner: the lone-holder exception counts `trust:manage`
+rather than `trust:authorize`. Switching would take a firm with several managers and
+one authority holder from two-person to solo — a reduction, so it waits for a decision.

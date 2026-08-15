@@ -1,6 +1,6 @@
 # Shipping & postage
 
-_Stub — the full guide is authored when the shipping screens ship. The backend is built; there is no user interface yet._
+_Stub — the full guide is authored when the shipping screens ship. There is no user interface yet, and **a shipping account cannot be connected yet**: the part of Magna Carta that keeps a firm's carrier key safely is still being built, so connecting an account, comparing rates, and buying a label all answer "not available yet" rather than working. Preparing a shipment (recipient, package, options) already works and is kept, so nothing prepared now is lost when the rest arrives._
 
 ## What it does
 

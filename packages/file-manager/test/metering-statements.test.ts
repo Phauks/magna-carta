@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  emitMeterDataPoint,
   meterCommitStatements,
   meterCorrectionStatements,
   meterHardDeleteStatements,
@@ -110,21 +109,5 @@ describe("reconciliationDiff", () => {
     const { corrections } = reconciliationDiff(listed, meterRows);
     await database.batch(meterCorrectionStatements(database, corrections));
     expect(await readMeter(database)).toEqual([{ ...STANDARD, bytes: 1500, objectCount: 2 }]);
-  });
-});
-
-describe("emitMeterDataPoint", () => {
-  it("writes one firm-indexed data point per bucket", () => {
-    const points: unknown[] = [];
-    emitMeterDataPoint({ writeDataPoint: (point) => points.push(point) }, "firm_a", {
-      ...STANDARD,
-      bytes: 1000,
-      objectCount: 1,
-    });
-    expect(points[0]).toEqual({
-      indexes: ["firm_a"],
-      blobs: ["standard", "original", "files"],
-      doubles: [1000, 1],
-    });
   });
 });

@@ -609,12 +609,22 @@ describe("auto-file rules in the capture consumer", () => {
 });
 
 describe("the firm auto-file policy route", () => {
+  // The numbers the circuit breaker shipped with, which a firm that never opens this surface keeps.
+  const PLATFORM_DEFAULT_BREAKER = {
+    maxFiresPerWindow: 25,
+    recentFireWindow: 10,
+    maxUndosInRecentFires: 3,
+  };
+
   it("reads off by default, flips with a patch, and refuses a member without the capability", async () => {
     const read = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
       headers: { cookie: ownerCookie },
     });
     expect(read.status).toBe(200);
-    expect(await read.json()).toEqual({ directFilingPermitted: false });
+    expect(await read.json()).toEqual({
+      directFilingPermitted: false,
+      circuitBreaker: PLATFORM_DEFAULT_BREAKER,
+    });
 
     const patched = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
       method: "PATCH",
@@ -626,11 +636,62 @@ describe("the firm auto-file policy route", () => {
       body: JSON.stringify({ directFilingPermitted: true }),
     });
     expect(patched.status).toBe(200);
-    expect(await patched.json()).toEqual({ directFilingPermitted: true });
+    // A patch that names one field leaves the other at what it was.
+    expect(await patched.json()).toEqual({
+      directFilingPermitted: true,
+      circuitBreaker: PLATFORM_DEFAULT_BREAKER,
+    });
 
     const refused = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
       headers: { cookie: noPermissionCookie },
     });
     expect(refused.status).toBe(403);
+  });
+
+  it("sets the firm's circuit-breaker thresholds and reads them back", async () => {
+    const circuitBreaker = {
+      maxFiresPerWindow: 60,
+      recentFireWindow: 20,
+      maxUndosInRecentFires: 5,
+    };
+    const patched = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
+      method: "PATCH",
+      headers: {
+        cookie: ownerCookie,
+        "content-type": "application/json",
+        "idempotency-key": newIdentifier("idempotencyRecord"),
+      },
+      body: JSON.stringify({ circuitBreaker }),
+    });
+    expect(patched.status).toBe(200);
+    expect(await patched.json()).toMatchObject({ circuitBreaker });
+
+    const read = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
+      headers: { cookie: ownerCookie },
+    });
+    expect(await read.json()).toMatchObject({ circuitBreaker });
+  });
+
+  // A circuit breaker a firm can switch off is not a circuit breaker: every threshold is a whole
+  // number inside a fixed range, and the undo threshold may not exceed the window it is counted over.
+  it("refuses thresholds that would put the breaker out of reach", async () => {
+    for (const circuitBreaker of [
+      { maxFiresPerWindow: 100000, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      { maxFiresPerWindow: 0, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+      { maxFiresPerWindow: 25, recentFireWindow: 10, maxUndosInRecentFires: 0 },
+      { maxFiresPerWindow: 25, recentFireWindow: 10, maxUndosInRecentFires: 11 },
+      { maxFiresPerWindow: 25.5, recentFireWindow: 10, maxUndosInRecentFires: 3 },
+    ]) {
+      const response = await SELF.fetch("https://x/api/v1/firm/email-auto-file-policy", {
+        method: "PATCH",
+        headers: {
+          cookie: ownerCookie,
+          "content-type": "application/json",
+          "idempotency-key": newIdentifier("idempotencyRecord"),
+        },
+        body: JSON.stringify({ circuitBreaker }),
+      });
+      expect(response.status).toBe(422);
+    }
   });
 });

@@ -1,15 +1,16 @@
 // Reclaim regenerable build output and dangling Docker cache. Runs on demand (`vp run clean`) and
 // automatically from the tracked post-merge hook when a branch lands in main
 // (tooling/git-hooks/post-merge). Deletes ONLY git-ignored artifact directories (target/,
-// .svelte-kit, .wrangler, .vite, dist, build, coverage) inside worktrees whose branch is merged
-// into main — never the active worktree, never node_modules, never tracked source. The
+// .svelte-kit, .wrangler, .vite, dist, build, coverage) inside worktrees whose branch has landed in
+// main — by ancestry OR by content, since pull requests here land as squash merges and a squashed
+// branch is never an ancestor — never the active worktree, never node_modules, never tracked source. The
 // git check-ignore confirmation is the safety net: a directory that merely shares an artifact name
 // but is tracked is never removed. Flags: --dry-run (report only), --all-worktrees (sweep every
 // worktree except the current one — still git-ignored dirs only).
 import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { eligibleWorktrees, isArtifactDir, normalizePath } from "./select.mjs";
+import { eligibleWorktrees, isArtifactDir, landedBranches, normalizePath } from "./select.mjs";
 
 const flags = new Set(process.argv.slice(2));
 const dryRun = flags.has("--dry-run");
@@ -35,14 +36,54 @@ function listWorktrees() {
   return worktrees;
 }
 
-function mergedBranches() {
+// The ref every "is this landed?" question is asked against. `origin/main` is what pull requests
+// actually merge into; a local `main` in a long-lived clone drifts behind it and answers for a
+// state nobody is on any more. Fall back to the local ref only when there is no remote-tracking one.
+function baselineRef() {
+  try {
+    git(["rev-parse", "--verify", "--quiet", "origin/main"]);
+    return "origin/main";
+  } catch {
+    return "main";
+  }
+}
+
+// The tree a two-way merge of `branch` into the baseline would produce, or null when that merge
+// conflicts (or the git build predates `merge-tree --write-tree`).
+function mergeResultTreeAgainst(baseline) {
+  return (branch) => {
+    try {
+      return git(["merge-tree", "--write-tree", baseline, branch]).trim();
+    } catch {
+      return null;
+    }
+  };
+}
+
+function ancestryMergedInto(baseline) {
   const branches = new Set();
-  const output = git(["branch", "--merged", "main", "--format=%(refname:short)"]);
-  for (const line of output.split("\n")) {
+  for (const line of git(["branch", "--merged", baseline, "--format=%(refname:short)"]).split(
+    "\n",
+  )) {
     const name = line.trim();
     if (name) branches.add(name);
   }
   return branches;
+}
+
+// Branches whose work is already in the baseline. The ancestry test (`git branch --merged`) alone
+// reported nothing for months while landed worktrees accumulated gigabytes of build output, because
+// pull requests land here as squash merges and a squashed branch is not an ancestor of anything.
+function mergedBranches(candidateBranches) {
+  const baseline = baselineRef();
+  return landedBranches({
+    candidateBranches,
+    baselineCommit: git(["rev-parse", baseline]).trim(),
+    baselineTree: git(["rev-parse", `${baseline}^{tree}`]).trim(),
+    tipOf: (branch) => git(["rev-parse", branch]).trim(),
+    ancestryMerged: ancestryMergedInto(baseline),
+    mergeResultTree: mergeResultTreeAgainst(baseline),
+  });
 }
 
 // True when `path` is git-ignored. check-ignore is run with cwd inside the target worktree so the
@@ -138,10 +179,13 @@ function dockerPrune() {
 }
 
 const currentPath = normalizePath(git(["rev-parse", "--show-toplevel"]).trim());
+const worktrees = listWorktrees();
 const targets = eligibleWorktrees({
-  worktrees: listWorktrees(),
+  worktrees,
   currentPath,
-  mergedBranches: mergedBranches(),
+  mergedBranches: mergedBranches(
+    worktrees.filter((worktree) => worktree.branch && !worktree.detached).map((w) => w.branch),
+  ),
   allWorktrees,
 });
 
@@ -149,6 +193,18 @@ console.log(dryRun ? "clean (dry-run — nothing will be deleted)\n" : "clean\n"
 console.log(
   `Artifact sweep — ${targets.length} worktree(s) (${allWorktrees ? "all except current" : "merged into main"}):`,
 );
+
+// A sweep that selects nothing reads identically to a sweep that had nothing to do. Say which it
+// was, so an operator watching disk fill is not reassured by a report about work it declined.
+const skipped =
+  eligibleWorktrees({ worktrees, currentPath, mergedBranches: new Set(), allWorktrees: true })
+    .length - targets.length;
+if (!allWorktrees && targets.length === 0 && skipped > 0) {
+  console.log(
+    `  none selected — ${skipped} other worktree(s) hold branches still open against main.`,
+  );
+  console.log("  --all-worktrees sweeps them too (git-ignored build output only).");
+}
 
 let reclaimed = 0;
 for (const worktree of targets) {

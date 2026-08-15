@@ -44,6 +44,37 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   Relationships are matched by RESOLVED TARGET, never by target filename (an external hyperlink can end
   in the same name, and dropping it leaves a dangling `r:id` that makes a reader declare the document
   damaged).
+- **A LEGACY WORD FORM FIELD is reported and never bound — there is no opt-in that converts one.**
+  `w:fldChar` complex fields whose instruction is `FORMTEXT` / `FORMCHECKBOX` / `FORMDROPDOWN`, carrying
+  a `w:ffData` block: what the appellate court forms and most legacy firm precedent are built from. The
+  only name one carries is a Word-minted bookmark (`Text1`) beside a sentence of help text, so deriving
+  a merge key from it would be the name-guessing failure with worse evidence than the rule below already
+  refuses — which is exactly why the third opt-in does not exist. The manifest's `legacyFormFields`
+  entry (name, kind, part, the author's prompt, the text it prints) is the whole answer: registration
+  warns, the field list shows it, and every assembly reports it and lands on `succeeded_with_absences`.
+  Before this existed such a template registered clean, declared no keys, warned only `no-placeholders`
+  — "every assembly produces the same document" — and filed carrying `Click here to enter caption`.
+  **It is a separate manifest list from `unconvertedMergeFields` on purpose:** blending them would offer
+  "register again asking for conversion" as the remedy for a construct conversion does not answer.
+- **AN UNFILLED CONTENT CONTROL is reported too, and the reason it is not converted is a step different
+  from the form field's.** A `w:sdt` whose `w:sdtPr` carries `w:showingPlcHdr` is a region printing its
+  own prompt — "Click here to enter text." — and one carrying `w:dataBinding` reads a custom XML part
+  nothing here writes and the metadata scrub removes, so it prints whatever the document this template
+  was made from last put there. Both are
+  recorded on `unboundContentControls` (alias, tag, kind, part, occurrences, state, printed text), with
+  the same reach as the form-field list: registration warns, the field list shows it, a refusal names it,
+  and every assembly reports it and lands on `succeeded_with_absences`. **A control that is NEITHER is
+  deliberately silent** — Word wraps ordinary content in controls constantly, and a filled one prints
+  text an author typed, which is content rather than a hole. **The evidence for a NAME is better here
+  than for a form field:** `w:alias` and `w:tag` are typed by whoever authored the document, where
+  `Text1` is Word-minted, so the argument against binding is not "there is nothing to map from" — it is
+  that a name means something only once a human has CONFIRMED it (which is what the field-mapping
+  library is for), and that every rewrite of a firm's document here is opt-in. That makes a future
+  alias-through-the-mapping-library conversion buildable on exactly what this records, and an owner
+  decision rather than a default. **A third manifest list, not a widening of the second:** a legacy form
+  field is a dead construct whose only remedy is replacement, while a content control is what Word
+  produces today and the binding this engine intends to grow into, so the two stand for different
+  futures as well as different repairs — and their kind vocabularies do not overlap.
 - **The engine never guesses what a Word field name means.** `MergeFieldNameResolver` is identity by
   default; the firm's own confirmed mappings come from `src/field-mapping-statements.ts`, read ONCE per
   registration into the resolver (never a lookup per field), and written back in the same commit as the
@@ -68,6 +99,12 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   every absence would bury the ones that need reading.
 - **Resolved values never leave memory.** Nothing here persists, logs, or enqueues one. The provenance
   row records absent KEYS; a failure names WHICH key failed, never what it held.
+- **The merge emits a word-processing package and nothing else.** `document_assembly.output_format`
+  (`src/assembly-statements.ts`) records what a JOB was asked to produce, not what this package
+  produced: a `pdf` job carries these bytes across the office-suite conversion edge in
+  `apps/worker/src/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
+  and no second opinion about layout belongs in here — that is the whole reason the engine can be
+  pure TypeScript over OOXML.
 - **`buildXml` writes the XML declaration; the parser drops the source one** (`ignoreDeclaration`).
   Turning that off puts two declarations in every rewritten part — not well-formed XML, a document no
   reader will open, and nothing in a text-content assertion catches it.
@@ -396,8 +433,10 @@ from that one sentence.
 
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
   this stays one line at the composition root when a firm may hold amounts in more than one currency.
-- **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
-  splitting, deferred until a browser authoring surface can emit them.
+- **BINDING a content control (`w:sdt`)** — structurally the best placeholder binding and immune to run
+  splitting, deferred until a browser authoring surface can emit them. Detection is built (see the local
+  rule above); what is deferred is emitting one, and any opt-in that maps an author's `w:alias` onto a
+  merge key through the field-mapping library.
 - **An aggregable collection.** Every list-valued item field (`matter.parties`, the role collections) is
   text and a firm's own fields are all scalars, so nothing a firm can bind today is foldable: the
   aggregates are exercised against synthetic collections, as the money helpers are against synthetic
@@ -411,6 +450,13 @@ from that one sentence.
 - A `w:t` this package writes always carries `xml:space="preserve"`: Word strips leading and trailing
   whitespace from a text element that does not declare it, and a merge value legitimately begins or
   ends with a space.
+- **`w:documentProtection` survives registration, and nothing reports it.** The metadata scrub rewrites
+  `word/settings.xml` only to drop `w:mailMerge`, `w:attachedTemplate`, `w:docVars`, and the revision
+  identifiers (`packages/metadata/src/ooxml/parts.ts`), so a `w:documentProtection` element declaring
+  `w:edit="forms"` with enforcement on is stored verbatim, and every document assembled from that
+  template opens edit-restricted. It travels with legacy form fields — Word writes it when a form is protected — so
+  the two arrive together. Not fixed here: clearing a firm's own protection setting is a rewrite of
+  their document and wants the same opt-in reasoning the macro strip got.
 - Output is byte-reproducible on purpose — `writePackage` pins the entry timestamp, so the same
   template version plus the same merge context yields the same bytes. Do not reach for `Date.now()`
   there.

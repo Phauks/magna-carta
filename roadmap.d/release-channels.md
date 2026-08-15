@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Early access -->
+
 - id: release-channels
   name: Release channels
   scope: Firm-level stable/beta/alpha channels gating behavior (never schema) through feature flags, with consent-gated self-serve beta and developer-only alpha.
@@ -10,6 +12,9 @@
   adrs: ADR-0148, ADR-0149
   spec: docs/specs/2026-06-25-release-channels-design.md
   evidence: Backend rails on main (status.d built done, tests todo); frontend (Plan 2) deferred past 0.7.
+  audience: public
+  public-name: Early access to new features
+  public-summary: Turn a new feature on for your firm before it reaches everyone, and turn it off again if it gets in the way.
 
 - id: release-channels.firm-channel
   name: firm.release_channel model

@@ -15,10 +15,14 @@ import type {
   AuditLogId,
   BillingArrangementId,
   CalendarEventLinkId,
+  ClientCreditId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
+  ConflictsRecheckRequestId,
   CostEntryId,
+  CreditNoteId,
+  CreditNoteLineId,
   CustodyDestructionRequestId,
   CustodyHoldId,
   CustodyItemId,
@@ -2060,6 +2064,15 @@ export const conflictsCheck = sqliteTable(
     // 1 when the requested scope fell below the firm floor and was raised to it.
     floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
     actorUserId: text("actor_user_id").$type<UserId>(),
+    // How the run was started: 'manual' | 'event' | 'schedule'. NULL on every row written before the
+    // automated paths existed, and on any run a person asked for, which reads exactly as it always
+    // did. Kept beside actor_user_id rather than derived from it: an absent actor says nobody is
+    // being credited with the run, not what set it going.
+    triggerSource: text("trigger_source"),
+    // The corpus changes an automated run covers, as recorded JSON — several accumulated causes
+    // collapse into ONE check that names them all, never into a check that names one and forgets the
+    // rest. NULL for a manual run, which has no cause but the person who asked.
+    causeJson: text("cause_json"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -2137,6 +2150,65 @@ export const conflictsDisposition = sqliteTable(
   ],
 );
 
+// The re-check ledger: one row per corpus change that could alter an already-checked matter's
+// answer, written when the change commits and satisfied later by the check that covers it.
+//
+// It exists because a queue message is not a record. A matter whose corpus moved has to be able to
+// say "a re-check is owed because entity X was merged on 12 August" from the moment the merge
+// commits — not from whenever a consumer gets round to it — and a drain that runs out of budget has
+// to leave that fact visible rather than dropping it. The satisfied rows are the other half: the
+// interval between a cause and the check that answered it is the evidence that the firm's procedure
+// noticed something, which no check row on its own can show.
+//
+// Rows are never deleted and the cause columns are immutable; only the two satisfaction columns move,
+// once, forwards. All three rules are enforced by triggers in the migration, not by convention.
+export const conflictsRecheckRequest = sqliteTable(
+  "conflicts_recheck_request",
+  {
+    id: text("id").primaryKey().$type<ConflictsRecheckRequestId>(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The outbox topic that caused it, e.g. directory.entity.merged.
+    causeTopic: text("cause_topic").notNull(),
+    // The handle the cause is about — an entity, an edge, an identifier row, a matter party. Never a
+    // value: an identifier cause names the identifier ROW and its type, so nothing sealed leaks into
+    // a table that is read to build a report.
+    causeReference: text("cause_reference").notNull(),
+    causeOccurredAt: text("cause_occurred_at").notNull(),
+    requestedAt: text("requested_at").notNull(),
+    satisfiedByCheckId: text("satisfied_by_check_id").$type<ConflictsCheckId>(),
+    satisfiedAt: text("satisfied_at"),
+  },
+  (table) => [
+    // One OPEN request per (matter, cause): a queue redelivery re-derives the same three values and
+    // is a no-op. Partial, so satisfying a request releases the key and the same cause recurring
+    // later can be requested again.
+    uniqueIndex("conflicts_recheck_request_open_cause_unique")
+      .on(table.matterId, table.causeTopic, table.causeReference)
+      .where(sql`${table.satisfiedAt} IS NULL`),
+    // The drain: unsatisfied rows, oldest cause first.
+    index("conflicts_recheck_request_satisfied_requested_index").on(
+      table.satisfiedAt,
+      table.requestedAt,
+    ),
+    // One matter's open requests — the posture read, and the per-matter claim the drain makes.
+    index("conflicts_recheck_request_matter_satisfied_index").on(table.matterId, table.satisfiedAt),
+    check("conflicts_recheck_request_cause_topic_check", sql`length(${table.causeTopic}) > 0`),
+    check(
+      "conflicts_recheck_request_cause_reference_check",
+      sql`length(${table.causeReference}) > 0`,
+    ),
+    // Satisfied by a check and satisfied at a time are one fact, so they arrive together or not at
+    // all — a row carrying one without the other would report an interval nothing closed.
+    check(
+      "conflicts_recheck_request_satisfaction_check",
+      sql`(${table.satisfiedByCheckId} IS NULL) = (${table.satisfiedAt} IS NULL)`,
+    ),
+  ],
+);
+
 // Discovery search-index catalog: one row per immutable Tantivy split stored in the firm's R2. This is
 // the authority a query enumerates to know which splits are live for a matter — never an R2 bucket list,
 // which would be slower and would not carry firm scoping structurally. Firm data (the index is durable
@@ -2183,6 +2255,39 @@ export const indexSplit = sqliteTable(
     uniqueIndex("index_split_document_version_unique")
       .on(table.documentId, table.version)
       .where(sql`${table.documentId} IS NOT NULL AND ${table.supersededAt} IS NULL`),
+  ],
+);
+
+// What is inside a MERGED split. A split the write pipeline publishes carries its own document_id and
+// version on the row above, so it needs no membership; a split compaction publishes covers many document
+// versions and those columns are NULL, which would leave nothing able to say which versions it holds.
+//
+// The catalog has to be able to say, because a merged split is immutable and the corpus is not. When a
+// document is re-indexed, its replacement is published as a new per-document split while the merged
+// split still holds the older version's passages — and both are live. The membership is what lets the
+// query path name that stale version to the engine as a per-split exclusion, so it stops matching
+// immediately, and what lets the next compaction of that split pass the same id to the merge, which
+// deletes it and repacks so the postings leave the bytes. Marking makes it stop matching; compaction
+// makes it stop costing anything.
+export const indexSplitMember = sqliteTable(
+  "index_split_member",
+  {
+    // The merged split this membership belongs to (index_split.id).
+    splitId: text("split_id").notNull().$type<IndexSplitId>(),
+    documentId: text("document_id").notNull().$type<FileId>(),
+    version: integer("version").notNull(),
+    // Null while this document version is still the current one inside the split. Set to the instant a
+    // re-index or a removal superseded it, which both excludes it from queries against this split and
+    // makes the split a compaction candidate.
+    supersededAt: text("superseded_at"),
+  },
+  (table) => [
+    // A document version appears at most once in a given split.
+    primaryKey({ columns: [table.splitId, table.documentId, table.version] }),
+    // The query-path read: the stale members of the splits a corpus holds live.
+    index("index_split_member_split_superseded_index").on(table.splitId, table.supersededAt),
+    // The write-path read: every live split carrying any version of the document just re-indexed.
+    index("index_split_member_document_index").on(table.documentId),
   ],
 );
 
@@ -2823,6 +2928,14 @@ export const documentAssembly = sqliteTable(
     fileVersionId: text("file_version_id")
       .$type<FileVersionId>()
       .references(() => fileVersion.id),
+    // What the job was asked to produce. The merge always emits a word-processing package; `pdf` asks
+    // the job to carry that package across the office-suite conversion edge before filing it. Recorded
+    // rather than inferred from the filed object, because a job that failed still has to say what it
+    // was trying to make, and a caller polling before the document lands needs to know whether what is
+    // coming can be sealed.
+    outputFormat: text("output_format", { enum: ["docx", "pdf"] })
+      .notNull()
+      .default("docx"),
     engineVersion: integer("engine_version").notNull().default(0),
     dictionaryVersion: integer("dictionary_version").notNull().default(0),
     absentFieldCount: integer("absent_field_count").notNull().default(0),
@@ -2990,6 +3103,10 @@ export const custodyPacket = sqliteTable(
     index("custody_packet_current_location_index").on(table.currentLocationId),
     index("custody_packet_matter_index").on(table.matterId),
     index("custody_packet_depositor_index").on(table.depositorEntityId),
+    // The register list's sort, on every page including keyset pages. Both columns are immutable, so
+    // this is written when a packet is created and not by the status and location updates a movement
+    // makes.
+    index("custody_packet_created_index").on(table.createdAt, table.id),
     check("custody_packet_name_check", sql`length(${table.name}) > 0`),
     check("custody_packet_number_check", sql`length(${table.custodyNumber}) > 0`),
     check("custody_packet_number_source_check", sql`${table.numberSource} IN ('drawn', 'manual')`),
@@ -3189,7 +3306,10 @@ export const custodyMovement = sqliteTable(
   (table) => [
     // The packet history read, keyset-paginated newest first; also the order the register renders.
     index("custody_movement_packet_occurred_index").on(table.packetId, table.occurredAt, table.id),
-    index("custody_movement_item_index").on(table.itemId),
+    // The firm-wide calendar window, which reads movements by date with no packet to key on. This
+    // ledger grows for as long as the firm holds the property, so a date read with nothing to seek
+    // walks more of it every year. The table is append-only, so the index is insert-only.
+    index("custody_movement_occurred_index").on(table.occurredAt, table.id),
     index("custody_movement_borrower_entity_index").on(table.borrowerEntityId),
     check(
       "custody_movement_kind_check",
@@ -4890,6 +5010,29 @@ export const invoiceApplication = sqliteTable(
       .$type<TrustTransferId>()
       .references(() => trustTransfer.id),
     reversesApplicationId: text("reverses_application_id").$type<InvoiceApplicationId>(),
+    // The correction this application came from, for the two kinds a document produces. A credit
+    // note may reach several matters of one invoice, so it produces one application per matter, all
+    // naming the same note; a client credit is discharged a piece at a time against later invoices,
+    // so each discharge is an application naming the credit it drew on.
+    creditNoteId: text("credit_note_id")
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    clientCreditId: text("client_credit_id")
+      .$type<ClientCreditId>()
+      .references(() => clientCredit.id),
+    // The posting this application rode with, recorded on the row that OWNS that posting. A trust
+    // transfer's entries are trust's and billing composes none, so it carries no entry; a credit
+    // note is one posting across however many per-matter applications it produces, so the entry sits
+    // on the note; every other kind is one posting per application and carries it here. The pairing
+    // is held by trigger, which is what makes "billing composes no ledger entry for a trust
+    // application" a database guarantee rather than a rule a future caller has to remember.
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // Why the firm gave up a receivable, or unwound an application it had posted. Required on those
+    // two kinds by trigger: a write-off with no stated reason is indistinguishable from a mistake,
+    // and both are the kind of entry a bar audit asks about.
+    reason: text("reason"),
     effectiveDate: text("effective_date").notNull(), // civil date
     appliedBy: text("applied_by").$type<UserId>(),
     appliedAt: text("applied_at").notNull(),
@@ -4899,6 +5042,8 @@ export const invoiceApplication = sqliteTable(
     index("invoice_application_invoice_matter_index").on(table.invoiceId, table.matterId),
     index("invoice_application_matter_index").on(table.matterId),
     index("invoice_application_trust_transfer_index").on(table.trustTransferId),
+    index("invoice_application_credit_note_index").on(table.creditNoteId),
+    index("invoice_application_client_credit_index").on(table.clientCreditId),
     // The whole closed set, including the four kinds no code writes yet: SQLite cannot widen a CHECK
     // without a destructive table rebuild, so narrowing it to what ships today would mean the
     // credit-note and payment paths could never be added additively.
@@ -4954,6 +5099,158 @@ export const invoiceTrustApplicationLine = sqliteTable(
     ),
     check("invoice_trust_application_line_amount_positive_check", sql`${table.amountMinor} > 0`),
     check("invoice_trust_application_line_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// THE CORRECTION AFTER FINALIZATION. A finalized invoice is frozen by trigger and there is no
+// un-finalize, so a bill issued in error is answered by a second permanent record: a credit note,
+// with its own lines, its own reason, its own effective date, and its own posting. It never edits
+// the invoice, and the invoice's `total_minor` never moves — the note lands as an application
+// against `applied_minor`, so what the client was originally told stays exactly as it was told.
+//
+// A credit note may only be raised against a FINALIZED invoice: a draft is a working document and
+// the correction for a wrong draft is to edit it. Held by trigger, because a route is one code path
+// among several that will reach this table.
+export const creditNote = sqliteTable(
+  "credit_note",
+  {
+    id: text("id").primaryKey().$type<CreditNoteId>(), // creditNote_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    currency: text("currency").notNull(),
+    // Why the bill was wrong, in the firm's own words. Not optional and not a code: a credit note is
+    // read years later by somebody reconstructing a fee dispute, and a reason list the platform
+    // invented would flatten the one fact only the firm has.
+    reason: text("reason").notNull(),
+    effectiveDate: text("effective_date").notNull(), // civil PlainDate
+    // The one posting a credit note makes, across every matter it touches: contra-revenue debited,
+    // the receivable credited by what it actually pays down, and the remainder credited to the
+    // client-credit liability. It sits here rather than on the applications because one note is one
+    // posting however many matters it reaches — and because a note that pays nothing down (a bill
+    // already paid in full) produces no application at all and would otherwise have nowhere to
+    // record what it posted.
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    issuedBy: text("issued_by").$type<UserId>(),
+    issuedAt: text("issued_at").notNull(),
+  },
+  (table) => [
+    index("credit_note_invoice_index").on(table.invoiceId),
+    uniqueIndex("credit_note_entry_unique_index").on(table.entryId),
+    check("credit_note_currency_check", sql`length(${table.currency}) = 3`),
+    check("credit_note_reason_nonempty_check", sql`length(trim(${table.reason})) > 0`),
+  ],
+);
+
+// What the credit note says it is crediting, in presentation order — the mirror of `invoice_line`,
+// and read the same way by anybody re-rendering the correction years later.
+//
+// AMOUNTS ARE POSITIVE HERE, unlike an invoice line. An invoice line may be negative because a
+// discount is one line among many on a document whose direction is "you owe us"; a credit note's
+// direction is the document's, so a line carries only the magnitude. That is the ledger's own rule —
+// direction is data, never a sign — applied one level up.
+export const creditNoteLine = sqliteTable(
+  "credit_note_line",
+  {
+    id: text("id").primaryKey().$type<CreditNoteLineId>(), // creditNoteLine_ handle
+    creditNoteId: text("credit_note_id")
+      .notNull()
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    lineIndex: integer("line_index").notNull(),
+    // Every line names its matter, exactly as an invoice line does: the balance a credit note pays
+    // down is a per-(invoice, matter) row, so a line that did not name one could not be applied.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["fee", "cost", "flat_fee", "discount", "adjustment", "interest", "tax"],
+    }).notNull(),
+    description: text("description").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // WHICH INVOICE LINE THIS CREDITS, when the firm is crediting a specific charge rather than the
+    // bill in general. Optional, and load-bearing where it is present: a fee that was computed from
+    // a basis — a contingency share of a recovery — is billed as an offset against what earlier
+    // bills already charged, so "what has already been charged" has to mean charged AND NOT SINCE
+    // CREDITED. Without this link a credit note could never be attributed to the charge it corrects,
+    // and the over-billing report that finds such a charge could never be cleared by the one record
+    // that resolves it.
+    creditsInvoiceLineId: text("credits_invoice_line_id")
+      .$type<InvoiceLineId>()
+      .references(() => invoiceLine.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("credit_note_line_index_unique_index").on(table.creditNoteId, table.lineIndex),
+    index("credit_note_line_matter_index").on(table.matterId),
+    index("credit_note_line_credits_index").on(table.creditsInvoiceLineId),
+    check("credit_note_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("credit_note_line_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "credit_note_line_kind_check",
+      sql`${table.kind} IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')`,
+    ),
+  ],
+);
+
+// VALUE OWED BACK TO A CLIENT THAT HAS NOT BEEN GIVEN BACK YET, and the honest consequence of the
+// balance CHECK. A credit note cannot reduce a matter's balance below what has already been applied
+// to it — that would be a negative unpaid receivable — so a note that outruns what is still unpaid
+// opens one of these for the excess.
+//
+// The case that makes this necessary rather than tidy: the firm finalized a bill, took the fee out
+// of the client's trust ledger under the earned-fee rule, and only then conceded that part of it was
+// not earned. The trust ledger is not rewound — the transfer was valid when it was made, the trust
+// entries are append-only, and the client's balance genuinely is lower. What the firm has is the
+// client's money in its own operating account, which is a firm-funds question and not an invoicing
+// one. The platform records the obligation, makes it un-loseable, and refuses to discharge it on its
+// own initiative.
+//
+// OPEN IS DERIVED, NOT STORED — no status column, on the same reasoning that keeps one off
+// `trust_hold`. `amount_minor` is frozen and `discharged_minor` is delta-updated inside a posting
+// batch under a bounds CHECK, exactly as `invoice_matter_balance` is and for exactly the same
+// reason: D1 has no interactive transactions, so the CHECK is the only mechanism that can abort a
+// whole batch when two discharges race for the same remainder.
+export const clientCredit = sqliteTable(
+  "client_credit",
+  {
+    id: text("id").primaryKey().$type<ClientCreditId>(), // clientCredit_ handle
+    // Whose money it is, resolved from the invoice the credit note corrected — the same Directory
+    // handle the invoice carries.
+    clientEntityId: text("client_entity_id").notNull(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    creditNoteId: text("credit_note_id")
+      .notNull()
+      .$type<CreditNoteId>()
+      .references(() => creditNote.id),
+    amountMinor: integer("amount_minor").notNull(),
+    dischargedMinor: integer("discharged_minor").notNull().default(0),
+    currency: text("currency").notNull(),
+    openedBy: text("opened_by").$type<UserId>(),
+    openedAt: text("opened_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One credit per (note, matter): a note reaching two matters opens two, and a second row for the
+    // same pair would be the same obligation recorded twice.
+    uniqueIndex("client_credit_note_matter_unique_index").on(table.creditNoteId, table.matterId),
+    index("client_credit_client_index").on(table.clientEntityId),
+    index("client_credit_matter_index").on(table.matterId),
+    check("client_credit_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("client_credit_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "client_credit_bounds_check",
+      sql`${table.dischargedMinor} >= 0 AND ${table.dischargedMinor} <= ${table.amountMinor}`,
+    ),
   ],
 );
 
@@ -5319,8 +5616,10 @@ export const matterEventParticipant = sqliteTable(
   (table) => [
     index("matter_event_participant_event_index").on(table.eventId),
     // "What is on this member's calendar" — the firm calendar's member filter, resolved as a
-    // predicate rather than by reading every event and discarding most of them.
-    index("matter_event_participant_member_index").on(table.memberUserId),
+    // predicate rather than by reading every event and discarding most of them. The predicate
+    // supplies BOTH columns, so both are indexed and the lookup is a covering seek; keyed on the
+    // member first so it also answers "which events is this member on" without an event in hand.
+    index("matter_event_participant_member_event_index").on(table.memberUserId, table.eventId),
     index("matter_event_participant_entity_index").on(table.entityId),
     check(
       "matter_event_participant_kind_check",
@@ -6303,8 +6602,10 @@ export const matterAssetValuation = sqliteTable(
       .references(() => matterAsset.id),
     // When set, the row is that ENCUMBRANCE's balance as of a date rather than the asset's value as
     // of a date — one append-only table, one trigger set, one as-of query shape, and net equity as one
-    // read with a sign flip. Declared now and unused until the encumbrance table lands in slice 4·3·2;
-    // adding it later would mean rebuilding a table whose triggers have to be dropped to do it.
+    // read with a sign flip. `matter_asset_encumbrance` has since landed and this column carries its
+    // balances: the asset's own as-of reads filter on `encumbrance_id IS NULL`
+    // (packages/matter-assets/src/valuation-statements.ts), and equity is the two sides differenced.
+    // Declaring it up front is what avoided rebuilding a table whose triggers have to be dropped.
     encumbranceId: text("encumbrance_id"),
     asOfDate: text("as_of_date").notNull(), // civil date — the date the figure speaks to
     amountMinor: integer("amount_minor"),

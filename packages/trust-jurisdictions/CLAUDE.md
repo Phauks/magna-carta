@@ -62,11 +62,22 @@ domain that consumes this is [`packages/trust/CLAUDE.md`](../trust/CLAUDE.md).
 
 ## Gotchas
 
-- **The firm-funds bank-charge carve-out is encoded as a citation and is NOT wired.** Nevada permits
-  it (NRPC 1.15(b)) and the composition guard still refuses every posting to a firm-funds node. The
-  rule states no cap, the exemption in SCR 217(3) means it barely applies to a pooled account, and
-  enabling it would change both the no-commingling guard and the three-way proof. See the comment on
-  `cited.firmFundsForBankCharges` in `src/data/nevada.ts`.
+- **The firm-funds bank-charge carve-out is wired, through a SECOND door and not a relaxed first
+  one.** Nevada permits it (NRPC 1.15(b)), and `composeTrustEntry` — the door client money goes
+  through — still refuses every firm-funds line **absolutely**. What was built beside it is
+  `composeTrustFirmFundsEntry`, which admits strictly fewer shapes than the general door: two lines,
+  a trust account's own firm-funds node and that same account's bank leaf, so the path cannot
+  express a movement of somebody else's money at all. The two things the rule leaves open are
+  answered by refusing rather than by inventing — no cap is chosen (the node carries the same zero
+  floor a matter leaf carries, so a charge larger than the firm's own money aborts the batch), and
+  because SCR 217(3) exempts pooled interest-bearing accounts from service charges,
+  `openTrustFirmFundsNode` refuses to open the carve-out on an account recorded as that kind. All of
+  that machinery is the trust domain's, never this package's:
+  [`packages/trust/src/firm-funds.ts`](../trust/src/firm-funds.ts),
+  [`packages/trust/src/composition-guard.ts`](../trust/src/composition-guard.ts), and the carve-out
+  invariant in [`packages/trust/CLAUDE.md`](../trust/CLAUDE.md). Here it stays what it always was: a
+  permission with a citation. See the comment on `cited.firmFundsForBankCharges` in
+  `src/data/nevada.ts`.
 - **State bar handbooks go stale, and they are the first search result.** Nevada's own published
   trust-accounting handbook still quotes a seven-year retention period (the rule now says five) and
   still cites a rule repealed in 2019. Read the rule text; the handbook is guidance and is dated.

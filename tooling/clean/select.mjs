@@ -44,3 +44,38 @@ export function eligibleWorktrees({ worktrees, currentPath, mergedBranches, allW
 export function isArtifactDir(name) {
   return ARTIFACT_DIRS.includes(name);
 }
+
+// Which of `candidateBranches` have already delivered their work into the baseline?
+//
+// A branch sitting exactly on the baseline commit is excluded before anything else is asked. It has
+// delivered nothing: it is a freshly created workspace someone is about to build in, and its build
+// output is live. Every other test below would call it landed, because a branch with no commits of
+// its own trivially adds nothing.
+//
+// Past that, either test qualifies:
+//
+//   1. `ancestryMerged` — the branch's commits are reachable from the baseline. Right for a
+//      fast-forward or a real merge commit.
+//   2. `mergeResultTree(branch)` equals `baselineTree` — merging the branch in would change no
+//      file. Right for a SQUASH merge, which is how pull requests land here: the squashed commit is
+//      a new object, so a landed branch is never an ancestor of anything and test 1 reports it as
+//      unlanded forever. Comparing trees survives that, whatever the commit graph looks like.
+//
+// `mergeResultTree` returns the merged tree's object id, or null when the merge conflicts. A
+// conflict counts as NOT landed: the branch and the baseline disagree about some file, so the
+// branch may still hold work, and the caller's job is deleting things.
+export function landedBranches({
+  candidateBranches,
+  baselineCommit,
+  baselineTree,
+  tipOf,
+  ancestryMerged,
+  mergeResultTree,
+}) {
+  const landed = new Set();
+  for (const branch of candidateBranches) {
+    if (tipOf(branch) === baselineCommit) continue;
+    if (ancestryMerged.has(branch) || mergeResultTree(branch) === baselineTree) landed.add(branch);
+  }
+  return landed;
+}

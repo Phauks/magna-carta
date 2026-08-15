@@ -24,12 +24,22 @@ export const DOCUMENT_ASSEMBLY_TABLE = "document_assembly";
 export type AssemblyStatus = "queued" | "running" | "done" | "failed";
 export type AssemblyOutcome = "succeeded" | "succeeded_with_absences" | "failed";
 
+// What a job was asked to produce. The merge always emits a word-processing package; `pdf` asks the
+// job to carry that package across the office-suite conversion edge before filing it. It is recorded
+// rather than derived from the filed object because a job that FAILED still has to say what it was
+// trying to make, and a caller polling before the document lands needs the answer to decide what it
+// may hand the produced document to next.
+export type AssemblyOutputFormat = "docx" | "pdf";
+
+export const ASSEMBLY_OUTPUT_FORMATS: readonly AssemblyOutputFormat[] = ["docx", "pdf"];
+
 export interface InsertDocumentAssemblyRow {
   readonly id: DocumentAssemblyId;
   readonly matterId: MatterId;
   readonly templateId: DocumentTemplateId;
   readonly templateVersionId: DocumentTemplateVersionId;
   readonly folderId: FolderId | null;
+  readonly outputFormat: AssemblyOutputFormat;
   readonly engineVersion: number;
   readonly dictionaryVersion: number;
   readonly requestedBy: UserId | null;
@@ -42,7 +52,7 @@ export function insertDocumentAssemblyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DOCUMENT_ASSEMBLY_TABLE} (id, matter_id, template_id, template_version_id, folder_id, status, engine_version, dictionary_version, absent_field_count, absent_field_keys_json, frozen_field_count, frozen_field_names_json, requested_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'queued', ?6, ?7, 0, '[]', 0, '[]', ?8, ?9)`,
+      `INSERT INTO ${DOCUMENT_ASSEMBLY_TABLE} (id, matter_id, template_id, template_version_id, folder_id, status, output_format, engine_version, dictionary_version, absent_field_count, absent_field_keys_json, frozen_field_count, frozen_field_names_json, requested_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'queued', ?6, ?7, ?8, 0, '[]', 0, '[]', ?9, ?10)`,
     )
     .bind(
       row.id,
@@ -50,6 +60,7 @@ export function insertDocumentAssemblyStatement(
       row.templateId,
       row.templateVersionId,
       row.folderId,
+      row.outputFormat,
       row.engineVersion,
       row.dictionaryVersion,
       row.requestedBy,
@@ -75,8 +86,10 @@ export interface CompleteDocumentAssemblyRow {
   readonly outcome: Extract<AssemblyOutcome, "succeeded" | "succeeded_with_absences">;
   // The KEYS that could not be resolved, never the values that could.
   readonly absentFieldKeys: readonly string[];
-  // The NAMES of the Word merge fields the template carried unconverted, which this document therefore
-  // renders as frozen cached text. Names only — the frozen text itself stays in the template's manifest.
+  // The NAMES of the Word fields nothing substituted — merge fields the template carried unconverted,
+  // legacy form fields, and content controls nothing will fill in, none of which anything binds — so
+  // this document renders each as the text the template already held. Names only, so a reader can find
+  // each field in the document; the text itself stays in the template's manifest.
   readonly frozenFieldNames: readonly string[];
   readonly completedAt: string;
 }
@@ -128,6 +141,7 @@ export interface DocumentAssemblyRow {
   readonly templateId: DocumentTemplateId;
   readonly templateVersionId: DocumentTemplateVersionId;
   readonly folderId: FolderId | null;
+  readonly outputFormat: AssemblyOutputFormat;
   readonly status: AssemblyStatus;
   readonly outcome: AssemblyOutcome | null;
   readonly failureReason: string | null;
@@ -145,6 +159,7 @@ interface DocumentAssemblyColumns {
   template_id: string;
   template_version_id: string;
   folder_id: string | null;
+  output_format: string;
   status: string;
   outcome: string | null;
   failure_reason: string | null;
@@ -156,7 +171,7 @@ interface DocumentAssemblyColumns {
   completed_at: string | null;
 }
 
-const SELECT_ASSEMBLY_COLUMNS = `SELECT id, matter_id, template_id, template_version_id, folder_id, status, outcome, failure_reason, file_id, file_version_id, absent_field_keys_json, frozen_field_names_json, created_at, completed_at FROM ${DOCUMENT_ASSEMBLY_TABLE}`;
+const SELECT_ASSEMBLY_COLUMNS = `SELECT id, matter_id, template_id, template_version_id, folder_id, output_format, status, outcome, failure_reason, file_id, file_version_id, absent_field_keys_json, frozen_field_names_json, created_at, completed_at FROM ${DOCUMENT_ASSEMBLY_TABLE}`;
 
 function parseKeys(json: string): string[] {
   try {
@@ -176,6 +191,10 @@ function toDocumentAssemblyRow(row: DocumentAssemblyColumns): DocumentAssemblyRo
     templateId: row.template_id as DocumentTemplateId,
     templateVersionId: row.template_version_id as DocumentTemplateVersionId,
     folderId: row.folder_id as FolderId | null,
+    // A row written before the column existed reads NULL through a driver that does not apply the
+    // default to an already-stored row; every such assembly produced a word-processing package,
+    // which is what the fallback says.
+    outputFormat: row.output_format === "pdf" ? "pdf" : "docx",
     status: row.status as AssemblyStatus,
     outcome: row.outcome as AssemblyOutcome | null,
     failureReason: row.failure_reason,

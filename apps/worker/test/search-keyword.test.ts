@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-statements";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
-import { found, type SearchIndexPort } from "@magna-carta/search/port";
+import { found, type SearchIndexPort, type SplitQueryTarget } from "@magna-carta/search/port";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -48,12 +48,13 @@ describe("runKeywordSearch", () => {
       }),
     ]);
 
-    let capturedSplitKeys: readonly string[] = [];
+    let capturedSplits: readonly SplitQueryTarget[] = [];
     const fakePort: SearchIndexPort = {
       index: () => Promise.reject(new Error("index not exercised here")),
       remove: () => Promise.reject(new Error("remove not exercised here")),
+      compact: () => Promise.reject(new Error("compact not exercised here")),
       query: (input) => {
-        capturedSplitKeys = input.splitKeys;
+        capturedSplits = input.splits;
         return Promise.resolve(
           found([
             { documentId: "file_test00000000000000000001" as FileId, chunkId: "c1", score: 1 },
@@ -70,10 +71,13 @@ describe("runKeywordSearch", () => {
 
     // The engine received exactly the corpus's live split object keys — the catalog is what scopes the
     // query, and the engine range-reads only those.
-    expect([...capturedSplitKeys].sort()).toEqual([
+    expect(capturedSplits.map((split) => split.objectKey).sort()).toEqual([
       "search/matter/splits/a.split",
       "search/matter/splits/b.split",
     ]);
+    // Nothing has been re-indexed, so neither split carries an exclusion. An empty list here is the
+    // ordinary case and the one a query must not pay for.
+    expect(capturedSplits.every((split) => split.excludeDocumentIds.length === 0)).toBe(true);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.hits[0]?.documentId).toBe("file_test00000000000000000001");
   });

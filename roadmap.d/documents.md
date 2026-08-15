@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Documents -->
+
 - id: documents
   name: Documents
   scope: Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing.
@@ -18,6 +20,9 @@
   adrs: ADR-0078
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
   evidence: packages/file-manager plus worker routes (files, folders, document-types, uploads, downloads) on main; UI still building.
+  audience: public
+  public-name: Files on a matter
+  public-summary: Every file on a matter in folders you control, with each version kept as you save it.
   notes: Backend shipped; user-facing surface is the file-surface-web stream.
 
 - id: documents.file-manager.folders
@@ -79,10 +84,10 @@
 
 - id: documents.file-manager.storage-metering
   name: Storage metering
-  scope: Per-firm rollup of bytes and object counts by storage class and key prefix, feeding Analytics Engine and firm-usage diagnostics.
+  scope: Per-firm rollup of bytes and object counts by storage class and key prefix, exact in D1, reconciled against R2, feeding firm-usage diagnostics.
   status: shipped
   adrs: ADR-0078, ADR-0103
-  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/worker/src/routes/firm-usage.ts; slice 1-1 fragment lists metering crons built.
+  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/worker/src/routes/firm-usage.ts; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
 
 - id: documents.upload
   name: Upload & ingest pipeline
@@ -196,6 +201,9 @@
   adrs: ADR-0010, ADR-0125, ADR-0126
   spec: docs/specs/2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md
   evidence: containers/collabora + apps/magna-carta-edit deployed + apps/worker/src/editing on main; editor UI pending.
+  audience: public
+  public-name: Editing in the browser
+  public-summary: Open and edit a document in the browser without downloading it, and keep the version history as you work.
 
 - id: documents.editing.collabora-host
   name: Collabora container host
@@ -445,6 +453,9 @@
   adrs: ADR-0045, ADR-0128
   spec: docs/specs/2026-06-21-rust-pdf-engine-roadmap-design.md
   evidence: Engine substrate built (crates/pdf-core to WASM); consumer surfaces and tool UIs not started; slice 2-5 in-progress.
+  audience: public
+  public-name: PDF tools
+  public-summary: Redact, combine, split, rotate, fill, stamp and password-protect a PDF without sending the file anywhere else.
   notes: ADR-0045 marks the whole PDF/e-signature design provisional pending verification.
 
 - id: documents.pdf.engine
@@ -563,6 +574,9 @@
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0045, ADR-0205, ADR-0206
   evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/worker/src/routes/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
+  audience: public
+  public-name: Electronic signatures
+  public-summary: Send a document for signature and get the signed copy back with a record of who signed it and when.
   notes: ADR-0045 records the whole area as provisional — every license/legal specific to be re-verified before build.
 
 - id: documents.esignature.pades-seal
@@ -608,6 +622,9 @@
   adrs: ADR-0146
   spec: docs/specs/2026-06-25-enhanced-bundling-design.md
   evidence: containers/bundle (Rust) + apps/bundle-worker + bundle-\* modules in packages/file-manager; UI deferred.
+  audience: public
+  public-name: Court bundles
+  public-summary: Assemble an indexed, paginated bundle from the files already on the matter.
 
 - id: documents.bundling.light-lane
   name: TypeScript bundle lane
@@ -650,6 +667,7 @@
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
   evidence: apps/worker/src/routes/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
+  notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
 - id: documents.ocr.raster-cap
   name: Raster cap & skip gate
@@ -711,6 +729,9 @@
   slices: decryption-file-unlock-password-recovery
   spec: docs/specs/2026-06-26-decryption-tool-design.md
   evidence: crates/decryption-core + @magna-carta/decryption + routes decryption.ts/recovery.ts + apps/recovery-worker + containers/recovery; GPU rungs and UI deferred.
+  audience: public
+  public-name: Opening a locked file
+  public-summary: Unlock a password-protected file when you have the password, and attempt recovery when the client no longer does.
   notes: Decision fragments decryption-file-unlock-recovery and decryption-recovery-orchestration pending assembly (unnumbered).
 
 - id: documents.decryption.unlock
@@ -747,6 +768,9 @@
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
   evidence: @magna-carta/metadata + apps/worker/src/routes/metadata.ts; HEIC/PDF/container engine deferred; UI todo.
+  audience: public
+  public-name: Metadata scrubbing
+  public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
 
 - id: documents.metadata.ooxml
   name: OOXML metadata

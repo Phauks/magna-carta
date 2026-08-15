@@ -3,28 +3,27 @@
 # directories in a monorepo. Adding an entry is an explicit security decision, never a quick unblock;
 # each carries a cause. The `ignoreUntil` on the tracked-remediation set is a forcing function — when it
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
-
-# --- Long-standing accepted dev/build-tooling advisories (npm) -------------------------------------
-# This file is now the sole home for accepted advisories: the pre-push hook's `pnpm audit` step and the
-# package.json `pnpm.auditConfig.ignoreGhsas` it read have been removed, so the CI osv-scanner gate is the
-# one authoritative audit over both supply chains.
-
-[[IgnoredVulns]]
-id = "GHSA-r5fr-rjxr-66jc"
-reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path. Drops when the carrier upgrades; note this needs a deliberate bump, not an automated one, until the Renovate app is actually installed on the repository."
-
-# --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
-# Each was accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaced it for
-# review. Entries leave this file as soon as they are genuinely remediated, never by quietly extending
-# the clock: lopdf (RUSTSEC-2026-0187) left when the carrier moved to 0.42.0; the esbuild advisory left
-# when GitHub withdrew it; the uuid advisory (GHSA-w5hq-g745-h8pq) left on the 2026-08-04 review when the
-# pnpm-workspace.yaml override forced uuid 11.1.1 onto postman-collection; and the two quick-xml entries
-# (RUSTSEC-2026-0194 and -0195) left when the carrier itself was removed from the tree — the exit their
-# own acceptance reason named. office-crypto was quick-xml's only consumer in every audited lockfile, and
-# no office-crypto release resolves quick-xml >= 0.41, so replacing it was the only remediation that
-# existed. crates/decryption-core now implements the MS-OFFCRYPTO package decryption loop itself, on the
-# agile verifier and descriptor parser it already owned. The 64 KiB descriptor cap and the
-# EncryptedPackage bounds stay — they are correct defense-in-depth for the in-house parser too.
+#
+# THE FILE IS EMPTY OF ENTRIES, AND THAT IS THE INTENDED STATE. Nothing is accepted today. An entry
+# belongs here only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or
+# CRITICAL (CVSS >= 7.0) with no remediation available. An advisory the gate already passes needs no
+# entry, and adding one would be actively harmful: it would hide a finding that is currently visible in
+# the scan output for the next person who reads it.
+#
+# --- History, so a future reader knows why the mechanism exists ------------------------------------
+#
+# Tracked advisories were first surfaced when osv-scanner audited the Rust supply chain (2026-07-16).
+# Each was accepted with cause and a time-boxed ignoreUntil that re-surfaced it for review. Entries
+# left this file as soon as they were genuinely remediated, never by quietly extending the clock:
+# lopdf (RUSTSEC-2026-0187) left when the carrier moved to 0.42.0; the esbuild advisory left when
+# GitHub withdrew it; the uuid advisory (GHSA-w5hq-g745-h8pq) left on the 2026-08-04 review when the
+# pnpm-workspace.yaml override forced uuid 11.1.1 onto postman-collection; and the two quick-xml
+# entries (RUSTSEC-2026-0194 and -0195) left when the carrier itself was removed from the tree — the
+# exit their own acceptance reason named. office-crypto was quick-xml's only consumer in every audited
+# lockfile, and no office-crypto release resolves quick-xml >= 0.41, so replacing it was the only
+# remediation that existed. crates/decryption-core now implements the MS-OFFCRYPTO package decryption
+# loop itself, on the agile verifier and descriptor parser it already owned. The 64 KiB descriptor cap
+# and the EncryptedPackage bounds stay — they are correct defense-in-depth for the in-house parser too.
 #
 # quick-xml is back in the tree, and this time at a FIXED version rather than an accepted one:
 # crates/discovery-core takes it directly to pull character data out of OOXML and OpenDocument parts,
@@ -33,4 +32,32 @@ reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no produc
 # NamespaceResolver::push caps namespace declarations per element instead of allocating unbounded — so
 # neither advisory applies and neither needs an entry here. A future bump must not drop below 0.41.
 #
-# No Rust advisory is currently accepted. The npm entry above is the only remaining ignore.
+# The last entry to leave was the long-standing lodash one (GHSA-r5fr-rjxr-66jc, code injection via
+# `_.template` import key names, CVSS 8.1 — the only advisory over the fail threshold this file has
+# carried for months). Its acceptance reason said it would drop when the carrier upgraded, and no
+# carrier ever did: postman-collection hard-pins lodash 4.17.21 through its newest release. What
+# resolved it was the same move that resolved uuid on the same carrier — a pnpm-workspace.yaml
+# override, onto lodash 4.18.1, which every other consumer in the tree already resolved. The 4.18 line
+# fixes that advisory and the two prototype-pollution records alongside it.
+#
+# --- What is NOT accepted, and is deliberately left visible ----------------------------------------
+#
+# Nine advisories remain in the audited lockfiles. All nine pass the gate on severity, and every one
+# has either no fix published or no fix reachable without a carrier moving first, so there is nothing
+# an entry here could usefully forgive:
+#
+#   cookie 0.6.0 (GHSA-pxg6-pf52-xh8x, low) — @sveltejs/kit still declares ^0.6.0 as of 2.70.2.
+#   esbuild 0.18.20 (GHSA-67mh-4wv8-2f99, 5.3) — @esbuild-kit/core-utils hard-pins ~0.18.20 and is
+#     deprecated; it reaches the tree only through drizzle-kit's config loader, which never starts the
+#     esbuild dev server the advisory is about.
+#   lru 0.16.4 (RUSTSEC-2026-0253) — tantivy pins it; the fix is 0.18.2, a Cargo-breaking bump.
+#   paste 1.0.15, proc-macro-error2 2.0.1, ttf-parser 0.25.1, bincode 2.0.1 — unmaintained-crate
+#     notices with no fixed version published. The first two are build-time proc macros with no
+#     runtime surface at all.
+#   rsa 0.9.10 (RUSTSEC-2023-0071, Marvin timing sidechannel, 5.9) — no fixed release exists upstream.
+#     It arrives through yara-x's signature-parsing modules, which verify Authenticode signatures on
+#     scanned samples and hold no private key; the attack recovers a private key through a
+#     decryption/signing oracle, so there is no operation here for it to target.
+#   wasmtime 43.0.2 (RUSTSEC-2026-0222, 3.8) — yara-x requires ^43.0.2 and the fix landed in 46.0.2,
+#     so no yara-x release reaches it. The defect needs an application that moves a Store between two
+#     Engines; yara-x uses one.

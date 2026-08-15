@@ -7,6 +7,13 @@ import {
   EmptyRationaleError,
   UnknownHitError,
 } from "@magna-carta/conflicts/disposition";
+import {
+  parseCheckInputs,
+  parseCheckScope,
+  readMatterConflictsPosture,
+  reportedSourcesFor,
+} from "@magna-carta/conflicts/posture";
+import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
@@ -78,6 +85,10 @@ interface CheckRow {
   readonly scope_json: string;
   readonly strictness: string;
   readonly depth: number;
+  // The inputs blob is read for the COUNTS the report sentence states (how many subject parties, how
+  // many entities the traversal reached, which identifier types were skipped). It is never returned:
+  // it also holds the identifier references, and the response has no business carrying them.
+  readonly inputs_json: string;
   readonly floor_raised: number;
   readonly actor_user_id: string | null;
   readonly created_at: string;
@@ -86,7 +97,7 @@ interface CheckRow {
 async function readCheckRow(database: SqlDatabase, checkId: string): Promise<CheckRow | null> {
   const { results } = await database
     .prepare(
-      `SELECT id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, floor_raised, actor_user_id, created_at FROM ${CONFLICTS_CHECK_TABLE} WHERE id = ?1`,
+      `SELECT id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at FROM ${CONFLICTS_CHECK_TABLE} WHERE id = ?1`,
     )
     .bind(checkId)
     .all<CheckRow>();
@@ -129,6 +140,9 @@ const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za
 // door with a 422 rather than a 500 or a stalled worker.
 const MAX_SUBJECT_ENTITIES = 200;
 const MAX_GRAPH_DEPTH = 6;
+// The largest closure one request may ask the traversal to expand to. The firm's own setting is the
+// default; this refuses a caller-supplied number that would make one request walk the whole corpus.
+const MAX_CLOSURE_CAP = 5000;
 
 const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
@@ -146,6 +160,20 @@ const ScopeRequest = z
     // (0 included) is honored as given, capped so no single request can walk an unbounded traversal.
     // The resolved depth is always recorded on the check.
     depth: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+    // Per-edge-class hop budgets. A class omitted here falls back to `depth`, then to the firm's own
+    // setting, so a caller written before typed budgets existed keeps meaning exactly what it meant.
+    // Corporate-family edges carry no budget: they are traversed transitively, bounded only by the
+    // closure cap, because a rename or merger chain of any length is one legal person continuing.
+    edgeClassBudgets: z
+      .object({
+        control: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+        family: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+        representation: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
+      })
+      .optional(),
+    // The most entities this run may expand to. Omitted means the firm's setting. Reaching it stops
+    // the traversal and the check records that it was truncated, with how much it did not reach.
+    closureCap: z.number().int().min(0).max(MAX_CLOSURE_CAP).optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -166,6 +194,10 @@ const GraphPathStep = z
     edgeType: z.string(),
     fromEntityId: z.string(),
     toEntityId: z.string(),
+    // True when the relationship had already ended when the check read the corpus. An ended
+    // relationship is traversed rather than skipped, and the reviewer weighs the expiry. Absent on a
+    // path recorded before the traversal carried the flag.
+    expiredAtCheck: z.boolean().optional(),
   })
   .openapi("ConflictsGraphPathStep");
 
@@ -197,6 +229,23 @@ const HitDetail = z
   })
   .openapi("ConflictsHitDetail");
 
+const TraversalRecord = z
+  .object({
+    // The hop budget in force per budgeted edge class. Corporate family is absent: it is transitive.
+    edgeClassBudgets: z.record(z.string(), z.number().int()),
+    closureCap: z.number().int().nullable(),
+    // True when the closure cap stopped the walk. A truncated expansion is never reported as a
+    // completed one, for the same reason a source with no corpus is never reported as searched: the
+    // platform looked at part of the world and has to say which part.
+    truncated: z.boolean(),
+    entitiesReached: z.number().int().nullable(),
+    // Entities the cap refused to admit. These were never matched.
+    unexploredFrontierSize: z.number().int().nullable(),
+    // Entities that ARE in the closure and WERE matched, but whose own edges were never read.
+    unexpandedReachedCount: z.number().int().nullable(),
+  })
+  .openapi("ConflictsTraversalRecord");
+
 const CheckDetail = z
   .object({
     id: z.string(),
@@ -210,14 +259,116 @@ const CheckDetail = z
     strictness: z.enum(STRICTNESS_LEVELS),
     depth: z.number().int(),
     floorRaised: z.boolean(),
+    traversal: TraversalRecord.nullable(),
     actorUserId: z.string().nullable(),
     createdAt: z.string(),
   })
   .openapi("ConflictsCheckDetail");
 
+// The reader-facing account of the search, one line per statement, in reading order. Every line is a
+// fact about the search itself — which channels ran, which sources have no corpus, how many candidates
+// surfaced. A search that surfaced nothing ends "Nothing surfaced.", which reports that the search
+// ended and says nothing about the matter.
+const CheckStatement = z.array(z.string());
+
 const GetCheckResponse = z
-  .object({ check: CheckDetail, hits: z.array(HitDetail) })
+  .object({ check: CheckDetail, statement: CheckStatement, hits: z.array(HitDetail) })
   .openapi("ConflictsCheckWithHitsResponse");
+
+// ---- the matter conflicts posture ----
+
+const matterIdParam = z.object({
+  matterId: identifierPathParam("matter", "matterId"),
+});
+
+const PostureScope = z
+  .object({
+    // Every registered source with the availability the check recorded. A source with no corpus is
+    // present and marked unavailable, never omitted and never conflated with one that was searched.
+    sources: z.record(z.string(), z.enum(SOURCE_AVAILABILITIES)),
+    strictness: z.string(),
+    depth: z.number().int(),
+    floorRaised: z.boolean(),
+    // Null on a check written before the traversal record existed — "the row does not say", which is
+    // a different fact from "the walk completed" and is never flattened into it.
+    traversal: TraversalRecord.nullable(),
+  })
+  .openapi("ConflictsPostureScope");
+
+const PostureLatestCheck = z
+  .object({
+    id: z.string(),
+    createdAt: z.string(),
+    trigger: z.string(),
+    actorUserId: z.string().nullable(),
+    scope: PostureScope,
+    subjectEntityCount: z.number().int(),
+    expandedEntityCount: z.number().int(),
+    skippedIdentifierTypes: z.array(z.string()),
+    hitCount: z.number().int(),
+  })
+  .openapi("ConflictsPostureLatestCheck");
+
+const PostureScopeShortfall = z
+  .object({
+    // Source classes the firm's current policy requires that the latest check did not consider.
+    sources: z.array(z.enum(SOURCE_CLASSES)),
+    strictness: z.object({ firmFloor: z.enum(STRICTNESS_LEVELS), ranUnder: z.string() }).nullable(),
+    depth: z.object({ firmDefault: z.number().int(), ranAt: z.number().int() }).nullable(),
+  })
+  .openapi("ConflictsPostureScopeShortfall");
+
+const PostureUndisposedTier = z
+  .object({ tier: z.number().int().min(1).max(4), count: z.number().int() })
+  .openapi("ConflictsPostureUndisposedTier");
+
+const PostureDispositionKind = z
+  .object({
+    kind: z.enum(DISPOSITION_KINDS),
+    count: z.number().int(),
+    reviewerUserIds: z.array(z.string()),
+  })
+  .openapi("ConflictsPostureDispositionKind");
+
+const PostureUnavailableSource = z
+  .object({ source: z.string(), reason: z.string() })
+  .openapi("ConflictsPostureUnavailableSource");
+
+const PosturePendingRecheck = z
+  .object({
+    causeTopic: z.string(),
+    causeReference: z.string(),
+    causeOccurredAt: z.string(),
+    requestedAt: z.string(),
+  })
+  .openapi("ConflictsPosturePendingRecheck");
+
+const PosturePeriodicRescan = z
+  .object({
+    enabled: z.boolean(),
+    intervalDays: z.number().int(),
+    lastRunAt: z.string().nullable(),
+  })
+  .openapi("ConflictsPosturePeriodicRescan");
+
+const MatterConflictsPostureResponse = z
+  .object({
+    matterId: z.string(),
+    // True when no check has ever named this matter — a different state from a check that searched
+    // and surfaced nothing, and different again from one whose sources were all unavailable.
+    neverChecked: z.boolean(),
+    latestCheck: PostureLatestCheck.nullable(),
+    scopeShortfall: PostureScopeShortfall,
+    pendingRecheck: z.array(PosturePendingRecheck),
+    // The clock-driven backstop's standing for this firm. A firm that has switched it off has made a
+    // choice about its own procedure, and a report that leaves it out would leave the reader assuming
+    // the opposite.
+    periodicRescan: PosturePeriodicRescan,
+    undisposedByTier: z.array(PostureUndisposedTier),
+    dispositionsByKind: z.array(PostureDispositionKind),
+    unavailableSources: z.array(PostureUnavailableSource),
+  })
+  .openapi("MatterConflictsPostureResponse");
 
 const RecordDispositionRequest = z
   .object({
@@ -353,16 +504,52 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
   path: "/api/v1/conflicts/checks/{checkId}",
   description:
     "Returns a completed conflicts check and every hit it surfaced, including each hit's current " +
-    "disposition when a reviewer has already adjudicated it.",
+    "disposition when a reviewer has already adjudicated it, alongside a plain-language statement of " +
+    "what the search did: which sources ran and with what settings, which could not run and why, and " +
+    "how many candidates surfaced. The statement reports the search and reaches no conclusion about " +
+    "the matter — a search that surfaced nothing ends by saying so, which is a fact about the search " +
+    "and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded " +
+    "as a disposition naming them.",
   request: { params: checkIdParam },
   responses: {
     200: {
-      description: "The check and its hits",
+      description: "The check, the statement of what it searched, and its hits",
       content: { "application/json": { schema: GetCheckResponse } },
     },
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const matterPostureRoute = defineOpenAPIRoute(readMeta("matterPosture", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/conflicts-posture",
+  description:
+    "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, " +
+    "which of the firm's current policy requirements that check did not meet, how many of its hits no " +
+    "reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, " +
+    "every re-check the platform knows is owed because the firm's records moved under this matter — " +
+    "each naming what changed and when — whether the firm's scheduled re-screening is switched on and " +
+    "how often it runs, and " +
+    "every source that could not be searched with the reason it could not. A matter that has never " +
+    "been checked reports that as its own distinct state, separate from a check that searched and " +
+    "surfaced nothing. Every field is computed from the log at the moment of the request and nothing " +
+    "is stored, so raising the firm's policy shows up here immediately. The response reports what was " +
+    "searched and what was found and asserts nothing about whether an interest is adverse: there is no " +
+    "summary field and no single verdict, because concluding is a lawyer's act and the record says " +
+    "whose.",
+  request: { params: matterIdParam },
+  responses: {
+    200: {
+      description: "The matter's conflicts posture, derived at read time",
+      content: { "application/json": { schema: MatterConflictsPostureResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
     429: authErrors[429],
   },
 });
@@ -476,19 +663,56 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
           };
         }),
       );
+      const scope = parseCheckScope(checkRow.scope_json);
+      const inputs = parseCheckInputs(checkRow.inputs_json);
+      const sources: ReportedSource[] = reportedSourcesFor(scope, {
+        hasSubjectMatter: checkRow.subject_matter_id !== null,
+      });
+      const statement = describeCheck(
+        {
+          createdAt: checkRow.created_at,
+          trigger: checkRow.trigger,
+          actorUserId: checkRow.actor_user_id,
+          strictness: checkRow.strictness as "balanced" | "over_inclusive",
+          depth: checkRow.depth,
+          floorRaised: checkRow.floor_raised === 1,
+          subjectEntityCount: inputs.subjectEntityIds.length,
+          expandedEntityCount: inputs.expandedEntityIds.length,
+          skippedIdentifierTypes: inputs.skippedIdentifierTypes,
+          traversal: inputs.traversal,
+        },
+        hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
+        sources,
+      );
       const check = {
         id: checkRow.id,
         trigger: checkRow.trigger,
         matterId: checkRow.subject_matter_id,
         subjectEntityIds: JSON.parse(checkRow.subject_parties_json) as string[],
-        scope: JSON.parse(checkRow.scope_json) as Record<string, string>,
+        scope,
         strictness: checkRow.strictness,
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
+        traversal: inputs.traversal,
         actorUserId: checkRow.actor_user_id,
         createdAt: checkRow.created_at,
       };
-      return c.json({ check, hits } as unknown as z.infer<typeof GetCheckResponse>, 200);
+      return c.json({ check, statement, hits } as unknown as z.infer<typeof GetCheckResponse>, 200);
+    },
+  );
+
+  // GET /api/v1/matters/{matterId}/conflicts-posture
+  app.openapi(
+    { ...matterPostureRoute, middleware: chokepointMiddleware(chokepoint, matterPostureRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      // No existence check on the matter, and deliberately: a matter that has never been checked
+      // reads `neverChecked`, and that is exactly the state a caller needs to see. A 404 here would
+      // make "never checked" and "no such matter" the same answer, which is the conflation this read
+      // exists to prevent.
+      const posture = await readMatterConflictsPosture(firm.firmDatabase, matterId);
+      return c.json(posture as z.infer<typeof MatterConflictsPostureResponse>, 200);
     },
   );
 

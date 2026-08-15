@@ -25,6 +25,23 @@ export interface CredentialStore {
   put(credentialRef: string, credential: Credential): Promise<void>;
 }
 
+// A deployment whose per-firm credential read is a seam nobody has built yet. Stated as a value the
+// registry can be handed, rather than a store that throws when constructed: a throw at the seam
+// becomes a 500 on a request that could have said what the platform cannot do, and every caller
+// would have to catch it to say anything else. Structurally distinct from a CredentialStore (no
+// get/put), so the union discriminates without a tag anyone has to remember to set.
+export interface UnbuiltCredentialStore {
+  readonly credentialReadIsBuilt: false;
+}
+
+export const unbuiltCredentialStore: UnbuiltCredentialStore = { credentialReadIsBuilt: false };
+
+export function isUnbuiltCredentialStore(
+  store: CredentialStore | UnbuiltCredentialStore,
+): store is UnbuiltCredentialStore {
+  return "credentialReadIsBuilt" in store;
+}
+
 export interface TokenRefresher {
   refresh(credential: Credential): Promise<Credential>;
 }

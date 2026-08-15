@@ -120,6 +120,14 @@ describe("problemGuidance", () => {
     expect(problemGuidance({ status: 500 }).tone).toBe("danger");
   });
 
+  // The page shows the Error ID only on a `danger` tone, so classifying 501 as info is also what
+  // keeps a registry that publishes no lookup service from reading as our own fault.
+  it("treats a 501 unsupported registry as information, not a server fault", () => {
+    const guidance = problemGuidance({ status: 501, errorId: "error_example" });
+    expect(guidance.tone).toBe("info");
+    expect(guidance.message).not.toContain("support");
+  });
+
   it("explains a 401 politely as a missing session", () => {
     expect(problemGuidance({ status: 401 }).tone).toBe("info");
   });

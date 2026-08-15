@@ -19,12 +19,10 @@ export type {
   CaptureWritePlan,
   PersistedOriginal,
 } from "./capture.ts";
-export {
-  checkFilingConflict,
-  raiseEmailFiledNotification,
-  DKIM_VERDICT_UNVERIFIED,
-} from "./seams.ts";
-export type { FilingConflictInput, FilingConflictResult, EmailFiledNotification } from "./seams.ts";
+export { checkFilingConflict, DKIM_VERDICT_UNVERIFIED } from "./seams.ts";
+export type { FilingConflictInput, FilingConflictResult } from "./seams.ts";
+export { EMAIL_FILED_TOPIC, EMAIL_FILING_OUTBOX_TOPICS } from "./topics.ts";
+export type { EmailFiledPayload, EmailFilingOutboxTopic } from "./topics.ts";
 export {
   candidateMatterNumbers,
   rankMatterSuggestions,
@@ -39,14 +37,15 @@ export type {
 } from "./matter-suggestion.ts";
 export {
   resolveAutoFileDecision,
-  AUTO_FILE_ACTIVITY_WINDOW_LIMIT,
-  AUTO_FILE_MAX_FIRES_PER_WINDOW,
-  AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES,
-  AUTO_FILE_RECENT_FIRE_WINDOW,
+  activityWindowLimitFor,
+  AUTO_FILE_CIRCUIT_BREAKER_BOUNDS,
+  DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
+  isWellFormedCircuitBreaker,
   NO_AUTO_FILE_RULE_MATCHED,
 } from "./auto-file-rules.ts";
 export type {
   AutoFileCandidateRule,
+  AutoFileCircuitBreakerThresholds,
   AutoFileDecision,
   AutoFileDemotionReason,
   AutoFileEvidence,

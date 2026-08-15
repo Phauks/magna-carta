@@ -16,7 +16,10 @@ import {
   selectActiveTrustReconciliationMatchesStatement,
   selectTrustReconciliationMatchStatement,
 } from "./statements.ts";
-import { readOutstandingTrustBankItems } from "./three-way-proof.ts";
+import {
+  readOutstandingTrustBankItems,
+  readUnmatchedTrustBankStatementLines,
+} from "./three-way-proof.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 import type {
   TrustBankItem,
@@ -148,7 +151,14 @@ export function suggestTrustStatementMatches(
 }
 
 // The suggestion surface a caller shows: the lines this reconciliation has not accounted for, the
-// items it has not accounted for, and the candidate pairings between them. Three reads, no fan.
+// items it has not accounted for, and the candidate pairings between them. Two reads, no fan.
+//
+// BOTH LISTS COME FROM THE PROOF'S OWN READS, not from a second derivation beside them. This used to
+// subtract the reconciliation's active matches from the statement's lines in memory, which agreed
+// with the proof's SQL on the cases that exist today and would have stopped agreeing silently: both
+// forms answer plausibly, so a member would work one list while the close attested to another. The
+// same reasoning already binds the item side — the list a person clears from and the list the proof
+// adjusts by must be one list.
 export async function readTrustMatchSuggestions(
   database: SqlDatabase,
   reconciliationId: TrustReconciliationId,
@@ -159,13 +169,10 @@ export async function readTrustMatchSuggestions(
   suggestions: readonly TrustMatchSuggestion[];
 }> {
   const reconciliation = await readTrustReconciliation(database, reconciliationId);
-  const [lines, items, matches] = await Promise.all([
-    readTrustBankStatementLines(database, reconciliation.statementId),
+  const [unmatchedLines, items] = await Promise.all([
+    readUnmatchedTrustBankStatementLines(database, reconciliation),
     readOutstandingTrustBankItems(database, reconciliation),
-    readActiveTrustReconciliationMatches(database, reconciliationId),
   ]);
-  const matchedLineIds = new Set(matches.map((match) => match.statementLineId));
-  const unmatchedLines = lines.filter((line) => !matchedLineIds.has(line.id));
   return {
     unmatchedLines,
     outstandingItems: items,

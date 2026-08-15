@@ -104,6 +104,8 @@ function manifestOf(fields: readonly ManifestField[]): FieldManifest {
     fields,
     totalOccurrences: fields.reduce((sum, field) => sum + field.occurrences, 0),
     unconvertedMergeFields: [],
+    legacyFormFields: [],
+    unboundContentControls: [],
     blocks: [],
     computedFields: [],
   };

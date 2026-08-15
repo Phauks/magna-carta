@@ -30,7 +30,11 @@
     "./load-profile/document-automation-generate": "./src/load-profile/document-automation-generate.ts",
     "./load-profile/document-automation-measurements": "./src/load-profile/document-automation-measurements.ts",
     "./load-profile/trust-generate": "./src/load-profile/trust-generate.ts",
-    "./load-profile/trust-measurements": "./src/load-profile/trust-measurements.ts"
+    "./load-profile/trust-measurements": "./src/load-profile/trust-measurements.ts",
+    "./load-profile/custodian-generate": "./src/load-profile/custodian-generate.ts",
+    "./load-profile/custodian-measurements": "./src/load-profile/custodian-measurements.ts",
+    "./load-profile/calendar-generate": "./src/load-profile/calendar-generate.ts",
+    "./load-profile/calendar-measurements": "./src/load-profile/calendar-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -39,8 +43,10 @@
   "dependencies": {
     "@faker-js/faker": "catalog:",
     "@magna-carta/billing": "workspace:*",
+    "@magna-carta/calendar": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
     "@magna-carta/costs": "workspace:*",
+    "@magna-carta/custodian": "workspace:*",
     "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
@@ -53,6 +59,7 @@
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/reporting": "workspace:*",
     "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*"
   },

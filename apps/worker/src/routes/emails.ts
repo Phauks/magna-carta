@@ -6,6 +6,7 @@ import {
   filedMatterIdsForMessage,
   findByContentSha256,
   findByMessageIdValue,
+  readEmailMatterLinksForMessage,
   readMatterEmails,
   readMessageById,
   unlinkEmailFromMatterStatement,
@@ -20,6 +21,7 @@ import {
 } from "@magna-carta/file-manager/upload-policy";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import { checkFilingConflict } from "@magna-carta/email-filing/seams";
+import { EMAIL_FILED_TOPIC } from "@magna-carta/email-filing/topics";
 import {
   fileNameForMessageFormat,
   mediaTypeForMessageFormat,
@@ -754,6 +756,30 @@ export function registerEmailsRoutes(
           detail: "No staged email link for this message on this matter.",
         });
       }
+      // What state the link is actually in decides whether there is anything to accept. The UPDATE
+      // below is guarded on `staged` and quietly changes nothing otherwise, which was fine while the
+      // batch only carried an audit row — it is not fine now that the batch announces a filing, and it
+      // was never fine that a second accept wrote an audit row for a promotion that did not happen.
+      // Reading first also answers honestly for a link somebody unlinked, which previously returned
+      // 200 "filed" over a row still sitting in `unlinked`.
+      const links = await readEmailMatterLinksForMessage(
+        firm.firmDatabase,
+        emailMessageId as EmailMessageId,
+      );
+      const link = links.find((candidate) => candidate.matterId === matterId);
+      if (link === undefined || link.state === "unlinked") {
+        return problemJson(c, {
+          type: "not-found",
+          title: "No staged link",
+          status: 404,
+          detail: "No staged email link for this message on this matter.",
+        });
+      }
+      // Already filed: the repeat of an accept that landed. Nothing changed, so nothing is written and
+      // nobody is told a second time — the response is the same one the first accept returned.
+      if (link.state === "filed") {
+        return c.json({ emailMessageId, matterId, state: "filed" }, 200);
+      }
       // Filing traverses the conflict/ethical-wall hook (a no-op today; the engine drops in here).
       checkFilingConflict({
         firmId,
@@ -781,7 +807,10 @@ export function registerEmailsRoutes(
               metadata: { matterId },
             }),
           ],
-          outboxMessages: [],
+          // The notification's emission point, and it is this row rather than a call: it commits in the
+          // same batch as the promotion, so it exists exactly when the filing does. Two identifiers and
+          // nothing else — no subject, no address, no participant list.
+          outboxMessages: [{ topic: EMAIL_FILED_TOPIC, payload: { emailMessageId, matterId } }],
         },
         { now },
       );

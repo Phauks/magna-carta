@@ -1,6 +1,8 @@
 import type { KnownPermission } from "@magna-carta/access-control/registry";
+import { CONFLICTS_HIT_SURFACED_TOPIC } from "@magna-carta/conflicts/topics";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
+import { EMAIL_FILED_TOPIC } from "@magna-carta/email-filing/topics";
 import {
   DOCUMENT_CHECKIN_CONFLICT_TOPIC,
   FILE_QUARANTINED_TOPIC,
@@ -60,10 +62,11 @@ export interface NotificationType {
   readonly audience: NotificationAudience;
   // Set exactly when `audience` is `capability-holders`: the capability whose holders hear it.
   readonly audienceCapability?: KnownPermission;
-  // Set when a declared audience is not resolvable yet and something narrower stands in. Today only
-  // `matter-team` substitutes (to `responsible-member`), because there is no per-matter team table.
-  // Declaring the substitution here means the day one lands the change is ONE resolver rather than
-  // a hunt through every type that meant "the team".
+  // Set when a declared audience is not resolvable yet and something narrower stands in, so the day
+  // the real one lands the change is ONE resolver rather than a hunt through every type. NO TYPE
+  // DECLARES ONE TODAY — `matter-team` did until `matter_assignment` gave it a real team to resolve,
+  // and that swap was exactly the one-resolver edit this field exists to buy. The seam stays for the
+  // next audience that needs it; a fitness test holds the "none today" to being deliberate.
   readonly audienceSubstitutedFrom?: NotificationAudience;
   // The actor is excluded by default: nobody needs telling they did the thing they just did. A type
   // sets this where a confirmation is genuinely the point.
@@ -192,12 +195,9 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     category: "documents",
     severity: "critical",
     mandatory: false,
-    // The matter's responsible member. Declared as `matter-team` because the people who should hear
-    // that a file on their matter was pulled are the people working it — which is a team, and there
-    // is no team table. The substitution is recorded rather than hidden so it is one resolver to
-    // change when one exists.
+    // The people working the matter — its responsible member and everyone currently assigned to it.
+    // A file on a matter being pulled is the whole team's problem, not only the owner's.
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: FILE_QUARANTINED_TOPIC,
     subjectKind: "fileVersion",
@@ -220,7 +220,6 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     severity: "critical",
     mandatory: false,
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: FILE_RESCAN_INFECTED_TOPIC,
     subjectKind: "fileVersion",
@@ -240,7 +239,6 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     severity: "attention",
     mandatory: false,
     audience: "matter-team",
-    audienceSubstitutedFrom: "matter-team",
     includeActor: false,
     subscribesTo: DOCUMENT_CHECKIN_CONFLICT_TOPIC,
     subjectKind: "fileVersion",
@@ -262,6 +260,37 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: matterSectionLink("files"),
+  },
+  {
+    key: "email.filed",
+    category: "email",
+    severity: "informational",
+    mandatory: false,
+    // The people carrying the file. Correspondence arriving on a matter is the team's fact, not only
+    // the responsible member's — a paralegal working the file needs to know the other side wrote in.
+    audience: "matter-team",
+    // Whoever filed it does not need telling they filed it. The automatic path has no actor to
+    // exclude, and its recipients are the same team — a rule filing mail to a matter is precisely the
+    // case where nobody performed the act and everybody on the file wants to hear about it.
+    includeActor: false,
+    subscribesTo: EMAIL_FILED_TOPIC,
+    subjectKind: "emailMessage",
+    subjectPayloadKey: "emailMessageId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Deliberately empty, and this is the type where that matters most. An email's subject line is
+    // routinely the client's name, the opposing party, or the substance of the advice, and the sender
+    // address names who the firm is talking to — both are exactly the strings a notification row must
+    // not hold, because the row outlives the access check that justified writing it. Neither reaches
+    // this package at all: the producing payload carries two identifiers, so there is nothing here to
+    // decline. What a reader needs resolves behind the deep link, through email filing's own
+    // access-checked read.
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("emails"),
   },
   {
     key: "system.matter.closed",
@@ -300,6 +329,46 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: (_subjectId, matterId) => `/matters/${matterId ?? ""}/overview`,
+  },
+  {
+    key: "conflicts.hit.surfaced",
+    category: "conflicts",
+    severity: "attention",
+    mandatory: false,
+    // Whoever can read a conflicts result, rather than whoever happens to be near the matter. A
+    // surfaced candidate is a firm-level professional-responsibility fact, and the person who needs
+    // it is the person entitled to look at the evidence and decide.
+    audience: "capability-holders",
+    audienceCapability: "conflicts:read",
+    includeActor: false,
+    subscribesTo: CONFLICTS_HIT_SURFACED_TOPIC,
+    subjectKind: "conflictsCheck",
+    subjectPayloadKey: "checkId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Two counts and nothing else. NOT the entity, not what matched, not the tier's evidence — a
+    // notification row outlives the access check that justified it, and a name that surfaced in a
+    // conflicts search is the single most sensitive thing this platform holds about who a firm is
+    // talking to. The counts say how much is waiting and how much of it is strong; the subject
+    // resolves behind the deep link, through the conflicts read that checks the reader's capability.
+    facts: {
+      hitCount: { kind: "integer" },
+      // Hits at the two strongest evidence tiers — an exact identifier or an exact name. The one
+      // fact that separates "look at this today" from "look at this."
+      strongHitCount: { kind: "integer" },
+    },
+    buildFacts: (payload) => ({
+      hitCount: typeof payload["hitCount"] === "number" ? payload["hitCount"] : 0,
+      strongHitCount: typeof payload["strongHitCount"] === "number" ? payload["strongHitCount"] : 0,
+    }),
+    // Digest, because IMMEDIATE_ESCALATION_CATEGORIES admits only trust and security today and this
+    // type does not get to widen that on its own. Whether a day's delay on an exact-identifier match
+    // against a matter a firm is about to accept is an inconvenience or a failure is a real question
+    // and the firm's to answer; flipping it is one word here plus one entry in that list.
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("conflicts"),
   },
   {
     key: "system.incident.created",

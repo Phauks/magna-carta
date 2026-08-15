@@ -4,10 +4,13 @@ import { readPackage, readPartText, type PartMap } from "../src/ooxml/package.ts
 import {
   buildDocx,
   complexMergeFieldParagraph,
+  contentControl,
+  contentControlParagraph,
   documentXml,
   footerXml,
   footnotesXml,
   headerXml,
+  legacyFormFieldParagraph,
   paragraphOfRuns,
   simpleMergeFieldParagraph,
   type DocxParts,
@@ -418,6 +421,370 @@ describe("normalization — Word MERGEFIELD conversion, when the caller opts in"
     const byKey = new Map(result.manifest.fields.map((field) => [field.key, field.forms]));
     expect(byKey.get("matter.number")).toEqual(["brace"]);
     expect(byKey.get("firm.name")).toEqual(["mergeField"]);
+  });
+});
+
+// A legacy Word form field is the OTHER construct a firm's existing precedent binds through, and it is
+// the one the engine cannot bind at all: no name it carries is a merge key, and the words it prints are
+// the author's own instruction to whoever fills it in. The whole obligation here is that the template's
+// registration SAYS SO — a template of this shape that registers clean, declares no keys, and reports
+// no absence is a document filed carrying "Click here to enter caption" with nothing anywhere having
+// mentioned it.
+describe("normalization — legacy Word form fields are reported, never bound", () => {
+  it("records a FORMTEXT field on the manifest, with the prompt and the text it prints", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({
+            name: "Caption",
+            statusText: "enter name of party/parties appealing",
+            result: "Click here to enter caption",
+          }),
+        ),
+      }),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.manifest.legacyFormFields).toEqual([
+      {
+        fieldName: "Caption",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 1,
+        helpText: "enter name of party/parties appealing",
+        frozenText: "Click here to enter caption",
+      },
+    ]);
+  });
+
+  it("warns at registration, naming the construct and what a document will print", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "Text1", result: "Click here to enter text." }),
+        ),
+      }),
+    );
+    // The absence is stated, not implied by a silence: a template of this shape must never reach the
+    // "no merge fields at all" warning, which reads as a template that is simply static.
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+    const warning = result.warnings.find((entry) => entry.code === "legacy-form-field");
+    expect(warning?.part).toBe("word/document.xml");
+    expect(warning?.detail).toContain("Text1");
+    expect(warning?.detail).toContain("Click here to enter text.");
+  });
+
+  it("leaves the document exactly as authored and derives no merge key from it", () => {
+    const result = normalizeTemplate(
+      partsOf({ document: documentXml(legacyFormFieldParagraph({ name: "Text1" })) }),
+    );
+    expect(result.manifest.fields).toEqual([]);
+    // No name is invented for it, so nothing downstream can mistake one for a binding the firm made.
+    expect(result.mergeFieldDetections).toEqual([]);
+    expect(result.manifest.unconvertedMergeFields).toEqual([]);
+    const xml = readPartText(result.parts, "word/document.xml") ?? "";
+    expect(xml).toContain("FORMTEXT");
+    expect(xml).toContain("w:ffData");
+  });
+
+  it("reports a checkbox and a dropdown as their own kinds", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ instruction: "FORMCHECKBOX", name: "Check1", result: "" }),
+          legacyFormFieldParagraph({
+            instruction: "FORMDROPDOWN",
+            name: "Party",
+            result: "Appellant",
+          }),
+        ),
+      }),
+    );
+    expect(result.manifest.legacyFormFields.map((field) => field.kind)).toEqual([
+      "checkbox",
+      "dropDown",
+    ]);
+  });
+
+  it("counts repeats of one field once, and reports a field in a header against the header", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "Text1" }),
+          legacyFormFieldParagraph({ name: "Text1" }),
+        ),
+        header: headerXml(legacyFormFieldParagraph({ name: "Text2" })),
+      }),
+    );
+    expect(result.manifest.legacyFormFields).toEqual([
+      {
+        fieldName: "Text1",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 2,
+        helpText: "",
+        frozenText: "Click here to enter text.",
+      },
+      {
+        fieldName: "Text2",
+        kind: "text",
+        part: "word/header1.xml",
+        occurrences: 1,
+        helpText: "",
+        frozenText: "Click here to enter text.",
+      },
+    ]);
+  });
+
+  it("reports a form field carrying no name of its own rather than skipping it", () => {
+    // Word writes `w:ffData` with no `w:name` for a field the author never named. It is still a hole
+    // in the document, and a report that quietly drops the ones it cannot label is the same silence
+    // this whole path exists to break.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          legacyFormFieldParagraph({ name: "", result: "Click here to enter caption" }),
+        ),
+      }),
+    );
+    expect(result.manifest.legacyFormFields).toHaveLength(1);
+    expect(result.manifest.legacyFormFields[0]).toMatchObject({
+      fieldName: "",
+      frozenText: "Click here to enter caption",
+    });
+  });
+
+  it("leaves a Word field that is neither a merge field nor a form field alone", () => {
+    const paragraph =
+      "<w:p>" +
+      '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
+      '<w:r><w:instrText xml:space="preserve"> TOC \\o "1-3" </w:instrText></w:r>' +
+      '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+      "<w:r><w:t>Table of contents</w:t></w:r>" +
+      '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+      "</w:p>";
+    const result = normalizeTemplate(partsOf({ document: documentXml(paragraph) }));
+    expect(result.manifest.legacyFormFields).toEqual([]);
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("legacy-form-field");
+  });
+});
+
+// A content control is the construct Word writes TODAY where an author inserts a blank, which makes it
+// the one most likely to arrive in a template a firm authored this year. Unfilled, it prints "Click here
+// to enter text." into every document assembled from the template — so the obligation is the same as the
+// legacy form field's, and so is the trap: before this, such a template registered clean and warned only
+// that it carried no merge fields, so every assembly of it produced the same document.
+describe("normalization — unfilled content controls are reported, never bound", () => {
+  it("records a control showing its placeholder, with both names its author gave it", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({
+            alias: "Client Name",
+            tag: "clientName",
+            content: "Click here to enter text.",
+          }),
+        ),
+      }),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.manifest.unboundContentControls).toEqual([
+      {
+        alias: "Client Name",
+        tag: "clientName",
+        kind: "plainText",
+        part: "word/document.xml",
+        occurrences: 1,
+        showingPlaceholder: true,
+        dataBound: false,
+        frozenText: "Click here to enter text.",
+      },
+    ]);
+  });
+
+  it("warns at registration rather than reporting a template of blanks as a static document", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(contentControlParagraph({ alias: "Caption" })),
+      }),
+    );
+    // The false statement this whole path exists to end: a template that is nothing but blanks must
+    // never be described as one every assembly of which produces the same document.
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+    const warning = result.warnings.find((entry) => entry.code === "unbound-content-control");
+    expect(warning?.part).toBe("word/document.xml");
+    expect(warning?.detail).toContain("Caption");
+    expect(warning?.detail).toContain("Click here to enter text.");
+  });
+
+  it("leaves the control exactly as authored and derives no merge key from its alias or tag", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({ alias: "Client Name", tag: "client.displayName" }),
+        ),
+      }),
+    );
+    // A tag that reads exactly like a merge key is still not one: nobody has confirmed that this
+    // firm's document means by it what the dictionary means by it.
+    expect(result.manifest.fields).toEqual([]);
+    expect(result.manifest.unconvertedMergeFields).toEqual([]);
+    expect(result.mergeFieldDetections).toEqual([]);
+    const xml = readPartText(result.parts, "word/document.xml") ?? "";
+    expect(xml).toContain("w:sdt");
+    expect(xml).toContain("w:showingPlcHdr");
+  });
+
+  it("says nothing about a control an author filled in", () => {
+    // Word wraps ordinary content in controls constantly — a cover page, a citation, anything built
+    // from one of its own templates. A filled control prints text somebody typed, which is content and
+    // not a hole, and warning on it would put a finding on documents with nothing wrong with them.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({
+            alias: "Firm Name",
+            showingPlaceholder: false,
+            content: "Riverside Law LLP",
+          }),
+        ),
+      }),
+    );
+    expect(result.manifest.unboundContentControls).toEqual([]);
+    expect(result.warnings.map((entry) => entry.code)).not.toContain("unbound-content-control");
+    // And it stays what it always was: a template of static text, described as one.
+    expect(result.warnings.map((entry) => entry.code)).toContain("no-placeholders");
+  });
+
+  it("reports what each control declares it holds, and says so when it declares nothing", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({
+            alias: "Filed",
+            typeElement: '<w:date w:fullDate="2026-01-01T00:00:00Z"/>',
+          }),
+          contentControlParagraph({
+            alias: "Party",
+            typeElement:
+              '<w:dropDownList><w:listItem w:displayText="Appellant" w:value="Appellant"/></w:dropDownList>',
+          }),
+          contentControlParagraph({ alias: "Body", typeElement: null }),
+        ),
+      }),
+    );
+    // Sorted by the label each is described by, so "Body", "Filed", "Party". A control that declares no
+    // type is reported as declaring none rather than as the rich-text control it conventionally is —
+    // what the document states, never what it probably means.
+    expect(result.manifest.unboundContentControls.map((control) => control.kind)).toEqual([
+      "unspecified",
+      "date",
+      "dropDownList",
+    ]);
+  });
+
+  it("reports a control bound to data inside the template, with its own remedy", () => {
+    // Nothing here writes the custom XML part such a control reads, so it prints whatever the document
+    // this template was made from last put there — the unconverted-merge-field failure in a construct
+    // that does not look like a field.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({
+            alias: "Matter Number",
+            showingPlaceholder: false,
+            dataBinding: '<w:dataBinding w:xpath="/matter[1]/number[1]" w:storeItemID="{FF1234}"/>',
+            content: "2019-0117",
+          }),
+        ),
+      }),
+    );
+    expect(result.manifest.unboundContentControls).toHaveLength(1);
+    expect(result.manifest.unboundContentControls[0]).toMatchObject({
+      alias: "Matter Number",
+      showingPlaceholder: false,
+      dataBound: true,
+      frozenText: "2019-0117",
+    });
+    const warning = result.warnings.find((entry) => entry.code === "unbound-content-control");
+    expect(warning?.detail).toContain("bound to data stored inside the template");
+    expect(warning?.detail).toContain("2019-0117");
+  });
+
+  it("counts repeats of one control once, and reports one in a header against the header", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          contentControlParagraph({ alias: "Caption" }),
+          contentControlParagraph({ alias: "Caption" }),
+        ),
+        header: headerXml(contentControlParagraph({ tag: "officeName" })),
+      }),
+    );
+    expect(
+      result.manifest.unboundContentControls.map((control) => [
+        control.part,
+        control.alias,
+        control.tag,
+        control.occurrences,
+      ]),
+    ).toEqual([
+      ["word/document.xml", "Caption", "", 2],
+      ["word/header1.xml", "", "officeName", 1],
+    ]);
+  });
+
+  it("reports a control carrying neither an alias nor a tag by what it is", () => {
+    const result = normalizeTemplate(
+      partsOf({ document: documentXml(contentControlParagraph({})) }),
+    );
+    expect(result.manifest.unboundContentControls[0]).toMatchObject({ alias: "", tag: "" });
+    const warning = result.warnings.find((entry) => entry.code === "unbound-content-control");
+    expect(warning?.detail).toContain("an untitled Word plain text content control");
+  });
+
+  it("reports the blanks inside a repeating section rather than the wrapper around each copy", () => {
+    // A repeating section's item wrapper is not a blank — it is the container a repeat puts around each
+    // copy of its body — so reporting it would report one hole per iteration of holes already named.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          `<w:p>${contentControl({
+            alias: "Exhibits",
+            typeElement: "<w15:repeatingSection/>",
+            contentXml: contentControl({
+              typeElement: "<w15:repeatingSectionItem/>",
+              contentXml: contentControl({ alias: "Exhibit", content: "Enter exhibit" }),
+            }),
+          })}</w:p>`,
+        ),
+      }),
+    );
+    expect(
+      result.manifest.unboundContentControls.map((control) => [control.alias, control.kind]),
+    ).toEqual([
+      ["Exhibit", "plainText"],
+      ["Exhibits", "repeatingSection"],
+    ]);
+  });
+
+  it("keeps a placeholder written INSIDE a control working exactly as one outside it does", () => {
+    // The control is transparent to both walks, which is what makes it a seam this engine can bind
+    // later rather than a second placeholder syntax it would have to learn.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          `<w:p>${contentControl({
+            alias: "Matter Number",
+            showingPlaceholder: false,
+            contentXml: "<w:r><w:t>{{matter.</w:t></w:r><w:r><w:t>number}}</w:t></w:r>",
+          })}</w:p>`,
+        ),
+      }),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.manifest.fields.map((field) => field.key)).toEqual(["matter.number"]);
+    expect(result.manifest.unboundContentControls).toEqual([]);
+    expect(contiguousPlaceholderCount(result.parts)).toBe(1);
   });
 });
 

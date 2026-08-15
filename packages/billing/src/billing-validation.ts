@@ -48,7 +48,19 @@ export type BillingValidationCode =
   | "contingency-nothing-unbilled"
   | "retainer-not-below-floor"
   | "retainer-replenishment-already-open"
-  | "retainer-replenishment-not-open";
+  | "retainer-replenishment-not-open"
+  // Corrections after finalization. A finalized bill is frozen, so each of these refusals is about
+  // whether a SECOND record may be written, never about editing the first.
+  | "credit-note-invalid"
+  | "credit-note-matter-not-billed"
+  | "write-off-invalid"
+  | "write-off-exceeds-unpaid-balance"
+  | "unknown-client-credit"
+  | "client-credit-exhausted"
+  | "client-credit-client-mismatch"
+  | "unknown-invoice-application"
+  | "application-reversal-invalid"
+  | "application-reversal-refused";
 
 export class BillingValidationError extends Error {
   constructor(

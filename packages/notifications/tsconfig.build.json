@@ -24,10 +24,16 @@
       "path": "../calendar/tsconfig.build.json"
     },
     {
+      "path": "../conflicts/tsconfig.build.json"
+    },
+    {
       "path": "../data-access/tsconfig.build.json"
     },
     {
       "path": "../database/tsconfig.build.json"
+    },
+    {
+      "path": "../email-filing/tsconfig.build.json"
     },
     {
       "path": "../file-manager/tsconfig.build.json"

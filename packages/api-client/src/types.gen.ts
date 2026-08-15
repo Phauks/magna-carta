@@ -318,10 +318,20 @@ export type CaptureAddressSummary = {
 
 export type AutoFilePolicyResponse = {
     directFilingPermitted: boolean;
+    circuitBreaker: {
+        maxFiresPerWindow: number;
+        recentFireWindow: number;
+        maxUndosInRecentFires: number;
+    };
 };
 
 export type PatchAutoFilePolicyRequest = {
     directFilingPermitted?: boolean;
+    circuitBreaker?: {
+        maxFiresPerWindow: number;
+        recentFireWindow: number;
+        maxUndosInRecentFires: number;
+    };
 };
 
 export type FileRepairDiagnosis = {
@@ -1535,7 +1545,7 @@ export type CreatedConflictsCheckResponse = {
 };
 
 export type CreateConflictsCheckRequest = {
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
     matterId?: string;
     subjectEntityIds: Array<string>;
     scope: ConflictsScopeRequest;
@@ -1545,16 +1555,23 @@ export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
     depth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
 };
 
 export type ConflictsCheckWithHitsResponse = {
     check: ConflictsCheckDetail;
+    statement: Array<string>;
     hits: Array<ConflictsHitDetail>;
 };
 
 export type ConflictsCheckDetail = {
     id: string;
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
     matterId: string | null;
     subjectEntityIds: Array<string>;
     scope: {
@@ -1563,9 +1580,21 @@ export type ConflictsCheckDetail = {
     strictness: 'balanced' | 'over_inclusive';
     depth: number;
     floorRaised: boolean;
+    traversal: ConflictsTraversalRecord;
     actorUserId: string | null;
     createdAt: string;
 };
+
+export type ConflictsTraversalRecord = {
+    edgeClassBudgets: {
+        [key: string]: number;
+    };
+    closureCap: number | null;
+    truncated: boolean;
+    entitiesReached: number | null;
+    unexploredFrontierSize: number | null;
+    unexpandedReachedCount: number | null;
+} | null;
 
 export type ConflictsHitDetail = {
     id: string;
@@ -1584,6 +1613,7 @@ export type ConflictsGraphPathStep = {
     edgeType: string;
     fromEntityId: string;
     toEntityId: string;
+    expiredAtCheck?: boolean;
 };
 
 export type ConflictsDispositionDetail = {
@@ -1593,6 +1623,81 @@ export type ConflictsDispositionDetail = {
     reviewerUserId: string;
     createdAt: string;
 } | null;
+
+export type MatterConflictsPostureResponse = {
+    matterId: string;
+    neverChecked: boolean;
+    latestCheck: ConflictsPostureLatestCheck;
+    scopeShortfall: ConflictsPostureScopeShortfall;
+    pendingRecheck: Array<ConflictsPosturePendingRecheck>;
+    periodicRescan: ConflictsPosturePeriodicRescan;
+    undisposedByTier: Array<ConflictsPostureUndisposedTier>;
+    dispositionsByKind: Array<ConflictsPostureDispositionKind>;
+    unavailableSources: Array<ConflictsPostureUnavailableSource>;
+};
+
+export type ConflictsPostureLatestCheck = {
+    id: string;
+    createdAt: string;
+    trigger: string;
+    actorUserId: string | null;
+    scope: ConflictsPostureScope;
+    subjectEntityCount: number;
+    expandedEntityCount: number;
+    skippedIdentifierTypes: Array<string>;
+    hitCount: number;
+} | null;
+
+export type ConflictsPostureScope = {
+    sources: {
+        [key: string]: 'searched' | 'unavailable';
+    };
+    strictness: string;
+    depth: number;
+    floorRaised: boolean;
+    traversal: ConflictsTraversalRecord;
+};
+
+export type ConflictsPostureScopeShortfall = {
+    sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    strictness: {
+        firmFloor: 'balanced' | 'over_inclusive';
+        ranUnder: string;
+    } | null;
+    depth: {
+        firmDefault: number;
+        ranAt: number;
+    } | null;
+};
+
+export type ConflictsPosturePendingRecheck = {
+    causeTopic: string;
+    causeReference: string;
+    causeOccurredAt: string;
+    requestedAt: string;
+};
+
+export type ConflictsPosturePeriodicRescan = {
+    enabled: boolean;
+    intervalDays: number;
+    lastRunAt: string | null;
+};
+
+export type ConflictsPostureUndisposedTier = {
+    tier: number;
+    count: number;
+};
+
+export type ConflictsPostureDispositionKind = {
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    count: number;
+    reviewerUserIds: Array<string>;
+};
+
+export type ConflictsPostureUnavailableSource = {
+    source: string;
+    reason: string;
+};
 
 export type CreatedConflictsDispositionResponse = {
     id: string;
@@ -3913,6 +4018,274 @@ export type TrustFirmFundsMovementRecord = {
     recordedAt: string;
 };
 
+export type TrustCompliancePack = {
+    cover: TrustComplianceCover;
+    reconciliations: Array<TrustComplianceReconciliation>;
+    reconciliationNote: string | null;
+    proofAtProductionNote: string;
+    clientLedgers: Array<TrustComplianceClientLedger>;
+    journal: {
+        openingBalanceMinor: number;
+        closingBalanceMinor: number;
+        entries: Array<TrustComplianceJournalEntry>;
+    };
+    cushion: TrustComplianceCushion;
+    exceptions: TrustComplianceExceptions;
+    provenance: {
+        requestedBy: string | null;
+        computedAt: string;
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf: string | null;
+        packShapeVersion: number;
+        options: {
+            zeroBalanceLedgers: 'include' | 'omit';
+            authorizers: 'include' | 'omit';
+        };
+    };
+};
+
+export type TrustComplianceCover = {
+    trustAccountId: string;
+    trustAccountName: string;
+    locationId: string;
+    currency: string;
+    pooledInterestBearing: boolean;
+    accountStatus: 'open' | 'closed';
+    bankName: string | null;
+    accountNumberLastFour: string | null;
+    jurisdiction: TrustComplianceJurisdiction;
+    bankChargeCarveOutOpen: boolean;
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+};
+
+export type TrustComplianceJurisdiction = {
+    available: true;
+    jurisdiction: string;
+    requirement: string;
+    citation: string;
+    binding: boolean;
+} | {
+    available: false;
+    jurisdiction: string | null;
+    refusalCode: string;
+    refusalDetail: string;
+};
+
+export type ReportReproducibility = {
+    reproducible: true;
+    periodStart: string;
+    periodEnd: string;
+    knownAsOf: string;
+} | {
+    reproducible: false;
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+};
+
+export type ReportCompleteness = {
+    scope: 'complete';
+} | {
+    scope: 'complete-not-itemized';
+    notItemizedMatterCount: number;
+} | {
+    scope: 'screened';
+    excludedMatterCount: number;
+};
+
+export type TrustComplianceReconciliation = {
+    reconciliationId: string;
+    statementId: string;
+    statementPeriodStart: string;
+    statementPeriodEnd: string;
+    statementReference: string | null;
+    openedBy: string;
+    openedAt: string;
+    statusAsKnown: 'open' | 'closed';
+    closedBy: string | null;
+    closedAt: string | null;
+    frozenProof: TrustComplianceFrozenProof;
+    proofAtProduction: {
+        computedAt: string;
+        boundedByKnowledgeInstant: false;
+        proof: TrustComplianceLiveProof;
+        differencesFromAttestation: Array<TrustComplianceProofDifference>;
+    };
+};
+
+export type TrustComplianceFrozenProof = {
+    statementClosingMinor: number;
+    outstandingDepositsMinor: number;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    firmFundsMinor: number;
+    unmatchedLineCount: number;
+    unmatchedItemCount: number;
+    balanced: boolean;
+} | null;
+
+export type TrustComplianceLiveProof = {
+    trustAccountId: string;
+    statementId: string;
+    asOfDate: string;
+    currency: string;
+    statementClosingMinor: number;
+    outstandingDeposits: Array<TrustComplianceBankItem>;
+    outstandingDepositsMinor: number;
+    outstandingDisbursements: Array<TrustComplianceBankItem>;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    firmFundsMinor: number;
+    unmatchedStatementLines: Array<TrustComplianceStatementLine>;
+    balanced: boolean;
+    disagreements: Array<{
+        leg: string;
+        differenceMinor: number;
+    }>;
+};
+
+export type TrustComplianceBankItem = {
+    entryId: string;
+    effectiveDate: string;
+    description: string;
+    bankDeltaMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    transferId: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustComplianceStatementLine = {
+    id: string;
+    statementId: string;
+    postedOn: string;
+    direction: string;
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+    sourceRowNumber: number | null;
+};
+
+export type TrustComplianceProofDifference = {
+    leg: string;
+    attestedMinor: number;
+    liveMinor: number;
+    differenceMinor: number;
+};
+
+export type TrustComplianceClientLedger = {
+    clientEntityId: string | null;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    matters: Array<TrustComplianceMatterLedger>;
+};
+
+export type TrustComplianceMatterLedger = {
+    nodeId: string;
+    matterId: string | null;
+    ledgerAccountId: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    entries: Array<TrustComplianceLedgerEntry>;
+};
+
+export type TrustComplianceLedgerEntry = {
+    entryId: string;
+    effectiveDate: string;
+    recordedAt: string;
+    description: string;
+    reversesEntryId: string | null;
+    direction: 'debit' | 'credit';
+    amountMinor: number;
+    deltaMinor: number;
+    runningBalanceMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    method: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+    purpose: string | null;
+    transferId: string | null;
+    authorizedBy: string | null;
+    recordedBy: string | null;
+};
+
+export type TrustComplianceJournalEntry = {
+    entryId: string;
+    effectiveDate: string;
+    recordedAt: string;
+    description: string;
+    reversesEntryId: string | null;
+    bankDeltaMinor: number;
+    runningBalanceMinor: number;
+    movementId: string | null;
+    movementKind: string | null;
+    transferId: string | null;
+    firmFundsMovementId: string | null;
+    firmFundsMovementKind: string | null;
+    method: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+    purpose: string | null;
+    nodeId: string | null;
+    counterpartyNodeId: string | null;
+    authorizedBy: string | null;
+    recordedBy: string | null;
+};
+
+export type TrustComplianceCushion = {
+    nodeId: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    movements: Array<{
+        firmFundsMovementId: string;
+        kind: 'firm_funds_deposit' | 'bank_charge';
+        effectiveDate: string;
+        recordedAt: string;
+        amountMinor: number;
+        method: string;
+        reference: string | null;
+        description: string;
+        recordedBy: string;
+    }>;
+} | null;
+
+export type TrustComplianceExceptions = {
+    holdsInForceAtKnowledgeInstant: Array<{
+        holdId: string;
+        nodeId: string;
+        matterId: string | null;
+        clientEntityId: string | null;
+        amountMinor: number;
+        reason: string;
+        placedAt: string;
+        placedBy: string | null;
+    }>;
+    atProduction: {
+        computedAt: string;
+        boundedByKnowledgeInstant: false;
+        outstandingBankItems: Array<TrustComplianceBankItem>;
+        unmatchedStatementLines: Array<{
+            reconciliationId: string;
+            line: TrustComplianceStatementLine;
+        }>;
+        storedBalanceDisagreements: Array<{
+            ledgerAccountId: string;
+            storedBalanceMinor: number;
+            computedBalanceMinor: number;
+        }>;
+    };
+};
+
 export type TrustDormantBalancesResponse = {
     quietOnOrBefore: string;
     balances: Array<TrustDormantBalanceRecord>;
@@ -4349,6 +4722,118 @@ export type BillingRenderShapeSetting = {
     renderShape: 'combined' | 'per_matter_pages';
 };
 
+export type BillingCreditNoteAck = {
+    creditNoteId: string;
+    invoiceId: string;
+    totalMinor: number;
+    appliedMinor: number;
+    clientCreditMinor: number;
+    matters: Array<{
+        matterId: string;
+        creditedMinor: number;
+        appliedMinor: number;
+        residualMinor: number;
+        clientCreditId: string | null;
+    }>;
+};
+
+export type BillingCreditNoteRequest = {
+    reason: string;
+    effectiveDate: string;
+    lines: Array<BillingCreditNoteLineRequest>;
+};
+
+export type BillingCreditNoteLineRequest = {
+    matterId: string;
+    kind: 'fee' | 'cost' | 'flat_fee' | 'discount' | 'adjustment' | 'interest' | 'tax';
+    description: string;
+    amountMinor: number;
+    creditsInvoiceLineId?: string | null;
+};
+
+export type BillingCreditNoteListResponse = {
+    data: Array<{
+        id: string;
+        reason: string;
+        effectiveDate: string;
+        currency: string;
+        issuedAt: string;
+        totalMinor: number;
+        lines: Array<{
+            id: string;
+            matterId: string;
+            kind: string;
+            description: string;
+            amountMinor: number;
+            creditsInvoiceLineId: string | null;
+        }>;
+    }>;
+};
+
+export type BillingApplicationAck = {
+    applicationId: string;
+    invoiceId: string;
+    matterId: string;
+};
+
+export type BillingWriteOffRequest = {
+    matterId: string;
+    amountMinor: number;
+    reason: string;
+    effectiveDate: string;
+};
+
+export type BillingClientCreditListResponse = {
+    data: Array<{
+        id: string;
+        matterId: string;
+        creditNoteId: string;
+        amountMinor: number;
+        dischargedMinor: number;
+        remainingMinor: number;
+        currency: string;
+        openedAt: string;
+    }>;
+};
+
+export type BillingApplyClientCreditAck = {
+    applicationId: string;
+    clientCreditId: string;
+    remainingMinor: number;
+};
+
+export type BillingApplyClientCreditRequest = {
+    invoiceId: string;
+    matterId: string;
+    amountMinor: number;
+    effectiveDate: string;
+};
+
+export type BillingReverseApplicationAck = {
+    applicationId: string;
+    reversesApplicationId: string;
+};
+
+export type BillingReverseApplicationRequest = {
+    reason: string;
+    effectiveDate: string;
+};
+
+export type BillingContingencyResidualResponse = {
+    matterId: string;
+    entitlementMinor: number;
+    billedMinor: number;
+    residualMinor: number;
+    feeLines: Array<{
+        invoiceId: string;
+        invoiceNumber: string | null;
+        invoiceLineId: string;
+        chargedMinor: number;
+        creditedMinor: number;
+        invoiceMatterUnpaidMinor: number;
+    }>;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -4660,6 +5145,8 @@ export type RegisteredTemplate = {
     mergeFieldsConverted: boolean;
     mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    legacyFormFields: Array<TemplateLegacyFormField>;
+    unboundContentControls: Array<TemplateUnboundContentControl>;
     confirmedFieldMappings: Array<{
         fieldName: string;
         mergeKey: string;
@@ -4685,6 +5172,26 @@ export type TemplateUnconvertedMergeField = {
     occurrences: number;
     form: string;
     mapsToKnownField: boolean;
+    frozenText: string;
+};
+
+export type TemplateLegacyFormField = {
+    fieldName: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    helpText: string;
+    frozenText: string;
+};
+
+export type TemplateUnboundContentControl = {
+    alias: string;
+    tag: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    showingPlaceholder: boolean;
+    dataBound: boolean;
     frozenText: string;
 };
 
@@ -4746,6 +5253,8 @@ export type TemplateFields = {
     normalizerVersion: number;
     fields: Array<TemplateFieldEntry>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    legacyFormFields: Array<TemplateLegacyFormField>;
+    unboundContentControls: Array<TemplateUnboundContentControl>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 
@@ -4830,12 +5339,14 @@ export type SubmittedAssembly = {
 export type SubmitAssemblyRequest = {
     templateVersionId: string;
     folderId?: string | null;
+    outputFormat?: 'docx' | 'pdf';
 };
 
 export type AssemblyStatus = {
     assemblyId: string;
     status: 'queued' | 'running' | 'done' | 'failed';
     outcome: string | null;
+    outputFormat: 'docx' | 'pdf';
     fileId: string | null;
     fileVersionId: string | null;
     absentFieldKeys: Array<string>;
@@ -5179,6 +5690,10 @@ export type WhoisGetErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The target's registry publishes no lookup service this platform can reach (no RDAP entry, no known port-43 host)
+     */
+    501: Problem;
 };
 
 export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];
@@ -10351,6 +10866,10 @@ export type ScanDiagnoseErrors = {
      * The body exceeds the firm's inspectable-size cap
      */
     413: Problem;
+    /**
+     * The scan engine is wired but unreachable, so no verdict can be given
+     */
+    503: Problem;
 };
 
 export type ScanDiagnoseError = ScanDiagnoseErrors[keyof ScanDiagnoseErrors];
@@ -11386,12 +11905,55 @@ export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetC
 
 export type ConflictsGetCheckResponses = {
     /**
-     * The check and its hits
+     * The check, the statement of what it searched, and its hits
      */
     200: ConflictsCheckWithHitsResponse;
 };
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
+
+export type ConflictsMatterPostureData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-posture';
+};
+
+export type ConflictsMatterPostureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+
+export type ConflictsMatterPostureResponses = {
+    /**
+     * The matter's conflicts posture, derived at read time
+     */
+    200: MatterConflictsPostureResponse;
+};
+
+export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
 
 export type ConflictsRecordDispositionData = {
     body: RecordConflictsDispositionRequest;
@@ -17354,7 +17916,7 @@ export type DiscoveryListRecordCustodiansError = DiscoveryListRecordCustodiansEr
 
 export type DiscoveryListRecordCustodiansResponses = {
     /**
-     * The review set's record custodians
+     * The review set's Custodians of Record
      */
     200: RecordCustodianList;
 };
@@ -17404,7 +17966,7 @@ export type DiscoveryCreateRecordCustodianError = DiscoveryCreateRecordCustodian
 
 export type DiscoveryCreateRecordCustodianResponses = {
     /**
-     * The record custodian was created
+     * The Custodian of Record was created
      */
     201: {
         id: string;
@@ -17456,7 +18018,7 @@ export type DiscoveryUpdateRecordCustodianError = DiscoveryUpdateRecordCustodian
 
 export type DiscoveryUpdateRecordCustodianResponses = {
     /**
-     * The updated record custodian
+     * The updated Custodian of Record
      */
     200: RecordCustodian;
 };
@@ -20511,6 +21073,55 @@ export type TrustRecordBankChargeResponses = {
 
 export type TrustRecordBankChargeResponse = TrustRecordBankChargeResponses[keyof TrustRecordBankChargeResponses];
 
+export type ReportsTrustCompliancePackData = {
+    body?: never;
+    path: {
+        trustAccountId: string;
+    };
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        zeroBalanceLedgers?: 'include' | 'omit';
+        authorizers?: 'include' | 'omit';
+    };
+    url: '/api/v1/reports/trust-compliance/{trustAccountId}';
+};
+
+export type ReportsTrustCompliancePackErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:trustCompliance
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account is unknown
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates, it ends before it starts, the knowledge instant is not a UTC instant or is in the future, the period holds more of this account's activity than one document can carry, or the account's outstanding items are more than one reconciliation can account for
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTrustCompliancePackError = ReportsTrustCompliancePackErrors[keyof ReportsTrustCompliancePackErrors];
+
+export type ReportsTrustCompliancePackResponses = {
+    /**
+     * The pack for this trust account and period
+     */
+    200: TrustCompliancePack;
+};
+
+export type ReportsTrustCompliancePackResponse = ReportsTrustCompliancePackResponses[keyof ReportsTrustCompliancePackResponses];
+
 export type TrustDormantBalancesData = {
     body?: never;
     path?: never;
@@ -22156,6 +22767,351 @@ export type BillingSetRenderShapeDefaultResponses = {
 };
 
 export type BillingSetRenderShapeDefaultResponse = BillingSetRenderShapeDefaultResponses[keyof BillingSetRenderShapeDefaultResponses];
+
+export type BillingListCreditNotesData = {
+    body?: never;
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/credit-notes';
+};
+
+export type BillingListCreditNotesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingListCreditNotesError = BillingListCreditNotesErrors[keyof BillingListCreditNotesErrors];
+
+export type BillingListCreditNotesResponses = {
+    /**
+     * The bill's credit notes
+     */
+    200: BillingCreditNoteListResponse;
+};
+
+export type BillingListCreditNotesResponse = BillingListCreditNotesResponses[keyof BillingListCreditNotesResponses];
+
+export type BillingIssueCreditNoteData = {
+    body: BillingCreditNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/credit-notes';
+};
+
+export type BillingIssueCreditNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingIssueCreditNoteError = BillingIssueCreditNoteErrors[keyof BillingIssueCreditNoteErrors];
+
+export type BillingIssueCreditNoteResponses = {
+    /**
+     * The credit note was issued
+     */
+    201: BillingCreditNoteAck;
+};
+
+export type BillingIssueCreditNoteResponse = BillingIssueCreditNoteResponses[keyof BillingIssueCreditNoteResponses];
+
+export type BillingWriteOffBalanceData = {
+    body: BillingWriteOffRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/write-offs';
+};
+
+export type BillingWriteOffBalanceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingWriteOffBalanceError = BillingWriteOffBalanceErrors[keyof BillingWriteOffBalanceErrors];
+
+export type BillingWriteOffBalanceResponses = {
+    /**
+     * The balance was written off
+     */
+    201: BillingApplicationAck;
+};
+
+export type BillingWriteOffBalanceResponse = BillingWriteOffBalanceResponses[keyof BillingWriteOffBalanceResponses];
+
+export type BillingClientCreditsData = {
+    body?: never;
+    path: {
+        clientEntityId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/clients/{clientEntityId}/credits';
+};
+
+export type BillingClientCreditsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingClientCreditsError = BillingClientCreditsErrors[keyof BillingClientCreditsErrors];
+
+export type BillingClientCreditsResponses = {
+    /**
+     * The client's open credits
+     */
+    200: BillingClientCreditListResponse;
+};
+
+export type BillingClientCreditsResponse = BillingClientCreditsResponses[keyof BillingClientCreditsResponses];
+
+export type BillingApplyClientCreditData = {
+    body: BillingApplyClientCreditRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        clientCreditId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/client-credits/{clientCreditId}/applications';
+};
+
+export type BillingApplyClientCreditErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingApplyClientCreditError = BillingApplyClientCreditErrors[keyof BillingApplyClientCreditErrors];
+
+export type BillingApplyClientCreditResponses = {
+    /**
+     * The credit was set against the bill
+     */
+    201: BillingApplyClientCreditAck;
+};
+
+export type BillingApplyClientCreditResponse = BillingApplyClientCreditResponses[keyof BillingApplyClientCreditResponses];
+
+export type BillingReverseApplicationData = {
+    body: BillingReverseApplicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        applicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/applications/{applicationId}/reversal';
+};
+
+export type BillingReverseApplicationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingReverseApplicationError = BillingReverseApplicationErrors[keyof BillingReverseApplicationErrors];
+
+export type BillingReverseApplicationResponses = {
+    /**
+     * The application was reversed
+     */
+    201: BillingReverseApplicationAck;
+};
+
+export type BillingReverseApplicationResponse = BillingReverseApplicationResponses[keyof BillingReverseApplicationResponses];
+
+export type BillingContingencyResidualData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/matters/{matterId}/contingency-residual';
+};
+
+export type BillingContingencyResidualErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingContingencyResidualError = BillingContingencyResidualErrors[keyof BillingContingencyResidualErrors];
+
+export type BillingContingencyResidualResponses = {
+    /**
+     * The matter's contingency position
+     */
+    200: BillingContingencyResidualResponse;
+};
+
+export type BillingContingencyResidualResponse2 = BillingContingencyResidualResponses[keyof BillingContingencyResidualResponses];
 
 export type TimeEntriesListData = {
     body?: never;
@@ -24833,6 +25789,10 @@ export type ShippingConnectErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
 };
 
 export type ShippingConnectError = ShippingConnectErrors[keyof ShippingConnectErrors];
@@ -24933,6 +25893,10 @@ export type ShippingRateShipmentErrors = {
      */
     429: Problem;
     /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
+    /**
      * The postage provider rejected the request or is unavailable
      */
     502: Problem;
@@ -24990,6 +25954,10 @@ export type ShippingPurchaseErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
     /**
      * The postage provider rejected the request or is unavailable
      */
@@ -25081,6 +26049,10 @@ export type ShippingTrackingErrors = {
      */
     429: Problem;
     /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
+    /**
      * The postage provider rejected the request or is unavailable
      */
     502: Problem;
@@ -25138,6 +26110,10 @@ export type ShippingRefundErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     */
+    501: Problem;
     /**
      * The postage provider rejected the request or is unavailable
      */

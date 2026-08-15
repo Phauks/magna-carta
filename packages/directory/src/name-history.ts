@@ -8,6 +8,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { DIRECTORY_ENTITY_RENAMED_TOPIC } from "./topics.ts";
 import { assertEntityExists, entityKindFromId } from "./entity-kind.ts";
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
@@ -193,7 +194,7 @@ export async function changeName(
 
   await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,
-    outboxMessages: [{ topic: "directory.entity.renamed", payload: { entityId } }],
+    outboxMessages: [{ topic: DIRECTORY_ENTITY_RENAMED_TOPIC, payload: { entityId } }],
     responseCode: 200,
     responseBody: { ok: true },
     value: undefined,

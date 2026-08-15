@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Time, trust and billing -->
+
 - id: financial
   name: Financial Core
   scope: The firm's money spine — ledger, time, trust, billing, costs, operating books
@@ -65,6 +67,8 @@
   adrs: ADR-0033
   spec: docs/specs/2026-06-22-slice-3-1-time-tracking-design.md
   evidence: packages/timekeeping on main; status.d/3-1 built+tested done, ui todo
+  audience: public
+  public-summary: Record time as you work — a running timer, a quick entry, or a weekly grid — against the matter and the rate that applies on that day.
   notes: Backend complete; all daily-driver surfaces await the app shell.
 
 - id: financial.time.capture
@@ -108,8 +112,8 @@
   scope: One-click, user-initiated conversion of a calendar event into a time entry.
   status: deferred
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: the 3-1 design reserves source=calendar and the API shape as a dormant seam until the future Calendar subsystem
-  notes: No Calendar subsystem exists yet.
+  evidence: the 3-1 design reserves source=calendar and the API shape as a dormant seam; the Calendar event model it would read from has since shipped in packages/calendar, and nothing on the timekeeping side consumes it
+  notes: Still deferred by decision rather than by absence — the conversion is a one-click act on a calendar surface, and no calendar surface exists to click on.
 
 - id: financial.time.entry-model
   name: Entry anatomy and audit
@@ -146,7 +150,7 @@
   status: shipped
   slices: 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
   evidence: packages/billing-core/src/lifecycle.ts (transition rules, isFrozen) + review-gate.ts (approvalRequired setting)
-  notes: The Billed transition is exercised at invoice finalize, which is not built yet.
+  notes: The Billed transition is driven at invoice finalize by packages/billing/src/finalize.ts, which may move an entry into billed and never back out; the capture screens the gate would appear on are not built.
 
 - id: financial.time.wip
   name: Time is WIP, not a ledger posting
@@ -154,7 +158,7 @@
   status: partial
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger
-  notes: WIP store shipped; the WIP-to-A/R conversion belongs to the unbuilt billing slice.
+  notes: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store.
 
 - id: financial.time.my-day
   name: My Day visibility
@@ -191,8 +195,11 @@
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
-  notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, deposits/disbursements/reallocations, the authorization posture, the bank-charge cushion, the unclaimed-funds diligence file, three-way reconciliation and the fitness suite, over the 20260805T120000_trust-ledger and 20260805T200000_trust-reconciliation per-firm migrations; packages/trust-jurisdictions holds the typed profile model with Nevada encoded
+  audience: public
+  public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
+  awaiting-owner: Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
+  notes: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
@@ -200,7 +207,8 @@
   status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
-  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
+  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; deposits, disbursements and matter-to-matter reallocations ship as domain operations in packages/trust/src/movements.ts behind required-idempotency routes
+  notes: No screen reads a client ledger; the balances, holds and movement history are API-only.
 
 - id: financial.trust.authorization-policy
   name: Disbursement authorization policy (per-firm)
@@ -209,6 +217,23 @@
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion, resolveLoneTrustManagerException, resolveTrustAuthorizationDisposition); composeTrustDisbursementSubmission in packages/trust/src/disbursement-authorization.ts (proposal plus solo release, one batch); the seeded version-1 posture in packages/database/drizzle/per-firm/20260808T020000_trust-authority-default-posture.sql; policy-aware decision and transfer triggers in the per-firm migration; billing's applyEarnedFeesUnderAuthorizationPolicy in packages/billing/src/apply-authorization.ts; routes for the policy read/change, the disbursement submission, and the application submit/approve
   notes: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
+
+- id: financial.trust.firm-funds
+  name: Bank-charge cushion (the firm-funds carve-out)
+  scope: The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first.
+  status: shipped
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/worker/src/routes/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
+  notes: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
+
+- id: financial.trust.unclaimed-funds
+  name: Unclaimed client funds diligence file
+  scope: Finding client money that has sat unmoved, recording the diligence done to return it, and closing the file against a payment somebody already made - never moving money and never asserting an obligation.
+  status: shipped
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  spec: docs/research/2026-08-07-nevada-unclaimed-client-funds-escheat.md
+  evidence: packages/trust/src/unclaimed-funds.ts holds readDormantTrustBalances (the only definition of dormancy anywhere - a comparison against a date the caller states, never a stored flag), the review, its contact attempts and its closure, plus the review read; five routes in apps/worker/src/routes/trust-unclaimed-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds per-firm migration; a trigger independently refuses a closure naming a payment out of another client's ledger
+  notes: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced.
 
 - id: financial.trust.no-commingling
   name: No commingling
@@ -221,11 +246,12 @@
 - id: financial.trust.jurisdiction-engine
   name: Jurisdiction-configurable compliance engine
   scope: A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: approved design (typed profiles, baseline/overlay resolution, silence-vs-unresearched distinction) on main; packages/trust-jurisdictions does not exist yet
+  evidence: packages/trust-jurisdictions is built — the typed profile model carrying per-field confidence and provenance, the registry, baseline/overlay resolution preserving the silence-vs-unresearched distinction, the review gate, and Nevada encoded end to end — with its profile, review-gate and display-seam tests. Nothing consumes it yet: no trust surface reads a requirement through the port, and the other 55 jurisdictions are unencoded.
+  awaiting-owner: An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.
 
 - id: financial.trust.jurisdiction-engine.rules-catalog
   name: Trust-rules catalog (56 jurisdictions)
@@ -238,30 +264,38 @@
 - id: financial.trust.multi-jurisdiction-accounts
   name: Multiple active jurisdictions per firm
   scope: Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: trust_account-to-location binding and per-account profile in the approved jurisdiction-schema design; location.jurisdiction column shipped as the seam
+  evidence: openTrustAccount in packages/trust/src/account-tree.ts binds every account to a location and to the jurisdiction derived from that office rather than chosen, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded none (jurisdiction-not-recorded in packages/trust/src/trust-validation.ts, deliberately distinct from not-encoded and not-verified)
+  notes: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for.
 
 - id: financial.trust.reconciliation
   name: Interactive three-way reconciliation
   scope: Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account.
-  status: not-started
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: in slice 3-2 scope per the phase-3 slice map; the jurisdiction-schema design covers cadence rules, not the workflow; no code
-  notes: Banking-plugin import additionally depends on an unbuilt banking integration.
+  adrs: ADR-0246
+  evidence: the whole workflow is on main behind routes — packages/trust/src/bank-statements.ts (the recorded period and its lines), packages/trust/src/statement-import.ts (a preview that stores nothing, then a confirmation quoting the preview's fingerprint), packages/trust/src/matching.ts (ranked candidates a person confirms; nothing matches on its own), packages/trust/src/three-way-proof.ts (the statement, book and client-ledger legs plus the firm-funds cushion, computed from dated rows), and packages/trust/src/reconciliation.ts (open, the frozen close, the proof read) over apps/worker/src/routes/trust-reconciliation.ts and the 20260805T200000_trust-reconciliation per-firm migration
+  awaiting-owner: The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
+  notes: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration.
 
 - id: financial.trust.close-rule
   name: Zero-balance close precondition
   scope: Registers "all bills paid, no remaining balance" on the matter close-precondition hook.
-  status: not-started
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: the hook is shipped and deliberately empty (packages/matters/src/close-preconditions.ts); no registration exists
+  evidence: packages/trust/src/close-precondition.ts exports matterTrustClosePrecondition and readMatterTrustPositions, registered on the matter shell's hook by the composition root in apps/worker/src/routes/matters.ts; the same question is re-asked inside the close batch by refuseMatterCloseWithTrustBalanceStatement, so a deposit landing mid-close aborts it, and packages/trust/test/close-precondition.test.ts covers both layers
+  notes: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts.
 
 - id: financial.billing
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
-  status: not-started
-  evidence: no billing/invoicing code (packages/billing-core holds only the shared WIP lifecycle and review gate); no slice branch or design spec; scope fixed in docs/specs/2026-06-21-phase-3-financial-core-slice-map.md
+  status: partial
+  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, and the corrections after finalization are on main (packages/billing-core, packages/billing) behind apps/worker/src/routes/billing.ts; tax computation, invoice delivery, the renderer and LEDES export are not built
+  audience: public
+  public-name: Billing and invoices
+  public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
+  awaiting-owner: Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
   notes: The slice map serializes this after time and costs, which are both on main.
 
 - id: financial.billing.fee-models
@@ -302,11 +336,30 @@
   evidence: packages/billing/src/retainer.ts (target and floor on the agreement; floor status from trust's available figure; retainer_replenishment_request with the billing.retainer.replenishment_requested topic)
   notes: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event.
 
+- id: financial.billing.corrections
+  name: Corrections after finalization
+  scope: Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application.
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/credit-note.ts (the four composers; a correction is a second permanent record and the invoice's total never moves) and packages/billing/src/close-precondition.ts (a matter does not close over an open client credit)
+  awaiting-owner: What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
+  notes: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision.
+
+- id: financial.billing.corrections.contingency-residual
+  name: Contingency shrunk-basis residual
+  scope: Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding.
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: readContingencyResidual in packages/billing/src/contingency.ts (the amount and the fee lines a correction would be aimed at) and contingencyBilledBeyondEntitlementStatement in packages/billing/src/fitness.ts (billed read net of credits attributed through credit_note_line.credits_invoice_line_id)
+  notes: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it.
+
 - id: financial.billing.invoice-composition
   name: Invoice composition
   scope: Bills combine time/fees plus costs plus taxes.
-  status: not-started
-  evidence: no invoice model in tree
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/worker/src/routes/billing.ts.
+  notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
 
 - id: financial.billing.location-letterhead
   name: Location letterhead and remit-to on invoices
@@ -317,14 +370,16 @@
 - id: financial.billing.wip-to-ar
   name: WIP to A/R posting at finalize
   scope: At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
-  status: not-started
-  evidence: the phase-3 slice map assigns all WIP-to-A/R posting (time and cost) to the billing slice; no posting service exists
+  status: shipped
+  slices: 3-4-billing-and-invoicing
+  evidence: finalizeInvoice in packages/billing/src/finalize.ts locks every claimed entry into billed through the shared freeze contract, resolves each line's posting role (fee income, client costs advanced for a hard cost, cost-recovery income for a soft one, tax payable, fee adjustments) and writes the receivable ledger entry in the same batch, guarded so an entry that moved underneath the read fails the commit rather than leaving a finalized invoice with an unlocked entry; served by the finalize route in apps/worker/src/routes/billing.ts.
+  notes: Backend only, no screen.
 
 - id: financial.billing.ledes
   name: LEDES e-billing
   scope: Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
-  status: not-started
-  evidence: no LEDES exporter in tree; UTBMS capture upstream is shipped and its columns are documented as what "the LEDES exporter at billing reads"
+  status: partial
+  evidence: no LEDES exporter in tree; UTBMS capture upstream is shipped and its columns are documented as what "the LEDES exporter at billing reads". The per-matter e-billing flag beneath this node shipped early with the time and cost slices, which is what makes this a roll-up over mixed children rather than untouched work.
 
 - id: financial.billing.ledes.e-billing-flag
   name: Per-matter e-billing flag
@@ -353,6 +408,9 @@
   slices: 3-3-costs-expenses-disbursements
   spec: docs/specs/2026-06-23-slice-3-3-costs-expenses-design.md
   evidence: packages/costs + @magna-carta/billing-core on main; status.d/3-3 built+tested done, ui todo
+  audience: public
+  public-name: Costs and disbursements
+  public-summary: Record what the firm has laid out on a matter, from a filing fee to postage, and recover it on the bill.
   notes: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice.
 
 - id: financial.costs.entry-model
@@ -369,7 +427,7 @@
   status: partial
   slices: 3-3-costs-expenses-disbursements
   evidence: hard-cost capture as billable WIP in packages/costs
-  notes: Capture shipped; the receivable posting and bill-back happen at the unbuilt billing slice per the slice map.
+  notes: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built.
 
 - id: financial.costs.soft
   name: Soft/in-house costs

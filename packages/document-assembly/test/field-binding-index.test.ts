@@ -49,6 +49,8 @@ function manifestOf(fields: readonly ManifestField[], extras: Partial<FieldManif
     fields,
     totalOccurrences: fields.reduce((sum, field) => sum + field.occurrences, 0),
     unconvertedMergeFields: [],
+    legacyFormFields: [],
+    unboundContentControls: [],
     blocks: [],
     computedFields: [],
     ...extras,

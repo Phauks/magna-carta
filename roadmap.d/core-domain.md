@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Clients, matters and offices -->
+
 - id: directory
   name: Directory
   scope: Single source of truth for every person and organization, modeled as a graph of entities and typed edges.
@@ -10,6 +12,9 @@
   adrs: ADR-0006, ADR-0085
   spec: docs/specs/2026-06-12-slice-1-3-directory-design.md
   evidence: packages/directory on main; status.d/1-3-directory.md built+tested done, ui todo
+  audience: public
+  public-name: One record for every person and organization
+  public-summary: Clients, opposing parties, courts, experts and vendors in one place, with the relationships between them held as facts rather than notes.
   notes: Backend complete on main; UI deferred until the design-system app shell lands.
 
 - id: directory.entities
@@ -51,6 +56,7 @@
   status: partial
   slices: 1-3-directory, 2-6-document-automation
   evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
+  awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
   notes: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner.
 
 - id: directory.edges
@@ -75,7 +81,7 @@
   status: partial
   slices: 1-3-directory
   evidence: EDGE_TYPES includes relationship, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts
-  notes: Backend shipped; conflicts engine that consumes these is not built (slice-4-1-conflicts branch has no work yet).
+  notes: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.
 
 - id: directory.edges.representation
   name: Representation edges
@@ -166,6 +172,9 @@
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
   evidence: packages/matters + apps/worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
+  audience: public
+  public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
+  awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
   notes: Backend shipped; matter UI in flight (matter-detail skeleton design, file-surface-web stream) but not landed as a usable surface.
 
 - id: matters.parties
@@ -232,7 +241,8 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
   evidence: prospective status with no number/counter in matter-service.ts; consultation queries with staleness in queries.ts
-  notes: Backend shipped; Consultations folder view is UI (not built); the conflicts engine that runs at intake is not built (slice-4-1-conflicts branch empty).
+  awaiting-owner: May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
+  notes: Backend shipped; Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
 
 - id: matters.lifecycle.close-preconditions
   name: Close-precondition hook
@@ -358,6 +368,9 @@
   adrs: ADR-0031
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
   evidence: packages/locations + routes/locations.ts on main; status.d/1-1 built done, ui todo
+  audience: public
+  public-name: More than one office
+  public-summary: Run several offices, with staff, matters and letterhead attached to the right one and nothing hidden from the rest of the firm.
   notes: Backend shipped; administration UI not built.
 
 - id: locations.fields
@@ -390,11 +403,11 @@
 - id: locations.usage.trust-accounts
   name: Location on trust accounts
   scope: Each trust account associated with a Location; jurisdiction trust-rule profile binds per account.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: trust_account-to-location binding specified in the approved trust jurisdiction-schema design; location.jurisdiction column already on main as the seam
-  notes: No trust-account code in tree yet.
+  evidence: the trust_account row carries location_id and the jurisdiction derived from that office, written by openTrustAccount in packages/trust/src/account-tree.ts, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded no jurisdiction
+  notes: The per-account binding ships; the rule profile it binds to is not yet resolved anywhere - packages/trust/src/jurisdiction.ts still refuses every requirement until a reviewed corpus is bound.
 
 - id: locations.usage.custodian
   name: Location as Custodian root
@@ -432,6 +445,9 @@
   adrs: ADR-0087, ADR-0107, ADR-0108
   spec: docs/specs/2026-06-18-slice-1-4-custom-fields-design.md
   evidence: packages/custom-fields (typed-EAV, migration 0013); status.d/1-4 built done, ui todo, tested todo
+  audience: public
+  public-name: Fields you define yourself
+  public-summary: Add your own fields to clients, matters and assets, and use them in searches, reports and generated documents.
   notes: Backend shipped; definition/entry UI deferred until the app shell.
 
 - id: custom-fields.typed
@@ -485,6 +501,9 @@
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: packages/matter-assets + twenty routes in apps/worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
+  audience: public
+  public-name: Asset registers
+  public-summary: Track the property, accounts and possessions a matter deals with — what each is worth, what is owed against it, and who holds an interest.
   notes: All ten classes, encumbrances and equity, the grouped schedule, the custody link, and the merge subjects are built. Still open — the firm's own fields on an asset, the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface.
 
 - id: matter-assets.register

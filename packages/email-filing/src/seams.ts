@@ -27,20 +27,13 @@ export function checkFilingConflict(_input: FilingConflictInput): FilingConflict
   return { hasConflict: false, holds: [] };
 }
 
-// ── Notifications raise-point.
-// "email filed to matter" is a notification type raised off the hot path, carrying a deep link and
-// never body content. A no-op until the Notifications subsystem ships; the raise site is placed now.
-
-export interface EmailFiledNotification {
-  readonly firmId: string;
-  readonly matterId: string;
-  readonly emailMessageId: string;
-}
-
-export function raiseEmailFiledNotification(_notification: EmailFiledNotification): void {
-  // Intentionally empty: the Notifications subsystem consumes this raise site when it ships. It will
-  // carry only a deep link to the filed email, never the message body.
-}
+// ── Notifications: there is no raise-point here, and there must not be one.
+// "email filed to matter" reaches a member as an outbox topic — `EMAIL_FILED_TOPIC` in ./topics.ts —
+// committed in the same batch as the link change it describes, which `@magna-carta/notifications`
+// subscribes to. It is not a function this package calls. An in-process raise stood here for a while
+// and could never have worked: nothing subscribes to a call, a call fires for a batch that rolls back,
+// and it fires only from whichever write path remembered to make it. A second mechanism beside the
+// topic would be worse than none, so the write paths commit the row and this file stays out of it.
 
 // ── DKIM verdict boundary.
 // The parse engine records DKIM / Authentication-Results / Received verbatim with no verdict; the

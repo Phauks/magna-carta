@@ -48,6 +48,8 @@ import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-d
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeFirmProvision } from "./firm-provision-consumer.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
+import { drainRecheckLedger } from "./conflicts/recheck-run-consumer.ts";
+import { runPeriodicRescan } from "./conflicts/periodic-rescan.ts";
 import { buildAndStoreDerivedSnapshot } from "./status/derived-snapshot.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
 
@@ -280,6 +282,9 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
             payload: row.payload,
             aggregateKey: row.aggregate_key,
             seq: row.seq,
+            // When the business write COMMITTED, carried through so a consumer that reports an
+            // interval reports the firm's, not the queue's.
+            causeOccurredAt: row.created_at,
           });
           await maybeEmitCompleted({
             logger,
@@ -346,6 +351,42 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   );
 
   return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt };
+}
+
+// THE CONFLICTS BACKSTOP, per firm: drain the re-check requests the queue did not, then enqueue the
+// next slice of the scheduled re-scan if the firm's cadence says one is due.
+//
+// It rides the DAILY pass rather than the */5 sweep, deliberately, and the reason is which of the two
+// a request can start. `scheduleRequestPathSweep` runs the whole */5 sweep on `waitUntil` after a
+// provisioning route commits, purely to shorten a new member's permission latency; anything added to
+// that sweep therefore executes on the tail of an HTTP request. Draining a re-check runs full
+// conflicts checks and the scheduled re-scan writes across a caseload, and neither belongs there.
+//
+// Putting it daily costs nothing in the ordinary case, because the cron pass is NOT the primary path:
+// a cause commits its outbox row, the */5 relay publishes it, and the queue consumers record and
+// answer it within one relay cycle. What this pass catches is only what the queue structurally
+// cannot — a fan-out larger than one cycle takes onto the queue, a message that dead-lettered, a
+// producer nobody wired, a matter that predates a trigger. Each of those is invisible from inside the
+// event path, and a procedure whose gaps are invisible is a procedure that fails silently.
+//
+// The drain comes first: answering what is already owed matters more than adding to the queue, and a
+// firm that is falling behind must not have the scheduled re-scan pile on top of it. Isolated per
+// firm, so one firm's broken database never starves the rest of the fleet.
+export async function runConflictsRecheckSweep(env: Bindings): Promise<number> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let firmsSwept = 0;
+  for (const firm of firms) {
+    try {
+      await drainRecheckLedger(env, firm.firmId, firm.database, logger);
+      await runPeriodicRescan(firm.database, logger);
+      firmsSwept++;
+    } catch (caught) {
+      logOperationFailed(logger, `cron:conflicts-recheck:${firm.firmId}`, caught, correlationId);
+    }
+  }
+  return firmsSwept;
 }
 
 // The stale-pending upload sweep: an upload session left open past its expiry (the client started an
@@ -473,8 +514,9 @@ async function readMeterRows(database: ProxyBatchDatabase): Promise<MeterRow[]> 
 //
 // PER-FIRM BUCKET SEAM: the LIST runs against the bucket resolveFirmBucket (files/firm-bucket.ts)
 // gives for this firm — the same resolver the upload and ingest paths use, so the pass counts the
-// bytes those paths actually wrote. D1 stays authoritative; the analytics trend seam (the telemetry
-// package) consumes the corrected meter on its own path.
+// bytes those paths actually wrote. D1 stays authoritative and is the only reader of the corrected
+// meter — no analytics store holds a copy of it, and packages/file-manager/src/metering-statements.ts
+// records why a per-firm storage trend is declined rather than deferred.
 export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
   // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
   // (golden rule 4; the console ban is structural).

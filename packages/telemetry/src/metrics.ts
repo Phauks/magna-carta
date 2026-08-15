@@ -110,6 +110,54 @@ export const costsRecoveryUnhandledTopic = defineMetric("costs.recovery.unhandle
   "topic",
 ] as const);
 
+// The automatic conflicts re-check path. Every one of these is a counter rather than an event on
+// purpose: the RATE is what says whether a firm's screening is keeping up with its records, and the
+// per-row detail — a matter, an entity, a cause handle — is firm data with no place in a metric.
+// `topic` is the only dimension, and it is a closed label from the cause catalogue.
+//
+// Between them they answer the operational question the ledger exists to make answerable: are causes
+// being noticed (requested), is anything being lost (malformed, no_affected_matters), is the queue
+// keeping up (fanout_deferred, drain_budget_exhausted), and is the work getting done (satisfied).
+export const conflictsRecheckRequested = defineMetric("conflicts.recheck.requested", [
+  "topic",
+] as const);
+export const conflictsRecheckMalformedCause = defineMetric("conflicts.recheck.malformed_cause", [
+  "topic",
+] as const);
+export const conflictsRecheckNoAffectedMatters = defineMetric(
+  "conflicts.recheck.no_affected_matters",
+  ["topic"] as const,
+);
+// A fan-out larger than one relay cycle takes onto the queue. EVERY ledger row was still written —
+// this counts what is waiting for the cron backstop, not what was dropped.
+export const conflictsRecheckFanoutDeferred = defineMetric("conflicts.recheck.fanout_deferred", [
+  "topic",
+] as const);
+export const conflictsRecheckSatisfied = defineMetric("conflicts.recheck.satisfied", [] as const);
+// A drain signal for a matter that had nothing open by the time it ran — the backstop got there
+// first, or a redelivery followed a run that already answered. Routine, and worth a number.
+export const conflictsRecheckAlreadySatisfied = defineMetric(
+  "conflicts.recheck.already_satisfied",
+  [] as const,
+);
+// The drain ran out of wall clock with requests still open. Non-zero and persistent means the firm's
+// screening is falling behind its own records, which is the one thing the ledger cannot fix by itself.
+export const conflictsRecheckDrainBudgetExhausted = defineMetric(
+  "conflicts.recheck.drain_budget_exhausted",
+  [] as const,
+);
+export const conflictsRecheckRescanEnqueued = defineMetric(
+  "conflicts.recheck.rescan_enqueued",
+  [] as const,
+);
+// Requests still unsatisfied after a drain pass — the drain-lag gauge. A backlog that only grows is a
+// firm whose conflicts screening is falling behind its own records, and nothing else in this set says
+// so: `satisfied` counts work done, which looks identical whether the queue is keeping up or not.
+export const conflictsRecheckOpenBacklog = defineMetric(
+  "conflicts.recheck.open_backlog",
+  [] as const,
+);
+
 // Document automation. A MERGE-FIELD KEY IS NOT A DIMENSION here: dictionary-declared keys are
 // enum-like and would be tolerable, but a firm's own custom-field entries are keyed by firm-defined
 // handles, and a rule that admits one and not the other is a rule that gets applied wrongly. `source`
@@ -298,6 +346,15 @@ const CATALOG: readonly MetricDefinition[] = [
   costsRecoveryReplayedAfterPurge,
   costsRecoveryFingerprintMismatch,
   costsRecoveryUnhandledTopic,
+  conflictsRecheckRequested,
+  conflictsRecheckMalformedCause,
+  conflictsRecheckNoAffectedMatters,
+  conflictsRecheckFanoutDeferred,
+  conflictsRecheckSatisfied,
+  conflictsRecheckAlreadySatisfied,
+  conflictsRecheckDrainBudgetExhausted,
+  conflictsRecheckRescanEnqueued,
+  conflictsRecheckOpenBacklog,
   documentAssemblyJobs,
   documentAssemblyAbsentField,
   documentAssemblyFrozenField,

@@ -46,9 +46,15 @@ routes requests through the chokepoint into those packages.
   `container-scan-adapter.ts` (POST→`RawScanResult`, zod-validated, throw-not-clean; the per-firm verdict
   is computed app-side from those raw facts). The scan engine itself
   runs in its own Worker (`apps/scan-worker`, service `magna-carta-scan`), which owns the `ScanContainer`
-  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding. That
-  binding is a **deploy-time activation** — it cannot run under the local test pool (a stub stands in for
-  it), so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
+  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding.
+  **Three states, not two, and only the first two are verdicts.** No binding at all → the engine-less
+  adapter's honest `unscanned`/`no-engine`. Bound and answering → a real verdict. Bound and answering
+  5xx — a placeholder worker, a Container that is not up — → `ScanFaultError`, which the ingest
+  consumer retries on and `routes/scan-diagnose.ts` answers as a `503`, because a member asking whether
+  a file is safe must not be handed an Error ID for an engine that is simply not there. The test pool
+  **binds a stub** (`vitest.config.ts`), so `env.SCAN_SERVICE` is defined in tests and the container
+  adapter — not the engine-less one — is what runs; drive the unreachable case by passing a failing
+  binding in the request env, as `test/scan-unreachable-engine-seam.test.ts` does.
 - `wrangler.jsonc` — bindings (D1/R2/Queues/DO/Analytics/Email), the `secrets.required` deploy gate, the
   queue producers/consumers, the Cron triggers, and the `durable_objects` + `migrations` ledger.
 - `openapi/openapi.json` — the committed contract snapshot. **Never hand-edit;** run
@@ -171,6 +177,80 @@ decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the wor
 
 Until step 2 is done, `resolveEnginePort` returns the deferred port for every convert-worker engine and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
 
+## Document assembly — the PDF arm reuses the conversion edge, it does not own one
+
+`src/assemblies/assembly-consumer.ts` files a word-processing package by default. A job whose
+`outputFormat` is `pdf` hands the **merged** bytes to `runConversion("docx", "pdf", …)` with
+`resolveEnginePort(env)` — the registry's own edge in `packages/conversion/src/registry.ts`, executed
+by whichever service that resolver names for the `libreoffice` engine. Rules for this arm:
+
+- **Nothing here may grow a second way to make a PDF.** No engine, no adapter, no registry entry
+  belongs to document automation. The office suite is the platform's one renderer of a word-processing
+  package, and a second path would be a second answer to what a firm's letterhead looks like on paper.
+- **A conversion that cannot be done FAILS the job (`conversion-failed`); nothing is filed.** Filing
+  the word-processing package and warning would hand a member who asked for a PDF something that reads
+  as the document they wanted and is discovered to be wrong when the seal refuses it. The code is
+  terminal, so the message is acked — a deployment where the suite is unreachable must not become a
+  queue burning attempts.
+- **The requested format is on the row, not read off the object.** `document_assembly.output_format`
+  answers for a job still queued and for a job that failed, neither of which has a filed object; the
+  poll returns it so a caller knows whether the produced document is in the shape
+  `POST /api/v1/documents/seal` accepts. That route is stateless over PDF bytes and is unchanged.
+- **The engine resolver is injectable on `documentAssemblyQueue`**, on the same terms the conversion
+  consumer takes it: the engine Container cannot run under the local test pool.
+
+## The split-object host — how the search engine reads R2 without credentials
+
+`src/search/split-object-host.ts` mounts `/search-objects/*`: cookieless, capability-token guarded,
+**outside the chokepoint**, for the same reason `/wopi/*` is — the caller is the keyword-search
+Container, which holds no session and no R2 credentials. The engine issues an ordinary ranged GET
+against a non-routable internal host, the search worker's container outbound interception forwards it
+here over a service binding, and this handler performs exactly one R2 operation. The engine is in
+`containers/search`; the worker that owns it is `apps/search-worker`.
+
+- **One request in, one R2 operation out.** No prefetch, no read-ahead, no buffering of a body being
+  passed through, and **an unranged GET is refused with 416 rather than serving the split whole**.
+  Every ranged read is a Class B operation in a deployment, and the read counts `crates/search-eval`
+  reports only transfer to production while that holds — a helpful optimization here changes the cost
+  model with nothing measuring it.
+- **The token decides whose bytes are reachable, never the request line.** `split-object-token.ts`
+  mints a per-operation HMAC token carrying the firm and the corpus; the allowed key prefix is
+  **derived** from that corpus rather than carried. A query reads several splits, so the key has to come
+  from the path — constraining it to the token's own prefix is what keeps that choice inside one
+  corpus. Write capability is a separate claim, so a query cannot overwrite what it is reading.
+- **The firm's bucket comes from the verified token through `files/firm-bucket.ts`**, like every other
+  object path here. A firm with no provisioned bucket is a refusal, not a fall-back to the bound handle.
+- **Four literals are duplicated across three packages** (the internal host, the path prefix, the token
+  header, the size header) because a worker cannot import from another worker. Each side pins them in a
+  test; change one and change all of them in the same commit, or every engine read becomes blocked
+  egress.
+- The PUT route registers its path as a **literal string** so the object-dimension fitness scan can tell
+  a route registration from a bucket write; a published split is stamped `object_class: search-split`
+  with its corpus as the matter.
+
+## Search split compaction — the ordering rules that make it safe
+
+`src/search/compaction-*.ts` merges a corpus's many per-document splits into one. Three local rules, all
+about ordering, and breaking any of them is a correctness bug rather than a performance one:
+
+- **A pass publishes object, then catalog, then nothing.** Write the merged split to R2; commit ONE
+  batch that inserts its row, inserts its `index_split_member` rows, and marks every source superseded;
+  then stop. **Never delete a source object in the pass that superseded it** — a query resolves its split
+  keys and then reads them, so that is the one ordering that can hand a live query a key to bytes that
+  are gone. Retirement is `runSearchCompactionSweep` on the daily cron, after a grace period.
+- **The write path may count; it may never merge.** The compaction trigger in `index-consumer.ts` is one
+  indexed `countLiveSplitsForMatter` and a coordinator call. A merge is proportional to the corpus, so
+  merging per write would be quadratic in it.
+- **A re-index marks and publishes in the same batch.** `markMembersStaleForDocumentStatement` rides the
+  batch that inserts the replacement split. Between the two writes a query would return the document
+  twice — once from its new split and once from the merged split that still holds the old passages — so
+  the window has to be zero. The stale members become per-split `excludeDocumentIds` on the query
+  (`keyword-search.ts`); the next merge is passed the same ids and repacks them out of the bytes.
+
+The coordinator is keyed by **corpus**, not by pass: two concurrent passes over one corpus would each
+merge overlapping splits and leave every document in the overlap live in two merged splits at once.
+Thresholds and merge bounds are per-firm settings (`@magna-carta/search/settings`), never constants.
+
 ## Release channels — the two doors and the flag catalog
 
 A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:
@@ -193,3 +273,8 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 - Tests run in `@cloudflare/vitest-pool-workers` (Miniflare) with real bindings from `wrangler.jsonc`; a
   DO test uses `runInDurableObject`. R2 `put` of an unknown-length stream stores nothing — confirmed
   against Miniflare — which is why the bundle build uses multipart.
+- **Fire-and-forget work goes through `src/background.ts`** — `runInBackground` from a handler,
+  `trackBackgroundWork` where the promise is handed to `waitUntil` directly. A path that skips it is
+  invisible to the test harness's teardown barrier and will eventually fail a run in a file that
+  passed; the rule and the reasoning are in
+  [`docs/conventions/testing.md`](../../docs/conventions/testing.md) (_Work that outlives the test_).

@@ -8,23 +8,24 @@ This is the **entry point** for anyone working in this repo: the golden rules an
 
 Documentation is **segmented and non-duplicative.** Every fact has one authoritative home; everything else links to it. Put new information in its home.
 
-| You need…                                                     | Home                                                                                  |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Why / what — design, rationale, feature map                   | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
-| Decisions + status (ADR register & standard)                  | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
-| How to work here + golden rules + this map                    | **this file**                                                                         |
-| Code standards (style, UI, testing, security, API, docs)      | [`docs/conventions/`](docs/conventions/)                                              |
-| Subsystem design (spec → plan → build)                        | [`docs/specs/`](docs/specs/)                                                          |
-| Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
-| End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
-| Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
-| Feature ledger (capability inventory, per-node status)        | [`roadmap.d/`](roadmap.d/)                                                            |
-| Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
-| Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
-| Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
-| Docs-sync routine & its run reports                           | [`docs/maintenance/`](docs/maintenance/)                                              |
-| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
-| Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
+| You need…                                                      | Home                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Why / what — design, rationale, feature map                    | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
+| Decisions + status (ADR register & standard)                   | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
+| How to work here + golden rules + this map                     | **this file**                                                                         |
+| Code standards (style, UI, testing, security, API, docs)       | [`docs/conventions/`](docs/conventions/)                                              |
+| Subsystem design (spec → plan → build)                         | [`docs/specs/`](docs/specs/)                                                          |
+| Local rules & gotchas for a code area                          | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
+| End-user & admin guides (per feature)                          | [`docs/user/`](docs/user/)                                                            |
+| Live execution status (now / next / shipped / backlog)         | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Every capability, its real status, the counts over all of them | [`docs/now.md`](docs/now.md) — the build register; generated, never hand-edited       |
+| Feature ledger (capability inventory, per-node status)         | [`roadmap.d/`](roadmap.d/) — the source the register renders from                     |
+| Per-slice stage status (spec → plan → built → tested)          | [`STATUS.md`](STATUS.md)                                                              |
+| Concurrent work in flight (other worktrees/branches)           | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
+| Notable changes                                                | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Docs-sync routine & its run reports                            | [`docs/maintenance/`](docs/maintenance/)                                              |
+| Recurring & associated costs (subscriptions, usage, one-time)  | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
+| Research (trust rules, competitive analysis)                   | [`docs/research/`](docs/research/)                                                    |
 
 **Cross-reference rule:** `§N` is navigation _inside_ the white paper only. From any other file, reference the white paper by **document + topic name** (or a stable **`ADR-NNNN`**), never a section number — they shift on reorganization.
 
@@ -66,7 +67,9 @@ Broad principles for how we build — they apply across the work, not just one s
 - **Build in vertical slices:** each feature complete through every layer (schema → firm-scoped data-access layer → API → UI → tests → docs), not horizontal layers — each slice ships working and is perf-tested against the load-profile fixtures as built.
 - **Build when in the area:** when a slice is open, include the cheap-from-the-getgo / expensive-to-retrofit parts up front — seams, schema columns, instrumentation. "Build when measured" gates are for heavy machinery only (golden rule 10 governs optimization, not foundations). This includes **build-time performance**: anything that builds repeatedly in CI or the cloud is made fast by default (caching, path-filtering, slow inputs baked at build time) — fast feedback compounds, and a cache is a foundation you add up front, not a measure-first optimization. Home: [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md). (ADR-0078)
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
-- **Bootstrap first, then check what changed.** A fresh worktree starts without its generated artefacts (the Rust→WASM output under `packages/{pdf,decryption,email}/src/pkg/` is git-ignored), so anything importing them fails until they exist: run **`vp run bootstrap`** once when you create a worktree — it rebuilds only what is stale and is a no-op otherwise. While working, run **`pnpm check:scoped`** (fmt + lint on the diff, incremental `tsc -b`, and svelte-check/Rust only when you touched them), not the full `pnpm check`. The pre-push hook runs that same scoped gate for fast local feedback; the exhaustive whole-repo gate (full `pnpm check` + `pnpm test`) is the **gate of record in GitHub Actions** (`.github/workflows/gate.yml`), which runs on every pull request and push to `main`. Home: [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md).
+- **Install, then bootstrap, then check what changed.** A fresh worktree starts with **no `node_modules` at all** and without its generated artefacts (the Rust→WASM output under `packages/{pdf,decryption,email}/src/pkg/` is git-ignored), so anything importing them fails until they exist. Two commands, in this order: **`pnpm install`**, then **`pnpm exec vp run bootstrap`** (which rebuilds only what is stale and is a no-op otherwise). Plain `pnpm install` is the first one on purpose — **`vp` is a `devDependency`, so it does not exist until something has installed it**, and `pnpm exec vp install` in a fresh worktree exits 254 with `Command "vp" not found`. Reaching for the parent checkout's binary instead is worse than it looks: `vp` then takes _that_ checkout as its root and operates on the wrong tree. While working, run **`pnpm check:scoped`** (fmt + lint on the diff, incremental `tsc -b`, and svelte-check/Rust only when you touched them), not the full `pnpm check`. The pre-push hook runs that same scoped gate for fast local feedback; the exhaustive whole-repo gate (full `pnpm check` + `pnpm test`) is the **gate of record in GitHub Actions** (`.github/workflows/gate.yml`), which runs on every pull request and push to `main`. Home: [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md).
+- **A merge that adds a package or an export path needs `pnpm install` before typecheck means anything.** Workspace links are resolved at install time, so after merging `main` a `tsc -b` can fail with `Cannot find module '@magna-carta/<something>'` for code that is perfectly correct. It reads exactly like a real break and it is not one — run `pnpm install`, then re-run. Three separate cycles were spent diagnosing this in one day. `node tooling/tsconfig-refs/index.mjs --check` tells the two apart: if the build refs are in sync, the missing module is a stale link rather than a missing reference.
+- **Never run two test suites at once, in any worktree.** The `pnpm test` single-flight lock is **per-worktree, not per-machine**, so nothing stops a second run — and it will not fail cleanly, it will produce phantom failures in files neither run touched. Timeouts are the usual shape, because a starved test looks exactly like a slow one. This also covers running `check:scoped` or a doc build in one worktree while a suite runs in another. Before believing any test failure, re-run it with the machine idle.
 - **Read a file immediately before you edit it, and give every file one owner.** Most failed edits are stale-context edits: the file was read long ago, or a second agent rewrote it in between. When work is split across concurrent agents, each file belongs to exactly one of them — overlapping ownership turns a fast parallel pass into a serial repair job.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
@@ -82,13 +85,15 @@ Several worktrees run at once, so streams must stay aware of each other and keep
 ## Commands
 
 ```
-vp install                                                              # deps (vp manages pnpm + Node version)
-vp run bootstrap                                                        # FIRST in a new worktree: build the git-ignored Rust->WASM artefacts; rebuilds only what is stale, no-op when current
+pnpm install                                                            # FIRST in a new worktree: vp is a devDependency, so it does not exist until this has run (`pnpm exec vp install` there exits 254)
+vp install                                                              # deps thereafter (vp manages pnpm + Node version)
+vp run bootstrap                                                        # SECOND in a new worktree: build the git-ignored Rust->WASM artefacts; rebuilds only what is stale, no-op when current
 vp run setup-hooks                                                      # one-time per clone: activate the tracked git hooks (pre-push quality gate + auto-clean on merge to main)
 vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
 vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
+vp run register-build                                                   # re-render docs/now.md (the build register: every capability at its real status) from the roadmap.d/ feature ledger — run after flipping a node's status
 pnpm test                                                               # unit + integration (Vitest, single-run; includes the Miniflare worker integration test). Wraps `vp test` with a per-worktree single-flight lock — two runs in one worktree wedge each other at 0% CPU, so a second one is refused. Args pass straight through; filter by PATH, not by test name
 pnpm check:scoped                                                       # INNER LOOP: fmt+lint on the diff, incremental tsc -b, svelte-check/Rust only if touched
 pnpm fix:scoped                                                         # apply fmt + lint autofixes to that SAME diff (markdown included) — never a bare repo-wide `vp check --fix`. Autofixes known to be wrong here (sort()->toSorted(), `=== false`->`!x`) still WARN but are never applied

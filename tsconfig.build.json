@@ -35,6 +35,9 @@
       "path": "apps/scan-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/search-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/sign-worker/tsconfig.build.json"
     },
     {
@@ -177,6 +180,9 @@
     },
     {
       "path": "packages/property-links/tsconfig.build.json"
+    },
+    {
+      "path": "packages/reporting/tsconfig.build.json"
     },
     {
       "path": "packages/safe-browse/tsconfig.build.json"

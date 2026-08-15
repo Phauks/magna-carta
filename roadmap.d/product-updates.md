@@ -42,6 +42,7 @@
   status: not-started
   adrs: ADR-0048
   evidence: No public updates pages; the shipped public status page (apps/status-worker) is the observability surface, not this one.
+  awaiting-owner: Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
 
 - id: product-updates.known-issues
   name: Live known issues / status

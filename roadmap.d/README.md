@@ -29,18 +29,106 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
   notes: Text-preserving surgery route shipped separately
 ```
 
-| Key        | Required | Meaning                                                                                         |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `id`       | yes      | Dotted kebab-case path; the segment count is the tree depth; stable forever                     |
-| `name`     | yes      | Short display name                                                                              |
-| `scope`    | yes      | One factual line — an index entry, not prose                                                    |
-| `status`   | yes      | See vocabulary below                                                                            |
-| `slices`   | no       | Comma-separated `status.d/` slugs this capability's build is tracked under                      |
-| `adrs`     | no       | Comma-separated `ADR-NNNN` (must exist in `docs/decisions/`)                                    |
-| `spec`     | no       | One `docs/specs/` path                                                                          |
-| `evidence` | no       | One line naming the artifact that justifies the status (package, crate, route)                  |
-| `audience` | no       | `public` or `internal` (default) — the public-roadmap filter; reserved until the public surface |
-| `notes`    | no       | One line of qualification                                                                       |
+| Key              | Required | Meaning                                                                                     |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `id`             | yes      | Dotted kebab-case path; the segment count is the tree depth; stable forever                 |
+| `name`           | yes      | Short display name                                                                          |
+| `scope`          | yes      | One factual line — an index entry, not prose                                                |
+| `status`         | yes      | See vocabulary below                                                                        |
+| `slices`         | no       | Comma-separated `status.d/` slugs this capability's build is tracked under                  |
+| `adrs`           | no       | Comma-separated `ADR-NNNN` (must exist in `docs/decisions/`)                                |
+| `spec`           | no       | One `docs/specs/` path                                                                      |
+| `evidence`       | no       | One line naming the artifact that justifies the status (package, crate, route)              |
+| `audience`       | no       | `public` publishes the node to the public roadmap; `internal` (the default) does not        |
+| `public-name`    | no       | The name users see; defaults to `name`. Set it when the internal name is builder vocabulary |
+| `public-summary` | no       | One sentence of user language. **Required whenever `audience: public`** — never defaulted   |
+| `awaiting-owner` | no       | One line: the question blocking this capability on an owner decision. Presence is the flag  |
+| `notes`          | no       | One line of qualification                                                                   |
+
+## The rendered view
+
+[`docs/now.md`](../docs/now.md) — **the build register** — is rendered from this ledger by
+`vp run register-build` and is never hand-edited: every node, at its real status, with the counts
+over the whole set. `pnpm run lint:roadmap` fails when it differs from a fresh render, so a
+capability that ships moves in the register on the `status` flip alone. Design:
+[`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
+
+**A node holds one status and forgets the last one, so the register's history is reconstructed from
+git.** The same build re-parses this ledger as it stood at every past commit that touched
+`roadmap.d/` on the trunk and keeps the counts in
+[`docs/register-history.json`](../docs/register-history.json), which the register renders as _Where
+we have been_. An ordinary run reads only the commits that file does not already hold — normally
+one — so it stays cheap; a commit whose ledger does not parse under the current schema is recorded
+as unread with the parser's reason and rendered as a hole, never estimated. After changing the
+parser or the status vocabulary, run `vp run register-build --rebuild-history` (or
+`node tooling/doc-fragments/build-register-history.mjs --rebuild`) so commits that have become
+readable join the series.
+
+## The gate against the repository
+
+`pnpm run lint:roadmap` holds the rendered documents to the ledger. It cannot tell whether the
+**ledger** is true, so `pnpm run lint:ledger-staleness` holds the ledger to the repository: every path
+a node names must resolve, every `slices` entry must be a `status.d/` fragment, every `adrs` entry
+must be an `ADR-NNNN` with a file, a node whose status asserts there is no code may not point at code
+no other node accounts for, and a parent may not claim less than its own children. One rule needs no
+filesystem at all: a `not-started` node whose slice fragment reports `built:` under way, with a
+**sibling** already shipped under that same slice, is two committed documents contradicting each
+other — and it is the only rule that can see a node which describes its own absence in prose without
+naming a path. Deliberately quiet — eight exact rules, no guessing at prose — and a node the tree
+genuinely cannot match carries `ledger-staleness:allow — <reason>` in its `notes`. Design and the
+rules rejected for firing on correct nodes:
+[`docs/specs/2026-08-14-feature-ledger-staleness-detection.md`](../docs/specs/2026-08-14-feature-ledger-staleness-detection.md).
+
+**An absence claim is not required to name a path.** Writing _"no code"_ or _"no messaging port
+defined"_ in `evidence` is correct and stays correct: a capability that was never built has no
+location to name, and an invented path would be a fiction no rule can check. Requiring one was
+measured at 96 hits over 708 nodes and rejected, along with the narrower ledger-against-itself form
+that reads absence claims about other areas — the measurements and the five stale nodes that form
+found by hand are in the design linked below. **Naming the path when there is one is still worth
+doing**, because that is what puts a claim inside reach of rules 1, 2 and 4; it is an invitation,
+not a gate.
+
+**Nine statuses, nine columns.** The register never bands statuses together. Collapsing them was
+tried and withdrawn: `partial` (a shipped backend with no screen on it) and `in-build` (being
+written right now) rendered under one heading, which is the largest loss of signal this source can
+suffer.
+
+## The public view, written and not published
+
+A second rendering exists for people using the product — grouped into horizon bands, publishing only
+nodes marked `audience: public` and only the sentence written for that purpose. **It is not written
+to disk.** There are no users yet, so it has no audience, and a document nobody reads is a document
+nobody keeps honest. The renderer, the keys below and the artifact schema in
+`@magna-carta/product-updates` are all kept ready and are all still linted, so the copy is sound on
+the day the product has readers.
+
+**A human writes the durable half of a public entry; the machine derives the volatile half.** You
+choose whether a node is public and what its sentence says — both facts that rarely change. The
+band it appears in comes from `status` on every run, because that is the fact that moves and
+therefore the one that must never be typed twice.
+
+**Prefer opting in the parent, not the leaf.** A parent's status is a genuine roll-up, so its
+`shipped` means the whole capability including its screen; a leaf's `shipped` often means a backend
+exists that nobody can use yet, and publishing that as Completed is a lie the assembler would tell
+for you. Pick the node at the level a reader thinks in.
+
+**Public copy rules, enforced by the lint:** no decision numbers, slice or phase numbers, file
+paths, package names, emoji, years or quarters. There is deliberately no date field anywhere in this
+schema — a nullable one gets populated, and then it is a promise.
+
+The area file may carry `<!-- public-group: ... -->` under its schema comment: the heading users see
+for that area. It defaults to the file's `# Title`, which is often builder vocabulary.
+
+Status maps to a public band as follows. The band names are the community board's own status
+vocabulary, so a request card and a roadmap entry never say the same thing two ways.
+
+| Status                                   | Public band        |
+| ---------------------------------------- | ------------------ |
+| `shipped`                                | Completed          |
+| `in-build`, `partial`                    | Building Now       |
+| `planned`, `designed`                    | Planned            |
+| `researching`, `not-started`, `deferred` | Future             |
+| `cut`                                    | Not on the roadmap |
 
 ## Status vocabulary
 

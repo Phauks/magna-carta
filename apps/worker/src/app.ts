@@ -21,6 +21,7 @@ import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerBillingRoutes } from "./routes/billing.ts";
+import { registerReportsRoutes } from "./routes/reports.ts";
 import { registerTrustFirmFundsRoutes } from "./routes/trust-firm-funds.ts";
 import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
 import { registerTrustUnclaimedFundsRoutes } from "./routes/trust-unclaimed-funds.ts";
@@ -46,6 +47,7 @@ import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
 import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
 import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
+import { registerSplitObjectHostRoutes } from "./search/split-object-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
@@ -219,6 +221,16 @@ export type Bindings = {
   // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
   // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
   SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
+  // The split-compaction coordinator: keyed firmId:corpusId, and keyed that way because two concurrent
+  // compactions of one corpus would each merge overlapping splits and leave every document in the
+  // overlap live in two merged splits at once.
+  SEARCH_COMPACTION_JOB: DurableObjectNamespace<
+    import("./search/compaction-coordinator.ts").SearchCompactionJob
+  >;
+  // The compaction queue: the consumer merges a corpus's small splits into one, publishes it, and swaps
+  // the per-firm catalog in a single batch. Never on a query or a request path — a merge is proportional
+  // to the bytes it reads and the corpus decides those.
+  SEARCH_COMPACTION: Queue<import("./search/compaction-types.ts").SearchCompactionMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -594,6 +606,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,
   // OUTSIDE the chokepoint (the editor sends no session cookie). The editor's data plane.
   registerWopiHostRoutes(app);
+  // The discovery search engine's object surface (/search-objects/*) — cookieless, capability-token
+  // guarded, OUTSIDE the chokepoint, for the same reason the WOPI surface is: the caller is the search
+  // Container, which holds no session and no R2 credentials. This is where a ranged read by the engine
+  // becomes a ranged R2 GET, and where a published split is stamped with its object dimensions.
+  registerSplitObjectHostRoutes(app);
   // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
   // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
   registerDocumentCheckoutRoutes(app, chokepoint);
@@ -646,6 +663,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // The firm's OWN money in a trust account — the bank-charge carve-out, on its own capability and
   // in its own module, because firm money and client money never share a door.
   registerTrustFirmFundsRoutes(app, chokepoint);
+  // Reporting — projections over records the firm already holds. Read-only by construction: the
+  // reporting package composes nothing, and every route registered here is a GET.
+  registerReportsRoutes(app, chokepoint);
   // Unclaimed client funds: the dormancy read against a window the caller states, and the diligence
   // file that evidences the search. Nothing on that surface moves money.
   registerTrustUnclaimedFundsRoutes(app, chokepoint);
@@ -690,8 +710,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // a permission never seeded to any firm role. Only a diagnostic support session carries it.
   registerSupportDiagnosticsRoute(app, chokepoint);
 
-  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
-  // that throws until the marketplace wires the live credential read), overridable in tests.
+  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam,
+  // which reports itself unbuilt until the marketplace wires the live credential read), overridable
+  // in tests.
   const pluginRuntime: PluginRuntime = {
     httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
     secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,

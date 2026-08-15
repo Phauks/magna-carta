@@ -278,6 +278,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // reachable from a discovery grant and from nothing else, because material produced by another
   // party may be attorney's-eyes-only under a protective order and matter access must not carry it.
   discovery: "matter",
+  // reports:* governs projections over records the firm already holds — read across every matter and
+  // client at once. It binds the FIRM, on the trust and billing reasoning rather than the
+  // matterAssets one: a firm-wide receivable position, a productivity report over every timekeeper,
+  // and a compliance pack for one trust account are all reads whose tenancy root is the firm. Every
+  // figure names matters, but the matter is what is being reported on, not the resource the
+  // capability governs.
+  reports: "firm",
   // notifications:* governs a member's own feed of things the platform noticed. It binds the FIRM,
   // on the custody/magnus reasoning: a feed spans every matter a member touches AND firm-scoped
   // kinds that have no matter at all — an incident filed against the firm, a trust posting whose
@@ -737,13 +744,18 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "billing.addClaims",
       "billing.addContingencyFee",
       "billing.addFlatFee",
+      "billing.applyClientCredit",
       "billing.applyTrustFunds",
       "billing.approveTrustApplication",
       "billing.arrangement",
+      "billing.clientCredits",
+      "billing.contingencyResidual",
       "billing.createInvoice",
       "billing.finalizeInvoice",
       "billing.invoiceDetail",
       "billing.invoiceRenderModel",
+      "billing.issueCreditNote",
+      "billing.listCreditNotes",
       "billing.listInvoices",
       "billing.listRecoveries",
       "billing.matterUnbilled",
@@ -754,6 +766,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "billing.requestReplenishment",
       "billing.resolveReplenishment",
       "billing.retainerStatus",
+      "billing.reverseApplication",
       "billing.setAccountRoles",
       "billing.setArrangement",
       "billing.setRenderShapeDefault",
@@ -761,6 +774,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "billing.updateLine",
       "billing.voidDraft",
       "billing.voidRecovery",
+      "billing.writeOffBalance",
       "calendar.cancelEvent",
       "calendar.cancelFirmEvent",
       "calendar.continuanceChain",
@@ -795,6 +809,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateResource",
       "calendar.vacateDeadline",
       "conflicts.getCheck",
+      "conflicts.matterPosture",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
       "conversions.events",
@@ -1069,6 +1084,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "rates.reRateDrafts",
       "registrations.confirm",
       "registrations.start",
+      "reports.trustCompliancePack",
       "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",
@@ -1534,6 +1550,62 @@ describe("conformance — the committed contract holds, and each rule catches a 
           "src/routes/widgets.ts": `// ${RAW_BODY_ALLOW_MARKER}: the raw-bytes route and the keyed route are different routes.\nconst meta = { idempotency: "required" };\nconst body = c.req.raw.body;\n`,
         }),
       ).toEqual([]);
+    });
+  });
+
+  // THE REPORTING SURFACE IS READ-ONLY, AND IT IS CHECKABLE. The reporting package composes nothing
+  // and a fitness function over its sources proves it cannot write; this is the other half of that
+  // guarantee, at the route layer. A report that could write would be a report that could adjust the
+  // books it is reporting on, and the difference an audit artifact exists to surface would be the
+  // difference it quietly removed.
+  //
+  // The one write the surface will ever have — turning a report into a filed firm record — is the
+  // caller's, rides `reports:produce`, and is the single exemption below. Every other reports route
+  // is a GET, and no `reports:` key may appear on a mutating route in any other namespace either:
+  // that is how a future route is stopped from borrowing one.
+  describe("the reporting surface is read-only", () => {
+    const REPORTS_WRITE_KEY = "reports:produce";
+
+    function reportsWriteViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
+      const violations: string[] = [];
+      for (const { path, method, operation } of operations(document)) {
+        const permission = operation["x-mc-permission"];
+        if (typeof permission !== "string" || !permission.startsWith("reports:")) continue;
+        if (!isMutatingMethod(method)) continue;
+        if (permission === REPORTS_WRITE_KEY) continue;
+        violations.push(
+          `${method.toUpperCase()} ${path}: a reports: read key may not gate a mutating route — only ${REPORTS_WRITE_KEY} may, and only on the route that files a produced report`,
+        );
+      }
+      return violations;
+    }
+
+    it("the committed contract satisfies it", () => {
+      expect(reportsWriteViolations(document)).toEqual([]);
+    });
+
+    it("is not vacuous — the document really carries reports routes", () => {
+      const reportsOperations = [...operations(document)].filter(
+        (entry) => entry.namespace === "reports",
+      );
+      expect(reportsOperations.length).toBeGreaterThan(0);
+      // And every one of them is a GET today.
+      expect(reportsOperations.every((entry) => entry.method === "get")).toBe(true);
+    });
+
+    it("flags a mutating route gated on a reports: read key", () => {
+      const bad = documentWithOperations([
+        {
+          method: "post",
+          path: "/api/v1/reports/trust-compliance",
+          operation: rawOperation({
+            "x-mc-operationId": "reports.write",
+            "x-mc-permission": "reports:trustCompliance",
+            "x-mc-resource": "firm",
+          }),
+        },
+      ]);
+      expect(reportsWriteViolations(bad).length).toBeGreaterThan(0);
     });
   });
 

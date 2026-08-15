@@ -15,11 +15,22 @@ interface InspectableStatement {
   readonly bindings: readonly unknown[];
 }
 
+// ONE migrated database for the whole file, the way test/visibility-fitness.test.ts and
+// test/load-profile.test.ts already do it. Nothing here EXECUTES a statement — every assertion reads
+// `.sql` and `.bindings` off what a builder composed — so the handle is only ever a `prepare()`
+// factory and sharing it writes no state anything else could see. Building one per composition
+// instead re-read every committed per-firm migration off disk and replayed the whole schema, about
+// 200 ms a time and roughly seventy-five times across this file: fourteen seconds of DDL to prove a
+// property about string concatenation. That is also why this file used to time out on branches that
+// never touched the calendar — the work was real, so a machine under load pushed a single case past
+// the 5 s default and reported it as a calendar failure. Keep the composition pure and the margin
+// stops being a number anyone has to tune.
+const { database } = migratedDatabase();
+
 function statementsFor(
   source: (typeof TIMELINE_SOURCES)[number],
   overrides: Partial<SourceReadRequest> = {},
 ): InspectableStatement[] {
-  const { database } = migratedDatabase();
   const request: SourceReadRequest = {
     database,
     scope:
@@ -209,9 +220,14 @@ describe("every custody-derived source carries the predicates its register read 
       required: [
         [
           "custody_movement.due_back_on IS NOT NULL",
-          "custody_movement.kind = 'checked_out'",
-          "custody_movement.item_id IS NULL",
           "custody_packet.status = 'out'",
+          // Which movement is wanted — the packet's latest check-out of the packet itself rather
+          // than of one item inside it — is asserted where that movement is picked out, on both
+          // sides of the pairing. Stating either condition a second time in the outer WHERE would
+          // filter nothing and would let the planner drive the read from the ledger instead of from
+          // the packets that are out.
+          "latest.kind = 'checked_out'",
+          "latest.item_id IS NULL",
           // The most recent check-out only: a back-dated correction to an old one must not resurrect
           // its deadline over a newer one.
           "ORDER BY latest.occurred_at DESC",
@@ -251,7 +267,10 @@ describe("every custody-derived source carries the predicates its register read 
 
     const overdue = custodian("queries.ts");
     expect(overdue).toContain("packet.status = 'out'");
-    expect(overdue).toContain("movement.item_id IS NULL");
+    // Which movement is wanted is asserted inside the subquery that picks it out, on this side of
+    // the pairing exactly as on the source's side.
+    expect(overdue).toContain("latest.kind = 'checked_out'");
+    expect(overdue).toContain("latest.item_id IS NULL");
     expect(overdue).toContain("ORDER BY latest.occurred_at DESC");
   });
 });

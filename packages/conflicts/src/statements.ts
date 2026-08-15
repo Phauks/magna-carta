@@ -7,6 +7,7 @@ import type {
 import type { UserId } from "@magna-carta/identifiers/types";
 import type {
   ConflictsTrigger,
+  ConflictsTriggerSource,
   DispositionKind,
   EvidenceTier,
   SourceClass,
@@ -34,13 +35,18 @@ export interface InsertCheckRow {
   readonly inputsJson: string;
   readonly floorRaised: boolean;
   readonly actorUserId: UserId | null;
+  // How the run was started. Null on a run a person asked for, which reads exactly as every row
+  // written before the automated paths existed does.
+  readonly triggerSource: ConflictsTriggerSource | null;
+  // The corpus changes an automated run covers, as JSON. Null for a manual run.
+  readonly causeJson: string | null;
   readonly createdAt: string;
 }
 
 export function insertCheckStatement(database: SqlDatabase, row: InsertCheckRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CONFLICTS_CHECK_TABLE} (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+      `INSERT INTO ${CONFLICTS_CHECK_TABLE} (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, trigger_source, cause_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
     )
     .bind(
       row.id,
@@ -53,6 +59,8 @@ export function insertCheckStatement(database: SqlDatabase, row: InsertCheckRow)
       row.inputsJson,
       row.floorRaised ? 1 : 0,
       row.actorUserId,
+      row.triggerSource,
+      row.causeJson,
       row.createdAt,
     );
 }

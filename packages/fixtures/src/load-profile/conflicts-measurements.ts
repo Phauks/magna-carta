@@ -4,7 +4,9 @@ import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifi
 import type { ConflictsWriteOptions } from "@magna-carta/conflicts/audit";
 import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
 import { findImputationHits } from "@magna-carta/conflicts/imputation";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import { expandGraph } from "@magna-carta/conflicts/expansion";
+import { matchPartyBatch } from "@magna-carta/conflicts/matching";
+import { readSubjectFactsBatch } from "@magna-carta/conflicts/subject-facts";
 import { fixtureContext, type FixtureContext } from "../context.ts";
 import { createProfileFirmKeyProvider, PROTECTED_FIRM_KEY_VERSION } from "./protected-generate.ts";
 import { explainStatement, type LabeledPlan, type Measurement } from "./runner.ts";
@@ -14,10 +16,15 @@ import type { LoadedSnapshot } from "./snapshot.ts";
 // generator laid down (persons, name history, edges, blind-indexed identifiers, matter parties), so
 // its hot paths ride that same production-faithful shape:
 //   - `conflicts.run-check` runs a REAL firm-wide check against the busiest directory node: scope
-//     resolution, breadth-first graph expansion (`expandGraph`), a `matchParty` per reached entity
-//     (candidate generation + the exact-name probe + the blind-index self-join), and the atomic batch
-//     write of the check row plus every surfaced hit. It self-generates its log rows, so it needs no
-//     pre-seeded conflicts corpus. This is the flagship — its cost scales with the graph and the corpus.
+//     resolution, breadth-first graph expansion (`expandGraph`) under the firm's typed per-edge-class
+//     budgets and closure cap, then the BATCHED matcher over the whole reached set (one subject-facts
+//     read per node table, then each blocking channel once — candidate generation, the exact-name
+//     probe, and the blind-index self-join), and the atomic batch write of the check row plus every
+//     surfaced hit. It self-generates its log rows, so it needs no pre-seeded conflicts corpus. This is
+//     the flagship — its cost scales with the graph and the corpus.
+//   - `conflicts.run-check-deep-graph` and `conflicts.run-check-truncating` run the same check over the
+//     deep corporate group: one complete walk of a group that fits under its cap, and one that does
+//     not, so the cost of stopping honestly is measured rather than assumed.
 //   - `conflicts.imputation` runs the identity join (`matter_party -> directory_person -> member`) over
 //     a page of the firm's matters — the cost is the join over the matter-party volume.
 // The plan probes hold the new conflicts SQL (the imputation join, the blind-index self-join, the
@@ -41,6 +48,11 @@ export interface ConflictsMeasurementHandle {
   // The deterministic co-party pair (two identically-named persons). A check seeded with both surfaces
   // each as the other's hit, flagged co_party — the measured expression of the co-party surfacing path.
   readonly coPartyEntityIds: readonly [string, string];
+  // The head of the deep corporate group — a long successor lineage with a wide subsidiary fan.
+  // Corporate-family edges cost no hops, so a check seeded here expands the whole group in one
+  // closure: the deep-graph case, and the case the closure cap and its truncation record exist for.
+  readonly corporateGroupHeadId: string;
+  readonly corporateGroupSize: number;
 }
 
 // How many matters the imputation join reads per iteration.
@@ -54,7 +66,7 @@ export async function conflictsMeasurementHandle(
   const { directoryProbes } = snapshot.manifest;
   const firmKeyProvider = await createProfileFirmKeyProvider(snapshot.manifest.seed);
   const identifierContext: DirectoryIdentifierContext = {
-    firmId: directoryProbes.firmId as FirmId,
+    firmId: directoryProbes.firmId,
     firmKeyVersion: PROTECTED_FIRM_KEY_VERSION,
     firmKeyProvider,
     database: snapshot.database,
@@ -91,16 +103,45 @@ export async function conflictsMeasurementHandle(
     subjectMatterId: subjectMatter[0]?.matter_id ?? null,
     matterIdPage: matterRows.map((row) => row.id),
     coPartyEntityIds: [directoryProbes.coPartyEntityIdA, directoryProbes.coPartyEntityIdB],
+    corporateGroupHeadId: directoryProbes.corporateGroupHeadId,
+    corporateGroupSize: directoryProbes.corporateGroupSize,
   };
 }
+
+// WHY THESE CAPS ARE SMALL, AND WHAT THE HARNESS FOUND.
+//
+// Hits do not scale with the closure. They scale with the closure TIMES the corpus, because the
+// trigram blocking channel is close to all-pairs on multi-word organization names: every name shares
+// three-character windows like " an", "and", "nd " with almost every other, so each reached entity
+// returns most of the organization corpus as candidates. Nothing is suppressed by design — a
+// threshold is how a missed conflict becomes an invisible one — so every candidate becomes a written
+// hit row.
+//
+// At this profile's shape (a ~600-entity corporate group over a ~700-organization corpus) a walk at
+// the shipped default closure cap composes several hundred thousand INSERTs into one batch, and
+// `composeEffectBatch` in packages/data-access/src/effect-batch.ts spreads its statement list into
+// `Array.prototype.push`, which has a hard engine argument ceiling and throws
+// `RangeError: Maximum call stack size exceeded` well before that. Both halves of that are findings
+// rather than something this module may paper over: the batch composer has an undocumented upper
+// bound, and the closure cap bounds ENTITIES while the cost it actually governs is entities times
+// corpus.
+//
+// So the caps here are sized to exercise the traversal and the truncation record without measuring
+// the engine's argument limit. They are deliberately not the shipped defaults, and the gap between
+// them is the finding.
+const DEEP_GRAPH_CLOSURE_CAP = 40;
+
+// Below the group's size, so this walk always meets its bound and the cost of stopping honestly —
+// and of recording what was not reached — is measured rather than assumed.
+const TRUNCATING_CLOSURE_CAP = 15;
 
 export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHandle, unknown>[] = [
   {
     name: "conflicts.run-check",
     operation: async (handle) => {
-      // A full firm-wide check against the busiest node: expansion + matchParty per reached entity +
-      // the atomic write of the check and every hit. Writes its own log rows (append-only, discarded
-      // with the working copy).
+      // A full firm-wide check against the busiest node: expansion + the batched matcher over the
+      // reached set + the atomic write of the check and every hit. Writes its own log rows
+      // (append-only, discarded with the working copy).
       await runConflictsCheck(
         handle.identifierContext,
         {
@@ -139,7 +180,102 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
       );
     },
   },
+  {
+    name: "conflicts.run-check-deep-graph",
+    operation: async (handle) => {
+      // A check seeded at the head of the deep corporate group. Corporate-family edges are free, so
+      // the lineage plus part of its subsidiary fan lands in ONE closure, all of it matched. This is
+      // the flagship for the batched matcher: on the per-entity path it is four queries per entity,
+      // and the whole point of the batch is that it is not.
+      await runConflictsCheck(
+        handle.identifierContext,
+        {
+          trigger: "comprehensive",
+          subjectEntityIds: [handle.corporateGroupHeadId],
+          scope: {
+            sources: ["party", "graph"],
+            strictness: "balanced",
+            depth: 1,
+            closureCap: DEEP_GRAPH_CLOSURE_CAP,
+          },
+        },
+        handle.writeOptions,
+      );
+    },
+  },
+  {
+    name: "conflicts.run-check-truncating",
+    operation: async (handle) => {
+      // The same group under a cap it cannot fit in. The walk stops, the check records that it was
+      // truncated with the frontier it did not reach, and the report says the search is incomplete.
+      // Measured because stopping honestly is a code path like any other, and one that runs on
+      // exactly the corpora where the engine is under the most pressure.
+      await runConflictsCheck(
+        handle.identifierContext,
+        {
+          trigger: "comprehensive",
+          subjectEntityIds: [handle.corporateGroupHeadId],
+          scope: {
+            sources: ["party", "graph"],
+            strictness: "balanced",
+            depth: 1,
+            closureCap: TRUNCATING_CLOSURE_CAP,
+          },
+        },
+        handle.writeOptions,
+      );
+    },
+  },
 ];
+
+// The batched matcher's query count over the deep corporate group, counted rather than timed: a
+// timing shows an N+1 only once the corpus is large enough for the difference to clear the noise,
+// while a count shows it the moment somebody puts a read back inside the loop. Reported beside the
+// timings, like the calendar's timeline bounds.
+export interface ConflictsMatcherBound {
+  readonly label: string;
+  readonly subjectCount: number;
+  readonly statementCount: number;
+}
+
+export async function conflictsMatcherBounds(
+  handle: ConflictsMeasurementHandle,
+): Promise<ConflictsMatcherBound[]> {
+  const expansion = await expandGraph(
+    handle.identifierContext.database,
+    [handle.corporateGroupHeadId],
+    {
+      edgeClassBudgets: { control: 1, family: 1, representation: 1 },
+      closureCap: DEEP_GRAPH_CLOSURE_CAP,
+      asOf: handle.identifierContext.clock.now(),
+    },
+  );
+  const entityIds = expansion.entities.map((entity) => entity.entityId);
+  const facts = await readSubjectFactsBatch(handle.identifierContext, entityIds);
+  const subjects = entityIds
+    .map((entityId) => facts.get(entityId))
+    .filter((subject) => subject !== undefined);
+
+  const database = handle.identifierContext.database as unknown as {
+    prepare: (sql: string) => unknown;
+  };
+  const realPrepare = database.prepare.bind(database);
+  let statementCount = 0;
+  database.prepare = (sql: string) => {
+    statementCount += 1;
+    return realPrepare(sql);
+  };
+  await matchPartyBatch(handle.identifierContext, subjects, "balanced");
+  database.prepare = realPrepare;
+
+  return [
+    {
+      label: "conflicts.matcher-batch-deep-graph",
+      subjectCount: subjects.length,
+      statementCount,
+    },
+  ];
+}
 
 // Nothing is allowlisted: every EXPLAIN'd conflicts hot path must walk an index.
 export const CONFLICTS_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
@@ -240,6 +376,48 @@ function dispositionCurrentPlanStatement(snapshot: LoadedSnapshot): NodeSqlState
   );
 }
 
+// The posture read's first query (posture.ts readLatestCheckRow): a matter's most recent check. Walks
+// the conflicts_check (subject_matter_id, created_at, id) index — without it this scans every check the
+// firm has ever run to answer a single matter's page.
+function latestCheckForMatterPlanStatement(
+  snapshot: LoadedSnapshot,
+  matterId: string,
+): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT id, trigger, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at
+         FROM conflicts_check WHERE subject_matter_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      )
+      .bind(matterId),
+  );
+}
+
+// The posture read's second query (disposition.ts readHitDispositionStates): every hit of one check
+// with its latest disposition, in one read rather than one read per hit. The hit side walks the
+// check_id index; the correlated latest-disposition subquery walks (hit_id, created_at).
+function hitDispositionStatesPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT hit.id AS hit_id, hit.evidence_tier, hit.source_class, hit.co_party,
+                latest.id AS disposition_id, latest.kind, latest.rationale, latest.reviewer_user_id,
+                latest.created_at AS disposition_created_at
+           FROM conflicts_hit AS hit
+           LEFT JOIN conflicts_disposition AS latest
+             ON latest.rowid = (
+               SELECT candidate.rowid FROM conflicts_disposition AS candidate
+                WHERE candidate.hit_id = hit.id
+                ORDER BY candidate.created_at DESC, candidate.rowid DESC
+                LIMIT 1
+             )
+          WHERE hit.check_id = ?1
+          ORDER BY hit.created_at ASC, hit.id ASC`,
+      )
+      .bind("conflictsCheck_probe"),
+  );
+}
+
 export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const { directoryProbes } = snapshot.manifest;
   const statements: readonly { label: string; statement: NodeSqlStatement }[] = [
@@ -256,6 +434,14 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
     {
       label: "conflicts.disposition-current",
       statement: dispositionCurrentPlanStatement(snapshot),
+    },
+    {
+      label: "conflicts.latest-check-for-matter",
+      statement: latestCheckForMatterPlanStatement(snapshot, "matter_probe"),
+    },
+    {
+      label: "conflicts.hit-disposition-states",
+      statement: hitDispositionStatesPlanStatement(snapshot),
     },
   ];
   return statements.map(({ label, statement }) => ({

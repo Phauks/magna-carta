@@ -89,6 +89,17 @@ export interface FieldManifest {
   // "this template has blanks the merge engine will not fill", which is what makes them visible to the
   // absence model instead of invisible to it.
   readonly unconvertedMergeFields: readonly UnconvertedMergeField[];
+  // The LEGACY WORD FORM FIELDS this version carries. A separate list from the unconverted merge
+  // fields on purpose: those name a field the engine could bind if the firm asked, and these name a
+  // construct it will not bind at all. Blending them would offer conversion as the remedy for
+  // something conversion does not answer.
+  readonly legacyFormFields: readonly LegacyFormField[];
+  // The CONTENT CONTROLS this version carries that nothing will fill in — a `w:sdt` showing its
+  // unfilled placeholder, or one bound to data in the template's own package. A third list rather than
+  // a widening of either of the two above: a legacy form field is a dead construct whose only remedy is
+  // replacement, while a content control is what Word produces today and what this engine intends to
+  // bind, so the two entries stand for different futures as well as different repairs.
+  readonly unboundContentControls: readonly UnboundContentControl[];
   readonly blocks: readonly ManifestBlock[];
   readonly computedFields: readonly ManifestComputedField[];
 }
@@ -125,6 +136,116 @@ export interface UnconvertedMergeField {
   readonly frozenText: string;
 }
 
+// One LEGACY WORD FORM FIELD a registered template version carries — the `w:fldChar` complex field whose
+// instruction is FORMTEXT, FORMCHECKBOX, or FORMDROPDOWN and which carries a `w:ffData` block. Word's
+// own protected-form machinery, and the construct most of the appellate court forms and a great deal of
+// legacy firm precedent are built from.
+//
+// NOTHING BINDS ONE, AND NOTHING HERE INVENTS A NAME FOR IT. `fieldName` is the `w:ffData` bookmark name
+// exactly as Word recorded it — `Text1`, `Check1`, whatever the author typed — which is an identifier
+// for the field, not a claim about what it means: it is reported so a person can find the field in Word,
+// never as a merge key. Deriving `client.displayName` from a bookmark called `PartyName`, or from the
+// help text beside it, would be the same silent binding decision on privileged content that the
+// name-guessing rule refuses one construct over.
+//
+// So the entry exists to make the ABSENCE visible: this template has holes the merge engine will not
+// fill, here is what each prints today, and here is the prompt whoever authored it wrote for whoever
+// fills it in. Recorded rather than refused for the reason an unconverted merge field is — an
+// unregisterable template is one nobody can inspect.
+export interface LegacyFormField {
+  // The `w:ffData` bookmark name, empty when the construct carries none. Never a merge key.
+  readonly fieldName: string;
+  readonly kind: LegacyFormFieldKind;
+  readonly part: string;
+  readonly occurrences: number;
+  // The author's own prompt for the field — Word's status-bar text or help text. Empty when neither is
+  // set. It is the one place a legacy form field says what it wants, so it is what a person mapping the
+  // template by hand reads first.
+  readonly helpText: string;
+  // What the document prints where the field sits — the field's own placeholder text, which is what
+  // gets filed if nobody notices. Empty when the construct carries no result.
+  readonly frozenText: string;
+}
+
+export type LegacyFormFieldKind = "text" | "checkbox" | "dropDown";
+
+// One CONTENT CONTROL (`w:sdt`) a registered template version carries that nothing will fill in. This
+// is the construct Word produces TODAY where the two above are what it produced before: a structured
+// region with its own properties block (`w:sdtPr`), which is why it is the placeholder form this engine
+// means to bind eventually rather than a legacy shape to replace.
+//
+// AN ENTRY EXISTS ONLY WHERE THE DOCUMENT ITSELF SAYS THE REGION IS UNFILLED. Two properties say it,
+// and one of them is always true on a recorded entry:
+//
+//   `showingPlaceholder` — the control carries `w:showingPlcHdr`, which is Word's own record that what
+//   the reader sees is the control's placeholder prompt rather than content. `frozenText` is therefore
+//   the prompt AND the printed text at once — "Click here to enter text." — which is why there is no
+//   separate help-text field here as there is on a legacy form field: a content control has only the
+//   one string, and reporting it twice would read as two different prompts.
+//
+//   `dataBound` — the control carries `w:dataBinding`, so Word refreshes its content from a custom XML
+//   part in the package. Nothing in this engine writes such a part, and registration's metadata scrub
+//   removes them outright (they typically hold a document-management system's own client and matter
+//   record — `packages/metadata/src/ooxml/scrub.ts`), so the control has no source left and prints
+//   whatever the document it was made from last put there: the unconverted-merge-field failure in a
+//   different construct, and a blank that does not look like a blank.
+//
+// A control that is NEITHER is deliberately not recorded. Word wraps ordinary content in content
+// controls constantly — a cover page, a citation, a table of contents, anything built from one of its
+// own templates — and a filled control prints text the author typed, which is content, not a hole.
+// Reporting those would put a warning on documents that have nothing wrong with them, and a warning
+// every template earns is a warning every firm learns to skip past.
+//
+// A NAME HERE IS EVIDENCE, NOT A BINDING. Unlike a legacy form field's Word-minted `Text1`, `alias`
+// (the title in Word's properties dialog) and `tag` are typed by an author or written by whatever tool
+// produced the document — nothing mints them, and a control that has neither reports both empty. That
+// makes them the same KIND of evidence a `MERGEFIELD` name is, and it is why a future conversion has a
+// real thing to map from. It is still not a merge key: the mapping library exists precisely because a
+// name has to be CONFIRMED by a human once before it means anything, and no confirmation has happened
+// here. Both are reported so a person can find the control in Word and decide.
+export interface UnboundContentControl {
+  // `w:alias` — the control's title. Empty when the control carries none.
+  readonly alias: string;
+  // `w:tag` — the control's machine-facing name. Empty when the control carries none.
+  readonly tag: string;
+  readonly kind: ContentControlKind;
+  readonly part: string;
+  readonly occurrences: number;
+  // Whether the control declares `w:showingPlcHdr`.
+  readonly showingPlaceholder: boolean;
+  // Whether the control declares `w:dataBinding`.
+  readonly dataBound: boolean;
+  // What the document prints where the control sits, which for a placeholder-showing control is the
+  // prompt its author wrote. Empty when the control's content carries no text at all.
+  readonly frozenText: string;
+}
+
+// What a control declares it holds, taken from the type element in `w:sdtPr`. The kind is the whole
+// reason one entry shape covers every control: it is what tells a person which merge field the control
+// should have been — a date picker wants a date-typed field, a drop-down wants one of a listed set, and
+// a picture control wants something the merge engine has no text field for at all.
+//
+// `unspecified` means the properties block declares NO type element. That is legal, and such a control
+// is conventionally a rich-text one — but conventionally is not the same as stated, and this reports
+// what the document declares rather than what it probably means, for the same reason a bookmark name
+// never becomes a merge key.
+export type ContentControlKind =
+  | "plainText"
+  | "richText"
+  | "date"
+  | "dropDownList"
+  | "comboBox"
+  | "checkBox"
+  | "picture"
+  | "buildingBlock"
+  | "repeatingSection"
+  | "repeatingSectionItem"
+  | "citation"
+  | "bibliography"
+  | "equation"
+  | "group"
+  | "unspecified";
+
 // A normalization finding that does NOT stop registration — the template is registrable, but the author
 // should see what the pass did or noticed. A finding that makes a template unusable is a registration
 // failure with a location instead (see NormalizationFailure in normalize.ts), never a warning: a
@@ -134,6 +255,8 @@ export interface NormalizationWarning {
   readonly code:
     | "merge-field-converted" // a Word MERGEFIELD construct was rewritten into the canonical brace form
     | "merge-field-unconverted" // Word MERGEFIELD constructs were left as authored and will render frozen text
+    | "legacy-form-field" // legacy Word form fields, which nothing binds and no opt-in converts
+    | "unbound-content-control" // `w:sdt` regions showing a placeholder, or bound to the template's own data
     | "no-placeholders"; // the package registered cleanly but carries no merge fields at all
   readonly part: string;
   readonly detail: string;

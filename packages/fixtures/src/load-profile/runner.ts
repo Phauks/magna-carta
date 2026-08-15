@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { cpus, totalmem } from "node:os";
 import type { DatabaseSync } from "node:sqlite";
 
 // THE SANCTIONED WALL-CLOCK READ. The fixtures determinism rule bans wall-clock reads in DATA
@@ -131,11 +132,48 @@ export function findTempBtreeSorts(plans: readonly LabeledPlan[]): string[] {
     .map((plan) => plan.label);
 }
 
+// The machine the numbers came off. Timings here are RELATIVE — they decide regressions and growth
+// curves on ONE machine and mean nothing across two — so the file has to be able to say which machine
+// it is, or a reader diffing two baselines cannot tell a regression from a different laptop.
+export interface BaselineEnvironment {
+  readonly nodeVersion: string;
+  readonly platform: string;
+  readonly architecture: string;
+  readonly cpuModel: string;
+  readonly cpuCount: number;
+  readonly totalMemoryBytes: number;
+}
+
+export function baselineEnvironment(): BaselineEnvironment {
+  const processors = cpus();
+  return {
+    nodeVersion: process.version,
+    platform: process.platform,
+    architecture: process.arch,
+    cpuModel: processors[0]?.model.trim() ?? "unknown",
+    cpuCount: processors.length,
+    totalMemoryBytes: totalmem(),
+  };
+}
+
+// A count a read produced, rather than a time it took. Statements issued and rows read are the
+// witnesses a timing cannot be: a per-row lookup added inside a projection changes neither any single
+// statement's plan nor, at a small corpus, any measurable duration — but it changes these.
+export interface MeasuredBound {
+  readonly name: string;
+  readonly statementCount: number;
+  readonly rowsRead: number;
+  readonly sourcesRead: number;
+  readonly entriesReturned: number;
+}
+
 export interface BaselineFile {
   readonly profileName: string;
   readonly profileVersion: number;
   readonly cacheKey: string;
+  readonly environment: BaselineEnvironment;
   readonly results: readonly MeasurementResult[];
+  readonly bounds?: readonly MeasuredBound[];
 }
 
 // Small, sorted, committed, human-diffed — never CI-gated in this slice.
@@ -143,6 +181,10 @@ export function writeBaselineFile(path: string, baseline: BaselineFile): void {
   const sorted: BaselineFile = {
     ...baseline,
     results: [...baseline.results].sort((left, right) => left.name.localeCompare(right.name)),
+    bounds:
+      baseline.bounds === undefined
+        ? undefined
+        : [...baseline.bounds].sort((left, right) => left.name.localeCompare(right.name)),
   };
   writeFileSync(path, `${JSON.stringify(sorted, null, 2)}\n`);
 }

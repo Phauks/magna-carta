@@ -192,6 +192,8 @@ function manifestFor(
     fields,
     totalOccurrences,
     unconvertedMergeFields: [],
+    legacyFormFields: [],
+    unboundContentControls: [],
     blocks: [],
     computedFields: [],
   };
@@ -271,6 +273,8 @@ function expressionManifestFor(
     fields,
     totalOccurrences,
     unconvertedMergeFields: [],
+    legacyFormFields: [],
+    unboundContentControls: [],
     blocks,
     computedFields,
   };
@@ -290,6 +294,8 @@ function preparationFor(manifest: FieldManifest, bytes: Uint8Array): TemplatePre
     macrosStripped: false,
     mergeFieldDetections: [],
     mergeFieldsConverted: false,
+    legacyFormFields: [],
+    unboundContentControls: [],
     confirmedMergeFieldMappings: [],
   };
 }
@@ -653,6 +659,7 @@ export async function generateDocumentAutomationVolume(
           templateId: source.id,
           templateVersionId: source.versionId,
           folderId: null,
+          outputFormat: "docx",
           engineVersion: 1,
           dictionaryVersion: 1,
           requestedBy: null,

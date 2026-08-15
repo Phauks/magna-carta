@@ -525,7 +525,7 @@ export function createUsageConsentResolver(options?: { ttlMs?: number; clock?: (
 
   return {
     async resolve(database, firmId, userId) {
-      const cacheKey = `${firmId} ${userId}`;
+      const cacheKey = `${firmId}\0${userId}`;
       const now = clock();
       const cached = cache.get(cacheKey);
       if (cached !== undefined && cached.expiresAt > now) return cached.value;

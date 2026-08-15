@@ -30,7 +30,8 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - `src/close-advisory.ts` — the matter-close notice: informational, never a refusal
 - `src/settings.ts` — the firm's release policy and its ownership-role catalog, both read by hand
 - `src/scan-service.ts` — links an already-ingested `file` to a packet; resolves the filing matter
-- `src/numbering/` — the counter + allocation statements and the fixed number shape
+- `src/numbering/` — the fixed number shape (`render.ts`), and a thin shim binding custody's tables
+  and `packet_id` owner column to the shared draw in `@magna-carta/sequence-numbering`
 - `src/queries.ts` — the register list, the location-subtree filter, and the overdue check-out sweep
 - `src/review-service.ts` / `src/review-statements.ts` — review dates: completing one, the
   anniversary-anchored roll forward, and the reviews-due read
@@ -127,8 +128,8 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
-  `@magna-carta/money`, and `@magna-carta/matters` (only for `system-matter-statements` — the custody
-  holding matter). It does NOT depend on `@magna-carta/locations`, `@magna-carta/directory`, or
+  `@magna-carta/money`, `@magna-carta/sequence-numbering` (the custody-number draw), and
+  `@magna-carta/matters` (only for `system-matter-statements` — the custody holding matter). It does NOT depend on `@magna-carta/locations`, `@magna-carta/directory`, or
   `@magna-carta/file-manager`: a firm office, a Directory entity, and a stored file all arrive as
   handles, following the `matter_party` precedent of an id column with no cross-domain foreign key.
 - The route layer (`apps/worker/src/routes/custody.ts`) hands every service the firm-scoped database,

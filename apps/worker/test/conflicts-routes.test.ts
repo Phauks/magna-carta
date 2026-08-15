@@ -22,6 +22,7 @@ import {
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
+let ownerUserId: UserId;
 let noPermissionCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
@@ -55,6 +56,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   await mirrorMemberWithOwnerRole(owner.userId, "Conflicts Owner", poolFirmId);
+  ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("conflicts-owner@example.com");
 
   const noPermission = await seedCredentialedUser("conflicts-nopermission@example.com", {
@@ -63,6 +65,19 @@ beforeAll(async () => {
   });
   await mirrorMemberWithUnrelatedGrant(noPermission.userId, "No Permission");
   noPermissionCookie = await signInForSessionCookie("conflicts-nopermission@example.com");
+
+  // A matter cannot be opened without an active numbering scheme, and the posture tests need real
+  // matters rather than fabricated handles.
+  await SELF.fetch("https://example.com/api/v1/numbering-scheme", {
+    method: "PUT",
+    headers: authHeaders(ownerCookie, true),
+    body: JSON.stringify({
+      segments: [
+        { kind: "literal", text: "CON-" },
+        { kind: "counter", padWidth: 4 },
+      ],
+    }),
+  });
 });
 
 function authHeaders(cookie: string, withKey = false): HeadersInit {
@@ -224,6 +239,111 @@ describe("conflicts contract", () => {
     }
     expect(operationIds.has("conflicts.runCheck")).toBe(true);
     expect(operationIds.has("conflicts.getCheck")).toBe(true);
+    expect(operationIds.has("conflicts.matterPosture")).toBe(true);
     expect(operationIds.has("conflicts.recordDisposition")).toBe(true);
+  });
+});
+
+// The reporting posture at the HTTP edge. The domain-level proofs live in packages/conflicts/test;
+// what is proved here is that the wire shape a caller actually receives carries no verdict, and that
+// the statement a caller renders says what the search did.
+describe("the reporting posture over the wire", () => {
+  interface PostureBody {
+    readonly matterId: string;
+    readonly neverChecked: boolean;
+    readonly latestCheck: { readonly id: string; readonly hitCount: number } | null;
+    readonly scopeShortfall: { readonly sources: string[] };
+    readonly pendingRecheck: unknown[];
+    readonly undisposedByTier: Array<{ tier: number; count: number }>;
+    readonly dispositionsByKind: unknown[];
+    readonly unavailableSources: Array<{ source: string; reason: string }>;
+  }
+
+  async function readPosture(matterId: string, cookie = ownerCookie): Promise<Response> {
+    return get(`/api/v1/matters/${matterId}/conflicts-posture`, cookie);
+  }
+
+  async function createMatter(title: string): Promise<string> {
+    const response = await post("/api/v1/matters", {
+      title,
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(response.status).toBe(201);
+    const { matterId } = (await response.json()) as { matterId: string };
+    return matterId;
+  }
+
+  it("reports a matter that was never checked as its own state, not as an absence", async () => {
+    const matterId = await createMatter("Never checked");
+    const response = await readPosture(matterId);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as PostureBody;
+    expect(body.neverChecked).toBe(true);
+    expect(body.latestCheck).toBeNull();
+    expect(body.undisposedByTier).toEqual([
+      { tier: 1, count: 0 },
+      { tier: 2, count: 0 },
+      { tier: 3, count: 0 },
+      { tier: 4, count: 0 },
+    ]);
+  });
+
+  it("distinguishes a checked matter that surfaced nothing from one never checked", async () => {
+    const matterId = await createMatter("Checked and quiet");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [],
+      scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status).toBe(201);
+
+    const body = (await (await readPosture(matterId)).json()) as PostureBody;
+    expect(body.neverChecked).toBe(false);
+    expect(body.latestCheck).not.toBeNull();
+    expect(body.latestCheck?.hitCount).toBe(0);
+    // The sources that could not run come back named, with why — never flattened into "searched".
+    expect(body.unavailableSources.map((entry) => entry.source)).toContain("content");
+    for (const entry of body.unavailableSources) expect(entry.reason.length).toBeGreaterThan(0);
+  });
+
+  it("carries no verdict-shaped field anywhere in the response", async () => {
+    const matterId = await createMatter("Shape check");
+    await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    const raw = await (await readPosture(matterId)).text();
+    const verdictShaped = /"(clear|clean|ok|passed|conflictFree|status|severity)"\s*:/i;
+    expect(verdictShaped.test(raw)).toBe(false);
+  });
+
+  it("refuses a caller lacking conflicts:read (403)", async () => {
+    const matterId = await createMatter("Permission check");
+    const response = await readPosture(matterId, noPermissionCookie);
+    expect(response.status).toBe(403);
+  });
+
+  it("returns the statement of what a check searched, ending in what surfaced", async () => {
+    const matterId = await createMatter("Statement");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [],
+      scope: { sources: ["party", "graph", "content"], strictness: "balanced", depth: 1 },
+    });
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    const body = (await (await get(`/api/v1/conflicts/checks/${checkId}`)).json()) as {
+      statement: string[];
+      hits: unknown[];
+    };
+    expect(body.hits).toEqual([]);
+    expect(body.statement[0]).toMatch(/^Searched on .* trigger comprehensive\.$/);
+    expect(body.statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
+    expect(body.statement.at(-1)).toBe("Nothing surfaced.");
   });
 });

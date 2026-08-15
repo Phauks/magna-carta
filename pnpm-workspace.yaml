@@ -60,7 +60,12 @@ catalog:
   "dinero.js": 2.0.2
   decimal.js: 10.6.0
   # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
-  nanoid: 5.1.11
+  # Floor is 5.1.16: below it the non-secure module's generators spin forever on a negative size, and
+  # below 5.1.6 customRandom — the one function packages/identifiers/src/nanoid.ts actually calls —
+  # does the same on a size of zero. Neither is reachable here (that seam imports the secure entry
+  # point and passes compile-time constant sizes), but the floor keeps it that way. Stay on 5.x: 6.0
+  # is a major.
+  nanoid: 5.1.16
   # Directory (packages/directory). double-metaphone: ES module phonetic encoder, used for fuzzy
   # name search alongside soundex and metaphone. Import: `import { doubleMetaphone } from "double-metaphone"`.
   double-metaphone: 2.0.1
@@ -82,7 +87,11 @@ catalog:
   "@types/node": 26.1.2
   svelte: 5.56.2
   svelte-check: 4.6.0
-  "@sveltejs/kit": 2.69.3
+  # Floor is 2.70.2: earlier 2.x negotiates the `Accept` header in quadratic time, so a long crafted
+  # header burns CPU without authentication. The shipped SPA is prerendered by adapter-static and
+  # serves no SvelteKit request handler, so the reachable surface is the local dev server — but this
+  # is also the version the fix landed in, and there is no cost to being on it.
+  "@sveltejs/kit": 2.70.2
   "@sveltejs/adapter-static": 3.0.10
   "@sveltejs/vite-plugin-svelte": 7.1.2
   # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
@@ -144,16 +153,36 @@ catalog:
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
   vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
-  # Security remediation: pin transitive carriers to the versions that fix the osv-scanner HIGH
-  # advisories (CVSS >= 7). Major-scoped where a line must not be dragged across a major (js-yaml,
-  # brace-expansion). Direct/catalog carriers (better-auth, fast-xml-parser) are bumped at their source.
+  # Security remediation: pin transitive carriers to the versions that fix a known advisory. The
+  # original entries were the ones the CI audit fails on (CVSS >= 7); the later ones also clear
+  # moderate and low findings, because a carrier that has to be pinned anyway costs nothing extra to
+  # pin at a version with no open advisory at all — the fail threshold decides what BLOCKS a merge,
+  # not what is worth fixing. Range-scoped where a line must not be dragged across a boundary
+  # (js-yaml, brace-expansion, esbuild). Direct/catalog carriers (better-auth, fast-xml-parser,
+  # nanoid, @sveltejs/kit) are bumped at their source in the catalog above, not here.
   "brace-expansion@1": 1.1.18
   "js-yaml@3": 3.15.1
   "js-yaml@4": 4.3.1
   undici: 7.29.0
   fast-uri: 3.1.5
   sharp: 0.35.0
-  postcss: 8.5.18
+  # postcss floor is 8.5.23, which stops an attacker-controlled `sourceMappingURL` reading arbitrary
+  # .map files when `from` is unset. 8.5.26 is taken rather than the bare floor because it is the
+  # first release to require nanoid ^3.3.17 — the postcss dependency was the ONLY thing holding a
+  # nanoid 3.3.12 in the tree, and that line's infinite-loop advisories score CVSS 4.0 8.2, over the
+  # gate's fail threshold. One bump therefore clears three advisories, and no nanoid@3 pin is needed.
+  postcss: 8.5.26
+  # tsx asks for esbuild ~0.28.0 and the lockfile had settled on 0.28.0, which reads arbitrary files
+  # through the dev server on Windows. Scoped to the 0.28 line on purpose: the other esbuild in the
+  # tree is a 0.18 that @esbuild-kit/core-utils hard-pins, and dragging that ten minor versions
+  # forward would break drizzle-kit's config loader for no security gain (see the note below).
+  "esbuild@0.28": 0.28.2
+  # lodash arrives at 4.17.21 only through postman-collection (the Prism/Spectral contract tooling),
+  # which hard-pins that exact version — every other consumer in the tree already resolves 4.18.1, so
+  # this override collapses the two copies onto the newer one rather than introducing anything. 4.18.x
+  # is the line that fixes all three lodash advisories: prototype pollution in `_.unset`/`_.omit`
+  # (two records) and code injection through `_.template` import key names.
+  lodash: 4.18.1
   # uuid arrives only through postman-collection (the Prism/Spectral contract tooling), which
   # hard-pins 8.3.2 through its newest release, so no carrier bump reaches the fixed line. 11.1.1
   # is the newest release that still ships a CommonJS entry point — postman-collection does

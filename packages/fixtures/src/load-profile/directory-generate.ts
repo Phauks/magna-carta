@@ -60,6 +60,13 @@ export interface DirectoryProbes {
   // co-party surfacing path — matter-independent, so it exists at every scale.
   readonly coPartyEntityIdA: string;
   readonly coPartyEntityIdB: string;
+  // The head of the deep corporate group: a long corporate_successor lineage with a wide subsidiary
+  // fan hanging off it. Corporate-family edges are traversed transitively at no hop cost, so a check
+  // seeded here expands the whole group and is the case the closure cap exists for — the deep-graph
+  // and truncating conflicts measurements both bind to it.
+  readonly corporateGroupHeadId: string;
+  // How many entities the group holds in total, so a measurement can assert its own shape.
+  readonly corporateGroupSize: number;
 }
 
 export interface DirectoryGenerationResult {
@@ -272,10 +279,67 @@ export async function generateDirectoryVolume(
   );
   context.clock.advanceMinutes(1);
 
+  // --- The deep corporate group. A corporate_successor lineage (the same legal person continuing
+  // through a chain of renames and mergers) with a wide subsidiary fan on its head. Corporate-family
+  // edges cost no hops, so the whole group is one closure however long the chain runs — which is
+  // exactly the shape that makes an unbounded traversal an availability problem, and exactly the
+  // shape the closure cap and its truncation record exist to handle honestly. ---
+  const corporateEdge = async (from: string, to: string, edgeType: EdgeType) => {
+    await createEdge(
+      database,
+      {
+        from: from as DirectoryOrganizationId,
+        to: to as DirectoryOrganizationId,
+        edgeType,
+        role: null,
+        note: null,
+        validFrom: null,
+        validTo: null,
+      },
+      writeOptions,
+    );
+    context.clock.advanceMinutes(1);
+  };
+  const corporateGroupHeadId = await createOrganization(
+    database,
+    { legalName: "Meridian Holdings Group" },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+  let chainTail = corporateGroupHeadId as string;
+  let corporateGroupSize = 1;
+  for (let index = 0; index < volume.corporateGroup.chainLength; index += 1) {
+    // The lineage DOES share a name, and legitimately: a successor chain is the same legal person
+    // continuing, so the engine is expected to match across every link of it.
+    const successor = await createOrganization(
+      database,
+      { legalName: `Meridian Holdings Group ${index + 2}` },
+      writeOptions,
+    );
+    context.clock.advanceMinutes(1);
+    await corporateEdge(chainTail, successor, "corporate_successor");
+    chainTail = successor;
+    corporateGroupSize += 1;
+  }
+  // The fan's names are DRAWN, not templated. A templated name ("Operating 1 Limited", "Operating 2
+  // Limited") makes every subsidiary a trigram match for every other, so the measured cost becomes an
+  // all-pairs name collision rather than the graph traversal the fixture exists to shape — quadratic
+  // in the fan width, and a measurement of the wrong thing. Real subsidiaries carry real names.
+  for (let index = 0; index < volume.corporateGroup.fanWidth; index += 1) {
+    const subsidiary = await createOrganization(
+      database,
+      { legalName: `${faker.company.name()} ${faker.company.buzzNoun()}` },
+      writeOptions,
+    );
+    context.clock.advanceMinutes(1);
+    await corporateEdge(corporateGroupHeadId, subsidiary, "corporate_subsidiary");
+    corporateGroupSize += 1;
+  }
+
   return {
     // The volume persons plus the two co-party persons created below.
     personCount: volume.personCount + 2,
-    organizationCount: volume.organizationCount,
+    organizationCount: volume.organizationCount + corporateGroupSize,
     probes: {
       firmId,
       firmKeyVersion: PROTECTED_FIRM_KEY_VERSION,
@@ -286,6 +350,8 @@ export async function generateDirectoryVolume(
       probeFamilyName: probePerson.family,
       coPartyEntityIdA,
       coPartyEntityIdB,
+      corporateGroupHeadId,
+      corporateGroupSize,
     },
   };
 }

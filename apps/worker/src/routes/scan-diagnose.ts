@@ -2,7 +2,7 @@ import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
-import { computeVerdict } from "@magna-carta/file-manager/verdict";
+import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
@@ -57,8 +57,9 @@ const scanDiagnoseRoute = defineOpenAPIRoute(scanDiagnoseMeta, {
   description:
     "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the " +
     "malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT " +
-    "stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan " +
-    "Container is activated (the engine-less adapter never reports a false `clean`).",
+    "stored and is NOT associated with any matter. Where no engine is wired at all the verdict is an " +
+    "honest `unscanned` (never a false `clean`); where the engine is wired but unreachable the answer " +
+    "is a 503, because an unreachable engine is not a verdict.",
   request: {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
@@ -77,6 +78,10 @@ const scanDiagnoseRoute = defineOpenAPIRoute(scanDiagnoseMeta, {
     },
     413: {
       description: "The body exceeds the firm's inspectable-size cap",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description: "The scan engine is wired but unreachable, so no verdict can be given",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -119,17 +124,36 @@ export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint):
       // OpenAPI-emit script cannot resolve at module-load time. Deferring it to request time keeps it
       // out of app.ts's static module graph (cached after the first call; no per-request cost).
       const { resolveScanPort } = await import("../files/scan-port-binding.ts");
-      const raw = await resolveScanPort(c.env).scan(body, {
-        sizeBytes,
-        sniffedContentType: c.req.header("content-type") ?? null,
-      });
 
       // Decide the verdict app-side from the raw facts, using the firm's own scan policy so the
       // diagnostic reflects exactly what ingest would decide for this firm (tier + suspicious-score
-      // floor), not a fixed default. A deployed engine reporting unavailable is a transient fault, never
-      // a verdict: computeVerdict throws ScanFaultError, which propagates to the route error boundary (a
-      // redacted error with an Error ID) rather than reporting a fabricated clean.
-      const fileVerdict = computeVerdict(raw, await readFirmScanPolicy(firm.firmDatabase));
+      // floor), not a fixed default. A wired engine that cannot answer is never a verdict — it raises
+      // ScanFaultError, from the adapter on a 5xx and from computeVerdict on an `unavailable` report —
+      // and this route answers it by name. The ingest consumer catches the same error and retries,
+      // which is right for a queued file; here there is no file and nothing to retry, so a 500 with an
+      // Error ID would send a member to support over a Container that simply is not up. The distinct
+      // "no engine wired at all" case is not this: it reaches the verdict layer as an honest
+      // `unscanned`/`no-engine` and is returned as one.
+      let fileVerdict: ReturnType<typeof computeVerdict>;
+      let raw: Awaited<ReturnType<ReturnType<typeof resolveScanPort>["scan"]>>;
+      try {
+        raw = await resolveScanPort(c.env).scan(body, {
+          sizeBytes,
+          sniffedContentType: c.req.header("content-type") ?? null,
+        });
+        fileVerdict = computeVerdict(raw, await readFirmScanPolicy(firm.firmDatabase));
+      } catch (error) {
+        if (error instanceof ScanFaultError) {
+          return problemJson(c, {
+            type: "service-unavailable",
+            title: "The scan engine is unreachable",
+            status: 503,
+            detail:
+              "The malware-scan engine did not answer, so this file has not been scanned and no verdict can be given. Nothing was stored. Try again shortly.",
+          });
+        }
+        throw error;
+      }
 
       // Collapse the verdict into the stable diagnosis enum: a flagged file reports `infected` when
       // clamd named a signature, otherwise `suspicious` with the triggering reason.

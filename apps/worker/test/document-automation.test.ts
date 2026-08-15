@@ -1,5 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { strToU8, unzipSync, zipSync } from "fflate";
+import type { EngineResolver } from "@magna-carta/conversion/execute";
+import type { ConversionResult } from "@magna-carta/conversion/port";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
@@ -42,6 +44,12 @@ let frozenCookie: string;
 let frozenUserId: string;
 let frozenMatterId: string;
 let frozenBucketName: string;
+
+let pdfFirmId: FirmId;
+let pdfCookie: string;
+let pdfUserId: string;
+let pdfMatterId: string;
+let pdfBucketName: string;
 
 const DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const WORD_NAMESPACE = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
@@ -101,6 +109,41 @@ function mergeFieldParagraph(fieldName: string, cachedResult = `«${fieldName}»
     `<w:r><w:t>${cachedResult}</w:t></w:r>` +
     '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
     "</w:p>"
+  );
+}
+
+// The complex field construct Word writes for a LEGACY FORM FIELD — the fill-in-the-blank field the
+// appellate court forms and a great deal of legacy firm precedent are built from. The `w:ffData` block
+// hangs off the `begin` fldChar and carries the field's Word-minted bookmark and the author's prompt;
+// the cached result is the "click here" text the document prints today.
+function legacyFormFieldParagraph(name: string, statusText: string, result: string): string {
+  return (
+    "<w:p>" +
+    '<w:r><w:fldChar w:fldCharType="begin"><w:ffData>' +
+    `<w:name w:val="${name}"/><w:enabled/>` +
+    `<w:statusText w:type="text" w:val="${statusText}"/>` +
+    '<w:textInput><w:default w:val="Click here to enter text."/></w:textInput>' +
+    "</w:ffData></w:fldChar></w:r>" +
+    '<w:r><w:instrText xml:space="preserve"> FORMTEXT </w:instrText></w:r>' +
+    '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+    `<w:r><w:t>${result}</w:t></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+    "</w:p>"
+  );
+}
+
+// The shape Word writes for a CONTENT CONTROL — the construct it produces today wherever an author
+// inserts a blank. `w:showingPlcHdr` is Word's own record that what a reader sees is the control's
+// placeholder prompt rather than content anyone typed, and `w:alias` is the title its author gave it.
+function contentControlParagraph(alias: string, prompt: string): string {
+  return (
+    "<w:p><w:sdt><w:sdtPr>" +
+    `<w:alias w:val="${alias}"/><w:tag w:val="${alias.toLowerCase()}"/><w:id w:val="123456789"/>` +
+    '<w:placeholder><w:docPart w:val="DefaultPlaceholder_-1854013440"/></w:placeholder>' +
+    "<w:showingPlcHdr/><w:text/>" +
+    "</w:sdtPr><w:sdtContent>" +
+    `<w:r><w:rPr><w:rStyle w:val="PlaceholderText"/></w:rPr><w:t>${prompt}</w:t></w:r>` +
+    "</w:sdtContent></w:sdt></w:p>"
   );
 }
 
@@ -212,7 +255,26 @@ interface RegisteredTemplateBody {
     occurrences: number;
     frozenText: string;
   }[];
+  legacyFormFields: {
+    fieldName: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    helpText: string;
+    frozenText: string;
+  }[];
+  unboundContentControls: {
+    alias: string;
+    tag: string;
+    kind: string;
+    part: string;
+    occurrences: number;
+    showingPlaceholder: boolean;
+    dataBound: boolean;
+    frozenText: string;
+  }[];
   confirmedFieldMappings: { fieldName: string; mergeKey: string }[];
+  warnings: { code: string; part: string; detail: string }[];
 }
 
 async function registerTemplate(
@@ -352,6 +414,20 @@ beforeAll(async () => {
   frozenUserId = frozenFirm.userId;
   frozenBucketName = frozenFirm.bucketName;
   frozenMatterId = await seedMatter(frozenFirm, "Harbourside Estate", "Beacon Trust");
+
+  // The PDF block registers a template and submits an assembly per case, which is a bucket's worth of
+  // `expensive` calls on its own — sharing the assembly firm's bucket makes these fail 429 rather than
+  // fail for a reason worth reading.
+  const pdfFirm = await seedOwnedFirm(
+    "Portable Document Firm",
+    "pdf-owner@example.com",
+    "document-automation-pdf-bucket",
+  );
+  pdfFirmId = pdfFirm.firmId;
+  pdfCookie = pdfFirm.cookie;
+  pdfUserId = pdfFirm.userId;
+  pdfBucketName = pdfFirm.bucketName;
+  pdfMatterId = await seedMatter(pdfFirm, "Sherwood Acquisition", "Larkspur Mining Co");
 });
 
 describe("the merge-field dictionary", () => {
@@ -464,6 +540,135 @@ describe("template registration", () => {
     expect(manifest.unconvertedMergeFields).toEqual([
       expect.objectContaining({ fieldName: "matter.number", frozenText: "2019-CV-00041" }),
     ]);
+  });
+
+  it("REGISTERS a legacy Word form-field template and SAYS which fields it will not bind", async () => {
+    // The defect this covers: a template built entirely from Word form fields used to register clean,
+    // declare no keys, and report no absence — the only thing it said was that it carried no merge
+    // fields, so every assembly produced the same document. It then filed carrying the form's own
+    // "Click here to enter caption". Nothing converts these: the only name one carries is a
+    // Word-minted bookmark, and deriving a merge key from that would be a guess at what a firm's
+    // document means. So the obligation is that registration states the absence.
+    const response = await registerTemplate(
+      templateDocx({
+        body: legacyFormFieldParagraph(
+          "Caption",
+          "enter name of party/parties appealing",
+          "Click here to enter caption",
+        ),
+      }),
+      "Appellate Form",
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.legacyFormFields).toEqual([
+      expect.objectContaining({
+        fieldName: "Caption",
+        kind: "text",
+        part: "word/document.xml",
+        occurrences: 1,
+        helpText: "enter name of party/parties appealing",
+        frozenText: "Click here to enter caption",
+      }),
+    ]);
+    // No name is invented for it, so nothing downstream can read one as a binding the firm made.
+    expect(body.unconvertedMergeFields).toEqual([]);
+    expect(body.mergeFieldsDetected).toEqual([]);
+    expect(body.fieldCount).toBe(0);
+    const warning = body.warnings.find((entry) => entry.code === "legacy-form-field");
+    expect(warning?.detail).toContain("Caption");
+    // The template is NOT described as one that carries nothing to fill in.
+    expect(body.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+
+    // The field inspector carries it too — where an author goes to find out why the document filed
+    // with a prompt in it.
+    const fields = await get(
+      `/api/v1/templates/${body.templateId}/versions/${body.versionId}/fields`,
+    );
+    const manifest = (await fields.json()) as {
+      legacyFormFields: { fieldName: string; frozenText: string }[];
+    };
+    expect(manifest.legacyFormFields).toEqual([
+      expect.objectContaining({ fieldName: "Caption", frozenText: "Click here to enter caption" }),
+    ]);
+  });
+
+  it("REGISTERS a content-control template and SAYS which regions nothing will fill in", async () => {
+    // The same defect as the legacy form field, in the construct Word writes today: a template whose
+    // blanks are content controls used to register clean, declare no keys, and warn only that it
+    // carried no merge fields — so every assembly of it produced the same document — and then file
+    // carrying "Click here to enter the caption". Nothing converts one either, though the reason is a
+    // step different: the alias and tag ARE an author's own words, so what is missing is a human's
+    // confirmation of what they mean, not evidence.
+    const response = await registerTemplate(
+      templateDocx({
+        body: contentControlParagraph("Caption", "Click here to enter the caption"),
+      }),
+      "Content Control Form",
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.unboundContentControls).toEqual([
+      expect.objectContaining({
+        alias: "Caption",
+        tag: "caption",
+        kind: "plainText",
+        part: "word/document.xml",
+        occurrences: 1,
+        showingPlaceholder: true,
+        dataBound: false,
+        frozenText: "Click here to enter the caption",
+      }),
+    ]);
+    // The author's own alias is reported, and it binds nothing: no key, no detection, no mapping.
+    expect(body.fieldCount).toBe(0);
+    expect(body.mergeFieldsDetected).toEqual([]);
+    expect(body.confirmedFieldMappings).toEqual([]);
+    const warning = body.warnings.find((entry) => entry.code === "unbound-content-control");
+    expect(warning?.detail).toContain("Caption");
+    expect(warning?.detail).toContain("Click here to enter the caption");
+    // The template is NOT described as one that carries nothing to fill in.
+    expect(body.warnings.map((entry) => entry.code)).not.toContain("no-placeholders");
+
+    // The field inspector carries it too — where an author goes to find out why a filed document has
+    // a prompt in it.
+    const fields = await get(
+      `/api/v1/templates/${body.templateId}/versions/${body.versionId}/fields`,
+    );
+    const manifest = (await fields.json()) as {
+      unboundContentControls: { alias: string; frozenText: string }[];
+    };
+    expect(manifest.unboundContentControls).toEqual([
+      expect.objectContaining({ alias: "Caption", frozenText: "Click here to enter the caption" }),
+    ]);
+  });
+
+  it("names the fields nothing binds on a refusal, not only on the attempt that passes", async () => {
+    // A template refused for an authoring mistake somewhere else still has to say where its other
+    // holes are. Saving that up for the registration that finally succeeds is how an author fixes one
+    // problem, sees a success, and never learns about the rest.
+    const response = await registerTemplate(
+      templateDocx({
+        body:
+          paragraph("Matter {{matter.number and then prose") +
+          contentControlParagraph("Caption", "Click here to enter the caption") +
+          legacyFormFieldParagraph("Text1", "enter the party", "Click here to enter text."),
+      }),
+      "Refused Mixed Template",
+    );
+    expect(response.status).toBe(422);
+    const problem = (await response.json()) as {
+      errors?: { path: string; code: string; detail: string }[];
+    };
+    const codes = (problem.errors ?? []).map((error) => error.code);
+    expect(codes).toContain("unclosed-delimiter");
+    expect(codes).toContain("unbound-content-control");
+    expect(codes).toContain("legacy-form-field");
+    const control = (problem.errors ?? []).find(
+      (error) => error.code === "unbound-content-control",
+    );
+    expect(control?.detail).toContain("Caption");
+    expect(control?.detail).toContain("Click here to enter the caption");
   });
 
   it("converts Word merge fields when the caller opts in, and says that it did", async () => {
@@ -892,6 +1097,83 @@ describe("assembly, end to end through the ingest chokepoint", () => {
     expect(documentText).toContain("2019-CV-00041");
   });
 
+  it("reports an unfilled content control on the assembly, and files the prompt it prints", async () => {
+    // The damage this whole path is about: substitution has no view of a hole it was never asked to
+    // fill, so the document goes out saying "Click here to enter the caption" where a person was meant
+    // to type. The manifest entry recorded at registration is what turns that from a silent filing into
+    // a document marked as needing a human.
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({
+          body:
+            paragraph("Matter {{matter.number}}") +
+            contentControlParagraph("Caption", "Click here to enter the caption"),
+        }),
+        "Content Control Letter",
+        {},
+        frozenCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+    expect(registered.unboundContentControls).toHaveLength(1);
+
+    const submitted = await post(
+      `/api/v1/matters/${frozenMatterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      frozenCookie,
+    );
+    const { assemblyId } = (await submitted.json()) as { assemblyId: string };
+    await documentAssemblyQueue(
+      makeBatch({
+        firmId: frozenFirmId,
+        bucketName: frozenBucketName,
+        assemblyId,
+        matterId: frozenMatterId,
+        templateVersionId: registered.versionId,
+        folderId: null,
+        requestedBy: frozenUserId,
+      }).batch,
+      env,
+    );
+
+    const state = (await (
+      await get(`/api/v1/matters/${frozenMatterId}/assemblies/${assemblyId}`, frozenCookie)
+    ).json()) as {
+      status: string;
+      outcome: string;
+      absentFieldKeys: string[];
+      frozenMergeFieldNames: string[];
+      fileVersionId: string;
+    };
+    expect(state.status).toBe("done");
+    // Every key the matter was asked for resolved, and the document still needs a human.
+    expect(state.absentFieldKeys).toEqual([]);
+    expect(state.frozenMergeFieldNames).toEqual(["Caption (Word plain text content control)"]);
+    expect(state.outcome).toBe("succeeded_with_absences");
+
+    // NAMES only on the row, never the prompt text — that is template content, not provenance.
+    const row = await queryFirstRow<{
+      frozen_field_names_json: string;
+      frozen_field_count: number;
+    }>(
+      "SELECT frozen_field_names_json, frozen_field_count FROM document_assembly WHERE id = ?1",
+      [assemblyId],
+      frozenFirmId,
+    );
+    expect(row?.frozen_field_count).toBe(1);
+    expect(row?.frozen_field_names_json).not.toContain("Click here to enter the caption");
+
+    // And the filed document really does carry the prompt, which is what the report is about.
+    const version = await queryFirstRow<{ r2_key: string }>(
+      "SELECT r2_key FROM file_version WHERE id = ?1",
+      [state.fileVersionId],
+      frozenFirmId,
+    );
+    const object = await env.R2.get(version?.r2_key ?? "");
+    const produced = new Uint8Array(await (object as R2ObjectBody).arrayBuffer());
+    const documentText = new TextDecoder().decode(readZipEntry(produced, "word/document.xml"));
+    expect(documentText).toContain("Click here to enter the caption");
+  });
+
   it("refuses a submit against an archived template", async () => {
     const registered = (await (
       await registerTemplate(templateDocx(), "Archived Letter", {}, assemblyCookie)
@@ -1099,6 +1381,144 @@ describe("a firm's own fields, and its letterhead, end to end", () => {
     );
     expect(refused.status).toBe(422);
     expect(await refused.text()).toContain("PNG or a JPEG");
+  });
+});
+
+describe("assembly as a PDF", () => {
+  // The office suite runs in a Container the convert worker owns, which cannot run under this pool, so
+  // these supply their own port for the one hop the job takes — the same seam the conversion consumer's
+  // tests use. What is being proven is the ORCHESTRATION: that the job takes the registry's docx-to-pdf
+  // edge, files what comes back, and refuses to file anything at all when it cannot.
+  function enginePort(
+    convert: (bytes: Uint8Array) => ConversionResult,
+  ): (env: unknown) => EngineResolver {
+    return () => () => ({ convert: (input) => Promise.resolve(convert(input.bytes)) });
+  }
+
+  async function submitPdfAssembly(templateVersionId: string): Promise<string> {
+    const submitted = await post(
+      `/api/v1/matters/${pdfMatterId}/assemblies`,
+      { templateVersionId, outputFormat: "pdf" },
+      pdfCookie,
+    );
+    expect(submitted.status, await submitted.clone().text()).toBe(202);
+    return (await submitted.json()).assemblyId;
+  }
+
+  function pdfBatch(
+    assemblyId: string,
+    templateVersionId: string,
+  ): MessageBatch<DocumentAssemblyMessage> {
+    return makeBatch({
+      firmId: pdfFirmId,
+      bucketName: pdfBucketName,
+      assemblyId,
+      matterId: pdfMatterId,
+      templateVersionId,
+      folderId: null,
+      outputFormat: "pdf",
+      requestedBy: pdfUserId,
+    }).batch;
+  }
+
+  it("carries the merged document across the conversion edge and files what comes back", async () => {
+    const registered = (await (
+      await registerTemplate(templateDocx(), "Sealable Letter", {}, pdfCookie)
+    ).json()) as RegisteredTemplateBody;
+    const assemblyId = await submitPdfAssembly(registered.versionId);
+
+    // The bytes handed to the edge are the MERGED package, not the stored template: a conversion that
+    // ran before substitution would produce a PDF full of placeholders and nothing downstream could
+    // tell. The fake asserts on that by reading what it was given.
+    let received: Uint8Array | undefined;
+    const pdfBytes = new TextEncoder().encode("%PDF-1.7 sealed-shaped bytes");
+    await documentAssemblyQueue(
+      pdfBatch(assemblyId, registered.versionId),
+      env,
+      enginePort((bytes) => {
+        received = bytes;
+        return { ok: true, bytes: pdfBytes, mediaType: "application/pdf" };
+      }),
+    );
+
+    const state = (await (
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
+    ).json()) as { status: string; outputFormat: string; fileId: string };
+    expect(state.status).toBe("done");
+    expect(state.outputFormat).toBe("pdf");
+
+    const mergedText = new TextDecoder().decode(
+      readZipEntry(received ?? new Uint8Array(), "word/document.xml"),
+    );
+    expect(mergedText).toContain("Larkspur Mining Co");
+
+    // The filed document is the CONVERTED bytes under a .pdf name, not the package that went in.
+    const filed = await queryFirstRow<{ name: string }>(
+      "SELECT name FROM file WHERE id = ?1",
+      [state.fileId],
+      pdfFirmId,
+    );
+    expect(filed?.name.endsWith(".pdf")).toBe(true);
+    const version = await queryFirstRow<{ r2_key: string }>(
+      "SELECT r2_key FROM file_version WHERE file_id = ?1 ORDER BY version_number DESC",
+      [state.fileId],
+      pdfFirmId,
+    );
+    const object = await env.R2.get(version?.r2_key ?? "");
+    expect(new Uint8Array(await (object as R2ObjectBody).arrayBuffer())).toEqual(pdfBytes);
+  });
+
+  it("fails the job rather than filing a word-processing document the conversion could not turn into a PDF", async () => {
+    // The failure mode this refuses is the quiet one: a member who asked for a PDF, got a .docx, and
+    // finds out when the seal will not take it. Nothing is filed at all.
+    const registered = (await (
+      await registerTemplate(templateDocx(), "Unconvertible Letter", {}, pdfCookie)
+    ).json()) as RegisteredTemplateBody;
+    const assemblyId = await submitPdfAssembly(registered.versionId);
+
+    await documentAssemblyQueue(
+      pdfBatch(assemblyId, registered.versionId),
+      env,
+      enginePort(() => ({ ok: false, reason: "engine-not-implemented" })),
+    );
+
+    const state = (await (
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
+    ).json()) as { status: string; outputFormat: string; fileId: string | null; reason: string };
+    expect(state.status).toBe("failed");
+    // The row still says what the job was trying to make, which is what makes the failure explicable.
+    expect(state.outputFormat).toBe("pdf");
+    expect(state.fileId).toBeNull();
+    expect(state.reason).toBe("conversion-failed");
+  });
+
+  it("records the requested format on the row from the moment of submit, before any job runs", async () => {
+    const registered = (await (
+      await registerTemplate(templateDocx(), "Pending Format Letter", {}, pdfCookie)
+    ).json()) as RegisteredTemplateBody;
+    const assemblyId = await submitPdfAssembly(registered.versionId);
+
+    const queued = (await (
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
+    ).json()) as { status: string; outputFormat: string };
+    expect(queued.status).toBe("queued");
+    expect(queued.outputFormat).toBe("pdf");
+  });
+
+  it("defaults to the word-processing document when the request names no format", async () => {
+    const registered = (await (
+      await registerTemplate(templateDocx(), "Default Format Letter", {}, pdfCookie)
+    ).json()) as RegisteredTemplateBody;
+    const submitted = await post(
+      `/api/v1/matters/${pdfMatterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      pdfCookie,
+    );
+    const { assemblyId } = (await submitted.json()) as { assemblyId: string };
+    const state = (await (
+      await get(`/api/v1/matters/${pdfMatterId}/assemblies/${assemblyId}`, pdfCookie)
+    ).json()) as { outputFormat: string };
+    expect(state.outputFormat).toBe("docx");
   });
 });
 

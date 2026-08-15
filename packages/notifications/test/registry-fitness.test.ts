@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
+import { CONFLICTS_OUTBOX_TOPICS } from "@magna-carta/conflicts/topics";
+import { EMAIL_FILING_OUTBOX_TOPICS } from "@magna-carta/email-filing/topics";
 import { FILE_MANAGER_OUTBOX_TOPICS } from "@magna-carta/file-manager/topics";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
@@ -31,6 +33,8 @@ import {
 // just quietly stops delivering.
 const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   ...MATTER_OUTBOX_TOPICS,
+  ...CONFLICTS_OUTBOX_TOPICS,
+  ...EMAIL_FILING_OUTBOX_TOPICS,
   ...FILE_MANAGER_OUTBOX_TOPICS,
   LEDGER_ENTRY_POSTED_TOPIC,
   INVOICE_FINALIZED_TOPIC,
@@ -124,13 +128,12 @@ describe("the notification registry", () => {
     }
   });
 
-  it("marks the audience it substituted, where it substituted one", () => {
-    // matter-team resolves to responsible-member because no per-matter team table exists. Recording
-    // the substitution is what makes the day one lands a change to ONE resolver rather than a hunt
-    // through every type that meant "the team".
+  it("declares no substituted audience, because every declared audience resolves as declared", () => {
+    // `matter-team` carried a substitution until `matter_assignment` gave it a real team to resolve
+    // against. A substitution is a recipient list the platform narrowed silently, so re-introducing
+    // one is a deliberate edit here and never a line that slips into a type declaration.
     for (const type of NOTIFICATION_TYPES) {
-      if (type.audience !== "matter-team") continue;
-      expect(type.audienceSubstitutedFrom, type.key).toBe("matter-team");
+      expect(type.audienceSubstitutedFrom, type.key).toBeUndefined();
     }
   });
 

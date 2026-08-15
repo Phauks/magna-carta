@@ -15,9 +15,67 @@ the firm-scoped read result as injected parameters.
   entry, or a non-ZDR reasoning entry, fails loud at import. `claude-fable-5` is excluded (it mandates
   retention; non-ZDR). `PLATFORM_EMBEDDING_MODEL_ID` is the one place to confirm the embedding model
   against the live Vectorize index version before merge.
+- **A model id is a perishable fact, and this package is where that is admitted.** Providers ship
+  successors and retire predecessors on their own schedule and tell this repository nothing, so every
+  entry carries **two** verification dates and the provider's own published lifecycle facts:
+  `verifiedOn` (the confidentiality facts — ZDR and no-training) and `availabilityVerifiedOn` (the
+  lifecycle facts — still published, still active, retirement date). They are separate on purpose: they
+  come from different provider pages and go stale independently, and one date would let the cheap
+  lifecycle check silently refresh the confidentiality claim nobody re-read. `retirementNotBefore` and
+  `supersededBy` record what the provider publishes. **Nothing resolves a model through `supersededBy`**
+  — a successor is not in the catalog, so it has no verified facts, and moving onto it is a decision
+  rather than a derivation.
+- **`snapshotId` is the provider's published pin, verbatim, and `snapshotForm` says which form that is.**
+  The value is written into every per-request provenance record — the record that answers which exact
+  model produced an output, on transcripts that are firm work product and discoverable — so a
+  plausible-looking wrong id is worse than an empty field: absence prompts a question, a fabricated
+  snapshot answers it falsely. It stays REQUIRED even for models the provider names without a date,
+  because on its newer models the undated id **is** the pinned snapshot rather than a pointer to one;
+  recording absence there would assert no snapshot exists when one does. `snapshotForm` is
+  `provider-dated` (the undated name is an alias, so the date is the pin), `provider-dateless`
+  (`snapshotId` equals `referenceId`), or `platform-composed` (the embedding entry alone, binding the
+  model to its index generation). **It is recorded, not derived, and that is the point** — whether a
+  provider issues a dated id for a given model exists nowhere in this repository, so without the
+  declaration a fabricated suffix is indistinguishable from a real one. `catalogEntrySchema` refuses an
+  id that contradicts its form **at module load, not in the freshness pass**: such an id is wrong when
+  written rather than wrong as of a date, so it must fail at import for every consumer instead of waiting
+  for a gate to run. What genuinely decays — whether the recorded form is still what the provider
+  publishes — is read off the same page as the lifecycle facts, dated by `availabilityVerifiedOn`, and
+  reported with them.
+- **Reasoning tiers are the evergreen name; the catalog says who occupies one.** `ReasoningTier`
+  (`most-capable` / `balanced`) is what configuration and the firm default refer to; which curated model
+  fills a tier is data. The provider publishes no evergreen alias of its own — every id it publishes is
+  a pinned snapshot — so an evergreen name exists only because the platform maintains one. Module-load
+  validation gives every tier exactly one occupant, which is what makes `reasoningModelForTier` total.
+- `src/reasoning-tier.ts` lets deploy configuration re-point a tier without a build. **It can only ever
+  select an entry already in the catalog**, and that limit is the design rather than a gap: a deploy-time
+  string cannot carry a human's finding that a model is ZDR-eligible, so adding a model still costs a
+  code change and a re-verification while choosing among verified models does not. Every rejection falls
+  back to the catalog occupant and is reported, never swallowed.
+- `src/model-pin-freshness.ts` is the pass that makes rot **noticed**. Pure — `today` is a parameter, not
+  a clock read — and it reads only dates a calendar can settle. Two severities: `expired` (past a
+  published retirement, or unread past the hard interval) fails the gate in
+  `test/fitness-model-pin-rot.test.ts`; `due` (a successor exists, a retirement approaches, a fact is
+  overdue for re-reading) is reported and does not, because a decision that belongs to a person should
+  not present itself as a broken build. **What it cannot see:** a successor released since the last time
+  somebody looked. Supersession is not derivable from in-repo data, and a gate-time call to the
+  provider's models endpoint would need network and credentials in CI — so the gap is _bounded_ by the
+  re-read interval rather than closed.
+- **The embedding pin is `open`, and the gate keeps that honest.** Every stored vector is a function of
+  the model that produced it, so the pin is free to move only while no index exists and costs a full
+  re-embedding of every corpus afterwards. No mechanism makes a frozen pin cheaply changeable and none
+  here pretends to. What the fitness scan does is refuse to let the window close by accident: while
+  `pinState` reads `open`, no source file may reach a vector index (comments stripped first, so the
+  deferred semantic-search module's descriptions of the unwritten adapter do not count). The first code
+  that writes a vector fails that test, and clearing it means setting `pinState` to `frozen` — a line
+  whose only honest author is whoever has actually decided which model the index is built with.
 - The setting (`src/settings.ts`) stores the firm's primary reasoning model in the per-firm `setting`
   table via a `FirmSettingDefinition`; the schema is a refinement over the ZDR-eligible reasoning subset,
   so an off-catalog/non-ZDR id is rejected at the write path. Reads stay total (default on missing/invalid).
+  The **default is derived from the platform tier**, never written here as a literal — so moving the
+  platform forward never edits this file. A firm that has explicitly chosen keeps its choice: that
+  selection is a decision about its own confidential content, and silently re-pointing it because the
+  platform default moved would override that decision without telling anyone.
 - The implementation (`src/gateway.ts`) reaches the model only through the authenticated `AI` binding
   (`env.AI.run(model, input, { gateway })`). The control plane is the binding's documented `gateway`
   options object — `skipCache: true` (caching off), `collectLog: false` (logging off — the binding's

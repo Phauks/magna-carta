@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
+import { ScanFaultError } from "@magna-carta/file-manager/verdict";
 
 // The scan service's HTTP surface, narrowed to the one call the adapter makes. The SCAN_SERVICE
 // Fetcher binding satisfies it; tests pass a fake so the adapter is exercised without a real
@@ -51,8 +52,10 @@ const SCAN_REQUEST_TIMEOUT_MS = 11 * 60 * 1000;
 
 // Builds a MalwareScanPort over a scan Container. It POSTs the file body to the container's /scan, then
 // maps the JSON to a RawScanResult, THROWING on any non-200, malformed body, or timeout — the consumer
-// retries the queue message on a throw, so a scan fault never commits as clean. `requestTimeoutMs`
-// overrides the wedged-container backstop (a test passes a small value to drive the abort path).
+// retries the queue message on a throw, so a scan fault never commits as clean. A 5xx throws the typed
+// ScanFaultError so a caller answering a person can name the unreachable engine rather than reporting an
+// unexplained fault. `requestTimeoutMs` overrides the wedged-container backstop (a test passes a small
+// value to drive the abort path).
 export function containerScanAdapter(
   container: ScanContainerFetcher,
   requestTimeoutMs: number = SCAN_REQUEST_TIMEOUT_MS,
@@ -80,7 +83,18 @@ export function containerScanAdapter(
           signal: AbortSignal.timeout(requestTimeoutMs),
         } as RequestInit & { duplex: "half" }),
       );
+      if (response.status >= 500) {
+        // The service is bound but cannot answer — a placeholder worker, an undeployed Container, or
+        // an engine that went dark. Named with the same error the verdict layer raises for a deployed
+        // engine reporting unavailable (packages/file-manager/src/verdict.ts), because it is the same
+        // fact: no scan happened and none can right now. Callers that retry keep retrying; callers
+        // that answer a person can say the engine is unreachable instead of reporting a fault they
+        // cannot act on.
+        throw new ScanFaultError(`scan service returned status ${response.status}`);
+      }
       if (response.status !== 200) {
+        // A 4xx is this adapter and the service disagreeing about the request, which no retry and no
+        // deploy fixes — left as a plain throw so it surfaces as the fault it is.
         throw new Error(`scan container returned status ${response.status}`);
       }
       return rawScanResultSchema.parse(await response.json());

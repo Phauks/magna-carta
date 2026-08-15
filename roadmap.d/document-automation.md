@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Document automation -->
+
 - id: document-automation
   name: Document Automation
   scope: Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling.
@@ -9,6 +11,9 @@
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
   evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. The widened dictionary sources, PDF output, and the authoring surfaces are unbuilt.
+  audience: public
+  public-name: Documents built from your templates
+  public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
   notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.
 
 - id: document-automation.conditional-assembly
@@ -25,8 +30,8 @@
   scope: Templates authored as .docx for formatting control, bound to the data dictionary.
   status: partial
   adrs: ADR-0211
-  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the seven catalogue routes. Authoring in the browser is slice 2-6-4; content controls are a named seam.
-  notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in.
+  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the seven catalogue routes. Authoring in the browser is slice 2-6-4; BINDING a content control is still a named seam, though an unfilled one is now detected and reported.
+  notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences.
 
 - id: document-automation.data-dictionary
   name: Data dictionary
@@ -58,11 +63,13 @@
 - id: document-automation.field-mapping-library
   name: Per-firm merge-field mapping library
   scope: A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established.
-  status: not-started
-  evidence: The seam exists (MergeFieldNameResolver in packages/document-assembly/src/normalize.ts, the identity mapping today) and the registration response already reports which detected names map to no merge field; no store is built.
+  status: shipped
+  evidence: The store is packages/document-assembly/src/field-mapping-statements.ts over the per-firm document_template_field_mapping table (one merge key per field name by unique index) — read whole into a resolver once per registration, written back in the same batch as the registration whose conversion confirmed each mapping, and exposed at GET /api/v1/merge-field-mappings and DELETE /api/v1/merge-field-mappings/{mappingId}. A detection reports mappedFromLibrary so a firm's own confirmed answer is never blended with a name that happened to match a dictionary key.
+  notes: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in.
 
 - id: document-automation.filing-grade-generation
   name: Filing-grade generation
   scope: Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
   status: partial
   evidence: An assembled document lands as an ordinary matter file, so it is already previewable, editable in Collabora, convertible, and available to the e-signature seal. What is missing is the pleading-grade template content itself (conditionals, party schedules) and the authoring surfaces.
+  awaiting-owner: The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.

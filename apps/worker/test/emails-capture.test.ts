@@ -174,6 +174,36 @@ describe("email capture consumer", () => {
     expect(file.results[0]?.matter_id).toBe(matter);
   });
 
+  // The notification's emission point on the capture path, and the reason it is an outbox row rather
+  // than a call: it commits with the link, so it exists exactly when the filing does. A re-capture of
+  // a message this matter already holds inserts nothing (the link insert is ON CONFLICT DO NOTHING),
+  // and telling the matter's team the email just arrived a second time would be false.
+  it("commits one email.filed topic per filing and none for a re-capture onto the same matter", async () => {
+    const matter = await seedMatter();
+    const filedTopics = async (): Promise<{ payload: string }[]> => {
+      const { results } = await firmDatabase
+        .prepare("SELECT payload FROM outbox WHERE topic = 'email.filed' AND payload LIKE ?1")
+        .bind(`%${matter}%`)
+        .all<{ payload: string }>();
+      return results;
+    };
+
+    await capture(fixture("simple.eml"), { matterId: matter });
+    const first = await filedTopics();
+    expect(first).toHaveLength(1);
+    const message = await firmDatabase
+      .prepare("SELECT id FROM email_message LIMIT 1")
+      .all<{ id: string }>();
+    // Identifiers only — no subject, no address, no participant list crosses the bus.
+    expect(JSON.parse(first[0]?.payload ?? "{}")).toEqual({
+      emailMessageId: message.results[0]?.id,
+      matterId: matter,
+    });
+
+    await capture(fixture("simple.eml"), { matterId: matter });
+    expect(await filedTopics()).toHaveLength(1);
+  });
+
   it("a dedup re-capture does not re-extract attachments (idempotent)", async () => {
     const matter = await seedMatter();
     await capture(fixture("with-attachment.eml"), {

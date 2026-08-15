@@ -98,6 +98,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
   { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
+  // The re-check ledger resolves to the Directory entity its cause is about — a merged subordinate, a
+  // renamed entity, the party that was linked. The row is never deleted (a trigger refuses it) and
+  // its cause columns are immutable, so the subject reference is pseudonymized in place exactly as
+  // the three log tables above are. cause_reference is a HANDLE by construction, never a value.
+  {
+    table: "conflicts_recheck_request",
+    subjectKey: "cause_reference",
+    action: "pseudonymize-keep",
+  },
   // Magnus conversations — the firm's own work product, protected and deletable. The fact that a
   // member held a conversation is firm activity worth keeping — the ai_detection_usage.requested_by
   // precedent — so the person becomes a pseudonym and the row survives. The turns go with the
@@ -345,6 +354,31 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "description",
     action: "report-manual",
     note: "what the client was told the firm did, held as free text with no structured subject, frozen once the invoice is finalized",
+  },
+  // Corrections after finalization sit on exactly the same footing as the bill they correct, and for
+  // the same reason: a credit note is a document the firm has already given a client, and the firm
+  // has to be able to produce it for its own accounts and for a fee dispute. Erasing one would leave
+  // a posting in the ledger nobody could attribute, which is the argument the invoice row makes.
+  {
+    table: "credit_note",
+    subjectKey: "reason",
+    action: "report-manual",
+    note: "the firm's own account of why a bill was wrong, held as free text with no structured subject and frozen at issue",
+  },
+  {
+    table: "credit_note_line",
+    subjectKey: "description",
+    action: "report-manual",
+    note: "what the client was told was being credited, held as free text with no structured subject and frozen at issue",
+  },
+  // Money the firm has conceded is not its own and has not yet given back. Retained on the matter's
+  // footing: an open obligation to a client cannot be erased out from under the client it is owed
+  // to, and the subject-side scrub happens at the Directory entity.
+  {
+    table: "client_credit",
+    subjectKey: "client_entity_id",
+    action: "retain-under-matter",
+    note: "who the firm owes money back to, on a record it must be able to produce until the obligation is discharged",
   },
   // The case calendar. Only one of its four tables carries a structured reference to a person: who
   // was, or will be, at a hearing. It resolves to a subject three ways because all three shapes
@@ -672,6 +706,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // contains live in the split object in R2 and are erased by re-indexing the source, not by a row
   // here; this catalog carries no data-subject personal data.
   "index_split",
+  // What is inside a merged split — a split id, the file ids and version numbers it covers, and whether
+  // each is still current. Identifiers and integers only: it says which documents a split holds, never
+  // anything about the people in them. The passages themselves are in the split object in R2 and leave
+  // it when compaction repacks the split, not when a row here is deleted.
+  "index_split_member",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

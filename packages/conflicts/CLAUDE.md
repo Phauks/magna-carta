@@ -29,12 +29,22 @@ and never calls external services.
 - `src/evidence.ts` — `assignTier` (identifier > exact name > phonetic > trigram-only; a candidate
   with no recorded signal still lands at tier 4, never disappears), `describeEvidence` (the
   reviewer-facing explanation string list)
-- `src/expansion.ts` — `expandGraph`: breadth-first traversal over `directory_edge` via `readEdges`;
-  corporate-family edge types (`corporate_parent`/`corporate_subsidiary`/`corporate_successor`) bypass
-  the depth budget, every other edge type obeys it
+- `src/edge-classes.ts` — the edge-type → edge-class map (`corporate` / `control` / `family` /
+  `representation`) and `edgeClassOf`. One home, so the traversal, the settings, and the recorded
+  scope can never disagree about which class an edge type belongs to
+- `src/expansion.ts` — `expandGraph`: breadth-first traversal over `directory_edge`, one batched edge
+  read per round rather than one per node. Budgeted per edge class rather than by one integer;
+  corporate-family edge types bypass the budget entirely and are bounded only by the per-run closure
+  cap. Returns the closure **plus** a truncation record when the cap stopped it. Degree-based hub
+  suppression is refused here, in a comment, because this is where the temptation is
+- `src/subject-facts.ts` — `readSubjectFacts` (one entity) and `readSubjectFactsBatch` (one query per
+  node table over a whole closure). One home for "which node table, which columns, what does an
+  absent row mean", so the two can never answer it differently
 - `src/imputation.ts` — `findImputationHits`: identity join `matter_party` → `directory_person` →
   `member`, never a similarity matcher
-- `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchParty`
+- `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchPartyBatch`
+  (the set-valued matcher the check runs: each blocking channel once over the whole closure, plus a
+  set-valued exact-name probe), `matchParty`
   (wraps `findDuplicateCandidates` + a direct exact-normalized-name probe, since the directory's three
   blocking channels are phonetic/trigram/blind-index and exact-name has no channel of its own). Passes
   the subject's own entity id as `subjectEntityId` so the blind-index channel fires the **tier-1
@@ -50,7 +60,34 @@ and never calls external services.
   is an entity matching **itself** (`match.entityId === entity.entityId`).
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`
-  (latest row by `created_at` — the append-only table's read-side "current state" projection)
+  (latest row by `created_at` — the append-only table's read-side "current state" projection),
+  `readHitDispositionStates` (every hit of one check with its latest disposition, in **one** query —
+  the same tie-break, without the per-hit N+1 the posture read cannot afford)
+- `src/posture.ts` — `readMatterConflictsPosture`: the **only sanctioned way to ask where a matter
+  stands on conflicts**. Computed from rows at read time, stores nothing, writes nothing. Also the
+  shared readers of a stored check row (`parseCheckScope`, `parseCheckInputs`, `reportedSourcesFor`),
+  so the posture read and the check read can never explain the same row differently
+- `src/report-text.ts` — `describeCheck`: the pure statement list for one check — what ran with what
+  settings over how many entities, what did not run and why, and what surfaced. Zero hits ends
+  `"Nothing surfaced."`
+- `src/sources.ts` — the one home for what a check can search, what it cannot, and why:
+  `availabilityOf` (the write side), `unavailabilityReason` and `displayNameForSource` (the read side)
+- `src/topics.ts` — the two outbox topics this package publishes, as one frozen set:
+  `conflicts.recheck.requested` (the drain signal, written in the same batch as the ledger rows) and
+  `conflicts.hit.surfaced` (the notification's subscription, emitted only by an automated run that
+  found something)
+- `src/recheck-settings.ts` — the firm's re-check configuration (`maxMattersPerEvent`, whether the
+  scheduled re-scan runs and how often, the batch size) plus the last-run marker and `periodicRescanIsDue`
+- `src/recheck-cause.ts` — `resolveAffectedMatters`: one bounded indexed query per cause topic
+  answering "which already-checked matters could this corpus change have changed the answer for", and
+  `triggerForCauseTopic`. `directory.entity.created` deliberately resolves to **nothing**
+- `src/recheck-request.ts` — `recordRecheckRequests`: the write half of the request path. Writes a
+  ledger row for **every** affected matter and queues at most `maxMattersPerEvent` of them
+- `src/recheck-run.ts` — `satisfyRecheckRequestsForMatter`: claim a matter's open causes, coalesce
+  every one into a single check that names them all, stamp each claimed row. Shared by the queue
+  consumer and the cron backstop so the two can never answer a matter differently
+- `src/recheck-statements.ts` — SQL for `conflicts_recheck_request`: the `ON CONFLICT DO NOTHING`
+  insert, the guarded satisfaction stamp, the per-matter and oldest-first reads
 - `src/statements.ts` — SQL statement builders for the three tables; `CONFLICTS_CHECK_TABLE` /
   `CONFLICTS_HIT_TABLE` / `CONFLICTS_DISPOSITION_TABLE` names, tracked by the schema-name-sync fitness
   test; INSERT only — there is no update or delete builder for any of the three tables
@@ -92,6 +129,88 @@ and never calls external services.
   by `directory_identifier.id` reference (plus the `identifier_type`), never `value_ciphertext` or
   `value_blind_index`, and certainly never a decrypted value. `findPlaintextIdentifiersInChecks`
   sweeps every stored `inputs_json` for a nine-consecutive-digit run as the structural guard.
+- **The platform never asserts that a matter is free of conflict** (conflicts-vocabulary:allow —
+  states the rule). It reports what it searched, what it could not search, and what surfaced; the
+  conclusion is a lawyer's and the record says whose. Three things follow, and all three are
+  mechanical rather than conventional:
+  1. **`readMatterConflictsPosture` is the sanctioned read, and it has no aggregate.** No field named
+     `clear`, `clean`, `ok`, `passed`, `status`, `severity`, or `conflictFree` (conflicts-vocabulary:allow — the banned list itself), and no summary
+     boolean. `neverChecked` is the one boolean, and it reports whether a search happened — never what
+     one concluded. A caller that wants a single word writes it itself and owns it.
+  2. **A zero-hit check reports the search ending, not a clearance.** `describeCheck` finishes
+     `"Nothing surfaced."`, which is a fact about the machine's own behaviour. Facts about the machine
+     are the only assertions this package makes: these channels ran, this source has no corpus, this
+     many candidates surfaced.
+  3. **`cleared` survives only as a `DISPOSITION_KINDS` value** — a named human's conclusion about one
+     hit, on a row carrying that human's identity and rationale.
+
+  `pnpm run lint:conflicts-vocabulary` (`tooling/lint-conflicts-vocabulary/index.mjs`) enforces all
+  three by source scan over this package, the conflicts route, the web conflicts surfaces, and
+  `docs/user/`, and runs in the gate's governance step. Prose that exists to state the rule rather than
+  to break it carries an inline `conflicts-vocabulary:allow — <reason>` marker on the same line; a
+  verdict-shaped **field name** has no such escape hatch.
+
+- **A cause is coalesced, never discarded, and never trimmed.** Every affected matter gets a
+  `conflicts_recheck_request` row — the caps in `recheck-settings.ts` bound how many are ATTEMPTED in
+  one queue invocation, never how many are recorded, because a trimmed set is a conflict the platform
+  noticed and then forgot. Several causes accumulated for one matter collapse into ONE check whose
+  `cause_json` names them all; the drain running out of budget leaves rows open, which is a visible
+  state the posture read reports. The ledger's own rules are enforced by triggers rather than by
+  convention: the cause columns cannot be rewritten, a satisfaction cannot be reopened, and no row is
+  ever deleted — the interval between a cause and the check that answered it is the evidence that the
+  firm's procedure noticed something, and no check row alone can show it.
+- **The automated path cannot conclude anything.** `recheck-cause.ts`, `recheck-request.ts`,
+  `recheck-run.ts`, and the worker's two consumers must never import `disposition.ts` or call
+  `recordDisposition`. A run that nobody asked for, under nobody's authority, writing a row that names
+  a member as having concluded something is the one failure this subsystem cannot recover from — so it
+  is enforced on the source text by `test/automated-path-cannot-dispose.test.ts` and the worker's
+  `test/conflicts-recheck-consumers.test.ts`, and a database trigger refusing a disposition whose
+  reviewer is not a live member lands with the adjudication read models as the second layer. Request
+  and run are separate consumers for a different reason and the same discipline: a slow check must not
+  back-pressure the recording of causes, so the request consumer never imports `runConflictsCheck`.
+- **An automated run is nobody's act.** `actorUserId` is null and `effectivePermissions` is empty on
+  the context the worker builds for it (`apps/worker/src/conflicts/recheck-context.ts`). The matching
+  channels compare sealed identifiers by blind index, which needs no permission and writes no decrypt
+  audit; a path that needed a real decrypt would fail there, loudly, which is the correct outcome for
+  machinery running under nobody's authority. `trigger_source` records what set the run going, kept
+  beside `actor_user_id` rather than derived from it — an absent actor says nobody is being credited,
+  not whether a person, an event, or the clock started it.
+- **Staleness is derived, never written.** `scopeShortfall` compares the latest check's recorded scope
+  against the **live** `conflicts.policy` row on every read, so raising the firm floor makes the
+  shortfall appear immediately on every affected matter with no sweep and no write. This is the
+  posture `packages/calendar/src/overdue.ts` holds for an overdue deadline: the platform computes the
+  comparison and reports it; it never writes a judgement onto a record and lets it rot.
+- **A truncated expansion is never reported as a completed one.** Traversal is bounded — an unbounded
+  walk over a real corporate group is an availability problem — but the bound is **recorded and
+  reported**, never applied silently. On reaching the per-run closure cap, `expandGraph` stops and
+  returns a truncation record; `runConflictsCheck` writes it into the check row's `inputs_json` under
+  `traversal`, the posture read carries it on `latestCheck.scope.traversal`, and `describeCheck`
+  states in words that the search of the graph is incomplete, with how many entities were refused. A
+  check row that predates the record reports `traversal: null` — "the row does not say", which is a
+  third state and is never flattened into either of the other two. This is the depth analogue of the
+  `unavailable`-is-never-`searched` rule below, and it fails the same way if broken: the platform
+  telling a firm it looked somewhere it did not look.
+- **The bound is on the SIZE of the closure, never on the SHAPE of the graph.** Degree-based hub
+  suppression — skip any node carrying more than N edges — is refused and stays refused. A clearing
+  bank or a registered agent on five hundred matters is precisely where a positional conflict lives,
+  and a search that quietly steps around it has narrowed itself with nothing on the record to say so.
+  Reaching a size cap is a fact a check can record; stepping around a hub is not. A firm may mark an
+  entity non-expandable — that is a recorded, attributable firm assertion, and a different thing from
+  a platform heuristic. Held by `test/expansion.test.ts`.
+- **Expired edges are traversed, with the expiry on the path step.** An ended relationship — a
+  divorced spouse, a subsidiary sold last year — is walked, not skipped: the rules that most often
+  decide a conflict are about FORMER clients and FORMER relationships, so a traversal that stopped at
+  currency would drop the dimension they turn on. `EdgeStep.expiredAtCheck` carries it so the reviewer
+  weighs it. Expiry is judged against the CHECK'S OWN clock (`ExpansionBudget.asOf`), never an ambient
+  `new Date()`, so a long walk cannot hold two opinions about when a relationship ended.
+- **The batched matcher returns exactly the per-entity matcher's hit set.** `matchPartyBatch` and
+  `readSubjectFactsBatch` exist to make the query count follow the channel count instead of the entity
+  count; they are held to returning the same answer, not a similar one, by
+  `test/matcher-equivalence.test.ts` over a real migrated corpus carrying every shape the channels
+  distinguish. A performance change here that alters which hits come back is not a refactor — it is a
+  missed conflict, which is a professional-conduct failure rather than a latency regression. Any
+  future channel added to one path must land in the other in the same change, and the equivalence test
+  must be extended to a corpus that exercises it.
 - **A source that cannot run records `unavailable`, never `searched`.** The `content` class and
   `prior_firm_history` have no corpus yet and are always `unavailable`. `imputation` is `unavailable`
   on a check with no `matterId` (there is nothing to join firm members against), regardless of how the
@@ -109,19 +228,46 @@ and never calls external services.
   caller to run via the data-access layer; holds no D1 binding of its own and calls no external
   service.
 - The worker routes (`apps/worker/src/routes/conflicts.ts`) are the only callers of
-  `runConflictsCheck` / `recordDisposition` — they own threading `env`, the actor, and idempotency.
+  `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` — they own threading `env`,
+  the actor, and idempotency.
 
 ## Gotchas
 
-- `readEdges` (`packages/directory/src/edges.ts:127`) reads an ambient `new Date()`. Do not depend on
-  it for deterministic expansion tests — pin or ignore the time-sensitive fields instead.
+- `readEdges` in `packages/directory/src/edges.ts` reads an ambient `new Date()` when no `asOf` is
+  supplied. The traversal always supplies one (and `includeExpired`), so its own reads are pinned; any
+  other caller in this package must pass the check's clock rather than depending on wall time.
 - Corporate-family edges (`corporate_parent`/`corporate_subsidiary`/`corporate_successor`) bypass the
-  depth budget in `expandGraph` deliberately — a rename, merger, or successor entity must still match
-  regardless of hop count. Every other edge type obeys `depth` normally.
+  hop budget in `expandGraph` deliberately — a rename, merger, or successor entity must still match
+  regardless of chain length. Every other edge type spends its own class's budget, and an edge type
+  this build has never heard of takes the WIDEST budget in force rather than the narrowest: the schema
+  admits any non-empty string, and a new relationship type that quietly became unwalkable would be a
+  conflict the engine stopped looking for without anybody choosing that.
+- The shipped `conflicts_check.depth` column still exists and still means something: `resolveScope`
+  records the WIDEST resolved per-class budget there, so a reader of the column alone is never told
+  the traversal was shallower than it was. The per-class detail lives in `inputs_json.traversal`.
+- Per-class budgets are a Pareto-vector relaxation, not a scalar one. A path's cost is one number per
+  edge class, and collapsing that vector to its sum would let a path that has spent its whole family
+  budget look cheaper than one that spent two control hops and can still walk a family edge — which
+  drops real conflicts, silently. `expansion.ts` keeps the Pareto-minimal set of cost vectors per
+  entity for that reason; the reported path is the cheapest, then shortest, then lexicographically
+  first by edge id, so one corpus always yields one explanation.
+- Every set-valued read in this package chunks its IN list at 100 bindings, because that is D1's
+  bound-parameter cap (`MAX_BOUND_PARAMETERS` in `packages/ledger/src/statements.ts`). The query count
+  is therefore proportional to channels times ceil(entities / 100), not to entities times channels —
+  a small fan for a platform limit, not a return of the N+1.
 - Drizzle-kit cannot model triggers; the six append-only guard triggers live in the hand-written
   migration `.sql` (`packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`), like the
   Directory FTS5 triggers, and are verified by `packages/database/test/conflicts-append-only.test.ts`
   plus `assertConflictsFitness`.
+- **The posture read does not check that the matter exists**, and that is deliberate: a 404 on an
+  unknown matter would make "never checked" and "no such matter" the same answer, which is the
+  conflation the whole read exists to prevent. `neverChecked` is the answer for both.
+- **`pendingRecheck` is read for a never-checked matter too.** A matter nobody has ever run a check on
+  can still be owed one — a party added to a matter that predates the engine — and reporting nothing
+  pending because there is no check would hide exactly the case that most needs saying.
+- The posture read's counts are scoped to the **latest** check. An earlier check's hits stay on the
+  record and are read through that check; cross-check hit identity (a re-surfaced hit that cites an
+  earlier conclusion) is the adjudication read model's job and lands with it.
 - `matchParty`'s exact-normalized-name probe is a direct SQL query against `directory_name`, not a
   fourth blocking channel added to `findDuplicateCandidates` — the directory's shared corpus reader
   stays phonetic/trigram/blind-index only; tier 2 (exact name) is scored here, in this package. The

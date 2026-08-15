@@ -12,7 +12,13 @@ import {
   type NormalizeOptions,
 } from "./normalize.ts";
 import { readPackage, writePackage } from "./ooxml/package.ts";
-import type { FieldManifest, MergeFieldDetection, NormalizationWarning } from "./types.ts";
+import type {
+  FieldManifest,
+  LegacyFormField,
+  MergeFieldDetection,
+  NormalizationWarning,
+  UnboundContentControl,
+} from "./types.ts";
 
 // The registration pipeline, in the one order that is defensible.
 //
@@ -29,6 +35,16 @@ import type { FieldManifest, MergeFieldDetection, NormalizationWarning } from ".
 // RECORDED ON THE MANIFEST and the template registers, because the field is then visible to every reader
 // downstream; a live macro is REFUSED, because there is no way to record executable code that makes it
 // safe to store, and the only two honest answers are "strip it" and "upload a macro-free file".
+//
+// A legacy Word form field is a THIRD case with no transform at all: nothing binds one and no opt-in
+// converts one, because the only name it carries is a Word-minted bookmark and deriving a merge key
+// from that would be a guess at what the firm's document means. So it is detected and reported —
+// registration, the field list, and every assembly — and left exactly where it is. See normalize.ts.
+//
+// An unfilled CONTENT CONTROL is the fourth, and rides the third's path exactly: detected, reported at
+// every surface, never rewritten. What differs is only the argument for the refusal to convert, which
+// normalize.ts writes out — a control carries an author's own alias and tag, so the missing thing is a
+// human's confirmation of what that name means, not evidence.
 //
 // Everything expensive here runs ONCE per template version, at the moment a human is looking at the
 // result — never on the assembly path, where a user is waiting and a failure is least actionable.
@@ -62,6 +78,13 @@ export interface TemplatePreparation {
   // to it, never left to discover a silent rewrite.
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
   readonly mergeFieldsConverted: boolean;
+  // The legacy Word form fields the upload carries. Reported for the same reason the merge fields are,
+  // and with one difference the caller must not blur: there is no opt-in that binds these, so the only
+  // remedies are to replace them in Word or to file the document knowing where its blanks are.
+  readonly legacyFormFields: readonly LegacyFormField[];
+  // The content controls the upload carries that nothing will fill in. Same standing as the line above:
+  // reported so the firm knows where its document has holes, with no opt-in that closes them.
+  readonly unboundContentControls: readonly UnboundContentControl[];
   // The name-to-key mappings this registration confirmed, for the firm's mapping library. Empty unless
   // conversion ran.
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
@@ -79,6 +102,11 @@ export type TemplatePreparationResult =
       // uses Word merge fields is refused with the list of them, so the caller can present the choice
       // (convert, or edit the document) rather than a dead end.
       readonly mergeFieldDetections: readonly MergeFieldDetection[];
+      // Likewise on a refusal: a template refused for an authoring mistake elsewhere still tells the
+      // firm which of its fields nothing will bind, rather than saving that up for the attempt that
+      // finally passes.
+      readonly legacyFormFields: readonly LegacyFormField[];
+      readonly unboundContentControls: readonly UnboundContentControl[];
       readonly macroProjectFound: boolean;
     };
 
@@ -89,6 +117,8 @@ function failure(
     normalizationFailures?: readonly NormalizationFailure[];
     macroFindings?: readonly MacroResidueFinding[];
     mergeFieldDetections?: readonly MergeFieldDetection[];
+    legacyFormFields?: readonly LegacyFormField[];
+    unboundContentControls?: readonly UnboundContentControl[];
     macroProjectFound?: boolean;
   } = {},
 ): TemplatePreparationResult {
@@ -99,6 +129,8 @@ function failure(
     normalizationFailures: extras.normalizationFailures ?? [],
     macroFindings: extras.macroFindings ?? [],
     mergeFieldDetections: extras.mergeFieldDetections ?? [],
+    legacyFormFields: extras.legacyFormFields ?? [],
+    unboundContentControls: extras.unboundContentControls ?? [],
     macroProjectFound: extras.macroProjectFound ?? false,
   };
 }
@@ -165,6 +197,8 @@ export async function prepareTemplateVersion(
       {
         normalizationFailures: normalized.failures,
         mergeFieldDetections: normalized.mergeFieldDetections,
+        legacyFormFields: normalized.legacyFormFields,
+        unboundContentControls: normalized.unboundContentControls,
         macroProjectFound,
       },
     );
@@ -182,6 +216,8 @@ export async function prepareTemplateVersion(
   if (scrubbedBytes === undefined) {
     return failure("scrub-failed", "the template's drafting history could not be removed", {
       mergeFieldDetections: normalized.mergeFieldDetections,
+      legacyFormFields: normalized.legacyFormFields,
+      unboundContentControls: normalized.unboundContentControls,
       macroProjectFound,
     });
   }
@@ -220,6 +256,8 @@ export async function prepareTemplateVersion(
       removedMacroParts: stripped.removedParts,
       macrosStripped: strip,
       mergeFieldDetections: normalized.mergeFieldDetections,
+      legacyFormFields: normalized.legacyFormFields,
+      unboundContentControls: normalized.unboundContentControls,
       mergeFieldsConverted: options.convertMergeFields === true,
       confirmedMergeFieldMappings: normalized.confirmedMappings,
     },

@@ -41,12 +41,17 @@ ADR-0039.)
 
 ## Invariants that apply here
 
-- **The word "custodian" never appears alone, anywhere.** The platform ships a register of physical
-  client originals whose family is `custody*` and whose person-shaped noun is `custodyOwner`; a
-  **record custodian** is a completely different thing — whose electronic records these were — and
-  the two appear in the same matter, sometimes on the same screen. Two words, always, in code, in
-  schema, in comments, and in anything a person reads. `tooling/lint-custodian-vocabulary.mjs`
-  enforces both directions mechanically, and no `custody*` identifier may appear in this package.
+- **The word "custodian" never appears alone, anywhere — and the code's word is not the reader's
+  label.** The platform ships a register of physical client originals whose family is `custody*` and
+  whose person-shaped noun is `custodyOwner`; the discovery attribution — whose electronic records
+  these were — is a completely different thing, and the two appear in the same matter, sometimes on
+  the same screen. So there are exactly two permitted forms and no third.
+  **`record_custodian` / `recordCustodian`** is the code word: identifiers, tables, columns, route
+  paths, refusal codes, and comments. **"Custodian of Record"** is what a person reads: the owner
+  named it, and it is what belongs in an OpenAPI `description`, a refusal sentence a route surfaces
+  as a problem `detail`, a field label, and [`docs/user/`](../../docs/user/). Neither is ever
+  shortened to the bare word. `tooling/lint-custodian-vocabulary.mjs` enforces all of it
+  mechanically — both permitted forms, and no `custody*` identifier anywhere in this package.
 - **A review document is a POINTER and never a copy.** It holds no bytes, and it holds no bulk text:
   the extracted text and the metadata sidecar are R2 objects it names by key. A 50,000-document
   review set averaging 30 KB of text is 1.5 GB, and this is the one table in the platform whose size

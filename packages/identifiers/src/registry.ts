@@ -67,6 +67,8 @@ export const ENTITY_PREFIXES = {
   conflictsCheck: "conflictsCheck",
   conflictsHit: "conflictsHit",
   conflictsDisposition: "conflictsDisposition",
+  // One re-check the platform owes a matter because the corpus under it moved.
+  conflictsRecheckRequest: "conflictsRecheckRequest",
   directoryCategory: "directoryCategory",
   directoryEmail: "directoryEmail",
   directoryPhone: "directoryPhone",

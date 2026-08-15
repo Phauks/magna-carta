@@ -84,7 +84,11 @@ Rules are cautious on purpose, and when they are unsure they do nothing rather t
   path, which is what makes the catch-all case work.
 - **A rule that suddenly goes haywire stops itself.** A mailing list, a bounce loop, or an
   autoresponder shows up as a rule firing far more often than a person would. Past that point the
-  rule goes back to staging and asks to be looked at, rather than quietly filing a hundred more.
+  rule goes back to staging and asks to be looked at, rather than quietly filing a hundred more. Out
+  of the box that point is twenty-five filings in an hour, or three of a rule's last ten filings
+  undone; an administrator can move those numbers to suit how much mail your firm handles. What an
+  administrator cannot do is switch the protection off — the numbers can be raised or lowered within
+  a sensible range, and a rule that runs away always stops.
 - **Nothing already in your archive is touched.** Creating a rule never reaches back: it applies to
   mail that arrives afterwards. If you want the last six months filed, select those messages and file
   them.
@@ -98,8 +102,9 @@ Undo is the ordinary **unlink** you would use for anything else: open the messag
 remove it. Nothing special, no separate screen. As always, unlinking leaves the message on any other
 matter it is on, and never deletes it.
 
-Undoing is also how you tell the platform a rule is wrong. Undo a rule's filings a few times and the
-rule suspends itself and asks — you do not have to go and find it.
+Undoing is also how you tell the platform a rule is wrong. Undo a rule's filings a few times — three
+of its last ten, unless an administrator has changed that — and the rule suspends itself and asks.
+You do not have to go and find it.
 
 ## Knowing it filed
 

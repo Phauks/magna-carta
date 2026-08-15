@@ -22,6 +22,8 @@
     "./arrangements": "./src/arrangements.ts",
     "./flat-fee": "./src/flat-fee.ts",
     "./contingency": "./src/contingency.ts",
+    "./credit-note": "./src/credit-note.ts",
+    "./close-precondition": "./src/close-precondition.ts",
     "./retainer": "./src/retainer.ts",
     "./render-shape": "./src/render-shape.ts"
   },

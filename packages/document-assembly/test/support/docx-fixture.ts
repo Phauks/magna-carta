@@ -80,6 +80,107 @@ export function simpleMergeFieldParagraph(fieldName: string): string {
   );
 }
 
+export interface LegacyFormFieldFixture {
+  // The instruction the construct carries. FORMTEXT, FORMCHECKBOX, and FORMDROPDOWN are the three
+  // Word writes for a legacy form field.
+  readonly instruction?: string;
+  // The `w:ffData` bookmark name. Word mints `Text1`, `Check1`, `Dropdown1` and a firm's author
+  // rarely renames them, which is the whole reason a name here is not a merge key.
+  readonly name?: string;
+  // The status-bar prompt the author wrote for whoever fills the field in — the one place a legacy
+  // form field says what it wants.
+  readonly statusText?: string;
+  // The words the document prints where the field sits today.
+  readonly result?: string;
+  // The `w:ffData` child that declares the field's kind.
+  readonly inputElement?: string;
+}
+
+// The complex-field shape Word writes for a LEGACY FORM FIELD: a `begin` fldChar carrying the
+// `w:ffData` block, a FORMTEXT/FORMCHECKBOX/FORMDROPDOWN instruction, and the field's own placeholder
+// text as the cached result. Nevada's appellate forms and a great deal of legacy firm precedent are
+// built entirely from these, so the fixture reproduces the real shape rather than a reduction of it.
+export function legacyFormFieldParagraph(fixture: LegacyFormFieldFixture = {}): string {
+  const instruction = fixture.instruction ?? "FORMTEXT";
+  const name = fixture.name ?? "Text1";
+  const statusText = fixture.statusText ?? "";
+  const result = fixture.result ?? "Click here to enter text.";
+  const inputElement =
+    fixture.inputElement ??
+    (instruction === "FORMCHECKBOX"
+      ? '<w:checkBox><w:sizeAuto/><w:default w:val="0"/></w:checkBox>'
+      : instruction === "FORMDROPDOWN"
+        ? '<w:ddList><w:listEntry w:val="Appellant"/><w:listEntry w:val="Respondent"/></w:ddList>'
+        : '<w:textInput><w:default w:val="Click here to enter text."/></w:textInput>');
+  const formFieldData =
+    "<w:ffData>" +
+    `<w:name w:val="${name}"/><w:enabled/><w:calcOnExit w:val="0"/>` +
+    (statusText === "" ? "" : `<w:statusText w:type="text" w:val="${statusText}"/>`) +
+    inputElement +
+    "</w:ffData>";
+  return (
+    "<w:p>" +
+    `<w:r><w:fldChar w:fldCharType="begin">${formFieldData}</w:fldChar></w:r>` +
+    `<w:r><w:instrText xml:space="preserve"> ${instruction} </w:instrText></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
+    `<w:r><w:t>${result}</w:t></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
+    "</w:p>"
+  );
+}
+
+export interface ContentControlFixture {
+  // The `w:sdtPr` element that declares what the control holds. `<w:text/>` is a plain-text control;
+  // `<w:date .../>`, `<w:dropDownList .../>`, `<w14:checkbox .../>` and the rest are the other kinds.
+  // Omit it entirely for a control that declares no type at all, which is legal and which Word writes.
+  readonly typeElement?: string | null;
+  // `w:alias` — the title an author gives the control in Word's properties dialog. Nothing mints one,
+  // which is what separates it from a legacy form field's `Text1`.
+  readonly alias?: string;
+  // `w:tag` — the machine-facing name, likewise author-supplied.
+  readonly tag?: string;
+  // Whether the control declares `w:showingPlcHdr`: Word's own record that what a reader sees is the
+  // control's placeholder prompt rather than content anyone typed.
+  readonly showingPlaceholder?: boolean;
+  // The `w:dataBinding` element, for a control Word refreshes from a custom XML part in the package.
+  readonly dataBinding?: string | null;
+  // The words the control's content prints today.
+  readonly content?: string;
+  // Anything to place inside `w:sdtContent` instead of a single run — a nested control, or a paragraph
+  // for a block-level control.
+  readonly contentXml?: string;
+}
+
+// The shape Word writes for a CONTENT CONTROL, the construct it produces today wherever an author
+// inserts a blank. A run-level control, so it is dropped inside a `w:p`; wrap the result in nothing for
+// a block-level one and pass `contentXml` a paragraph instead.
+export function contentControl(fixture: ContentControlFixture = {}): string {
+  const typeElement = fixture.typeElement === undefined ? "<w:text/>" : (fixture.typeElement ?? "");
+  const alias = fixture.alias ?? "";
+  const tag = fixture.tag ?? "";
+  const showingPlaceholder = fixture.showingPlaceholder ?? true;
+  const content = fixture.content ?? "Click here to enter text.";
+  const contentXml =
+    fixture.contentXml ??
+    `<w:r><w:rPr><w:rStyle w:val="PlaceholderText"/></w:rPr><w:t>${content}</w:t></w:r>`;
+  const properties =
+    "<w:sdtPr>" +
+    (alias === "" ? "" : `<w:alias w:val="${alias}"/>`) +
+    (tag === "" ? "" : `<w:tag w:val="${tag}"/>`) +
+    '<w:id w:val="123456789"/>' +
+    (fixture.dataBinding ?? "") +
+    '<w:placeholder><w:docPart w:val="DefaultPlaceholder_-1854013440"/></w:placeholder>' +
+    (showingPlaceholder ? "<w:showingPlcHdr/>" : "") +
+    typeElement +
+    "</w:sdtPr>";
+  return `<w:sdt>${properties}<w:sdtContent>${contentXml}</w:sdtContent></w:sdt>`;
+}
+
+// One paragraph holding one content control, which is how a blank in a letter or a caption sits.
+export function contentControlParagraph(fixture: ContentControlFixture = {}): string {
+  return `<w:p>${contentControl(fixture)}</w:p>`;
+}
+
 const DEFAULT_CONTENT_TYPES = `${DECLARATION}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="${MAIN_DOCUMENT_CONTENT_TYPE}"/></Types>`;
 
 const DEFAULT_RELS = `${DECLARATION}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;

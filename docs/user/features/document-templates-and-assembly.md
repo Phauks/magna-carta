@@ -127,6 +127,30 @@ can see the whole list of what your firm has confirmed, and remove any entry you
 mapping is your firm's statement about your own documents, so you can withdraw it. Removing one changes
 nothing already registered.
 
+## If your template has fill-in-the-blank fields
+
+Word has two other ways to put a blank in a document, and neither is filled in by this system: the old
+**form fields** most court forms and older firm precedent are built from, and the **content controls**
+Word inserts today. Both look like a blank to whoever is reading the document, and both print their own
+prompt — "Click here to enter text." — into every document you build from that template.
+
+The template still registers, and registering it now lists each one: the name its author gave it, what
+kind of blank it is, and the exact words the document will print where it sits. The field list keeps
+showing them, and **every document you assemble reports them again** and is marked as needing review,
+in the same place a missing value would be. If the template is refused for some other reason, the
+report still names these — you do not have to fix everything else first to find out about them.
+
+**These cannot be converted for you, and we will not guess what one was meant to mean.** An old form
+field's only name is something Word made up, like `Text1`. A content control usually does carry a name
+you typed — but a name only means a particular merge field once somebody has said so, and nobody has.
+So the fix is yours to make: replace the blank in Word with a `{{field}}` naming the merge field it
+should have been.
+
+**A content control you have filled in is left alone and says nothing.** What it holds is your own
+text, and Word puts content controls around ordinary content all the time — a cover page, a citation, a
+table of contents. Only a control still showing its prompt, or one being filled from data stored inside
+the template itself, is reported.
+
 ## Updating a template
 
 A template is never edited in place. Upload a new version and the catalogue moves to it; every earlier
@@ -156,6 +180,23 @@ as needing review before you file it — a blank that does not look like a blank
 
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.
+
+### Word document or PDF
+
+Choose which of the two you want before you build:
+
+- **Word document** — the default, and the one to choose while the document is still being worked on.
+  You can open it, edit it in the browser, and save a new version.
+- **PDF** — the finished form. Choose it when the document is going out to be signed: a PDF is the only
+  form a signature can be applied to.
+
+A PDF is converted from the finished document before it is filed, so it takes a little longer than a
+Word document does. If the conversion cannot be done, the build **fails and says so** — you are never
+handed a Word document in place of the PDF you asked for, because that is the kind of substitution you
+would only discover when the signature was refused.
+
+Either way the document lands in the matter's documents like any other file. There is nothing to
+convert afterwards and nothing to re-upload.
 
 ## The other people on the matter
 
@@ -617,5 +658,8 @@ is a report, not a template.
 - **Pronouns for the judge, the decedent, or one item inside a repeat.** The pronoun helper works on
   the people the matter names singly — the client, the other parties, your own staff. A sentence
   inside `{{#each opposingParty.all}}` cannot yet ask for that item's pronouns.
-- **Producing a PDF** directly, and sending an assembled document straight for signature.
+- **Sending an assembled document out to be signed.** Building it as a PDF puts it in the form a
+  signature needs, but inviting someone to sign it — the request, the consent record, and the
+  certificate that goes with it — is not built yet.
+- **Filling in a fillable PDF form** your firm supplies, from the same fields a Word template uses.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

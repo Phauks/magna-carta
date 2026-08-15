@@ -88,6 +88,11 @@ const errorResponses = {
     description: "Rate limit exceeded",
     content: { "application/problem+json": { schema: Problem } },
   },
+  501: {
+    description:
+      "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+    content: { "application/problem+json": { schema: Problem } },
+  },
   502: {
     description: "The postage provider rejected the request or is unavailable",
     content: { "application/problem+json": { schema: Problem } },
@@ -181,6 +186,7 @@ const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
     409: errorResponses[409],
     422: errorResponses[422],
     429: errorResponses[429],
+    501: errorResponses[501],
   },
 });
 
@@ -252,6 +258,7 @@ const rateRoute = defineOpenAPIRoute(
       409: errorResponses[409],
       422: errorResponses[422],
       429: errorResponses[429],
+      501: errorResponses[501],
       502: errorResponses[502],
     },
   },
@@ -286,6 +293,7 @@ const purchaseRoute = defineOpenAPIRoute(writeMeta("shipping.purchase"), {
     409: errorResponses[409],
     422: errorResponses[422],
     429: errorResponses[429],
+    501: errorResponses[501],
     502: errorResponses[502],
   },
 });
@@ -359,6 +367,7 @@ const trackingRoute = defineOpenAPIRoute(
       409: errorResponses[409],
       422: errorResponses[422],
       429: errorResponses[429],
+      501: errorResponses[501],
       502: errorResponses[502],
     },
   },
@@ -382,6 +391,7 @@ const refundRoute = defineOpenAPIRoute(writeMeta("shipping.refund"), {
     409: errorResponses[409],
     422: errorResponses[422],
     429: errorResponses[429],
+    501: errorResponses[501],
     502: errorResponses[502],
   },
 });
@@ -402,7 +412,12 @@ export function registerShippingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { apiKey } = c.req.valid("json");
       const now = () => new Date().toISOString();
+      // Refuse BEFORE anything is written. Connecting is the first thing a member does, so it is
+      // the first thing that has to answer honestly: with no per-firm credential read there is
+      // nowhere to put the key, and recording a connection row over a key that was never stored
+      // would leave the firm believing it had connected an account it had not.
       const secrets = runtime.secretStoreForFirm(firm.firmDatabase);
+      if (secrets === null) return credentialReadNotImplementedProblem(c);
       const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
       // A firm has at most one postage connection, so the connection row and its secret are both
@@ -903,8 +918,10 @@ export function registerShippingRoutes(
 
 // Whether a failed buy is one the carrier refused outright, with certainty that no postage was
 // purchased and nothing was billed. `auth`, `validation`, and `rate_limit` are all rejections the
-// provider made before doing any work; `not-connected` and `capability-unsupported` never reached
-// it at all. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
+// provider made before doing any work; `not-connected`, `capability-unsupported` and
+// `credential-store-not-implemented` never reached it at all — the last of those cannot even
+// resolve a port, so the claim is always handed back and the draft stays buyable once the seam
+// exists. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
 // ones — the purchase may well have succeeded on the far side — and must be treated as spent.
 function purchaseDefinitelyNotCharged(
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
@@ -921,14 +938,37 @@ class ShippingDispatchError extends Error {
   }
 }
 
+// The per-firm credential read is a seam this deployment has not built. No postage account can be
+// connected, so nothing can be rated, bought, tracked or refunded either. Answered by name rather
+// than as a 500: nobody in the firm can act on it, and the "connect your account" wording next door
+// would send a member at the one door that is shut. Nothing is charged and nothing is written.
+function credentialReadNotImplementedProblem(c: Context): ProblemResponse<501> {
+  return problemJson(c, {
+    type: "not-implemented",
+    title: "Postage accounts cannot be connected yet",
+    status: 501,
+    detail:
+      "Storing and reading a firm's postage credentials is not wired yet, so no carrier account can be connected and no label can be rated or bought. Drafting a shipment still works, and nothing has been charged.",
+  });
+}
+
 // Maps a non-ok shipping Dispatch onto the worker's problem taxonomy. not-connected → 409 (the firm
-// must connect/reconnect its account); capability-unsupported → 422; an adapter-error maps by its
-// category — a transient provider failure (auth/upstream/network) is a 502 the firm did not cause,
-// rate_limit is 429, and a provider validation rejection is 422.
+// must connect/reconnect its account); credential-store-not-implemented → 501 (nobody can connect
+// one yet); capability-unsupported → 422; an adapter-error maps by its category — a transient
+// provider failure (auth/upstream/network) is a 502 the firm did not cause, rate_limit is 429, and a
+// provider validation rejection is 422.
 function shippingDispatchProblem(
   c: Context,
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
-): ProblemResponse<409> | ProblemResponse<422> | ProblemResponse<429> | ProblemResponse<502> {
+):
+  | ProblemResponse<409>
+  | ProblemResponse<422>
+  | ProblemResponse<429>
+  | ProblemResponse<501>
+  | ProblemResponse<502> {
+  if (dispatch.reason === "credential-store-not-implemented") {
+    return credentialReadNotImplementedProblem(c);
+  }
   if (dispatch.reason === "not-connected") {
     return problemJson(c, {
       type: "conflict",

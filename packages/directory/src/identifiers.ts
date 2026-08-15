@@ -21,6 +21,7 @@ import { directoryAuditStatement } from "./audit.ts";
 import { assertEntityExists } from "./entity-kind.ts";
 import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.ts";
+import { DIRECTORY_IDENTIFIER_ADDED_TOPIC } from "./topics.ts";
 import type { IdentifierType } from "./types.ts";
 
 // Sensitive typed identifiers (SSN, EIN, driver's license, account number, DOB, SSN-last-four) live in
@@ -215,6 +216,54 @@ export async function findEntitiesSharingIdentifiers(
   return results.map((row) => ({ entityId: row.entity_id, identifierType: row.identifier_type }));
 }
 
+// D1 caps bound parameters at 100 per query, so the set-valued read below chunks its IN list.
+const MAX_IDENTIFIER_BOUND_PARAMETERS = 100;
+
+// The same exact-identifier hits for a WHOLE SET of subjects, in one read per chunk rather than one
+// read per subject. The conflicts traversal asks this of every entity it reaches, and at one query
+// each that is a query count proportional to the closure size.
+//
+// It lives here rather than at the call site for the reason the single-subject reader does:
+// `value_blind_index` is a protected column and this module is its chokepoint. A blind index is a
+// stable fingerprint of a plaintext, so a query naming it anywhere else is a correlation surface that
+// the package's own no-plaintext-escape probe refuses — and rightly, because a self-join that never
+// decrypts anything is exactly the shape that looks harmless while it leaks.
+//
+// The SUBJECT side is projected, so each hit names whose identifier matched it. Raw ids, exactly as
+// the single-subject reader returns them: the caller resolves each to its surviving master.
+export async function findEntitiesSharingIdentifiersBatch(
+  database: SqlDatabase,
+  subjectEntityIds: readonly string[],
+): Promise<Map<string, Array<{ entityId: string; identifierType: string }>>> {
+  const bySubject = new Map<string, Array<{ entityId: string; identifierType: string }>>();
+  const unique = [...new Set(subjectEntityIds)];
+  for (let start = 0; start < unique.length; start += MAX_IDENTIFIER_BOUND_PARAMETERS) {
+    const chunk = unique.slice(start, start + MAX_IDENTIFIER_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT DISTINCT subject.entity_id AS subject_id, other.entity_id AS entity_id, other.identifier_type AS identifier_type
+           FROM ${DIRECTORY_IDENTIFIER_TABLE} AS subject
+           JOIN ${DIRECTORY_IDENTIFIER_TABLE} AS other
+             ON other.identifier_type = subject.identifier_type
+            AND other.value_blind_index = subject.value_blind_index
+          WHERE subject.entity_id IN (${placeholders})
+            AND other.entity_id <> subject.entity_id
+            AND subject.value_blind_index IS NOT NULL
+            AND subject.deleted_at IS NULL
+            AND other.deleted_at IS NULL`,
+      )
+      .bind(...chunk)
+      .all<{ subject_id: string; entity_id: string; identifier_type: string }>();
+    for (const row of results) {
+      const hits = bySubject.get(row.subject_id) ?? [];
+      hits.push({ entityId: row.entity_id, identifierType: row.identifier_type });
+      bySubject.set(row.subject_id, hits);
+    }
+  }
+  return bySubject;
+}
+
 // The caller-supplied fields for a new identifier: its type, its plaintext value, and optional temporal
 // validity. The value is sealed immediately — it is never held beyond composing the batch.
 export interface AddIdentifierInput {
@@ -268,7 +317,18 @@ export async function addIdentifier(
         identifierId,
       ),
     ],
-    outboxMessages: [],
+    // One outbox row, in the batch this write was already composing. An SSN or EIN entered after a
+    // matter was screened makes an exact-identifier match possible where none could fire before, so
+    // the arrival is announced. The payload names the entity, the identifier ROW, and its TYPE —
+    // never the value and never the blind index. A blind index is a stable fingerprint of the
+    // plaintext: putting one on a relayed message would let anything that reads the bus correlate a
+    // person across firms without ever decrypting anything.
+    outboxMessages: [
+      {
+        topic: DIRECTORY_IDENTIFIER_ADDED_TOPIC,
+        payload: { identifierId, entityId, identifierType: input.type },
+      },
+    ],
     responseCode: 201,
     responseBody: { ok: true },
     value: undefined,

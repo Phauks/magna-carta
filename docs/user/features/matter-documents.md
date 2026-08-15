@@ -20,10 +20,16 @@ Press **Add a document**. There are two ways.
 **From a file you have.** Drag the document onto the panel, or press the button to pick it. Then
 press **Add document**. It is sent to storage, checked, and appears in the list.
 
-**From a template.** Choose **From a template**, pick one, and press **Build document**. Magna Carta
-fills in what the matter knows — its number, its client, the date — and files the finished document
-onto the matter. If your firm has not registered any templates yet the list says so; see
+**From a template.** Choose **From a template**, pick one, choose whether to build it as a Word
+document or a PDF, and press **Build document**. Magna Carta fills in what the matter knows — its
+number, its client, the date — and files the finished document onto the matter. If your firm has not
+registered any templates yet the list says so; see
 [Document templates and assembly](document-templates-and-assembly.md) for how templates are made.
+
+Build it as a **Word document** while it is still being worked on, and as a **PDF** when it is going
+out to be signed — a signature can only be applied to a PDF. A PDF is converted before it is filed, so
+it takes a little longer; if that cannot be done the build fails rather than quietly giving you a Word
+document instead.
 
 ### If the built document has blanks in it
 

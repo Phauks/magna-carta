@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Communications -->
+
 - id: communications
   name: Communications layer
   scope: Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
@@ -14,6 +16,9 @@
   scope: Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
   status: partial
   evidence: Transactional adapter, parse core, and the forward/CC capture path are shipped; the firm-mailbox (Gmail/Outlook plugin) integration is still design-only.
+  audience: public
+  public-name: Email filed to the matter
+  public-summary: Send and receive client email from the firm's address and have each message filed against the right matter.
 
 - id: communications.email.transactional
   name: Transactional email adapter
@@ -50,7 +55,7 @@
   slices: email-filing
   spec: docs/specs/2026-08-05-auto-file-rules-design.md
   evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, and the emails:manageAutoFileRules capability with its role seed.
-  notes: Build slice 1 only — the rule model, the capability, and the pure guardrail decision. Nothing evaluates during a capture yet: the port on the capture core and the evidence gatherer in the consumer are the next slice, the management routes, review read, and load-profile numbers the one after. No screens.
+  notes: The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose. Still missing: the management routes and the review read. No screens.
 
 - id: communications.email.parse-engine
   name: Email parse core
@@ -67,6 +72,9 @@
   status: not-started
   adrs: ADR-0047
   evidence: Decision accepted; no messaging port, adapter, or schema on the tree.
+  audience: public
+  public-name: Text messaging
+  public-summary: Text a client from a firm number and keep the whole thread on the matter.
 
 - id: communications.messaging.port
   name: Messaging port
@@ -116,6 +124,9 @@
   status: not-started
   adrs: ADR-0047
   evidence: No telephony port or call-handling code.
+  audience: public
+  public-name: Calls and voicemail
+  public-summary: Take and make firm calls in the app, with voicemail and call records kept on the matter.
 
 - id: communications.voice.transcription
   name: In-house transcription
@@ -157,4 +168,4 @@
   scope: All communication across all three channels logged to the matter/Directory under the redact-by-default telemetry discipline.
   status: not-started
   adrs: ADR-0017
-  evidence: The redaction discipline is platform standard; no communications log exists because no channels are built.
+  evidence: The redaction discipline is platform standard, and the email channel already files correspondence onto a matter through packages/email-filing; what is absent is the unified cross-channel log this node names — there is no communications-log table and no read that spans channels, and the messaging and voice channels it would also cover have no code.

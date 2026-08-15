@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  baselineEnvironment,
   explainStatement,
   findFullScans,
   percentile,
@@ -101,15 +102,27 @@ describe("load-profile measurement runner", () => {
       profileName: "ledgerVolume",
       profileVersion: 1,
       cacheKey: "abc123",
+      environment: baselineEnvironment(),
       results: [
         { name: "zeta", iterations: 5, minMs: 1, medianMs: 2, p95Ms: 3 },
         { name: "alpha", iterations: 5, minMs: 1, medianMs: 2, p95Ms: 3 },
       ],
+      bounds: [
+        { name: "omega", statementCount: 2, rowsRead: 4, sourcesRead: 2, entriesReturned: 3 },
+        { name: "beta", statementCount: 1, rowsRead: 2, sourcesRead: 1, entriesReturned: 2 },
+      ],
     });
     const written = JSON.parse(readFileSync(path, "utf8")) as {
+      environment: { nodeVersion: string; cpuCount: number };
       results: { name: string }[];
+      bounds: { name: string }[];
     };
-    // Results are sorted by name so re-measuring yields minimal diffs.
+    // Results and bounds are sorted by name so re-measuring yields minimal diffs.
     expect(written.results.map((result) => result.name)).toEqual(["alpha", "zeta"]);
+    expect(written.bounds.map((bound) => bound.name)).toEqual(["beta", "omega"]);
+    // The machine is on the file, because the numbers above only mean something next to it: two
+    // baselines from two machines are not comparable, and without this a reader cannot tell.
+    expect(written.environment.nodeVersion).toBe(process.version);
+    expect(written.environment.cpuCount).toBeGreaterThan(0);
   });
 });

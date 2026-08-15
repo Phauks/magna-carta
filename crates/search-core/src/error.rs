@@ -14,6 +14,10 @@ pub enum SearchError {
     IncompatibleGeneration { split: u32, reader: u32 },
     /// A query string the parser could not read. Carries the parser's message.
     QueryParse(String),
+    /// A merge was asked for with no splits to merge. A caller reaching this has computed an empty
+    /// compaction set and should not have published anything; producing an empty split instead would
+    /// put a row in the catalog that no query can ever get a hit from.
+    NothingToMerge,
     /// The underlying Tantivy engine failed.
     Tantivy(tantivy::TantivyError),
     /// Reading or writing the build scratch failed.
@@ -31,6 +35,7 @@ impl fmt::Display for SearchError {
                 "split schema generation {split} is not readable by generation {reader}; re-index"
             ),
             SearchError::QueryParse(message) => write!(f, "could not parse the query: {message}"),
+            SearchError::NothingToMerge => write!(f, "a merge needs at least one split"),
             SearchError::Tantivy(error) => write!(f, "search engine error: {error}"),
             SearchError::Io(error) => write!(f, "index scratch i/o error: {error}"),
             SearchError::Footer(error) => write!(f, "split footer codec error: {error}"),
@@ -60,6 +65,12 @@ impl From<serde_json::Error> for SearchError {
 
 impl From<tantivy::directory::error::OpenWriteError> for SearchError {
     fn from(error: tantivy::directory::error::OpenWriteError) -> Self {
+        SearchError::Tantivy(error.into())
+    }
+}
+
+impl From<tantivy::directory::error::OpenDirectoryError> for SearchError {
+    fn from(error: tantivy::directory::error::OpenDirectoryError) -> Self {
         SearchError::Tantivy(error.into())
     }
 }

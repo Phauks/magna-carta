@@ -107,6 +107,29 @@ describe("GET /api/v1/whois", () => {
     expect(body.target).toBe("example.com");
   });
 
+  // A registry with no RDAP bootstrap entry and no known port-43 host is the common case for
+  // roughly a sixth of the IANA TLD list. It must read as "this registry cannot be looked up",
+  // never as a server fault with an Error ID to quote at support.
+  it("answers 501 rather than 500 for a registry with no lookup service", async () => {
+    const { userId } = await seedCredentialedUser("whois-unsupported@example.com", {
+      userName: "WHOIS Unsupported",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "WHOIS Unsupported", poolFirmId);
+    const cookie = await signInForSessionCookie("whois-unsupported@example.com");
+    // ".ch" is absent from the fake bootstrap above and from the port-43 host table.
+    const response = await app.request(
+      "https://example.com/api/v1/whois?query=admin.ch",
+      { headers: { cookie } },
+      env,
+    );
+    expect(response.status).toBe(501);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const problem = (await response.json()) as { type: string; detail: string };
+    expect(problem.type).toContain("not-implemented");
+    expect(problem.detail).toContain(".ch");
+  });
+
   it("emits the route into the OpenAPI document with operationId and x-mc metadata", async () => {
     const response = await app.request("https://example.com/api/openapi.json", {}, env);
     const document = (await response.json()) as {

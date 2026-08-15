@@ -18,10 +18,16 @@
       "path": "../billing/tsconfig.build.json"
     },
     {
+      "path": "../calendar/tsconfig.build.json"
+    },
+    {
       "path": "../conflicts/tsconfig.build.json"
     },
     {
       "path": "../costs/tsconfig.build.json"
+    },
+    {
+      "path": "../custodian/tsconfig.build.json"
     },
     {
       "path": "../custom-fields/tsconfig.build.json"
@@ -58,6 +64,9 @@
     },
     {
       "path": "../money/tsconfig.build.json"
+    },
+    {
+      "path": "../reporting/tsconfig.build.json"
     },
     {
       "path": "../timekeeping/tsconfig.build.json"

@@ -54,16 +54,59 @@ describe("the curated model catalog", () => {
   });
 
   it("the entry schema enforces a reasoning entry to be zdrEligible", () => {
+    // Every other field is present and well-formed, so the ONLY thing this entry fails on is the
+    // eligibility refinement — otherwise the assertion would pass on a missing field and prove nothing
+    // about the invariant it is named for.
     const nonZdrReasoning = {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: false,
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(nonZdrReasoning).success).toBe(false);
+    // The same entry with eligibility restored parses, which is what proves the refinement was the cause.
+    expect(catalogEntrySchema.safeParse({ ...nonZdrReasoning, zdrEligible: true }).success).toBe(
+      true,
+    );
+  });
+
+  it("the entry schema refuses a tier on a non-reasoning entry", () => {
+    const taggedUtility = {
+      slot: "utility",
+      modelId: "anthropic/some-utility-model",
+      snapshotId: "some-utility-model-20260101",
+      snapshotForm: "provider-dated",
+      referenceId: "some-utility-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+      tier: "most-capable",
+    };
+    expect(catalogEntrySchema.safeParse(taggedUtility).success).toBe(false);
+    const { tier: _tier, ...untagged } = taggedUtility;
+    expect(catalogEntrySchema.safeParse(untagged).success).toBe(true);
+  });
+
+  it("the entry schema requires the embedding entry to declare its pin state", () => {
+    const unstatedPin = {
+      slot: "embedding",
+      modelId: "@cf/example/embedding",
+      snapshotId: "example-embedding-v1",
+      snapshotForm: "platform-composed",
+      referenceId: "@cf/example/embedding",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(unstatedPin).success).toBe(false);
+    expect(catalogEntrySchema.safeParse({ ...unstatedPin, pinState: "open" }).success).toBe(true);
   });
 
   it("rejects a verifiedOn date that does not conform to YYYY-MM-DD (single-digit month/day not allowed)", () => {
@@ -74,12 +117,27 @@ describe("the curated model catalog", () => {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: true,
       noTrainingEligible: true,
       verifiedOn: "2026-6-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(singleDigitMonth).success).toBe(false);
+    // Correcting only the malformed date parses, so the date format was the sole cause.
+    expect(
+      catalogEntrySchema.safeParse({ ...singleDigitMonth, verifiedOn: "2026-06-17" }).success,
+    ).toBe(true);
+    // The lifecycle date is held to the same format, on the same reasoning: an under-specified date
+    // slipping past a lenient parser corrupts the verification trail whichever fact it dates.
+    expect(
+      catalogEntrySchema.safeParse({
+        ...singleDigitMonth,
+        verifiedOn: "2026-06-17",
+        availabilityVerifiedOn: "2026-6-17",
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects an entry with a missing required field (snapshotId omitted)", () => {
@@ -89,12 +147,85 @@ describe("the curated model catalog", () => {
       slot: "reasoning",
       modelId: "anthropic/some-model",
       // snapshotId intentionally omitted
+      snapshotForm: "provider-dated",
       referenceId: "some-model",
       zdrEligible: true,
       noTrainingEligible: true,
       verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
     };
     expect(catalogEntrySchema.safeParse(missingSnapshotId).success).toBe(false);
+    // Every other field is present, so restoring only snapshotId parses — which is what proves the
+    // omission was the cause rather than something else in the fixture.
+    expect(
+      catalogEntrySchema.safeParse({ ...missingSnapshotId, snapshotId: "some-model-20260101" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("the entry schema refuses a date suffix on a snapshot the provider publishes undated", () => {
+    // The defect this invariant exists for. An entry whose provider issues no dated id, carrying a
+    // plausible-looking date anyway, is the one shape that cannot be caught by inspecting the string:
+    // "<referenceId>-20260101" is well-formed whether or not that release was ever published. Declaring
+    // the form is what turns it into a contradiction the schema can see.
+    const fabricatedDate = {
+      slot: "reasoning",
+      modelId: "anthropic/some-model",
+      snapshotId: "some-model-20260101",
+      snapshotForm: "provider-dateless",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(fabricatedDate).success).toBe(false);
+    // Dropping the invented suffix — the correct record for a dateless model — parses.
+    expect(
+      catalogEntrySchema.safeParse({ ...fabricatedDate, snapshotId: "some-model" }).success,
+    ).toBe(true);
+  });
+
+  it("the entry schema refuses a dated form whose snapshot carries no date", () => {
+    // The mirror case: an entry that declares the provider publishes a dated id, then records the bare
+    // alias. That loses the pin — the alias resolves to whatever the provider currently points it at —
+    // so the provenance record would name a pointer rather than the release that produced the output.
+    const droppedDate = {
+      slot: "utility",
+      modelId: "anthropic/some-model",
+      snapshotId: "some-model",
+      snapshotForm: "provider-dated",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(droppedDate).success).toBe(false);
+    // A malformed date is refused on the same rule; only the provider's -YYYYMMDD shape is accepted.
+    expect(
+      catalogEntrySchema.safeParse({ ...droppedDate, snapshotId: "some-model-2026" }).success,
+    ).toBe(false);
+    expect(
+      catalogEntrySchema.safeParse({ ...droppedDate, snapshotId: "some-model-20251001" }).success,
+    ).toBe(true);
+  });
+
+  it("the entry schema lets only the embedding entry compose its own snapshot id", () => {
+    // A composed id is the embedding entry's alone. Letting a reasoning or utility entry invent one
+    // would reopen the gap the two cases above close, since a composed id is checked against nothing.
+    const composedReasoning = {
+      slot: "reasoning",
+      modelId: "anthropic/some-model",
+      snapshotId: "something-the-provider-never-published",
+      snapshotForm: "platform-composed",
+      referenceId: "some-model",
+      zdrEligible: true,
+      noTrainingEligible: true,
+      verifiedOn: "2026-06-17",
+      availabilityVerifiedOn: "2026-06-17",
+    };
+    expect(catalogEntrySchema.safeParse(composedReasoning).success).toBe(false);
   });
 
   it("the exactly-one-embedding invariant is enforced by the module-load fitness guard (validateCatalog)", () => {

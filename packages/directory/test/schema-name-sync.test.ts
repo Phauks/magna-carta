@@ -147,6 +147,9 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   // output-column aliases (SELECT … AS row / AS edge_id) — not schema columns, just result labels
   "row",
   "edge_id",
+  // the set-valued blind-index self-join projects the SUBJECT side under its own label, so a hit
+  // shared across many subjects in one read still names whose identifier matched it
+  "subject_id",
   // FTS5 virtual table + content link pseudo-column
   "directory_name_fts",
   "rowid",

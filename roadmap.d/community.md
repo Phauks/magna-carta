@@ -2,6 +2,8 @@
 
 <!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
 
+<!-- public-group: Community -->
+
 - id: community
   name: Community and feedback forum
   scope: Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
@@ -16,6 +18,10 @@
   status: partial
   spec: docs/specs/2026-08-11-community-surfaces-design.md
   evidence: Backend built (packages/community, apps/community-worker, one control-plane migration); no screens. Follow-on plan: docs/specs/2026-08-13-community-board-remaining-slices-plan.md.
+  audience: public
+  public-name: Feature requests and voting
+  public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
+  awaiting-owner: Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 
 - id: community.board.screens
   name: Board screens
@@ -85,7 +91,7 @@
 - id: community.discussion
   name: Open discussion forum
   scope: General peer-discussion forum beyond the feedback board.
-  status: not-planned
+  status: cut
   spec: docs/specs/2026-08-11-community-surfaces-design.md
   evidence: Still not built, and now with the reference product as the evidence: it has no first-party discussion forum and closed the request for one. The dormant discussion seam was woken instead as the board's second post kind, which is scoped to product usage.
 

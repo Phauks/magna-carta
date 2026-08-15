@@ -9,6 +9,7 @@ members = [
   "decryption-core",
   "email-core",
   "search-core",
+  "search-eval",
   "discovery-core",
 ]
 
@@ -25,3 +26,14 @@ lopdf = "0.44"
 opt-level = "z"
 lto = true
 strip = true
+
+# Benchmarking profile. The release profile above optimizes for SIZE (`opt-level = "z"`), which is right
+# for a wasm artifact or a container image and wrong for a measurement: it produces code several tens of
+# percent slower than a speed-optimized build, so a latency taken under it understates the engine and a
+# baseline taken under one profile cannot be compared with a run under the other. `search-eval` therefore
+# documents `--profile benchmark` as its command, and records in every baseline which profile produced it.
+# Additive: nothing that builds with `--release` today changes.
+[profile.benchmark]
+inherits = "release"
+opt-level = 3
+debug-assertions = false

@@ -330,6 +330,15 @@ export const PROBLEM_TYPES = {
   // outstanding item on this account as of the period. DISTINCT from `validation` — the request is
   // well-formed; the record it describes is not one the rules permit.
   "trust-reconciliation-refused": "trust-reconciliation-refused",
+  // A reconciliation whose reads hit their ceiling (HTTP 422): more outstanding book items than one
+  // period can account for, or more unaccounted-for statement lines than one period can attest to.
+  // The cap is detected rather than silent, and the answer is a refusal rather than a short list —
+  // every figure a proof reports is derived from those lists and a close FREEZES them as the firm's
+  // attestation, so a truncated read produces a confidently wrong number rather than an obviously
+  // incomplete one. DISTINCT from `trust-reconciliation-refused`, which says the rules refuse the
+  // record described: nothing here is improper, and the remedy the detail names is the caller's —
+  // reconcile the earlier periods, or record the statement as several shorter ones.
+  "trust-reconciliation-truncated": "trust-reconciliation-truncated",
   // Something the rules refuse about the FIRM'S OWN money in a trust account (HTTP 422): the account
   // keeps no bank-charge cushion because nobody opened one, the account is the pooled
   // interest-bearing kind the researched rules exempt from service charges (so there is no charge for
@@ -491,6 +500,23 @@ export const PROBLEM_TYPES = {
   // request-shape problem, and both have the same answer — rename it, because nothing ever matched
   // it by name.
   "discovery-coding-panel-refused": "discovery-coding-panel-refused",
+  // The period a report was asked for is not one that can be answered (HTTP 422): the dates are not
+  // calendar dates, the period ends before it starts, or the knowledge instant is not a UTC instant
+  // or names a moment the platform has not reached. Its own type because the fix is a different
+  // request rather than a different account or a different grant.
+  "report-period-invalid": "report-period-invalid",
+  // The period holds more of an account's activity than one document can carry (HTTP 422). Named
+  // rather than answered short: a client ledger missing entries, or a journal missing a
+  // disbursement, presented as complete is worse than a refusal, because a reader has no way to
+  // tell. The remedy is in the message — produce the period in shorter parts.
+  "report-period-too-large": "report-period-too-large",
+  // The platform cannot produce this report for this account (HTTP 422), and the reason is a fact
+  // somebody has to establish rather than a request to retry: no jurisdiction is recorded against
+  // the account, nobody has encoded that jurisdiction's rules, no attorney has reviewed them, or the
+  // account has more items outstanding than one reconciliation can account for. The detail carries
+  // the refusing subsystem's own words, because each of those is fixed by a different person doing a
+  // different thing.
+  "report-cannot-be-produced": "report-cannot-be-produced",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
