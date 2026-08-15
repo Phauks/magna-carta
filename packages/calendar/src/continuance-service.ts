@@ -22,6 +22,10 @@ import {
   readContinuanceSuccessorLink,
   type CalendarEventLinkRow,
 } from "./link-statements.ts";
+import {
+  CALENDAR_EVENT_RESCHEDULED_TOPIC,
+  type CalendarEventTopicPayload,
+} from "./notifications.ts";
 import { MAX_CONTINUANCE_CHAIN_DEPTH } from "./types.ts";
 import { CalendarValidationError } from "./validation.ts";
 
@@ -186,7 +190,22 @@ export async function continueMatterEvent(
     oldEventId: eventId,
     triggerLinkedOpenDeadlines,
     releasedBookings,
-    effect: { statements, outboxMessages: [] },
+    effect: {
+      statements,
+      // ONE message, and it says rescheduled. The batch cancels a row and inserts another, but the
+      // real-world fact is a single one — the hearing moved — and announcing it as a cancellation
+      // plus a new setting would tell a team the hearing is off and then that a different hearing
+      // exists. The subject is the NEW setting, because that is the one that is going to happen.
+      outboxMessages: [
+        {
+          topic: CALENDAR_EVENT_RESCHEDULED_TOPIC,
+          payload: {
+            matterEventId: newEventId,
+            matterId: existing.matter_id,
+          } satisfies CalendarEventTopicPayload,
+        },
+      ],
+    },
   };
 }
 

@@ -20,6 +20,7 @@ import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
   runConflictsRecheckSweep,
+  runNotificationComparisonSweep,
   runNotificationRetentionSweep,
   runScheduledSweep,
   runStatusSnapshot,
@@ -162,8 +163,14 @@ export default {
               // retires superseded split objects, so it runs where a firm's storage picture has already
               // been reconciled rather than against a stale one.
               await runSearchCompactionSweep(env);
-              // Last on the daily pass, and cheap: a bounded delete per firm over pointers whose
-              // records are all still where their own subsystems keep them.
+              // The comparison-driven notification pass, BEFORE retention rather than after: it
+              // writes the rows retention then ages, and running it second would mean a firm's
+              // freshly-raised overdue notice was swept on the same pass that raised it if the
+              // window were ever set to its floor. Its dedupe key buckets by civil date, so a
+              // second run in the same day writes nothing new.
+              await runNotificationComparisonSweep(env);
+              // Then, and cheap: a bounded delete per firm over pointers whose records are all
+              // still where their own subsystems keep them.
               await runNotificationRetentionSweep(env);
               // The conflicts backstop. It rides the DAILY pass rather than the */5 sweep because
               // `scheduleRequestPathSweep` runs that sweep on `waitUntil` after a provisioning route

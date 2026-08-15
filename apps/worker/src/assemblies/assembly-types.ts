@@ -9,6 +9,14 @@ export interface DocumentAssemblyJobState {
   readonly fileId: string | null; // set when done — the filed document
   readonly fileVersionId: string | null; // set when done — the version the assembly produced
   readonly reason: string | null; // an error code from a closed set, when failed
+  // Who asked, on what matter, in which firm — carried from the submitting message so a TERMINAL
+  // transition can write the durable "your document is ready" row for the tab that was closed while
+  // the job ran. Optional because a job persisted before this existed has none, in which case the
+  // transition simply writes no notification rather than guessing a recipient.
+  readonly firmId?: string;
+  readonly matterId?: string;
+  readonly assemblyId?: string;
+  readonly requestedBy?: string | null;
 }
 
 // THE MESSAGE CARRIES IDENTIFIERS ONLY. No merge value ever rides a queue: the resolved context exists

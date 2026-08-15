@@ -70,6 +70,20 @@ export function comparisonDedupeKey(kind: string, subjectId: string, civilDate: 
   return `${kind}:${subjectId}:${civilDate}`;
 }
 
+// A job coordinator's key: the kind, the job, and WHICH TERMINAL STATE it reported. The outcome is
+// in the key rather than only in the facts because a job can honestly report more than one: a slow
+// assembly can be failed by its stuck-job alarm and then report success, and the coordinator lets
+// the confirmed result win. Keying on the job alone would leave the timeout's row standing and tell
+// the member their document failed while it sits filed on the matter. Redelivery of either report
+// is still a no-op, which is the property the key exists for.
+export function jobCompletionDedupeKey(
+  kind: string,
+  subjectId: string,
+  terminalOutcome: string,
+): string {
+  return `${kind}:${subjectId}:${terminalOutcome}`;
+}
+
 // Builds the event row and its recipient rows. The facts are validated against the type's own
 // declaration BEFORE anything is composed, so a materializer that computes a value outside its
 // declared grammar throws here rather than persisting a string somebody typed.
