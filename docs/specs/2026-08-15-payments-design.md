@@ -28,17 +28,17 @@ ADR-0009 / ADR-0032 (trust). **Invariants:**
 Payments is nine capabilities in the feature ledger and eight of them are `not-started`. What is
 _decided_ is considerably more than what is built, and none of it is reopened here.
 
-| Already settled                                                                                                                                                                  | Where            |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Payments is a **port** with swappable vendor adapters; the goal is lowest fees, which is an architecture problem rather than a vendor one                                        | ADR-0032         |
-| **ACH is the default, prominent rail**; card is the convenience fallback. Interchange is the network floor and no processor prices below it                                      | ADR-0032         |
-| **Fees never touch trust.** Trust deposits land gross; a fee debits operating, enforced by separate deposit routing rather than by a caller choosing well                        | ADR-0032         |
-| **Surcharge on operating card payments only**, where the jurisdiction permits it; never on a trust deposit, never on debit                                                       | ADR-0032         |
-| **Helcim is the launch adapter**; Stripe/Dwolla, Adyen, and Confido/Gravity Legal are named swap seams. LawPay-style turnkey processors rejected as the primary                   | ADR-0032         |
-| **PCI SAQ A via the hosted payment modal** (the HelcimPay.js iframe) returning a `cardToken` — not the in-DOM tokenizer (SAQ A-EP), not the raw card API (SAQ D). No PAN, no CVV | ADR-0181         |
-| The payment surface carries **no third-party scripts**, per PCI v4.0.1                                                                                                           | ADR-0181         |
-| A port is named in our vocabulary, an adapter publishes a **capability descriptor**, dispatch is a **typed sum that never throws**, and a connection is scoped by the port       | ADR-0091, 0092   |
-| Credentials live in the per-firm envelope-encrypted `firm_secret` store behind `CredentialStore`; an adapter never sees key material                                             | ADR-0092, 0084   |
+| Already settled                                                                                                                                                                  | Where          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Payments is a **port** with swappable vendor adapters; the goal is lowest fees, which is an architecture problem rather than a vendor one                                        | ADR-0032       |
+| **ACH is the default, prominent rail**; card is the convenience fallback. Interchange is the network floor and no processor prices below it                                      | ADR-0032       |
+| **Fees never touch trust.** Trust deposits land gross; a fee debits operating, enforced by separate deposit routing rather than by a caller choosing well                        | ADR-0032       |
+| **Surcharge on operating card payments only**, where the jurisdiction permits it; never on a trust deposit, never on debit                                                       | ADR-0032       |
+| **Helcim is the launch adapter**; Stripe/Dwolla, Adyen, and Confido/Gravity Legal are named swap seams. LawPay-style turnkey processors rejected as the primary                  | ADR-0032       |
+| **PCI SAQ A via the hosted payment modal** (the HelcimPay.js iframe) returning a `cardToken` — not the in-DOM tokenizer (SAQ A-EP), not the raw card API (SAQ D). No PAN, no CVV | ADR-0181       |
+| The payment surface carries **no third-party scripts**, per PCI v4.0.1                                                                                                           | ADR-0181       |
+| A port is named in our vocabulary, an adapter publishes a **capability descriptor**, dispatch is a **typed sum that never throws**, and a connection is scoped by the port       | ADR-0091, 0092 |
+| Credentials live in the per-firm envelope-encrypted `firm_secret` store behind `CredentialStore`; an adapter never sees key material                                             | ADR-0092, 0084 |
 
 Two drifts worth recording rather than repeating:
 
@@ -110,10 +110,10 @@ This is the question the design lives or dies on, so it is answered in parts.
 A trust-destined payment produces **two independent ledger entries and no link between them at the
 entry level**:
 
-| | Entry | Door |
-| --- | --- | --- |
-| The money | `Dr Trust Bank / Cr the client's matter leaf`, for the **gross** amount | `composeTrustDeposit` → `composeTrustEntry` |
-| The fee | `Dr Merchant Fees (expense) / Cr Operating Bank`, for the processor's fee | the plain ledger — no trust account is touched |
+|           | Entry                                                                     | Door                                           |
+| --------- | ------------------------------------------------------------------------- | ---------------------------------------------- |
+| The money | `Dr Trust Bank / Cr the client's matter leaf`, for the **gross** amount   | `composeTrustDeposit` → `composeTrustEntry`    |
+| The fee   | `Dr Merchant Fees (expense) / Cr Operating Bank`, for the processor's fee | the plain ledger — no trust account is touched |
 
 There is no third option, and the reason is structural rather than preferential. Netting the fee out
 of the deposit needs one entry with a trust leaf and a fee expense on it, which
@@ -377,10 +377,10 @@ Posting the gross receipt straight against the operating bank would make one ban
 two entries in opposite directions, which is the shape a reconciliation cannot express. So the
 operating rail uses a **clearing account**:
 
-| Moment | Entry |
-| --- | --- |
-| Capture | `Dr Payments Clearing / Cr Accounts Receivable` — named by the `invoice_application` of kind `payment` |
-| Settlement | `Dr Operating Bank` (net) + `Dr Merchant Fees` (the fee) `/ Cr Payments Clearing` (gross) |
+| Moment     | Entry                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------ |
+| Capture    | `Dr Payments Clearing / Cr Accounts Receivable` — named by the `invoice_application` of kind `payment` |
+| Settlement | `Dr Operating Bank` (net) + `Dr Merchant Fees` (the fee) `/ Cr Payments Clearing` (gross)              |
 
 The clearing balance is then a real, meaningful figure — money the processor is holding — and the
 settlement entry corresponds one-to-one with the bank line. Two new `firm_account_role` members,
