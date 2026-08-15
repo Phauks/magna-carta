@@ -57,6 +57,7 @@ describe("problem-type URI registry", () => {
         "custody-stocktake-closed",
         "custody-stocktake-truncated",
         "email-in-use",
+        "human-verification-required",
         "upload-not-allowed",
         "malware-flagged",
         "unsupported-conversion",

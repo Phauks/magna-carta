@@ -28941,6 +28941,18 @@
           "registrations"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "required": false,
+            "name": "x-human-verification-token",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -28962,6 +28974,16 @@
               }
             }
           },
+          "403": {
+            "description": "Human verification is required and the presented challenge solution was absent, invalid, or already spent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "The request body is malformed",
             "content": {
@@ -28974,6 +28996,16 @@
           },
           "429": {
             "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The request could not be verified; the body carries the retry window",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29191,6 +29223,18 @@
           "invitations"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "required": false,
+            "name": "x-human-verification-token",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -29212,6 +29256,16 @@
               }
             }
           },
+          "403": {
+            "description": "Human verification is required and the presented challenge solution was absent, invalid, or already spent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination, including a code that matches no invitation at all; the attempt budget it carries counts the caller's own attempts, never any invitation's",
             "content": {
@@ -29224,6 +29278,16 @@
           },
           "429": {
             "description": "Rate limit exceeded; the body carries the remaining budget and the retry window",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The request could not be verified; the body carries the retry window",
             "content": {
               "application/problem+json": {
                 "schema": {
