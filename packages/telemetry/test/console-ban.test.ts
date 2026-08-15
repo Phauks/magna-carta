@@ -18,13 +18,21 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 // that listed only five methods would let console.table(privileged) or console["log"](secret) pass.
 const CONSOLE_CALL = /\bconsole\s*(?:\.\s*\w+|\[[^\]]+\])\s*\(/;
 
-// The ONLY two source files permitted a console.* call, each for a deliberate reason:
+// The only source files permitted a console.* call, each for a deliberate reason:
 const ALLOWLIST = new Set([
   // The Workers logger adapter — THE one structured-JSON emit site (it IS the pipeline).
   join("packages", "telemetry", "src", "workers-logger.ts"),
   // The load-profile measurement CLI — a developer tool whose stdout is its product, not app logging
   // (the scripts/ exemption in spirit; it lives in src only because it is the package's entrypoint).
   join("packages", "fixtures", "src", "load-profile", "measure-cli.ts"),
+  // The discovery processing measurement harness — the same class as the CLI above, printing
+  // machine-relative latencies and a measured database size that exist to be compared across commits
+  // on one machine, never asserted against a threshold that would make a busy laptop a red build.
+  // It differs from the CLI only in being a test rather than an entrypoint, which is what put it in
+  // front of this scan. Listed as one file rather than exempting the load-profile directory: a
+  // directory rule would cover measurement harnesses nobody has written yet. If a third of these
+  // appears, that is the signal to make the exemption a rule on purpose.
+  join("packages", "fixtures", "src", "load-profile", "discovery-processing-measurements.test.ts"),
   // The GPU benchmark harness — same class: a developer CLI/runner whose console output IS its
   // product (benchmark results), not application logging.
   join("packages", "gpu-benchmark", "src", "cli.ts"),
