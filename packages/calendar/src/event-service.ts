@@ -23,6 +23,12 @@ import {
   assertParticipantShape,
   type EventParticipantInput,
 } from "./event-shape.ts";
+import {
+  CALENDAR_EVENT_CANCELLED_TOPIC,
+  CALENDAR_EVENT_RESCHEDULED_TOPIC,
+  CALENDAR_EVENT_SCHEDULED_TOPIC,
+  type CalendarEventTopicPayload,
+} from "./notifications.ts";
 import type { MatterEventStatus } from "./types.ts";
 import type { VisibleMatterPredicate } from "./visibility.ts";
 import { CalendarValidationError } from "./validation.ts";
@@ -124,7 +130,25 @@ export function createMatterEvent(
       metadata: { matterId: input.matterId },
     }),
   ];
-  return { eventId, effect: { statements, outboxMessages: [] } };
+  return {
+    eventId,
+    effect: {
+      statements,
+      // In the SAME atomic batch as the row it describes, which is the whole difference between a
+      // durable announcement and a best-effort one: a batch that rolls back leaves no message, and a
+      // message that exists is proof the event was recorded. This package still learns nothing about
+      // delivery — it publishes a name and stops.
+      outboxMessages: [
+        {
+          topic: CALENDAR_EVENT_SCHEDULED_TOPIC,
+          payload: {
+            matterEventId: eventId,
+            matterId: input.matterId,
+          } satisfies CalendarEventTopicPayload,
+        },
+      ],
+    },
+  };
 }
 
 export interface UpdateMatterEventInput {
@@ -194,7 +218,52 @@ export async function updateMatterEvent(
       },
     }),
   );
-  return { effect: { statements, outboxMessages: [] } };
+  return {
+    effect: {
+      statements,
+      // Only when the setting actually MOVED. A title fix, a room change, or a participant edit is
+      // not a reschedule, and announcing one for a typo correction is how a team learns to ignore
+      // the announcements. The comparison is over exactly the fields that say when the thing
+      // happens; `merged` has already resolved every absent patch field to the existing value, so a
+      // patch that names a date and repeats it raises nothing.
+      outboxMessages: eventTimingMoved(existing, merged)
+        ? [
+            {
+              topic: CALENDAR_EVENT_RESCHEDULED_TOPIC,
+              payload: {
+                matterEventId: eventId,
+                matterId: existing.matter_id,
+              } satisfies CalendarEventTopicPayload,
+            },
+          ]
+        : [],
+    },
+  };
+}
+
+// When a setting happens, as the five columns that answer it. Compared as stored: dates and times
+// are civil text and the zone is an identifier, so equality is byte equality and there is no
+// arithmetic here to get wrong.
+function eventTimingMoved(
+  existing: Pick<
+    MatterEventRow,
+    "starts_on" | "starts_at_time" | "ends_on" | "ends_at_time" | "time_zone"
+  >,
+  merged: {
+    readonly startsOn: string;
+    readonly startsAtTime: string | null;
+    readonly endsOn: string | null;
+    readonly endsAtTime: string | null;
+    readonly timeZone: string;
+  },
+): boolean {
+  return (
+    existing.starts_on !== merged.startsOn ||
+    existing.starts_at_time !== merged.startsAtTime ||
+    existing.ends_on !== merged.endsOn ||
+    existing.ends_at_time !== merged.endsAtTime ||
+    existing.time_zone !== merged.timeZone
+  );
 }
 
 export async function cancelMatterEvent(
@@ -221,7 +290,15 @@ export async function cancelMatterEvent(
           metadata: { matterId: existing.matter_id },
         }),
       ],
-      outboxMessages: [],
+      outboxMessages: [
+        {
+          topic: CALENDAR_EVENT_CANCELLED_TOPIC,
+          payload: {
+            matterEventId: eventId,
+            matterId: existing.matter_id,
+          } satisfies CalendarEventTopicPayload,
+        },
+      ],
     },
   };
 }

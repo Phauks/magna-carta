@@ -1,4 +1,11 @@
 import type { KnownPermission } from "@magna-carta/access-control/registry";
+import {
+  CALENDAR_DEADLINE_DUE_EMISSION_POINT,
+  CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT,
+  CALENDAR_EVENT_CANCELLED_TOPIC,
+  CALENDAR_EVENT_RESCHEDULED_TOPIC,
+  CALENDAR_EVENT_SCHEDULED_TOPIC,
+} from "@magna-carta/calendar/notifications";
 import { CONFLICTS_HIT_SURFACED_TOPIC } from "@magna-carta/conflicts/topics";
 import { INVOICE_VOIDED_TOPIC } from "@magna-carta/billing/draft";
 import { INVOICE_FINALIZED_TOPIC } from "@magna-carta/billing/finalize";
@@ -10,6 +17,14 @@ import {
 } from "@magna-carta/file-manager/topics";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_CLOSED_TOPIC, MATTER_REOPENED_TOPIC } from "@magna-carta/matters/topics";
+import {
+  CUSTODY_CHECKOUT_OVERDUE_EMISSION_POINT,
+  CUSTODY_OVERDUE_BUCKETS,
+  CUSTODY_REVIEW_DUE_EMISSION_POINT,
+  DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT,
+  RECOVERY_JOB_COMPLETED_EMISSION_POINT,
+  RECOVERY_JOB_OUTCOMES,
+} from "./emission-points.ts";
 import type { FactsSchema, Facts } from "./facts-grammar.ts";
 import type {
   NotificationAudience,
@@ -50,10 +65,24 @@ export type MatterResolution =
   // it must not be behind.
   | { readonly kind: "none" };
 
+// WHICH PRODUCTION PATH RAISES A TYPE, and the reason the registry has to say rather than infer.
+//
+// `outbox-topic` is a subscription: something already committed a durable row in the same batch as
+// the write, and this subsystem reads the bus. `comparison-sweep` is not — "this deadline is
+// overdue" is a subtraction nobody performs, so there is no batch to ride and no row to subscribe
+// to; a scheduled pass materializes what a comparison returns. `job-coordinator` is a third shape
+// again: a terminal state a Durable Object reaches, which has no firm-database batch of its own.
+//
+// Inferring this from the name would be guessing. Declaring it lets `notificationTypesForTopic`
+// index only what actually arrives on the bus, so a comparison kind can never be matched by a topic
+// that happens to share its spelling — and lets each path's own fitness test check the right rule.
+export type NotificationRaisedBy = "outbox-topic" | "comparison-sweep" | "job-coordinator";
+
 export interface NotificationType {
   // The stable key. A WIRE CONTRACT once shipped: it appears in feed responses and in the `kind`
   // filter, and it is what the `notification_event.kind` column stores.
   readonly key: string;
+  readonly raisedBy: NotificationRaisedBy;
   readonly category: NotificationCategory;
   readonly severity: NotificationSeverity;
   // Non-silenceable IN APP. Derived from the category rather than declared freely — a fitness test
@@ -71,13 +100,16 @@ export interface NotificationType {
   // The actor is excluded by default: nobody needs telling they did the thing they just did. A type
   // sets this where a confirmation is genuinely the point.
   readonly includeActor: boolean;
-  // The outbox topic that raises it, BY IMPORTED CONSTANT wherever the producing package exports
+  // The emission point that raises it, BY IMPORTED CONSTANT wherever the producing package exports
   // one. Two spellings of one emission point is the failure this indirection exists to refuse, and
   // it is a silent failure: an unrecognized topic on the per-firm bus is acked and ignored by
   // design, so a typo does not throw, it just stops delivering.
   readonly subscribesTo: string;
   readonly subjectKind: NotificationSubjectKind;
-  // Which field of the topic's payload carries the subject's handle.
+  // Which field of the payload carries the subject's handle. For a `comparison-sweep` or
+  // `job-coordinator` type the payload is the one the raiser builds from its own finding rather
+  // than one a producer sent, which is why the materializer's contract is identical for all three
+  // paths — one shape in, one set of rows out, and no path gets its own materializer to drift.
   readonly subjectPayloadKey: string;
   readonly matterAnchored: boolean;
   readonly matterResolution: MatterResolution;
@@ -109,10 +141,36 @@ function matterSectionLink(
   return (subjectId, matterId) => `/matters/${matterId ?? ""}/${section}?entry=${subjectId}`;
 }
 
-// The registered types, drawn ONLY from topics that already exist and already commit
-// transactionally. Nothing here asks a producing package to change; that is the point of
-// subscribing.
-const DECLARED_TYPES: readonly NotificationType[] = [
+// The two facts a custody reminder is allowed to carry, read from the finding the register handed
+// over. Shared by both custody types because both reasons return the same shape — one builder, so
+// the two can never come to disagree about which fields survive the boundary.
+function custodyReminderFacts(payload: Readonly<Record<string, unknown>>): Facts {
+  const daysOverdue = payload["daysOverdue"];
+  const bucket = payload["bucket"];
+  return {
+    daysOverdue: typeof daysOverdue === "number" ? daysOverdue : 0,
+    bucket:
+      typeof bucket === "string" && (CUSTODY_OVERDUE_BUCKETS as readonly string[]).includes(bucket)
+        ? bucket
+        : CUSTODY_OVERDUE_BUCKETS[0],
+  };
+}
+
+// A type as it is written down, minus the one field the array it lives in already answers. Stating
+// the production path once per group beats repeating it on every entry, where it would be a line
+// somebody copies from the neighbour above without meaning it.
+type NotificationTypeDeclaration = Omit<NotificationType, "raisedBy">;
+
+function raisedBy(
+  path: NotificationRaisedBy,
+): (declaration: NotificationTypeDeclaration) => NotificationType {
+  return (declaration) => ({ ...declaration, raisedBy: path });
+}
+
+// SUBSCRIBED to a transactional outbox topic. Every one of these rides a durable row a producing
+// package already commits in the same atomic batch as the write it describes, so nothing here asks
+// a producer to change — that is the point of subscribing.
+const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
   {
     key: "trust.ledger.entry.posted",
     category: "trust",
@@ -405,6 +463,268 @@ const DECLARED_TYPES: readonly NotificationType[] = [
     emailContent: "category-count",
     deepLink: (subjectId) => `/support/incidents/${subjectId}`,
   },
+  {
+    key: "calendar.event.scheduled",
+    category: "calendar",
+    severity: "informational",
+    mandatory: false,
+    // The people carrying the file. A setting appearing on a case is the team's fact — the
+    // paralegal who has to prepare for it needs it as much as the attorney who will appear.
+    audience: "matter-team",
+    includeActor: false,
+    subscribesTo: CALENDAR_EVENT_SCHEDULED_TOPIC,
+    subjectKind: "matterEvent",
+    subjectPayloadKey: "matterEventId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Deliberately empty, and the date is the interesting omission. A hearing's date is not
+    // privileged the way its title is, but it is also the fact most likely to be STALE — the whole
+    // reason `rescheduled` exists is that settings move — and a card stating a date the record no
+    // longer agrees with is worse than a card stating none. The live date resolves behind the deep
+    // link, from the row itself.
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("calendar"),
+  },
+  {
+    key: "calendar.event.rescheduled",
+    category: "calendar",
+    // A setting that moved is the one calendar fact a member has to act on: the preparation they had
+    // planned is now due on another day, and the day they had blocked out is now free.
+    severity: "attention",
+    mandatory: false,
+    audience: "matter-team",
+    includeActor: false,
+    subscribesTo: CALENDAR_EVENT_RESCHEDULED_TOPIC,
+    subjectKind: "matterEvent",
+    subjectPayloadKey: "matterEventId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("calendar"),
+  },
+  {
+    key: "calendar.event.cancelled",
+    category: "calendar",
+    severity: "attention",
+    mandatory: false,
+    audience: "matter-team",
+    includeActor: false,
+    subscribesTo: CALENDAR_EVENT_CANCELLED_TOPIC,
+    subjectKind: "matterEvent",
+    subjectPayloadKey: "matterEventId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("calendar"),
+  },
+];
+
+// RAISED BY A COMPARISON, not by a write. Nothing in the platform writes "this deadline is overdue"
+// or "this review has come round" — they are subtractions against the clock, true continuously, and
+// the packages that own the records refuse to store them for good reasons of their own. So there is
+// no batch to ride and no topic to subscribe to: a scheduled per-firm pass performs the comparison
+// the owning package already ships and materializes what it returns.
+//
+// The consequence that shapes every entry here is idempotency. A comparison that is true today is
+// true again in five minutes, so the dedupe key carries a CIVIL DATE and the row is raised once per
+// day rather than once per pass.
+const COMPARISON_SWEPT_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
+  {
+    key: "deadlines.deadline.due",
+    category: "deadlines",
+    severity: "attention",
+    mandatory: false,
+    // Everyone carrying the file, not only the responsible attorney. A deadline reaching its day is
+    // the case's most consequential fact and the one whose miss is hardest to undo; narrowing it to
+    // one person means one person's holiday is a missed filing.
+    audience: "matter-team",
+    includeActor: false,
+    subscribesTo: CALENDAR_DEADLINE_DUE_EMISSION_POINT,
+    subjectKind: "matterDeadline",
+    subjectPayloadKey: "matterDeadlineId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // The deadline's own title is what a reader most wants and is exactly what this must not carry:
+    // a deadline is routinely titled after the filing, the motion, or the other side. It resolves
+    // behind the deep link, through the calendar's access-checked read.
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("deadlines"),
+  },
+  {
+    key: "deadlines.deadline.overdue",
+    category: "deadlines",
+    severity: "critical",
+    mandatory: false,
+    audience: "matter-team",
+    includeActor: false,
+    subscribesTo: CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT,
+    subjectKind: "matterDeadline",
+    subjectPayloadKey: "matterDeadlineId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // How long it has been past due. An integer, and the one fact that separates "this slipped
+    // overnight" from "nobody has looked at this in a month" — which are different problems with
+    // different responses, and the distinction is lost if the card only says "overdue".
+    //
+    // Note what this is NOT: an assertion that the firm missed anything. The platform reports the
+    // subtraction it can see. The deadline may have been extended by a stipulation nobody has typed
+    // in, satisfied under another matter, or vacated by an order that arrived this morning.
+    facts: { daysOverdue: { kind: "integer" } },
+    buildFacts: (payload) => ({
+      daysOverdue: typeof payload["daysOverdue"] === "number" ? payload["daysOverdue"] : 0,
+    }),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("deadlines"),
+  },
+  {
+    key: "custody.review.due",
+    category: "custody",
+    severity: "attention",
+    mandatory: false,
+    // Whoever keeps the register. Custody is a firm-level control function with its own firm-bound
+    // capability — a packet may have no matter at all — so the audience is the people who can act on
+    // it rather than anyone near a case.
+    audience: "capability-holders",
+    audienceCapability: "custody:manage",
+    includeActor: false,
+    subscribesTo: CUSTODY_REVIEW_DUE_EMISSION_POINT,
+    subjectKind: "custodyPacket",
+    subjectPayloadKey: "custodyPacketId",
+    // A custody packet may exist with no matter by construction — originals held for somebody who
+    // is not yet a client are the whole reason the platform keeps a holding matter — so anchoring
+    // this to a matter would hide exactly the packets the register most needs surfaced.
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    // A count and a band. NOT the custody number, the owner, the borrower, the item description, or
+    // the location: the register is a list of the most sensitive things a firm holds, and its
+    // metadata alone identifies a client.
+    facts: {
+      daysOverdue: { kind: "integer" },
+      bucket: { kind: "enum", labels: CUSTODY_OVERDUE_BUCKETS },
+    },
+    buildFacts: custodyReminderFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/custody/packets/${subjectId}`,
+  },
+  {
+    key: "custody.checkout.overdue",
+    category: "custody",
+    severity: "attention",
+    mandatory: false,
+    audience: "capability-holders",
+    audienceCapability: "custody:manage",
+    includeActor: false,
+    subscribesTo: CUSTODY_CHECKOUT_OVERDUE_EMISSION_POINT,
+    subjectKind: "custodyPacket",
+    subjectPayloadKey: "custodyPacketId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    facts: {
+      daysOverdue: { kind: "integer" },
+      bucket: { kind: "enum", labels: CUSTODY_OVERDUE_BUCKETS },
+    },
+    buildFacts: custodyReminderFacts,
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/custody/packets/${subjectId}`,
+  },
+];
+
+// RAISED BY A JOB REACHING ITS TERMINAL STATE. The push over the job's own socket is unchanged and
+// remains the fast path; the row exists for the tab that was closed when the job finished, which is
+// the ordinary case for work measured in minutes.
+//
+// Both entries reach ONE person on purpose, and it is the only place in this registry where that is
+// the right answer: a job notification is a reply to a request, and the requester is the only person
+// who asked. That is why both declare `includeActor` — the default exclusion exists so nobody is
+// told they did the thing they just did, and here being told is the entire point.
+const JOB_COMPLETION_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
+  {
+    key: "jobs.documentAssembly.completed",
+    category: "jobs",
+    severity: "informational",
+    mandatory: false,
+    audience: "actor",
+    includeActor: true,
+    subscribesTo: DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT,
+    subjectKind: "documentAssembly",
+    subjectPayloadKey: "documentAssemblyId",
+    // The assembly files a document onto a matter, so the row is anchored there and filtered like
+    // everything else. A requester who has since been walled off the matter stops seeing the reply
+    // to their own request, which is the correct outcome: what they asked for is on that matter.
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    // Whether it worked. Not the failure reason — the coordinator's reasons are a mix of codes and
+    // sentences, and a slot that is a code today and a sentence after one refactor is the door the
+    // grammar exists to close. The reason is on the job's own status read.
+    facts: { succeeded: { kind: "boolean" } },
+    buildFacts: (payload) => ({ succeeded: payload["succeeded"] === true }),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: matterSectionLink("documents"),
+  },
+  {
+    key: "jobs.recovery.completed",
+    category: "jobs",
+    severity: "informational",
+    mandatory: false,
+    audience: "actor",
+    includeActor: true,
+    subscribesTo: RECOVERY_JOB_COMPLETED_EMISSION_POINT,
+    subjectKind: "recoveryJob",
+    // A recovery job is about a file the member handed in, not about a matter, and it is bound to
+    // the member who started it — the recovered secret is returned to that identity and to nobody
+    // else. Anchoring it to a matter it does not have would be inventing one.
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    subjectPayloadKey: "recoveryJobId",
+    // Which terminal state, as a closed label. Never the recovered secret, and never the hash: the
+    // job state holds the password for exactly one read by exactly one member, and a notification
+    // row is neither.
+    facts: { outcome: { kind: "enum", labels: RECOVERY_JOB_OUTCOMES } },
+    buildFacts: (payload) => {
+      const outcome = payload["outcome"];
+      return {
+        outcome:
+          typeof outcome === "string" &&
+          (RECOVERY_JOB_OUTCOMES as readonly string[]).includes(outcome)
+            ? outcome
+            : "exhausted",
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/tools/recovery/${subjectId}`,
+  },
+];
+
+const DECLARED_TYPES: readonly NotificationType[] = [
+  ...OUTBOX_SUBSCRIBED_DECLARATIONS.map(raisedBy("outbox-topic")),
+  ...COMPARISON_SWEPT_DECLARATIONS.map(raisedBy("comparison-sweep")),
+  ...JOB_COMPLETION_DECLARATIONS.map(raisedBy("job-coordinator")),
 ];
 
 export const NOTIFICATION_TYPES: readonly NotificationType[] = Object.freeze(DECLARED_TYPES);
@@ -412,18 +732,49 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = Object.freeze(DEC
 // Topic -> the types subscribing to it. Built once. A topic may carry more than one type, and most
 // topics carry none — the bus is open, and not finding a type here is the ORDINARY case rather than
 // an error.
-const TYPES_BY_TOPIC: ReadonlyMap<string, readonly NotificationType[]> = (() => {
-  const byTopic = new Map<string, NotificationType[]>();
+//
+// Only the types RAISED BY a topic are indexed. A comparison kind whose emission-point name happened
+// to collide with a topic on the bus would otherwise be materialized twice: once by the sweep that
+// owns it and once by the translator that mistook it for a subscription.
+const TYPES_BY_TOPIC: ReadonlyMap<string, readonly NotificationType[]> =
+  indexBySubscription("outbox-topic");
+
+// The same index for the two paths that are not subscriptions, so a sweep or a coordinator resolves
+// its type the same way the translator resolves one. Held separately rather than filtered at the
+// call site: three raisers reaching into one map and remembering to check `raisedBy` is three
+// chances to forget.
+const TYPES_BY_COMPARISON_POINT: ReadonlyMap<string, readonly NotificationType[]> =
+  indexBySubscription("comparison-sweep");
+const TYPES_BY_JOB_COMPLETION_POINT: ReadonlyMap<string, readonly NotificationType[]> =
+  indexBySubscription("job-coordinator");
+
+function indexBySubscription(
+  path: NotificationRaisedBy,
+): ReadonlyMap<string, readonly NotificationType[]> {
+  const index = new Map<string, NotificationType[]>();
   for (const type of NOTIFICATION_TYPES) {
-    const existing = byTopic.get(type.subscribesTo);
-    if (existing === undefined) byTopic.set(type.subscribesTo, [type]);
+    if (type.raisedBy !== path) continue;
+    const existing = index.get(type.subscribesTo);
+    if (existing === undefined) index.set(type.subscribesTo, [type]);
     else existing.push(type);
   }
-  return byTopic;
-})();
+  return index;
+}
 
 export function notificationTypesForTopic(topic: string): readonly NotificationType[] {
   return TYPES_BY_TOPIC.get(topic) ?? [];
+}
+
+export function notificationTypesForComparisonPoint(
+  emissionPoint: string,
+): readonly NotificationType[] {
+  return TYPES_BY_COMPARISON_POINT.get(emissionPoint) ?? [];
+}
+
+export function notificationTypesForJobCompletionPoint(
+  emissionPoint: string,
+): readonly NotificationType[] {
+  return TYPES_BY_JOB_COMPLETION_POINT.get(emissionPoint) ?? [];
 }
 
 const TYPES_BY_KEY: ReadonlyMap<string, NotificationType> = new Map(

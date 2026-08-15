@@ -146,6 +146,29 @@ search rather than a later tuning pass. Figures come from
 
 ## Behaviour changes the next deploy carries (no dashboard step)
 
+- **The daily cron pass starts raising deadline and custody notifications.** The
+  `0 3 * * *` trigger now runs a per-firm comparison sweep before the retention
+  sweep: overdue deadlines, deadlines due today, custody reviews that have come
+  round, and check-outs that have not come back become feed rows for the matter's
+  team (deadlines) or for whoever holds `custody:manage` (the register). No new
+  binding, no new secret, no new queue, no migration — the tables and the cron
+  expression already exist. Two things worth knowing before the push. **A firm
+  with a backlog is told about it on the first pass**, capped at 200 findings per
+  kind, so a firm that has never looked at its overdue list will see a large
+  first batch; the cap's clamp is reported on the `notifications.comparison_clamped`
+  counter, which is the signal that a firm is being told about some of its overdue
+  work and not the rest. And **the pass is once a day at 03:00 UTC**, which is the
+  evening before, locally, for the American zones — the dedupe key buckets by the
+  deadline's own civil day so the row lands on the correct date either way, but if
+  a morning arrival matters, adding a second daily cron (e.g. `0 15 * * *`) to
+  `apps/worker/wrangler.jsonc` is the whole fix: the second pass writes nothing
+  the first already wrote.
+
+  Deliberately still silent: `calendar.deadline.horizon`, the "entering the lead
+  window" reminder, which needs a firm-configured lead window that no setting
+  defines. It wants one number and a bound from you, on the retention window's
+  pattern.
+
 - **Discovery review sets narrow to their creator on migration.** The
   review-coding migration
   (`20260808T000000_discovery-review-coding-and-access`) introduces the

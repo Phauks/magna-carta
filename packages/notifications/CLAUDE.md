@@ -22,6 +22,26 @@ them onto a per-firm queue with a topic dispatcher. So this package does not own
 ask any producing package to change: it **subscribes**, as a second non-exclusive pass in that
 dispatcher. Everything expensive here is a policy question, not a plumbing one.
 
+## The three production paths, and why a type declares which one raises it
+
+Every type declares `raisedBy`, and the registry keeps **one index per path**. Inferring the path
+from the emission point's name would be guessing, and it is already wrong: the calendar's declared
+emission points and the platform's outbox topics are drawn from one vocabulary, and three of those
+names are now both.
+
+- **`outbox-topic`** — a subscription. Something committed a write, committed an outbox row in the
+  same batch, and the relay carried it. `src/translate.ts` materializes it.
+- **`comparison-sweep`** — not a write at all. "This deadline is overdue" and "this review has come
+  round" are subtractions against the clock that nobody performs and that the owning packages
+  deliberately refuse to store. `src/sweep.ts` calls the owning package's own shipped comparison and
+  materializes what it returns.
+- **`job-coordinator`** — a terminal state a Durable Object reached, with no firm-database batch to
+  ride. `src/job-completion.ts` writes it, best-effort, after the transition is persisted.
+
+All three build a payload, resolve recipients through the same resolvers, and go through the same
+pure materializer and the same UNIQUE-insert statements. **A path never gets its own materializer** —
+that is the fastest route to two subtly different notions of what a notification row is.
+
 ## Key files / entry points
 
 - `src/types.ts` — the closed vocabularies (category, severity, subject kind, channel, audience,
@@ -36,7 +56,12 @@ dispatcher. Everything expensive here is a policy question, not a plumbing one.
   single-row resolve all compose their `WHERE` from `visibleNotificationScope`
 - `src/settings.ts` — the firm retention window, and the email detail level as a member's choice
   under a firm's ceiling
+- `src/emission-points.ts` — the emission points with no producing-package constant, and the written
+  reason each has none
 - `src/translate.ts` — the subscriber: one bus message in, zero or more notifications out
+- `src/sweep.ts` — the comparison path: the calendar's own overdue arithmetic and the custody
+  register's own collection point, bucketed by civil date and capped per kind
+- `src/job-completion.ts` — the row for the tab that was closed when a job finished
 - `src/retention.ts` — the bounded nightly sweep and the swept-unread tally
 
 ## Invariants that apply here
@@ -73,7 +98,20 @@ dispatcher. Everything expensive here is a policy question, not a plumbing one.
   sweeps overlap, so a duplicate is the ordinary case. The event-driven key is
   `<topic>:<outboxRowId>` (stable across redeliveries by construction); the comparison-driven key
   carries a **civil date**, because a condition that is continuously true would otherwise raise every
-  time the sweep runs, forever.
+  time the sweep runs, forever; the job key carries the **terminal outcome**, because a job the
+  stuck-alarm failed and that then reported success reported two terminal states and both happened —
+  keying on the job alone would leave the timeout's row standing as the last word.
+- **A comparison's civil-date bucket is computed in the SUBJECT's zone, not the firm's or UTC's.** A
+  deadline's zone is the court's, and it is on the row. The custody register keeps no zone at all —
+  it is one firm's own list of civil dates the firm typed — so its bucket is the platform's civil
+  day, and the asymmetry is deliberate rather than an oversight.
+- **A comparison is unbounded, so its read is capped and the clamp is COUNTED.** Two hundred findings
+  per kind, per kind rather than per sweep so one runaway comparison cannot starve the others. A firm
+  reporting `notifications.comparison_clamped` every night is a firm being told about some of its
+  overdue work and not the rest, which is a fact an operator has to be able to see.
+- **A matter-anchored type does not reach one person** unless it is on the short list in
+  `test/registry-fitness.test.ts` saying why. Three kinds shipped reaching exactly one reader once,
+  on the strength of a comment; the list is what makes narrowing a deliberate, written act.
 - **Nothing on an emitting write path.** No producing package resolves a recipient, reads a
   preference, or renders anything. Fan-out and rendering run in the queue consumer or the cron pass.
 - **A translator failure never fails an owning consumer's ack.** A missed notification is an
@@ -90,9 +128,10 @@ dispatcher. Everything expensive here is a policy question, not a plumbing one.
 
 One entry in `NOTIFICATION_TYPES`, and nothing else anywhere:
 
-1. **Name the topic by its producing package's exported constant.** Two spellings of one emission
-   point is a silent failure — an unrecognized topic on the per-firm bus is acked and ignored by
-   design, so a typo does not throw, it just stops delivering.
+1. **Declare `raisedBy`, and name the emission point by its producing package's exported constant.**
+   Two spellings of one emission point is a silent failure — an unrecognized topic on the per-firm
+   bus is acked and ignored by design, so a typo does not throw, it just stops delivering. Where no
+   producing constant exists, add it to `src/emission-points.ts` with the reason there is none.
 2. **Declare the audience** from the closed set, and mark any substitution in
    `audienceSubstitutedFrom`. No type declares one today — a substitution is a recipient list the
    platform narrowed silently, and a fitness test holds that to being a deliberate edit.
@@ -112,10 +151,13 @@ is not enforced.
   `@magna-carta/access-control` (the capability a `capability-holders` audience names),
   `@magna-carta/calendar` (the visible-matter predicate — the one seam every filtered read composes),
   and the producing packages whose topic constants the registry imports (`@magna-carta/billing`,
-  `@magna-carta/file-manager`, `@magna-carta/ledger`, `@magna-carta/matters`). Those last four are
-  imported for their **names**, never for their behaviour.
+  `@magna-carta/file-manager`, `@magna-carta/ledger`, `@magna-carta/matters`,
+  `@magna-carta/conflicts`, `@magna-carta/email-filing`). Those are imported for their **names**,
+  never for their behaviour — with two exceptions the comparison sweep needs and that are the whole
+  point of it: `@magna-carta/calendar`'s overdue arithmetic and `@magna-carta/custodian`'s
+  `collectCustodyReminders`, both called rather than restated.
 - Consumed by the worker: the per-firm queue dispatcher (the second pass), the notifications route
-  bundle, and the daily cron's retention step.
+  bundle, the daily cron's comparison and retention steps, and the document-assembly coordinator.
 
 ## Gotchas
 

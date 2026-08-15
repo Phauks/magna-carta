@@ -326,6 +326,15 @@ export const notificationsTranslateFailed = defineMetric("notifications.translat
 // No dimension at all: the members it concerns are exactly what must not reach the dataset, and the
 // per-member detail is kept in the firm's own swept-unread tally where that member can read it.
 export const notificationsSweptUnread = defineMetric("notifications.swept_unread", [] as const);
+// Findings the per-kind cap removed from one firm's comparison pass before they were considered.
+// A comparison is unbounded by nature — "every open deadline past its due instant" is a number the
+// firm's own working habits choose — so the read is capped, and a firm reporting this every night is
+// a firm being told about some of its overdue work and not the rest. Distinct from
+// `recipients_clamped`, which is about how many people heard one thing rather than how many things
+// were heard about at all.
+export const notificationsComparisonClamped = defineMetric("notifications.comparison_clamped", [
+  "topic",
+] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -380,6 +389,7 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsRefusedFacts,
   notificationsTranslateFailed,
   notificationsSweptUnread,
+  notificationsComparisonClamped,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

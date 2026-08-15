@@ -1,29 +1,65 @@
-// The emission points a reminder subscribes to, DECLARED and not wired.
+// The emission points a reminder subscribes to.
 //
-// Nothing here schedules, queues, or delivers anything: there is no cron, no Workflow, no outbox
-// topic, and no recipient resolution in this package. Notifications owns that decision and resolves
-// recipients where it lives.
+// Nothing here schedules, resolves a recipient, or delivers anything: there is no cron, no Workflow,
+// and no recipient resolution in this package. Notifications owns that decision and resolves
+// recipients where it lives. What DID change is that three of these names are now real outbox
+// topics, written by the matter-event write paths below in the same atomic batch as the change they
+// describe — which is a producer's job and stops short of every line above.
 //
-// They are named now rather than later for the reason any seam is named early: the write paths they
-// raise from are being built in this slice, and adding a raise to an existing write is one line,
-// where finding every write path afterwards is archaeology. Two definitions of "what is due" would
-// eventually disagree, and the one people act on would be whichever they saw last — so when delivery
-// is built it subscribes to these names rather than growing its own.
+// The rest are named but wired to nothing, for the reason any seam is named early: adding a raise to
+// a write being built is one line, where finding every write path afterwards is archaeology. Two
+// definitions of "what is due" would eventually disagree, and the one people act on would be
+// whichever they saw last — so a subscriber subscribes to these names rather than growing its own.
+
+// A matter event was recorded. The subject is the event; the payload is identifiers only.
+export const CALENDAR_EVENT_SCHEDULED_TOPIC = "calendar.event.scheduled";
+
+// A matter event MOVED. Raised on an edit that changes when the setting happens — its dates, its
+// times, or its zone — and NOT on an edit that fixes a title or a room. "Rescheduled" is a claim
+// about the real world, and raising it for a typo correction would tell a team a hearing moved when
+// it did not; the notification is the one thing a reader acts on without opening the record.
+//
+// A continuance raises THIS topic, not a new one: the vacate-and-reset IS the reschedule the name
+// was chosen for, however the record expresses it. Its subject is the NEW setting, because that is
+// the one that is going to happen.
+export const CALENDAR_EVENT_RESCHEDULED_TOPIC = "calendar.event.rescheduled";
+
+// A matter event was cancelled outright. A continuance does not raise this even though it cancels a
+// row: the hearing is still happening, on another date, and telling a team it was cancelled would be
+// false.
+export const CALENDAR_EVENT_CANCELLED_TOPIC = "calendar.event.cancelled";
+
+// What the three topics above carry. Identifiers only — never the title, the description, the court
+// reference, the location, or a participant's name. A message that crosses a queue and lands in a
+// notification row outlives the access check that justified writing it, and a hearing's title on a
+// case is routinely the parties and the dispute.
+export interface CalendarEventTopicPayload {
+  readonly matterEventId: string;
+  readonly matterId: string;
+}
+
+// An open deadline is due today, in its OWN zone. Not a topic and never will be: no write in this
+// package or anywhere else makes a deadline become due, so there is no batch to ride. It is a
+// comparison a sweep performs, and the name exists so the sweep and this package agree on one
+// spelling.
+export const CALENDAR_DEADLINE_DUE_EMISSION_POINT = "calendar.deadline.due";
+
+// An open deadline is past due — the same read-time comparison the calendar shows, never a stored
+// flag, because there is none.
+export const CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT = "calendar.deadline.overdue";
+
 export const CALENDAR_NOTIFICATION_EMISSION_POINTS = Object.freeze([
-  // An open deadline enters the firm's configured lead window.
+  // An open deadline enters the firm's configured lead window. Unwired: no firm setting names that
+  // window yet, and a lead the platform picked for a firm is a lead the firm did not choose.
   "calendar.deadline.horizon",
-  // An open deadline is due today.
-  "calendar.deadline.due",
-  // An open deadline is past due. Raised from the same read-time comparison the calendar shows —
-  // never from a stored flag, because there is none.
-  "calendar.deadline.overdue",
-  "calendar.event.scheduled",
-  // A continuance raises THIS point, not a new one: the vacate-and-reset IS the "reschedule" the
-  // constant was named for, however the record expresses it.
-  "calendar.event.rescheduled",
-  "calendar.event.cancelled",
-  // The firm-event write paths, same discipline: declared here, wired to nothing. The notifications
-  // registry subscribes to these names when its calendar wiring lands.
+  CALENDAR_DEADLINE_DUE_EMISSION_POINT,
+  CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT,
+  CALENDAR_EVENT_SCHEDULED_TOPIC,
+  CALENDAR_EVENT_RESCHEDULED_TOPIC,
+  CALENDAR_EVENT_CANCELLED_TOPIC,
+  // The firm-event write paths, same discipline: declared here, wired to nothing. A firm event has
+  // no matter to anchor a notification's visibility to, so it needs the firm-scoped audience
+  // question answered before it can be raised.
   "calendar.firmEvent.scheduled",
   "calendar.firmEvent.rescheduled",
   "calendar.firmEvent.cancelled",
@@ -31,6 +67,16 @@ export const CALENDAR_NOTIFICATION_EMISSION_POINTS = Object.freeze([
   // person who holds the colliding booking can hear about it without polling the grid.
   "calendar.booking.conflict",
 ] as const);
+
+// The subset that is a real outbox topic today. Held separately from the declaration above so
+// "which of these actually produces a row" is a compile-time answer rather than a grep.
+export const CALENDAR_OUTBOX_TOPICS = Object.freeze([
+  CALENDAR_EVENT_SCHEDULED_TOPIC,
+  CALENDAR_EVENT_RESCHEDULED_TOPIC,
+  CALENDAR_EVENT_CANCELLED_TOPIC,
+] as const);
+
+export type CalendarOutboxTopic = (typeof CALENDAR_OUTBOX_TOPICS)[number];
 
 export type CalendarNotificationEmissionPoint =
   (typeof CALENDAR_NOTIFICATION_EMISSION_POINTS)[number];

@@ -194,6 +194,25 @@ export const MAX_FEED_PAGE_SIZE = 50;
 // turns that into a counter instead of a mail storm. Clamping is recorded, never silent.
 export const MAX_RECIPIENTS_PER_EVENT = 200;
 
+// How many findings ONE comparison kind may contribute to ONE sweep of ONE firm.
+//
+// A comparison is unbounded by nature: "every open deadline past its due instant" is a number the
+// firm chooses by how it works, not a number the platform chooses, and a register nobody has looked
+// at in two years answers in the thousands. So the read is capped and the clamp is COUNTED rather
+// than silent — a firm hitting this ceiling every night is a firm being told about two hundred
+// things and not being told about the rest, which is a fact an operator has to be able to see.
+//
+// The cap is per kind rather than per sweep so one runaway comparison cannot starve the others: a
+// thousand overdue deadlines must not mean nobody hears about a custody review.
+export const MAX_COMPARISON_FINDINGS_PER_KIND = 200;
+
+// How many statements one write from the sweep carries. The sweep composes at most
+// MAX_COMPARISON_FINDINGS_PER_KIND events per kind, each with up to MAX_RECIPIENTS_PER_EVENT
+// recipient rows, which is far more than belongs in one round trip — so the statements are
+// committed in chunks. Chunking rather than one giant batch also means a firm whose database fails
+// halfway keeps what already landed, and the dedupe keys make the next pass top up the rest.
+export const MAX_SWEEP_STATEMENTS_PER_WRITE = 100;
+
 // The bounds a firm's retention window may be set within, and the platform default inside them.
 // Thirty days is the floor because a member returning from two weeks' leave must still see what
 // they missed; a year is the ceiling because an unbounded feed is an unbounded read, and because
