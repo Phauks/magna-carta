@@ -279,30 +279,43 @@ export const NEVADA_PROFILE: JurisdictionProfile = {
       },
     },
 
-    // THE BANK-CHARGE CARVE-OUT. Nevada permits it. The platform does NOT act on it, and the rule is
-    // carried here for citation precisely so that the permission and the unbuilt machinery are
-    // visible in the same place. The composition guard in @magna-carta/trust/composition-guard keeps
-    // refusing every posting to a firm-funds node.
+    // THE BANK-CHARGE CARVE-OUT. Nevada permits it, and the platform acts on it — narrowly. The rule
+    // is carried here for citation; the machinery is the trust domain's and never this package's,
+    // in @magna-carta/trust/firm-funds and @magna-carta/trust/composition-guard.
     //
-    // Four things the rule does not settle, each of which would have to be invented to wire it:
+    // A SECOND DOOR, NOT A RELAXED FIRST ONE. The door client money goes through, composeTrustEntry,
+    // still refuses every firm-funds line ABSOLUTELY. composeTrustFirmFundsEntry admits strictly
+    // fewer shapes than it does: exactly two lines, one trust account's own firm-funds node and that
+    // same account's bank leaf, so the path cannot express a movement of somebody else's money at
+    // all.
     //
-    //   - NO CAP. "Only in an amount necessary for that purpose" is a standard applied after the
-    //     fact to a known schedule of charges, not an integer a bound can hold. Choosing a figure
-    //     would be the platform legislating.
-    //   - ALMOST NO APPLICATION. SCR 217(3): "Accounts under this rule shall be exempt from service
-    //     charges and fees." A pooled interest-bearing account bears no service charges, so there is
-    //     nothing for the lawyer's own funds to pay. The carve-out bites only on a non-pooled trust
-    //     account, and the trust account record carries no discriminator that would tell them apart.
-    //   - IT WOULD MEAN CHANGING THE ONE GUARD that owns no-commingling for the whole platform, and
-    //     which billing and the payments rail inherit by calling it.
-    //   - THE THREE-WAY PROOF WOULD STOP TYING OUT. The client side is the sum of the matter leaves;
-    //     a non-zero firm-funds balance would show up as a book-to-client disagreement, which is the
-    //     signal reserved for something having reached the ledger without passing the guard.
+    // Four things the rule does not settle, and what each was answered with rather than invented:
     //
-    // Nevada also does not require the record a firm-funds leaf would produce: SCR 78(1)(b)'s
-    // enumeration has no equivalent of the requirement, found in some other states, to identify
-    // which funds in the account are the lawyer's own. Nevada supplies a permission and no
-    // obligation.
+    //   - NO CAP, AND NONE CHOSEN. "Only in an amount necessary for that purpose" is a standard
+    //     applied after the fact to a known schedule of charges, not an integer a bound can hold.
+    //     Picking a figure would be the platform legislating, so it picks none: the firm-funds node
+    //     carries the same zero floor a matter leaf carries, and a charge larger than the firm's own
+    //     money in the account aborts the whole batch instead of reaching client funds.
+    //   - ALMOST NO APPLICATION, AND REFUSED WHERE IT HAS NONE. SCR 217(3): "Accounts under this
+    //     rule shall be exempt from service charges and fees." A pooled interest-bearing account
+    //     bears no service charges, so there is nothing for the lawyer's own funds to pay. The
+    //     carve-out bites only on a non-pooled trust account, and opening it is refused outright on
+    //     an account the firm recorded as the pooled interest-bearing kind — erring toward refusal
+    //     wherever the record cannot tell the two apart.
+    //   - THE ONE GUARD THAT OWNS NO-COMMINGLING IS UNCHANGED. Billing and the payments rail inherit
+    //     that rule by calling composeTrustEntry, and what they inherit is the same absolute refusal
+    //     it always was. A flag on that function would have left every future caller one boolean
+    //     away from moving client money on a firm-funds entry.
+    //   - THE THREE-WAY PROOF LEARNED ABOUT IT rather than being taught to tolerate it: book equals
+    //     client plus firm funds, the cushion standing as its own leg. Folding it into the client
+    //     total would tie out while asserting that firm money is client money; leaving it out of the
+    //     comparison would report a book-to-client disagreement on every account that opened the
+    //     carve-out, poisoning the signal reserved for something having reached the ledger without
+    //     passing the guard.
+    //
+    // Nevada also does not require the record a firm-funds node produces: SCR 78(1)(b)'s enumeration
+    // has no equivalent of the requirement, found in some other states, to identify which funds in
+    // the account are the lawyer's own. Nevada supplies a permission and no obligation.
     firmFundsForBankCharges: {
       confidence: "HIGH",
       summary:

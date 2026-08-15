@@ -43,6 +43,18 @@ function canonicalRequestPath(requestUrl: string): string {
 // header), 409 (in progress), or 422 (key reused for a different payload) WITHOUT invoking the
 // handler; otherwise expose {key, fingerprint} and continue. The pre-check is advisory speed —
 // runIdempotentEffect re-checks atomically at commit, so a race here is safe.
+//
+// NEVER MOUNT THIS IN FRONT OF A ROUTE THAT VERIFIES A SIGNATURE OVER THE REQUEST BODY — an inbound
+// webhook above all. To fingerprint the request this reads the body through `context.req.json()`,
+// which CONSUMES THE RAW STREAM: hono hands the handler the cached parsed value afterwards, and the
+// exact bytes the sender signed no longer exist. A signature recomputed over a re-serialization of
+// that parsed body will not match — key order, whitespace, and number formatting are all lost — and
+// the failure wears the wrong face. It presents as a wrong shared secret, so the debugging goes into
+// the credential store and stays there, because nothing about the symptom points at a middleware
+// that ran before the handler. A signature-verifying route reads the raw bytes itself, verifies, and
+// then keys idempotency on the sender's own event identifier through `runIdempotentEffect`
+// (./run-idempotent-effect.ts) — which is the durable key it actually has, since a sender that
+// signs its deliveries does not send an Idempotency-Key header.
 export function idempotencyMiddleware(options: {
   requirement: "required" | "optional";
   database: SqlDatabase;

@@ -42,10 +42,10 @@ _decided_ is considerably more than what is built, and none of it is reopened he
 
 Two drifts worth recording rather than repeating:
 
-- **The white paper still says "hosted fields / tokenization (e.g. Helcim.js)".** ADR-0181 rejected
-  exactly that, by name, because in-DOM tokenization is SAQ A-EP. The white paper's _Payments_
-  wording is superseded and should be corrected when that area is next edited; this document builds
-  against ADR-0181.
+- **The white paper said "hosted fields / tokenization (e.g. Helcim.js)" — corrected.** ADR-0181
+  rejected exactly that, by name, because in-DOM tokenization is SAQ A-EP; the white paper's
+  _Payments_ wording now states the hosted payment modal and the script-clean payment surface. This
+  document builds against ADR-0181, as it always did.
 - **The feature ledger's `payments.trust-separation` node says the invariant has "no payment code to
   enforce it yet".** That is half true and the wrong half is load-bearing: the rule is already
   enforced structurally, by `assertTrustComposition`, for every caller including a card rail that
