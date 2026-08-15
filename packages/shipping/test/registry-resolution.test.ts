@@ -1,5 +1,9 @@
 import type { ConnectionStore } from "@magna-carta/integrations/connection";
-import type { Credential, CredentialStore } from "@magna-carta/integrations/credentials";
+import {
+  unbuiltCredentialStore,
+  type Credential,
+  type CredentialStore,
+} from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
 import { createIntegrationRegistry, requireCapability } from "@magna-carta/integrations/registry";
 import { describe, expect, it } from "vitest";
@@ -81,6 +85,20 @@ describe("registry resolution of the shipping adapter", () => {
     const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: "firm_x" });
     expect(resolved.ok).toBe(false);
     if (!resolved.ok) expect(resolved.reason).toBe("not-connected");
+  });
+
+  it("reports the unbuilt credential read rather than an unconnected account", async () => {
+    // The connection row says the firm connected its postage account; the credential read that
+    // would produce its key does not exist. Reporting "not connected" here would tell the firm to
+    // do again the thing it already did.
+    const registry = createIntegrationRegistry({
+      connectionStore,
+      credentialStore: unbuiltCredentialStore,
+    });
+    registry.register(createEasyPostAdapter({ http }));
+    const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: "firm_1" });
+    expect(resolved.ok).toBe(false);
+    if (!resolved.ok) expect(resolved.reason).toBe("credential-store-not-implemented");
   });
 
   it("gates an unsupported operation name via the descriptor", async () => {

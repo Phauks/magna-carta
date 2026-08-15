@@ -1,6 +1,16 @@
 import type { ConnectionStore } from "./connection.ts";
-import type { CredentialStore } from "./credentials.ts";
-import { capabilityUnsupported, notConnected, ok, type Dispatch } from "./dispatch.ts";
+import {
+  isUnbuiltCredentialStore,
+  type CredentialStore,
+  type UnbuiltCredentialStore,
+} from "./credentials.ts";
+import {
+  capabilityUnsupported,
+  credentialStoreNotImplemented,
+  notConnected,
+  ok,
+  type Dispatch,
+} from "./dispatch.ts";
 import { supports, type Adapter, type CapabilityDescriptor } from "./port.ts";
 
 export interface ResolveContext {
@@ -15,7 +25,10 @@ export interface Resolved<Port> {
 
 export interface RegistryStores {
   readonly connectionStore?: ConnectionStore;
-  readonly credentialStore?: CredentialStore;
+  // Either a real credential read, or the value that says this deployment has none built. Absent
+  // (undefined) still means "this registry was assembled without one", which resolves as
+  // not-connected the way it always has.
+  readonly credentialStore?: CredentialStore | UnbuiltCredentialStore;
 }
 
 export interface IntegrationRegistry {
@@ -25,7 +38,8 @@ export interface IntegrationRegistry {
 
 // One registered first-party adapter per category at launch. Resolution: credential-less adapters
 // instantiate directly; credentialed ones require a healthy connection + a loaded credential,
-// returning a typed `not-connected` otherwise — never a throw.
+// returning a typed `not-connected` otherwise — or `credential-store-not-implemented` where the
+// deployment has no per-firm credential read at all. Never a throw.
 export function createIntegrationRegistry(stores: RegistryStores = {}): IntegrationRegistry {
   const adapters = new Map<string, Adapter<unknown>>();
 
@@ -50,6 +64,12 @@ export function createIntegrationRegistry(stores: RegistryStores = {}): Integrat
       }
 
       const { connectionStore, credentialStore } = stores;
+      // Answered BEFORE the connection lookup, and separately from it: with no credential read
+      // there is no connection that could ever resolve, so reporting "not connected" would be a
+      // true-sounding sentence pointing at the wrong remedy.
+      if (credentialStore !== undefined && isUnbuiltCredentialStore(credentialStore)) {
+        return credentialStoreNotImplemented();
+      }
       if (connectionStore === undefined || credentialStore === undefined) return notConnected();
 
       // A user-scoped port MUST carry a user — never silently fall back to a firm-wide lookup, which

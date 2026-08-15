@@ -71433,6 +71433,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       },
@@ -71773,6 +71783,16 @@
               }
             }
           },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
             "content": {
@@ -71907,6 +71927,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -72111,6 +72141,16 @@
               }
             }
           },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
             "content": {
@@ -72235,6 +72275,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {

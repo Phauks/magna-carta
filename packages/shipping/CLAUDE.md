@@ -16,3 +16,8 @@ The shipping & postage domain: the `ShippingPort` (our vocabulary — `validateA
   at the boundary (EasyPost output is untrusted).
 - The credential is an API key (`{ kind: "apiKey", scope: "firm" }`) — one postage account per firm.
   Never log it or splice an upstream body into an error detail.
+- **The per-firm credential read is still an unbuilt seam, and that is answered, not thrown.** Until
+  the marketplace slice wires it, connecting an account and every carrier operation answer `501`
+  `not-implemented` (`apps/worker/src/routes/shipping.ts`), sourced from the framework's
+  `credential-store-not-implemented` dispatch outcome. Drafting a shipment deliberately still
+  succeeds — a draft is the firm's own addresses and parcel and needs no carrier.

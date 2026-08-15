@@ -28,7 +28,7 @@
   status: partial
   adrs: ADR-0092, ADR-0095
   evidence: packages/integrations/src/connection.ts + credentials.ts; apps/worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
-  notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification.
+  notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.
 
 - id: integrations.platform-foundation
   name: Manifest-driven registration
@@ -129,7 +129,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094
   evidence: packages/shipping/src/easypost/ + shipment routes; per status.d fragment built done, tests todo.
-  notes: Rate-shop, purchase, track and refund all 500 today — the firm-secret credential read is an unbuilt seam (firmSecretStoreNotYetAvailable), so connecting a real key changes nothing; draft creation succeeds regardless. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
+  notes: The firm-secret credential read is still an unbuilt seam (firmSecretStoreNotYetAvailable), so no postage account can be connected and no label can be rated or bought — but the seam now REFUSES rather than throws. Connect, rate-shop, purchase, track and refund answer 501 not-implemented from the credential-store-not-implemented dispatch outcome; before 2026-08-15 all five answered 500. Draft creation succeeds by design (a draft needs no carrier). Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.shipping.certified-mail
   name: Certified mail
