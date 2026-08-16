@@ -29,7 +29,7 @@ import {
 } from "./scheduled.ts";
 import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { discoveryProcessQueue } from "./discovery/process-consumer.ts";
-import type { DiscoveryProcessMessage } from "./discovery/discovery-process-types.ts";
+import type { DiscoveryLaneMessage } from "./discovery/discovery-process-types.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
 import { searchCompactionQueue } from "./search/compaction-consumer.ts";
 import type { SearchCompactionMessage } from "./search/compaction-types.ts";
@@ -243,9 +243,10 @@ export default {
     if (batch.queue === MAGNUS_QUEUE) {
       return magnusQueue(batch as MessageBatch<MagnusTurnJob>, env);
     }
-    // The discovery processing queue routes to the processing consumer (read -> extract -> record).
+    // The discovery processing queue routes to the processing consumer (read -> extract -> record),
+    // which also answers the one completion message a load sends when its last document ends.
     if (batch.queue === DISCOVERY_PROCESS_QUEUE) {
-      return discoveryProcessQueue(batch as MessageBatch<DiscoveryProcessMessage>, env);
+      return discoveryProcessQueue(batch as MessageBatch<DiscoveryLaneMessage>, env);
     }
     // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
     if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {

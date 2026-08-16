@@ -44,6 +44,8 @@ describe("a processed document always names its route and its format", () => {
         textFingerprint: "9f2c1a04bb37de55",
         sortDate: "2026-03-04T00:00:00Z",
         sortDateSource: "documentProperties",
+        contentMd5: null,
+        contentSha1: null,
       },
       NOW,
     ) as unknown as InspectableStatement;
@@ -65,6 +67,8 @@ describe("a processed document always names its route and its format", () => {
       textFingerprint: null,
       sortDate: null,
       sortDateSource: null,
+      contentMd5: null,
+      contentSha1: null,
     };
     expect(typeof facts.formatIdentified).toBe("string");
     expect(typeof facts.extractionRoute).toBe("string");
@@ -94,6 +98,8 @@ describe("a processed document always names its route and its format", () => {
         textFingerprint: null,
         sortDate: null,
         sortDateSource: null,
+        contentMd5: null,
+        contentSha1: null,
       },
       NOW,
     ) as unknown as InspectableStatement;
@@ -179,7 +185,7 @@ describe("an exception detail never carries file content", () => {
     );
     const insertBuilder = source.slice(source.indexOf("insertReviewDocumentExceptionStatement"));
     const statementBody = insertBuilder.slice(0, insertBuilder.indexOf("\n}"));
-    expect(statementBody).toContain("VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
+    expect(statementBody).toContain("VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)");
     expect(statementBody).not.toMatch(/\$\{(?!REVIEW_DOCUMENT_EXCEPTION_TABLE)/);
   });
 });

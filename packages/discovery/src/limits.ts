@@ -30,6 +30,16 @@ export const LOAD_CHUNK_SIZE = 1000;
 // own recorded act with its own manifest — which is a better record anyway.
 export const MAX_SELECTION_SIZE = 5000;
 
+// How many custodians of record a load's record artifacts name in their header block. The bound
+// exists because the header is read whole, and the number is generous: a production naming more than
+// five thousand distinct custodians is not a header, it is a corpus of its own.
+//
+// It is NOT a truncation of the attribution. Every document entry in the manifest carries its own
+// record-custodian identifier, and the header is a convenience index over them — so a review set
+// past this bound loses a summary and never loses a fact. The artifact says so where it happens
+// rather than quietly rendering a short list.
+export const MANIFEST_RECORD_CUSTODIAN_CEILING = 5000;
+
 // How many documents one bulk coding operation writes per committed batch. Each application binds
 // well under twenty parameters and the access predicate adds one, so a chunk of this size sits inside
 // the per-statement parameter ceiling with room to spare — the REVIEW_DOCUMENT_INSERT_BATCH_SIZE

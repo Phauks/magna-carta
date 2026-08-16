@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 739 nodes of the feature ledger in
+is the complete register rather than a digest: all 740 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,25 +19,25 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**739 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**740 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 257 | 35% |
-| Part-built | partial, in-build | 217 | 29% |
+| Done | shipped | 259 | 35% |
+| Part-built | partial, in-build | 216 | 29% |
 | Ahead | designed, planned, researching, not-started | 222 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **739** | **100%** |
+| **All capabilities** | | **740** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 257 | 35% |
-| `partial` | 202 | 27% |
+| `shipped` | 259 | 35% |
+| `partial` | 201 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
 | `planned` | 19 | 3% |
@@ -45,13 +45,13 @@ below; these are the totals over that list.
 | `not-started` | 159 | 21% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **739** | **100%** |
+| **All statuses** | **740** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 257 of 739 (35%). Shipped plus partial is 459 (62%).**
+**Shipped alone is 259 of 740 (35%). Shipped plus partial is 460 (62%).**
 
-The 202 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 201 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -71,7 +71,7 @@ true and neither is the answer on its own.
 | Core Domain — Directory, Matters & Locations | 32 | 34 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 74 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
-| Discovery (e-discovery) | 4 | 14 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 25 | 16% |
+| Discovery (e-discovery) | 6 | 13 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 26 | 23% |
 | Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **257** | **202** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **739** | **35%** |
+| **All areas** | **259** | **201** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **740** | **35%** |
 
 ## Where we have been
 
@@ -629,18 +629,19 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 25 nodes, 16% shipped. 4 done, 14 part-built, 5 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 26 nodes, 23% shipped. 6 done, 13 part-built, 5 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
   - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
     - `discovery.pipeline.engine` · `shipped` · **Discovery engine core** — Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion. _Note: Backend only, no user surface. The composite extraction port now routes to it — see discovery.pipeline.extraction-port._
     - `discovery.pipeline.extraction-port` · `partial` · **Composite extraction port** — Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran. _Note: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands._
-    - `discovery.pipeline.processing-lane` · `partial` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: Deduplication, container families, and the manifest and exception-report artifacts written at load completion are the remainder of this sub-slice._
+    - `discovery.pipeline.processing-lane` · `partial` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. Enqueuing review documents into the review-set corpus is 5-1-4._
+    - `discovery.pipeline.load-record` · `shipped` · **Load manifest and exception report** — The two records a load produces — what arrived, and every document that could not be read with the named reason for each — written once to R2 in a machine-readable and a printable form. _Note: Three deviations from the design are recorded rather than silently taken — three digests rather than five (the shipped row has three columns and no load-file specification asks for the other two), the extraction routes the corpus observed in place of engine version pins (no engine reports a version over its binding yet), and an exception row that may sit on a document whose state is `processed`, which is what a container with encrypted entries actually is._
     - `discovery.pipeline.review-set` · `partial` · **Review-set model** — The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest. _Note: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403._
     - `discovery.pipeline.load-lanes` · `partial` · **Load source lanes** — Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system. _Note: direct-collection is declared and refused BY NAME so its absence is visible rather than mysterious — it needs a collection tool, not an ingest path. Assistant transcripts are likewise refused by name until their lane lands with the review surface._
   - `discovery.ocr` · `shipped` · **OCR engine** — PaddleOCR PP-OCR models run as ONNX through a Rust ort pipeline, one pinned versioned model set for server Container and desktop. _Note: UI todo; ocr-raster-cap-and-skip-gate branch in flight; Tesseract/ocrs fallbacks and docTR head-to-head resolve in the future discovery subsystem spec._
   - `discovery.archive-handling` · `shipped` · **Opaque archive storage** — Uploaded archives stored opaque (versioned, hashed, on the matter); never expanded server-side.
-    - `discovery.archive-handling.contents-indexing` · `partial` · **Archive contents in review** — Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload. _Note: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all._
+    - `discovery.archive-handling.contents-indexing` · `shipped` · **Archive contents in review** — Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload. _Note: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all. The narrow exception is scoped to this lane and nowhere else._
   - `discovery.search` · `partial` · **Search** — Full-text and semantic search over the discovery corpus.
     - `discovery.search.keyword` · `partial` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
