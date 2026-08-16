@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-15 (the CI outage was traced to an account billing block rather than a workflow fault — its owner step is the section immediately below and it gates every merge, not only every deploy; the Tools catalog audit added five steps; and Turnstile activation is now an ordered set of steps with a UI prerequisite rather than a runbook checkbox)._
+_Last updated: 2026-08-16 (the notification digest is built and dormant — three values in a fixed order, and an hourly Cron trigger that rides the deploy; the CI outage remains the entry immediately below and still gates every merge, not only every deploy)._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
@@ -422,6 +422,49 @@ edges. Everything is committed; the steps below are the deploy, in order.
    the worker's initialisation error — the most likely causes are a missing
    system library (the build gates on that with `ldd`, so it should be caught
    earlier) or a suite that could not write its user profile.
+
+## Notification digest activation — three values, in this order, and nothing is mailed until all three exist
+
+The digest is built and dormant. `resolveNotificationDigestSendPort`
+(`apps/worker/src/notifications/digest-send-port.ts`) checks three things and, if any is missing,
+reports a typed reason, counts `notifications.digest_unavailable`, and exits the hourly pass before
+it reads a single firm. **Nobody receives anything and no watermark moves** — deliberately, so that
+turning this on later delivers the backlog rather than discovering it was silently discarded.
+
+Do them in this order; each one is inert without the ones before it.
+
+1. **Verify a sending domain in Cloudflare Email Service** (Cloudflare dashboard → **Email** →
+   **Email Sending** → add and verify the domain the firm will send from, completing its DNS
+   records). This is the long pole — DNS propagation and verification, not a click.
+2. **Bind the app worker to it.** The `send_email` binding is what `env.SEND_EMAIL` resolves to. The
+   binding already exists for password-reset and verification mail; if it is present, this step is
+   done. Missing binding → reason `send-binding-not-configured`.
+3. **Set `EMAIL_FROM`** to an address on the verified domain (a `wrangler.jsonc` var, not a secret —
+   it is public configuration). Missing → reason `sender-address-not-configured`. Note that this
+   variable also switches password-reset and verification mail off the dev logging adapter, so
+   setting it changes more than the digest.
+4. **Set `APP_BASE_URL`** to the deployment's public origin, e.g. `https://app.magnacarta.esq` — a
+   `wrangler.jsonc` var, not a secret. Every request-serving path derives its own origin from the
+   request; this exists for the background passes that have no request, and the digest's one link
+   back into the product cannot be built without it. Missing → reason
+   `app-base-url-not-configured`.
+
+**A new Cron trigger rides this deploy.** `wrangler.jsonc` gains `"0 * * * *"` alongside the existing
+`*/5`, `*/10` and `0 3` expressions. Hourly is the granularity a firm-local morning needs and no
+finer; firms whose local hour it is not cost two small setting reads. It deploys with the worker —
+there is no dashboard step — but it is listed here because a manual Cron review would otherwise read
+it as unexplained.
+
+**How to confirm it worked**, without sending test mail to a real firm: watch
+`notifications.digest_unavailable` stop being reported at the top of each hour. While any of the
+three values is missing it is counted every pass; once all three exist the counter goes silent and
+`notifications.digest_sent` starts reporting on the hour that matches a firm's configured local
+hour (default 07:00 in the firm's own zone, from its default office).
+
+**What a digest will say when it does go out:** a subject of the form
+`Magna Carta — 6 items need your attention`, a body of per-category counts and one link. No matter
+title, number, client name, filename, date or amount — see `docs/user/features/notification-emails.md`
+for the member-facing description.
 
 ## Email capture activation (after the mint route ships)
 

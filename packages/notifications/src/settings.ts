@@ -6,10 +6,17 @@ import {
   type FirmSettingDefinition,
 } from "@magna-carta/data-access/setting-statements";
 import { SCOPED_SETTING_TABLE } from "@magna-carta/data-access/scoped-setting-statements";
+import { readLocationTimeZone } from "@magna-carta/calendar/resource-statements";
+import { isResolvableTimeZone } from "@magna-carta/calendar/time-zone";
+import { firmDefaultLocationDefinition } from "@magna-carta/locations/settings";
+import type { LocationId } from "@magna-carta/identifiers/types";
 import {
+  DEFAULT_DIGEST_LOCAL_HOUR,
   DEFAULT_RETENTION_DAYS,
   EMAIL_DETAIL_LEVELS,
+  MAX_DIGEST_LOCAL_HOUR,
   MAX_RETENTION_DAYS,
+  MIN_DIGEST_LOCAL_HOUR,
   MIN_RETENTION_DAYS,
   moreCautiousEmailDetailLevel,
   type EmailDetailLevel,
@@ -46,6 +53,42 @@ export function writeNotificationRetentionDaysStatement(
   now: string,
 ): SqlStatement {
   return writeFirmSettingStatement(database, notificationRetentionDaysDefinition, days, now);
+}
+
+// WHEN A SUMMARY LANDS — the firm's own wall-clock hour, not the platform's.
+//
+// Firm-level rather than per-member for the same reason retention is: a firm keeps office hours, and
+// a per-member hour would turn one nightly pass into a per-member schedule for a fact nobody would
+// tune. The zone is not stored beside it — it is READ from the firm's own default office through
+// `resolveFirmDigestZone`, because a second copy of "where this firm is" would eventually disagree
+// with the one the calendar already books against.
+export const notificationDigestLocalHourDefinition: FirmSettingDefinition<number> = {
+  key: "notifications.digestLocalHour",
+  schema: z.number().int().min(MIN_DIGEST_LOCAL_HOUR).max(MAX_DIGEST_LOCAL_HOUR),
+  defaultValue: DEFAULT_DIGEST_LOCAL_HOUR,
+};
+
+export function readNotificationDigestLocalHour(database: SqlDatabase): Promise<number> {
+  return readFirmSetting(database, notificationDigestLocalHourDefinition);
+}
+
+export function writeNotificationDigestLocalHourStatement(
+  database: SqlDatabase,
+  hour: number,
+  now: string,
+): SqlStatement {
+  return writeFirmSettingStatement(database, notificationDigestLocalHourDefinition, hour, now);
+}
+
+// The firm's zone, resolved from its own default office and never stored twice. Null where the firm
+// has set no default location or that location predates the zone column — the caller then anchors on
+// the platform's clock, which is stated rather than silently substituted because a firm that has not
+// told the platform where it is has not been promised a local morning.
+export async function resolveFirmDigestZone(database: SqlDatabase): Promise<string | null> {
+  const defaultLocationId = await readFirmSetting(database, firmDefaultLocationDefinition);
+  if (defaultLocationId === null) return null;
+  const timeZone = await readLocationTimeZone(database, defaultLocationId as LocationId);
+  return timeZone !== null && isResolvableTimeZone(timeZone) ? timeZone : null;
 }
 
 // HOW MUCH AN EMAIL MAY SAY — a MEMBER'S choice under a FIRM'S ceiling.

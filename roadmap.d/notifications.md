@@ -10,7 +10,7 @@
   status: partial
   adrs: ADR-0059, ADR-0251, ADR-0258
   spec: docs/specs/2026-08-06-notifications-delivery-design.md
-  evidence: packages/notifications + five per-firm tables + the read API + the comparison-driven per-firm sweep shipped; preferences and the email digest are later sub-slices, and there is no user interface.
+  evidence: packages/notifications + six per-firm tables + the read API + the comparison-driven per-firm sweep + the per-category preference matrix + the counts-only email digest shipped; there is still no user interface, and the digest cannot reach anybody until outbound mail is provisioned (docs/deploy-queue.md).
   audience: public
   public-name: Notifications
   public-summary: Be told when something needs you, in the app and by email, and only ever about matters you already have access to.
@@ -41,20 +41,22 @@
   name: In-app notification center
   scope: Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through.
   status: partial
-  evidence: Five per-firm tables plus the member-scoped read API (page, unread count, mark read/dismiss/read-all) behind notifications:read; the bell and the list are UI and unbuilt.
+  evidence: Six per-firm tables plus the member-scoped read API (page, unread count, mark read/dismiss/read-all) behind notifications:read; the bell and the list are UI and unbuilt.
   notes: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored.
 
 - id: notifications.channels
   name: Delivery channels
   scope: The channels a notification can route to — in-app, email, SMS, web push, desktop
-  status: not-started
+  status: partial
+  evidence: In-app is the read API (a feed row is not delivered, it is read, so it carries no delivery row by design) and email is the counts-only digest; SMS, web push and desktop are seeded values in the notification_delivery channel CHECK with nothing written to them.
 
 - id: notifications.channels.email
   name: Email channel
   scope: External delivery via the communications layer: transactional provider for system/billing, matter mailbox for thread-bound mail.
-  status: not-started
-  adrs: ADR-0074
-  evidence: Transactional email adapter exists as a transport primitive (apps/worker/src/email-port.ts, email-cloudflare.ts); no notification routing feeds it.
+  status: partial
+  adrs: ADR-0074, ADR-0251
+  evidence: The digest reader, its renderer and its per-firm hourly run are packages/notifications/src/digest.ts, src/digest-render.ts and runNotificationDigestPass in apps/worker/src/scheduled.ts, sending through apps/worker/src/notifications/digest-send-port.ts over the shipped SendEmail port; held by packages/notifications/test/digest.test.ts and test/digest-render.test.ts. Unbuilt here - thread-bound mail through the matter mailbox, and the matter-number detail level, which is declared and renders as counts-only.
+  notes: Digest-only, counts-only. A summary carries a fixed matter-free subject holding a count, a line of per-category counts and one link - no title, number, name, filename, date or amount, enforced by a golden test over a fixture whose matter is named after its parties. Composed per member per cadence from a keyset watermark through the SAME shared read the feed composes, so the wall binds at delivery time in one implementation; sends before it marks; and every row it did not mail is settled as a suppressed notification_delivery row naming a closed reason. Cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL are provisioned - absent any of the three the port reports a typed not-configured reason and the pass mails nobody (docs/deploy-queue.md).
 
 - id: notifications.channels.sms
   name: SMS/MMS channel

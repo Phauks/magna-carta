@@ -368,6 +368,44 @@ export const notificationsDesignatedRecipients = defineMetric(
   "notifications.designated_recipients",
   ["category"] as const,
 );
+// Summaries that actually left the platform, by cadence. The pair with `digest_items` below is what
+// makes a mailing legible: summaries steady while items collapse is a window that has stopped
+// filling, and items steady while summaries collapse is a send path that has stopped sending.
+// `cadence` is a closed label; no member, no firm, and no address appears here or anywhere near it.
+export const notificationsDigestSent = defineMetric("notifications.digest_sent", [
+  "cadence",
+] as const);
+export const notificationsDigestItems = defineMetric("notifications.digest_items", [
+  "cadence",
+] as const);
+// A copy that did NOT leave, by the closed reason it did not — the counter that keeps an unsent
+// email as visible as a sent one. Without it, a member who chose not to be mailed and a member the
+// platform silently failed to mail produce the same observable, which is the failure mode a
+// preference system has and the one this subsystem already refuses in app.
+export const notificationsDigestSuppressed = defineMetric("notifications.digest_suppressed", [
+  "reason",
+] as const);
+// The whole channel is unprovisioned on this deployment: no send binding, no verified sender, or no
+// public origin to link to. Counted every pass rather than logged once, because "the digest has
+// never run here" and "the digest ran and had nothing to say" are different facts and only the
+// first is a deployment step somebody still owes. `reason` is the port's own closed vocabulary.
+export const notificationsDigestUnavailable = defineMetric("notifications.digest_unavailable", [
+  "reason",
+] as const);
+// Members one firm's pass could not consider because the per-run cap removed them. A firm's staff is
+// the natural bound and the cap sits far above any plausible one, so a non-zero value is a fan-out
+// fault rather than a busy day.
+export const notificationsDigestRecipientsClamped = defineMetric(
+  "notifications.digest_recipients_clamped",
+  ["cadence"] as const,
+);
+// Rows a kind declaring `immediate` stopped a summary's walk at. No registered kind declares one, so
+// a non-zero value means a type was added without the immediate send path it needs — and the walk
+// halted rather than folding a compliance-grade notice into a day's counts.
+export const notificationsDigestRefusedEscalation = defineMetric(
+  "notifications.digest_refused_escalation",
+  ["cadence"] as const,
+);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -426,6 +464,12 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsComparisonClamped,
   notificationsSuppressedByPreference,
   notificationsDesignatedRecipients,
+  notificationsDigestSent,
+  notificationsDigestItems,
+  notificationsDigestSuppressed,
+  notificationsDigestUnavailable,
+  notificationsDigestRecipientsClamped,
+  notificationsDigestRefusedEscalation,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

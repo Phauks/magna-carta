@@ -21,6 +21,7 @@ import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
   runConflictsRecheckSweep,
   runNotificationComparisonSweep,
+  runNotificationDigestPass,
   runNotificationRetentionSweep,
   runScheduledSweep,
   runStatusSnapshot,
@@ -130,6 +131,13 @@ const RECONCILIATION_CRON = "0 3 * * *";
 // and the daily reconciliation pass.
 const STATUS_SNAPSHOT_CRON = "*/10 * * * *";
 
+// The notification-digest Cron expression (wrangler.jsonc triggers.crons). Hourly and no finer: a
+// summary is anchored to the FIRM's own morning rather than to UTC's, so the pass has to wake every
+// hour and ask each firm whether its local hour has come round. Firms whose hour it is not cost two
+// small setting reads; only the firm whose morning it is does any work. A deployment with no
+// outbound-mail provisioning exits the pass before it reads a single firm.
+const NOTIFICATION_DIGEST_CRON = "0 * * * *";
+
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
 // reconciliation once daily, and the weekly re-scan sweep on Sundays at 04:00 UTC; the queue
@@ -183,7 +191,12 @@ export default {
           }
         : controller.cron === STATUS_SNAPSHOT_CRON
           ? { operation: "cron:status-snapshot", run: () => runStatusSnapshot(env) }
-          : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+          : controller.cron === NOTIFICATION_DIGEST_CRON
+            ? {
+                operation: "cron:notification-digest",
+                run: () => runNotificationDigestPass(env),
+              }
+            : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);

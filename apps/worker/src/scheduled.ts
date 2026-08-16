@@ -31,10 +31,46 @@ import {
   retentionSweepSuppressionDeleteStatement,
   selectSweepableUnreadTallyStatement,
 } from "@magna-carta/notifications/retention";
-import { readNotificationRetentionDays } from "@magna-carta/notifications/settings";
+import {
+  readNotificationDigestLocalHour,
+  readNotificationRetentionDays,
+  resolveEmailDetailLevel,
+  resolveFirmDigestZone,
+} from "@magna-carta/notifications/settings";
+import {
+  composeDigest,
+  newNotificationDigestId,
+  readDigestCandidates,
+  readDigestWindow,
+  settleDigestStatements,
+} from "@magna-carta/notifications/digest";
+import { renderNotificationDigest } from "@magna-carta/notifications/digest-render";
+import {
+  createNotificationPolicyReader,
+  type NotificationPolicyReader,
+} from "@magna-carta/notifications/preferences";
+import {
+  defaultEmailCadenceFor,
+  DIGEST_WEEKLY_LOCAL_WEEKDAY,
+  type NotificationDigestCadence,
+  type NotificationSuppressedReason,
+} from "@magna-carta/notifications/types";
 import { sweepFirmComparisonNotifications } from "@magna-carta/notifications/sweep";
+import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { zonedReading } from "@magna-carta/calendar/time-zone";
+import {
+  DIGEST_MESSAGE_CLASS,
+  resolveNotificationDigestSendPort,
+  type NotificationDigestSendPort,
+} from "./notifications/digest-send-port.ts";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
-import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
+import type {
+  FileVersionId,
+  FirmId,
+  NotificationDigestId,
+  UploadSessionId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -779,6 +815,263 @@ export async function runNotificationRetentionSweep(env: Bindings): Promise<numb
     }
   }
   return firmsSwept;
+}
+
+// THE EMAIL DIGEST PASS — the first time anything in this subsystem leaves the platform.
+//
+// Every other notification surface is a row a member reads inside the product, behind their session
+// and the visible-matter predicate. This one hands a copy to a mailbox the firm may not administer,
+// cannot recall, and cannot re-filter when access changes. That is why the mail says only how many
+// items are waiting in which categories and gives one link back in — the boundary is decided and
+// enforced in `@magna-carta/notifications/digest-render`, and nothing here composes a line of it.
+//
+// WHY HOURLY. A summary is anchored to the FIRM's own morning rather than to UTC's, so the pass has
+// to wake every hour and ask each firm whether its local hour has come round. Firms whose hour it is
+// not are two small setting reads and nothing else; only the firm whose morning it is does work.
+//
+// WHY THE WHOLE PASS CAN BE A NO-OP. Outbound mail is an unprovisioned seam on a deployment with no
+// Email Service binding, no verified sender, or no public origin. The port answers with a typed
+// reason rather than throwing or, worse, resolving to the dev logging adapter — which would return
+// successfully having mailed nobody while this pass recorded `sent` rows and advanced watermarks
+// nobody could get back. The reason is counted every pass, because a channel that has never been
+// provisioned must not look like a channel with nothing to say.
+export async function runNotificationDigestPass(
+  env: Bindings,
+  // The port is injectable on the same terms the conversion engine resolver is: the real one is
+  // built over a Cloudflare binding the local test pool cannot exercise, and a channel whose only
+  // coverage is "it correctly refuses to run" is a channel nobody has watched compose a message.
+  options: {
+    readonly now?: Date;
+    readonly port?: NotificationDigestSendPort;
+  } = {},
+): Promise<number> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+
+  const port = options.port ?? resolveNotificationDigestSendPort(env, logger);
+  if (port.status === "unavailable") {
+    logger.count("notifications.digest_unavailable", { reason: port.reason }, 1);
+    return 0;
+  }
+
+  const now = options.now ?? new Date();
+  const nowInstant = now.toISOString();
+  const firms = await listReachableActiveFirms(env);
+  let firmsMailed = 0;
+
+  for (const firm of firms) {
+    try {
+      const anchorHour = await readNotificationDigestLocalHour(firm.database);
+      const zone = await resolveFirmDigestZone(firm.database);
+      const local = firmLocalReading(now, zone);
+      if (local.hour !== anchorHour) continue;
+
+      const cadences: NotificationDigestCadence[] =
+        local.weekday === DIGEST_WEEKLY_LOCAL_WEEKDAY ? ["daily", "weekly"] : ["daily"];
+
+      // One policy reader for the whole firm's pass: a firm's members resolve the same preference
+      // matrix for every cadence and every candidate, and re-reading it per member per cadence would
+      // double the pass's query count for an answer that cannot change inside it.
+      const policy = createNotificationPolicyReader(firm.database);
+      for (const cadence of cadences) {
+        await runFirmDigestCadence({
+          firm,
+          cadence,
+          policy,
+          port,
+          logger,
+          correlationId,
+          now: nowInstant,
+          controlPlane: env.DB_CONTROL,
+        });
+      }
+      firmsMailed++;
+    } catch (caught) {
+      // One firm's failure is quarantined exactly as the outbox sweep quarantines a sick firm
+      // database: every firm is addressable, so an unguarded throw would abort the pass fleet-wide.
+      logOperationFailed(logger, `cron:notification-digest:${firm.firmId}`, caught, correlationId);
+    }
+  }
+  return firmsMailed;
+}
+
+// The firm's wall-clock hour and weekday. Where the firm has told the platform where it is — through
+// the default office the calendar already books against — that zone decides; where it has not, the
+// platform's own clock does, which is stated rather than guessed at, because a firm that has set no
+// default location has not been promised a local morning.
+function firmLocalReading(now: Date, zone: string | null): { hour: number; weekday: number } {
+  if (zone === null) return { hour: now.getUTCHours(), weekday: now.getUTCDay() };
+  const reading = zonedReading(now.getTime(), zone);
+  return {
+    hour: Number.parseInt(reading.wallClockTime.slice(0, 2), 10),
+    // The weekday of the firm's own civil date, read as a plain calendar date rather than as an
+    // instant — the zone has already been applied, and re-applying it here would shift the day.
+    weekday: new Date(`${reading.civilDate}T00:00:00.000Z`).getUTCDay(),
+  };
+}
+
+async function runFirmDigestCadence(options: {
+  readonly firm: ReachableActiveFirm;
+  readonly cadence: NotificationDigestCadence;
+  readonly policy: NotificationPolicyReader;
+  readonly port: Extract<NotificationDigestSendPort, { status: "configured" }>;
+  readonly logger: Logger;
+  readonly correlationId: string;
+  readonly now: string;
+  readonly controlPlane: D1Database;
+}): Promise<void> {
+  const { firm, cadence, logger, now } = options;
+  const { candidates, clamped } = await readDigestCandidates(firm.database, cadence);
+  if (clamped > 0) {
+    logger.count("notifications.digest_recipients_clamped", { cadence }, clamped);
+  }
+  if (candidates.length === 0) return;
+
+  // The wall, composed in SQL before the LIMIT, on the same predicate the feed and the unread count
+  // compose. The digest is the dangerous read — it runs with no request context, on a member's
+  // behalf — which is exactly why it resolves through the shared read rather than a second one.
+  const visibility = visibleMatterPredicate();
+  // Addresses come from the control plane in ONE bounded read, keyed by exactly the members this
+  // firm's own database resolved as recipients. No address is ever logged, counted, or stored.
+  const addresses = await readMemberEmailAddresses(
+    options.controlPlane,
+    candidates.map((candidate) => candidate.recipientUserId),
+  );
+
+  let sent = 0;
+  let items = 0;
+  const suppressedByReason = new Map<string, number>();
+  let refusedEscalation = 0;
+
+  for (const candidate of candidates) {
+    const window = await readDigestWindow(
+      firm.database,
+      { recipientUserId: candidate.recipientUserId, visibility },
+      candidate.watermark,
+    );
+    const preferences = (
+      await options.policy.preferencesFor([candidate.recipientUserId as UserId])
+    ).get(candidate.recipientUserId as UserId);
+    const composition = composeDigest({
+      cadence,
+      window,
+      cadenceForCategory: (category) =>
+        preferences?.get(category)?.email ?? defaultEmailCadenceFor(category),
+    });
+    refusedEscalation += composition.refusedEscalation;
+
+    const detailLevel = await resolveEmailDetailLevel(firm.database, candidate.recipientUserId);
+    const address = addresses.get(candidate.recipientUserId);
+
+    // A member with nothing visible in the window gets NO email. A "you have nothing" message trains
+    // people to ignore the channel, and a channel people ignore has stopped working for the
+    // categories that matter.
+    let digestId: NotificationDigestId | null = null;
+    let withholdAllReason: NotificationSuppressedReason | undefined;
+    if (composition.carriedRecipientIds.length === 0) {
+      // Nothing to send. Any rows the member's own cadence withheld are still settled below.
+    } else if (detailLevel.effective === "off") {
+      // The member, or their firm's ceiling, said the mail should carry nothing at all. That is a
+      // preference, and it is recorded as one against every row it stopped.
+      withholdAllReason = "preference";
+    } else if (address === undefined) {
+      withholdAllReason = "no-address";
+    } else {
+      const rendered = renderNotificationDigest({
+        composition,
+        detailLevel: detailLevel.effective,
+        appBaseUrl: options.port.appBaseUrl,
+      });
+      digestId = newNotificationDigestId();
+      // SEND FIRST, THEN MARK. A crash between the two re-sends a summary next run, which is an
+      // annoyance; marking first risks losing one, which is a missed deadline.
+      try {
+        await options.port.send({
+          to: address,
+          subject: rendered.subject,
+          text: rendered.text,
+          messageClass: DIGEST_MESSAGE_CLASS,
+        });
+        sent++;
+        items += composition.totalCount;
+      } catch (caught) {
+        // One member's transport failure must not starve the rest of the firm's mail — the same
+        // quarantine every per-firm pass applies to one sick database, one member down. NOTHING is
+        // settled and the mark stays where it was, so the next run reads the same window: writing a
+        // `failed` delivery row would settle it against the one-row-per-channel constraint and the
+        // member would never be told at all. The failure is already an `email.sent` event with a
+        // failed outcome from the port itself; this records which pass it happened in.
+        digestId = null;
+        logOperationFailed(
+          options.logger,
+          `cron:notification-digest-send:${firm.firmId}`,
+          caught,
+          options.correlationId,
+        );
+      }
+    }
+
+    for (const withheld of composition.withheld) {
+      suppressedByReason.set(withheld.reason, (suppressedByReason.get(withheld.reason) ?? 0) + 1);
+    }
+    if (withholdAllReason !== undefined) {
+      suppressedByReason.set(
+        withholdAllReason,
+        (suppressedByReason.get(withholdAllReason) ?? 0) + composition.carriedRecipientIds.length,
+      );
+    }
+
+    // The delivery rows and the watermark commit together: a crash between them would advance past
+    // rows nothing recorded.
+    await commitEffectBatch(
+      firm.database,
+      {
+        statements: [
+          ...settleDigestStatements(firm.database, {
+            recipientUserId: candidate.recipientUserId,
+            cadence,
+            composition,
+            digestId,
+            withholdAllReason,
+            now,
+          }),
+        ],
+        outboxMessages: [],
+      },
+      { now: () => now },
+    );
+  }
+
+  if (sent > 0) {
+    logger.count("notifications.digest_sent", { cadence }, sent);
+    logger.count("notifications.digest_items", { cadence }, items);
+  }
+  for (const [reason, count] of suppressedByReason) {
+    logger.count("notifications.digest_suppressed", { reason }, count);
+  }
+  if (refusedEscalation > 0) {
+    logger.count("notifications.digest_refused_escalation", { cadence }, refusedEscalation);
+  }
+}
+
+// Addresses for exactly the members this firm resolved as recipients, in one bounded read against
+// the control plane where Better Auth keeps them. The addresses are held for the length of one
+// cadence's pass and reach nothing but the send port: no log, no counter dimension, no stored row.
+async function readMemberEmailAddresses(
+  controlPlane: D1Database,
+  userIds: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const placeholders = userIds.map((_userId, index) => `?${index + 1}`).join(", ");
+  const { results } = await controlPlane
+    .prepare(`SELECT id, email FROM "user" WHERE id IN (${placeholders}) ORDER BY id`)
+    .bind(...userIds)
+    .all<{ id: string; email: string | null }>();
+  const byUserId = new Map<string, string>();
+  for (const row of results) {
+    if (row.email !== null && row.email !== "") byUserId.set(row.id, row.email);
+  }
+  return byUserId;
 }
 
 // The status-snapshot Cron pass (its own */10 Cron, separate from both the */5 sweep and the daily

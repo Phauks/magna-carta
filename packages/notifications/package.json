@@ -19,7 +19,9 @@
     "./translate": "./src/translate.ts",
     "./sweep": "./src/sweep.ts",
     "./job-completion": "./src/job-completion.ts",
-    "./retention": "./src/retention.ts"
+    "./retention": "./src/retention.ts",
+    "./digest": "./src/digest.ts",
+    "./digest-render": "./src/digest-render.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -36,6 +38,7 @@
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "zod": "catalog:"
   },
