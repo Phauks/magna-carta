@@ -832,6 +832,131 @@ describe("the safekeeping link", () => {
   });
 });
 
+describe("the firm's own fields on an asset", () => {
+  // The firm's own fields reach an asset through the custom-fields engine and nothing else — this
+  // register mints no second key/value store. So the round trip crosses two route surfaces on
+  // purpose: the field is DEFINED and VALUED through /api/v1/custom-fields, and READ back on the
+  // asset's own detail. If those two ever stop agreeing, this is the test that says so.
+  async function defineAssetField(
+    name: string,
+    kind: string,
+    assetClass: string | null,
+  ): Promise<string> {
+    const response = await post("/api/v1/custom-fields/fields", {
+      name,
+      kind,
+      target: "matterAsset",
+      attachmentId: assetClass,
+    });
+    expect(response.status).toBe(201);
+    const { id } = (await response.json()) as { id: string };
+    return id;
+  }
+
+  async function setValue(fieldId: string, assetId: string, value: unknown): Promise<Response> {
+    return SELF.fetch("https://example.com/api/v1/custom-fields/values", {
+      method: "PUT",
+      headers: authHeaders(ownerCookie, crypto.randomUUID()),
+      body: JSON.stringify({ fieldId, targetRowId: assetId, value }),
+    });
+  }
+
+  async function customFieldsOn(assetId: string) {
+    const response = await get(`/api/v1/matter-assets/${assetId}`);
+    expect(response.status).toBe(200);
+    const detail = (await response.json()) as {
+      customFields: {
+        fieldId: string;
+        name: string;
+        kind: string;
+        valueText: string | null;
+        valueNumber: number | null;
+        valueId: string | null;
+      }[];
+    };
+    return detail.customFields;
+  }
+
+  it("carries a firm's own field onto an asset and reads its value back on the detail", async () => {
+    const fieldId = await defineAssetField("Homeowners association", "single-line", "realProperty");
+    const assetId = await createAsset({
+      assetClass: "realProperty",
+      description: "The cabin at Incline Village",
+    });
+
+    expect(
+      (await setValue(fieldId, assetId, { kind: "text", text: "Tahoe Ridge HOA" })).status,
+    ).toBe(200);
+
+    const fields = await customFieldsOn(assetId);
+    const homeownersAssociation = fields.find((field) => field.fieldId === fieldId);
+    expect(homeownersAssociation?.name).toBe("Homeowners association");
+    expect(homeownersAssociation?.valueText).toBe("Tahoe Ridge HOA");
+  });
+
+  it("scopes a class-attached field to its class and leaves the other classes alone", async () => {
+    const slipNumber = await defineAssetField("Slip number", "single-line", "vehicle");
+    const boat = await createAsset({ assetClass: "vehicle", description: "The Boston Whaler" });
+    const house = await createAsset({ assetClass: "realProperty", description: "The lake house" });
+
+    expect((await setValue(slipNumber, boat, { kind: "text", text: "B-14" })).status).toBe(200);
+
+    expect((await customFieldsOn(boat)).map((field) => field.fieldId)).toContain(slipNumber);
+    // A field a firm attached to vehicles must not turn up on a house — the scoping is the whole
+    // reason the attachment column carries the class rather than the field applying everywhere.
+    expect((await customFieldsOn(house)).map((field) => field.fieldId)).not.toContain(slipNumber);
+  });
+
+  it("offers an unattached field on every class, unanswered until somebody answers it", async () => {
+    const appraiser = await defineAssetField("Appraiser", "single-line", null);
+    const ring = await createAsset({
+      assetClass: "personalProperty",
+      description: "The signet ring",
+    });
+
+    const before = (await customFieldsOn(ring)).find((field) => field.fieldId === appraiser);
+    // Present and empty, not absent: "nobody has filled this in" and "this does not apply here"
+    // are different facts and the detail must be able to say which.
+    expect(before).toBeDefined();
+    expect(before?.valueId).toBeNull();
+    expect(before?.valueText).toBeNull();
+
+    expect((await setValue(appraiser, ring, { kind: "text", text: "Marchetti & Co" })).status).toBe(
+      200,
+    );
+    const after = (await customFieldsOn(ring)).find((field) => field.fieldId === appraiser);
+    expect(after?.valueText).toBe("Marchetti & Co");
+  });
+
+  it("keeps a matter's own fields off the asset detail", async () => {
+    const response = await post("/api/v1/custom-fields/fields", {
+      name: "Referral source",
+      kind: "single-line",
+      target: "matter",
+      attachmentId: null,
+    });
+    expect(response.status).toBe(201);
+    const { id: matterFieldId } = (await response.json()) as { id: string };
+
+    const asset = await createAsset({ assetClass: "other", description: "A thing" });
+    expect((await customFieldsOn(asset)).map((field) => field.fieldId)).not.toContain(
+      matterFieldId,
+    );
+  });
+
+  it("still refuses a target the engine does not offer", async () => {
+    const response = await post("/api/v1/custom-fields/fields", {
+      name: "On a packet",
+      kind: "single-line",
+      target: "custodyPacket",
+      attachmentId: null,
+    });
+    // The safekeeping register's own widening is a separate change on a separate axis; until it is
+    // made, the request schema refuses the value rather than storing one no read recognises.
+    expect(response.status).toBe(422);
+  });
+});
+
 describe("the chokepoint contract", () => {
   it("refuses a caller with no session", async () => {
     const response = await SELF.fetch(`https://example.com/api/v1/matters/${matterId}/assets`, {

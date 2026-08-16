@@ -400,7 +400,7 @@ three separate markers the moment one fact is unrecorded.
 
 ## Your firm's own fields
 
-Every custom field you have defined on matters is a merge field too. Its name in a template is
+Every custom field you have defined **on matters** is a merge field too. Its name in a template is
 `custom.` followed by the field's **handle** — the short code shown beside the field on the field
 list, which you can copy from there:
 
@@ -422,6 +422,12 @@ offers.
 it — you are sent to Archive instead. An archived field simply stops filling in: the document shows a
 marker where it would have been, and the result names it, so you find out by reading rather than by
 someone noticing later.
+
+**A field you defined on a contact or on an asset is not in this list.** Only matter fields are,
+because a document is assembled against one matter and so has one matter row to read a value from. A
+contact field's answers live on a contact record, and an asset field's answers live on one of a
+matter's many assets — neither is a single value a template could fill in, so offering them here
+would give you fields that look available and never print anything.
 
 ## The client's protected details
 

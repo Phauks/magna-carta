@@ -5193,7 +5193,7 @@ export const discoveryRunInternalLoadMutation = (options?: Partial<Options<Disco
 };
 
 /**
- * Defines a custom field on a matter type or entity category.
+ * Defines a custom field on a record axis: a matter, a directory contact, or a matter asset. attachmentId narrows it within that axis — a matter type, a contact category, or an asset class — and null applies the field to every record on the axis.
  */
 export const customFieldsDefineFieldMutation = (options?: Partial<Options<CustomFieldsDefineFieldData>>): MutationOptions<CustomFieldsDefineFieldResponse, CustomFieldsDefineFieldError, Options<CustomFieldsDefineFieldData>> => {
     const mutationOptions: MutationOptions<CustomFieldsDefineFieldResponse, CustomFieldsDefineFieldError, Options<CustomFieldsDefineFieldData>> = {

@@ -13,10 +13,26 @@ export const CUSTOM_FIELD_KINDS = [
   "contact-reference",
 ] as const;
 export type CustomFieldKind = (typeof CUSTOM_FIELD_KINDS)[number];
-export type CustomFieldTarget = "matter" | "entity";
+
+// The record axes a firm may hang its own fields on. ONE HOME: the drizzle column's enum, the
+// define-field request schema, and every scoped read derive from this array rather than restating
+// it, and packages/custom-fields/test/schema-name-sync.test.ts pins the column to it — a target the
+// writer accepts but a reader does not recognise is a field a firm can create and never use.
+//
+// `attachment_id` narrows a field within its target and means something different on each: a matter
+// type on `matter`, a directory category on `entity`, and an asset class on `matterAsset`. It stays
+// an unvalidated handle on all three, because the engine has never known what the axis on the other
+// side of it contains, and importing three domain packages to find out would invert the dependency
+// direction this one is built to avoid.
+export const CUSTOM_FIELD_TARGETS = ["matter", "entity", "matterAsset"] as const;
+export type CustomFieldTarget = (typeof CUSTOM_FIELD_TARGETS)[number];
 
 export function isCustomFieldKind(value: string): value is CustomFieldKind {
   return (CUSTOM_FIELD_KINDS as readonly string[]).includes(value);
+}
+
+export function isCustomFieldTarget(value: string): value is CustomFieldTarget {
+  return (CUSTOM_FIELD_TARGETS as readonly string[]).includes(value);
 }
 
 export type CustomFieldErrorCode =

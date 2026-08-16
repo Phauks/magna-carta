@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { readCustomFieldValuesForScope } from "@magna-carta/custom-fields/reads";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import {
   commitEffectBatch,
@@ -435,6 +436,33 @@ const CustodyPlacementDetail = z
   })
   .openapi("MatterAssetCustodyPlacement");
 
+// One of the firm's own fields as it stands on this asset. The definition travels with the value
+// because the value alone cannot be read: the same stored 500 is five hundred on a number field and
+// five dollars on a currency field, and which value column carries the answer follows from the kind.
+//
+// Every value column is null when the field is defined for this asset's class and nobody has filled
+// it in — which is a different state from the field not applying here at all, and the row's presence
+// is what distinguishes them. A picklist reports its chosen option's handle and a reference its
+// referenced record's handle; resolving either to a label is the caller's read, exactly as it is on
+// the record-values route this shape follows.
+const AssetCustomFieldValue = z
+  .object({
+    fieldId: z.string(),
+    name: z.string(),
+    kind: z.string(),
+    numberScale: z.number().int().nullable(),
+    required: z.boolean(),
+    position: z.number().int(),
+    valueId: z.string().nullable(),
+    valueText: z.string().nullable(),
+    valueNumber: z.number().nullable(),
+    valueDate: z.string().nullable(),
+    valueOptionId: z.string().nullable(),
+    valueReferenceId: z.string().nullable(),
+    validFrom: z.string().nullable(),
+  })
+  .openapi("MatterAssetCustomFieldValue");
+
 const AssetDetail = z
   .object({
     asset: AssetSummary,
@@ -462,6 +490,11 @@ const AssetDetail = z
     // The standing, non-jurisdictional notice for this asset's class, where its class carries one.
     // Rendered and never acted on — nothing in the platform branches on it.
     classHandlingNote: z.string().nullable(),
+    // The firm's own fields for this asset's class, with whatever this asset holds for each. Written
+    // through the custom-fields value routes like every other record's — this register mints no
+    // second way to store a firm's own field, and the engine's lifecycle, caps, value history, and
+    // handle-not-name binding all apply here unchanged.
+    customFields: z.array(AssetCustomFieldValue),
   })
   .openapi("MatterAssetDetail");
 
@@ -1535,6 +1568,16 @@ async function assetDetailPayload(
       ? undefined
       : await readCustodyPlacementForAsset(database, row.custody_item_id);
 
+  // The firm's own fields, scoped by the asset's CLASS through the engine's existing attachment
+  // column — a field naming a class appears on that class, a field naming none appears on every
+  // asset. One read whatever the field count, and the composition happens here rather than in
+  // @magna-carta/matter-assets, which depends on no other domain package and must not start.
+  const customFields = await readCustomFieldValuesForScope(database, {
+    target: "matterAsset",
+    attachmentId: row.class,
+    targetRowId: row.id,
+  });
+
   return {
     asset: assetSummary(row),
     realProperty:
@@ -1655,6 +1698,21 @@ async function assetDetailPayload(
     })),
     valueAsOf: valueAsOf ?? null,
     classHandlingNote: declaration?.handlingNote ?? null,
+    customFields: customFields.map((field) => ({
+      fieldId: field.fieldId,
+      name: field.name,
+      kind: field.kind,
+      numberScale: field.numberScale,
+      required: field.required === 1,
+      position: field.position,
+      valueId: field.valueId,
+      valueText: field.valueText,
+      valueNumber: field.valueNumber,
+      valueDate: field.valueDate,
+      valueOptionId: field.valueOptionId,
+      valueReferenceId: field.valueReferenceId,
+      validFrom: field.validFrom,
+    })),
   };
 }
 

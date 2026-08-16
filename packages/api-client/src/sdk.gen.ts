@@ -2385,7 +2385,7 @@ export const discoveryRunInternalLoad = <ThrowOnError extends boolean = false>(o
 });
 
 /**
- * Defines a custom field on a matter type or entity category.
+ * Defines a custom field on a record axis: a matter, a directory contact, or a matter asset. attachmentId narrows it within that axis — a matter type, a contact category, or an asset class — and null applies the field to every record on the axis.
  */
 export const customFieldsDefineField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsDefineFieldData, ThrowOnError>): RequestResult<CustomFieldsDefineFieldResponses, CustomFieldsDefineFieldErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsDefineFieldResponses, CustomFieldsDefineFieldErrors, ThrowOnError>({
     url: '/api/v1/custom-fields/fields',

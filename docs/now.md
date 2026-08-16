@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 737 nodes of the feature ledger in
+is the complete register rather than a digest: all 739 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,37 +19,37 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**737 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**739 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 256 | 35% |
+| Done | shipped | 257 | 35% |
 | Part-built | partial, in-build | 217 | 29% |
-| Ahead | designed, planned, researching, not-started | 221 | 30% |
+| Ahead | designed, planned, researching, not-started | 222 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **737** | **100%** |
+| **All capabilities** | | **739** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 256 | 35% |
+| `shipped` | 257 | 35% |
 | `partial` | 202 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
-| `planned` | 18 | 2% |
+| `planned` | 19 | 3% |
 | `researching` | 6 | 1% |
-| `not-started` | 159 | 22% |
+| `not-started` | 159 | 21% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **737** | **100%** |
+| **All statuses** | **739** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 256 of 737 (35%). Shipped plus partial is 458 (62%).**
+**Shipped alone is 257 of 739 (35%). Shipped plus partial is 459 (62%).**
 
 The 202 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -68,7 +68,7 @@ true and neither is the answer on its own.
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
 | Community & Feedback Forum | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 1 | 0 | 11 | 0% |
 | Conflicts Check | 5 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 56% |
-| Core Domain — Directory, Matters & Locations | 31 | 34 | 0 | 1 | 1 | 0 | 4 | 1 | 0 | 72 | 43% |
+| Core Domain — Directory, Matters & Locations | 32 | 34 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 74 | 43% |
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 4 | 14 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 25 | 16% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **256** | **202** | **15** | **38** | **18** | **6** | **159** | **41** | **2** | **737** | **35%** |
+| **All areas** | **257** | **202** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **739** | **35%** |
 
 ## Where we have been
 
@@ -221,10 +221,11 @@ shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
-**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**31 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
+- **A supplied asset-schedule template** (`matter-assets.schedule-template`) — Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
 - **Numbering schemes** (`exhibits.numbering`) — Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 - **In-text exhibit references** (`exhibits.references`) — Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
 - **Issued-set freeze** (`exhibits.issue`) — Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
@@ -307,6 +308,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `community.moderation` · **Moderation and abuse handling** — Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
 - `locations.usage.custodian` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
+- `matter-assets.schedule-template` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `custodian.retention-destruction` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
@@ -506,7 +508,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 72 nodes, 43% shipped. 31 done, 34 part-built, 6 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 74 nodes, 43% shipped. 32 done, 34 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -560,14 +562,14 @@ to change a line here, edit the node in its area file and re-run the build.
     - `locations.usage.documents-billing` · `not-started` · **Location identity on generated output** — Location fields feed the data dictionary so generated documents and invoices carry correct office identity. _Note: The source data (remit-to, addresses) is shipped; no consumer exists._
   - `locations.access-model` · `shipped` · **Location as filter, not gate** — Location is a view/reporting filter; data stays firm-wide open by default; hard per-location separation is a reserved seam.
   - `locations.soft-delete` · `shipped` · **Location soft-delete** — A Location referenced by a matter, trust account, or custody record is closed/archived, never hard-deleted.
-- `custom-fields` · `partial` · **Custom-fields engine** — Shared typed custom-fields engine serving Directory categories and matter types. _Note: Backend shipped; definition/entry UI deferred until the app shell._
+- `custom-fields` · `partial` · **Custom-fields engine** — Shared typed custom-fields engine serving matter types, Directory categories, and matter-asset classes. _Note: Backend shipped; definition/entry UI deferred until the app shell._
   - `custom-fields.typed` · `shipped` · **Typed fields and values** — Typed field definitions with value coercion, picklist options, and limits.
   - `custom-fields.stable-identity` · `shipped` · **Stable field identity** — Renaming a field never breaks stored data or templates.
   - `custom-fields.convert` · `shipped` · **Non-destructive retype** — Retyping is a guided, reversible convert. _Note: The guided UX is UI and not built; the reversible conversion machinery is._
   - `custom-fields.retire` · `shipped` · **Archive and gated purge** — Retiring a field archives it without losing history; purge is gated.
   - `custom-fields.temporal-audit` · `shipped` · **Temporal history and audit** — Value history retained over time; changes audited.
-  - `custom-fields.consumers` · `partial` · **Searchable, reportable, automation-usable** — Custom fields usable in search, reporting, and document automation. _Note: Read primitives exist; reporting (reports slice) and document automation (status.d/2-6 not started) consumers do not._
-- `matter-assets` · `partial` · **Matter asset register** — Per-matter register of what a client or an estate owns — the asset row, a closed platform class with a per-firm type catalog under it, structured attributes per class, dated valuations, interests, encumbrances, documents, and the estate schedule. _Note: All ten classes, encumbrances and equity, the grouped schedule, the custody link, and the merge subjects are built. Still open — the firm's own fields on an asset, the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface._
+  - `custom-fields.consumers` · `partial` · **Searchable, reportable, automation-usable** — Custom fields usable in search, reporting, and document automation. _Note: Document automation consumes matter-axis fields as `custom.<handle>` merge keys; the reporting consumer does not exist. A field on the entity or matter-asset axis is deliberately not a merge key — a `custom.<handle>` is a scalar and an assembly has only the matter's row to resolve one against._
+- `matter-assets` · `partial` · **Matter asset register** — Per-matter register of what a client or an estate owns — the asset row, a closed platform class with a per-firm type catalog under it, structured attributes per class, dated valuations, interests, encumbrances, documents, and the estate schedule. _Note: All ten classes, encumbrances and equity, the grouped schedule, the custody link, the merge subjects, and the firm's own fields on an asset are built. Still open — a supplied schedule template (blocked on where platform-authored template content lives at all), the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface._
   - `matter-assets.register` · `partial` · **The asset row and the class spine** — An asset rooted NOT NULL to one matter, a closed ten-value platform class, a per-firm type catalog under that class, a frozen class, an asserted estate treatment and disposition, and soft delete. _Note: All ten classes are available to the write path. Two fields make a row (class and description) — the deliberate inversion of Custodian's mandatory owner link._
   - `matter-assets.attributes` · `shipped` · **Per-class structured attributes** — One one-to-one attribute table per class that has structure, with indexes on the identifiers people search by; no table for a class that has none. _Note: personalProperty and other carry no table by design. A public-record identifier is a plaintext searchable column; matter_asset_digital_asset has no column a credential could ride on, and the write path refuses one by name._
   - `matter-assets.valuations` · `shipped` · **Append-only valuation history and the as-of read** — Dated valuations on a closed basis vocabulary, corrected by compensating rows, with the as-of resolution that returns amount, date, and basis together — and no current-value column anywhere. _Note: A date before an asset's first valuation resolves to nothing rather than to the earliest figure; no route edits or deletes a recorded value._
@@ -578,7 +580,9 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matter-assets.schedule` · `shipped` · **The estate schedule** — Grouped by class as of a date, with value, basis, actual as-of date, unreleased encumbrances, equity, per-class subtotals per currency, and a stated unvalued count. _Note: Not a court form and not a stored document — a read. The as-of date is required with no default, `undetermined` is its own group, the unvalued count is stated rather than hidden, and a group's equity subtotal is withheld when one balance in it is unstated._
   - `matter-assets.class-handling-notice` · `shipped` · **Class handling notices** — A standing, non-jurisdictional sentence on a class whose type carries known legal handling, rendered and acted on by nothing. _Note: The register records what is held and encodes no transfer law; a verified jurisdiction catalog is a separate build behind primary-source research._
   - `matter-assets.custody-link` · `shipped` · **The custody item link** — One nullable column joining a scheduled asset to the custody item that physically holds it, with neither side copying the other's facts. _Note: No unique index — the same held object can be scheduled in two matters. custody_item.declared_value_amount_minor and a valuation answer different questions; nothing syncs them, and the package names no custody declared-value column at all._
-  - `matter-assets.merge-fields` · `shipped` · **Asset subjects in the merge catalogue** — Collection-only merge subjects per class plus an aggregate, filled by one new assembly source, with value and its date declared together and no protected value as a facet. _Note: No assetClass subject declares a scalar — an estate with two houses would make every scalar an absence naming the count. `value` and `valueAsOf` are declared and set together; accountSuffix is the facet and the full number has no key. custom_field.target widening to matterAsset is still open and wants coordinating with the Custodian custodyPacket widening._
+  - `matter-assets.merge-fields` · `shipped` · **Asset subjects in the merge catalogue** — Collection-only merge subjects per class plus an aggregate, filled by one new assembly source, with value and its date declared together and no protected value as a facet. _Note: No assetClass subject declares a scalar — an estate with two houses would make every scalar an absence naming the count. `value` and `valueAsOf` are declared and set together; accountSuffix is the facet and the full number has no key. A firm's own field on an asset is deliberately NOT a merge field — packages/document-assembly/src/custom-field-statements.ts scopes the catalogue to target = 'matter', held by test/custom-field-catalog-scope.test.ts over the whole target vocabulary._
+  - `matter-assets.custom-fields` · `shipped` · **The firm's own fields on an asset** — custom_field.target widened to matterAsset, scoped per class through the engine's existing attachment_id column, with the asset detail returning each scoped field and this asset's value for it. _Note: No migration — custom_field.target is a bare text NOT NULL with no CHECK and drizzle's enum emits no SQL, so check-snapshots reports the per-firm head already current; the readers carry the whole of the safety and the vocabulary has one home. The Custodian custodyPacket widening is decoupled rather than coordinated, because with no migration there is nothing to share._
+  - `matter-assets.schedule-template` · `planned` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm. _Note: The exhibits slice's separator-page and list starter templates wait on the same mechanism answer._
   - `matter-assets.carry-forward` · `planned` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row. _Note: Valuations do not copy by default — a value asserted in one matter as of one date is not an assertion in another._
 
 ### Custodian (Safe Custody)
