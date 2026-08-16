@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 745 nodes of the feature ledger in
+is the complete register rather than a digest: all 751 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**745 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**751 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -28,9 +28,9 @@ below; these are the totals over that list.
 | --- | --- | ---: | ---: |
 | Done | shipped | 262 | 35% |
 | Part-built | partial, in-build | 218 | 29% |
-| Ahead | designed, planned, researching, not-started | 222 | 30% |
+| Ahead | designed, planned, researching, not-started | 228 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **745** | **100%** |
+| **All capabilities** | | **751** | **100%** |
 
 ### Every status
 
@@ -39,17 +39,17 @@ below; these are the totals over that list.
 | `shipped` | 262 | 35% |
 | `partial` | 203 | 27% |
 | `in-build` | 15 | 2% |
-| `designed` | 38 | 5% |
+| `designed` | 44 | 6% |
 | `planned` | 19 | 3% |
 | `researching` | 6 | 1% |
 | `not-started` | 159 | 21% |
-| `deferred` | 41 | 6% |
+| `deferred` | 41 | 5% |
 | `cut` | 2 | 0% |
-| **All statuses** | **745** | **100%** |
+| **All statuses** | **751** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 262 of 745 (35%). Shipped plus partial is 465 (62%).**
+**Shipped alone is 262 of 751 (35%). Shipped plus partial is 465 (62%).**
 
 The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -75,7 +75,7 @@ true and neither is the answer on its own.
 | Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
-| Financial Core | 19 | 25 | 4 | 1 | 0 | 0 | 8 | 3 | 0 | 60 | 32% |
+| Financial Core | 19 | 25 | 4 | 7 | 0 | 0 | 8 | 3 | 0 | 66 | 29% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **262** | **203** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **745** | **35%** |
+| **All areas** | **262** | **203** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **751** | **35%** |
 
 ## Where we have been
 
@@ -229,7 +229,7 @@ shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
-**31 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -238,6 +238,7 @@ shows up in the nodes columns and not in this one.
 - **In-text exhibit references** (`exhibits.references`) — Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
 - **Issued-set freeze** (`exhibits.issue`) — Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
 - **Compiled exhibit package** (`exhibits.package`) — Whether a compiled package paginates itself by default, and in which corner. The Nevada rule read for this design requires exhibits over ten pages to be numbered in the lower right — which is exactly where a page produced in discovery already carries its Bates stamp — and no reliable detector for an existing stamp exists, so a false negative overprints a number that was already served and a false positive drops pagination a rule requires. Defaulting on makes the common filing correct and risks overprinting; defaulting off makes every package a member has to remember to configure. Exhibits design flag E5.
+- **Billing automations** (`financial.billing.automations`) — Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.
 - **Client intake / CRM** (`intake`) — Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
 - **Lead pipeline** (`intake.lead-pipeline`) — Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 - **Public intake forms** (`intake.public-forms`) — Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And Turnstile, which the operations runbook still lists as an unchecked standing item: a public form should not ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
@@ -333,6 +334,12 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `exhibits.list` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary.
 - `exhibits.package` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
+- `financial.billing.automations` · **Billing automations** — The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment.
+- `financial.billing.automations.recurring` · **Recurring bill generation** — A per-matter standing instruction that composes a bill for each period, versioned and pinned to the fee agreement it was authorized against.
+- `financial.billing.automations.batch` · **Batch bill generation** — A member selects matters and gets drafts, with one run record per target naming what happened to each including the skips.
+- `financial.billing.automations.reminders` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem.
+- `financial.billing.automations.payment-plans` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
+- `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
 - `payments.port` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
@@ -821,7 +828,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 60 nodes, 32% shipped. 19 done, 29 part-built, 9 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 66 nodes, 29% shipped. 19 done, 29 part-built, 15 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -874,6 +881,12 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.ledes.e-billing-flag` · `shipped` · **Per-matter e-billing flag** — Per-matter flag driving required-code validation upstream in time and cost capture. _Note: Landed early per the phase-3 slice map coordination pin._
       - `financial.billing.ledes.guideline-validation` · `not-started` · **Billing-guideline validation** — Validation against client billing guidelines (rate caps, block-billing/increment rules, required codes) before submission.
       - `financial.billing.ledes.submission` · `not-started` · **Electronic submission path** — A path to electronic invoice submission.
+    - `financial.billing.automations` · `designed` · **Billing automations** — The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment. _Note: Every automation is tiered by consequence, and nothing scheduled moves client money — a cron pass has no actor and the trust authorization posture is built on one._
+      - `financial.billing.automations.recurring` · `designed` · **Recurring bill generation** — A per-matter standing instruction that composes a bill for each period, versioned and pinned to the fee agreement it was authorized against.
+      - `financial.billing.automations.batch` · `designed` · **Batch bill generation** — A member selects matters and gets drafts, with one run record per target naming what happened to each including the skips.
+      - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member, the client portal is not started, and the invoice delivery record the billing design specified was never built._
+      - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
+      - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
     - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
