@@ -63,10 +63,10 @@ The techniques, in leverage order:
 
 **The full gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
-a type error in `src/` can no longer slip (`vp check`'s own whole-repo type-error pass is off;
-`typeCheck: false`). Exhaustive over **source**, not over the repository: the reference graph is
-src-only, so no package's `test/` is type-checked by this or any other pass — see _The graph is
-src-only, so no test file is type-checked by anything_ below.
+a type error can no longer slip (`vp check`'s own whole-repo type-error pass is off;
+`typeCheck: false`). It builds **two** root solutions, `tsconfig.build.json` (every package's `src/`)
+and `tsconfig.test.json` (every package's `test/`), which between them cover the whole workspace bar
+one deferred member — see _Two projects per package: source emits, tests only check_ below.
 It is exhaustive and slow by design, and it is the **gate of record — run in GitHub Actions**
 (`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
 not on the inner loop.
@@ -228,35 +228,75 @@ a cycle); the workspace is acyclic today (a source-scan/graph check keeps it so)
 this a mechanical rollout rather than an untangling. The build order falls out of the existing
 dependency graph.
 
-#### The graph is src-only, so no test file is type-checked by anything
+#### Two projects per package: source emits, tests only check
 
-Each generated `tsconfig.build.json` sets `include: ["src/**/*.ts"]` plus the package's root ambient
-`.d.ts`. That is deliberate — the member projects are `composite` + `emitDeclarationOnly` with
-`rootDir: "src"`, and a file outside `rootDir` cannot take part in that emit. The consequence is not
-deliberate, and it is easy to read the wrong way: **`vp run typecheck` covers the `src/` of every
-package and the `test/` of none.** The whole test corpus is 837 of the workspace's 1,915
-type-checkable files, spread over all 71 graph members — every one of which has a `test/` directory,
-and every one of whose own `tsconfig.json` lists `test/**/*.ts` in `include`, which the generated
-build config then replaces rather than extends.
+`tooling/tsconfig-refs` generates **two** projects for every graph member, because one project cannot
+do both jobs:
 
-Nothing else picks them up. `vp check` runs with `lint.options.typeCheck: false` (see the comment in
-the root `vite.config.ts`), so the type-aware **lint** rules run on test files but type **errors** in
-them are reported by no pass in `pnpm check`, `pnpm check:scoped`, or the CI gate. A test file can
-carry a genuine type error indefinitely and every gate stays green; `pnpm test` still passes, because
-Vitest strips types rather than checking them. The way to see them today is per package, against the
-package's own config: `pnpm exec tsc -b packages/<name>` (which reads `tsconfig.json`, tests
-included), not `tsc -b <package>/tsconfig.build.json`.
+- **`tsconfig.build.json`** — `composite` + `emitDeclarationOnly` with `rootDir: "src"`, `include`
+  src-only. This is what downstream packages consume; the `.d.ts` it emits is what makes the graph
+  incremental. A file outside `rootDir` cannot take part in that emit, which is exactly why `test/`
+  cannot join this project's `include`.
+- **`tsconfig.test.json`** — `composite` (a solution file can only reference composite projects) and
+  `noEmit` (no consumer imports a test), which frees it from that `rootDir`. Its `include` is
+  **derived**: the package's own `include`, minus `src/**` and minus `.svelte`, plus the package's
+  ambient `.d.ts` from both its root and its `src/`. So the pair covers exactly what the package's own
+  `tsconfig.json` declares, and a package that adds a checkable directory gets it checked without
+  anyone widening a list. It references the package's **own** build project first and then the same
+  dependency build projects, so every import a test makes — `../src/thing.ts` and
+  `@magna-carta/thing` alike — resolves to a declaration `tsc -b` already produced. The tests join the
+  graph; no source is re-checked.
 
-Closing this means giving each package a second, non-emitting test project — the build graph's
-projects cannot simply widen their `include` without giving up the declaration emit that makes them
-incremental. **The backlog that would surface has been measured:** checking every member against its
-own `tsconfig.json` reports **52 errors across 16 of the 71 members**, all in test files — argument
-mismatches (a raw `string` where a branded id belongs, a hand-rolled database double missing a method
-the real interface declares), possibly-undefined access, bad casts, and three worker test projects
-never wired for `cloudflare:test`. That is a **floor**: `apps/worker` alone holds 240 of the 837 test
-files and its check did not complete in 18 minutes, so it is not in the count. Until that pass lands
-and burns the backlog down, treat a green `tsc -b tsconfig.build.json` as a statement about `src/`
-only.
+Two root solutions tie the members together and `vp run typecheck` builds both:
+`tsc -b tsconfig.build.json tsconfig.test.json`. To check one package's tests and their dependency
+closure, `pnpm exec tsc -b packages/<name>/tsconfig.test.json`.
+
+**Why this exists.** Before it, the reference graph was src-only and nothing else filled the gap:
+`vp check` runs with `lint.options.typeCheck: false`, so the type-aware **lint** rules reached test
+files but type **errors** in them were reported by no pass in `pnpm check`, `pnpm check:scoped`, or
+the CI gate, and `pnpm test` never noticed because Vitest strips types rather than checking them. The
+test corpus is 885 of the workspace's 2,118 type-checkable files — 42% of it — so a green typecheck
+was a statement about a little over half the repository. The backlog that surfaced when the projects
+were turned on was 53 errors across 16 members, all real and all now fixed.
+
+**Cost.** Both roots are incremental and the test half is cheap. Measured on a 4-core box with the
+`.tsbuild` directories deleted: the build half alone is **1 min 32 s** cold, both roots together are
+**1 min 53 s** cold (the test half is 24 s of that when the build half is already warm), and warm the
+pair is **1.1 s** against 1.0 s before. So the whole-repo gate pays about 21 s more and the inner loop
+pays nothing: `check:scoped` runs `vp run typecheck` over the whole graph precisely because it is
+incremental, so it keeps both roots rather than skipping the test half.
+
+#### `apps/worker`'s tests are the one deferred member, for two separate reasons
+
+`@magna-carta/worker` gets its `tsconfig.test.json` like everything else and
+`pnpm exec tsc -b apps/worker/tsconfig.test.json` runs it, but it is **not** in the root
+`tsconfig.test.json` solution (`DEFERRED_TEST_PROJECTS` in `tooling/tsconfig-refs/index.mjs`). Both
+reasons are measured, and neither is "it is big".
+
+**One file does not type-check at all.**
+`test/firm-database/firm-database-migration-partial-failure.test.ts` does not complete in **600
+seconds on its own**, with the rest of the tree excluded and memory flat at ~2 GB — so it is a
+pathological inference, not a size or a garbage-collection problem. Its 26 neighbours in the same
+batch each check in 2–3 seconds, and the batch containing it goes from over fifteen minutes to
+**4.2 s** when it alone is removed. It is the only file in the tree that behaves this way. The
+suspect is the two-parameter `runInDurableObject(stub, (instance, state) => …)` form — the
+one-parameter form next door in `firm-database-migrate.test.ts` costs nothing — but that is a lead,
+not a diagnosis.
+
+**And the backlog behind it is 156 errors.** Type-checking the remaining 234 files in batches of 28
+takes **38.9 s in total** and reports 156 errors: `TS2571` "object is of type unknown" (89, nearly
+all an unchecked `await response.json()`), `TS2741`/`TS2345` missing or mismatched fixture properties
+(25), `TS18046` (17), and a long tail. They concentrate in the route suites —
+`trust-authorization-routes` 22, `billing-routes` 16, `trust-routes` 15, `document-automation` 10 —
+which is one repeated idiom rather than 156 separate problems, and a burn-down of its own size.
+
+Until both are dealt with, **the worker's test files are type-checked by nothing**, exactly as every
+package's were before. That is the cost of the deferral, and it is stated here rather than implied by
+a green gate. Do not work around it by batching the gate: the batching above is a measurement
+technique, not a design. Removing the deferral means fixing the one file and burning down the 156 —
+and the fan-out that makes the worker expensive in the first place (it depends directly on 39 of the
+workspace's packages and mounts every route through `src/app.ts`, the same shape that makes its
+type-aware lint a whole-repo lint) is tracked under _To formalize_.
 
 ### The native compiler (TypeScript 7 / `tsgo`) — after references
 

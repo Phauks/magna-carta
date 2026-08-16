@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import wranglerConfig from "../wrangler.jsonc?raw";
 import {
   SCAN_PRIMARY_SHARD_NAME,
   SCAN_SHARD_COUNT,
@@ -55,8 +55,9 @@ describe("scanShardName", () => {
     // The shard count and max_instances are one decision in two files: fewer shards leaves paid-for
     // capacity unreachable, more shards queues requests behind instances that will never start.
     // Read with a pattern rather than a JSON parse — the config is JSONC (comments, trailing commas).
-    const config = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-    const maxInstances = /"max_instances":\s*(\d+)/.exec(config);
+    // Inlined by the bundler as text rather than read off disk: this worker's runtime has no
+    // filesystem, so the test stays inside the same module graph the worker itself is built from.
+    const maxInstances = /"max_instances":\s*(\d+)/.exec(wranglerConfig);
     expect(maxInstances).not.toBeNull();
     expect(Number(maxInstances![1])).toBe(SCAN_SHARD_COUNT);
   });

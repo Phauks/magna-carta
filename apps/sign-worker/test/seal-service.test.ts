@@ -67,7 +67,13 @@ async function generatePlatformMaterial(): Promise<PlatformMaterial> {
   await certificate.subjectPublicKeyInfo.importKey(keys.publicKey, pkijs.getCrypto(true));
   await certificate.sign(keys.privateKey, "SHA-256", pkijs.getCrypto(true));
 
-  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keys.privateKey));
+  // workerd's SubtleCrypto declares one `exportKey` returning `ArrayBuffer | JsonWebKey`; the format
+  // argument decides which, and "pkcs8" is always the ArrayBuffer branch. (lib.dom splits that into
+  // per-format overloads, which is why the same call needs no narrowing in a node-typed package —
+  // packages/signing/src/platform-certificate.ts makes it verbatim.)
+  const pkcs8 = new Uint8Array(
+    (await crypto.subtle.exportKey("pkcs8", keys.privateKey)) as ArrayBuffer,
+  );
   const certDer = new Uint8Array(certificate.toSchema().toBER(false));
   return {
     privateKey: keys.privateKey,

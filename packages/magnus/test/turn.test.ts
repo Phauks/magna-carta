@@ -48,6 +48,11 @@ function recordingDatabase() {
         async all<T>() {
           return { results: [] as T[] };
         },
+        // Nothing is stored, so there is no first row — the SqlStatement contract in full, so this
+        // recorder stays substitutable for the real database as the writers under test evolve.
+        async first<T>(): Promise<T | null> {
+          return null;
+        },
       };
       return statement as unknown as SqlStatement;
     },

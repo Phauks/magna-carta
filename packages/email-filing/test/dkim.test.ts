@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { verifyDkim, type DkimKeyLookup, type DkimKeyLookupResult } from "../src/dkim.ts";
+import { toArrayBuffer } from "./support/bytes.ts";
 
 // These tests sign real messages with a real RSA key and verify them through the module under test.
 // The signed input is built here by hand — spelled out line by line from RFC 6376's canonicalization
@@ -38,7 +39,7 @@ function encode(text: string): Uint8Array {
 }
 
 async function sha256Base64(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", encode(text));
+  const digest = await crypto.subtle.digest("SHA-256", toArrayBuffer(encode(text)));
   return bytesToBase64(new Uint8Array(digest));
 }
 
@@ -113,7 +114,7 @@ async function signedMessage(options: SignOptions = {}): Promise<string> {
       await crypto.subtle.sign(
         "RSASSA-PKCS1-v1_5",
         options.signingKey ?? privateKey,
-        encode(canonicalHeaders),
+        toArrayBuffer(encode(canonicalHeaders)),
       ),
     ),
   );

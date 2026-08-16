@@ -1,6 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, test } from "vitest";
-import { STATUS_KV_KEYS } from "@magna-carta/status";
+import { publishedSnapshotSchema, STATUS_KV_KEYS } from "@magna-carta/status";
 import wranglerConfigContent from "../wrangler.jsonc?raw";
 import { fallbackResponse } from "../src/index.ts";
 import { FONT_ASSET_PATH, STYLES_ASSET_PATH } from "../src/page-styles.ts";
@@ -55,23 +55,27 @@ test("status.json is unauthenticated and merges both keys into a public snapshot
   );
   const response = await SELF.fetch("https://status.example.com/api/status.json");
   expect(response.status).toBe(200);
-  const body = await response.json();
-  expect(body.overall).toBeDefined();
+  // Parsed against the published contract rather than read as `unknown`, so a feed that drifted out
+  // of the schema fails here instead of reading a property off whatever it did return. The leak check
+  // below runs on the RAW body: zod strips unmodelled keys, and an operator identity smuggled into
+  // one is exactly what this asserts is absent.
+  const raw = await response.json();
+  expect(publishedSnapshotSchema.parse(raw).overall).toBeDefined();
   // The public feed must NEVER carry an operator identity.
-  expect(JSON.stringify(body)).not.toContain("usr_secret");
+  expect(JSON.stringify(raw)).not.toContain("usr_secret");
 });
 
 test("an empty store still serves a valid operational snapshot (no 500)", async () => {
   const response = await SELF.fetch("https://status.example.com/api/status.json");
   expect(response.status).toBe(200);
-  expect((await response.json()).overall).toBe("operational");
+  expect(publishedSnapshotSchema.parse(await response.json()).overall).toBe("operational");
 });
 
 test("a corrupt history document degrades to no-data rather than a 500", async () => {
   await env.STATUS_KV.put(STATUS_KV_KEYS.history, "{ not json");
   const response = await SELF.fetch("https://status.example.com/api/status.json");
   expect(response.status).toBe(200);
-  const body = await response.json();
+  const body = publishedSnapshotSchema.parse(await response.json());
   expect(body.overall).toBe("operational");
   expect(body.history.windowDays).toBe(90);
 });

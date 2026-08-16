@@ -20,7 +20,11 @@ const DEF = {
 // incidents, a few edge locations re-routed — and a whole-page indicator of "minor" regardless.
 // Trimmed from a live www.cloudflarestatus.com/api/v2/summary.json response.
 function cloudflareLikeSummary(overrides: Partial<StatuspageSummary> = {}): StatuspageSummary {
-  return {
+  // Built unannotated, then spread, so the keys the live feed carries but the adapter does not model
+  // — `status.description` here — stay in the fixture. `StatuspageSummary` is deliberately the subset
+  // the adapter reads; a fixture that had to be trimmed to it would stop proving that the extra keys
+  // a real body arrives with are tolerated.
+  const live = {
     status: { indicator: "minor", description: "Minor Service Outage" },
     components: [
       { id: "services", name: "Cloudflare Sites and Services", status: "operational", group: true },
@@ -32,8 +36,8 @@ function cloudflareLikeSummary(overrides: Partial<StatuspageSummary> = {}): Stat
       { id: "kbp", name: "Kyiv, Ukraine - (KBP)", status: "under_maintenance", group_id: "europe" },
     ],
     incidents: [],
-    ...overrides,
   };
+  return { ...live, ...overrides };
 }
 
 const CLOUDFLARE_SCOPE = ["Cloudflare Sites and Services"];

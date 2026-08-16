@@ -66,6 +66,7 @@ describe("schema name sync (locations SQL pinned to @magna-carta/database)", () 
       addressBlock: null,
       footer: null,
       remitTo: null,
+      timeZone: null,
     };
     const sql = [
       sqlOf(insertLocationStatement(stub, { id: LOCATION_ID, ...fields, createdAt: "t" })),

@@ -1,4 +1,4 @@
-import type { InvoiceId, InvoiceLineId } from "@magna-carta/identifiers/types";
+import type { InvoiceId, InvoiceLineId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { BillingValidationError } from "../src/billing-validation.ts";
 import { addClaimsToDraft, createInvoiceDraft, updateDraftLine } from "../src/draft.ts";
@@ -24,7 +24,7 @@ const ACME = "directoryOrganization_acme";
 async function draftWithWork(
   fixture: BillingFixture,
   clientEntityId: string,
-): Promise<{ invoiceId: InvoiceId; matterId: string; timeEntryId: string; costEntryId: string }> {
+): Promise<{ invoiceId: InvoiceId; matterId: MatterId; timeEntryId: string; costEntryId: string }> {
   const matterId = await seedMatter(fixture, clientEntityId, "Acme");
   const timeEntryId = await seedTimeEntry(fixture, matterId, {
     durationMinutes: 90,

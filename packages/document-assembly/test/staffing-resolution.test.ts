@@ -7,6 +7,7 @@ import { lookupDictionaryEntry } from "../src/dictionary.ts";
 import { resolveMergeContext } from "../src/resolve.ts";
 import { STAFFING_SOURCES, staffingKeysFor, staffingSourcesIn } from "../src/staffing-bindings.ts";
 import type { FieldManifest, ManifestField } from "../src/types.ts";
+import { listItems } from "./support/merge-values.ts";
 
 // The staffing source: the firm's own people, staffed onto the matter, read the way the party
 // subjects are read. The two load-bearing properties mirror the party axis exactly — ambiguity is
@@ -217,10 +218,7 @@ describe("member subjects resolve from the one staffing read", () => {
     // The reason names counts and roles only — never a candidate the resolution refused to choose.
     expect(reason).not.toContain("Marchetti");
     expect(reason).not.toContain("Vale");
-    const collection = context.values.get("supervisingAttorney.all") as {
-      items: { fields: Map<string, unknown> }[];
-    };
-    expect(collection.items).toHaveLength(2);
+    expect(listItems(context.values.get("supervisingAttorney.all"))).toHaveLength(2);
   });
 
   it("names a duplicate assignment of ONE member as what it is, never as two members", async () => {
