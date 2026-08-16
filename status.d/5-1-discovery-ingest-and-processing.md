@@ -10,7 +10,7 @@ ui: n/a
 load-profile: in-progress by="Opus 5"
 tested: in-progress by="Opus 5"
 branch: claude/discovery-processing
-active-work: docs/active-work/claude/discovery-processing.md
+active-work:
 next: the rest of 5·1·3 — exact deduplication with occurrence rows, container families over the guarded archive expansion, and the manifest and exception report written at load completion; then 5·1·4 — the review-document index enqueue into the review-set corpus, opt-in semantic indexing, the review-document list read, and the discovery volume in the shared load profile
 link-spec: docs/specs/2026-08-05-discovery-5-1-design.md
 link-plan: docs/specs/2026-08-05-discovery-5-1-implementation-plan.md

@@ -42,6 +42,13 @@ code plus surname and date of birth behind one neutral refusal, and the shared a
 sign-in surface renders — which is wired to the live screens, the count and the lockout countdown
 included. Recovery codes are `MC`-prefixed.
 
+The two anonymous writes behind those screens now have a human-verification gate in front of them —
+a real server-side Turnstile check where there had only been an unticked runbook box and a
+placeholder row in the sign-in mock-up. It ships dormant: no widget exists, so no secret is
+provisioned, so both endpoints serve exactly as before and every unprotected pass is counted rather
+than assumed away. Turning it on needs two things that are not server work — the owner creating the
+widget, and a client that renders the challenge and mints a token.
+
 Registration and invitation redemption now have their screens too, at `/register` and below: the
 three-way choice, the found-a-firm pair, redemption behind ONE refusal that names none of the three
 facts, the check-your-email state both doors end at, and the screen the emailed token is spent on.
@@ -417,7 +424,38 @@ opens against object storage rather than local disk — the read counts are the 
 Wired-but-dormant in the conversion subsystem's sense: with no engine deployed, a job parks in a distinct `deferred` state — acked and re-startable, never retried into a dead-letter — so deploying the engine drains the backlog naturally and no document is silently dropped meanwhile. |
 | Magnus — conversational assistant | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Build slice 1 landed: `@magna-carta/magnus` (record, gates, window, caps), one additive `InferencePort` operation plus a general deterministic stub, three per-firm tables, two permissions, the queue-dispatched path, and the push transport. A transcript is firm **work product** — protected, deletable, archivable, discoverable like email but never swept into a search without an explicit include-or-exclude (that control lands with discovery). **Off by default** — both consent settings closed, stub adapter, no interface; production enablement waits on ADR-0109. |
 | R2 object dimensions (matter + object class in object metadata) | [x] Opus 5 | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/object-dimensions` — the two dimensions every object in a firm's bucket carries (`matter` on matter-scoped objects, `object_class` on all of them) and the closed class vocabulary behind them. Stamped at put time by every write path: the presigned PUT signs the metadata headers, so a browser upload that drops one is refused rather than landing an unscopeable object; the multipart create carries them (a multipart object's metadata is fixed there); a version cut inherits its source's matter and only changes class; firm-level objects (bundles, templates, letterheads, conversion artifacts, staged mail, the content-addressed email original) record the class and deliberately no matter. `dimension-backfill-sweep.ts` repairs what predates the stamp on the daily storage pass — candidates come from the R2 listing rather than any new schema, bounded per firm and convergent over failures, and it doubles as the standing detector for a write path that forgets. `apps/worker/test/r2-object-dimension-scan.test.ts` is that guard in the suite. `client` and `confidentiality_scope` are reserved and written by nothing. |
-| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second non-exclusive translator pass on the shipped per-firm queue (no producing package changed — thirty-one topics already commit transactionally), the member-scoped read API behind `notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window with its nightly sweep and its swept-unread tally. |
+| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
+non-exclusive translator pass on the shipped per-firm queue (no producing package changed —
+thirty-one topics already commit transactionally), the member-scoped read API behind
+`notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window
+with its nightly sweep and its swept-unread tally.
+
+Slice 2 built: the comparison-driven production path as a declared third `raisedBy` on the registry
+with its own index, a per-firm sweep on the daily cron calling the calendar's own overdue arithmetic
+and the custody register's own collection point, once-per-civil-day dedupe bucketed in the subject's
+own zone, the three calendar matter-event outbox topics (with `rescheduled` raised on a move and not
+on an edit), and the document-assembly coordinator's completion row. Retention and the email-filing
+topic, both listed under slice 2 in the plan, had already shipped with slice 1 and were verified
+rather than rebuilt.
+
+Slice 3 built: the per-category preference matrix on one `notifications.preferences` scoped-setting
+key, with the two channels composing in opposite directions (the firm's tier is a floor in app, the
+member's choice wins by email); the mandatory in-app floor on `security` and `trust` from either
+tier; enforcement at fan-out in the one shared recipient resolver, so all three production paths
+inherit it; a sixth per-firm table, `notification_in_app_suppression`, so a silenced notification is
+a counted fact rather than an absence, swept on the firm's own retention window; the firm-tier
+trust-compliance designation, applied to the trust category and audited by count; and the member and
+firm preference API. **Deviation:** the plan's `notification_delivery` row with
+`suppressed_reason = 'not-visible'` at fan-out is not built — the column is `NOT NULL` against a
+recipient row that by definition does not exist, and deciding visibility at fan-out is the
+emission-time enforcement this subsystem refuses. The designated member gets an ordinary recipient
+row and the shipped read filter decides, which is what makes their feed byte-identical to a firm
+where nothing was raised.
+
+**Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema
+(the discovery processing-route migration was hand-written without refreshing it), so the next
+`generate` would have emitted a destructive `review_document` rebuild. The snapshot is refreshed to
+the lineage head. |
 | Directory pronouns | [-] | [-] | [-] | [x] Opus 5\* | [ ] | [-] | [ ] | Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred. |
 | Matter document surface | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [ ] | The matter's Files page on real rows: list, add from a file, build from a template, save a new version, read the version history. The editing-session launch is real; the Collabora editor itself needs the deployed `magna-carta-edit` container. |
 | Community 1 — public changelog | [-] | [x] Opus 4.8 | [-] | [x] Opus 5\* | [ ] | [-] | [x] Opus 5\* | The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen. |

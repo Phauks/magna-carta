@@ -342,14 +342,14 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "The two-factor enrolment screens, reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice",
+      "next": "A Turnstile widget on the joining forms so the human-verification gate can be switched on (the server half exists; the owner's dashboard step is queued in docs/deploy-queue.md), the two-factor enrolment screens, reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry\nand real recovery-code entry. Every state renders on the developer console's screen-state page.\n\nThe backend behind those screens now exists for three of the nine gaps the screen-state page\nregistered: self-serve registration with the three-way role fork, invitation redemption against a\ncode plus surname and date of birth behind one neutral refusal, and the shared attempt budget the\nsign-in surface renders — which is wired to the live screens, the count and the lockout countdown\nincluded. Recovery codes are `MC`-prefixed.\n\nRegistration and invitation redemption now have their screens too, at `/register` and below: the\nthree-way choice, the found-a-firm pair, redemption behind ONE refusal that names none of the three\nfacts, the check-your-email state both doors end at, and the screen the emailed token is spent on.\nTwo joining steps land short of where a visitor would expect and say so rather than pretending\notherwise — the confirmation mail carries a bare token with no link to follow, and the Terms of\nService and Privacy Policy the two acknowledgements point at are not published, so that consent is a\nbrowser-side gate recorded nowhere."
+      "notes": "Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry\nand real recovery-code entry. Every state renders on the developer console's screen-state page.\n\nThe backend behind those screens now exists for three of the nine gaps the screen-state page\nregistered: self-serve registration with the three-way role fork, invitation redemption against a\ncode plus surname and date of birth behind one neutral refusal, and the shared attempt budget the\nsign-in surface renders — which is wired to the live screens, the count and the lockout countdown\nincluded. Recovery codes are `MC`-prefixed.\n\nThe two anonymous writes behind those screens now have a human-verification gate in front of them —\na real server-side Turnstile check where there had only been an unticked runbook box and a\nplaceholder row in the sign-in mock-up. It ships dormant: no widget exists, so no secret is\nprovisioned, so both endpoints serve exactly as before and every unprotected pass is counted rather\nthan assumed away. Turning it on needs two things that are not server work — the owner creating the\nwidget, and a client that renders the challenge and mints a token.\n\nRegistration and invitation redemption now have their screens too, at `/register` and below: the\nthree-way choice, the found-a-firm pair, redemption behind ONE refusal that names none of the three\nfacts, the check-your-email state both doors end at, and the screen the emailed token is spent on.\nTwo joining steps land short of where a visitor would expect and say so rather than pretending\notherwise — the confirmation mail carries a bare token with no link to follow, and the Terms of\nService and Privacy Policy the two acknowledgements point at are not published, so that consent is a\nbrowser-side gate recorded nowhere."
     },
     {
       "slice": "1·1 — Matters + Locations + File Manager",
@@ -2020,7 +2020,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/search-r2-adapter.md",
+      "activeWork": null,
       "next": "Deploy-gated — `apps/search-worker` and `containers/search` are now BUILT (the Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`, `/compact`), so what is left between the parked `deferred` jobs and real hits is the deploy itself: build the container image, deploy the app worker so the split-object host exists, then add the `SEARCH_SERVICE` binding — no code change (`docs/deploy-queue.md`). Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and the footer's per-field pruning digest (which reduces the cost of the splits that remain, where compaction reduces how many remain).",
       "links": {
         "spec": "docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md",
@@ -2152,17 +2152,21 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Slice 2 — the comparison-driven sweep (calendar horizon/due/overdue and the one custody collection point), the three calendar write-path topics, the email-filing topic, and the job-coordinator completion rows; then preferences and the firm policy floor (slice 3), then the email digest (slice 4)",
+      "next": "The email digest (slice 4, blocked on owner flags E1 and C1). Two gaps left inside slice 2 — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified, and four of the five job coordinators, three of which record no requester",
       "links": {
         "spec": "docs/specs/2026-08-06-notifications-delivery-design.md",
         "plan": "docs/specs/2026-08-06-notifications-delivery-implementation-plan.md",
         "adrs": [
           "notifications-delivery-half",
-          "notifications-retention-and-swept-unread"
+          "notifications-retention-and-swept-unread",
+          "a-comparison-is-a-third-production-path-and-the-registry-says-so",
+          "a-hearing-that-moved-is-not-a-hearing-that-was-edited",
+          "a-job-notification-is-a-reply-and-only-a-requester-can-receive-one",
+          "a-silenced-notification-is-counted-not-absent"
         ]
       },
       "blockedBy": [],
-      "notes": "Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second non-exclusive translator pass on the shipped per-firm queue (no producing package changed — thirty-one topics already commit transactionally), the member-scoped read API behind `notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window with its nightly sweep and its swept-unread tally."
+      "notes": "Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second\nnon-exclusive translator pass on the shipped per-firm queue (no producing package changed —\nthirty-one topics already commit transactionally), the member-scoped read API behind\n`notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window\nwith its nightly sweep and its swept-unread tally.\n\nSlice 2 built: the comparison-driven production path as a declared third `raisedBy` on the registry\nwith its own index, a per-firm sweep on the daily cron calling the calendar's own overdue arithmetic\nand the custody register's own collection point, once-per-civil-day dedupe bucketed in the subject's\nown zone, the three calendar matter-event outbox topics (with `rescheduled` raised on a move and not\non an edit), and the document-assembly coordinator's completion row. Retention and the email-filing\ntopic, both listed under slice 2 in the plan, had already shipped with slice 1 and were verified\nrather than rebuilt.\n\nSlice 3 built: the per-category preference matrix on one `notifications.preferences` scoped-setting\nkey, with the two channels composing in opposite directions (the firm's tier is a floor in app, the\nmember's choice wins by email); the mandatory in-app floor on `security` and `trust` from either\ntier; enforcement at fan-out in the one shared recipient resolver, so all three production paths\ninherit it; a sixth per-firm table, `notification_in_app_suppression`, so a silenced notification is\na counted fact rather than an absence, swept on the firm's own retention window; the firm-tier\ntrust-compliance designation, applied to the trust category and audited by count; and the member and\nfirm preference API. **Deviation:** the plan's `notification_delivery` row with\n`suppressed_reason = 'not-visible'` at fan-out is not built — the column is `NOT NULL` against a\nrecipient row that by definition does not exist, and deciding visibility at fan-out is the\nemission-time enforcement this subsystem refuses. The designated member gets an ordinary recipient\nrow and the shipped read filter decides, which is what makes their feed byte-identical to a firm\nwhere nothing was raised.\n\n**Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema\n(the discovery processing-route migration was hand-written without refreshing it), so the next\n`generate` would have emitted a destructive `review_document` rebuild. The snapshot is refreshed to\nthe lineage head."
     },
     {
       "slice": "Directory pronouns",
@@ -2498,7 +2502,7 @@
         }
       },
       "branch": "claude/financial-reporting-1",
-      "activeWork": "docs/active-work/claude/financial-reporting-1.md",
+      "activeWork": null,
       "next": "Owner answers on the nine flagged questions and on the two defaults this build shipped behind seams; then the filed pack artifact (needs a renderer), then sub-slice 3·6·2 — the financial reports",
       "links": {
         "spec": "docs/specs/2026-08-13-financial-reporting-design.md",
@@ -2541,7 +2545,7 @@
         }
       },
       "branch": "claude/closure-and-batch-bounds",
-      "activeWork": "docs/active-work/claude/closure-and-batch-bounds.md",
+      "activeWork": null,
       "next": "Deepening slices 1-3 built (reporting posture; event triggers + the re-check ledger + the consumers, cron backstop and notification; typed traversal budgets + the closure cap and its truncation record + the batched matcher); slices 4-5 follow — matching depth (organization match keys, Beider-Morse, the empty nickname catalogue) and the adjudication read models. Slice 3 left the firm-marked non-expandable entity to whichever slice owns the Directory write path",
       "links": {
         "spec": "docs/specs/2026-08-13-conflicts-deepening-design.md",
@@ -2667,7 +2671,7 @@
         }
       },
       "branch": "claude/discovery-processing",
-      "activeWork": "docs/active-work/claude/discovery-processing.md",
+      "activeWork": null,
       "next": "the rest of 5·1·3 — exact deduplication with occurrence rows, container families over the guarded archive expansion, and the manifest and exception report written at load completion; then 5·1·4 — the review-document index enqueue into the review-set corpus, opt-in semantic indexing, the review-document list read, and the discovery volume in the shared load profile",
       "links": {
         "spec": "docs/specs/2026-08-05-discovery-5-1-design.md",
