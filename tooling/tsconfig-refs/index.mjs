@@ -59,8 +59,17 @@ const HEADER =
 
 // A member's tsconfig.build.json: extends the package's own tsconfig.json (inheriting its
 // compilerOptions), turns on composite declaration-only emit into an ignored build dir, and references
-// each in-graph workspace dependency's build config. `include` is src-only — the reference graph
-// type-checks the public surface and cross-package contracts; tests stay with `vp check`.
+// each in-graph workspace dependency's build config. `include` is src-only — a member project is
+// composite + emitDeclarationOnly with rootDir "src", and a file outside rootDir cannot take part in
+// that emit, so test/ cannot simply join this include.
+//
+// Test files are therefore type-checked by NOTHING. `vp check` does not fill the gap: it runs with
+// lint.options.typeCheck false (see the root vite.config.ts), so type-aware lint rules reach test
+// files but type ERRORS in them are reported by no pass in the gate. Do not read a green
+// `tsc -b tsconfig.build.json` as covering them. To check one package's tests, use its own config —
+// `tsc -b <package>` (tsconfig.json, which does include test/) rather than its tsconfig.build.json.
+// Closing this properly needs a second, non-emitting test project per package; reasoning and the
+// measured size of the backlog: docs/conventions/build-performance.md.
 //
 // ...src-only PLUS the package's root-level ambient declarations. `include` REPLACES (never merges
 // with) the one inherited from the package's tsconfig.json, so a src-only include silently drops the

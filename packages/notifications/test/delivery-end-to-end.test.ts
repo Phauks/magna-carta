@@ -3,7 +3,11 @@ import {
   visibleMatterPredicate,
   visibleMatterPredicateExcluding,
 } from "@magna-carta/calendar/visibility";
-import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import {
+  createMigratedNodeDatabase,
+  type NodeSqlStatement,
+} from "@magna-carta/database/node-sqlite";
 import { MATTER_CLOSED_TOPIC } from "@magna-carta/matters/topics";
 import {
   DOCUMENT_CHECKIN_CONFLICT_TOPIC,
@@ -33,6 +37,13 @@ import { translateOutboxMessage } from "../src/translate.ts";
 // outbox message in, real rows out, read back through the same statements the routes use.
 
 type Database = ReturnType<typeof createMigratedNodeDatabase>["database"];
+
+// The statement builders type their return as the narrower D1-shaped SqlStatement; this database's
+// batch() takes the node-sqlite shape the same objects actually have at runtime. Same narrowing as
+// packages/fixtures/src/load-profile/costs-measurements.ts.
+function capturedStatement(statement: SqlStatement): NodeSqlStatement {
+  return statement as NodeSqlStatement;
+}
 
 const NOW = "2026-08-07T02:00:00.000Z";
 const RESPONSIBLE = "user_responsible00000";
@@ -384,17 +395,19 @@ describe("retention, and the unread it takes", () => {
       unread_count: number;
       oldest_occurred_at: string;
     }>();
-    await database.batch([
-      ...tally.map((row) =>
-        recordSweptUnreadStatement(database, {
-          recipientUserId: row.recipient_user_id,
-          unreadCount: row.unread_count,
-          oldestOccurredAt: row.oldest_occurred_at,
-          now: NOW,
-        }),
-      ),
-      ...retentionSweepDeleteStatements(database, cutoff),
-    ]);
+    await database.batch(
+      [
+        ...tally.map((row) =>
+          recordSweptUnreadStatement(database, {
+            recipientUserId: row.recipient_user_id,
+            unreadCount: row.unread_count,
+            oldestOccurredAt: row.oldest_occurred_at,
+            now: NOW,
+          }),
+        ),
+        ...retentionSweepDeleteStatements(database, cutoff),
+      ].map(capturedStatement),
+    );
   }
 
   it("takes what is past the window and leaves what is not", async () => {
