@@ -187,9 +187,9 @@ export type Bindings = {
   // The per-document processing lane. One review document per message — identifiers and keys only,
   // never bytes — kept apart from every ingest lane so a quarter-million-document load cannot starve
   // interactive file upload.
-  DISCOVERY_PROCESS: Queue<
-    import("./discovery/discovery-process-types.ts").DiscoveryProcessMessage
-  >;
+  // It also carries the one completion message a load sends when its last document reaches a
+  // terminal state, which is what writes the manifest and the exception report.
+  DISCOVERY_PROCESS: Queue<import("./discovery/discovery-process-types.ts").DiscoveryLaneMessage>;
   // The dedicated discovery engine worker (magna-carta-discovery), reached over a service binding. It
   // owns the pure-Rust extraction Container (crates/discovery-core): identify from bytes, native text
   // extraction, page counts, document dates, and the near-duplicate fingerprint. Optional: absent in

@@ -27,7 +27,11 @@
     "./coding-panel-service": "./src/coding-panel-service.ts",
     "./coding-service": "./src/coding-service.ts",
     "./processing": "./src/processing.ts",
-    "./processing-statements": "./src/processing-statements.ts"
+    "./processing-statements": "./src/processing-statements.ts",
+    "./dedup": "./src/dedup.ts",
+    "./dedup-statements": "./src/dedup-statements.ts",
+    "./manifest": "./src/manifest.ts",
+    "./manifest-statements": "./src/manifest-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

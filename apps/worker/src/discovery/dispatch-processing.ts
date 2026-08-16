@@ -79,6 +79,7 @@ export async function runProcessingDispatchTurn(
           sourceKey: document.sourceKey,
           contentType: document.contentType,
           sourceStatus: document.sourceStatus,
+          emailDedupKey: document.emailDedupKey,
           engineGeneration: options.engineGeneration,
         } satisfies DiscoveryProcessMessage,
       }));

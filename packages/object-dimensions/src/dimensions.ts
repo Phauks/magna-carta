@@ -71,7 +71,14 @@ export type MatterScopedObjectClass =
   // material an opposing party produced, and a bucket-wide filter has to be able to exclude them
   // without knowing a key layout.
   | "review-extracted-text"
-  | "review-document-metadata";
+  | "review-document-metadata"
+  // A discovery load's manifest or its exception report, in either the machine-readable or the
+  // printable form. Stamped apart from the two above because it is the OPPOSITE kind of object: those
+  // are derived caches a review set releases when it closes, and these are RECORDS — what a party
+  // handed over, and which of it could not be read — that survive the review set and are never
+  // regenerated. A collection rule that could not tell the two apart would delete the evidence and
+  // keep the cache.
+  | "review-load-record";
 
 // Classes for objects the firm owns that belong to no single matter. Stamping the class on these is
 // what makes "this object has no matter" a recorded fact rather than an absence indistinguishable from
@@ -109,6 +116,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "search-split",
   "review-extracted-text",
   "review-document-metadata",
+  "review-load-record",
 ];
 
 export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [

@@ -333,6 +333,21 @@ answering `503`, and no visitor is being told it is their fault.
   per-firm Durable Object's next wake, and the bulk-selection objects go to the
   already-bound `R2` bucket under the existing `discovery/` prefix.
 
+- **A discovery load's manifest and exception report must never be given a
+  lifecycle rule.** They land in the already-bound `R2` bucket under
+  `discovery/<reviewSetId>/loads/`, stamped `object_class:
+review-load-record` — deliberately a different class from the
+  `review-extracted-text` and `review-document-metadata` objects beside them,
+  which ARE a derived cache and are released when a review set closes. If an
+  expiry rule is ever added under the `discovery/` prefix (there is none today),
+  it must exclude `loads/`. These two documents are what a firm handed to
+  another party, and they are kept for as long as the matter is. No new binding,
+  no new secret, no new queue: deduplication, container families and the record
+  artifacts all ride the lane and the bucket that are already there, and the
+  additive per-firm migration
+  (`20260816T090000_discovery-dedup-and-report`) runs itself on the Durable
+  Object's next wake.
+
 ## Position
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred

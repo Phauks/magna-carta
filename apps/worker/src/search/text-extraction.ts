@@ -86,6 +86,13 @@ const ReadingSchema = z.object({
   documentDate: z.object({ value: z.string(), source: z.string() }).nullable().optional(),
   pagesNeedingRecognition: z.array(z.number().int().nonnegative()),
   textFingerprint: z.string().nullable().optional(),
+  // The engine hashes the bytes in the same pass it reads them. Only the three digests the corpus
+  // has columns for are declared; the engine reports SHA-384 and SHA-512 as well and they are simply
+  // not read, because a digest nothing stores is a digest nothing can be checked against.
+  digests: z
+    .object({ md5: z.string(), sha1: z.string(), sha256: z.string() })
+    .nullable()
+    .optional(),
 });
 
 // The engine's 422 body: its stable code and nothing else. Anything richer would be a way for a
@@ -322,6 +329,7 @@ function factsOfReading(reading: EngineReading): ExtractedDocumentFacts {
     documentDate: reading.documentDate?.value ?? null,
     documentDateSource: reading.documentDate?.source ?? null,
     textFingerprint: reading.textFingerprint ?? null,
+    digests: reading.digests ?? null,
   };
 }
 
@@ -457,10 +465,16 @@ async function convertThenRead(
     // of the corpus report can see that the text is a reading of a converted document rather than of
     // the bytes the other side handed over. That distinction is the whole reason the route is stored.
     route: ["office-conversion", ...converted.route],
-    // The identified format stays the LEGACY one. The review document must record what arrived, not
-    // what the platform turned it into on the way to reading it; everything else is a fact about the
-    // text, and the text is the conversion's.
-    facts: { ...converted.facts, formatIdentified: reading.identification.format },
+    // The identified format stays the LEGACY one, and so do the DIGESTS. The review document must
+    // record what arrived, not what the platform turned it into on the way to reading it — a
+    // manifest whose hashes were taken over a conversion the other side never sent would be a
+    // manifest the other side could not check. Everything else is a fact about the text, and the
+    // text is the conversion's.
+    facts: {
+      ...converted.facts,
+      formatIdentified: reading.identification.format,
+      digests: reading.digests ?? null,
+    },
   };
 }
 

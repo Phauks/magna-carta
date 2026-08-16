@@ -28,6 +28,11 @@ export interface DispatchableReviewDocument {
   // document WITHOUT reading it. A flagged file in discovery is evidence: it stays in the corpus, it
   // appears in the report, and no parser is pointed at it.
   readonly sourceStatus: string;
+  // The email record model's own dedup identity, carried because a raw-bytes hash of a message is the
+  // WRONG identity — two copies of one message differ in their transport headers — and this is the
+  // answer that subsystem already worked out. Null for a document that points at a file version,
+  // whose identity is its content hash.
+  readonly emailDedupKey: string | null;
 }
 
 // The join is deliberately a LEFT JOIN on both sides with a COALESCE, rather than two queries or a
@@ -50,7 +55,8 @@ export function selectDispatchableDocumentsStatement(
         `SELECT review_document.id AS id, ` +
           `COALESCE(file_version.r2_key, email_message.original_r2_key) AS sourceKey, ` +
           `file_version.sniffed_content_type AS contentType, ` +
-          `COALESCE(file_version.status, 'clean') AS sourceStatus ` +
+          `COALESCE(file_version.status, 'clean') AS sourceStatus, ` +
+          `email_message.dedup_key AS emailDedupKey ` +
           `FROM ${REVIEW_DOCUMENT_TABLE} ` +
           `LEFT JOIN file_version ON file_version.id = review_document.file_version_id ` +
           `LEFT JOIN email_message ON email_message.id = review_document.email_message_id ` +
@@ -111,6 +117,15 @@ export interface ProcessedReviewDocumentFacts {
   readonly textFingerprint: string | null;
   readonly sortDate: string | null;
   readonly sortDateSource: string | null;
+  // The legacy-interop digests, from the engine's own pass over the bytes. Written with COALESCE so
+  // a route that does not hash leaves what is already there rather than erasing it.
+  //
+  // SHA-256 IS NOT AMONG THEM, and its absence is the point: the review document's `content_sha256`
+  // is the value the ingest gate recorded over the object as received, and it is the identity the
+  // corpus deduplicates and reconciles on. An engine writing a second answer to it would give the
+  // corpus two authorities on whether two documents are the same document.
+  readonly contentMd5: string | null;
+  readonly contentSha1: string | null;
 }
 
 // The success write. Every derived scalar and both R2 keys land in one statement, and the state moves
@@ -132,7 +147,9 @@ export function markReviewDocumentProcessedStatement(
       `UPDATE ${REVIEW_DOCUMENT_TABLE} SET processing_state = 'processed', ` +
         `text_r2_key = ?2, metadata_r2_key = ?3, format_identified = ?4, page_count = ?5, ` +
         `pages_recognized = ?6, extraction_route = ?7, text_fingerprint = ?8, sort_date = ?9, ` +
-        `sort_date_source = ?10, processing_deferred_reason = NULL, updated_at = ?11 ` +
+        `sort_date_source = ?10, content_md5 = COALESCE(?11, content_md5), ` +
+        `content_sha1 = COALESCE(?12, content_sha1), ` +
+        `processing_deferred_reason = NULL, updated_at = ?13 ` +
         `WHERE id = ?1 AND processing_state = 'processing'`,
     )
     .bind(
@@ -146,8 +163,90 @@ export function markReviewDocumentProcessedStatement(
       facts.textFingerprint,
       facts.sortDate,
       facts.sortDateSource,
+      facts.contentMd5,
+      facts.contentSha1,
       now,
     );
+}
+
+export interface ExpandedContainerFacts {
+  readonly metadataR2Key: string;
+  readonly formatIdentified: string;
+  readonly extractionRoute: string;
+  readonly childCount: number;
+}
+
+// A CONTAINER THAT WAS OPENED. The second and last path to `processed`, and it exists because an
+// archive is not a document that happens to be empty — it is a transport whose processing outcome is
+// the family it produced.
+//
+// It binds the format and the engine exactly as the text path does, so the rule that a processed row
+// always names what read it and what it was read as still holds. What it deliberately does NOT bind
+// is `text_r2_key`: writing an empty text object for a container would put a document in the corpus
+// asserting it holds no words, which is the assertion the whole exception vocabulary exists to
+// avoid. The entry listing — what came out, and what was described rather than opened — is in the
+// metadata sidecar this names.
+export function markReviewDocumentExpandedStatement(
+  database: SqlDatabase,
+  id: ReviewDocumentId,
+  facts: ExpandedContainerFacts,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${REVIEW_DOCUMENT_TABLE} SET processing_state = 'processed', ` +
+        `metadata_r2_key = ?2, format_identified = ?3, extraction_route = ?4, ` +
+        `page_count = NULL, pages_recognized = NULL, ` +
+        `processing_deferred_reason = NULL, updated_at = ?5 ` +
+        `WHERE id = ?1 AND processing_state = 'processing'`,
+    )
+    .bind(id, facts.metadataR2Key, facts.formatIdentified, facts.extractionRoute, now);
+}
+
+// The container becomes the head of its family. Its own identifier is already the family identifier
+// — every document is its own family until something says otherwise — so what changes is only the
+// role, and it is written in the SAME batch as the children it now heads. A family whose parent is
+// still marked standalone is a family the one indexed read cannot recognize, and the two facts
+// becoming true at different instants is the window in which that happens.
+export function markReviewDocumentFamilyParentStatement(
+  database: SqlDatabase,
+  id: ReviewDocumentId,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${REVIEW_DOCUMENT_TABLE} SET family_role = 'parent', updated_at = ?2 ` +
+        `WHERE id = ?1 AND family_id = ?1`,
+    )
+    .bind(id, now);
+}
+
+// What the scan gate currently says about the bytes a document points at. The dispatch message
+// carries the verdict as it stood when the walk ran; this re-reads it, and is the ONLY reason a
+// document whose gate had not finished can make progress — a container's children are ingested
+// during processing, so their verdict is minted after their message already exists.
+export function selectReviewDocumentSourceStatusStatement(
+  database: SqlDatabase,
+  id: ReviewDocumentId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(file_version.status, 'clean') AS sourceStatus ` +
+        `FROM ${REVIEW_DOCUMENT_TABLE} ` +
+        `LEFT JOIN file_version ON file_version.id = ${REVIEW_DOCUMENT_TABLE}.file_version_id ` +
+        `WHERE ${REVIEW_DOCUMENT_TABLE}.id = ?1`,
+    )
+    .bind(id);
+}
+
+export async function readReviewDocumentSourceStatus(
+  database: SqlDatabase,
+  id: ReviewDocumentId,
+): Promise<string | undefined> {
+  const { results } = await selectReviewDocumentSourceStatusStatement(database, id).all<{
+    sourceStatus: string;
+  }>();
+  return results[0]?.sourceStatus;
 }
 
 // The other terminal state. The identified format is written even here — and especially here: "we
@@ -195,6 +294,11 @@ export function insertReviewDocumentExceptionStatement(
   row: {
     readonly id: ReviewDocumentExceptionId;
     readonly reviewSetId: ReviewSetId;
+    // The load, carried on the row so the exception report — which is written per load — walks its
+    // own index instead of joining every document in the corpus to find the few thousand that owe a
+    // sentence. This statement is the table's only writer, which is why the column can be bound
+    // unconditionally although SQLite could not declare it NOT NULL after the fact.
+    readonly discoveryLoadId: DiscoveryLoadId;
     readonly reviewDocumentId: ReviewDocumentId;
     readonly stage: ReviewDocumentExceptionStage;
     readonly code: ReviewDocumentExceptionCode;
@@ -208,10 +312,52 @@ export function insertReviewDocumentExceptionStatement(
   return database
     .prepare(
       `INSERT OR IGNORE INTO ${REVIEW_DOCUMENT_EXCEPTION_TABLE} ` +
-        `(id, review_set_id, review_document_id, stage, code, detail, created_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+        `(id, review_set_id, discovery_load_id, review_document_id, stage, code, detail, ` +
+        `created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
     )
-    .bind(row.id, row.reviewSetId, row.reviewDocumentId, row.stage, row.code, row.detail, now);
+    .bind(
+      row.id,
+      row.reviewSetId,
+      row.discoveryLoadId,
+      row.reviewDocumentId,
+      row.stage,
+      row.code,
+      row.detail,
+      now,
+    );
+}
+
+export interface ReviewDocumentExceptionFactRow {
+  readonly stage: ReviewDocumentExceptionStage;
+  readonly code: ReviewDocumentExceptionCode;
+  readonly detail: string | null;
+}
+
+// Every named reason one document did not process, in a stable order. Read when a suppressed
+// duplicate has to inherit its primary's ending: the copy gets the SAME codes on its own row, so a
+// record custodian who held an encrypted document is counted as having held one rather
+// than disappearing behind whichever copy happened to be read first.
+export function selectReviewDocumentExceptionsStatement(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT stage, code, detail FROM ${REVIEW_DOCUMENT_EXCEPTION_TABLE} ` +
+        `WHERE review_document_id = ?1 ORDER BY code ASC, stage ASC`,
+    )
+    .bind(reviewDocumentId);
+}
+
+export async function readReviewDocumentExceptions(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+): Promise<ReviewDocumentExceptionFactRow[]> {
+  const { results } = await selectReviewDocumentExceptionsStatement(
+    database,
+    reviewDocumentId,
+  ).all<ReviewDocumentExceptionFactRow>();
+  return results;
 }
 
 // ---------------------------------------------------------------------------------------------

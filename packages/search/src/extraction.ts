@@ -105,7 +105,24 @@ export interface ExtractedDocumentFacts {
   readonly documentDateSource: string | null;
   // The near-duplicate signature over the normalized text, hex. Computed inside the extraction pass
   // where the text is already in memory; clustering over it is a later slice.
+  //
+  // IT IS A SIMILARITY SCORE, NOT AN IDENTITY. It collides by design — that is what makes it useful
+  // for finding near-duplicates — so nothing may suppress a document from review on the strength of
+  // it. The digests below are the identity.
   readonly textFingerprint: string | null;
+  // The digest set over the document's OWN bytes, computed in the same pass as the text for the same
+  // cost. SHA-256 is the identity two copies of a document are the same by; MD5 and SHA-1 are
+  // legacy-interop, present because e-discovery load-file specifications and opposing-party tooling
+  // still ask for them, and labelled that way wherever they are rendered. Null from a route that
+  // does not hash — a reader that reports pages says nothing about bytes, and a null here is that
+  // silence rather than an absent hash.
+  readonly digests: ExtractedDigestSet | null;
+}
+
+export interface ExtractedDigestSet {
+  readonly md5: string;
+  readonly sha1: string;
+  readonly sha256: string;
 }
 
 export const NO_DOCUMENT_FACTS: ExtractedDocumentFacts = {
@@ -114,6 +131,7 @@ export const NO_DOCUMENT_FACTS: ExtractedDocumentFacts = {
   documentDate: null,
   documentDateSource: null,
   textFingerprint: null,
+  digests: null,
 };
 
 export type TextExtractionResult =

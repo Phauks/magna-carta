@@ -7330,6 +7330,14 @@ export const reviewDocumentException = sqliteTable(
       .notNull()
       .$type<ReviewDocumentId>()
       .references(() => reviewDocument.id),
+    // Which load the excepted document arrived in, carried for the same reason the review set is:
+    // the exception report a firm hands to opposing counsel is written per load, and reaching the
+    // load through the document means joining a quarter-million rows to group a few thousand.
+    // Nullable only because SQLite cannot add a NOT NULL column to a table that already exists; the
+    // insert statement is the sole writer and always binds it.
+    discoveryLoadId: text("discovery_load_id")
+      .$type<DiscoveryLoadId>()
+      .references(() => discoveryLoad.id),
     stage: text("stage", {
       enum: ["load", "identify", "extract", "deduplicate", "family", "index"],
     }).notNull(),
@@ -7343,6 +7351,9 @@ export const reviewDocumentException = sqliteTable(
   (table) => [
     index("review_document_exception_review_set_code_index").on(table.reviewSetId, table.code),
     index("review_document_exception_document_index").on(table.reviewDocumentId),
+    // The exception report's own walk: one load's exceptions in document order, so the report can be
+    // merged against the manifest's document walk in one pass rather than read per document.
+    index("review_document_exception_load_index").on(table.discoveryLoadId, table.reviewDocumentId),
     check(
       "review_document_exception_stage_check",
       sql`${table.stage} IN ('load', 'identify', 'extract', 'deduplicate', 'family', 'index')`,

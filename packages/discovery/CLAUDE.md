@@ -39,8 +39,14 @@ ADR-0039.)
   tags
 - `src/coding-service.ts` — applying, removing, family and bulk gestures, and exact undo
 - `src/processing.ts` — how an extraction's derived facts are stored, and the sidecar's shape
-- `src/processing-statements.ts` — the dispatch read, the two terminal writes, the parked write, the
-  exception insert, and the two reads the exception report and the reconciliation stand on
+- `src/processing-statements.ts` — the dispatch read, the three terminal writes (text, container, and
+  exception), the parked write, the exception insert, and the reads the report and the reconciliation
+  stand on
+- `src/dedup.ts` / `src/dedup-statements.ts` — **what makes two review documents the same document**,
+  the one guarded claim on primacy, and the occurrence rows a suppressed copy stays reachable through
+- `src/manifest.ts` — the two record artifacts as PURE text, and the three rules that make them
+  reproducible
+- `src/manifest-statements.ts` — the keyset-ordered walks both artifacts are built from
 
 ## Invariants that apply here
 
@@ -91,7 +97,32 @@ ADR-0039.)
   into a document, and a report that does not reconcile is not one.
 - **Deduplication keeps the duplicate.** The row survives, marked non-primary, with an occurrence
   naming its record custodian and its load. "Which custodians held this document" is asked under
-  oath, and "we deleted that" is not an answer.
+  oath, and "we deleted that" is not an answer. The copy still reaches its own terminal state,
+  mirroring the primary's — including inheriting the primary's named codes on its own row when the
+  primary is one nothing could read, so a custodian who held an encrypted document is counted as
+  having held one.
+- **The identity is a content hash, never the near-duplicate fingerprint.** Both live on the same row
+  and only one of them is an identity. The fingerprint is a similarity score that COLLIDES BY DESIGN,
+  which is what makes it useful for clustering and disqualifying for suppression: a document
+  suppressed from review is a document nobody reads, and deciding that on a heuristic is not a
+  decision this layer gets to make. A document with no recorded hash gets no group at all rather than
+  a group of one — the platform declines to assert anything about bytes nobody hashed.
+- **Primacy is taken once, held by the database, and never moves.** `claimDedupPrimaryStatement` is a
+  single statement whose `WHERE NOT EXISTS` refuses the claim while a holder exists, and the partial
+  unique index on `(review_set_id, dedup_group_id) WHERE dedup_group_id IS NOT NULL AND
+is_dedup_primary = 1` is the same rule held for the write path nobody has written yet. A read
+  followed by a write would let two consumers each see "nobody holds it".
+- **The record artifacts are reproducible, and that is a property of `src/manifest.ts` rather than a
+  habit.** It reads NO CLOCK: the knowledge instant is an argument, and the caller passes the load
+  row's `updated_at` — the moment its last counter moved, and therefore the moment the corpus stopped
+  moving for that load. Every set it renders arrives keyset-ordered by identifier, and nothing is
+  derived from the environment. `test/manifest.test.ts` renders twice and compares bytes, and scans
+  the module for a clock. Taking `now` would make every rebuild a different document, which is the
+  difference between a record and a snapshot.
+- **An exception row may sit on a document whose terminal state is `processed`.** A container that
+  expanded fifty entries and skipped two encrypted ones is the case: it processed, and it still owes
+  the reader a sentence about the two. The report renders the terminal state beside every reason, so
+  a reader tells them apart without inferring; the reconciliation counts STATES and is untouched.
 - **A review set moves forward only.** `open` → `locked` → `closed`, enforced by trigger. Closing
   releases a derived CACHE (text, sidecars, splits — all rebuildable from source) and never a
   record: every row, every manifest, and every exception report survives it. There is no reopen.
@@ -203,4 +234,15 @@ produced it forbids.
   the role exists to answer.
 - **The exception and occurrence tables carry `review_set_id` of their own**, redundantly with the
   path through `review_document`. The exception report is a read across the whole review set, and
-  joining a quarter-million rows to get there is the read that column exists to avoid.
+  joining a quarter-million rows to get there is the read that column exists to avoid. The exception
+  table carries `discovery_load_id` too, for the same reason one grain finer: the report is written
+  per load.
+- **The exception walk pages on the PAIR `(review_document_id, id)`, never on the document alone.**
+  Several reasons on one document is normal, so a page boundary can fall inside one — resuming from
+  the document would skip the reasons after the boundary, and a dropped reason reads as a document
+  that had no trouble.
+- **The manifest carries three digests, not the design's five.** The shipped row has three columns,
+  and no e-discovery load-file specification asks for SHA-384 or SHA-512. MD5 and SHA-1 reach the row
+  from the extraction engine's own pass over the bytes and are rendered LABELLED as legacy-interop;
+  `content_sha256` stays the ingest gate's value and no engine overwrites it, because two authorities
+  on whether two documents are the same document is one too many.

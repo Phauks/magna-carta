@@ -20,7 +20,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine, the corpus, and now the lane between them — the DISCOVERY_PROCESS queue with its own dead-letter queue, the keyset-paged dispatch walk off the load coordinator's durable cursor, and the consumer that writes extracted text and a metadata sidecar to R2 and ends every document in exactly one terminal state. Deduplication, container families, the load manifest and the exception report, and the wiring into the shipped index pipeline are not built.
+  evidence: The engine, the corpus, and the lane between them — the DISCOVERY_PROCESS queue with its own dead-letter queue, the keyset-paged dispatch walk off the load coordinator's durable cursor (apps/worker/src/discovery/dispatch-processing.ts), and the consumer that ends every document in exactly one terminal state (apps/worker/src/discovery/process-consumer.ts). Deduplication with occurrence rows, container families over the guarded expansion, and the load manifest and exception report are now built too (packages/discovery/src/{dedup,dedup-statements,manifest,manifest-statements}.ts, apps/worker/src/discovery/{deduplication,archive-expansion,load-artifacts}.ts). Only the wiring into the shipped index pipeline is not built.
   notes: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages.
 
 - id: discovery.pipeline.engine
@@ -47,8 +47,19 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The DISCOVERY_PROCESS queue and its dead-letter queue, the keyset-paged dispatch walk in apps/worker/src/discovery/dispatch-processing.ts resuming from the coordinator's durable cursor, and apps/worker/src/discovery/process-consumer.ts writing extracted text and the metadata sidecar to R2, the derived scalars to the row, and a named exception code for every non-success.
-  notes: Deduplication, container families, and the manifest and exception-report artifacts written at load completion are the remainder of this sub-slice.
+  evidence: The DISCOVERY_PROCESS queue and its dead-letter queue, the keyset-paged dispatch walk in apps/worker/src/discovery/dispatch-processing.ts resuming from the coordinator's durable cursor, and apps/worker/src/discovery/process-consumer.ts writing extracted text and the metadata sidecar to R2, the derived scalars to the row, and a named exception code for every non-success. The remainder is built: deduplication before a byte is read with occurrence rows (apps/worker/src/discovery/deduplication.ts, held by the partial unique index in 20260816T090000_discovery-dedup-and-report), container families over the engine's guarded expansion (apps/worker/src/discovery/archive-expansion.ts), and the manifest and exception report streamed to R2 at load completion (apps/worker/src/discovery/load-artifacts.ts over the pure builders in packages/discovery/src/manifest.ts). Twenty-one cases in apps/worker/test/discovery-process-consumer.test.ts and twenty in packages/discovery/test/{dedup,manifest}.test.ts.
+  notes: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. Enqueuing review documents into the review-set corpus is 5-1-4.
+
+- id: discovery.pipeline.load-record
+  name: Load manifest and exception report
+  scope: The two records a load produces — what arrived, and every document that could not be read with the named reason for each — written once to R2 in a machine-readable and a printable form.
+  status: shipped
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: Pure builders that take the knowledge instant as an argument and read no clock (packages/discovery/src/manifest.ts, proved byte-identical across two renders and source-scanned for a clock in packages/discovery/test/manifest.test.ts); keyset-ordered walks in packages/discovery/src/manifest-statements.ts; the streaming writer and the completion guard in apps/worker/src/discovery/load-artifacts.ts, which refuses to write while the load's counters and its rows disagree. User guide: docs/user/features/discovery-exception-report.md.
+  audience: public
+  public-summary: Every load produces a record of what arrived and a report naming every document that could not be read, with the reason for each — the document a firm hands to the other side.
+  notes: Three deviations from the design are recorded rather than silently taken — three digests rather than five (the shipped row has three columns and no load-file specification asks for the other two), the extraction routes the corpus observed in place of engine version pins (no engine reports a version over its binding yet), and an exception row that may sit on a document whose state is `processed`, which is what a container with encrypted entries actually is.
 
 - id: discovery.pipeline.review-set
   name: Review-set model
@@ -56,7 +67,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables exist and are filled by the processing sub-slice; the manifest and exception report are written there too.
+  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
   notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403.
 
 - id: discovery.pipeline.load-lanes
@@ -88,11 +99,11 @@
 - id: discovery.archive-handling.contents-indexing
   name: Archive contents in review
   scope: Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload.
-  status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine can enumerate and expand an archive under five guards (crates/discovery-core/src/archive.rs) — the narrow exception to the opaque-archive rule, scoped to the discovery load path. Processing recognizes an archive and records it as container-not-expanded rather than as a file that held no words; the expansion into a family is not wired. File Manager archives stay opaque.
-  notes: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all.
+  status: shipped
+  evidence: The engine enumerates and expands an archive under five guards (crates/discovery-core/src/archive.rs) and the discovery processing lane wires that expansion into a real family (apps/worker/src/discovery/archive-expansion.ts): every entry re-enters the ordinary ingest gate by the path email attachments already take, entries become container-child documents of the archive sorted by path, the archive becomes the family head, and every entry the engine described rather than opened becomes a named exception carrying a count and a kind. Expansion is one level per document because the engine already recursed to its own nesting ceiling. Four cases in apps/worker/test/discovery-process-consumer.test.ts. File Manager archives stay opaque.
+  notes: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all. The narrow exception is scoped to this lane and nowhere else.
 
 - id: discovery.search
   name: Search
