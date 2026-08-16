@@ -1,11 +1,11 @@
 # Asset register — what an estate or a client owns
 
 _Every kind of thing, the value history, what is secured against an asset, the estate schedule,
-interests, document links, the link to the safe custody register, the account-number handling, and
-assets as merge fields are built, along with the API behind them. The screens — the matter's asset
-list, quick add, asset detail, and the schedule — are authored when those surfaces ship. Copying an
-asset forward from an earlier matter, and the automatic parcel and valuation lookups, are not built
-yet._
+interests, document links, the link to the safe custody register, the account-number handling, your
+firm's own fields on an asset, and assets as merge fields are built, along with the API behind them.
+The screens — the matter's asset list, quick add, asset detail, and the schedule — are authored when
+those surfaces ship. Copying an asset forward from an earlier matter, the automatic parcel and
+valuation lookups, and a ready-made schedule template are not built yet._
 
 ## What it does
 
@@ -242,6 +242,30 @@ worked out from the other.
 The same held object can be linked from two matters — the estate and the related trust both schedule
 it — and that is allowed on purpose.
 
+## Your firm's own fields on an asset
+
+The fixed kinds and your firm's own type list cover what a thing **is**. For a fact about a thing
+that nobody anticipated — a timeshare's week number, a boat's slip number, who valued a piece of
+jewellery — your firm defines its own field, exactly as it already can on a matter and on a contact.
+It is the same feature, the same list of field types (text, number, currency, date, tick box, a list
+of choices, a link to a matter or a contact), and the same administration screen.
+
+**A field can belong to one kind of thing, or to all of them.** Attach "slip number" to vehicles and
+it appears on the boat and nowhere else; attach nothing and the field appears on every asset on every
+matter. That is what stops an asset record filling up with fields that have nothing to do with it.
+
+Two things worth knowing, both of which follow from how firm-defined fields work everywhere else:
+
+- **Renaming a field never loses what was recorded in it.** A value is tied to the field itself, not
+  to what it is called, so "Week number" can become "Timeshare week" with nothing to redo.
+- **Retiring a field keeps its answers.** Archive it and it stops appearing on new records; every
+  value already recorded stays readable. Deleting a field outright is refused once anything has been
+  recorded in it.
+
+**Do not put an account number, a password, a recovery phrase, or a safe combination in one.** A
+firm-defined field is ordinary stored text, not a sealed one — account and policy numbers have their
+own handling further up this page, and a credential has no home here at all.
+
 ## Assets in an assembled document
 
 Asset records can fill a document. What a template gets is a **list**, not a single asset: one for
@@ -262,6 +286,14 @@ currencies refuses visibly rather than adding them up.
 **A full account or policy number is never available to a template.** The last four characters are;
 the whole number has no field at all. A merge field that decrypted one would write the secret into a
 document whose confidentiality then becomes that document's problem.
+
+**Your firm's own fields on an asset are not merge fields yet.** A firm-defined field on a _matter_
+is available to a template; one on an asset is not, because an asset field would have to print inside
+the repeating block, once per asset, and that is a separate piece of work. Recording the fact and
+printing it are two different capabilities and only the first is built.
+
+**There is no ready-made schedule template.** The fields a schedule needs all exist, so a template
+your firm authors and uploads works today; what does not exist yet is one supplied in the box.
 
 ## Firearms, and what the register will not tell you
 

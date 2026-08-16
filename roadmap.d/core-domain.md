@@ -439,7 +439,7 @@
 
 - id: custom-fields
   name: Custom-fields engine
-  scope: Shared typed custom-fields engine serving Directory categories and matter types.
+  scope: Shared typed custom-fields engine serving matter types, Directory categories, and matter-asset classes.
   status: partial
   slices: 1-4-custom-fields-engine
   adrs: ADR-0087, ADR-0107, ADR-0108
@@ -491,8 +491,8 @@
   scope: Custom fields usable in search, reporting, and document automation.
   status: partial
   slices: 1-4-custom-fields-engine
-  evidence: typed reads in packages/custom-fields/src/reads.ts
-  notes: Read primitives exist; reporting (reports slice) and document automation (status.d/2-6 not started) consumers do not.
+  evidence: typed reads in packages/custom-fields/src/reads.ts; the document-automation consumer is packages/document-assembly/src/custom-field-bindings.ts, deriving one dictionary entry per active matter-axis field at read time.
+  notes: Document automation consumes matter-axis fields as `custom.<handle>` merge keys; the reporting consumer does not exist. A field on the entity or matter-asset axis is deliberately not a merge key — a `custom.<handle>` is a scalar and an assembly has only the matter's row to resolve one against.
 
 - id: matter-assets
   name: Matter asset register
@@ -504,7 +504,7 @@
   audience: public
   public-name: Asset registers
   public-summary: Track the property, accounts and possessions a matter deals with — what each is worth, what is owed against it, and who holds an interest.
-  notes: All ten classes, encumbrances and equity, the grouped schedule, the custody link, and the merge subjects are built. Still open — the firm's own fields on an asset, the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface.
+  notes: All ten classes, encumbrances and equity, the grouped schedule, the custody link, the merge subjects, and the firm's own fields on an asset are built. Still open — a supplied schedule template (blocked on where platform-authored template content lives at all), the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface.
 
 - id: matter-assets.register
   name: The asset row and the class spine
@@ -603,7 +603,26 @@
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: the assetClass subject kind and eleven subjects in packages/document-assembly/src/catalog/subjects.ts, filled by the one `asset` source in src/resolve.ts; packages/document-assembly/test/asset-subjects.test.ts holds the collection-only rule and test/resolve-batching.test.ts the one-read budget.
-  notes: No assetClass subject declares a scalar — an estate with two houses would make every scalar an absence naming the count. `value` and `valueAsOf` are declared and set together; accountSuffix is the facet and the full number has no key. custom_field.target widening to matterAsset is still open and wants coordinating with the Custodian custodyPacket widening.
+  notes: No assetClass subject declares a scalar — an estate with two houses would make every scalar an absence naming the count. `value` and `valueAsOf` are declared and set together; accountSuffix is the facet and the full number has no key. A firm's own field on an asset is deliberately NOT a merge field — packages/document-assembly/src/custom-field-statements.ts scopes the catalogue to target = 'matter', held by test/custom-field-catalog-scope.test.ts over the whole target vocabulary.
+
+- id: matter-assets.custom-fields
+  name: The firm's own fields on an asset
+  scope: custom_field.target widened to matterAsset, scoped per class through the engine's existing attachment_id column, with the asset detail returning each scoped field and this asset's value for it.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/worker/src/routes/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/worker/test/matter-assets-routes.test.ts.
+  notes: No migration — custom_field.target is a bare text NOT NULL with no CHECK and drizzle's enum emits no SQL, so check-snapshots reports the per-firm head already current; the readers carry the whole of the safety and the vocabulary has one home. The Custodian custodyPacket widening is decoupled rather than coordinated, because with no migration there is nothing to share.
+
+- id: matter-assets.schedule-template
+  name: A supplied asset-schedule template
+  scope: A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: no code, and no mechanism to hold it — nothing on main distributes a platform-authored template. No template package, no committed word-processing template outside a conversion test fixture, no document_template seed in either migration lineage, no template role, no adopt route, and no provenance column on document_template. What a template would bind to is shipped under matter-assets.merge-fields, so a firm-authored upload works today; only the supplying of one is missing.
+  awaiting-owner: Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
+  notes: The exhibits slice's separator-page and list starter templates wait on the same mechanism answer.
 
 - id: matter-assets.carry-forward
   name: Carry-forward from a prior matter

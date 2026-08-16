@@ -69,7 +69,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "a party's role on a matter is itself a matter record",
   },
   { table: "custom_field_value", subjectKey: "value_reference_id", action: "anonymize" },
-  { table: "custom_field_value", subjectKey: "target_row_id", action: "anonymize" },
+  {
+    table: "custom_field_value",
+    subjectKey: "target_row_id",
+    action: "anonymize",
+    note: "the target row is a data subject only where the field's target is the directory axis; a matter or matter-asset handle in this column matches no subject id and is reached, correctly, by the matter corpus instead",
+  },
   {
     table: "cost_entry",
     subjectKey: "vendor_id",
@@ -614,6 +619,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "a per-member tally of how many pointers aged out unread; carries a count and two instants and nothing about what they pointed at",
   },
+  {
+    table: "notification_in_app_suppression",
+    subjectKey: "recipient_user_id",
+    action: "hard-delete",
+    note: "the swept-unread shape exactly, one question over: a per-member per-category day tally of how many notifications a preference silenced, carrying a count, a civil date, whose choice did it, and an instant — and nothing about what was silenced. Hard-delete for the same reason its sibling is: it points at records that are registered and retained in their own right",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -965,7 +976,7 @@ export const NO_PII_TABLES: readonly string[] = [
   // exactly as notification_delivery resolves through notification_recipient — and that event is
   // registered in PII_TABLES above, retained under the matter.
   "review_document_tag",
-  // Notifications. The four tables keyed to a member are registered in PII_TABLES above; the event
+  // Notifications. The five tables keyed to a member are registered in PII_TABLES above; the event
   // row itself carries no column about anybody. It is a kind, a category, a severity, the handle of
   // the record it points at, the matter that anchors its visibility, two instants, and a `facts`
   // blob whose values are restricted BY A VALIDATED GRAMMAR to identifiers, integers, booleans,

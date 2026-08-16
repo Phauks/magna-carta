@@ -106,6 +106,22 @@ encumbrance_id`, set, means the row is that charge's balance as of a date — on
   address, no parcel number, no entity name, no amount, no suffix. Identifiers, the class, and the
   basis, and nothing else.
 
+## The firm's own fields live in the custom-fields engine, not here
+
+An asset's third type layer — the firm's own fields — is `custom_field.target = 'matterAsset'`,
+scoped per class through the engine's existing `attachment_id` column. **Nothing in this package
+touches it**: no table, no statement, no service, and no import. The engine owns the definition, the
+caps, the value history, the archive-as-absence rule, and the handle-not-name binding, and the
+composition happens one level up in `apps/worker/src/routes/matter-assets.ts`, which reads
+`readCustomFieldValuesForScope` with the asset's class as the attachment. That keeps this package's
+"depends on no other domain package" rule intact and keeps a firm's own field on an asset the same
+object it is on a matter, rather than a second key/value system inside a second register.
+
+**An asset field is deliberately not a merge field.** The catalogue admits the matter axis only,
+because a `custom.<handle>` key is a scalar and an asset field's answers live on one of a matter's
+many asset rows. Exposing them would mean per-item fields inside the asset collections, which is a
+different feature from widening the target and is not built.
+
 ## The boundary with Custodian, stated so neither side drifts
 
 Custodian describes **objects in the firm's possession** — where the paper deed is, who last touched

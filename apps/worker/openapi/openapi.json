@@ -11408,6 +11408,12 @@
               "string",
               "null"
             ]
+          },
+          "customFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetCustomFieldValue"
+            }
           }
         },
         "required": [
@@ -11427,7 +11433,8 @@
           "identifiers",
           "custody",
           "valueAsOf",
-          "classHandlingNote"
+          "classHandlingNote",
+          "customFields"
         ]
       },
       "MatterAssetRealPropertyDetail": {
@@ -12155,6 +12162,89 @@
           "sourceNote",
           "supportingFileId",
           "recordedAt"
+        ]
+      },
+      "MatterAssetCustomFieldValue": {
+        "type": "object",
+        "properties": {
+          "fieldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "numberScale": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "valueId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueNumber": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "valueDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueOptionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueReferenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fieldId",
+          "name",
+          "kind",
+          "numberScale",
+          "required",
+          "position",
+          "valueId",
+          "valueText",
+          "valueNumber",
+          "valueDate",
+          "valueOptionId",
+          "valueReferenceId",
+          "validFrom"
         ]
       },
       "MatterAssetSchedule": {
@@ -14817,7 +14907,8 @@
             "type": "string",
             "enum": [
               "matter",
-              "entity"
+              "entity",
+              "matterAsset"
             ]
           },
           "attachmentId": {
@@ -54615,7 +54706,7 @@
     },
     "/api/v1/custom-fields/fields": {
       "post": {
-        "description": "Defines a custom field on a matter type or entity category.",
+        "description": "Defines a custom field on a record axis: a matter, a directory contact, or a matter asset. attachmentId narrows it within that axis — a matter type, a contact category, or an asset class — and null applies the field to every record on the axis.",
         "operationId": "customFields.defineField",
         "tags": [
           "customFields"
