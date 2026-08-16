@@ -7,14 +7,29 @@ import { fileURLToPath } from "node:url";
 // belongs to a project the runner never loads, so its tests run nowhere — locally and in CI — and
 // nothing fails on their absence (`--passWithNoTests` can only guard paths that reach the runner).
 // This scan makes that hole impossible to reopen: every `vitest*.config.ts` under a workspace group
-// must be matched by a registry entry, and every literal (non-glob) entry must point at a file that
-// exists. Run: `pnpm run lint:test-registration`.
+// must be matched by a registry entry OR declared a re-runner below, and every literal (non-glob)
+// entry must point at a file that exists. Run: `pnpm run lint:test-registration`.
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 // The workspace groups that can hold test projects (pnpm-workspace.yaml's package roots + tooling,
 // which registers its test-bearing subdirectories individually).
 const GROUPS = ["apps", "packages", "plugins", "tooling"];
+
+// RE-RUNNERS. A vitest config that owns no tests of its own — it re-runs files that already belong to
+// a registered project, in one process, for a caller that cannot afford the root workspace. The
+// premise this lint is built on ("unregistered means its tests run nowhere") is simply false for one
+// of these, and registering it would be actively wrong: the whole-repo suite would run every member
+// twice and the shard-union arithmetic in lint:test-collection would stop adding up. So each is named
+// here with its reason, which keeps the exception visible in the lint rather than hidden behind a
+// filename that happens not to match the scan.
+const RE_RUNNERS = new Map([
+  [
+    "tooling/check-scoped/vitest.repo-wide-fitness.config.ts",
+    "the inner loop's repo-wide fitness sweep — every file it includes already runs in its own " +
+      "package's project (see tooling/check-scoped/repo-wide.mjs)",
+  ],
+]);
 
 const viteConfig = readFileSync(join(ROOT, "vite.config.ts"), "utf8");
 
@@ -59,6 +74,16 @@ for (const group of GROUPS) {
 const errors = [];
 
 for (const path of discovered) {
+  if (RE_RUNNERS.has(path)) {
+    // A declared re-runner must NOT be registered: registering it double-runs its members.
+    if (entries.some((entry) => entryMatches(entry, path))) {
+      errors.push(
+        `  ${path}  is a declared re-runner (${RE_RUNNERS.get(path)}) but is ALSO registered in ` +
+          `test.projects — that runs every file it includes twice in the whole-repo suite. Remove the entry.`,
+      );
+    }
+    continue;
+  }
   if (!entries.some((entry) => entryMatches(entry, path))) {
     errors.push(
       `  ${path}  exists on disk but no test.projects entry covers it — its tests run NOWHERE. ` +
@@ -75,6 +100,14 @@ for (const entry of entries) {
   }
 }
 
+// A re-runner named here that no longer exists is a stale declaration; say so rather than letting the
+// entry sit and quietly exempt a path nobody has.
+for (const path of RE_RUNNERS.keys()) {
+  if (!existsSync(join(ROOT, path))) {
+    errors.push(`  ${path}  is declared a re-runner in this lint but does not exist on disk.`);
+  }
+}
+
 if (errors.length > 0) {
   console.error("lint-test-registration: the vitest project registry and the disk disagree:\n");
   for (const error of errors) console.error(error);
@@ -83,5 +116,6 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `Test-project registry covers all ${discovered.length} vitest configs on disk (${entries.length} entries).`,
+  `Test-project registry covers all ${discovered.length - RE_RUNNERS.size} vitest configs on disk ` +
+    `(${entries.length} entries, ${RE_RUNNERS.size} declared re-runner(s)).`,
 );

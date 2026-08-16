@@ -12,6 +12,12 @@
 // Anything it skips, it says it skipped — a silent gate that quietly checks nothing is
 // worse than a slow one. The pre-push hook runs this scoped gate, not the full one — fast local feedback.
 //
+// PLUS the repo-wide set, which is the one thing here that is deliberately NOT scoped to the diff.
+// A whole-repo fitness function does not live in the package whose code it governs — that is what
+// makes it whole-repo — so a diff-scoped gate is structurally incapable of finding it, and three
+// separate changes reached `main` red in one session through that hole. What belongs in that set, and
+// how membership derives itself rather than being listed, is repo-wide.mjs.
+//
 // The whole-repo gate of record is GitHub Actions (`.github/workflows/gate.yml`, full `pnpm check` +
 // `vp test` on every pull request and push to `main`), not this. This is what you run while working.
 //
@@ -29,6 +35,7 @@ import {
   ROOT,
   SCRIPT_PATTERN,
 } from "./changed-files.mjs";
+import { DEPENDENCY_MANIFEST_PATTERN, FITNESS_SCOPES_ENV } from "./repo-wide.mjs";
 import { mentionsMissingWorkspaceModule } from "./stale-workspace-link.mjs";
 
 const argv = process.argv.slice(2);
@@ -84,6 +91,16 @@ const touchedSvelteApp = files.some((f) => f.endsWith(".svelte") && f.startsWith
 const touchedSvelteDs = files.some(
   (f) => f.endsWith(".svelte") && f.startsWith("packages/design-system/"),
 );
+// First-party source: the precondition for the repo-wide fitness sweep. Every member of that sweep
+// reads source (or the Drizzle schema, which is source), so a docs-only or config-only diff cannot
+// break one — and gating on that keeps the cheapest inner loop, the one people run after editing a
+// markdown file, at its current ~1 s instead of ~4 s. The condition is "any source anywhere", never
+// "the package that owns the check": narrowing it to the owning package is the bug this closes.
+const SOURCE_PATTERN = /\.(ts|tsx|mts|cts|js|mjs|cjs|svelte|css)$/;
+const touchedSource = files.some(
+  (f) => (f.startsWith("apps/") || f.startsWith("packages/")) && SOURCE_PATTERN.test(f),
+);
+const touchedDependencies = files.some((f) => DEPENDENCY_MANIFEST_PATTERN.test(f));
 
 console.log(`check:scoped: ${files.length} changed file(s) since ${base.slice(0, 12)}\n`);
 
@@ -106,11 +123,38 @@ if (touchedSchemaPackage) {
     args: ["--filter", "@magna-carta/database", "run", "check-snapshots"],
   });
 }
+// The repo-wide governance lints — ALWAYS, whatever the diff is. They are the tier that a docs-only
+// change breaks (a swept stream note leaving a dangling status.d/ pointer did exactly that, twice),
+// so a condition on this step would reopen the hole it closes. ~0.5 s: a dozen independent whole-repo
+// file scans, run concurrently rather than serially. Membership derives from the `lint:*` scripts in
+// the root package.json; the two kept out, and why, are in repo-wide.mjs.
+steps.push({
+  name: "repo-wide lints (derived from lint:* — concurrent)",
+  cmd: "node",
+  args: [
+    "tooling/check-scoped/run-repo-wide-lints.mjs",
+    ...(touchedDependencies ? ["--dependencies"] : []),
+  ],
+});
 if (lintable.length > 0) {
   steps.push({
     name: `fmt + lint (${lintable.length} file(s))`,
     cmd: "vp",
     args: ["check", ...lintable],
+  });
+}
+// The repo-wide fitness sweep — the Vitest checks whose jurisdiction is the whole repository. Runs
+// under its own config (tooling/check-scoped/vitest.repo-wide-fitness.config.ts) rather than the root
+// workspace: 3.1 s instead of 8.5 s for the same files, because the root config resolves ~70 project
+// configs before it filters. Members self-register with an `@repo-wide-fitness` directive; the schema
+// scope joins in only when packages/database moved, which is the only thing that can break it.
+if (touchedSource) {
+  const scopes = touchedSchemaPackage ? "source,schema" : "source";
+  steps.push({
+    name: `repo-wide fitness sweep (${scopes})`,
+    cmd: "vp",
+    args: ["test", "run", "-c", "tooling/check-scoped/vitest.repo-wide-fitness.config.ts"],
+    env: { [FITNESS_SCOPES_ENV]: scopes },
   });
 }
 // tsc -b is incremental over the project-reference graph: it re-checks only the changed projects and
@@ -146,7 +190,15 @@ const skipped = [
   !touchedSvelteApp && !touchedSvelteDs ? "svelte-check (no .svelte changed)" : null,
   !touchedRust ? "rust gate (no crate changed)" : null,
   !touchedSchemaPackage ? "drizzle snapshot freshness (no packages/database change)" : null,
-  "dependency audit + license/process-ref linters (pre-push only)",
+  !touchedSource ? "repo-wide fitness sweep (no first-party source changed)" : null,
+  touchedSource && !touchedSchemaPackage
+    ? "repo-wide fitness sweep, schema scope (no packages/database change)"
+    : null,
+  !touchedDependencies ? "lint:licenses (no manifest or lockfile changed)" : null,
+  // 26 s of list-only Vitest collections over ~70 projects — an order of magnitude past the inner
+  // loop's budget, and only a change to the CI test split can break it.
+  "lint:test-collection (26 s — CI's test-collection job)",
+  "dependency audit (pre-push only)",
 ].filter(Boolean);
 
 let failed = null;
@@ -157,6 +209,7 @@ for (const step of steps) {
     cwd: ROOT,
     stdio: step.capture === true ? ["inherit", "pipe", "pipe"] : "inherit",
     encoding: step.capture === true ? "utf8" : undefined,
+    env: step.env === undefined ? process.env : { ...process.env, ...step.env },
     shell: process.platform === "win32",
   });
   let output = "";

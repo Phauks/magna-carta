@@ -1,3 +1,5 @@
+// @repo-wide-fitness — walks every package's source from the repository root looking for a second
+// model port, so the diff that opens one is by definition not a diff in this package.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

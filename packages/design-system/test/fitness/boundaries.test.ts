@@ -1,3 +1,5 @@
+// @repo-wide-fitness — sweeps every app and package for a bits-ui or bare-Lucide import, so the
+// offending diff is almost always in a package that has never heard of this test.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

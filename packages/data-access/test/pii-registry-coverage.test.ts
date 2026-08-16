@@ -1,3 +1,5 @@
+// @repo-wide-fitness — the registry lives here but its input is the per-firm schema in
+// packages/database, so the diff that adds an unclassified table never touches this package.
 import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { PROTECTED_COLUMNS } from "@magna-carta/database/protected-columns";

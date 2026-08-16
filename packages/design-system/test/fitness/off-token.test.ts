@@ -1,3 +1,5 @@
+// @repo-wide-fitness — the off-token and no-emoji sweeps cover every app's and package's UI source,
+// so any package's diff can break them.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

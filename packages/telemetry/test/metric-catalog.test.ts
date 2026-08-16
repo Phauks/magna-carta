@@ -1,3 +1,5 @@
+// @repo-wide-fitness — scans every app's and package's source for counter call sites, so the diff
+// that adds an undeclared metric is almost never a diff in this package.
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";

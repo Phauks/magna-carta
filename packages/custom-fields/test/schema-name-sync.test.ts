@@ -1,3 +1,5 @@
+// @repo-wide-fitness scope=schema — the statements and the target vocabulary are here, the column
+// they are pinned to is in packages/database, so the diff that moves one never touches this package.
 import {
   customField,
   customFieldValue,

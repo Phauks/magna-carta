@@ -1,3 +1,5 @@
+// @repo-wide-fitness scope=schema — the statements are here, the tables and permissions they name
+// are in packages/database and packages/access-control, so a rename lands outside this package.
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { PERMISSIONS } from "@magna-carta/access-control/registry";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";

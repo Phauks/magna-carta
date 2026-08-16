@@ -1,3 +1,5 @@
+// @repo-wide-fitness — pins the registry here against the per-firm schema in packages/database and
+// the permission registry in packages/access-control; a change in either breaks it from outside.
 import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";
