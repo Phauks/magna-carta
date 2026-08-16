@@ -43,6 +43,10 @@ export interface ScopeInForce {
   readonly depth: number;
   // True when the requested scope fell below the firm's floor and was raised to it.
   readonly floorRaised: boolean;
+  // What the name comparison compared: the key columns, the phonetic encoders, and the name roles.
+  // Null on a check written before the matching record existed — "the row does not say", never "it
+  // compared what today's code compares".
+  readonly matching: MatchingRecord | null;
   // How far the graph walk was allowed to go and whether it got there. Null on a check written before
   // the traversal record existed — "the row does not say", never "the walk completed".
   readonly traversal: TraversalRecord | null;
@@ -237,10 +241,28 @@ export interface CandidateRecord {
   readonly refusedByTier: readonly RefusedTierCount[];
 }
 
+// What the name comparison actually did. `strictness` is on the row as the human-facing preset name,
+// but a preset is a word whose meaning moves as channels are added — a check from March compared fewer
+// things than a check from September under the same word — so the row names the channels too, and this
+// is how a reader gets at them.
+export interface MatchingRecord {
+  // The `directory_name` key columns compared for equality.
+  readonly nameKeys: readonly string[];
+  // The phonetic encoders that ran.
+  readonly phoneticSchemes: readonly string[];
+  // The name roles compared. `null` means EVERY role the corpus holds — a distinct statement from a
+  // list that happens to name them all, because a firm that adds a role later is covered by the first
+  // and not by the second.
+  readonly nameRoles: readonly string[] | null;
+}
+
 export interface CheckInputs {
   readonly subjectEntityIds: readonly string[];
   readonly expandedEntityIds: readonly string[];
   readonly skippedIdentifierTypes: readonly string[];
+  // Null on a row written before the matching record existed. "The row does not say" — never "the
+  // check compared what today's code would compare", which is the reading the record exists to end.
+  readonly matching: MatchingRecord | null;
   // Null on a row written before the traversal record existed. Null is "the row does not say", which
   // is a different fact from "the walk completed" and is reported as its own thing.
   readonly traversal: TraversalRecord | null;
@@ -250,6 +272,26 @@ export interface CheckInputs {
 
 const NO_TRAVERSAL_RECORD = null;
 const NO_CANDIDATE_RECORD = null;
+const NO_MATCHING_RECORD = null;
+
+function parseMatchingRecord(value: unknown): MatchingRecord | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return NO_MATCHING_RECORD;
+  }
+  const record = value as Record<string, unknown>;
+  const stringArray = (candidate: unknown): readonly string[] =>
+    Array.isArray(candidate)
+      ? candidate.filter((entry): entry is string => typeof entry === "string")
+      : [];
+  const storedRoles = record["nameRoles"];
+  return {
+    nameKeys: stringArray(record["nameKeys"]),
+    phoneticSchemes: stringArray(record["phoneticSchemes"]),
+    // An absent key and a stored null both mean every role, which is what an over-inclusive run
+    // records. Only an actual array narrows.
+    nameRoles: Array.isArray(storedRoles) ? stringArray(storedRoles) : null,
+  };
+}
 
 function parseTraversalRecord(value: unknown): TraversalRecord | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -314,6 +356,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     subjectEntityIds: [],
     expandedEntityIds: [],
     skippedIdentifierTypes: [],
+    matching: NO_MATCHING_RECORD,
     traversal: NO_TRAVERSAL_RECORD,
     candidates: NO_CANDIDATE_RECORD,
   };
@@ -331,6 +374,7 @@ export function parseCheckInputs(inputsJson: string): CheckInputs {
     subjectEntityIds: stringArray(record["subjectEntityIds"]),
     expandedEntityIds: stringArray(record["expandedEntityIds"]),
     skippedIdentifierTypes: stringArray(record["skippedIdentifierTypes"]),
+    matching: parseMatchingRecord(record["matching"]),
     traversal: parseTraversalRecord(record["traversal"]),
     candidates: parseCandidateRecord(record["candidates"]),
   };
@@ -504,6 +548,7 @@ export async function readMatterConflictsPosture(
         strictness: checkRow.strictness,
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
+        matching: inputs.matching,
         traversal: inputs.traversal,
         candidates: inputs.candidates,
       },

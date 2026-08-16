@@ -540,3 +540,25 @@ without anyone choosing it is the one outcome this subsystem must not produce.
 Related and still open for the owner: the lone-holder exception counts `trust:manage`
 rather than `trust:authorize`. Switching would take a firm with several managers and
 one authority holder from two-person to solo — a reduction, so it waits for a decision.
+
+## After the conflicts matching-depth deploy — watch the name-index backfill drain
+
+The two organization match keys are derived at write time for every new name and filled for
+existing corpora by a **bounded, resumable pass on the daily cron**
+(`runDirectoryNameIndexBackfill` in `apps/worker/src/scheduled.ts`, 500 name rows per firm per
+pass). Until a firm's pass has finished, the names it has not reached are invisible to those two
+blocking channels — while a conflicts check reports them as channels that ran.
+
+That is the one window in which the platform says it looked somewhere it did not look, and it
+closes on its own; it just needs to be seen to close. Two things for the owner after the deploy:
+
+- **Watch the drain finish.** The daily sweep logs the `directory-name-index` backfill's rows
+  affected per pass; a firm with hundreds of thousands of names takes days at 500 rows a pass. When a
+  firm's pass reports zero rows affected, that firm is filled.
+  `countNamesAwaitingIndexBackfill` in `@magna-carta/directory` answers the same question directly
+  for one firm's database.
+- **Raise the per-pass budget only if a large firm is drifting.** The number is a parameter, not a
+  constant. Raising it is a code change to one default; leaving it is safe, because the channels the
+  sweep feeds are additive and nothing else depends on them.
+
+Nothing here blocks the deploy, and nothing needs doing before it.

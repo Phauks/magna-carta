@@ -60,6 +60,15 @@ export interface DirectoryProbes {
   // co-party surfacing path — matter-independent, so it exists at every scale.
   readonly coPartyEntityIdA: string;
   readonly coPartyEntityIdB: string;
+  // A deterministic matching-depth trio, matter-independent so it exists at every scale. The first two
+  // are one firm's name spelled two ways — ampersand versus the word, dots in the legal form versus
+  // none — which the frozen normalization does NOT join and the match key does. The third differs from
+  // them only in its legal FORM, which only the bare key joins. Without them the harness would measure
+  // the two key channels against a synthetic corpus that never varies a spelling, and report a real
+  // channel finding nothing as if that were its cost.
+  readonly matchKeyOrganizationIdA: string;
+  readonly matchKeyOrganizationIdB: string;
+  readonly matchKeyOrganizationIdBareForm: string;
   // The head of the deep corporate group: a long corporate_successor lineage with a wide subsidiary
   // fan hanging off it. Corporate-family edges are traversed transitively at no hop cost, so a check
   // seeded here expands the whole group and is the case the closure cap exists for — the deep-graph
@@ -279,6 +288,29 @@ export async function generateDirectoryVolume(
   );
   context.clock.advanceMinutes(1);
 
+  // --- The match-key probes. Spelling variance the generated corpus does not otherwise contain:
+  // faker draws one spelling of a company name and never the same name spelled two different ways. A
+  // channel measured against a corpus that cannot exercise it reports as costing something and
+  // finding nothing, which is exactly the reading a new channel must never be given. ---
+  const matchKeyOrganizationIdA = await createOrganization(
+    database,
+    { legalName: "Halvorsen & Achebe LLP" },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+  const matchKeyOrganizationIdB = await createOrganization(
+    database,
+    { legalName: "Halvorsen and Achebe, L.L.P." },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+  const matchKeyOrganizationIdBareForm = await createOrganization(
+    database,
+    { legalName: "Halvorsen & Achebe LLC" },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+
   // --- The deep corporate group. A corporate_successor lineage (the same legal person continuing
   // through a chain of renames and mergers) with a wide subsidiary fan on its head. Corporate-family
   // edges cost no hops, so the whole group is one closure however long the chain runs — which is
@@ -337,9 +369,9 @@ export async function generateDirectoryVolume(
   }
 
   return {
-    // The volume persons plus the two co-party persons created below.
+    // The volume persons plus the two co-party persons.
     personCount: volume.personCount + 2,
-    organizationCount: volume.organizationCount + corporateGroupSize,
+    organizationCount: volume.organizationCount + corporateGroupSize + 3,
     probes: {
       firmId,
       firmKeyVersion: PROTECTED_FIRM_KEY_VERSION,
@@ -350,6 +382,9 @@ export async function generateDirectoryVolume(
       probeFamilyName: probePerson.family,
       coPartyEntityIdA,
       coPartyEntityIdB,
+      matchKeyOrganizationIdA,
+      matchKeyOrganizationIdB,
+      matchKeyOrganizationIdBareForm,
       corporateGroupHeadId,
       corporateGroupSize,
     },

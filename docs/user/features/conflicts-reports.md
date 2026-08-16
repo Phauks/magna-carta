@@ -67,6 +67,39 @@ information:
   a different answer from a matter that was checked and turned up nothing. Those two are never shown
   the same way.
 
+## How names are compared
+
+Almost nobody's name is recorded the same way twice. A firm signs its letters `Smith & Jones LLP`,
+a court caption writes `Smith and Jones, L.L.P.`, and an intake form writes `Smith and Jones`. A
+surname that travelled between languages arrives spelled by whichever clerk wrote it down. So a check
+compares names several ways at once, and every result tells you which comparison found it.
+
+- **The same name spelled differently.** An ampersand written as the word `and`, a legal form written
+  with dots or spelled out in full, a leading `The` — none of those change who the firm is, so a check
+  reads through them. `Smith & Jones LLP` and `Smith and Jones, L.L.P.` are treated as the same name,
+  and the result says so in those words.
+- **The same name under a different legal form.** `Smith & Jones LLP` and `Smith & Jones LLC` are
+  reported as a weaker kind of match, deliberately. They may be one firm that re-formed, or two
+  unrelated legal persons that happen to share a name — and which one it is, is a question for you
+  rather than for the software. The result raises it; it does not settle it.
+- **Names that sound alike.** A name is also compared by how it sounds, which catches `Smith`/`Smyth`
+  and `Cathrine`/`Catherine`. This comparison is tuned to English pronunciation, and there is a known
+  gap in it: a surname that crossed languages before it reached your files — `Nowak` written as
+  `Novak`, `Kowalczyk` as `Kovalchik` — is not reliably caught by it. A second comparison built for
+  exactly that is designed and not yet built. Until it is, search the other spelling yourself if a
+  name in front of you is one that travels.
+- **Names a person used to have.** Former names, maiden names and recorded aliases are searched at the
+  default setting, not only at the widest one. This is worth knowing because it is the single most
+  commonly missed conflict: someone married, changed surname, and the firm searched only the name they
+  go by now. Your firm can narrow this if it wants to, and whichever names a check compared are written
+  onto that check's record, so an older check tells you what it actually did rather than leaving you to
+  guess.
+- **Nicknames are not searched.** `Bob` and `Robert`, `Peggy` and `Margaret` are not related by sound
+  and no method works them out; they need a curated list, and Magna Carta does not ship one. Rather
+  than leave the gap unmentioned, every report names nicknames as something it could not search, in the
+  same way it names document text. If that matters for a name in front of you, search the other form
+  yourself.
+
 ## Deciding on a result
 
 A conflicts check never decides anything. It surfaces candidates and orders them by how strong the

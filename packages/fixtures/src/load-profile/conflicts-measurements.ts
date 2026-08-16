@@ -7,6 +7,7 @@ import { findImputationHits } from "@magna-carta/conflicts/imputation";
 import { expandGraph } from "@magna-carta/conflicts/expansion";
 import { matchPartyBatch } from "@magna-carta/conflicts/matching";
 import { readSubjectFactsBatch } from "@magna-carta/conflicts/subject-facts";
+import type { Strictness } from "@magna-carta/conflicts/types";
 import { fixtureContext, type FixtureContext } from "../context.ts";
 import { createProfileFirmKeyProvider, PROTECTED_FIRM_KEY_VERSION } from "./protected-generate.ts";
 import { explainStatement, type LabeledPlan, type Measurement } from "./runner.ts";
@@ -53,6 +54,10 @@ export interface ConflictsMeasurementHandle {
   // closure: the deep-graph case, and the case the closure cap and its truncation record exist for.
   readonly corporateGroupHeadId: string;
   readonly corporateGroupSize: number;
+  // The subjects the match-key channels are measured against: one firm's name spelled two ways plus
+  // the same name under a different legal form. Measuring a new channel against subjects that cannot
+  // exercise it would report a real channel finding nothing as if that were its cost.
+  readonly matchKeySubjectIds: readonly string[];
 }
 
 // How many matters the imputation join reads per iteration.
@@ -105,6 +110,11 @@ export async function conflictsMeasurementHandle(
     coPartyEntityIds: [directoryProbes.coPartyEntityIdA, directoryProbes.coPartyEntityIdB],
     corporateGroupHeadId: directoryProbes.corporateGroupHeadId,
     corporateGroupSize: directoryProbes.corporateGroupSize,
+    matchKeySubjectIds: [
+      directoryProbes.matchKeyOrganizationIdA,
+      directoryProbes.matchKeyOrganizationIdB,
+      directoryProbes.matchKeyOrganizationIdBareForm,
+    ],
   };
 }
 
@@ -205,6 +215,29 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
     },
   },
   {
+    name: "conflicts.run-check-matching-depth",
+    operation: async (handle) => {
+      // The same deep-graph walk at OVER-INCLUSIVE strictness, which is the band that runs every
+      // matching channel: both Double Metaphone schemes, both match keys, and every name role.
+      // Measured beside the balanced run above so the cost of the depth is a number on the record
+      // rather than an argument, and so a later channel that quietly changes the slope shows.
+      await runConflictsCheck(
+        handle.identifierContext,
+        {
+          trigger: "comprehensive",
+          subjectEntityIds: [handle.corporateGroupHeadId],
+          scope: {
+            sources: ["party", "graph"],
+            strictness: "over_inclusive",
+            depth: 1,
+            closureCap: DEEP_GRAPH_CLOSURE_CAP,
+          },
+        },
+        handle.writeOptions,
+      );
+    },
+  },
+  {
     name: "conflicts.run-check-truncating",
     operation: async (handle) => {
       // The same group under a cap it cannot fit in. The walk stops, the check records that it was
@@ -261,19 +294,31 @@ export async function conflictsMatcherBounds(
     prepare: (sql: string) => unknown;
   };
   const realPrepare = database.prepare.bind(database);
-  let statementCount = 0;
-  database.prepare = (sql: string) => {
-    statementCount += 1;
-    return realPrepare(sql);
+  const countFor = async (strictness: Strictness): Promise<number> => {
+    let statementCount = 0;
+    database.prepare = (sql: string) => {
+      statementCount += 1;
+      return realPrepare(sql);
+    };
+    await matchPartyBatch(handle.identifierContext, subjects, strictness);
+    database.prepare = realPrepare;
+    return statementCount;
   };
-  await matchPartyBatch(handle.identifierContext, subjects, "balanced");
-  database.prepare = realPrepare;
 
+  // Both bands, because they do not run the same channels: the two match keys run at both, while the
+  // secondary Double Metaphone scheme and every non-current name role are over-inclusive only.
+  // Counting one band would leave the wider one's cost unmeasured, and the wider one is the band a
+  // firm reaches for when it most needs recall.
   return [
     {
       label: "conflicts.matcher-batch-deep-graph",
       subjectCount: subjects.length,
-      statementCount,
+      statementCount: await countFor("balanced"),
+    },
+    {
+      label: "conflicts.matcher-batch-deep-graph-over-inclusive",
+      subjectCount: subjects.length,
+      statementCount: await countFor("over_inclusive"),
     },
   ];
 }
@@ -303,6 +348,11 @@ export interface ConflictsCandidateBound {
   readonly phoneticCandidates: number;
   readonly exactNameCandidates: number;
   readonly identifierCandidates: number;
+  // The two match-key channels, counted separately from the ones above: a new channel that finds
+  // nothing is worse than no channel, because it reads as coverage. These numbers are what say
+  // whether it is finding anything against a real corpus at volume.
+  readonly matchKeyCandidates: number;
+  readonly bareMatchKeyCandidates: number;
 }
 
 async function countLiveEntities(
@@ -320,21 +370,26 @@ async function candidateBoundFor(
   label: string,
   entityIds: readonly string[],
   corpusOfKind: number,
+  strictness: Strictness,
 ): Promise<ConflictsCandidateBound> {
   const facts = await readSubjectFactsBatch(handle.identifierContext, entityIds);
   const subjects = entityIds
     .map((entityId) => facts.get(entityId))
     .filter((subject) => subject !== undefined);
-  const matches = await matchPartyBatch(handle.identifierContext, subjects, "balanced");
+  const matches = await matchPartyBatch(handle.identifierContext, subjects, strictness);
 
   let candidateCount = 0;
   let trigramOnlyCandidates = 0;
   let phoneticCandidates = 0;
   let exactNameCandidates = 0;
   let identifierCandidates = 0;
+  let matchKeyCandidates = 0;
+  let bareMatchKeyCandidates = 0;
   for (const candidates of matches.values()) {
     for (const { evidence } of candidates) {
       candidateCount += 1;
+      if (evidence.matchKeyName === true) matchKeyCandidates += 1;
+      if (evidence.bareMatchKeyName === true) bareMatchKeyCandidates += 1;
       if (evidence.phoneticMatch) phoneticCandidates += 1;
       if (evidence.exactNormalizedName) exactNameCandidates += 1;
       if (evidence.identifierTypes.length > 0) identifierCandidates += 1;
@@ -358,6 +413,8 @@ async function candidateBoundFor(
     phoneticCandidates,
     exactNameCandidates,
     identifierCandidates,
+    matchKeyCandidates,
+    bareMatchKeyCandidates,
   };
 }
 
@@ -378,15 +435,43 @@ export async function conflictsCandidateBounds(
       .prepare(`SELECT id FROM ${table} WHERE deleted_at IS NULL ORDER BY id LIMIT ?1`)
       .bind(CANDIDATE_BOUND_SUBJECTS)
       .all<{ id: string }>();
+    const entityIds = results.map((row) => row.id);
+    const corpusOfKind = await countLiveEntities(handle, table);
     bounds.push(
       await candidateBoundFor(
         handle,
         `conflicts.candidates-per-${kind}-subject`,
-        results.map((row) => row.id),
-        await countLiveEntities(handle, table),
+        entityIds,
+        corpusOfKind,
+        "balanced",
+      ),
+    );
+    // The same subjects at over-inclusive, which searches every name role and blends both Double
+    // Metaphone schemes. Measured rather than reasoned about, because the whole claim behind widening
+    // a band is that it finds something the narrower one does not.
+    bounds.push(
+      await candidateBoundFor(
+        handle,
+        `conflicts.candidates-per-${kind}-subject-over-inclusive`,
+        entityIds,
+        corpusOfKind,
+        "over_inclusive",
       ),
     );
   }
+
+  // The matching-depth subjects, measured on their own rather than folded into the busiest-ten above:
+  // a channel's contribution is invisible inside a count dominated by trigram overlap, and these are
+  // the subjects that say whether the channel found anything at all against the real corpus at volume.
+  bounds.push(
+    await candidateBoundFor(
+      handle,
+      "conflicts.candidates-match-key-subjects",
+      handle.matchKeySubjectIds,
+      await countLiveEntities(handle, "directory_organization"),
+      "balanced",
+    ),
+  );
   return bounds;
 }
 
@@ -452,6 +537,32 @@ function exactNamePlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
          LEFT JOIN directory_person AS dp ON dn.entity_kind = 'person' AND dp.id = dn.entity_id
          LEFT JOIN directory_organization AS do ON dn.entity_kind = 'organization' AND do.id = dn.entity_id
          WHERE dn.normalized_display = ?1
+           AND dn.deleted_at IS NULL
+           AND dn.name_role IN (?2)
+           AND (
+             (dn.entity_kind = 'person' AND dp.deleted_at IS NULL)
+             OR (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
+           )`,
+      )
+      .bind("john public", "current"),
+  );
+}
+
+// The two match-key probes (matching.ts nameKeyMatches): the same query as the exact-name probe with
+// a different key column. Each walks its own directory_name index.
+function matchKeyPlanStatement(
+  snapshot: LoadedSnapshot,
+  column: "normalized_match_key" | "normalized_match_key_bare",
+): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        `SELECT DISTINCT dn.${column} AS match_key,
+                COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id
+         FROM directory_name AS dn
+         LEFT JOIN directory_person AS dp ON dn.entity_kind = 'person' AND dp.id = dn.entity_id
+         LEFT JOIN directory_organization AS do ON dn.entity_kind = 'organization' AND do.id = dn.entity_id
+         WHERE dn.${column} IN (?1)
            AND dn.deleted_at IS NULL
            AND dn.name_role IN (?2)
            AND (
@@ -543,6 +654,14 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
       statement: blindIndexSelfJoinPlanStatement(snapshot, directoryProbes.probePersonId),
     },
     { label: "conflicts.exact-name-probe", statement: exactNamePlanStatement(snapshot) },
+    {
+      label: "conflicts.match-key-probe",
+      statement: matchKeyPlanStatement(snapshot, "normalized_match_key"),
+    },
+    {
+      label: "conflicts.bare-match-key-probe",
+      statement: matchKeyPlanStatement(snapshot, "normalized_match_key_bare"),
+    },
     { label: "conflicts.hits-by-check", statement: hitsByCheckPlanStatement(snapshot) },
     {
       label: "conflicts.disposition-current",

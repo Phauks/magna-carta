@@ -118,11 +118,36 @@ and never calls external services.
   never remove a hit. A candidate with no recorded signal still lands at tier 4. There is no score and
   no threshold anywhere in this package — a threshold is a mechanism for converting missed conflicts
   into invisible ones.
-- **`over_inclusive` is a strict superset of `balanced`.** Raising strictness may only add candidates,
-  never hide one. `matchOptionsFor` returns a narrower `MatchOptions` for `balanced` (primary Double
-  Metaphone scheme, current-name rows only) and an unrestricted one (`{}`) for `over_inclusive`; any
-  change to that mapping must preserve the superset relationship, and the superset test in
-  `test/matching.test.ts` guards it directly against the directory's real corpus rather than a mock.
+- **`over_inclusive` is a strict superset of `balanced`, and it is structural rather than careful.**
+  Raising strictness may only add candidates, never hide one. `matchOptionsFor` returns a narrower
+  `MatchOptions` for `balanced` (primary Double Metaphone scheme, the firm's name-role set) and an
+  unrestricted one (`{}`) for `over_inclusive`. What makes the relationship hold under a CONFIGURABLE
+  name-role set is that over-inclusive is the one band a firm cannot narrow: it always searches every
+  role, so whatever set is configured for balanced is a subset of it. A future channel may be enabled
+  only at the wider band without breaking the invariant; one enabled at balanced and disabled higher
+  up would break it. The superset test in `test/matching.test.ts` and
+  `test/matching-depth.test.ts` guard it against the directory's real corpus rather than a mock.
+- **Which NAME ROWS a check compared is a setting, and the row says which.** `strictness` is a preset
+  name — a word whose meaning moves as channels are added — so it is no longer the only evidence of
+  what ran. `ConflictsPolicy.balancedNameRoles` is the firm's setting for the narrower band (shipped
+  default: current, former, maiden, alias, so a party who married and changed surname is found there),
+  `resolveScope` resolves it, and `runConflictsCheck` writes `inputs_json.matching` with the name keys
+  compared, the phonetic schemes that ran, and the resolved roles. `null` roles means every role the
+  corpus holds, which is a distinct statement from a list that happens to name them all: a firm adding
+  a role later is covered by the first and not the second. A stored set that is corrupt or emptied
+  falls back to the default, and `current` is unioned back in unconditionally — a check that did not
+  compare the name the party goes by today is not a conflicts check.
+- **Seven blocking channels now, and three of them are probes in this package.** The directory's shared
+  corpus reader offers exactly three (phonetic, trigram, blind-index) and widening it would change what
+  entry-time duplicate detection and merge see, so the exact-name probe, the two match-key probes, and
+  the Beider-Morse phoneme probe live in `matching.ts` against `directory_name` directly. All four are
+  ONE implementation parameterised by key column, so the merge-resolution `COALESCE`, the
+  deleted-entity exclusion, and the name-role scoping cannot come to differ between them — and so the
+  single-subject and set-valued matchers run the same predicate rather than two meant to agree. Tiering:
+  `normalized_match_key` equality is **tier 2** (one name written two ways), `normalized_match_key_bare`
+  and Beider-Morse are **tier 3**. `CHECK (evidence_tier BETWEEN 1 AND 4)` is NOT widened — that is a
+  rebuild of a growing append-only table — so a new signal maps into the existing rungs and names
+  itself in `matched_fields_json`.
 - **Imputation matches by identity only, never name similarity.** `imputation.ts` must never import
   `findDuplicateCandidates`, `phoneticCodes`, or `normalizeName`. Firm personnel carry a flat display
   name with no phonetic code and no FTS entry, so they are structurally invisible to the similarity

@@ -6334,6 +6334,9 @@
           "floorRaised": {
             "type": "boolean"
           },
+          "matching": {
+            "$ref": "#/components/schemas/ConflictsMatchingRecord"
+          },
           "traversal": {
             "$ref": "#/components/schemas/ConflictsTraversalRecord"
           },
@@ -6359,10 +6362,45 @@
           "strictness",
           "depth",
           "floorRaised",
+          "matching",
           "traversal",
           "candidates",
           "actorUserId",
           "createdAt"
+        ]
+      },
+      "ConflictsMatchingRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "nameKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "phoneticSchemes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nameRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "nameKeys",
+          "phoneticSchemes",
+          "nameRoles"
         ]
       },
       "ConflictsTraversalRecord": {
@@ -6725,6 +6763,9 @@
           "floorRaised": {
             "type": "boolean"
           },
+          "matching": {
+            "$ref": "#/components/schemas/ConflictsMatchingRecord"
+          },
           "traversal": {
             "$ref": "#/components/schemas/ConflictsTraversalRecord"
           },
@@ -6737,6 +6778,7 @@
           "strictness",
           "depth",
           "floorRaised",
+          "matching",
           "traversal",
           "candidates"
         ]

@@ -66,9 +66,21 @@ export type SourceAvailability = (typeof SOURCE_AVAILABILITIES)[number];
 export type EvidenceTier = 1 | 2 | 3 | 4;
 
 // What matched, per candidate. Drives tier assignment and is stored verbatim as the hit's explanation.
+//
+// Every field is a CHANNEL that fired, never a score, and the set only ever grows: a reviewer reading
+// a hit years later has to be able to see which comparisons found it, and a channel folded into
+// another one would leave the record unable to say. Fields added after a check ran are absent on that
+// check's stored evidence, which reads as the row not saying rather than as the channel not firing.
 export interface MatchEvidence {
   readonly identifierTypes: readonly string[];
   readonly exactNormalizedName: boolean;
+  // The two names are one name spelled two ways — `Smith & Jones LLP` and `Smith and Jones, L.L.P.`.
+  // As strong a statement as an exact normalized-name match, so it carries the same tier.
+  readonly matchKeyName?: boolean;
+  // The two names agree on everything EXCEPT the legal form — `Smith & Jones LLP` and
+  // `Smith & Jones LLC`. One firm re-formed, or two unrelated legal persons; the engine surfaces the
+  // question rather than answering it, so this sits a tier below.
+  readonly bareMatchKeyName?: boolean;
   readonly phoneticMatch: boolean;
   readonly trigramMatch: boolean;
 }
