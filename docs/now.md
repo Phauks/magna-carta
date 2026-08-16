@@ -96,7 +96,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**42 of 61 commits read, 2026-07-14 to 2026-08-16 — 33 days.** The ledger keeps no history of its
+**43 of 62 commits read, 2026-07-14 to 2026-08-16 — 33 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -104,12 +104,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+55 shipped since the ledger began** — 204 on 2026-07-14, 259 on 2026-08-16, across 33 days. The
-ledger itself grew by +77 nodes over the same period (663 to 740), so the share shipped went from
+**+58 shipped since the ledger began** — 204 on 2026-07-14, 262 on 2026-08-16, across 33 days. The
+ledger itself grew by +82 nodes over the same period (663 to 745), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **11.7 capabilities shipped a week** across the whole series, and **28.0 a week** over the
-35 snapshots since the last gap (2026-08-11 to 2026-08-16, +20 shipped in 5 days).
+That is **12.3 capabilities shipped a week** across the whole series, and **32.2 a week** over the
+36 snapshots since the last gap (2026-08-11 to 2026-08-16, +23 shipped in 5 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -161,10 +161,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-16 | `f5a32745` | 256 | 202 | 15 | 38 | 18 | 6 | 159 | 41 | 2 | 737 | 0 | 0 | 0 |
 | 2026-08-16 | `067cd52f` | 257 | 202 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 739 | +2 | +1 | 0 |
 | 2026-08-16 | `cd1f5436` | 259 | 201 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 740 | +1 | +2 | 0 |
+| 2026-08-16 | `31485623` | 262 | 203 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 745 | +5 | +3 | 0 |
 
 ### The gaps
 
-**19 of the 61 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 62 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -184,7 +185,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 
 | Area | Nodes then | Nodes now | Shipped then | Shipped now | Shipped added |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 17 | 29 | 8 | 15 | +7 |
+| AI & Inference | 17 | 34 | 8 | 18 | +10 |
 | Authentication, Access Control & Encryption | 30 | 31 | 13 | 13 | 0 |
 | Calendar and Rules-Based Docketing | 8 | 13 | 0 | 5 | +5 |
 | Communications Layer | 19 | 21 | 2 | 3 | +1 |
@@ -216,7 +217,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Translation Services | — | 7 | — | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+11), Financial
-Core (+11), AI & Inference (+7). **17 of 30 areas have shipped nothing in that time**:
+Core (+11), AI & Inference (+10). **17 of 30 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Design System, UI
 Consistency & Design Quality, Exhibits and Exhibit Lists, Client Intake / CRM, Integrations &
 Plugins, Maintenance Agents, Observability & Diagnostics, Payments, Performance & Concurrency,
