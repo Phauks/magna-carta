@@ -245,7 +245,7 @@ for (const bound of matcherBounds) {
 const candidateBounds = await conflictsCandidateBounds(conflictsHandle);
 for (const bound of candidateBounds) {
   console.log(
-    `${bound.label}: ${bound.candidateCount} candidates over ${bound.subjectCount} subjects against a corpus of ${bound.corpusOfKind} (trigram-only ${bound.trigramOnlyCandidates}, phonetic ${bound.phoneticCandidates}, exact name ${bound.exactNameCandidates}, identifier ${bound.identifierCandidates})`,
+    `${bound.label}: ${bound.candidateCount} candidates over ${bound.subjectCount} subjects against a corpus of ${bound.corpusOfKind} (trigram-only ${bound.trigramOnlyCandidates}, phonetic ${bound.phoneticCandidates}, exact name ${bound.exactNameCandidates}, match key ${bound.matchKeyCandidates}, bare match key ${bound.bareMatchKeyCandidates}, identifier ${bound.identifierCandidates})`,
   );
 }
 
@@ -284,6 +284,8 @@ writeBaselineFile(baselinePath, {
       counts: {
         corpusOfKind: bound.corpusOfKind,
         trigramOnlyCandidates: bound.trigramOnlyCandidates,
+        matchKeyCandidates: bound.matchKeyCandidates,
+        bareMatchKeyCandidates: bound.bareMatchKeyCandidates,
         phoneticCandidates: bound.phoneticCandidates,
         exactNameCandidates: bound.exactNameCandidates,
         identifierCandidates: bound.identifierCandidates,

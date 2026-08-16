@@ -1,6 +1,15 @@
 export * from "./types.ts";
 export { normalizeName } from "./normalize-name.ts";
 export { phoneticCodes } from "./phonetics.ts";
+export { LEGAL_ENTITY_FORMS, normalizedMatchKey, normalizedMatchKeyBare } from "./match-key.ts";
+export {
+  countNamesAwaitingIndexBackfill,
+  runNameIndexBackfillPass,
+  DEFAULT_BACKFILL_BATCH_SIZE,
+} from "./name-index-backfill.ts";
+export type { NameIndexBackfillResult } from "./name-index-backfill.ts";
+export { nicknameCatalogueIsPopulated, readNicknameEquivalences } from "./nickname.ts";
+export type { NicknameEquivalence } from "./nickname.ts";
 export { createPerson, readPerson, updatePerson } from "./person.ts";
 export { setPersonPronouns } from "./person.ts";
 export type { Person } from "./person.ts";
@@ -85,11 +94,17 @@ export {
   findDanglingToSubordinate,
   assertDirectoryFitness,
   findNamesMissingPhonetics,
+  findNamesMissingDerivedMatchingData,
   findEdgesToDeletedEntities,
   DanglingSubordinateReferenceError,
   DirectoryFitnessError,
 } from "./fitness.ts";
-export type { DanglingReference, NameMissingPhonetics, EdgeToDeletedEntity } from "./fitness.ts";
+export type {
+  DanglingReference,
+  NameMissingPhonetics,
+  NameMissingDerivation,
+  EdgeToDeletedEntity,
+} from "./fitness.ts";
 export {
   addEmail,
   updateEmail,

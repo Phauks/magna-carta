@@ -270,6 +270,21 @@ const CandidateRecord = z
   })
   .openapi("ConflictsCandidateRecord");
 
+// What the name comparison compared. `strictness` is a preset NAME, and a preset is a word whose
+// meaning moves as channels are added — a check from one release compared fewer things than a check
+// from the next under the same word — so the row names the channels and this reports them.
+const MatchingRecord = z
+  .object({
+    // The name key columns compared for equality.
+    nameKeys: z.array(z.string()),
+    // The phonetic encoders that ran.
+    phoneticSchemes: z.array(z.string()),
+    // The name roles compared. Null means every role the corpus holds, which is a different statement
+    // from a list that happens to name them all: a firm that adds a role later is covered by the first.
+    nameRoles: z.array(z.string()).nullable(),
+  })
+  .openapi("ConflictsMatchingRecord");
+
 const CheckDetail = z
   .object({
     id: z.string(),
@@ -283,6 +298,8 @@ const CheckDetail = z
     strictness: z.enum(STRICTNESS_LEVELS),
     depth: z.number().int(),
     floorRaised: z.boolean(),
+    // Null on a check written before the matching record existed, read exactly as `traversal` is.
+    matching: MatchingRecord.nullable(),
     traversal: TraversalRecord.nullable(),
     // Null on a check written before the candidate record existed, read exactly as `traversal` is.
     candidates: CandidateRecord.nullable(),
@@ -315,6 +332,9 @@ const PostureScope = z
     strictness: z.string(),
     depth: z.number().int(),
     floorRaised: z.boolean(),
+    // Null on a check written before the matching record existed — "the row does not say", never "it
+    // compared what today's code compares".
+    matching: MatchingRecord.nullable(),
     // Null on a check written before the traversal record existed — "the row does not say", which is
     // a different fact from "the walk completed" and is never flattened into it.
     traversal: TraversalRecord.nullable(),
@@ -722,6 +742,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         strictness: checkRow.strictness,
         depth: checkRow.depth,
         floorRaised: checkRow.floor_raised === 1,
+        matching: inputs.matching,
         traversal: inputs.traversal,
         candidates: inputs.candidates,
         actorUserId: checkRow.actor_user_id,

@@ -19,6 +19,7 @@ import {
   entityMerge,
   matter,
   matterParty,
+  nicknameEquivalence,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -50,6 +51,7 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   directoryOrganization,
   directoryName,
   directoryNamePhoneticCode,
+  nicknameEquivalence,
   directoryIdentifier,
   directoryEdge,
   directoryCategory,
@@ -116,6 +118,7 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   "max",
   "min",
   "length",
+  "trim",
   "bm25",
   "match",
   // baked literals in the SQL (statuses, roles, schemes, kinds)
@@ -152,6 +155,13 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   // the set-valued blind-index self-join projects the SUBJECT side under its own label, so a hit
   // shared across many subjects in one read still names whose identifier matched it
   "subject_id",
+  // output-column aliases the derived-matching-data probes and the backfill sweep label their
+  // computed columns with (SELECT CASE … AS needs_match_keys, the two COUNT subqueries)
+  "match_key",
+  // the backfill sweep labels its outstanding-row count
+  "pending",
+  // the nickname catalogue existence probe labels its constant 1 so a caller reads a row, not a column
+  "present",
   // FTS5 virtual table + content link pseudo-column
   "directory_name_fts",
   "rowid",

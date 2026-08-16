@@ -13,6 +13,13 @@ import type { SourceAvailability, SourceClass } from "./types.ts";
 // from implying the dimension was searched at all.
 export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 
+// The nickname equivalence dimension. `Bob`/`Robert` is not a phonetic relationship and no encoder
+// derives it; it needs a curated catalogue, and the platform ships that catalogue empty. Registering
+// the source here and recording it on every check is what turns "we have not built this" into
+// something a reader of the log can see, rather than a dimension quietly missing from a list of what
+// ran. Same posture as prior-firm history above, for the same reason.
+export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
+
 // The classes with a corpus behind them today. The content class has none — nothing indexes document
 // text, and the email parse core is not wired to a consumer — so it records `unavailable` rather than
 // being omitted: a reader must be able to tell "searched and nothing surfaced" apart from "never
@@ -31,6 +38,7 @@ const SOURCE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   imputation: "imputation",
   content: "content",
   [PRIOR_FIRM_HISTORY_SOURCE]: "prior-firm history",
+  [NICKNAME_EQUIVALENCE_SOURCE]: "nickname equivalents",
 };
 
 export function displayNameForSource(source: string): string {
@@ -56,6 +64,9 @@ export function unavailabilityReason(source: string, context: UnavailabilityCont
   }
   if (source === PRIOR_FIRM_HISTORY_SOURCE) {
     return "no data is recorded: the source is registered so that it is reported, and it has no table behind it yet";
+  }
+  if (source === NICKNAME_EQUIVALENCE_SOURCE) {
+    return "no equivalents are curated: the catalogue exists and holds nothing, so no name was compared against a nickname of itself";
   }
   if (source === "imputation" && !context.hasSubjectMatter) {
     return "no matter was supplied, so there were no matter parties to join the firm's members against";

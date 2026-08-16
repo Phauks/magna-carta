@@ -112,6 +112,7 @@ describe("schema conformance (fitness functions)", () => {
     // directory_name_phonetic_code is keyed by (name_id, scheme) — a phonetic code row IS its
     // (name, scheme) pair; a separate handle would add nothing and would cost a unique lookup at every
     // phonetic-search join.
+    // nickname_equivalence is keyed (name_form, equivalent_form) — a curated pair IS the row.
     // directory_entity_category is the many-to-many join between a directory entity and a category —
     // the pair (entity_id, category_id) is the natural key; no handle is warranted.
     // scan_cache is keyed by the content hash + engine version whose verdict it caches.
@@ -146,6 +147,7 @@ describe("schema conformance (fitness functions)", () => {
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
+      "nickname_equivalence",
       "directory_entity_category",
       "matter_number_allocation",
       "custody_number_allocation",

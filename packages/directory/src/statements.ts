@@ -6,6 +6,7 @@ import type {
   DirectoryPersonId,
   MatterPartyId,
 } from "@magna-carta/identifiers/types";
+import { normalizedMatchKey, normalizedMatchKeyBare } from "./match-key.ts";
 import type { PronounSet } from "./pronouns.ts";
 import type { EntityKind, NameRole, PhoneticScheme } from "./types.ts";
 
@@ -17,6 +18,7 @@ export const DIRECTORY_PERSON_TABLE = "directory_person";
 export const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
 export const DIRECTORY_NAME_TABLE = "directory_name";
 export const DIRECTORY_NAME_PHONETIC_CODE_TABLE = "directory_name_phonetic_code";
+export const NICKNAME_EQUIVALENCE_TABLE = "nickname_equivalence";
 export const DIRECTORY_IDENTIFIER_TABLE = "directory_identifier";
 export const DIRECTORY_EMAIL_TABLE = "directory_email";
 
@@ -183,9 +185,15 @@ export interface InsertNameRow {
 }
 
 export function insertNameStatement(database: SqlDatabase, row: InsertNameRow): SqlStatement {
+  // The two match keys are DERIVED HERE from the row's own normalized_display rather than taken from
+  // the caller, and that is the point: eight write paths insert a name row, and a key a caller has to
+  // remember to compute is a key some caller eventually does not compute — which is a name silently
+  // missing from a conflicts blocking channel, the failure the channel exists to prevent. Deriving
+  // them at the one statement builder makes them impossible to omit and impossible to disagree with
+  // the normalized_display they are layered on.
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_NAME_TABLE} (id, entity_id, entity_kind, name_role, name_prefix, name_given, name_middle, name_family, name_suffix, normalized_display, is_current, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, NULL)`,
+      `INSERT INTO ${DIRECTORY_NAME_TABLE} (id, entity_id, entity_kind, name_role, name_prefix, name_given, name_middle, name_family, name_suffix, normalized_display, normalized_match_key, normalized_match_key_bare, is_current, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16, NULL)`,
     )
     .bind(
       row.id,
@@ -198,11 +206,29 @@ export function insertNameStatement(database: SqlDatabase, row: InsertNameRow): 
       row.family,
       row.suffix,
       row.normalizedDisplay,
+      normalizedMatchKey(row.normalizedDisplay),
+      normalizedMatchKeyBare(row.normalizedDisplay),
       row.isCurrent ? 1 : 0,
       row.validFrom,
       row.validTo,
       row.createdAt,
     );
+}
+
+// Fill the two match keys on an already-stored name row. Only for the backfill sweep over rows that
+// predate the columns — a live write derives them in insertNameStatement above and never needs this.
+// Guarded on the columns still being null so a re-run, or an overlap with another pass, is a no-op
+// rather than a rewrite.
+export function backfillNameMatchKeysStatement(
+  database: SqlDatabase,
+  nameId: DirectoryNameId,
+  normalizedDisplay: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_NAME_TABLE} SET normalized_match_key = ?2, normalized_match_key_bare = ?3 WHERE id = ?1 AND normalized_match_key IS NULL`,
+    )
+    .bind(nameId, normalizedMatchKey(normalizedDisplay), normalizedMatchKeyBare(normalizedDisplay));
 }
 
 // One phonetic-code row per code on a name (Double Metaphone primary + secondary). Returns a

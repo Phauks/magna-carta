@@ -695,6 +695,11 @@ export const NO_PII_TABLES: readonly string[] = [
   "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
+  // The nickname equivalence catalogue is a dictionary of NAME FORMS — `bob` implies `robert` — and
+  // names no person. A row is about the language, not about anybody in the firm's Directory, so
+  // erasing a data subject leaves it untouched; erasing from it would delete a curated linguistic
+  // fact because somebody happened to be called Robert.
+  "nickname_equivalence",
   "directory_party_role",
   // Mailing/shipment records — from/to addresses are opaque JSON (content-level PII discovery in
   // free text is explicitly out of scope for this registry; see docs/conventions/compliance.md).

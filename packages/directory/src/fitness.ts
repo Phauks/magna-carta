@@ -97,6 +97,19 @@ export interface NameMissingPhonetics {
   readonly missingSchemes: readonly string[];
 }
 
+// A live name row whose derived matching data is absent. `missing` names which derivation, so the
+// failure says what to recompute rather than only that something is wrong.
+//
+// This probe reports TWO different situations and cannot tell them apart, which is deliberate: a row
+// written before the derivation existed and not yet reached by the backfill sweep looks exactly like a
+// row a write path forgot to derive. Both are the same fact for the conflicts corpus — that name is
+// invisible to that blocking channel right now — and both are fixed by the same sweep. On a database
+// the backfill has finished, any remaining row is a forgotten write path.
+export interface NameMissingDerivation {
+  readonly nameId: string;
+  readonly missing: "match_keys";
+}
+
 // An edge endpoint that points at a soft-deleted entity. This system never hard-deletes; an edge whose
 // source or target is archived is a dangling pointer the write path must never create.
 export interface EdgeToDeletedEntity {
@@ -110,10 +123,12 @@ export interface EdgeToDeletedEntity {
 export class DirectoryFitnessError extends Error {
   readonly code = "directory-fitness";
   readonly namesMissingPhonetics: readonly NameMissingPhonetics[];
+  readonly namesMissingDerivedMatchingData: readonly NameMissingDerivation[];
   readonly edgesToDeletedEntities: readonly EdgeToDeletedEntity[];
   readonly danglingSubordinateReferences: readonly DanglingReference[];
   constructor(
     namesMissingPhonetics: readonly NameMissingPhonetics[],
+    namesMissingDerivedMatchingData: readonly NameMissingDerivation[],
     edgesToDeletedEntities: readonly EdgeToDeletedEntity[],
     danglingSubordinateReferences: readonly DanglingReference[],
   ) {
@@ -122,6 +137,13 @@ export class DirectoryFitnessError extends Error {
       parts.push(
         `${namesMissingPhonetics.length} name(s) missing a Double Metaphone code: ${namesMissingPhonetics
           .map((n) => `${n.nameId}[${n.missingSchemes.join("+")}]`)
+          .join(", ")}`,
+      );
+    }
+    if (namesMissingDerivedMatchingData.length > 0) {
+      parts.push(
+        `${namesMissingDerivedMatchingData.length} name(s) missing derived matching data: ${namesMissingDerivedMatchingData
+          .map((n) => `${n.nameId}[${n.missing}]`)
           .join(", ")}`,
       );
     }
@@ -142,6 +164,7 @@ export class DirectoryFitnessError extends Error {
     super(`directory: fitness violations — ${parts.join("; ")} (directory-fitness)`);
     this.name = "DirectoryFitnessError";
     this.namesMissingPhonetics = namesMissingPhonetics;
+    this.namesMissingDerivedMatchingData = namesMissingDerivedMatchingData;
     this.edgesToDeletedEntities = edgesToDeletedEntities;
     this.danglingSubordinateReferences = danglingSubordinateReferences;
   }
@@ -176,6 +199,28 @@ export async function findNamesMissingPhonetics(
     }
   }
   return found;
+}
+
+// findNamesMissingDerivedMatchingData scans every live name row for the two match keys derived
+// beside the phonetic codes.
+//
+// It reports TWO different situations and cannot tell them apart, which is deliberate: a row written
+// before the columns existed and not yet reached by the backfill sweep looks exactly like a row a
+// write path forgot to derive. Both are the same fact for the conflicts corpus — that name is
+// invisible to the match-key channels right now — and both are fixed by the same sweep. On a database
+// the backfill has finished, any remaining row is a forgotten write path.
+export async function findNamesMissingDerivedMatchingData(
+  database: SqlDatabase,
+): Promise<NameMissingDerivation[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id FROM directory_name
+        WHERE deleted_at IS NULL
+          AND (normalized_match_key IS NULL OR normalized_match_key_bare IS NULL)
+        ORDER BY id ASC`,
+    )
+    .all<{ id: string }>();
+  return results.map((row) => ({ nameId: row.id, missing: "match_keys" as const }));
 }
 
 // findEdgesToDeletedEntities scans both edge endpoints for a reference to a soft-deleted entity. An
@@ -223,28 +268,37 @@ async function findDanglingToAnySubordinate(database: SqlDatabase): Promise<Dang
 // assertDirectoryFitness runs the table-wide directory invariant audit and throws DirectoryFitnessError
 // if ANY invariant is broken, aggregating every offending row across all three probes:
 //   1. Every live name carries BOTH Double Metaphone codes (primary + secondary) — no half-indexed name.
-//   2. No live edge endpoint points at a soft-deleted entity — this system soft-deletes only; an edge to
+//   2. Every live name carries both match keys — a name missing them is invisible to a blocking
+//      channel that the check will nonetheless report as having run.
+//   3. No live edge endpoint points at a soft-deleted entity — this system soft-deletes only; an edge to
 //      an archived entity is a dangling pointer.
-//   3. No inbound reference (matter party, edge endpoint, category link, or another node's merge
+//   4. No inbound reference (matter party, edge endpoint, category link, or another node's merge
 //      pointer) still points at a merged-away subordinate — every merge repointed completely, and no
 //      merge chain survives for a one-hop resolution to fall off.
 // Resolves silently when the directory is sound. Wire it as a fitness function (a test, or a periodic
 // integrity sweep) to prove the corpus invariants hold.
 export async function assertDirectoryFitness(database: SqlDatabase): Promise<void> {
-  const [namesMissingPhonetics, edgesToDeletedEntities, danglingSubordinateReferences] =
-    await Promise.all([
-      findNamesMissingPhonetics(database),
-      findEdgesToDeletedEntities(database),
-      findDanglingToAnySubordinate(database),
-    ]);
+  const [
+    namesMissingPhonetics,
+    namesMissingDerivedMatchingData,
+    edgesToDeletedEntities,
+    danglingSubordinateReferences,
+  ] = await Promise.all([
+    findNamesMissingPhonetics(database),
+    findNamesMissingDerivedMatchingData(database),
+    findEdgesToDeletedEntities(database),
+    findDanglingToAnySubordinate(database),
+  ]);
 
   if (
     namesMissingPhonetics.length > 0 ||
+    namesMissingDerivedMatchingData.length > 0 ||
     edgesToDeletedEntities.length > 0 ||
     danglingSubordinateReferences.length > 0
   ) {
     throw new DirectoryFitnessError(
       namesMissingPhonetics,
+      namesMissingDerivedMatchingData,
       edgesToDeletedEntities,
       danglingSubordinateReferences,
     );

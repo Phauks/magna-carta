@@ -60,6 +60,35 @@ const CHECK_BATCH_OVERHEAD_STATEMENTS = 500;
 // nothing a firm can store in its settings row can put them in conflict.
 export const MAX_CANDIDATE_CAP = MAX_BATCH_STATEMENTS - CHECK_BATCH_OVERHEAD_STATEMENTS;
 
+// WHICH NAME ROWS THE BALANCED BAND SEARCHES — a firm setting, not a constant.
+//
+// A Directory keeps a person's former, maiden, alias and trading names as rows of their own, all in
+// the conflicts corpus. Which of them a check compares against used to be an implicit consequence of
+// one word: `balanced` meant current names only, `over_inclusive` meant every row. The consequence of
+// the narrow reading is specific — a party who married and changed surname is invisible at the
+// default band, and a changed surname is the miss the practitioner literature cites most often.
+//
+// So the roles are named explicitly, recorded verbatim on every check row, and configurable. The
+// value below is the shipped default; a firm that wants the narrower reading changes a setting rather
+// than waiting for a release, and a reader of a years-old check row can see which set was in force
+// that day instead of having to know what the word meant then.
+//
+// `aka` and `dba` are deliberately NOT in the default set even though they are also non-current name
+// rows: the reading this default encodes is "the same person under a name they previously held",
+// which former, maiden and alias are and which a trading style is not. Adding either is one edit to a
+// firm's setting.
+export const DEFAULT_BALANCED_NAME_ROLES: readonly string[] = Object.freeze([
+  "current",
+  "former",
+  "maiden",
+  "alias",
+]);
+
+// over_inclusive searches EVERY name row and is not configurable, and that is what keeps the superset
+// invariant true by construction rather than by care: whatever set a firm configures for balanced, it
+// is a subset of "all of them", so raising strictness can only ever add candidates.
+export const OVER_INCLUSIVE_NAME_ROLES = null;
+
 // The firm's mandatory minimum. A per-run selection may only ADD sources above this floor, never
 // subtract below it — otherwise narrowing the scope manufactures a clean check, and the log would
 // faithfully record a clean result for a search that never ran. The party class is always in the
@@ -71,6 +100,11 @@ export interface ConflictsPolicy {
   readonly edgeClassBudgets: EdgeClassBudgets;
   readonly closureCap: number;
   readonly candidateCap: number;
+  // The name roles the BALANCED band compares against. over_inclusive always searches every role, so
+  // this is the only band the firm configures and the superset relationship holds whatever it is set
+  // to. Never empty: an emptied set would search no name rows at all, which is a check that runs and
+  // finds nothing for a reason nothing on the row explains.
+  readonly balancedNameRoles: readonly string[];
 }
 
 export interface ScopeRequest {
@@ -104,6 +138,11 @@ export interface ResolvedScope {
   readonly edgeClassBudgets: EdgeClassBudgets;
   readonly closureCap: number;
   readonly candidateCap: number;
+  // The name roles this run compared against, resolved from the strictness preset and the firm's
+  // setting, recorded verbatim on the check row. `null` means every role — the over-inclusive band —
+  // and is a distinct statement from a list that happens to name them all, because a firm that later
+  // adds a name role to its catalogue is covered by the first and not by the second.
+  readonly nameRoles: readonly string[] | null;
   // True when the request fell below the floor and was raised. Recorded on the check row so an
   // auditor sees that a narrower scope was asked for and refused.
   readonly floorRaised: boolean;
@@ -116,6 +155,7 @@ export const DEFAULT_CONFLICTS_POLICY: ConflictsPolicy = {
   edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
   closureCap: DEFAULT_CLOSURE_CAP,
   candidateCap: DEFAULT_CANDIDATE_CAP,
+  balancedNameRoles: DEFAULT_BALANCED_NAME_ROLES,
 };
 
 const SETTING_KEY = "conflicts.policy";
@@ -187,6 +227,7 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     edgeClassBudgets,
     closureCap,
     candidateCap,
+    nameRoles: strictness === "balanced" ? policy.balancedNameRoles : OVER_INCLUSIVE_NAME_ROLES,
     floorRaised,
   };
 }
@@ -247,6 +288,7 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
       typeof parsed.candidateCap === "number" && Number.isFinite(parsed.candidateCap)
         ? resolveCandidateCap(parsed.candidateCap)
         : DEFAULT_CONFLICTS_POLICY.candidateCap,
+    balancedNameRoles: parseBalancedNameRoles(parsed.balancedNameRoles),
   };
 }
 
@@ -269,4 +311,19 @@ function parseEdgeClassBudgets(stored: unknown, defaultDepth: number): EdgeClass
       return [edgeClass, defaultDepth];
     }),
   ) as unknown as EdgeClassBudgets;
+}
+
+// A stored name-role set is honoured as given, with two guards. A non-array or an EMPTY array falls
+// back to the shipped default rather than to nothing: an empty set searches no name rows at all, so a
+// corrupt row, a hand edit, or a future settings surface that lets an administrator deselect
+// everything would otherwise turn every check into one that runs and can find nothing. And `current`
+// is unioned back in unconditionally — a firm may widen or narrow which historical names are compared,
+// but a check that did not compare the name the party goes by today is not a conflicts check.
+function parseBalancedNameRoles(stored: unknown): readonly string[] {
+  const base =
+    Array.isArray(stored) && stored.length > 0
+      ? stored.filter((role): role is string => typeof role === "string" && role.trim().length > 0)
+      : [];
+  const roles = base.length > 0 ? base : DEFAULT_CONFLICTS_POLICY.balancedNameRoles;
+  return [...new Set(["current", ...roles])].toSorted();
 }

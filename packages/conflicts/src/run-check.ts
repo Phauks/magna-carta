@@ -9,10 +9,15 @@ import { assignTier, describeEvidence } from "./evidence.ts";
 import { expandGraph, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits } from "./imputation.ts";
 import { matchPartyBatch } from "./matching.ts";
+import { nicknameCatalogueIsPopulated } from "@magna-carta/directory/nickname";
 import { readSubjectFactsBatch } from "./subject-facts.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
-import { availabilityOf, PRIOR_FIRM_HISTORY_SOURCE } from "./sources.ts";
+import {
+  availabilityOf,
+  NICKNAME_EQUIVALENCE_SOURCE,
+  PRIOR_FIRM_HISTORY_SOURCE,
+} from "./sources.ts";
 import {
   CONFLICTS_CHECK_TABLE,
   CONFLICTS_HIT_TABLE,
@@ -148,6 +153,10 @@ export async function runConflictsCheck(
       .map((entity) => subjectFacts.get(entity.entityId))
       .filter((subject) => subject !== undefined),
     scope.strictness,
+    // The name roles are a firm SETTING, resolved once with the rest of the scope and recorded
+    // verbatim on the row below. Passing them rather than letting the matcher decide is what keeps
+    // the roles a check compared against and the roles its record NAMES the same list.
+    { nameRoles: scope.nameRoles },
   );
 
   for (const entity of expanded) {
@@ -209,6 +218,12 @@ export async function runConflictsCheck(
   }
   // Prior-firm lateral history is a registered source with no table. Record it, never omit it.
   scopeRecord[PRIOR_FIRM_HISTORY_SOURCE] = "unavailable";
+  // Nickname equivalents: the catalogue exists and ships empty, so the dimension is recorded as one
+  // the check could not search. Read rather than asserted — the day a firm curates a catalogue this
+  // stops claiming otherwise without anybody editing this file.
+  scopeRecord[NICKNAME_EQUIVALENCE_SOURCE] = (await nicknameCatalogueIsPopulated(context.database))
+    ? "searched"
+    : "unavailable";
 
   const checkId = newIdentifier("conflictsCheck", options.randomSource);
   const triggerSource = input.triggerSource ?? null;
@@ -242,6 +257,20 @@ export async function runConflictsCheck(
     expandedEntityIds: expanded.map((entity) => entity.entityId).sort(),
     identifierRefs: await readIdentifierReferences(context, [...seedIds]),
     skippedIdentifierTypes: ["dob", "ssn_last_four"],
+    // WHAT THE NAME COMPARISON ACTUALLY DID, recorded verbatim beside the traversal and read the same
+    // way. `strictness` stays on the row as the human-facing preset name, but a preset is a word whose
+    // meaning moves as channels are added, and a reader of a years-old check must not have to know
+    // what the word meant that day. So the row names the channels and the name roles instead.
+    matching: {
+      nameKeys: ["normalized_display", "normalized_match_key", "normalized_match_key_bare"],
+      phoneticSchemes:
+        scope.strictness === "balanced"
+          ? ["double_metaphone_primary"]
+          : ["double_metaphone_primary", "double_metaphone_secondary"],
+      // `null` means every role the corpus holds, which is a different statement from a list that
+      // happens to name them all: a firm that adds a name role later is covered by the first.
+      nameRoles: scope.nameRoles,
+    },
     traversal: {
       edgeClassBudgets: scope.edgeClassBudgets,
       // Corporate-family edges are traversed transitively at no hop cost, so the closure cap is the

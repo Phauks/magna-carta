@@ -295,6 +295,10 @@ is where a reviewer reads _what_ matched anyway.
 
 #### 4.1.3 Beider-Morse, adopted rather than deferred
 
+> **SUPERSEDED BY MEASUREMENT — slice 4 built this, measured it, and took it back out.** Two claims
+> below are now known false and are corrected in place rather than deleted, because the reasoning that
+> led to them is the reasoning somebody will repeat. **Read 4.1.3a before planning the follow-on.**
+
 ADR-0192 registered Beider-Morse as a seam with the flip condition "a measured recall gap on
 cross-origin surnames". This design adopts it now, and records why the flip condition is being met
 by argument rather than by measurement: the gap is structural, not statistical. Double Metaphone is an
@@ -303,16 +307,60 @@ origins and transliterations, which is the population a Nevada firm's Directory 
 Waiting for a measured miss means waiting for a firm to miss a conflict, and measuring the miss
 requires knowing the answer, which is the thing the engine exists to supply.
 
-The seam is already paid for: `directory_name_phonetic_code.scheme` carries an open `length > 0`
+~~The seam is already paid for: `directory_name_phonetic_code.scheme` carries an open `length > 0`
 CHECK (ADR-0085), so this is additive rows plus a one-time backfill sweep — no schema change, no
-migration on the name table. It runs at **over-inclusive strictness only**, keeping the superset
-invariant intact by construction.
+migration on the name table.~~ **FALSE — see 4.1.3a.** It runs at **over-inclusive strictness only**,
+keeping the superset invariant intact by construction, and that part holds.
 
 Beider-Morse is a write-time concern (codes are computed on every `directory_name` insert), which is
 what makes it the one genuine Rust candidate in the subsystem — the encoder is materially heavier than
-Double Metaphone and runs on every name write and once over the whole corpus during backfill. The
-implementation plan builds it in TypeScript behind the existing `phonetics.ts` scheme seam and names
-the Rust/WASM port as the measured follow-on, per golden rule 10.
+Double Metaphone and runs on every name write and once over the whole corpus during backfill.
+~~The implementation plan builds it in TypeScript behind the existing `phonetics.ts` scheme seam and
+names the Rust/WASM port as the measured follow-on, per golden rule 10.~~ **The TypeScript build was
+attempted and does not run on this platform — see 4.1.3a. The Rust/WASM port is no longer the
+follow-on optimization; it is the only way this channel ships.**
+
+#### 4.1.3a What slice 4 measured, and why the channel is not built
+
+**The recall claim above is correct and is now measured.** Over a thirty-pair corpus of real
+cross-origin surname variants, Beider-Morse joins **seven pairs Double Metaphone structurally
+cannot** — `Nowak`/`Novak`, `Kowalczyk`/`Kovalchik`, `Wojcik`/`Voychik`,
+`Krzyzanowski`/`Kzhizhanovski`, `Dvorak`/`Dvorzhak`, `Kaczmarek`/`Kachmarek`,
+`Wisniewski`/`Vishnevski`. Double Metaphone also joins pairs Beider-Morse does not, so the two are
+complementary and the union is the point. Nothing about the case for the channel weakened.
+
+**Correction 1 — the schema seam is not paid for.** `directory_name_phonetic_code.scheme` does carry
+an open `length > 0` CHECK, but the table's PRIMARY KEY is `(name_id, scheme)`: it holds **at most one
+code per name per scheme**. That fits Soundex (one code) and Double Metaphone (two codes under two
+schemes) and nothing whose output is a variable set — Beider-Morse returns tens of phonemes for one
+surname. Whenever the encoder lands it needs a table keyed by the **code**, not another `scheme` value.
+Suffixing the scheme with an ordinal (`beider_morse_00`, `_01`) fits under the CHECK and was rejected:
+the column would stop naming a scheme and `WHERE scheme = 'beider_morse'` would silently find nothing.
+Changing the existing table's primary key is a full SQLite rebuild of a table that grows with every
+name in every firm's Directory, which the additive-only migration lineage forbids.
+
+**Correction 2 — a TypeScript encoder cannot run in a Worker request, and this is the blocker.** The
+only maintained JavaScript implementation is `bmpm` (MIT, pure TypeScript, **zero runtime
+dependencies**, so golden rule 14 was never triggered and no owner consent was required). It compiles
+the whole Beider-Morse rule set — nineteen languages, both accuracy modes — into regular expressions at
+**module load**. Node does that in **16 ms**. Inside workerd it takes **20,377 ms**, measured on the
+first `POST /api/v1/directory/persons` with the channel wired to the write path. That is past the
+Workers CPU limit; the request never completes. Three ways round it were tried or considered:
+
+- **A lazy dynamic import** is worse, not better — Workers forbid runtime module loading and the
+  request hangs instead of completing.
+- **Moving the compile off the request path** fixes the write side (a cron sweep could fill phonemes)
+  but not the read side: a check computes the **subject's** phonemes to probe with, and a manual check
+  is a request.
+- **Shipping the table empty** was refused on the same grounds as a half-built nickname catalogue — a
+  table nothing writes and nothing queries is not a seam, it is clutter that reads like coverage.
+
+**The flip condition is therefore a number, not a hope: an encoder whose rule tables cost workerd
+single-digit milliseconds.** In practice that means the Rust/WASM port, where the tables compile at
+build time and the module carries them as data rather than as JavaScript regular expressions — or
+running the encoder in a Container off the request path entirely. Either is a slice of its own, and
+the seven-pair recall figure above is what justifies scheduling it. Whether to schedule it is the
+owner's call and is deliberately not decided here.
 
 #### 4.1.4 Person-name breadth: nicknames, and the maiden-name default
 
@@ -594,15 +642,15 @@ not chosen here.
 
 ## 8. Deliberately not in this design
 
-| Not here                          | Why                                                                                                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The **Content** source class      | Unchanged from ADR-0192: `email-core` is parse-only and no document-text index exists. It stays registered and `unavailable`                                  |
-| **Prior-firm lateral history**    | Still a registered source with no table and no capture surface. The personnel trigger records it `unavailable` honestly, which is the point of registering it |
-| **Ethical wall enforcement**      | Deferred by the white paper. `wall_erected` remains a recordable outcome that enforces nothing                                                                |
-| **The reviewer UI**               | UI is parked by owner direction. Slice 5 builds the read models and routes an adjudication surface needs; the Svelte surface is a later slice                 |
-| **A nickname equivalence corpus** | Registered and shipped empty (§4.1.4). Curation with a licensing question attached                                                                            |
-| **A scorer**                      | Refused by ADR-0192 and refused again here, harder: the deepening adds channels, and every one obeys the no-threshold rule                                    |
-| **Rust/WASM for matching**        | No measured hot path. Beider-Morse's encoder is the one candidate and it is a write-time concern with its own backfill                                        |
+| Not here                          | Why                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The **Content** source class      | Unchanged from ADR-0192: `email-core` is parse-only and no document-text index exists. It stays registered and `unavailable`                                                                                                                                                                                                                        |
+| **Prior-firm lateral history**    | Still a registered source with no table and no capture surface. The personnel trigger records it `unavailable` honestly, which is the point of registering it                                                                                                                                                                                       |
+| **Ethical wall enforcement**      | Deferred by the white paper. `wall_erected` remains a recordable outcome that enforces nothing                                                                                                                                                                                                                                                      |
+| **The reviewer UI**               | UI is parked by owner direction. Slice 5 builds the read models and routes an adjudication surface needs; the Svelte surface is a later slice                                                                                                                                                                                                       |
+| **A nickname equivalence corpus** | Registered and shipped empty (§4.1.4). Curation with a licensing question attached                                                                                                                                                                                                                                                                  |
+| **A scorer**                      | Refused by ADR-0192 and refused again here, harder: the deepening adds channels, and every one obeys the no-threshold rule                                                                                                                                                                                                                          |
+| **Rust/WASM for matching**        | Still no measured hot path for the MATCHING arithmetic. Beider-Morse's encoder is no longer merely a candidate: slice 4 measured its only TypeScript implementation at 20,377 ms of workerd module-load CPU against 16 ms in Node, so a Rust/WASM port (or a Container off the request path) is the only way that channel ships at all — see 4.1.3a |
 
 ---
 

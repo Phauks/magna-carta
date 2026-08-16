@@ -86,6 +86,7 @@ import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-d
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeFirmProvision } from "./firm-provision-consumer.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
+import { runNameIndexBackfillPass } from "@magna-carta/directory/name-index-backfill";
 import { drainRecheckLedger } from "./conflicts/recheck-run-consumer.ts";
 import { runPeriodicRescan } from "./conflicts/periodic-rescan.ts";
 import { buildAndStoreDerivedSnapshot } from "./status/derived-snapshot.ts";
@@ -130,6 +131,7 @@ export interface ScheduledSweepReport {
   // fleet is fully backfilled).
   readonly keyMint: FirmBackfillReport;
   readonly incidentEncrypt: FirmBackfillReport;
+  readonly nameIndex: FirmBackfillReport;
 }
 
 // Dead-letter surfacing: ids + topic + attempts only — payloads are never logged (redaction; the
@@ -388,7 +390,29 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
     correlationId,
   );
 
-  return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt };
+  const nameIndex = await runDirectoryNameIndexBackfill(firms, logger, correlationId);
+
+  return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt, nameIndex };
+}
+
+// `directory-name-index`: fill the two match keys on names written before the columns existed. Until
+// a firm's corpus is swept, every one of those names is invisible to the match-key blocking channels
+// its conflicts checks will nonetheless report as having run — which is the platform saying it looked
+// somewhere it did not look, and the one thing this subsystem may never do.
+//
+// One BOUNDED pass per firm per day rather than one sweep that finishes, so a firm with a large
+// Directory never puts an unbounded walk inside a scheduled invocation. It is resumable with no
+// stored cursor because the selection predicate is the outstanding work itself, and it becomes a
+// permanent no-op once the fleet is filled.
+async function runDirectoryNameIndexBackfill(
+  firms: readonly ReachableActiveFirm[],
+  logger: Logger,
+  correlationId: string,
+): Promise<FirmBackfillReport> {
+  return runFirmBackfill("directory-name-index", logger, correlationId, firms, async (firm) => {
+    const pass = await runNameIndexBackfillPass(firm.database);
+    return pass.matchKeysFilled;
+  });
 }
 
 // THE CONFLICTS BACKSTOP, per firm: drain the re-check requests the queue did not, then enqueue the

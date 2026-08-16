@@ -1341,6 +1341,14 @@ export const directoryName = sqliteTable(
     nameFamily: text("name_family"),
     nameSuffix: text("name_suffix"),
     normalizedDisplay: text("normalized_display").notNull(), // lowercased + stripped; the FTS5 content column
+    // Two derived keys BESIDE normalized_display, never instead of it. normalized_display is a frozen
+    // contract stored across every firm; these layer on its output so `Smith & Jones LLP` and
+    // `Smith and Jones, L.L.P.` compare equal (match key) and `Smith & Jones LLC` meets them one step
+    // weaker (bare key, legal form removed). Nullable because they are backfilled over an existing
+    // corpus rather than added with a default; the fitness probe reports the outstanding count while
+    // that runs. Derived in packages/directory/src/match-key.ts.
+    normalizedMatchKey: text("normalized_match_key"),
+    normalizedMatchKeyBare: text("normalized_match_key_bare"),
     isCurrent: integer("is_current").notNull().default(1), // 0/1; the write path manages transitions
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
@@ -1351,6 +1359,8 @@ export const directoryName = sqliteTable(
   (table) => [
     index("directory_name_entity_id_index").on(table.entityId),
     index("directory_name_normalized_display_index").on(table.normalizedDisplay),
+    index("directory_name_normalized_match_key_index").on(table.normalizedMatchKey),
+    index("directory_name_normalized_match_key_bare_index").on(table.normalizedMatchKeyBare),
     check(
       "directory_name_entity_kind_check",
       sql`${table.entityKind} IN ('person', 'organization')`,
@@ -1364,9 +1374,14 @@ export const directoryName = sqliteTable(
 // FTS5 trigram index. Multiple codes per name (one row per scheme).
 // scheme is an open, application-managed catalog: current values are 'double_metaphone_primary'
 // and 'double_metaphone_secondary' (Double Metaphone yields two codes per input, stored as
-// separate rows so every row carries a single scalar code). Future schemes such as Beider-Morse
-// are added by the application layer without a schema migration — hence the open length() check
-// rather than a closed IN(...) enumeration.
+// separate rows so every row carries a single scalar code). The open length() check rather than a
+// closed IN(...) enumeration lets the application layer add a scheme without a migration.
+//
+// The primary key is (name_id, scheme), so this table holds at most ONE code per name per scheme.
+// That fits an encoder returning a fixed, small number of codes and nothing else: an encoder whose
+// output is a VARIABLE SET per name — Beider-Morse returns tens of phonemes for one surname — needs a
+// table keyed by the code instead. The open CHECK on `scheme` is therefore only half a seam, and a
+// reader planning a new encoder needs both halves.
 export const directoryNamePhoneticCode = sqliteTable(
   "directory_name_phonetic_code",
   {
@@ -1385,6 +1400,33 @@ export const directoryNamePhoneticCode = sqliteTable(
     // makes that hot-path probe an index seek rather than a scan.
     index("directory_name_phonetic_code_code_index").on(table.code),
     check("directory_name_phonetic_code_scheme_check", sql`length(${table.scheme}) > 0`),
+  ],
+);
+
+// The nickname equivalence catalogue — `Bob`/`Robert`, `Peggy`/`Margaret`. These are not phonetic
+// relationships and no algorithm derives them; they are curated data, and curating them carries a
+// licensing question this platform has not answered.
+//
+// So the table SHIPS EMPTY, deliberately, and that is the point of shipping it at all: an empty
+// catalogue makes every conflicts check record `nickname_equivalence` as a source it could not
+// search, which is a different statement from omitting the dimension and letting a reader assume it
+// was covered. A firm reading its own check log can see the gap. Populating it is a later slice.
+//
+// One row per DIRECTED pair, so a curator can record that `Bob` implies `Robert` without asserting
+// the reverse; the read side unions both directions when it eventually has data to union.
+export const nicknameEquivalence = sqliteTable(
+  "nickname_equivalence",
+  {
+    nameForm: text("name_form").notNull(),
+    equivalentForm: text("equivalent_form").notNull(),
+    source: text("source").notNull(), // where the curator took the pair from
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nameForm, table.equivalentForm] }),
+    index("nickname_equivalence_equivalent_form_index").on(table.equivalentForm),
+    check("nickname_equivalence_name_form_check", sql`length(${table.nameForm}) > 0`),
+    check("nickname_equivalence_equivalent_form_check", sql`length(${table.equivalentForm}) > 0`),
   ],
 );
 

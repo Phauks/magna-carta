@@ -32,12 +32,19 @@ export type NameRole = (typeof NAME_ROLES)[number];
 
 // ── PhoneticScheme ────────────────────────────────────────────────────────────
 // The phonetic encoding scheme for a name's phonetic code row. The
-// directory_name_phonetic_code.scheme CHECK is open (length > 0), not a closed enum, so a
-// new scheme (e.g. Beider-Morse) can be added later as additive rows without a migration.
+// directory_name_phonetic_code.scheme CHECK is open (length > 0), not a closed enum.
 // This array is the application-level catalog of known schemes; only the two double_metaphone
 // schemes are emitted today (soundex/metaphone are reserved for future encoders). Double
 // Metaphone produces two codes per input (primary and secondary); they are stored as separate
 // rows so the blocking/search layer treats all schemes uniformly.
+//
+// THE OPEN CHECK IS NOT THE WHOLE SEAM, and a reader planning a new encoder needs the other half:
+// directory_name_phonetic_code's PRIMARY KEY is (name_id, scheme), so the table physically holds at
+// most ONE code per name per scheme. That fits any encoder returning a fixed, small number of codes
+// — Soundex returns one, Double Metaphone two, and each takes a scheme of its own. It does not fit
+// an encoder returning a VARIABLE SET per name — Beider-Morse returns tens of phonemes for one
+// surname — which needs a table keyed by the CODE. Match the table to the encoder's shape rather
+// than assuming the open CHECK is the whole seam.
 export const PHONETIC_SCHEMES = [
   "soundex",
   "metaphone",

@@ -247,6 +247,7 @@ describe("load-profile smoke", () => {
         "conflicts.imputation",
         "conflicts.co-party-check",
         "conflicts.run-check-deep-graph",
+        "conflicts.run-check-matching-depth",
         "conflicts.run-check-truncating",
       ].sort(),
     );
@@ -261,6 +262,7 @@ describe("load-profile smoke", () => {
     const matcherBounds = await conflictsMatcherBounds(conflictsHandle);
     expect(matcherBounds.map((bound) => bound.label)).toEqual([
       "conflicts.matcher-batch-deep-graph",
+      "conflicts.matcher-batch-deep-graph-over-inclusive",
     ]);
     for (const bound of matcherBounds) {
       expect(bound.subjectCount).toBeGreaterThan(1);
@@ -275,13 +277,32 @@ describe("load-profile smoke", () => {
     const candidateBounds = await conflictsCandidateBounds(conflictsHandle);
     expect(candidateBounds.map((bound) => bound.label)).toEqual([
       "conflicts.candidates-per-person-subject",
+      "conflicts.candidates-per-person-subject-over-inclusive",
       "conflicts.candidates-per-organization-subject",
+      "conflicts.candidates-per-organization-subject-over-inclusive",
+      "conflicts.candidates-match-key-subjects",
     ]);
     for (const bound of candidateBounds) {
       expect(bound.subjectCount).toBeGreaterThan(1);
       expect(bound.corpusOfKind).toBeGreaterThan(bound.subjectCount);
       expect(bound.trigramOnlyCandidates).toBeLessThanOrEqual(bound.candidateCount);
     }
+
+    // AND THE MATCHING-DEPTH CHANNELS MUST HAVE FOUND SOMETHING. A channel that costs a query and
+    // returns nothing reads as coverage a firm can rely on, which is worse than not having it, so the
+    // harness fails rather than reporting a zero: the match-key subjects are one firm's name spelled
+    // two ways plus the same name under another legal form, and the cross-origin subjects are one
+    // surname as two clerks wrote it. Each pair is joined by exactly one of the new channels and by no
+    // older one, so a number here below the count of self-matches means a channel went dead.
+    const matchKeyBound = candidateBounds.find(
+      (bound) => bound.label === "conflicts.candidates-match-key-subjects",
+    );
+    expect(matchKeyBound?.matchKeyCandidates ?? 0).toBeGreaterThan(
+      matchKeyBound?.exactNameCandidates ?? 0,
+    );
+    expect(matchKeyBound?.bareMatchKeyCandidates ?? 0).toBeGreaterThan(
+      matchKeyBound?.matchKeyCandidates ?? 0,
+    );
 
     // The document-automation measured set runs under its own (async) handle — it parses the probe
     // version's stored manifest and derives the firm's dictionary from the same catalogue read the
@@ -544,6 +565,8 @@ describe("load-profile smoke", () => {
         "conflicts.imputation-join",
         "conflicts.blind-index-self-join",
         "conflicts.exact-name-probe",
+        "conflicts.match-key-probe",
+        "conflicts.bare-match-key-probe",
         "conflicts.hits-by-check",
         "conflicts.disposition-current",
         "conflicts.latest-check-for-matter",

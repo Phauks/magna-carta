@@ -66,6 +66,7 @@ import discoveryProcessingRouteSql from "@magna-carta/database/drizzle/per-firm/
 import notificationInAppSuppressionSql from "@magna-carta/database/drizzle/per-firm/20260816T002417_notification-in-app-suppression.sql";
 import discoveryDedupAndReportSql from "@magna-carta/database/drizzle/per-firm/20260816T090000_discovery-dedup-and-report.sql";
 import naturalLanguageSearchSql from "@magna-carta/database/drizzle/per-firm/20260816T152756_natural-language-search.sql";
+import directoryMatchKeysSql from "@magna-carta/database/drizzle/per-firm/20260816T160000_directory-match-keys.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -142,6 +143,7 @@ export function perFirmMigrations(): Migration[] {
     "20260816T002417_notification-in-app-suppression": notificationInAppSuppressionSql,
     "20260816T090000_discovery-dedup-and-report": discoveryDedupAndReportSql,
     "20260816T152756_natural-language-search": naturalLanguageSearchSql,
+    "20260816T160000_directory-match-keys": directoryMatchKeysSql,
   });
 }
 

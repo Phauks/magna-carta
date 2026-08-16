@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import {
+  DEFAULT_BALANCED_NAME_ROLES,
   DEFAULT_CANDIDATE_CAP,
   DEFAULT_CLOSURE_CAP,
   DEFAULT_CONFLICTS_POLICY,
@@ -19,6 +20,7 @@ const policy: ConflictsPolicy = {
   edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
   closureCap: DEFAULT_CLOSURE_CAP,
   candidateCap: DEFAULT_CANDIDATE_CAP,
+  balancedNameRoles: DEFAULT_BALANCED_NAME_ROLES,
 };
 
 test("a request above the floor passes through untouched", () => {
@@ -134,6 +136,7 @@ test("readConflictsPolicy: a well-formed stored row round-trips its values", asy
     edgeClassBudgets: { control: 2, family: 1, representation: 1 },
     closureCap: 250,
     candidateCap: 120,
+    balancedNameRoles: ["current", "former"],
   };
   seedConflictsPolicy(raw, JSON.stringify(stored));
 

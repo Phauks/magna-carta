@@ -235,6 +235,10 @@ test("the latest check is the one reported, and its scope comes back verbatim", 
     strictness: "over_inclusive",
     depth: 2,
     floorRaised: true,
+    // The seeded row carries no matching record either, and null reads the same way: "the row does
+    // not say which names it compared" — never "it compared what today's code compares", which is
+    // exactly the reading the record exists to end.
+    matching: null,
     // The seeded row carries no traversal record, and null is reported as "the row does not say" —
     // never silently as a walk that completed.
     traversal: null,

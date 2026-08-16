@@ -35,6 +35,8 @@ import type { Strictness } from "../src/types.ts";
 //   - a merged-away subordinate whose live name rows must resolve to the surviving master
 //   - a mononym short enough to produce no trigrams at all
 //   - organizations as well as persons, since the name channels filter on entity kind
+//   - one legal name spelled two ways, which only the match-key probe joins
+//   - two legal names differing only in their legal FORM, which only the bare match-key probe joins
 //
 // The corpus is a real migrated per-firm database written through the real Directory write paths, not
 // a mock: a mock would prove the two code paths agree with each other and nothing about whether
@@ -119,9 +121,12 @@ async function seedCorpus(context: DirectoryIdentifierContext): Promise<string[]
   await person("Li", "Yu");
 
   // Organizations — the name channels filter on entity kind, so a person must never match one.
-  await organization("Smith and Jones LLP");
+  await organization("Smith and Jones, L.L.P.");
   await organization("Smith & Jones LLP");
-  await organization("Nkemdirim Holdings Incorporated");
+  // Same name, different legal form: the bare key joins these two and the match key must not.
+  await organization("Smith & Jones LLC");
+  await organization("The Nkemdirim Holdings Corporation");
+  await organization("Nkemdirim Holdings Corp");
 
   // A merged-away subordinate. Its name rows stay live in the corpus and must resolve to the master.
   const master = await person("Adaeze", "Balogun");
@@ -153,6 +158,8 @@ function normalize(matches: readonly CandidateMatch[]): string {
         entityId: match.entityId,
         identifierTypes: [...match.evidence.identifierTypes].toSorted(),
         exactNormalizedName: match.evidence.exactNormalizedName,
+        matchKeyName: match.evidence.matchKeyName === true,
+        bareMatchKeyName: match.evidence.bareMatchKeyName === true,
         phoneticMatch: match.evidence.phoneticMatch,
         trigramMatch: match.evidence.trigramMatch,
       }))
@@ -164,7 +171,7 @@ for (const strictness of ["balanced", "over_inclusive"] as const satisfies reado
   test(`the batched matcher returns exactly the per-entity matcher's hit set at ${strictness} strictness`, async () => {
     const context = await testContext(`equivalence-${strictness}`);
     const entityIds = await seedCorpus(context);
-    expect(entityIds.length).toBeGreaterThan(15);
+    expect(entityIds.length).toBeGreaterThan(17);
 
     // The subject facts each path feeds its matcher must themselves agree, or the comparison below
     // would be comparing two different questions rather than two answers to one.
@@ -191,6 +198,17 @@ for (const strictness of ["balanced", "over_inclusive"] as const satisfies reado
     // or "the two agree" would mean "both returned nothing, everywhere".
     const totalHits = [...batched.values()].reduce((sum, matches) => sum + matches.length, 0);
     expect(totalHits).toBeGreaterThan(0);
+
+    // And a guard per CHANNEL, for the same reason at finer grain: two paths can agree perfectly
+    // about a channel neither of them ran. Every channel this corpus was built to exercise must have
+    // fired somewhere in it, or its half of the equivalence proof is vacuous.
+    const everyMatch = [...batched.values()].flat();
+    expect(everyMatch.some((match) => match.evidence.exactNormalizedName)).toBe(true);
+    expect(everyMatch.some((match) => match.evidence.matchKeyName === true)).toBe(true);
+    expect(everyMatch.some((match) => match.evidence.bareMatchKeyName === true)).toBe(true);
+    expect(everyMatch.some((match) => match.evidence.phoneticMatch)).toBe(true);
+    expect(everyMatch.some((match) => match.evidence.trigramMatch)).toBe(true);
+    expect(everyMatch.some((match) => match.evidence.identifierTypes.length > 0)).toBe(true);
   });
 }
 

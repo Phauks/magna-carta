@@ -13,6 +13,7 @@ import { addName } from "@magna-carta/directory/name-history";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import { expect, test } from "vitest";
 import { matchOptionsFor, matchParty } from "../src/matching.ts";
+import { DEFAULT_BALANCED_NAME_ROLES } from "../src/settings.ts";
 
 // The exact-name probe and the directory channels both need a full DirectoryIdentifierContext
 // (firm key material, effective permissions, clock, seeded randomness) — reproduced here from
@@ -56,10 +57,21 @@ async function conflictsTestContext(seed: string): Promise<TestContext> {
   return { database, ctx };
 }
 
-test("balanced restricts to the primary metaphone scheme and current names", () => {
+test("balanced restricts to the primary metaphone scheme and the firm's name-role set", () => {
   const options = matchOptionsFor("balanced");
   expect(options.schemes).toEqual(["double_metaphone_primary"]);
-  expect(options.nameRoles).toEqual(["current"]);
+  // The shipped default searches a party's previously-held names, so a married-name change is not
+  // invisible at the default band. It is a SETTING rather than a constant, which the next test proves.
+  expect(options.nameRoles).toEqual(DEFAULT_BALANCED_NAME_ROLES);
+  expect(options.nameRoles).toContain("maiden");
+});
+
+test("the balanced name-role set is a setting: a narrower firm policy narrows the band", () => {
+  const narrowed = matchOptionsFor("balanced", { nameRoles: ["current"] });
+  expect(narrowed.nameRoles).toEqual(["current"]);
+  // Widening the balanced band cannot break the superset relationship, because over-inclusive is the
+  // one band a firm cannot configure: it always searches every role.
+  expect(matchOptionsFor("over_inclusive", { nameRoles: ["current"] }).nameRoles).toBeUndefined();
 });
 
 test("over_inclusive restricts nothing, so it is a strict superset of balanced", () => {
@@ -71,10 +83,10 @@ test("over_inclusive restricts nothing, so it is a strict superset of balanced",
 test("over_inclusive returns a superset of balanced for the same corpus", async () => {
   const { ctx } = await conflictsTestContext("superset");
   await createPerson(ctx.database, { given: "Catherine", family: "Smith" }, ctx);
-  // renamed carries "Smith" only as a former alias — balanced's nameRoles:["current"] restriction
-  // hides it, while over_inclusive (no restriction) searches every name role and surfaces it.
-  const renamed = await createPerson(ctx.database, { given: "Mary", family: "Jones" }, ctx);
-  await addName(ctx.database, renamed, { given: "Mary", family: "Smith", nameRole: "former" }, ctx);
+  // `traded` carries "Smith" only under a `dba` name row, which the shipped balanced role set does
+  // not include and over-inclusive does — a trading style is not a name a person previously held.
+  const traded = await createPerson(ctx.database, { given: "Mary", family: "Jones" }, ctx);
+  await addName(ctx.database, traded, { given: "Mary", family: "Smith", nameRole: "dba" }, ctx);
 
   const balanced = await matchParty(
     ctx,
@@ -107,7 +119,7 @@ test("an exact normalized-name match is reported as such", async () => {
   expect(matches[0]?.evidence.exactNormalizedName).toBe(true);
 });
 
-test("the exact-name probe respects strictness: a former-name exact match is balanced-invisible", async () => {
+test("the exact-name probe respects the resolved name-role set, not the strictness word", async () => {
   const { ctx } = await conflictsTestContext("exact-name-scope");
   // The entity's CURRENT name shares nothing with the query; only its FORMER name is an exact match.
   const renamed = await createPerson(ctx.database, { given: "Zeta", family: "Quorum" }, ctx);
@@ -129,12 +141,25 @@ test("the exact-name probe respects strictness: a former-name exact match is bal
     "over_inclusive",
   );
 
-  // Balanced is current-name-only across ALL evidence, the exact-name probe included: the former-name
-  // exact match must not surface the entity, and the additive path must not smuggle it back in.
-  expect(balanced.some((match) => match.entityId === renamed)).toBe(false);
-  // Over-inclusive searches every name role, so it surfaces the entity, flagged as an exact match.
+  // The shipped default searches previously-held names at the balanced band, so the person who
+  // changed their name IS surfaced there — the miss this default exists to close.
+  expect(balanced.find((match) => match.entityId === renamed)?.evidence.exactNormalizedName).toBe(
+    true,
+  );
+  // Over-inclusive searches every name role, so it surfaces the entity too, flagged the same way.
   const wideHit = wide.find((match) => match.entityId === renamed);
   expect(wideHit?.evidence.exactNormalizedName).toBe(true);
+
+  // And a firm that configures the narrow reading gets it: the same probe over the same corpus, with
+  // the name-role set the only thing changed, stops surfacing the former name. That is the whole of
+  // what answering the name-role breadth question costs — a setting, never a release.
+  const narrow = await matchParty(
+    ctx,
+    { kind: "person", given: "Common", family: "Name" },
+    "balanced",
+    { nameRoles: ["current"] },
+  );
+  expect(narrow.some((match) => match.entityId === renamed)).toBe(false);
 });
 
 test("a weak trigram-only match still appears at every strictness", async () => {

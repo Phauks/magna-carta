@@ -1581,11 +1581,18 @@ export type ConflictsCheckDetail = {
     strictness: 'balanced' | 'over_inclusive';
     depth: number;
     floorRaised: boolean;
+    matching: ConflictsMatchingRecord;
     traversal: ConflictsTraversalRecord;
     candidates: ConflictsCandidateRecord;
     actorUserId: string | null;
     createdAt: string;
 };
+
+export type ConflictsMatchingRecord = {
+    nameKeys: Array<string>;
+    phoneticSchemes: Array<string>;
+    nameRoles: Array<string> | null;
+} | null;
 
 export type ConflictsTraversalRecord = {
     edgeClassBudgets: {
@@ -1669,6 +1676,7 @@ export type ConflictsPostureScope = {
     strictness: string;
     depth: number;
     floorRaised: boolean;
+    matching: ConflictsMatchingRecord;
     traversal: ConflictsTraversalRecord;
     candidates: ConflictsCandidateRecord;
 };
