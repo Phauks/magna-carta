@@ -35,6 +35,7 @@ import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
 import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
@@ -731,6 +732,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // The member's own notification feed: one page, the unread counts, and settling an item. Every
   // read is scoped to the session's user and filtered by matter visibility in SQL.
   registerNotificationsRoutes(app, chokepoint);
+  // What that feed is allowed to carry: the member's own per-category matrix under the firm's
+  // in-app floor, and the firm's trust-compliance designation.
+  registerNotificationPreferencesRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

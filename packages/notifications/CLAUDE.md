@@ -56,6 +56,11 @@ that is the fastest route to two subtly different notions of what a notification
   single-row resolve all compose their `WHERE` from `visibleNotificationScope`
 - `src/settings.ts` — the firm retention window, and the email detail level as a member's choice
   under a firm's ceiling
+- `src/preferences.ts` — **who hears what**: the per-category matrix, the two tiers composing in
+  opposite directions, the firm's trust-compliance designation, and the per-pass policy reader every
+  fan-out constructs once
+- `src/suppression-statements.ts` — the tally that makes a silenced notification a counted fact
+  rather than an absence
 - `src/emission-points.ts` — the emission points with no producing-package constant, and the written
   reason each has none
 - `src/translate.ts` — the subscriber: one bus message in, zero or more notifications out
@@ -112,6 +117,30 @@ that is the fastest route to two subtly different notions of what a notification
 - **A matter-anchored type does not reach one person** unless it is on the short list in
   `test/registry-fitness.test.ts` saying why. Three kinds shipped reaching exactly one reader once,
   on the strength of a comment; the list is what makes narrowing a deliberate, written act.
+- **A SUPPRESSED notification is counted, never merely absent.** A category a member set `inApp: off`
+  writes no feed row — not a hidden one — which is right, and which produces the failure mode a
+  preference system has: afterwards, "nobody was told" and "this person asked not to be told" look
+  identical, so a member cannot be reassured and a real fan-out fault cannot be found. Every
+  suppression therefore writes a `notification_in_app_suppression` row (member, category, civil day,
+  whose choice, count — and no event, no subject, no matter, no kind) in the SAME batch as the rows it
+  did write, and reports an `InAppSuppressionCount` its caller turns into
+  `notifications.suppressed_by_preference`. Adding a fourth production path means adding both, and
+  `test/preference-enforcement.test.ts` is where that is proved. An audience everybody in it silenced
+  is counted APART from an audience that resolved to nobody: only the second is a resolver bug.
+- **The two preference tiers compose in OPPOSITE directions, and the asymmetry is the design.** In
+  app the firm's tier is a FLOOR — a firm may set a category on and a member may not lower it; a
+  firm's `off` is only a default a member may raise. By email the MEMBER's tier wins — a firm may
+  never raise somebody's cadence, because forcing email is forcing privileged-adjacent metadata into
+  a mailbox the firm may not administer, beyond both the audit log and the wall. `security` and
+  `trust` are non-silenceable in app whatever either tier stored, read from the CATEGORY through
+  `categoryIsMandatory` so two kinds in one category cannot disagree. `resolveCategoryPreference` is
+  the only place any of this is decided.
+- **A designation adds a recipient; it never grants access.** A firm's trust-compliance list joins
+  the recipient set of every trust-category notification and stops there: the designated member gets
+  an ordinary recipient row, and the visible-matter predicate still decides at read what it may show
+  them. Do not add a visibility check at fan-out to "save" the row — that is emission-time
+  enforcement, which this subsystem refuses because access changes after emission, and it would also
+  need a `notification_delivery` row against a recipient row that by definition does not exist.
 - **Nothing on an emitting write path.** No producing package resolves a recipient, reads a
   preference, or renders anything. Fan-out and rendering run in the queue consumer or the cron pass.
 - **A translator failure never fails an owning consumer's ack.** A missed notification is an
@@ -189,8 +218,15 @@ is not enforced.
   exactly as `packages/document-assembly/src/merge-statements.ts` reads it (a creation bound is a
   civil date inclusive of its day; an end-assignment bound is the ending instant, exclusive), so an
   assignment that staffs a document also staffs its notifications.
-- **`designated` resolves to nobody** until the firm-tier trust-compliance designation is built. An
-  audience nobody has configured resolves to nobody, never to the firm — defaulting it would be
-  inventing a disclosure out of an absent setting.
+- **`designated` is an audience no type declares, and the trust designation is not that audience.**
+  The audience value resolves to the firm's designated list for a type that names it; the additive
+  rule that actually ships works on the trust CATEGORY, in `resolveNotificationRecipients`, so it
+  composes over whatever a kind's own audience already reached rather than replacing it. Either way an
+  unconfigured designation resolves to nobody, never to the firm — defaulting it would be inventing a
+  disclosure out of an absent setting.
+- **The policy reader is constructed once per PASS, not per event.** A firm's overdue deadlines
+  resolve to the same handful of people hundreds of times over, so `createNotificationPolicyReader`
+  memoizes per member for the life of the pass. A fourth raiser that constructs one per finding
+  doubles the pass's query count for an answer that cannot change inside it.
 - **The read-all bound is a refusal, not a clamp.** A malformed cursor means "the first page"
   everywhere else, which is harmless for a read; here that reading would silently mean "everything".

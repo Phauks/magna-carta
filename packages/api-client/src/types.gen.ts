@@ -5114,6 +5114,90 @@ export type NotificationMarkAllReadRequest = {
     throughCursor: string;
 };
 
+export type NotificationPreferencesResponse = {
+    categories: Array<NotificationResolvedCategoryPreference>;
+    suppressedInApp: Array<NotificationSuppressionTally>;
+    suppressedSinceCivilDate: string;
+};
+
+export type NotificationResolvedCategoryPreference = {
+    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    inApp: 'on' | 'off';
+    email: 'off' | 'daily' | 'weekly';
+    inAppLockedBy: 'mandatory' | 'firm-policy' | null;
+    memberChoice: NotificationCategoryChoice;
+    firmChoice: NotificationCategoryChoice;
+};
+
+export type NotificationCategoryChoice = {
+    inApp?: 'on' | 'off';
+    email?: 'off' | 'daily' | 'weekly';
+} | null;
+
+export type NotificationSuppressionTally = {
+    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    reason: 'member-preference' | 'firm-policy';
+    count: number;
+    lastSuppressedAt: string;
+};
+
+export type PatchNotificationPreferencesRequest = {
+    categories: {
+        deadlines?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        calendar?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        trust?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        billing?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        documents?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        custody?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        email?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        conflicts?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        jobs?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        security?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        system?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+    };
+};
+
+export type TrustComplianceRecipientsResponse = {
+    recipientUserIds: Array<string>;
+};
+
+export type PutTrustComplianceRecipientsRequest = {
+    recipientUserIds: Array<string>;
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -24851,6 +24935,184 @@ export type NotificationsMarkAllReadResponses = {
 };
 
 export type NotificationsMarkAllReadResponse = NotificationsMarkAllReadResponses[keyof NotificationsMarkAllReadResponses];
+
+export type NotificationPreferencesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/preferences';
+};
+
+export type NotificationPreferencesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationPreferencesGetError = NotificationPreferencesGetErrors[keyof NotificationPreferencesGetErrors];
+
+export type NotificationPreferencesGetResponses = {
+    /**
+     * The member's resolved notification preferences
+     */
+    200: NotificationPreferencesResponse;
+};
+
+export type NotificationPreferencesGetResponse = NotificationPreferencesGetResponses[keyof NotificationPreferencesGetResponses];
+
+export type NotificationPreferencesUpdateData = {
+    body: PatchNotificationPreferencesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/preferences';
+};
+
+export type NotificationPreferencesUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationPreferencesUpdateError = NotificationPreferencesUpdateErrors[keyof NotificationPreferencesUpdateErrors];
+
+export type NotificationPreferencesUpdateResponses = {
+    /**
+     * The member's re-resolved notification preferences
+     */
+    200: NotificationPreferencesResponse;
+};
+
+export type NotificationPreferencesUpdateResponse = NotificationPreferencesUpdateResponses[keyof NotificationPreferencesUpdateResponses];
+
+export type NotificationPreferencesGetTrustComplianceRecipientsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/notifications/trust-compliance-recipients';
+};
+
+export type NotificationPreferencesGetTrustComplianceRecipientsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationPreferencesGetTrustComplianceRecipientsError = NotificationPreferencesGetTrustComplianceRecipientsErrors[keyof NotificationPreferencesGetTrustComplianceRecipientsErrors];
+
+export type NotificationPreferencesGetTrustComplianceRecipientsResponses = {
+    /**
+     * The firm's designated trust-compliance recipients
+     */
+    200: TrustComplianceRecipientsResponse;
+};
+
+export type NotificationPreferencesGetTrustComplianceRecipientsResponse = NotificationPreferencesGetTrustComplianceRecipientsResponses[keyof NotificationPreferencesGetTrustComplianceRecipientsResponses];
+
+export type NotificationPreferencesSetTrustComplianceRecipientsData = {
+    body: PutTrustComplianceRecipientsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/notifications/trust-compliance-recipients';
+};
+
+export type NotificationPreferencesSetTrustComplianceRecipientsErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NotificationPreferencesSetTrustComplianceRecipientsError = NotificationPreferencesSetTrustComplianceRecipientsErrors[keyof NotificationPreferencesSetTrustComplianceRecipientsErrors];
+
+export type NotificationPreferencesSetTrustComplianceRecipientsResponses = {
+    /**
+     * The firm's designated trust-compliance recipients after the write
+     */
+    200: TrustComplianceRecipientsResponse;
+};
+
+export type NotificationPreferencesSetTrustComplianceRecipientsResponse = NotificationPreferencesSetTrustComplianceRecipientsResponses[keyof NotificationPreferencesSetTrustComplianceRecipientsResponses];
 
 export type ConversionsUploadData = {
     body?: never;

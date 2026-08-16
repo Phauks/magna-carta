@@ -14,6 +14,8 @@
     "./statements": "./src/statements.ts",
     "./read-statements": "./src/read-statements.ts",
     "./settings": "./src/settings.ts",
+    "./preferences": "./src/preferences.ts",
+    "./suppression-statements": "./src/suppression-statements.ts",
     "./translate": "./src/translate.ts",
     "./sweep": "./src/sweep.ts",
     "./job-completion": "./src/job-completion.ts",

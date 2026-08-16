@@ -19,9 +19,11 @@ import {
 } from "./emission-points.ts";
 import { FactsValidationError } from "./facts-grammar.ts";
 import { comparisonDedupeKey, materializeNotification } from "./materialize.ts";
+import { createNotificationPolicyReader, type NotificationPolicyReader } from "./preferences.ts";
 import { resolveNotificationRecipients } from "./recipients.ts";
 import { notificationTypesForComparisonPoint } from "./registry.ts";
 import { insertNotificationStatements } from "./statements.ts";
+import { inAppSuppressionEffects, type InAppSuppressionCount } from "./suppression-statements.ts";
 import { MAX_COMPARISON_FINDINGS_PER_KIND, MAX_SWEEP_STATEMENTS_PER_WRITE } from "./types.ts";
 
 // THE COMPARISON-DRIVEN PRODUCTION PATH.
@@ -75,11 +77,17 @@ export interface ComparisonKindCounts {
   // night is a firm being told about some of its overdue work and not the rest.
   readonly clampedFindings: number;
   readonly refusedFacts: number;
+  // Members the finding's audience reached who got no feed row because a preference silenced the
+  // category. Distinct from `emptyAudiences`: an audience that resolved to nobody is a resolver
+  // problem, and an audience everybody in it silenced is a setting working as asked.
+  readonly preferenceSuppressed: number;
 }
 
 export interface ComparisonSweepResult {
   readonly findings: number;
   readonly byEmissionPoint: ReadonlyMap<string, ComparisonKindCounts>;
+  // The same suppressions again, aggregated by the two closed labels a counter may carry.
+  readonly suppressedInApp: readonly InAppSuppressionCount[];
 }
 
 const NO_COUNTS: ComparisonKindCounts = {
@@ -89,6 +97,7 @@ const NO_COUNTS: ComparisonKindCounts = {
   clampedRecipients: 0,
   clampedFindings: 0,
   refusedFacts: 0,
+  preferenceSuppressed: 0,
 };
 
 // A mutable tally keyed by emission point. Kept private so the result a caller sees is read-only.
@@ -104,6 +113,7 @@ class KindTally {
       clampedRecipients: current.clampedRecipients + (delta.clampedRecipients ?? 0),
       clampedFindings: current.clampedFindings + (delta.clampedFindings ?? 0),
       refusedFacts: current.refusedFacts + (delta.refusedFacts ?? 0),
+      preferenceSuppressed: current.preferenceSuppressed + (delta.preferenceSuppressed ?? 0),
     });
   }
 
@@ -135,14 +145,18 @@ export async function sweepFirmComparisonNotifications(
       tally.add(emissionPoint, { clampedFindings });
     }
   }
-  await materializeComparisonFindings({
+  const suppressedInApp = await materializeComparisonFindings({
     database: options.database,
     findings,
     now: options.now,
     randomSource: options.randomSource,
     tally,
+    // ONE reader for the whole firm pass. A firm's overdue deadlines resolve to the same handful of
+    // people hundreds of times over, and asking the preference chain per finding would double the
+    // pass's query count for an answer that does not change inside it.
+    policy: createNotificationPolicyReader(options.database),
   });
-  return { findings: findings.length, byEmissionPoint: tally.frozen() };
+  return { findings: findings.length, byEmissionPoint: tally.frozen(), suppressedInApp };
 }
 
 interface Collection {
@@ -315,7 +329,9 @@ async function materializeComparisonFindings(options: {
   readonly now: string;
   readonly randomSource?: RandomSource;
   readonly tally: KindTally;
-}): Promise<void> {
+  readonly policy: NotificationPolicyReader;
+}): Promise<readonly InAppSuppressionCount[]> {
+  const suppressedInApp: InAppSuppressionCount[] = [];
   let pending: SqlStatement[] = [];
 
   const flush = async (): Promise<void> => {
@@ -332,10 +348,32 @@ async function materializeComparisonFindings(options: {
         // A comparison has no actor. Nobody made the deadline arrive.
         actorUserId: null,
         now: () => options.now,
+        policy: options.policy,
       });
+
+      // Recorded whether or not an event follows: a category everybody silenced writes no event,
+      // and the tally is then the only record that anything was decided.
+      const suppression = inAppSuppressionEffects(options.database, {
+        category: type.category,
+        suppressed: audience.suppressed,
+        now: options.now,
+      });
+      pending.push(...suppression.statements);
+      suppressedInApp.push(...suppression.counts);
+      if (audience.suppressed.length > 0) {
+        options.tally.add(finding.emissionPoint, {
+          preferenceSuppressed: audience.suppressed.length,
+        });
+      }
+
       if (audience.recipientUserIds.length === 0) {
-        // An event row nobody can see is a row only the retention sweep will ever touch.
-        options.tally.add(finding.emissionPoint, { emptyAudiences: 1 });
+        // An event row nobody can see is a row only the retention sweep will ever touch. An audience
+        // that resolved to nobody and an audience everybody in it silenced are counted apart: only
+        // the first is a resolver problem.
+        if (audience.suppressed.length === 0) {
+          options.tally.add(finding.emissionPoint, { emptyAudiences: 1 });
+        }
+        if (pending.length >= MAX_SWEEP_STATEMENTS_PER_WRITE) await flush();
         continue;
       }
 
@@ -374,6 +412,7 @@ async function materializeComparisonFindings(options: {
     }
   }
   await flush();
+  return suppressedInApp;
 }
 
 // ---- small shared arithmetic ----

@@ -37,7 +37,7 @@ export async function notifyJobCompletion(
   // cheaper to answer here than to resolve a firm database and find out.
   if (input.requestedByUserId === null || input.requestedByUserId.length === 0) return;
   try {
-    await recordJobCompletionNotification({
+    const result = await recordJobCompletionNotification({
       database: firmDatabaseFor(env.FIRM_DATABASE, input.firmId),
       emissionPoint: input.emissionPoint,
       subjectId: input.subjectId,
@@ -47,6 +47,16 @@ export async function notifyJobCompletion(
       payload: input.payload,
       now: new Date().toISOString(),
     });
+    // The requester silenced the jobs category. Counted rather than passed over: "the thing you
+    // asked for is ready" failing to arrive is the likeliest thing a member reports as broken, and
+    // the counter beside the firm's own tally is what lets somebody answer it without guessing.
+    for (const suppression of result.suppressedInApp) {
+      createWorkersLogger(env.TELEMETRY).count(
+        "notifications.suppressed_by_preference",
+        { category: suppression.category, reason: suppression.reason },
+        suppression.count,
+      );
+    }
   } catch (caught) {
     logOperationFailed(
       createWorkersLogger(env.TELEMETRY),

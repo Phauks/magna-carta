@@ -113,6 +113,11 @@ describe("schema conformance (fitness functions)", () => {
     // version is inside this split". There is nothing else to record about one, both directions of the
     // question arrive holding one of the columns, and a handle would need a unique lookup on the triple
     // at every re-index to find the row to mark stale.
+    // notification_in_app_suppression is keyed by (recipient_user_id, category, civil_date, reason) —
+    // a running count of what one member's settings stopped, in one category, on one day, for one
+    // reason. The quadruple IS the row: it is a tally updated in place rather than an event anybody
+    // appends, and a handle would let two tallies exist for the same day and category, which is the
+    // one state a count must never have to reconcile.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
@@ -126,6 +131,7 @@ describe("schema conformance (fitness functions)", () => {
       "scan_cache",
       "scoped_setting",
       "index_split_member",
+      "notification_in_app_suppression",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

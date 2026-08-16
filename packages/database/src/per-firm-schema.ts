@@ -8034,3 +8034,71 @@ export const notificationSweptUnread = sqliteTable(
     check("notification_swept_unread_count_nonnegative_check", sql`${table.unreadCount} >= 0`),
   ],
 );
+
+// What a preference stopped from being written, per member per category per civil day.
+//
+// A preference system's failure mode is SILENCE: a notification that should have reached somebody
+// did not, and nothing anywhere records that a choice is the reason. "Nobody was told" and "this
+// person asked not to be told" then look identical afterwards, which is the difference between a
+// working setting and a delivery bug nobody can find. So a suppressed in-app notification is not an
+// absent row — it is an absent FEED row plus a counted one here.
+//
+// A TALLY and never a copy. It carries a member, a closed category label, a civil date, and a
+// count; it carries no event id, no subject, no matter, and no kind. That is deliberate and not
+// timidity: a per-item record of what somebody declined to hear would be a second feed, retained on
+// its own clock, holding exactly the pointers the member asked not to be given — and it would
+// outlive the access check that justified the notification in the first place. The day-grain answers
+// what a support conversation actually asks ("did their settings stop anything last Tuesday, and how
+// much"), and the source records the suppressed notifications pointed at are all still where they
+// were.
+//
+// Swept on the firm's own retention window beside the notifications themselves, because a tally that
+// outlived the rows it describes would be a growing record of one member's settings with nothing
+// left to compare it against.
+export const notificationInAppSuppression = sqliteTable(
+  "notification_in_app_suppression",
+  {
+    recipientUserId: text("recipient_user_id").notNull().$type<UserId>(),
+    category: text("category", {
+      enum: [
+        "deadlines",
+        "calendar",
+        "trust",
+        "billing",
+        "documents",
+        "custody",
+        "email",
+        "conflicts",
+        "jobs",
+        "security",
+        "system",
+      ],
+    }).notNull(),
+    // The platform's civil day the fan-out ran on. A date rather than an instant because the
+    // question is "how much did this stop, and roughly when", and an instant per suppression would
+    // be a row per suppression — which is the per-item record this table exists not to be.
+    civilDate: text("civil_date").notNull(),
+    suppressedCount: integer("suppressed_count").notNull().default(0),
+    // WHOSE choice did it. A member who silenced a category and a member whose firm defaulted it off
+    // are in different positions, and only the label tells them apart.
+    reason: text("reason", { enum: ["member-preference", "firm-policy"] }).notNull(),
+    lastSuppressedAt: text("last_suppressed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.recipientUserId, table.category, table.civilDate, table.reason],
+    }),
+    check(
+      "notification_in_app_suppression_count_nonnegative_check",
+      sql`${table.suppressedCount} >= 0`,
+    ),
+    check(
+      "notification_in_app_suppression_category_check",
+      sql`${table.category} IN ('deadlines', 'calendar', 'trust', 'billing', 'documents', 'custody', 'email', 'conflicts', 'jobs', 'security', 'system')`,
+    ),
+    check(
+      "notification_in_app_suppression_reason_check",
+      sql`${table.reason} IN ('member-preference', 'firm-policy')`,
+    ),
+  ],
+);

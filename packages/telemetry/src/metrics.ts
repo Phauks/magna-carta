@@ -350,6 +350,24 @@ export const notificationsSweptUnread = defineMetric("notifications.swept_unread
 export const notificationsComparisonClamped = defineMetric("notifications.comparison_clamped", [
   "topic",
 ] as const);
+// A member the audience reached who got no feed row because a preference silenced the category.
+// The one counter in this group that exists to make an ABSENCE visible: every other one counts
+// something that happened, and this counts something that deliberately did not. Without it a
+// working preference and a broken fan-out produce the same observable — nothing — and the platform
+// can neither reassure a member nor find the fault. `category` and `reason` are both closed labels;
+// how many people rides the value, never a dimension, and no member appears here at all (the
+// per-member detail is in the firm's own tally, where that member can read it).
+export const notificationsSuppressedByPreference = defineMetric(
+  "notifications.suppressed_by_preference",
+  ["category", "reason"] as const,
+);
+// Recipients a firm's trust-compliance designation added over a kind's own audience. Counted
+// because a designation that quietly reaches nobody — an empty list, a member who has left — is
+// precisely the kind of control a firm believes is working.
+export const notificationsDesignatedRecipients = defineMetric(
+  "notifications.designated_recipients",
+  ["category"] as const,
+);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -406,6 +424,8 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsTranslateFailed,
   notificationsSweptUnread,
   notificationsComparisonClamped,
+  notificationsSuppressedByPreference,
+  notificationsDesignatedRecipients,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

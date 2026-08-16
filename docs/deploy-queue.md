@@ -265,6 +265,35 @@ answering `503`, and no visitor is being told it is their fault.
 
 ## Behaviour changes the next deploy carries (no dashboard step)
 
+- **Notification preferences become live, and every category starts on.** The
+  matrix ships with the recommended defaults — every category reaching the feed,
+  and a daily mail for everything except `jobs` and `system` — so **nothing about
+  what a firm currently receives changes on the push**: no member has stored a
+  preference and every default is on. What arrives is the ability to change it,
+  through `GET`/`PATCH /api/v1/notifications/preferences`, plus a firm-tier
+  `GET`/`PUT /api/v1/firm/notifications/trust-compliance-recipients` under
+  `trust:manage`. There is **no screen** — this is API only, and the notification
+  centre and the preference surface are still unbuilt, so in practice nothing is
+  reachable by a member until a UI slice lands. One migration
+  (`20260816T002417_notification-in-app-suppression`, one new table, no rebuild)
+  runs itself on the per-firm Durable Object's next wake. No new binding, no new
+  secret, no new queue.
+
+  Two things worth knowing. **The email cadence is stored and nothing reads it
+  yet** — the digest is the next slice, so setting a category to `weekly` today
+  records a wish rather than changing any mail. And **two categories cannot be
+  silenced in app**: `security` and `trust` are written to the feed whatever a
+  member or a firm sets, mirroring the non-optional stance of the audit log; a
+  member may still set their email cadence off. If a firm ever needs that
+  relaxed, it is a change to `MANDATORY_CATEGORIES` and a decision, not a
+  setting.
+
+  **New counter to watch after the push:**
+  `notifications.suppressed_by_preference`, dimensioned by category and by whose
+  choice it was. It should read zero until somebody changes a setting; a non-zero
+  reading with nobody having touched their preferences would mean a firm-tier row
+  was written by something other than the API, which is worth looking at.
+
 - **The daily cron pass starts raising deadline and custody notifications.** The
   `0 3 * * *` trigger now runs a per-firm comparison sweep before the retention
   sweep: overdue deadlines, deadlines due today, custody reviews that have come

@@ -4,9 +4,11 @@ import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { FactsValidationError } from "./facts-grammar.ts";
 import { materializeNotification, outboxDedupeKey } from "./materialize.ts";
+import { createNotificationPolicyReader } from "./preferences.ts";
 import { resolveNotificationRecipients } from "./recipients.ts";
 import { notificationTypesForTopic, type NotificationType } from "./registry.ts";
 import { insertNotificationStatements } from "./statements.ts";
+import { inAppSuppressionEffects, type InAppSuppressionCount } from "./suppression-statements.ts";
 
 // THE SUBSCRIBER. One message off the per-firm bus in, zero or more notifications out.
 //
@@ -60,6 +62,13 @@ export interface TranslateResult {
   // than thrown, and one such type does not stop its siblings on the same topic. The caller's
   // counter is what makes it visible.
   readonly refusedFacts: number;
+  // Members the audience reached who got no feed row because a preference silenced the category, by
+  // category and by whose choice it was. Reported so the caller can count it: an absent feed row
+  // that nobody counted is indistinguishable afterwards from a notification that was never raised,
+  // which is the failure mode a preference system has.
+  readonly suppressedInApp: readonly InAppSuppressionCount[];
+  // Recipients the firm's trust-compliance designation added over the type's own audience.
+  readonly designatedRecipients: number;
 }
 
 const EMPTY_RESULT: TranslateResult = {
@@ -70,6 +79,8 @@ const EMPTY_RESULT: TranslateResult = {
   clampedRecipients: 0,
   substitutedAudiences: 0,
   refusedFacts: 0,
+  suppressedInApp: [],
+  designatedRecipients: 0,
 };
 
 export async function translateOutboxMessage(options: TranslateOptions): Promise<TranslateResult> {
@@ -90,6 +101,12 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
   let clampedRecipients = 0;
   let substitutedAudiences = 0;
   let refusedFacts = 0;
+  let designatedRecipients = 0;
+  const suppressedInApp: InAppSuppressionCount[] = [];
+
+  // One reader for the whole message: a topic may carry several types over the same recipients, and
+  // the preference chain does not change between them.
+  const policy = createNotificationPolicyReader(options.database);
 
   for (const type of types) {
     const subjectId = payload[type.subjectPayloadKey];
@@ -109,16 +126,32 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
       matterId,
       actorUserId: readActor(payload),
       now: options.now,
+      policy,
     });
     if (audience.substituted) substitutedAudiences++;
+    designatedRecipients += audience.designatedAdded;
+
+    const now = options.now();
+    // Recorded whether or not an event is written. A category everybody silenced produces no event
+    // and no feed row, and the tally is then the ONLY record that anything was decided — which is
+    // exactly the case a member asking "why did nobody tell me" needs answered.
+    const suppression = inAppSuppressionEffects(options.database, {
+      category: type.category,
+      suppressed: audience.suppressed,
+      now,
+    });
+    suppressedInApp.push(...suppression.counts);
+
     if (audience.recipientUserIds.length === 0) {
-      emptyAudiences++;
+      // An audience that resolved to nobody and an audience everybody in it silenced are different
+      // facts, and only one of them is a resolver bug. Counting the second as the first would hide
+      // a working preference behind a counter that means "something is broken".
+      if (audience.suppressed.length === 0) emptyAudiences++;
+      else await options.database.batch([...suppression.statements]);
       // No recipients means no feed rows, and an event row nobody can see is a row that only the
       // retention sweep will ever touch. Do not write one.
       continue;
     }
-
-    const now = options.now();
     let materialization;
     try {
       materialization = materializeNotification({
@@ -151,8 +184,12 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
 
     // Everything past here is a database write, so a throw from it IS plausibly transient — which
     // is precisely what the caller retries on when nothing else has committed for the message.
+    // The suppression tally rides the SAME batch as the rows it is the counterpart of: who was told
+    // and who was not are one decision, and committing them apart would leave a crash between them
+    // reporting one without the other.
     await options.database.batch([
       ...insertNotificationStatements(options.database, materialization),
+      ...suppression.statements,
     ]);
 
     materializedEvents++;
@@ -168,6 +205,8 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
     clampedRecipients,
     substitutedAudiences,
     refusedFacts,
+    suppressedInApp,
+    designatedRecipients,
   };
 }
 
