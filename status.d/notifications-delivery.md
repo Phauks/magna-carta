@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: todo
 branch: main
-active-work: claude/notifications-3
+active-work:
 next: The email digest (slice 4, blocked on owner flags E1 and C1). Two gaps left inside slice 2 — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified, and four of the five job coordinators, three of which record no requester
 link-spec: docs/specs/2026-08-06-notifications-delivery-design.md
 link-plan: docs/specs/2026-08-06-notifications-delivery-implementation-plan.md

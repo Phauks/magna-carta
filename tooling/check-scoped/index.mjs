@@ -7,8 +7,9 @@
 //
 // This runs the same checks, scoped to the diff (against the merge-base with the trunk — see
 // diff-base.mjs for which trunk ref that means — plus the working tree): fmt + lint on the changed paths, the incremental `tsc -b` type-check (fast when warm, and the
-// authoritative type pass), svelte-check only when a .svelte file changed, and the Rust gate only when
-// a crate changed. Anything it skips, it says it skipped — a silent gate that quietly checks nothing is
+// authoritative type pass), svelte-check only when a .svelte file changed, the drizzle snapshot
+// freshness check only when the schema package changed, and the Rust gate only when a crate changed.
+// Anything it skips, it says it skipped — a silent gate that quietly checks nothing is
 // worse than a slow one. The pre-push hook runs this scoped gate, not the full one — fast local feedback.
 //
 // The whole-repo gate of record is GitHub Actions (`.github/workflows/gate.yml`, full `pnpm check` +
@@ -73,6 +74,12 @@ if (files.length === 0) {
 
 const lintable = files.filter((f) => SCRIPT_PATTERN.test(f) || LINT_ONLY_PATTERN.test(f));
 const touchedRust = files.some((f) => f.startsWith("crates/") || f.endsWith(".rs"));
+// The whole schema package, not just the two schema entry points. drizzle-kit diffs the schema module
+// GRAPH against meta/, so a change to anything the entry point pulls in at runtime can move the
+// snapshot — and the hand-written-migration case that produces this drift edits drizzle/ rather than
+// src/. The check costs ~2.6 s, cheap enough that widening the trigger to the package beats reasoning
+// about which file reaches the generator.
+const touchedSchemaPackage = files.some((f) => f.startsWith("packages/database/"));
 const touchedSvelteApp = files.some((f) => f.endsWith(".svelte") && f.startsWith("apps/web/"));
 const touchedSvelteDs = files.some(
   (f) => f.endsWith(".svelte") && f.startsWith("packages/design-system/"),
@@ -88,6 +95,17 @@ steps.push({
   cmd: "node",
   args: ["tooling/bootstrap/index.mjs", "--check"],
 });
+// drizzle-kit writes a snapshot only as a side effect of emitting a migration, so a hand-written
+// migration leaves meta/ behind the schema and the NEXT generate re-emits everything added since —
+// against firms that already have it. Cheap (~2.6 s for both lineages, serial: the two runs share one
+// scratch folder) and it names its own repair, so it belongs in the inner loop rather than only in CI.
+if (touchedSchemaPackage) {
+  steps.push({
+    name: "drizzle snapshot freshness (both lineages)",
+    cmd: "pnpm",
+    args: ["--filter", "@magna-carta/database", "run", "check-snapshots"],
+  });
+}
 if (lintable.length > 0) {
   steps.push({
     name: `fmt + lint (${lintable.length} file(s))`,
@@ -127,6 +145,7 @@ if (touchedRust) {
 const skipped = [
   !touchedSvelteApp && !touchedSvelteDs ? "svelte-check (no .svelte changed)" : null,
   !touchedRust ? "rust gate (no crate changed)" : null,
+  !touchedSchemaPackage ? "drizzle snapshot freshness (no packages/database change)" : null,
   "dependency audit + license/process-ref linters (pre-push only)",
 ].filter(Boolean);
 

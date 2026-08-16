@@ -74,7 +74,19 @@ const headSnapshotName = `${String(headEntry.idx).padStart(4, "0")}_snapshot.jso
 // every platform. drizzle-kit does not export its bin path, so resolve the package entry point
 // and take the sibling the package.json `bin` field names.
 const require = createRequire(import.meta.url);
-const drizzleKitBinary = join(dirname(require.resolve("drizzle-kit")), "bin.cjs");
+// A fresh worktree has no node_modules at all, and this check now leads the whole-repo chain — so an
+// uninstalled tree meets a module-resolution stack trace before anything else has run. Name the cause
+// and the fix instead, the same way the wasm-artefact guard in tooling/check-scoped does.
+let drizzleKitBinary;
+try {
+  drizzleKitBinary = join(dirname(require.resolve("drizzle-kit")), "bin.cjs");
+} catch {
+  console.error(
+    "refresh-snapshot: drizzle-kit is not installed, so snapshot freshness cannot be checked.\n" +
+      "    Run `pnpm install` first — a fresh worktree starts with no node_modules.",
+  );
+  process.exit(1);
+}
 
 // drizzle-kit diffs against the highest-numbered snapshot in a meta folder, so that file is both
 // the "before" it reads and the marker for whether it wrote a new one.
@@ -133,10 +145,22 @@ function refresh() {
   const driftSql = readFileSync(join(scratchDirectory, drift.migration[0]), "utf8");
   const driftStatements = driftSql.split("--> statement-breakpoint").length;
   console.log(
-    `${lineage}: snapshot is BEHIND the schema — a generate here would re-emit ${driftStatements} statements`,
+    `${lineage}: snapshot is BEHIND the schema — a generate here would re-emit ${driftStatements} ` +
+      `statement${driftStatements === 1 ? "" : "s"}`,
   );
   if (checkOnly) {
-    console.log(`${lineage}: --check, wrote nothing. Re-run without --check to repair.`);
+    // A gate that only names the symptom costs the next reader a search, so spell the repair out:
+    // the exact command, the file it rewrites, and the commit it belongs in.
+    console.error(
+      `${lineage}: --check, wrote nothing. REPAIR IT WITH\n` +
+        `\n` +
+        `    pnpm --filter @magna-carta/database run refresh-${lineage}-snapshot\n` +
+        `\n` +
+        `which rewrites drizzle/${lineage}/meta/${headSnapshotName} from the schema and proves the\n` +
+        `repair settled. Commit that snapshot in the SAME commit as the migration — a hand-written\n` +
+        `migration advances the journal but never the snapshot, which is what this drift is.\n` +
+        `Re-verify with: pnpm --filter @magna-carta/database run check-snapshots`,
+    );
     return 1;
   }
 
