@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: done
 branch: main
-active-work: docs/active-work/claude/search-r2-adapter.md
+active-work:
 next: Deploy-gated — `apps/search-worker` and `containers/search` are now BUILT (the Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`, `/compact`), so what is left between the parked `deferred` jobs and real hits is the deploy itself: build the container image, deploy the app worker so the split-object host exists, then add the `SEARCH_SERVICE` binding — no code change (`docs/deploy-queue.md`). Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and the footer's per-field pruning digest (which reduces the cost of the splits that remain, where compaction reduces how many remain).
 link-spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
 link-plan:

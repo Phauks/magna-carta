@@ -10,7 +10,7 @@ ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: claude/closure-and-batch-bounds
-active-work: docs/active-work/claude/closure-and-batch-bounds.md
+active-work:
 next: Deepening slices 1-3 built (reporting posture; event triggers + the re-check ledger + the consumers, cron backstop and notification; typed traversal budgets + the closure cap and its truncation record + the batched matcher); slices 4-5 follow — matching depth (organization match keys, Beider-Morse, the empty nickname catalogue) and the adjudication read models. Slice 3 left the firm-marked non-expandable entity to whichever slice owns the Directory write path
 link-spec: docs/specs/2026-08-13-conflicts-deepening-design.md
 link-plan: docs/specs/2026-08-13-conflicts-deepening-implementation-plan.md

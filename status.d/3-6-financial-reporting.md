@@ -10,7 +10,7 @@ ui: todo
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
 branch: claude/financial-reporting-1
-active-work: docs/active-work/claude/financial-reporting-1.md
+active-work:
 next: Owner answers on the nine flagged questions and on the two defaults this build shipped behind seams; then the filed pack artifact (needs a renderer), then sub-slice 3·6·2 — the financial reports
 link-spec: docs/specs/2026-08-13-financial-reporting-design.md
 link-plan: docs/specs/2026-08-13-financial-reporting-implementation-plan.md
