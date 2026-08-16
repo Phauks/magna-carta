@@ -34,6 +34,7 @@ import { searchIndexQueue } from "./search/index-consumer.ts";
 import { searchCompactionQueue } from "./search/compaction-consumer.ts";
 import type { SearchCompactionMessage } from "./search/compaction-types.ts";
 import { runSearchCompactionSweep } from "./search/compaction-sweep.ts";
+import { runNaturalLanguageKeepAliveSweep } from "./search/natural-language-keep-alive.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
@@ -138,6 +139,17 @@ const STATUS_SNAPSHOT_CRON = "*/10 * * * *";
 // outbound-mail provisioning exits the pass before it reads a single firm.
 const NOTIFICATION_DIGEST_CRON = "0 * * * *";
 
+// The weekly natural-language search keep-alive Cron expression (wrangler.jsonc triggers.crons).
+// Sundays at 04:00 UTC, after the daily reconciliation pass has run and while nothing else is on the
+// clock.
+//
+// Its own trigger rather than a rider on the daily pass, because the work is genuinely weekly: a
+// managed search instance that goes a month without a request has its scheduled syncs paused, and one
+// query a week sits comfortably inside that window at a seventh of the metered cost of a daily one.
+// The failure it removes is the worst shape this feature has — not an error, but silently stale
+// answers on an index nobody was told had stopped syncing.
+const NATURAL_LANGUAGE_KEEP_ALIVE_CRON = "0 4 * * 0";
+
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
 // reconciliation once daily, and the weekly re-scan sweep on Sundays at 04:00 UTC; the queue
@@ -196,7 +208,14 @@ export default {
                 operation: "cron:notification-digest",
                 run: () => runNotificationDigestPass(env),
               }
-            : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+            : controller.cron === NATURAL_LANGUAGE_KEEP_ALIVE_CRON
+              ? {
+                  operation: "cron:natural-language-keep-alive",
+                  run: async () => {
+                    await runNaturalLanguageKeepAliveSweep(env);
+                  },
+                }
+              : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);

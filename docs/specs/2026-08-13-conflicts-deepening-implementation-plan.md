@@ -46,13 +46,13 @@ Vitest, Hono, `@magna-carta/data-access` effect batches.
 
 ## Slice ordering, and why slice 1 is useful alone
 
-| Slice | Ships                                                                                                                                                                                | Useful alone because                                                                                                                                                                                                                                                                                |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | The reporting posture: the matter conflicts posture read, the honest zero-hit report, the vocabulary fitness function                                                                | A firm can see, per matter, exactly what was searched, what was not, what is unanswered, and whether the answer predates the firm's current policy — none of which is readable today without raw rows. It ships no new matching and no new firing, and it is the framing every later slice inherits |
-| **2** | Event triggers, the re-check ledger, the queue consumers, the cron backstop, the notification type                                                                                   | The check now fires when the world changes. This is the larger half of the owner's scope and it stands on slice 1's posture read to surface pending re-checks                                                                                                                                       |
-| **3** | Traversal depth: typed per-edge-class budgets, the closure cap and truncation record, expired-edge traversal, firm-marked non-expandable entities, and the batched matcher           | The graph half of search depth, with the N+1 removed in the same slice because widening traversal without batching would regress the shipped load profile                                                                                                                                           |
-| **4** | Matching depth: the two additive organization match keys with their backfill, Beider-Morse as a third phonetic scheme with its backfill, the registered-and-empty nickname catalogue | The name half of search depth. Last of the depth work because it is the only part that touches the Directory **write** path and needs a corpus backfill                                                                                                                                             |
-| **5** | The adjudication read models: previously-concluded grouping, bulk affirmation, tiered disposition authority, and the conflicts report artifact                                       | Closes the uncertainty loop. Read models and routes only — the Svelte surface is a later slice, UI being parked by owner direction                                                                                                                                                                  |
+| Slice | Ships                                                                                                                                                                                                               | Useful alone because                                                                                                                                                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | The reporting posture: the matter conflicts posture read, the honest zero-hit report, the vocabulary fitness function                                                                                               | A firm can see, per matter, exactly what was searched, what was not, what is unanswered, and whether the answer predates the firm's current policy — none of which is readable today without raw rows. It ships no new matching and no new firing, and it is the framing every later slice inherits |
+| **2** | Event triggers, the re-check ledger, the queue consumers, the cron backstop, the notification type                                                                                                                  | The check now fires when the world changes. This is the larger half of the owner's scope and it stands on slice 1's posture read to surface pending re-checks                                                                                                                                       |
+| **3** | Traversal depth: typed per-edge-class budgets, the closure cap and truncation record, expired-edge traversal, firm-marked non-expandable entities, and the batched matcher                                          | The graph half of search depth, with the N+1 removed in the same slice because widening traversal without batching would regress the shipped load profile                                                                                                                                           |
+| **4** | Matching depth: the two additive organization match keys with their backfill, the registered-and-empty nickname catalogue, and name-role breadth as a firm setting (Beider-Morse attempted and reverted — Task 4.4) | The name half of search depth. Last of the depth work because it is the only part that touches the Directory **write** path and needs a corpus backfill                                                                                                                                             |
+| **5** | The adjudication read models: previously-concluded grouping, bulk affirmation, tiered disposition authority, and the conflicts report artifact                                                                      | Closes the uncertainty loop. Read models and routes only — the Svelte surface is a later slice, UI being parked by owner direction                                                                                                                                                                  |
 
 Slices 3 and 4 are independent of each other and may run in either order or in parallel by different
 owners, provided slice 4 owns `packages/directory/src/` and slice 3 owns `packages/conflicts/src/expansion.ts`
@@ -349,19 +349,29 @@ cross-origin surnames stop being a structural miss. Owns `packages/directory/src
 - [ ] Tests: the owner's two examples land at tier 2 and tier 3 respectively, and the LLP/LLC pair
       does **not** reach tier 2.
 
-### Task 4.4 — Beider-Morse
+### Task 4.4 — Beider-Morse — ATTEMPTED, MEASURED, NOT SHIPPED
 
-- [ ] Add `beider_morse` as a third scheme in `phonetics.ts`, computed on every name write. The
-      `scheme` CHECK is `length > 0`, so this is additive rows — **no schema change**.
-- [ ] Prefer a maintained pure-TypeScript encoder; if the only viable implementation pulls a C/C++
-      dependency (including compiled-to-WASM), **stop and ask the owner** — golden rule 14 — and
-      record the trade rather than adopting it.
-- [ ] Backfill sweep over existing name rows, resumable and budgeted, sharing Task 4.2's machinery.
-- [ ] Enable the scheme at `over_inclusive` only, so `matchOptionsFor` keeps returning a strict
-      superset by construction.
-- [ ] Re-prove the superset invariant against the real corpus with all new channels enabled.
-- [ ] Name the Rust/WASM port of the encoder as the measured follow-on: it is a write-time cost, so
-      the flip condition is a measured write-path or backfill regression, not a matching one.
+> Slice 4 built this task and reverted it. The task as written below is not achievable on this
+> platform; the design's 4.1.3a records the measurement in full. Do not re-attempt it with another
+> JavaScript encoder without first measuring that encoder's MODULE-LOAD cost inside workerd — Node is
+> four orders of magnitude faster here and will tell you nothing.
+
+- [x] ~~Add `beider_morse` as a third scheme in `phonetics.ts`~~ — **impossible as specified.**
+      `directory_name_phonetic_code`'s PRIMARY KEY is `(name_id, scheme)`, so it holds one code per
+      name per scheme; Beider-Morse returns tens. The open `scheme` CHECK is only half the seam. A
+      variable-output encoder needs a table keyed by the CODE.
+- [x] Encoder survey done. `bmpm` is the only maintained JavaScript implementation: **MIT, pure
+      TypeScript, zero runtime dependencies**, so **golden rule 14 was never triggered** and no owner
+      consent was needed. It was adopted, wired, measured, and removed.
+- [x] **The blocker: 20,377 ms of workerd CPU at module load** (16 ms in Node), measured on the first
+      person create with the channel wired. Past the Workers CPU limit on both the write path and the
+      read path; a lazy dynamic import is worse because Workers forbid runtime module loading.
+- [x] Recall measured before the revert, so the follow-on is justified rather than hoped for: seven
+      cross-origin pairs in thirty that Double Metaphone structurally cannot reach.
+- [ ] **The follow-on, unscheduled and the owner's call:** the Rust/WASM port, whose flip condition is
+      now a number — an encoder whose rule tables cost workerd single-digit milliseconds. It also needs
+      a new table keyed `(name_id, code)`, and the read path must probe the SUBJECT's stored phonemes
+      rather than computing them, or the request-path cost returns by the back door.
 
 ### Task 4.5 — The nickname catalogue, registered and empty
 

@@ -82,6 +82,17 @@ describe("schema conformance (fitness functions)", () => {
       // acceptances exist for one person, which is precisely the state the version comparison must
       // never have to disambiguate.
       magnus_member_acknowledgement: "user_id",
+      // One managed natural-language search instance per firm, and the FIRM is the row. A separate
+      // handle would let two rows exist for one firm, which is exactly the state that cannot be
+      // allowed: the row is the platform's own catalog of what exists in its account, and the instance
+      // name is derived from the firm identifier so a second row could only ever name the same
+      // instance or an orphaned one.
+      ai_search_instance: "firm_id",
+      // The firm's acknowledgement of the search disclosure, and there is exactly one. The per-firm
+      // database IS the firm, so the row is keyed by a fixed literal scope rather than a handle — the
+      // same idiom as `setting` keyed by its key — which makes the write a plain upsert with no read
+      // first and makes two acceptances unrepresentable.
+      ai_search_disclosure_acknowledgement: "scope",
       // One professional profile per member, and the member IS the row — a second handle would let
       // two profiles exist for one person, and every read already arrives holding the user id.
       member_professional_profile: "member_user_id",
@@ -90,6 +101,11 @@ describe("schema conformance (fitness functions)", () => {
       // event anybody appends, and a handle would let two tallies exist for one person — which is
       // exactly the state the unread count must never have to reconcile.
       notification_swept_unread: "recipient_user_id",
+      // The natural-language search usage meter, keyed by the civil day it rolls up. The DAY is the
+      // row: it is a tally updated in place by delta, never an event anybody appends, so a handle
+      // would let two tallies exist for one day — the one state a meter must never have to
+      // reconcile. Same idiom as storage_meter and token_usage_meter, which key by what they roll up.
+      ai_search_usage_meter: "day",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.
@@ -121,7 +137,13 @@ describe("schema conformance (fitness functions)", () => {
     // reason. The quadruple IS the row: it is a tally updated in place rather than an event anybody
     // appends, and a handle would let two tallies exist for the same day and category, which is the
     // one state a count must never have to reconcile.
+    // ai_search_feed_object is keyed by (file_id, version) — one fed object per committed document
+    // version, and that pair IS the row. A handle would let two rows describe the same version, which
+    // is precisely the state the deletion plan and the pending-document count must never have to
+    // reconcile; the write is an upsert on this key, which is what makes a retried feed write converge
+    // rather than leave a second copy.
     const compositeKeyTables = new Set([
+      "ai_search_feed_object",
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
@@ -147,6 +169,10 @@ describe("schema conformance (fitness functions)", () => {
       "custody_number_allocation.drawn_value",
       "invoice_number_allocation.drawn_value",
       "index_split_member.version",
+      // A fed object's version is the same integer the file entry and the split catalog already carry;
+      // spelling it as text here would let the feed row disagree with the split row about which
+      // version of a document it describes.
+      "ai_search_feed_object.version",
     ]);
 
     for (const table of ALL_TABLES) {

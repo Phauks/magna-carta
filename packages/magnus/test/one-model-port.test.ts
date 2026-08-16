@@ -53,12 +53,18 @@ describe("no second model port (fitness)", () => {
   });
 
   it("no worker module outside the composition roots names the binding or a gateway options object", () => {
-    const forbidden = ["env.AI", "AiBinding", "GatewayOptions", "gatewayOptions("];
+    // Matched at a TOKEN boundary rather than as a bare substring. `env.AI` is the Workers AI
+    // binding, and a bare `includes` also matched every longer binding name that merely starts with
+    // it — `env.AI_SEARCH_NAMESPACES`, which is a different binding to a different product and
+    // reaches no model of ours. Firing on that is a false positive, and a false positive on a scan
+    // this load-bearing is worse than it looks: the reflex it invites is to widen the exemption list,
+    // which is what would let a real second model port through.
+    const forbidden = [/\benv\.AI\b/, /\bAiBinding\b/, /\bGatewayOptions\b/, /\bgatewayOptions\(/];
     for (const file of safeTsFiles(workerSource)) {
       if (COMPOSITION_ROOTS.has(file)) continue;
       const text = readFileSync(file, "utf8");
-      for (const needle of forbidden) {
-        expect(text.includes(needle), `${file.replaceAll("\\", "/")} names "${needle}"`).toBe(
+      for (const pattern of forbidden) {
+        expect(pattern.test(text), `${file.replaceAll("\\", "/")} names "${pattern.source}"`).toBe(
           false,
         );
       }

@@ -33,3 +33,4 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery (stub; backend built, screens pending).
 - [`product-changelog.md`](product-changelog.md) — What's new: how the changelog is organized and what it covers (stub; the content is built, the page is not).
 - [`product-roadmap.md`](product-roadmap.md) — What is coming: the horizon bands, why there are no dates, and what the roadmap deliberately leaves off (stub; the content is built, the page is not).
+- [`asking-a-question-of-a-matters-documents.md`](asking-a-question-of-a-matters-documents.md) — Asking a question of a matter's documents: it returns passages rather than answers, what it can and cannot see, the freshness sentence on every result, and what an empty result does and does not mean (off for every firm; backend built, retrieval and screens pending).
