@@ -66,6 +66,13 @@ To confirm a repair by hand: `generate-per-firm-migrations` on an unchanged sche
 "No schema changes, nothing to migrate", and adding one scratch column must emit that one
 `ALTER TABLE ... ADD` and nothing else.
 
+**This is gated, not reviewed.** `check-snapshots` runs in `pnpm check:scoped` whenever the change
+touches this package, in the whole-repo `pnpm check`, and in the CI gate's `governance` job beside the
+migration-integrity test — so a stale snapshot fails before it lands rather than surfacing weeks later
+in someone else's `generate`. It drifted twice unnoticed before that wiring existed, both times because
+the rule above was a rule a reviewer had to remember. Nobody has to remember it now; do not re-add it as
+a review step.
+
 ## Invariants that apply here
 
 - **A migration is immutable once committed.** Firms have already applied it. Corrections are new
