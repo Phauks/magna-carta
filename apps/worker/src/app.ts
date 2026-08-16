@@ -7,6 +7,7 @@ import {
 } from "@magna-carta/telemetry/workers-logger";
 import { createAuth } from "./auth.ts";
 import { createChokepoint } from "./chokepoint/chokepoint.ts";
+import type { HumanVerificationGateOptions } from "./human-verification/human-verification-gate.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
 import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
@@ -352,6 +353,20 @@ export type Bindings = {
   // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
   // a secret — bound via wrangler vars.
   PANGRAM_MODE?: "async-task" | "sync";
+  // The Cloudflare Turnstile secret key the anonymous endpoints verify a challenge solution
+  // against, server-side. Optional, and ABSENT IS THE SHIPPED STATE: no widget has been created, so
+  // every environment resolves the not-configured verifier
+  // (human-verification/human-verification-wiring.ts) and the protected endpoints behave exactly as
+  // they did before the gate existed — while counting every unprotected pass. Production sets it
+  // with `wrangler secret put TURNSTILE_SECRET_KEY`, and doing so is what switches enforcement on.
+  // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
+  // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
+  TURNSTILE_SECRET_KEY?: string;
+  // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
+  // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
+  // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes
+  // the default, so a typo here cannot close the front door.
+  HUMAN_VERIFICATION_POSTURE?: "fail-open" | "fail-closed";
   // Cloudflare Realtime TURN key credentials — mint short-lived relay credentials for the
   // packet-loss measurement in the Network Speed Test tool. Optional: absent in tests and until the
   // owner provisions a Realtime TURN key, in which case the route answers 503 and the tile states
@@ -421,6 +436,11 @@ export interface CreateAppOptions {
   // Overrides the seal port for tests (a fake SealPort). Production resolves it from the SIGN_SERVICE
   // binding inside the route; while that binding is unset, the route returns 503 (deferred activation).
   sealPort?: SealPort;
+  // Overrides the human-verification gate on the anonymous endpoints (a fake verifier, and/or the
+  // unconfigured posture this deployment does not run). Production resolves both from the
+  // environment inside the handler; no secret is set anywhere, so the default everywhere is the
+  // not-configured verifier.
+  humanVerification?: HumanVerificationGateOptions;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -590,8 +610,18 @@ export function createApp(options: CreateAppOptions = {}) {
   // Joining the platform: the anonymous registration pair and the invitation pair (one issued
   // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
   // rides the chokepoint's tightest rate-limit bucket.
-  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv);
-  registerInvitationRoutes(app, chokepoint, authForEnv, invitationRedemptionLadder);
+  // The human-verification gate rides the two anonymous WRITES among them — founding a firm and
+  // redeeming an invitation. Not the confirmation route: its emailed token is the only credential
+  // its caller can hold, and a link opened out of a mailbox has no form to carry a challenge.
+  const humanVerification = options.humanVerification ?? {};
+  registerRegistrationRoutes(app, chokepoint, emailAdapterForEnv, humanVerification);
+  registerInvitationRoutes(
+    app,
+    chokepoint,
+    authForEnv,
+    invitationRedemptionLadder,
+    humanVerification,
+  );
   registerPlatformReleaseChannelRoute(app, chokepoint);
   registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);

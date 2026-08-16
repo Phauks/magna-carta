@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 735 nodes of the feature ledger in
+is the complete register rather than a digest: all 736 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**735 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**736 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -27,17 +27,17 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 255 | 35% |
-| Part-built | partial, in-build | 214 | 29% |
+| Part-built | partial, in-build | 215 | 29% |
 | Ahead | designed, planned, researching, not-started | 223 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **735** | **100%** |
+| **All capabilities** | | **736** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 255 | 35% |
-| `partial` | 199 | 27% |
+| `partial` | 200 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
 | `planned` | 18 | 2% |
@@ -45,13 +45,13 @@ below; these are the totals over that list.
 | `not-started` | 161 | 22% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **735** | **100%** |
+| **All statuses** | **736** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 255 of 735 (35%). Shipped plus partial is 454 (62%).**
+**Shipped alone is 255 of 736 (35%). Shipped plus partial is 455 (62%).**
 
-The 199 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 200 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -63,7 +63,7 @@ true and neither is the answer on its own.
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 15 | 5 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 52% |
-| Authentication, Access Control & Encryption | 13 | 9 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 30 | 43% |
+| Authentication, Access Control & Encryption | 13 | 10 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 31 | 42% |
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
 | Community & Feedback Forum | 0 | 0 | 0 | 10 | 0 | 0 | 0 | 1 | 0 | 11 | 0% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **255** | **199** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **735** | **35%** |
+| **All areas** | **255** | **200** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **736** | **35%** |
 
 ## Where we have been
 
@@ -396,12 +396,12 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Authentication, Access Control & Encryption
 
-[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 30 nodes, 43% shipped. 13 done, 9 part-built, 5 ahead, 3 parked.
+[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 31 nodes, 42% shipped. 13 done, 10 part-built, 5 ahead, 3 parked.
 
 - `auth` · `partial` · **Authentication, access control and encryption** — First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
   - `auth.first-party-login` · `shipped` · **First-party login** — Better Auth on control-plane D1 (Drizzle adapter), firm = organization, exactly one organization per user; role/profile mirrored to the per-firm member row. _Note: API-only to date; the login/2FA UI is the 0-7b slice (branch active)._
     - `auth.first-party-login.invitation-only` · `shipped` · **Invitation-only membership** — Nobody adds themselves to an existing firm; Better Auth's own signup stays structurally off, and joining a firm goes through invitation redemption with an email-verified flip. _Note: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers._
-    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection, the second-factor channel choice and Turnstile remain server-side gaps._
+    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI._
   - `auth.two-factor` · `partial` · **Second factors** — Passkeys/WebAuthn and TOTP primary; email codes and SMS secondary/recovery only.
     - `auth.two-factor.totp` · `shipped` · **TOTP** — TOTP enrollment and login with transition-exact audit events.
     - `auth.two-factor.passkeys` · `not-started` · **Passkeys / WebAuthn** — Passkey server plugin, enrollment UI, virtual-authenticator test coverage. _Note: Deferred from the auth backend slice because WebAuthn needs a browser; scheduled into the auth-UI slice._
@@ -410,6 +410,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `auth.hardening` · `partial` · **Auth hardening** — Argon2id hashing, secure sessions, rate limiting, account lockout, email verification, password reset, immutable auth audit log.
     - `auth.hardening.auth-audit-log` · `shipped` · **Auth audit log** — Immutable control-plane auth audit (login success, 2FA transitions, password reset, key shred, alpha-door writes).
     - `auth.hardening.rate-limiting` · `partial` · **Rate limiting** — Rate limiting on the API surface via the chokepoint's declared limits. _Note: Seam built into the chokepoint; a production limiter backend is not verified in the tree._
+    - `auth.hardening.human-verification` · `partial` · **Human verification on anonymous endpoints** — A bot check ahead of the platform's anonymous writes — server-side verification of a Cloudflare Turnstile challenge solution, with a typed absence when no verifier is provisioned. _Note: PARTIAL, and specifically: the server half exists and enforces nothing today. No Turnstile widget has been created, so no secret is provisioned, so every environment resolves the not-configured verifier and the protected endpoints serve exactly as before — counting each unprotected pass as human_verification.decided/unenforced. Two things are outstanding and neither is server work: the owner creating the widget and setting TURNSTILE_SECRET_KEY (queued in docs/deploy-queue.md), and a client that renders the challenge and mints a token, which is UI reserved to the owner. The Better Auth credential endpoints are deliberately NOT gated — their shipped sign-in screen mints no token, so gating them would break a working surface; that mounting belongs to the identity slice that owns them._
   - `auth.access-control` · `partial` · **Trusted-insider access control** — Firm isolation the only hard boundary; RBAC governs actions not visibility; ethical walls a future content overlay.
     - `auth.access-control.permission-registry` · `shipped` · **Permission registry** — Fixed platform registry, one namespace per subsystem (subsystem:action); every route declares one, cross-checked by a fitness function.
     - `auth.access-control.roles-as-data` · `shipped` · **Roles as data** — role-to-permissions and member-to-roles rows seeded with editable defaults; effective permissions = roles held union direct grants.

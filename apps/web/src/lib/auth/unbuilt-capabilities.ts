@@ -10,7 +10,13 @@
  *
  * Each entry names the SERVER-side thing that is missing, not the screen. When the route lands, the
  * entry is deleted and every consumer follows, rather than a `false` flag being flipped in six
- * places. Verified against apps/worker/src/auth.ts and apps/web/src/lib/auth/client.ts.
+ * places. An entry may also NARROW rather than disappear — human verification did: the server now
+ * validates a solution on the joining endpoints, so what is missing is no longer the route but a
+ * widget to mint a token and a decision to gate sign-in, and the sentence says so. A gap that half
+ * closes and keeps its old wording is worse than one that never closed, because the next reader
+ * trusts it. Verified against apps/worker/src/auth.ts,
+ * apps/worker/src/human-verification/human-verification-gate.ts and
+ * apps/web/src/lib/auth/client.ts.
  */
 
 export interface UnbuiltCapability {
@@ -45,7 +51,7 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
     id: "human-verification",
     label: "Human verification on the anonymous endpoints",
     missing:
-      "Turnstile is an operations runbook item, not shipped code. Nothing issues or validates a token, so the widget slot has nothing to hold.",
+      "The server verifies a Turnstile solution on the two joining endpoints, but nothing here mints one and the sign-in endpoints are not gated at all — so this row is a placeholder, not a widget.",
   },
   {
     id: "second-factor-choice",

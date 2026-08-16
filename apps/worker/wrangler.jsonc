@@ -37,6 +37,12 @@
   "vars": {
     "FILES_ORIGIN": "files.example.com",
     "R2_BUCKET_NAME": "magna-carta-production-platform-files",
+    // What the two anonymous writes (registration, invitation redemption) do while NO Turnstile
+    // secret is provisioned: "fail-open" serves them unprotected and counts every unprotected pass
+    // as human_verification.decided/unenforced; "fail-closed" refuses with a 503. Stated here rather
+    // than left to the code default so changing the posture is this one line. It has no effect once
+    // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
+    "HUMAN_VERIFICATION_POSTURE": "fail-open",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing

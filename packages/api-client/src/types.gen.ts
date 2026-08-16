@@ -7653,12 +7653,19 @@ export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisio
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
+    headers?: {
+        'x-human-verification-token'?: string;
+    };
     path?: never;
     query?: never;
     url: '/api/v1/registrations';
 };
 
 export type RegistrationsStartErrors = {
+    /**
+     * Human verification is required and the presented challenge solution was absent, invalid, or already spent
+     */
+    403: Problem;
     /**
      * The request body is malformed
      */
@@ -7667,6 +7674,10 @@ export type RegistrationsStartErrors = {
      * Rate limit exceeded; the body carries the remaining budget and the retry window
      */
     429: Problem;
+    /**
+     * The request could not be verified; the body carries the retry window
+     */
+    503: Problem;
 };
 
 export type RegistrationsStartError = RegistrationsStartErrors[keyof RegistrationsStartErrors];
@@ -7763,12 +7774,19 @@ export type InvitationsIssueResponse = InvitationsIssueResponses[keyof Invitatio
 
 export type InvitationsRedeemData = {
     body: RedeemInvitationRequest;
+    headers?: {
+        'x-human-verification-token'?: string;
+    };
     path?: never;
     query?: never;
     url: '/api/v1/invitations/redemptions';
 };
 
 export type InvitationsRedeemErrors = {
+    /**
+     * Human verification is required and the presented challenge solution was absent, invalid, or already spent
+     */
+    403: Problem;
     /**
      * The invitation could not be redeemed, or the request body is malformed. The refusal is identical for every unsuccessful combination, including a code that matches no invitation at all; the attempt budget it carries counts the caller's own attempts, never any invitation's
      */
@@ -7777,6 +7795,10 @@ export type InvitationsRedeemErrors = {
      * Rate limit exceeded; the body carries the remaining budget and the retry window
      */
     429: Problem;
+    /**
+     * The request could not be verified; the body carries the retry window
+     */
+    503: Problem;
 };
 
 export type InvitationsRedeemError = InvitationsRedeemErrors[keyof InvitationsRedeemErrors];

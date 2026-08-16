@@ -6,8 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-15 (the CI outage was traced to an account billing block, not a workflow bug;
-its owner step is the section immediately below and it gates every merge, not just every deploy)._
+_Last updated: 2026-08-15 (the CI outage was traced to an account billing block rather than a workflow fault — its owner step is the section immediately below and it gates every merge, not only every deploy; the Tools catalog audit added five steps; and Turnstile activation is now an ordered set of steps with a UI prerequisite rather than a runbook checkbox)._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
@@ -202,6 +201,55 @@ whole reason the lane is separate from files ingest in the first place.
 **Not yet activated by this deploy:** the LibreOffice conversion engine (its own section
 below). Until `CONVERT` is bound and that container is deployed, a legacy `.doc`, `.xls`
 or `.ppt` in a review set parks rather than being recorded unreadable.
+
+## Turnstile activation — the order matters, and the widget comes before the secret
+
+Server-side human verification is built and ships **dormant**
+(`apps/worker/src/human-verification/`). It gates the two anonymous writes — `POST
+/api/v1/registrations` (founding a firm) and `POST /api/v1/invitations/redemptions`. With no secret
+set it does nothing to either endpoint except count: one `human_verification.decided` point per
+request, outcome `unenforced`. Nothing below is required for the next deploy; the app worker deploys
+and behaves identically whether these steps have happened or not.
+
+**Do them in this order. Setting the secret (step 3) before the widget exists (step 1) shuts the
+platform's only self-serve front door.**
+
+1. **Build the widget into the joining forms — this is UI work, and it is the prerequisite.** The
+   server refuses a request that carries no challenge solution the moment a secret exists. The
+   registration screens at `/register` and the redemption screen are live and mint no token today,
+   so setting the secret first turns every real signup into a `403`. The client must render a
+   Turnstile widget and send its solution in the `X-Human-Verification-Token` request header. The
+   sign-in screen's existing Turnstile row is a static placeholder, not a widget — it mints nothing.
+2. **Create the widget in the Cloudflare dashboard** — **Turnstile → Add widget**. Free on every
+   plan.
+   - **Mode: Managed.** Managed is the mode all four merged designs name: it shows a challenge only
+     to the small minority of attempts that warrant one, which is what makes the extra row on the
+     form honest. Not Invisible (a signup form should be able to show a person why it paused) and
+     not Non-Interactive.
+   - **Hostnames:** the app origin(s) the joining forms are served from. Not the cookieless
+     user-content domain, which serves no forms.
+   - Keep the **site key** (public — it goes in the client) and the **secret key** (never leaves the
+     dashboard and the Worker).
+3. **Set the secret on the app worker** — `wrangler secret put TURNSTILE_SECRET_KEY`, or **Worker →
+   Settings → Variables and Secrets**. Setting it is what switches enforcement on; there is no other
+   flag. Deliberately absent from `wrangler.jsonc`'s `secrets.required`, so a deploy without it
+   succeeds rather than failing on a credential nobody has provisioned yet.
+4. **Which endpoints light up:** the two named above, and only those. The Better Auth credential
+   endpoints (`/api/auth/*` — sign-in, password reset) are **not** gated: their shipped screen mints
+   no token, so gating them today would break a working surface. Mounting Better Auth's own captcha
+   plugin over them is the identity slice's job, once the widget exists.
+5. **Optional, and only if the posture is being changed:** `HUMAN_VERIFICATION_POSTURE` is already in
+   `apps/worker/wrangler.jsonc`, set to `fail-open`; changing that one line to `fail-closed` makes
+   those two endpoints refuse with a `503` when **no** secret is provisioned, instead of serving
+   unprotected. `fail-open` is the recorded decision — see the pending ADR
+   `an-unprovisioned-human-check-fails-open-and-counts-itself`, which is **awaiting owner
+   ratification**. The variable has no effect once a secret is set.
+
+**How to tell it is working.** The `human_verification.decided` counter carries `route`, `outcome`
+(`verified` / `refused` / `unenforced` / `unavailable`) and a closed-set `reason`. Before step 3 the
+whole volume is `unenforced`; after it, `unenforced` should fall to zero. A standing
+`unavailable`/`verifier-credential-rejected` count means the secret is wrong — the endpoint is
+answering `503`, and no visitor is being told it is their fault.
 
 ## New configuration the next deploy must carry
 

@@ -11,7 +11,7 @@ load-profile: n/a
 tested: in-progress
 branch: main
 active-work:
-next: The two-factor enrolment screens, reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
+next: A Turnstile widget on the joining forms so the human-verification gate can be switched on (the server half exists; the owner's dashboard step is queued in docs/deploy-queue.md), the two-factor enrolment screens, reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
 link-spec:
 link-plan:
 adrs:
@@ -26,6 +26,13 @@ registered: self-serve registration with the three-way role fork, invitation red
 code plus surname and date of birth behind one neutral refusal, and the shared attempt budget the
 sign-in surface renders — which is wired to the live screens, the count and the lockout countdown
 included. Recovery codes are `MC`-prefixed.
+
+The two anonymous writes behind those screens now have a human-verification gate in front of them —
+a real server-side Turnstile check where there had only been an unticked runbook box and a
+placeholder row in the sign-in mock-up. It ships dormant: no widget exists, so no secret is
+provisioned, so both endpoints serve exactly as before and every unprotected pass is counted rather
+than assumed away. Turning it on needs two things that are not server work — the owner creating the
+widget, and a client that renders the challenge and mints a token.
 
 Registration and invitation redemption now have their screens too, at `/register` and below: the
 three-way choice, the found-a-firm pair, redemption behind ONE refusal that names none of the three

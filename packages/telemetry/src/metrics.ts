@@ -291,6 +291,21 @@ export const matterAssetProtectedIdentifierReads = defineMetric(
 // producing notifications looks exactly like a topic nobody subscribed to. That is what the whole
 // group exists to distinguish.
 
+// Human verification on the anonymous endpoints — one point per decision, on every protected
+// request. A COUNTER rather than an event because the whole question is a rate: how much of the
+// traffic at the front door is being checked, how much is being turned away, and how much is walking
+// straight through unchecked. That last number is the reason this metric exists at all — an
+// anonymous endpoint with no verifier provisioned is exactly as unprotected as it was before the
+// gate was built, and the only difference a gate can make while dormant is that the absence has a
+// number on it. `outcome` is verified/refused/unenforced/unavailable and `reason` is a closed label
+// from the port's own vocabulary; there is deliberately NO dimension a token, an address, or an
+// email could occupy.
+export const humanVerificationDecided = defineMetric("human_verification.decided", [
+  "route",
+  "outcome",
+  "reason",
+] as const);
+
 // Notifications actually written, and the recipient rows they fanned out to. The pair is what makes
 // a fan-out bug legible: events steady while recipients collapse is a resolver that stopped
 // resolving.
@@ -382,6 +397,7 @@ const CATALOG: readonly MetricDefinition[] = [
   matterAssetValuations,
   matterAssetScheduleReads,
   matterAssetProtectedIdentifierReads,
+  humanVerificationDecided,
   notificationsMaterialized,
   notificationsRecipients,
   notificationsEmptyAudience,

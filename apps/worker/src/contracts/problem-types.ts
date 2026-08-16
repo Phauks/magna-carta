@@ -422,6 +422,12 @@ export const PROBLEM_TYPES = {
   // every look — and the remedy is to resolve the open one, which is why this is a conflict rather
   // than a refusal on the merits.
   "billing-replenishment-already-open": "billing-replenishment-already-open",
+  // An anonymous endpoint refused because the caller did not prove they are a person (HTTP 403):
+  // no challenge solution was presented, or the one presented does not stand up. DISTINCT from
+  // `permission-denied` (which is about a role a session holds) and from `unauthenticated` (which is
+  // about a session at all): there is no account on either side of this, and the remedy is to solve
+  // a fresh challenge rather than to sign in or to be granted anything.
+  "human-verification-required": "human-verification-required",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

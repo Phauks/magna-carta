@@ -22,6 +22,11 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { isUserEmailConflict } from "../control-plane-conflicts.ts";
 import {
+  enforceHumanVerification,
+  humanVerificationTokenHeader,
+  type HumanVerificationGateOptions,
+} from "../human-verification/human-verification-gate.ts";
+import {
   digestsMatch,
   generateInvitationCode,
   invitationCodeHash,
@@ -253,12 +258,18 @@ export const redeemInvitationRoute = defineOpenAPIRoute(redeemInvitationMeta, {
     "surname, a wrong date of birth, an invitation already used or expired — answers with one " +
     "identical refusal, so the form cannot be used to discover who was invited where.",
   request: {
+    headers: humanVerificationTokenHeader,
     body: { content: { "application/json": { schema: RedeemInvitationRequest } }, required: true },
   },
   responses: {
     200: {
       description: "The invitation was redeemed; the password-setting link has been sent",
       content: { "application/json": { schema: RedeemInvitationResponse } },
+    },
+    403: {
+      description:
+        "Human verification is required and the presented challenge solution was absent, invalid, or already spent",
+      content: { "application/problem+json": { schema: Problem } },
     },
     422: {
       description:
@@ -271,6 +282,10 @@ export const redeemInvitationRoute = defineOpenAPIRoute(redeemInvitationMeta, {
     429: {
       description:
         "Rate limit exceeded; the body carries the remaining budget and the retry window",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description: "The request could not be verified; the body carries the retry window",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -297,6 +312,7 @@ export function registerInvitationRoutes(
   // isolate, never one per request), which is why it arrives here rather than being built here —
   // the same arrangement as the rate limiter and the credential ladder in app.ts.
   redemptionAttemptLadder: AttemptLadder,
+  humanVerification: HumanVerificationGateOptions = {},
 ): void {
   app.openapi(
     {
@@ -395,6 +411,13 @@ export function registerInvitationRoutes(
       middleware: chokepointMiddleware(chokepoint, redeemInvitationRoute),
     },
     async (c) => {
+      // Ahead of the ladder deliberately: a caller who has not shown they are a person should not be
+      // able to spend attempts — theirs or, by way of the shared caller key, anybody else's on the
+      // same address. It is also decided entirely by caller state, so it cannot vary with what an
+      // invitation row would have said and adds no signal to a prober.
+      const unverified = await enforceHumanVerification(c, humanVerification);
+      if (unverified !== null) return unverified;
+
       const request = c.req.valid("json");
       const nowInstant = new Date().toISOString();
 

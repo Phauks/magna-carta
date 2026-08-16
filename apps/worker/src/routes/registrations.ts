@@ -8,6 +8,11 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import type { SendEmail } from "../email-port.ts";
 import {
+  enforceHumanVerification,
+  humanVerificationTokenHeader,
+  type HumanVerificationGateOptions,
+} from "../human-verification/human-verification-gate.ts";
+import {
   confirmationTokenHash,
   digestsMatch,
   generateConfirmationToken,
@@ -39,9 +44,12 @@ import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 // on the endpoint, ahead of any limit: a spam run against it buys a row per attempt and nothing
 // that costs money.
 //
-// Human verification (a bot check ahead of the mail) is a deployment step this route deliberately
-// does not fake. Until it is stood up, the IP-keyed limit below is what stands between the endpoint
-// and a script, and it is sized accordingly.
+// HUMAN VERIFICATION runs ahead of the mail, through the gate in
+// human-verification/human-verification-gate.ts. It is dormant until a verifier credential is
+// provisioned, and while it is dormant this route serves exactly as it did before — with every
+// unprotected pass counted, so the gap is a number rather than an assumption. The IP-keyed limit the
+// chokepoint applies is the other half of the defence and is sized to stand alone, which is what
+// makes the dormant state survivable.
 
 const RegistrationRole = z.enum(["clientOfFirm", "firmMember", "foundFirm"]).openapi({
   description:
@@ -122,12 +130,18 @@ export const startRegistrationRoute = defineOpenAPIRoute(startRegistrationMeta, 
     "is built only once that link is followed. Every outcome within a door answers identically, so " +
     "the response never reveals whether an address already has an account.",
   request: {
+    headers: humanVerificationTokenHeader,
     body: { content: { "application/json": { schema: StartRegistrationRequest } }, required: true },
   },
   responses: {
     202: {
       description: "The registration was accepted; what to do next is in the body",
       content: { "application/json": { schema: StartRegistrationResponse } },
+    },
+    403: {
+      description:
+        "Human verification is required and the presented challenge solution was absent, invalid, or already spent",
+      content: { "application/problem+json": { schema: Problem } },
     },
     422: {
       description: "The request body is malformed",
@@ -136,6 +150,10 @@ export const startRegistrationRoute = defineOpenAPIRoute(startRegistrationMeta, 
     429: {
       description:
         "Rate limit exceeded; the body carries the remaining budget and the retry window",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description: "The request could not be verified; the body carries the retry window",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -197,6 +215,7 @@ export function registerRegistrationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
   sendEmailForEnv: (env: Bindings) => SendEmail,
+  humanVerification: HumanVerificationGateOptions = {},
 ): void {
   app.openapi(
     {
@@ -204,6 +223,12 @@ export function registerRegistrationRoutes(
       middleware: chokepointMiddleware(chokepoint, startRegistrationRoute),
     },
     async (c) => {
+      // Before the row and before the mail: the two things an anonymous caller can make this
+      // platform spend. Placed inside the handler rather than as route middleware so it runs AFTER
+      // the chokepoint's IP-keyed limit — the reasoning is in the gate module.
+      const unverified = await enforceHumanVerification(c, humanVerification);
+      if (unverified !== null) return unverified;
+
       const request = c.req.valid("json");
       // Lowercased for the same reason every other write path lowercases: Better Auth's own lookups
       // do, and the activation that eventually finds this person has to find the row we wrote.

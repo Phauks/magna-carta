@@ -39,7 +39,7 @@
   status: partial
   slices: 0-7b-auth-ui-deferred-surfaces
   evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
-  notes: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection, the second-factor channel choice and Turnstile remain server-side gaps.
+  notes: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
 
 - id: auth.two-factor
   name: Second factors
@@ -92,6 +92,13 @@
   slices: 0-5a-api-contract-foundation
   evidence: async-capable rate-limiter seam in apps/worker/src/contracts
   notes: Seam built into the chokepoint; a production limiter backend is not verified in the tree.
+
+- id: auth.hardening.human-verification
+  name: Human verification on anonymous endpoints
+  scope: A bot check ahead of the platform's anonymous writes — server-side verification of a Cloudflare Turnstile challenge solution, with a typed absence when no verifier is provisioned.
+  status: partial
+  evidence: apps/worker/src/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/worker/test/turnstile-verifier.test.ts and apps/worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
+  notes: PARTIAL, and specifically: the server half exists and enforces nothing today. No Turnstile widget has been created, so no secret is provisioned, so every environment resolves the not-configured verifier and the protected endpoints serve exactly as before — counting each unprotected pass as human_verification.decided/unenforced. Two things are outstanding and neither is server work: the owner creating the widget and setting TURNSTILE_SECRET_KEY (queued in docs/deploy-queue.md), and a client that renders the challenge and mints a token, which is UI reserved to the owner. The Better Auth credential endpoints are deliberately NOT gated — their shipped sign-in screen mints no token, so gating them would break a working surface; that mounting belongs to the identity slice that owns them.
 
 - id: auth.access-control
   name: Trusted-insider access control
