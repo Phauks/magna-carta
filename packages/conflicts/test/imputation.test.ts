@@ -48,8 +48,9 @@ test("a member linked to a matter party surfaces as an imputation hit", async ()
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toHaveLength(1);
-  expect(hits[0].memberUserId).toBe("user_partner");
-  expect(hits[0].role).toBe("opposing_party");
+  // The length assertion above is what makes these indexed reads safe.
+  expect(hits[0]!.memberUserId).toBe("user_partner");
+  expect(hits[0]!.role).toBe("opposing_party");
 });
 
 // The "Smith Law" regression: a firm partner sharing a surname with a client is not a conflict.

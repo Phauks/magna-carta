@@ -23,6 +23,12 @@ function settingsDatabase(rows: Record<string, string>) {
           const value = rows[key];
           return { results: (value === undefined ? [] : [{ value }]) as T[] };
         },
+        // The same row `all()` would return, or null — the SqlStatement contract in full, so this
+        // stub stays substitutable for the real database as the accessors under test evolve.
+        async first<T>(): Promise<T | null> {
+          const value = rows[String(bound[0])];
+          return value === undefined ? null : ({ value } as T);
+        },
         async run() {
           return { meta: { changes: 0 } };
         },

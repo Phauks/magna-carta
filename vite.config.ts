@@ -24,6 +24,8 @@ export default defineConfig({
       // sync check re-derives, so the formatter must not reflow it. Same case as the artifacts above.
       "tsconfig.build.json",
       "**/tsconfig.build.json",
+      "tsconfig.test.json",
+      "**/tsconfig.test.json",
       "packages/design-tokens/generated/**",
       "packages/design-tokens/test/golden/**",
       // Assembled build outputs, not hand-authored: CHANGELOG.md is folded from changelog.d/* by
@@ -159,15 +161,15 @@ export default defineConfig({
         command:
           "cargo fmt --manifest-path crates/Cargo.toml --all --check && cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path crates/Cargo.toml",
       },
-      // Incremental type-check over the project-references build graph (docs/conventions/build-performance.md).
-      // `tsc -b` builds each package's tsconfig.build.json in dependency order, skipping unchanged
-      // projects via their .tsbuildinfo. Local inner loop: `pnpm exec tsc -b <package>/tsconfig.build.json`.
-      // NOT yet wired into the root `check` gate: a full-graph build currently surfaces pre-existing
-      // latent type errors that the vp-check type-check does not catch (see the rollout spec's landing
-      // status). It goes into the gate once those are fixed. The pdf package's build needs its wasm
-      // artifact present (`vp run rust-wasm-build`), same as any type-check of pdf.
+      // Incremental type-check over the project-references graph (docs/conventions/build-performance.md).
+      // TWO root solutions, and both are the type pass of record: tsconfig.build.json builds each
+      // package's src (composite, declaration-emitting, in dependency order), and tsconfig.test.json
+      // then builds each package's test/ against those declarations. Both skip unchanged projects via
+      // their .tsbuildinfo. Local inner loop: `pnpm exec tsc -b <package>/tsconfig.test.json` for one
+      // package's tests and their dependency closure. The pdf package's build needs its wasm artifact
+      // present (`vp run rust-wasm-build`), same as any type-check of pdf.
       typecheck: {
-        command: "tsc -b tsconfig.build.json",
+        command: "tsc -b tsconfig.build.json tsconfig.test.json",
       },
       // Regenerate the reference graph from package.json workspace deps. Run after adding a package or
       // changing a package's @magna-carta/* dependencies; `--check` (used by the future gate) fails if

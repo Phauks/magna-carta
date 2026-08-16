@@ -72,7 +72,8 @@ test("a reversal appends a second row and becomes the current disposition", asyn
   const { results } = await ctx.database
     .prepare(`SELECT COUNT(*) AS count FROM conflicts_disposition`)
     .all();
-  expect(results[0].count).toBe(2); // the cleared row survives — the audit trail is the point
+  // A COUNT(*) always returns exactly one row, which is what makes this indexed read safe.
+  expect(results[0]!.count).toBe(2); // the cleared row survives — the audit trail is the point
 });
 
 test("same-millisecond dispositions resolve to the genuinely-latest by insertion order, not by id", async () => {

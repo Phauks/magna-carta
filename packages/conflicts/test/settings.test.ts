@@ -133,6 +133,7 @@ test("readConflictsPolicy: a well-formed stored row round-trips its values", asy
     defaultDepth: 3,
     edgeClassBudgets: { control: 2, family: 1, representation: 1 },
     closureCap: 250,
+    candidateCap: 120,
   };
   seedConflictsPolicy(raw, JSON.stringify(stored));
 
@@ -142,6 +143,7 @@ test("readConflictsPolicy: a well-formed stored row round-trips its values", asy
   expect(resolved.defaultDepth).toBe(3);
   expect(resolved.edgeClassBudgets).toEqual({ control: 2, family: 1, representation: 1 });
   expect(resolved.closureCap).toBe(250);
+  expect(resolved.candidateCap).toBe(120);
 });
 
 test("readConflictsPolicy: an empty stored floorSources still yields party in the floor", async () => {

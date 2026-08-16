@@ -34,7 +34,8 @@ describe("@magna-carta/email wasm wrapper", () => {
       const message = await parseMessage(fixture("with-attachment.eml"));
 
       expect(message.parts.length).toBeGreaterThan(0);
-      const [first] = message.parts;
+      // The length assertion above is what makes this indexed read safe.
+      const first = message.parts[0]!;
       expect(first.locator.kind).toBe("inputRange");
       if (first.locator.kind === "inputRange") {
         expect(first.locator.end).toBeGreaterThan(first.locator.start);
@@ -54,9 +55,10 @@ describe("@magna-carta/email wasm wrapper", () => {
 
       expect(outcome.failures).toHaveLength(0);
       expect(outcome.messages).toHaveLength(2);
-      expect(outcome.messages[0].subject).toBe("First");
-      expect(outcome.messages[0].sourceFormat).toBe("mboxMember");
-      expect(outcome.messages[1].subject).toBe("Second");
+      // The length assertion above is what makes these indexed reads safe.
+      expect(outcome.messages[0]!.subject).toBe("First");
+      expect(outcome.messages[0]!.sourceFormat).toBe("mboxMember");
+      expect(outcome.messages[1]!.subject).toBe("Second");
     });
   });
 

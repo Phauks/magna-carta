@@ -10,6 +10,7 @@ import {
 import { MERGE_SUBJECTS } from "../src/catalog/subjects.ts";
 import { DICTIONARY, lookupDictionaryEntry } from "../src/dictionary.ts";
 import type { MatterAssetMergeRow } from "../src/merge-statements.ts";
+import { listItems } from "./support/merge-values.ts";
 
 // The asset subjects, and the ONE rule that makes them different from every other subject in the
 // catalogue: they are collection-only.
@@ -195,11 +196,11 @@ describe("class items carry their own attributes, and the aggregate carries only
         ["assets", "realProperty", "vehicle", "firearm"].includes(subject.key),
       ),
     );
-    expect((values.get("assets.all") as { items: unknown[] }).items).toHaveLength(2);
-    expect((values.get("realProperty.all") as { items: unknown[] }).items).toHaveLength(1);
-    expect((values.get("vehicle.all") as { items: unknown[] }).items).toHaveLength(1);
+    expect(listItems(values.get("assets.all"))).toHaveLength(2);
+    expect(listItems(values.get("realProperty.all"))).toHaveLength(1);
+    expect(listItems(values.get("vehicle.all"))).toHaveLength(1);
     // A class with no assets is an empty list, which is a correct document.
-    expect((values.get("firearm.all") as { items: unknown[] }).items).toHaveLength(0);
+    expect(listItems(values.get("firearm.all"))).toHaveLength(0);
   });
 
   it("gives the aggregate no class-specific field", () => {

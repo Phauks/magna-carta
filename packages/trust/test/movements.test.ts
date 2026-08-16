@@ -1,5 +1,5 @@
 import type { UserId } from "@magna-carta/identifiers/types";
-import { money, USD } from "@magna-carta/money/money";
+import { currencyFromCode, money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { loadMatterTrustLeaf } from "../src/account-tree.ts";
 import { assertTrustFitness } from "../src/fitness.ts";
@@ -170,7 +170,7 @@ describe("deposit", () => {
         {
           trustAccountId: fixture.trustAccountId,
           to: leafReference(matterId, "Webb"),
-          amount: money(100000, "EUR"),
+          amount: money(100000, currencyFromCode("EUR")),
           effectiveDate: "2026-08-05",
           description: "Retainer received",
           method: "wire",

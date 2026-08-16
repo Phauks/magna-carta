@@ -413,7 +413,8 @@ test("a replayed idempotency key writes exactly one check", async () => {
   const { results } = await ctx.database
     .prepare(`SELECT COUNT(*) AS count FROM conflicts_check`)
     .all();
-  expect(results[0].count).toBe(1);
+  // A COUNT(*) always returns exactly one row, which is what makes this indexed read safe.
+  expect(results[0]!.count).toBe(1);
 });
 
 test("a completed walk records the budgets and caps in force, and does not record a truncation", async () => {

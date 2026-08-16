@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { toArrayBuffer } from "./support/bytes.ts";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ensureReady, parseMessage } from "@magna-carta/email";
 import type {
@@ -41,7 +42,7 @@ class FakeStore {
     return {
       parse: (bytes) => parseMessage(bytes),
       persistOriginal: async (bytes) => {
-        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        const digest = await crypto.subtle.digest("SHA-256", toArrayBuffer(bytes));
         const sha = [...new Uint8Array(digest)]
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");

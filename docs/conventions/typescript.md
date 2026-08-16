@@ -56,3 +56,35 @@ Two tightenings are deferred, not rejected — each needs a cleanup pass before 
 - **Enable `typescript/no-unsafe-type-assertion`.** Off today (~600 findings, mostly reviewed `as` at typed seams). Investigate whether a narrower form — an `overrides` entry scoping it to non-seam directories, or a codemod that replaces the mechanical cases — makes it a net win, then turn it on where it pays.
 
 Adopting the `import` and `vitest` plugins is the same shape of work (they surface real findings in existing test code) and belongs on this list too.
+
+---
+
+## Test files are type-checked, and are held to the same type discipline as source
+
+Every package has a second, non-emitting `tsconfig.test.json` beside its build project, so a type
+error in a test fails the gate exactly as one in `src/` does. The mechanism, the two root solutions,
+and the one deferred member live in [`build-performance.md`](build-performance.md) — _Two projects
+per package_. What belongs here is the consequence for how a test is written.
+
+**A test that will not type-check is usually right about the seam it exercises.** The failure is
+evidence, so the fix is the thing the compiler is pointing at, not a way past it. Never reach for
+`any`, `@ts-expect-error`, or a widened production type to make a test compile. Three shapes cover
+almost every case, and each is an established idiom here rather than a suppression:
+
+- **A hand-rolled double that has drifted from the interface it stands in for** — implement the
+  method it is missing. A double missing `SqlStatement.first` is not a typing nuisance; it is a
+  double that would not survive the next accessor added to the code under test.
+- **A literal that has lost a field the production type gained** — supply the field and assert it.
+  The `ConflictsPolicy` round-trip test had stopped covering `candidateCap` and said so in the type
+  error; the fix is a fuller fixture, not a looser type.
+- **A value the compiler cannot see is present** — narrow it where the test already proves it. An
+  indexed read after `expect(x).toHaveLength(n)` takes `!` with the assertion named in a comment; a
+  union takes a small local helper that throws with a real message (see
+  `packages/document-assembly/test/support/merge-values.ts`), which is a better failure than an
+  `as` that turns a wrong shape into an unreadable indexing error.
+
+**Some things a test needs are the package's own configuration, not a cast.** A test importing a
+`.wasm` module, a `?raw` file, or `cloudflare:test` needs an ambient declaration — at the package root
+for something `src/` shares, or under `test/support/` for something only tests use. A test whose
+imports the package's `tsconfig.json` cannot resolve is telling you the package under-declares what
+it contains.

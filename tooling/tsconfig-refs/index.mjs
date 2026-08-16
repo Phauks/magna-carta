@@ -1,9 +1,22 @@
-// Generates the TypeScript project-references build graph: a `tsconfig.build.json` per in-graph
-// workspace package (composite, emit-declaration-only) whose `references` mirror that package's
-// `@magna-carta/*` workspace dependencies, plus a root `tsconfig.build.json` solution file that
-// references every member. `tsc -b tsconfig.build.json` then type-checks the whole workspace
-// incrementally (package-granular), and `tsc -b <package>/tsconfig.build.json` checks one package and
-// its dependency closure.
+// Generates the TypeScript project-references graph, which is TWO projects per in-graph workspace
+// package:
+//
+//   tsconfig.build.json — composite, emit-declaration-only, `include` is src-only. This is what
+//     downstream packages consume: it produces the .d.ts that makes the graph incremental.
+//   tsconfig.test.json  — composite, EMITS NOTHING, `include` is everything else the package's own
+//     tsconfig.json declares (test/, *.config.ts, scripts/, .storybook/, …). It references the
+//     package's own build project, so the sources it imports resolve to declarations already built
+//     rather than being re-checked.
+//
+// Split in two because one project cannot do both jobs: declaration emit needs `rootDir: "src"`, and
+// a file outside `rootDir` cannot take part in that emit — which is why `test/` cannot simply join
+// the build project's `include`. Together the pair covers exactly what the package's own
+// tsconfig.json declares, so nothing type-checkable in a member falls between them.
+//
+// Two root solution files tie the members together: `tsconfig.build.json` (every member's build
+// project) and `tsconfig.test.json` (every member's test project). `vp run typecheck` builds both, so
+// `tsc -b` type-checks source and tests in one incremental pass; `tsc -b <package>/tsconfig.test.json`
+// checks one package's tests and their dependency closure.
 //
 // These files are GENERATED — never hand-edited. A package that adds or drops an `@magna-carta/*`
 // dependency re-runs this script; the sync check (`--check`) fails any tree whose generated files are
@@ -14,7 +27,7 @@
 //   node tooling/tsconfig-refs/index.mjs           # write/refresh the generated files
 //   node tooling/tsconfig-refs/index.mjs --check   # exit 1 if any generated file is stale (CI/gate)
 
-import { readFileSync, writeFileSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -27,8 +40,34 @@ const GROUPS = ["packages", "apps"];
 // @magna-carta/tsconfig is config-only (no tsconfig.json) and is discovered out automatically.
 const EXCLUDE = new Set(["@magna-carta/web", "@magna-carta/api-client"]);
 
+// In the graph, but NOT in the root test solution: the member still gets a tsconfig.test.json and is
+// checkable on demand (`tsc -b apps/worker/tsconfig.test.json`), it is just not part of what
+// `vp run typecheck` builds.
+//
+// - @magna-carta/worker — two measured reasons, neither of them "it is big". One of its test files
+//   (test/firm-database/firm-database-migration-partial-failure.test.ts) does not type-check in 600
+//   seconds ON ITS OWN, so the whole tree never completes; and the other 234 files report 156 errors,
+//   a burn-down of its own size. Both are tracked with their numbers in
+//   docs/conventions/build-performance.md. Removing this entry means fixing the first and finishing
+//   the second — not batching the gate around them.
+const DEFERRED_TEST_PROJECTS = new Set(["@magna-carta/worker"]);
+
+// A tsconfig.json is JSONC. Only line comments appear in the ones this script reads, and no include
+// pattern or path in them contains `//`, so stripping those is enough — and a parse failure here
+// should be loud rather than guessed at, so nothing is swallowed.
+function readTsconfig(absolutePath) {
+  const text = readFileSync(absolutePath, "utf8");
+  try {
+    return JSON.parse(text);
+  } catch {
+    return JSON.parse(text.replaceAll(/^\s*\/\/.*$/gm, ""));
+  }
+}
+
 // Discover graph members: a directory with BOTH a package.json (named @magna-carta/*) and a
-// tsconfig.json. Returns name -> { dir (repo-relative, POSIX), workspaceDeps:Set<name> }.
+// tsconfig.json. Returns name -> { dir (repo-relative, POSIX), workspaceDeps:Set<name>,
+// ownInclude:string[] — the `include` the package's own tsconfig.json declares, which is the whole
+// surface the two generated projects have to cover between them }.
 function discoverMembers() {
   const members = new Map();
   for (const group of GROUPS) {
@@ -37,7 +76,8 @@ function discoverMembers() {
     for (const entry of readdirSync(base)) {
       const dir = path.join(base, entry);
       const packageJsonPath = path.join(dir, "package.json");
-      if (!existsSync(packageJsonPath) || !existsSync(path.join(dir, "tsconfig.json"))) continue;
+      const tsconfigPath = path.join(dir, "tsconfig.json");
+      if (!existsSync(packageJsonPath) || !existsSync(tsconfigPath)) continue;
       const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8"));
       if (typeof manifest.name !== "string" || !manifest.name.startsWith("@magna-carta/")) continue;
       if (EXCLUDE.has(manifest.name)) continue;
@@ -46,7 +86,13 @@ function discoverMembers() {
           (dependency) => dependency.startsWith("@magna-carta/"),
         ),
       );
-      members.set(manifest.name, { dir: `${group}/${entry}`, workspaceDeps });
+      const ownInclude = readTsconfig(tsconfigPath).include ?? [];
+      members.set(manifest.name, {
+        dir: `${group}/${entry}`,
+        workspaceDeps,
+        ownInclude,
+        testInSolution: !DEFERRED_TEST_PROJECTS.has(manifest.name),
+      });
     }
   }
   return members;
@@ -61,15 +107,9 @@ const HEADER =
 // compilerOptions), turns on composite declaration-only emit into an ignored build dir, and references
 // each in-graph workspace dependency's build config. `include` is src-only — a member project is
 // composite + emitDeclarationOnly with rootDir "src", and a file outside rootDir cannot take part in
-// that emit, so test/ cannot simply join this include.
-//
-// Test files are therefore type-checked by NOTHING. `vp check` does not fill the gap: it runs with
-// lint.options.typeCheck false (see the root vite.config.ts), so type-aware lint rules reach test
-// files but type ERRORS in them are reported by no pass in the gate. Do not read a green
-// `tsc -b tsconfig.build.json` as covering them. To check one package's tests, use its own config —
-// `tsc -b <package>` (tsconfig.json, which does include test/) rather than its tsconfig.build.json.
-// Closing this properly needs a second, non-emitting test project per package; reasoning and the
-// measured size of the backlog: docs/conventions/build-performance.md.
+// that emit, so test/ cannot simply join this include. The rest of the package's declared surface is
+// covered by its tsconfig.test.json (see testConfig below); the two together must equal the `include`
+// of the package's own tsconfig.json, which is what testInclude derives rather than restates.
 //
 // ...src-only PLUS the package's root-level ambient declarations. `include` REPLACES (never merges
 // with) the one inherited from the package's tsconfig.json, so a src-only include silently drops the
@@ -84,12 +124,17 @@ function rootAmbientDeclarations(member) {
     .sort();
 }
 
-function memberConfig(member, members) {
-  const references = [...member.workspaceDeps]
+// The in-graph workspace dependencies' build projects, as reference entries relative to the member.
+function dependencyBuildReferences(member, members) {
+  return [...member.workspaceDeps]
     .filter((dependency) => members.has(dependency))
     .map((dependency) => members.get(dependency).dir)
     .sort()
     .map((depDir) => ({ path: `${path.posix.relative(member.dir, depDir)}/tsconfig.build.json` }));
+}
+
+function memberConfig(member, members) {
+  const references = dependencyBuildReferences(member, members);
   const body = {
     extends: "./tsconfig.json",
     compilerOptions: {
@@ -110,35 +155,155 @@ function memberConfig(member, members) {
   return `${HEADER}${JSON.stringify(body, null, 2)}\n`;
 }
 
-// The root solution: no files of its own, one reference per member, so a single `tsc -b` builds the
-// whole graph in dependency order.
-function rootConfig(members) {
+// What the test project CHECKS: the package's own `include`, minus the part the build project already
+// owns. Derived rather than restated, so a package that adds a checkable directory to its own
+// tsconfig.json gets it type-checked without anyone remembering to widen a list here.
+//
+// Two kinds are dropped. `src/**` belongs to the build project (including it here would put every
+// source file in two programs and check it twice). `.svelte` belongs to svelte-check — tsgolint and
+// `tsc` cannot parse it, and the design system's stories are checked by its own `check` script.
+function testCheckableInclude(member) {
+  return member.ownInclude.filter(
+    (pattern) => !pattern.startsWith("src/") && !pattern.endsWith(".svelte"),
+  );
+}
+
+// The package's ambient declarations, listed in the test project as well as the build project. They
+// are INPUTS to the build project rather than outputs, so nothing lands in .tsbuild for the test
+// program to pick up through the project reference — the modules and globals they describe would
+// simply be unresolvable here, and an ambient `declare module` that goes missing fails as TS2307 on
+// an import that is perfectly correct (apps/sign-worker's `src/wasm-modules.d.ts`, which types the
+// `.wasm` import its test loads, is the worked example). Listing a declaration file in two projects
+// is free: it emits nothing in either, so the rootDir constraint does not reach it.
+const SOURCE_DECLARATIONS = "src/**/*.d.ts";
+
+function testAmbientInclude(member) {
+  const ambient = rootAmbientDeclarations(member);
+  if (patternMatchesSomething(path.join(root, member.dir), SOURCE_DECLARATIONS)) {
+    ambient.push(SOURCE_DECLARATIONS);
+  }
+  return ambient;
+}
+
+function testInclude(member) {
+  return [...new Set([...testCheckableInclude(member), ...testAmbientInclude(member)])].sort();
+}
+
+// Whether a pattern can currently match anything on disk. A tsconfig whose `include` resolves to zero
+// files is a hard error (TS18003), so a member with no test/ and nothing else outside src/ gets no
+// test project at all rather than a broken one, and a package with no `src/*.d.ts` does not list a
+// pattern for them.
+function patternMatchesSomething(memberDirectory, pattern) {
+  const wildcardAt = pattern.indexOf("*");
+  if (wildcardAt === -1) return existsSync(path.join(memberDirectory, pattern));
+  const prefix = pattern.slice(0, wildcardAt);
+  const searchRoot =
+    prefix === "" || prefix.endsWith("/")
+      ? path.join(memberDirectory, prefix)
+      : path.dirname(path.join(memberDirectory, prefix));
+  if (!existsSync(searchRoot) || !statSync(searchRoot).isDirectory()) return false;
+  // Everything after the LAST wildcard is the literal tail a matching file ends with — `.d.ts` for
+  // `src/**/*.d.ts`, not the `.ts` that path.extname would report.
+  const tail = pattern.slice(pattern.lastIndexOf("*") + 1);
+  const recursive = pattern.includes("**");
+  const stack = [searchRoot];
+  while (stack.length > 0) {
+    const directory = stack.pop();
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (recursive) stack.push(path.join(directory, entry.name));
+      } else if (entry.name.endsWith(tail)) return true;
+    }
+  }
+  return false;
+}
+
+function hasTestProject(member) {
+  const memberDirectory = path.join(root, member.dir);
+  return testCheckableInclude(member).some((pattern) =>
+    patternMatchesSomething(memberDirectory, pattern),
+  );
+}
+
+// A member's tsconfig.test.json: the second project, and the one that makes the typecheck of record
+// cover the whole workspace rather than only its `src/`.
+//
+// It is `composite` because a solution file can only reference composite projects, and `noEmit`
+// because it has nothing to publish — no consumer imports a test. That combination is what frees it
+// from the build project's `rootDir: "src"`, which is the entire reason `test/` could not simply join
+// that project's `include`.
+//
+// It references the package's OWN build project first, then the same dependency build projects the
+// build config lists. Every import a test makes therefore resolves to a declaration file `tsc -b` has
+// already produced — `../src/thing.ts` through the first reference, `@magna-carta/thing` through the
+// rest — so the test program adds the test files to the graph and re-checks no source.
+function testConfig(member, members) {
+  const body = {
+    extends: "./tsconfig.json",
+    compilerOptions: {
+      composite: true,
+      noEmit: true,
+      tsBuildInfoFile: ".tsbuild/tsconfig.test.tsbuildinfo",
+    },
+    references: [{ path: "./tsconfig.build.json" }, ...dependencyBuildReferences(member, members)],
+    include: testInclude(member),
+  };
+  return `${HEADER}${JSON.stringify(body, null, 2)}\n`;
+}
+
+// A root solution: no files of its own, one reference per member, so a single `tsc -b` builds that
+// half of the graph in dependency order. Two of them — build and test — because they are separately
+// runnable: `tsc -b tsconfig.build.json` answers "does the source compile", which is what a
+// downstream consumer needs, and the pair answers "does the repository type-check".
+function rootConfig(members, configName, selects) {
   const references = [...members.values()]
-    .map((member) => ({ path: `${member.dir}/tsconfig.build.json` }))
+    .filter((member) => selects(member))
+    .map((member) => ({ path: `${member.dir}/${configName}` }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return `${HEADER}${JSON.stringify({ files: [], references }, null, 2)}\n`;
 }
 
 function targets(members) {
   const files = new Map();
-  files.set("tsconfig.build.json", rootConfig(members));
+  files.set(
+    "tsconfig.build.json",
+    rootConfig(members, "tsconfig.build.json", () => true),
+  );
+  files.set(
+    "tsconfig.test.json",
+    rootConfig(
+      members,
+      "tsconfig.test.json",
+      (member) => hasTestProject(member) && member.testInSolution,
+    ),
+  );
   for (const member of members.values()) {
     files.set(`${member.dir}/tsconfig.build.json`, memberConfig(member, members));
+    if (hasTestProject(member)) {
+      files.set(`${member.dir}/tsconfig.test.json`, testConfig(member, members));
+    }
   }
   return files;
 }
 
-// Existing generated files on disk (so a package that leaves the graph — deleted, or newly excluded —
-// does not leave a stale build config behind, which would silently mis-shape the reference graph).
-function existingBuildConfigs() {
+// Existing generated files on disk (so a package that leaves the graph — deleted, newly excluded, or
+// one that lost its test/ directory — does not leave a stale config behind, which would silently
+// mis-shape the reference graph).
+const GENERATED_NAMES = ["tsconfig.build.json", "tsconfig.test.json"];
+
+function existingGeneratedConfigs() {
   const found = [];
-  if (existsSync(path.join(root, "tsconfig.build.json"))) found.push("tsconfig.build.json");
+  for (const name of GENERATED_NAMES) {
+    if (existsSync(path.join(root, name))) found.push(name);
+  }
   for (const group of GROUPS) {
     const base = path.join(root, group);
     if (!existsSync(base)) continue;
     for (const entry of readdirSync(base)) {
-      const relative = `${group}/${entry}/tsconfig.build.json`;
-      if (existsSync(path.join(root, relative))) found.push(relative);
+      for (const name of GENERATED_NAMES) {
+        const relative = `${group}/${entry}/${name}`;
+        if (existsSync(path.join(root, relative))) found.push(relative);
+      }
     }
   }
   return found;
@@ -148,7 +313,7 @@ const members = discoverMembers();
 const files = targets(members);
 const check = process.argv.includes("--check");
 const stale = [];
-const orphans = existingBuildConfigs().filter((relative) => !files.has(relative));
+const orphans = existingGeneratedConfigs().filter((relative) => !files.has(relative));
 
 for (const [relativePath, content] of files) {
   const absolute = path.join(root, relativePath);
@@ -172,13 +337,13 @@ for (const orphan of orphans) {
 if (check) {
   if (stale.length > 0) {
     console.error(
-      `tsconfig-refs: ${stale.length} generated build config(s) are stale vs package.json:\n` +
+      `tsconfig-refs: ${stale.length} generated config(s) are stale vs package.json:\n` +
         stale.map((f) => `  ${f}`).join("\n") +
         `\nRun \`node tooling/tsconfig-refs/index.mjs\` and commit the result.`,
     );
     process.exit(1);
   }
-  console.log(`tsconfig-refs: ${files.size} build configs in sync (${members.size} members).`);
+  console.log(`tsconfig-refs: ${files.size} configs in sync (${members.size} members).`);
 } else {
-  console.log(`tsconfig-refs: wrote ${files.size} build configs (${members.size} members).`);
+  console.log(`tsconfig-refs: wrote ${files.size} configs (${members.size} members).`);
 }

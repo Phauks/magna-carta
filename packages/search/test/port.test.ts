@@ -8,12 +8,15 @@ import {
   removed,
   searchAdapterError,
   searchEngineNotImplemented,
+  type CompactCorpusInput,
   type CompactResult,
+  type IndexDocumentInput,
   type IndexResult,
+  type RemoveDocumentInput,
   type RemoveResult,
   type SearchIndexPort,
+  type SearchQueryInput,
   type SearchQueryResult,
-  type SplitQueryTarget,
 } from "../src/port.ts";
 
 const FIRM = "firm_test0000000000000000000001" as FirmId;
@@ -27,11 +30,7 @@ const CORPUS = corpusOfMatter(MATTER);
 class InMemorySearchIndex implements SearchIndexPort {
   private readonly texts = new Map<string, { documentId: FileId; chunkId: string; text: string }>();
 
-  async index(input: {
-    documentId: FileId;
-    objectKey: string;
-    passages: readonly { chunkId: string; text: string }[];
-  }): Promise<IndexResult> {
+  async index(input: IndexDocumentInput): Promise<IndexResult> {
     for (const passage of input.passages) {
       this.texts.set(passage.chunkId, {
         documentId: input.documentId,
@@ -48,18 +47,14 @@ class InMemorySearchIndex implements SearchIndexPort {
     });
   }
 
-  async remove(input: { documentId: FileId }): Promise<RemoveResult> {
+  async remove(input: RemoveDocumentInput): Promise<RemoveResult> {
     for (const [chunkId, row] of this.texts) {
       if (row.documentId === input.documentId) this.texts.delete(chunkId);
     }
     return removed();
   }
 
-  async query(input: {
-    text: string;
-    limit: number;
-    splits: readonly SplitQueryTarget[];
-  }): Promise<SearchQueryResult> {
+  async query(input: SearchQueryInput): Promise<SearchQueryResult> {
     // The exclusions are per split, so a document excluded from one split can still be returned by
     // another — which is exactly the case this shape exists for: a re-indexed document is stale inside
     // the merged split and current inside its own.
@@ -73,10 +68,7 @@ class InMemorySearchIndex implements SearchIndexPort {
     return found(hits);
   }
 
-  async compact(input: {
-    sources: readonly SplitQueryTarget[];
-    objectKey: string;
-  }): Promise<CompactResult> {
+  async compact(input: CompactCorpusInput): Promise<CompactResult> {
     const excluded = input.sources.flatMap((source) => [...source.excludeDocumentIds]);
     for (const [chunkId, row] of this.texts) {
       if (excluded.includes(row.documentId)) this.texts.delete(chunkId);

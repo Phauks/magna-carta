@@ -4,7 +4,17 @@
     "lib": ["ES2023"],
     "types": ["node"],
     "allowImportingTsExtensions": true,
+    // test/corpus.test.ts imports the fragment assembler and the ledger renderer out of
+    // tooling/doc-fragments/, which are plain .mjs. Without this, those imports are an implicit any
+    // and the agreement the test exists to hold — one category vocabulary on both sides — is checked
+    // at runtime only. `checkJs` stays off: the tooling has its own gate, and this only needs the
+    // types inferred from it.
+    "allowJs": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  // The tooling entry is not a stray: test/corpus.test.ts imports the fragment assembler and the
+  // ledger renderer out of tooling/doc-fragments/ so the category vocabulary cannot change on one
+  // side alone. A composite project has to list every file in its program, so the modules that
+  // import reaches — and the ones they import — are named here rather than pulled in implicitly.
+  "include": ["src/**/*.ts", "test/**/*.ts", "../../tooling/doc-fragments/*.mjs"]
 }

@@ -49,7 +49,8 @@ describe("generate primitives", () => {
   it("splitDocument returns one loadable document per range", async () => {
     const { pdfs } = await splitDocument(w9, [{ start: 0, end: 0 }]);
     expect(pdfs.length).toBe(1);
-    expect(await pageCount(pdfs[0])).toBe(1);
+    // The length assertion above is what makes this indexed read safe.
+    expect(await pageCount(pdfs[0]!)).toBe(1);
   });
 
   it("rotatePages produces a loadable document and rejects out-of-set angles", async () => {

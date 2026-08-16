@@ -19,6 +19,7 @@ function turn(sequence: number, speaker: "member" | "magnus", content: string | 
     snapshotId: null,
     inputTokens: null,
     outputTokens: null,
+    contextTruncated: false,
     createdAt: "2026-08-06T00:00:00.000Z",
     completedAt: null,
   };
