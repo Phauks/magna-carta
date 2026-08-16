@@ -74,8 +74,21 @@ not on the inner loop.
 **The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
 derives the change set from the git diff (the merge-base with the trunk, plus the working tree) and runs only
 what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
-`svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
-what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
+`svelte-check`, the drizzle snapshot freshness check, or the Rust gate **only when a `.svelte` file, the
+schema package, or a crate was actually touched**. It prints what it skipped and why — a gate that
+quietly checks nothing is worse than a slow one.
+
+The conditional passes are conditional on **cost**, not on importance, and the bar for adding one is the
+same each time: it has to be cheap enough that the change set which triggers it does not notice. The
+snapshot check (`pnpm --filter @magna-carta/database run check-snapshots`, both lineages, ~3 s) clears
+that bar easily and is triggered by any change under `packages/database/` — a wider trigger than strictly
+necessary, chosen because reasoning about which file reaches the drizzle generator costs more than the
+three seconds. It also runs **unconditionally** in the whole-repo `pnpm check` and in the CI gate's
+`governance` job, next to the migration-integrity test: drift there is silent, survives a merge, and only
+surfaces weeks later when someone runs `generate` and gets a destructive table rebuild instead of one
+`ALTER`. Why the snapshot lags in the first place, and how to repair it, is
+[`packages/database/CLAUDE.md`](../../packages/database/CLAUDE.md) — the failure message names the repair
+command inline, so a reader who hits the gate never has to go looking.
 
 **Fix the same scope you check: `pnpm fix:scoped`** (`tooling/check-scoped/fix.mjs`) is the default way
 to apply the formatter and the lint autofixes, and a bare repo-wide `vp check --fix` is not. Given no

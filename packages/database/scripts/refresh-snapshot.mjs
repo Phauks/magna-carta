@@ -133,10 +133,22 @@ function refresh() {
   const driftSql = readFileSync(join(scratchDirectory, drift.migration[0]), "utf8");
   const driftStatements = driftSql.split("--> statement-breakpoint").length;
   console.log(
-    `${lineage}: snapshot is BEHIND the schema — a generate here would re-emit ${driftStatements} statements`,
+    `${lineage}: snapshot is BEHIND the schema — a generate here would re-emit ${driftStatements} ` +
+      `statement${driftStatements === 1 ? "" : "s"}`,
   );
   if (checkOnly) {
-    console.log(`${lineage}: --check, wrote nothing. Re-run without --check to repair.`);
+    // A gate that only names the symptom costs the next reader a search, so spell the repair out:
+    // the exact command, the file it rewrites, and the commit it belongs in.
+    console.error(
+      `${lineage}: --check, wrote nothing. REPAIR IT WITH\n` +
+        `\n` +
+        `    pnpm --filter @magna-carta/database run refresh-${lineage}-snapshot\n` +
+        `\n` +
+        `which rewrites drizzle/${lineage}/meta/${headSnapshotName} from the schema and proves the\n` +
+        `repair settled. Commit that snapshot in the SAME commit as the migration — a hand-written\n` +
+        `migration advances the journal but never the snapshot, which is what this drift is.\n` +
+        `Re-verify with: pnpm --filter @magna-carta/database run check-snapshots`,
+    );
     return 1;
   }
 

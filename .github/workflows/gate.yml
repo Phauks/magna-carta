@@ -753,6 +753,15 @@ jobs:
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
+      # The integrity test above proves the committed chain is sound; this proves the drizzle SNAPSHOT
+      # still describes it. drizzle-kit writes a snapshot only when it emits a migration, so every
+      # hand-written migration advances the journal while meta/ stands still — and the damage shows up
+      # only later, when the next generate diffs against the stale snapshot and re-emits every table
+      # added since, including destructive rebuilds, against firms that already have them. Unconditional
+      # and ~3 s: it has drifted twice unnoticed, both times because nothing looked.
+      - name: Drizzle snapshot freshness (both lineages)
+        run: pnpm --filter @magna-carta/database run check-snapshots
+
   # The API contract is code-as-contract: the committed OpenAPI snapshot, the generated client, the
   # Spectral hygiene lint, and the generated design tokens must all match what the source produces.
   contracts:
