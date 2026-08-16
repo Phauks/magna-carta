@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  ConversationInput,
   EmbedInput,
   EmbeddingResult,
   GenerateInput,
+  GenerateResult,
   InferencePort,
   StreamResult,
 } from "@magna-carta/inference/port";
@@ -50,6 +52,10 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
       throw new Error("generateStream must not be reached when the gate is off");
     },
     generateDurable: reached,
+    generateConversation: async (input: ConversationInput): Promise<Dispatch<GenerateResult>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("generateConversation must not be reached when the gate is off");
+    },
     embed: async (input: EmbedInput): Promise<Dispatch<EmbeddingResult>> => {
       calls.push(input as unknown as GenerateInput);
       throw new Error("embed must not be reached when the gate is off");

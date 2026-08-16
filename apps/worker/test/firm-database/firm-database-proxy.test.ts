@@ -8,7 +8,6 @@ import {
 } from "@magna-carta/data-access/idempotency-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
-import type { DurableObjectId } from "@cloudflare/workers-types";
 import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 
 const record = (key: string) => ({

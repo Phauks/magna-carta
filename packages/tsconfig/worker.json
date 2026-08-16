@@ -1,8 +1,14 @@
 {
   "extends": "./base.json",
   "compilerOptions": {
+    // Every Workers type is a GLOBAL from here — never `import ... from "@cloudflare/workers-types"`.
+    // That package ships its whole surface twice, as a global script and as a parallel module, and a
+    // program that loads both compares two distinct copies of the same enormous recursive interface.
+    // Enforced by tooling/lint-workers-types-import.mjs.
     "types": ["@cloudflare/workers-types"],
-    "lib": ["ES2022"],
+    // ES2023 to match every package in the repository, and to match workerd, which has had the
+    // change-by-copy array methods (toSorted/toReversed/with) since long before any version we run.
+    "lib": ["ES2023"],
     "allowImportingTsExtensions": true,
     "noEmit": true
   }

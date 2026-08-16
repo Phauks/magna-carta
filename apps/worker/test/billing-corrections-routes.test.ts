@@ -9,10 +9,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // Corrections after a bill has gone out, over HTTP: the credit note, the client credit it opens, the
 // write-off, and the reversal. What this proves beyond the domain suite is the wiring — the
@@ -318,7 +320,7 @@ describe("correcting a bill over HTTP", () => {
       effectiveDate: todayInUtc(),
     });
     expect(applied.status).toBe(201);
-    expect((await applied.json()).remainingMinor).toBe(50_000);
+    expect((await readJson<{ remainingMinor: number }>(applied)).remainingMinor).toBe(50_000);
     expect(await unpaidMinor(later.invoiceId)).toBe(250_000);
 
     const tooMuchAgain = await post(`/api/v1/billing/client-credits/${creditId}/applications`, {
@@ -343,7 +345,7 @@ describe("correcting a bill over HTTP", () => {
       lines: [{ matterId, kind: "adjustment", description: "Nope", amountMinor: 100 }],
     });
     expect(refused.status).toBe(409);
-    expect((await refused.json()).type).toContain("billing-invoice-not-editable");
+    expect((await readJson<ProblemBody>(refused)).type).toContain("billing-invoice-not-editable");
   });
 
   it("reverses a write-off and refuses to unwind a credit note", async () => {

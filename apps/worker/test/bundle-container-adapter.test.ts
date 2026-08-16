@@ -38,7 +38,8 @@ const sampleManifest: BundleManifest = {
     {
       archivePath: "documents/file.pdf",
       mtimeEpochSecs: 1700000000,
-      source: { source: "r2", r2Key: "matters/m1/file.pdf" },
+      source: "r2",
+      r2Key: "matters/m1/file.pdf",
     },
   ],
   outputKeyPrefix: "bundles/test-key",

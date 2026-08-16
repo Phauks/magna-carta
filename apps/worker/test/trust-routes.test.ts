@@ -9,10 +9,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The trust-movement HTTP surface over real Miniflare bindings. What is proved here is the wiring the
 // domain suites cannot reach: that the chokepoint gates these routes on trust:manage, that a movement
@@ -76,7 +78,7 @@ async function openMatter(title: string, clientEntityId = "entity_webb"): Promis
       responsibleMemberId: ownerUserId,
     }),
   });
-  const matterId = (await created.json()).matterId as string;
+  const matterId = (await readJson<{ matterId: string }>(created)).matterId;
   await recordClientParty(matterId, clientEntityId);
   return matterId;
 }
@@ -300,7 +302,7 @@ describe("trust movement routes", () => {
     const beforeApproval = await get(
       `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
     );
-    expect((await beforeApproval.json()).balanceMinor).toBe(500000);
+    expect((await readJson<{ balanceMinor: number }>(beforeApproval)).balanceMinor).toBe(500000);
 
     // The clerk cannot settle their own request either, and the refusal is a status a client acts on.
     const selfApproval = await post(
@@ -319,13 +321,13 @@ describe("trust movement routes", () => {
     const after = await get(
       `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
     );
-    expect((await after.json()).balanceMinor).toBe(380000);
+    expect((await readJson<{ balanceMinor: number }>(after)).balanceMinor).toBe(380000);
   });
 
   it("replays a repeated Idempotency-Key instead of moving the money twice", async () => {
     const matterId = await openMatter("Trust Replay Matter");
     const key = crypto.randomUUID();
-    const body = depositBody(matterId, 250000, "entity_replay");
+    const body = depositBody(matterId, 250000);
 
     const first = await post("/api/v1/trust/deposits", body, ownerCookie, key);
     expect(first.status).toBe(201);
@@ -351,7 +353,7 @@ describe("trust movement routes", () => {
         origin: "https://example.com",
         cookie: ownerCookie,
       },
-      body: JSON.stringify(depositBody(matterId, 100000, "entity_keyless")),
+      body: JSON.stringify(depositBody(matterId, 100000)),
     });
     expect(response.status).toBe(400);
   });
@@ -360,7 +362,7 @@ describe("trust movement routes", () => {
     const matterId = await openMatter("Trust Denied Matter");
     const deposit = await post(
       "/api/v1/trust/deposits",
-      depositBody(matterId, 100000, "entity_denied"),
+      depositBody(matterId, 100000),
       noTrustCookie,
     );
     expect(deposit.status).toBe(403);
@@ -390,10 +392,7 @@ describe("trust movement routes", () => {
 
   it("answers an over-available disbursement request with 409 and the trust problem type", async () => {
     const matterId = await openMatter("Trust Overdraw Matter");
-    expect(
-      (await post("/api/v1/trust/deposits", depositBody(matterId, 100000, "entity_overdraw")))
-        .status,
-    ).toBe(201);
+    expect((await post("/api/v1/trust/deposits", depositBody(matterId, 100000))).status).toBe(201);
 
     const response = await post("/api/v1/trust/disbursement-requests", {
       trustAccountId,
@@ -445,7 +444,7 @@ describe("trust movement routes", () => {
     const destination = await get(
       `/api/v1/trust/matters/${destinationMatterId}/ledger?trustAccountId=${trustAccountId}`,
     );
-    expect((await destination.json()).balanceMinor).toBe(150000);
+    expect((await readJson<{ balanceMinor: number }>(destination)).balanceMinor).toBe(150000);
 
     const refused = await post("/api/v1/trust/matter-transfers", {
       trustAccountId,
@@ -458,7 +457,7 @@ describe("trust movement routes", () => {
       purpose: "Reallocation",
     });
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toBe(
+    expect((await readJson<ProblemBody>(refused)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-movement-refused",
     );
   });
@@ -490,7 +489,7 @@ describe("trust movement routes", () => {
       purpose: "Reallocation",
     });
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toBe(
+    expect((await readJson<ProblemBody>(refused)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-movement-refused",
     );
 
@@ -508,10 +507,10 @@ describe("trust movement routes", () => {
       status: "open",
       responsibleMemberId: ownerUserId,
     });
-    const matterId = (await created.json()).matterId as string;
+    const matterId = (await readJson<{ matterId: string }>(created)).matterId;
     const refused = await post("/api/v1/trust/deposits", depositBody(matterId, 100000));
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toBe(
+    expect((await readJson<ProblemBody>(refused)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-movement-refused",
     );
   });
@@ -527,7 +526,7 @@ describe("trust movement routes", () => {
       effectiveDate: tomorrow,
     });
     expect(refused.status).toBe(422);
-    const body = await refused.json();
+    const body = await readJson<ProblemBody>(refused);
     expect(body.type).toBe("https://api.magnacarta.esq/problems/ledger-entry-refused");
     expect(body.detail).toContain(tomorrow);
   });
@@ -541,7 +540,9 @@ describe("trust movement routes", () => {
     // The app's request-shape hook, not the ledger: 2026-02-30 passes a bare YYYY-MM-DD regex and is
     // not a day, so it never reaches a composer at all.
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toBe("https://api.magnacarta.esq/problems/validation");
+    expect((await readJson<ProblemBody>(refused)).type).toBe(
+      "https://api.magnacarta.esq/problems/validation",
+    );
   });
 
   it("answers a matter with no trust ledger with 404", async () => {

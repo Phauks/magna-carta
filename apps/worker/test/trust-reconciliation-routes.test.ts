@@ -9,10 +9,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The reconciliation HTTP surface over real Miniflare bindings. What is proved here is the wiring the
 // domain suites cannot reach: that the chokepoint gates these routes on the trust capabilities, that
@@ -135,7 +137,7 @@ async function openMatter(title: string, clientEntityId: string): Promise<string
     status: "open",
     responsibleMemberId: ownerUserId,
   });
-  const matterId = (await created.json()).matterId as string;
+  const matterId = (await readJson<{ matterId: string }>(created)).matterId;
   await firmDatabase
     .prepare(
       "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
@@ -159,7 +161,7 @@ async function depositInto(matterId: string, amountMinor: number) {
     purpose: "Advance on fees and costs",
   });
   expect(response.status).toBe(201);
-  return await response.json();
+  return await readJson<{ ledgerEntryId: string }>(response);
 }
 
 describe("trust reconciliation routes", () => {
@@ -217,7 +219,7 @@ describe("trust reconciliation routes", () => {
     expect(matched.status).toBe(201);
 
     const detail = await get(`/api/v1/trust/reconciliations/${trustReconciliationId}`);
-    const proof = (await detail.json()).proof;
+    const proof = (await readJson<{ proof: { balanced: boolean } }>(detail)).proof;
     expect(proof.balanced).toBe(true);
 
     const closed = await post(
@@ -281,7 +283,7 @@ describe("trust reconciliation routes", () => {
       undefined,
     );
     expect(wrongPath.status).toBe(422);
-    expect((await wrongPath.json()).type).toBe(
+    expect((await readJson<ProblemBody>(wrongPath)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-reconciliation-refused",
     );
 
@@ -362,7 +364,7 @@ describe("trust reconciliation routes", () => {
 
     // Nothing was stored by previewing.
     const before = await get(`/api/v1/trust/bank-statements?trustAccountId=${trustAccountId}`);
-    const beforeCount = (await before.json()).statements.length;
+    const beforeCount = (await readJson<{ statements: unknown[] }>(before)).statements.length;
 
     const importBody = (fileText: string, fingerprint: string) => ({
       trustAccountId,
@@ -394,7 +396,9 @@ describe("trust reconciliation routes", () => {
     });
 
     const after = await get(`/api/v1/trust/bank-statements?trustAccountId=${trustAccountId}`);
-    expect((await after.json()).statements.length).toBe(beforeCount + 1);
+    expect((await readJson<{ statements: unknown[] }>(after)).statements.length).toBe(
+      beforeCount + 1,
+    );
   });
 
   it("replays a retried statement rather than recording it twice", async () => {

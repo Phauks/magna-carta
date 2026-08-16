@@ -10,6 +10,7 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -37,7 +38,7 @@ async function patchPreferences(
     headers: {
       cookie,
       "content-type": "application/json",
-      "Idempotency-Key": newIdentifier("idempotency"),
+      "Idempotency-Key": crypto.randomUUID(),
     },
     body: JSON.stringify({ categories }),
   });
@@ -251,7 +252,7 @@ describe("PATCH /api/v1/notifications/preferences", () => {
     const feed = await SELF.fetch("https://example.com/api/v1/notifications?category=system", {
       headers: { cookie: ownerCookie },
     });
-    expect((await feed.json()).data).toEqual([]);
+    expect((await readJson<{ data: unknown[] }>(feed)).data).toEqual([]);
 
     // Put the category back so the ordering of the remaining cases does not depend on this one.
     await patchPreferences(ownerCookie, { system: { inApp: null } });
@@ -285,7 +286,7 @@ describe("the firm's trust-compliance designation", () => {
         headers: {
           cookie: plainCookie,
           "content-type": "application/json",
-          "Idempotency-Key": newIdentifier("idempotency"),
+          "Idempotency-Key": crypto.randomUUID(),
         },
         body: JSON.stringify({ recipientUserIds: [ownerUserId] }),
       },
@@ -301,7 +302,7 @@ describe("the firm's trust-compliance designation", () => {
         headers: {
           cookie: ownerCookie,
           "content-type": "application/json",
-          "Idempotency-Key": newIdentifier("idempotency"),
+          "Idempotency-Key": crypto.randomUUID(),
         },
         body: JSON.stringify({ recipientUserIds: [ownerUserId] }),
       },

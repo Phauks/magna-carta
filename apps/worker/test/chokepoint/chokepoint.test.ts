@@ -3,7 +3,7 @@
 // order: a request failing an earlier gate must never touch a later port. The ports are injected
 // fakes that RECORD their invocation order, so "order is the contract" is asserted, not assumed.
 import { Hono } from "hono";
-import type { Context, MiddlewareHandler } from "hono";
+import type { Context } from "hono";
 import { z } from "@hono/zod-openapi";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
@@ -79,7 +79,9 @@ function buildChokepoint(
       check: (bucket, key) => {
         trace.steps.push("rateLimiter");
         rateLimitKeys.push(key);
-        return rateLimitAllowed ? { allowed: true } : { allowed: false, retryAfterSeconds: 42 };
+        return rateLimitAllowed
+          ? { allowed: true, limit: 100, remaining: 99 }
+          : { allowed: false, retryAfterSeconds: 42, limit: 100, remaining: 0 };
       },
     },
   };
@@ -99,7 +101,7 @@ function mountedApp(
     trace.steps.push("handler");
     return c.json({ ok: true }, 200);
   };
-  const middleware = chokepoint.forRoute(meta) as MiddlewareHandler;
+  const middleware = chokepoint.forRoute(meta);
   if ((options.method ?? "post") === "get") {
     app.get(path, middleware, handler);
   } else {
@@ -369,7 +371,7 @@ describe("createChokepoint — fail-closed on a throwing port (no onError → de
         check: (_bucket, key) => {
           trace.steps.push("rateLimiter");
           void key;
-          return { allowed: true };
+          return { allowed: true, limit: 100, remaining: 99 };
         },
       },
     };
@@ -400,7 +402,7 @@ describe("createChokepoint — fail-closed on a throwing port (no onError → de
     // Assert the propagation directly: invoking the middleware with a no-op next must REJECT, so a
     // future onError cannot silently convert the throw into a success without breaking this.
     const { chokepoint, trace } = buildThrowingChokepoint("resolveSession");
-    const middleware = chokepoint.forRoute(throwingMeta) as MiddlewareHandler;
+    const middleware = chokepoint.forRoute(throwingMeta);
     let handlerRan = false;
     const next = async () => {
       handlerRan = true;

@@ -12,6 +12,7 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   seedFirmKey,
@@ -189,13 +190,13 @@ describe("directory person pronoun routes", () => {
   async function newPerson(given: string, family: string): Promise<string> {
     const created = await post("/api/v1/directory/persons", { given, family });
     expect(created.status).toBe(201);
-    return (await created.json()).id;
+    return (await readJson<{ id: string }>(created)).id;
   }
 
   async function pronounsOf(id: string) {
     const read = await get(`/api/v1/directory/persons/${id}`);
     expect(read.status).toBe(200);
-    return (await read.json()).pronouns;
+    return (await readJson<{ pronouns: string }>(read)).pronouns;
   }
 
   it("reports null for a person who has stated none, rather than an error or a guess", async () => {
@@ -331,7 +332,7 @@ describe("directory sensitive-identifier read gate", () => {
     // returns the plaintext.
     const ownerRead = await get(`/api/v1/directory/entities/${id}/identifiers/ssn`);
     expect(ownerRead.status).toBe(200);
-    expect((await ownerRead.json()).value).toBe("123-45-6789");
+    expect((await readJson<{ value: string }>(ownerRead)).value).toBe("123-45-6789");
 
     // The Read-only member lacks the permission — the chokepoint refuses before any decrypt.
     const denied = await get(`/api/v1/directory/entities/${id}/identifiers/ssn`, readOnlyCookie);

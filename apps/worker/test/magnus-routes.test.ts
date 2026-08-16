@@ -15,10 +15,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The Magnus route surface driven through the chokepoint over real Miniflare bindings.
 //
@@ -145,7 +147,7 @@ async function acknowledgeFor(cookie: string): Promise<void> {
 async function startConversation(cookie = ownerCookie): Promise<string> {
   const response = await post("/api/v1/magnus/conversations", { title: "A conversation" }, cookie);
   expect(response.status).toBe(201);
-  return (await response.json()).id;
+  return (await readJson<{ id: string }>(response)).id;
 }
 
 describe("a firm that has not opted in", () => {
@@ -199,7 +201,7 @@ describe("a firm that has not opted in", () => {
 
     const start = await post("/api/v1/magnus/conversations", { title: "x" });
     expect(start.status).toBe(403);
-    expect((await start.json()).type).toContain("magnus-not-enabled");
+    expect((await readJson<ProblemBody>(start)).type).toContain("magnus-not-enabled");
   });
 
   it("refuses a member who has not accepted the disclosure, with a 409 they can clear themselves", async () => {
@@ -212,7 +214,7 @@ describe("a firm that has not opted in", () => {
 
     const start = await post("/api/v1/magnus/conversations", { title: "x" }, attorneyCookie);
     expect(start.status).toBe(409);
-    expect((await start.json()).type).toContain("magnus-acknowledgement-required");
+    expect((await readJson<ProblemBody>(start)).type).toContain("magnus-acknowledgement-required");
   });
 });
 
@@ -344,7 +346,7 @@ describe("an opted-in firm", () => {
       content: "one more",
     });
     expect(response.status).toBe(429);
-    expect((await response.json()).type).toContain("magnus-daily-ceiling-reached");
+    expect((await readJson<ProblemBody>(response)).type).toContain("magnus-daily-ceiling-reached");
     await writeSetting(magnusDailyTurnCeilingDefinition, 500);
   });
 
@@ -384,7 +386,7 @@ describe("an opted-in firm", () => {
     const conversationId = await startConversation();
     const response = await get(`/api/v1/magnus/conversations/${conversationId}/events`);
     expect(response.status).toBe(426);
-    expect((await response.json()).type).toContain("websocket-upgrade-required");
+    expect((await readJson<ProblemBody>(response)).type).toContain("websocket-upgrade-required");
   });
 
   it("NO audit row anywhere carries what a member typed", async () => {

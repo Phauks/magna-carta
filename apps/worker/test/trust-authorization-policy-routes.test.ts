@@ -12,10 +12,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The per-firm authorization policy over the HTTP surface. What is proved here is the wiring the
 // domain suites cannot reach: the policy read and the versioned change as routes, the chokepoint
@@ -317,7 +319,7 @@ describe("the firm's authorization policy over HTTP", () => {
       undefined,
     );
     expect(selfApproval.status).toBe(422);
-    expect((await selfApproval.json()).type).toBe(
+    expect((await readJson<ProblemBody>(selfApproval)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-disbursement-authorization-refused",
     );
 
@@ -408,7 +410,7 @@ describe("the firm's authorization policy over HTTP", () => {
       managerCookie,
     );
     expect(withoutAuthority.status).toBe(422);
-    expect((await withoutAuthority.json()).type).toBe(
+    expect((await readJson<ProblemBody>(withoutAuthority)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-disbursement-authorization-refused",
     );
 
@@ -455,7 +457,7 @@ describe("the firm's authorization policy over HTTP", () => {
       requireAuthorizedApprover: true,
     });
     expect(restated.status).toBe(409);
-    expect((await restated.json()).type).toBe(
+    expect((await readJson<ProblemBody>(restated)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-authorization-policy-conflict",
     );
 
