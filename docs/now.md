@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 740 nodes of the feature ledger in
+is the complete register rather than a digest: all 745 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,25 +19,25 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**740 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**745 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 259 | 35% |
-| Part-built | partial, in-build | 216 | 29% |
+| Done | shipped | 262 | 35% |
+| Part-built | partial, in-build | 218 | 29% |
 | Ahead | designed, planned, researching, not-started | 222 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **740** | **100%** |
+| **All capabilities** | | **745** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 259 | 35% |
-| `partial` | 201 | 27% |
+| `shipped` | 262 | 35% |
+| `partial` | 203 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
 | `planned` | 19 | 3% |
@@ -45,13 +45,13 @@ below; these are the totals over that list.
 | `not-started` | 159 | 21% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **740** | **100%** |
+| **All statuses** | **745** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 259 of 740 (35%). Shipped plus partial is 460 (62%).**
+**Shipped alone is 262 of 745 (35%). Shipped plus partial is 465 (62%).**
 
-The 201 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -62,7 +62,7 @@ true and neither is the answer on its own.
 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 15 | 5 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 52% |
+| AI & Inference | 18 | 7 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 34 | 53% |
 | Authentication, Access Control & Encryption | 13 | 10 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 31 | 42% |
 | Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 2 | 5 | 0 | 0 | 13 | 38% |
 | Communications Layer | 3 | 4 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 21 | 14% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **259** | **201** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **740** | **35%** |
+| **All areas** | **262** | **203** | **15** | **38** | **19** | **6** | **159** | **41** | **2** | **745** | **35%** |
 
 ## Where we have been
 
@@ -364,7 +364,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 nodes, 52% shipped. 15 done, 5 part-built, 6 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 34 nodes, 53% shipped. 18 done, 7 part-built, 6 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
@@ -394,6 +394,11 @@ to change a line here, edit the node in its area file and re-run the build.
     - `ai.magnus.interface` · `not-started` · **Assistant interface** — The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
     - `ai.magnus.context` · `not-started` · **Explicit per-conversation context grants** — What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
     - `ai.magnus.actions` · `deferred` · **Tools and actions** — Propose-and-approve only, where a tool proposes, a member approves, and the approval is the audited act.
+  - `ai.natural-language-search` · `partial` · **Natural-language document search** — A retrieval-only question-and-answer search over a firm's own committed working documents, on a Cloudflare AI Search instance per firm fed by a derived text feed. Passages with their citations, never composed prose; matter-scoped, with the metadata filter treated as a recall optimization and read-time re-authorization through the firm-scoped data-access layer as the boundary. _Note: The route is blocked on the ethical-wall filter experiment's E1 and E2 — the protocol is built and sensitivity-proven, and the live run against a fenced account has not been executed._
+    - `ai.natural-language-search.consent` · `shipped` · **Consent gate and versioned disclosure** — A firm setting defaulting off, openable only against a current-version firm-level disclosure acknowledgement recorded with its acceptor, plus a per-matter exclusion that deletes the matter's existing feed objects rather than only stopping new ones.
+    - `ai.natural-language-search.feed` · `shipped` · **The derived text feed and its catalog** — The only thing that can reach the managed index — extracted text of committed file versions, written by the existing search index job as a second consumer of the extraction already computed there, catalogued per object so deletion is demonstrable and freshness computable.
+    - `ai.natural-language-search.lifecycle` · `shipped` · **Instance lifecycle, deletion, and the meter** — One instance per firm under a derived opaque name and a single versioned configuration constant; queue-dispatched provisioning and teardown; catalog-driven deletion reconciled against the bucket; a weekly keep-alive inside the inactivity-pause window; a usage meter keeping authoritative counts structurally apart from the one estimated figure.
+    - `ai.natural-language-search.retrieval` · `partial` · **Matter-scoped retrieval and read-time re-authorization** — The one query shape — a matter and an object class, both server-derived — with every returned pointer re-resolved through the firm-scoped data-access layer before any text is returned, a freshness envelope on every response, and dropped hits raised on the error pipeline but never counted to the caller. _Note: Blocked on observing the managed index's filter semantics against a real instance — a filter that fails open, or is accepted and silently ignored, cannot bear even the recall-optimization weight the design assigns it._
   - `ai.consumer-seams` · `not-started` · **Downstream consumer seams** — Document automation generation, discovery semantic search / RAG over Vectorize, and search query expansion referencing the inference chokepoint.
 
 ### Authentication, Access Control & Encryption

@@ -16,12 +16,23 @@ import type { Bindings } from "../app.ts";
 import { MAGNUS_TURN_SUBMITTED_TOPIC } from "@magna-carta/magnus/turn";
 import { RECHECK_CAUSE_TOPICS } from "@magna-carta/conflicts/recheck-cause";
 import { CONFLICTS_RECHECK_REQUESTED_TOPIC } from "@magna-carta/conflicts/topics";
+import {
+  NATURAL_LANGUAGE_FEED_DELETION_TOPIC,
+  NATURAL_LANGUAGE_INSTANCE_PROVISION_TOPIC,
+  NATURAL_LANGUAGE_INSTANCE_TEARDOWN_TOPIC,
+  type NaturalLanguageFeedDeletionPayload,
+} from "@magna-carta/search/natural-language-topics";
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../emails/capture-address-service.ts";
 import { consumeCaptureRouteRegistration } from "../emails/capture-route-consumer.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { forwardMagnusTurnSubmitted } from "../magnus/turn-relay.ts";
+import {
+  handleNaturalLanguageFeedDeletion,
+  handleNaturalLanguageProvision,
+  handleNaturalLanguageTeardown,
+} from "../search/natural-language-lifecycle.ts";
 import {
   buildShipmentRecoverableCharge,
   parseShipmentPurchasedPayload,
@@ -107,7 +118,61 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
     RECHECK_CAUSE_TOPICS.map((topic) => [topic, handleConflictsRecheckCause] as const),
   ),
   [CONFLICTS_RECHECK_REQUESTED_TOPIC]: handleConflictsRecheckRun,
+  [NATURAL_LANGUAGE_INSTANCE_PROVISION_TOPIC]: handleNaturalLanguageInstanceProvision,
+  [NATURAL_LANGUAGE_INSTANCE_TEARDOWN_TOPIC]: handleNaturalLanguageInstanceTeardown,
+  [NATURAL_LANGUAGE_FEED_DELETION_TOPIC]: handleNaturalLanguageFeedDeletionRequest,
 };
+
+// The three natural-language search lifecycle topics. Each rides this bus rather than a queue of its
+// own because they are rare, small messages and the shared lane already carries the relay, the
+// dispatch, and the dead-letter discipline a dedicated queue would need built again.
+//
+// The message lands in the SAME atomic batch as the state change that caused it, which is what makes
+// the gate honest: a firm whose opt-in committed has a provisioning message, and a firm whose opt-in
+// rolled back has neither the open gate nor the message.
+function handleNaturalLanguageInstanceProvision(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  return handleNaturalLanguageProvision(env, firmDatabase, message.firmId, logger);
+}
+
+function handleNaturalLanguageInstanceTeardown(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  return handleNaturalLanguageTeardown(env, firmDatabase, message.firmId, logger);
+}
+
+// The deletion scope is read off the message and narrowed to the three shapes the catalog read
+// accepts. An unrecognized scope deletes NOTHING rather than falling back to the firm scope: a
+// malformed message must not be able to widen a deletion, and a message that deletes nothing is
+// visible in the catalog while a message that deleted a firm's whole feed is not undoable.
+function handleNaturalLanguageFeedDeletionRequest(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  const payload = JSON.parse(message.payload) as NaturalLanguageFeedDeletionPayload;
+  const scope =
+    payload.scope === "matter"
+      ? ({ kind: "matter", matterId: payload.matterId } as const)
+      : payload.scope === "document-version"
+        ? ({ kind: "document-version", fileId: payload.fileId, version: payload.version } as const)
+        : payload.scope === "firm"
+          ? ({ kind: "firm" } as const)
+          : undefined;
+  if (scope === undefined) {
+    logger.count("costs.recovery.unhandled_topic", { topic: message.topic }, 1);
+    return Promise.resolve();
+  }
+  return handleNaturalLanguageFeedDeletion(env, firmDatabase, scope, logger);
+}
 
 // A corpus change that could have changed an already-checked matter's answer: resolve the affected
 // matters and record a ledger row for each. This handler NEVER runs a check — request and run are

@@ -139,6 +139,52 @@ export const matterAssetRecorded = defineEvent("matterAssets.assetRecorded", [
   "entryMode",
 ] as const);
 
+// ── Natural-language document search ────────────────────────────────────────
+//
+// Three events, and none of them has a slot for a member's question or a passage of a document. A
+// member's natural-language question about a client matter is privileged content and the fields
+// below are identifiers, counts, and closed labels — there is no declared key any of it could
+// travel in.
+
+// search.naturalLanguage.hitDropped — a hit the managed index returned whose pointer FAILED
+// re-authorization through the firm-scoped data-access layer, and was therefore dropped before any
+// of its text was returned.
+//
+// THIS IS THE HIGHEST-SEVERITY SIGNAL IN THE FEATURE and is never a routine condition. The index is
+// scoped by a metadata filter that is an optimization rather than a boundary, so a returned pointer
+// the caller may not see means either that filter did not do what it was asked or that the index
+// holds something the feed should never have produced — both platform defects of the most serious
+// kind. `check` names which re-authorization step refused, so the two are distinguishable without
+// anybody reading the document.
+//
+// The count of drops is never returned to the caller: "your query matched fourteen passages you are
+// not permitted to see" is itself a disclosure, and a measurable one. It goes here instead, to the
+// people who can act on it.
+export const naturalLanguageHitDropped = defineEvent("search.naturalLanguage.hitDropped", [
+  "matterId",
+  "objectKey",
+  "check",
+] as const);
+
+// search.naturalLanguage.instanceOperationFailed — a provisioning or teardown job could not do what
+// it was asked. `operation` is provision | teardown; `reason` is the port's closed failure label.
+// A teardown failure matters more than a provisioning one: a firm has withdrawn consent and the
+// request to delete the managed index did not land, which is a thing somebody has to finish by hand.
+export const naturalLanguageInstanceOperationFailed = defineEvent(
+  "search.naturalLanguage.instanceOperationFailed",
+  ["operation", "reason", "instanceName"] as const,
+);
+
+// search.naturalLanguage.feedReconciliationMismatch — the feed catalog and the bucket disagree.
+// Either direction is an inconsistency worth raising: an object with no live catalog row means
+// something reached the feed prefix outside the writer, or a recorded deletion never executed; a
+// live row with no object means a write was recorded and the bytes are gone. Counts only — the keys
+// themselves are in the catalog, which is where somebody investigating will look.
+export const naturalLanguageFeedReconciliationMismatch = defineEvent(
+  "search.naturalLanguage.feedReconciliationMismatch",
+  ["objectsWithoutLiveRow", "liveRowsWithoutObject"] as const,
+);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -157,4 +203,7 @@ export const EVENT_NAMES = [
   documentAssembled,
   custodyMovementRecorded,
   matterAssetRecorded,
+  naturalLanguageHitDropped,
+  naturalLanguageInstanceOperationFailed,
+  naturalLanguageFeedReconciliationMismatch,
 ].map((builder) => builder.eventName);

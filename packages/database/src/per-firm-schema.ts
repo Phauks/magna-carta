@@ -592,6 +592,14 @@ export const matter = sqliteTable(
     // On when the matter bills through an e-billing (LEDES/UTBMS) channel; capture validation reads
     // it to require a UTBMS task/activity code. Lands ahead of any capture logic that consults it.
     eBilling: integer("e_billing").notNull().default(0),
+    // Excludes this matter from the firm's natural-language search index. OPT-OUT, defaulting in:
+    // once the firm has opted in, every matter is fed, because a search that covers only the matters
+    // somebody remembered to tick is worse than no search — its gaps are invisible, and a lawyer who
+    // finds nothing concludes there is nothing. The escape hatch exists because a matter under a
+    // heightened confidentiality undertaking is a real thing and the firm needs somewhere to put it.
+    // Setting it stops the feed writer AND deletes the matter's existing feed objects: an opt-out
+    // that only stopped new writes would leave the material that prompted it sitting in the index.
+    naturalLanguageIndexExcluded: integer("natural_language_index_excluded").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
@@ -629,6 +637,10 @@ export const matter = sqliteTable(
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
+    check(
+      "matter_natural_language_index_excluded_check",
+      sql`${table.naturalLanguageIndexExcluded} IN (0, 1)`,
+    ),
   ],
 );
 
@@ -8118,5 +8130,145 @@ export const notificationInAppSuppression = sqliteTable(
       "notification_in_app_suppression_reason_check",
       sql`${table.reason} IN ('member-preference', 'firm-policy')`,
     ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Natural-language document search — the derived feed, its usage meter, and the firm's consent
+// record.
+//
+// The feature copies the extracted text of a firm's working documents into a managed store and a
+// managed search index that this platform cannot name, inspect, enumerate, or partition. These three
+// tables are the parts of that arrangement the platform DOES own, and each exists because owning it
+// is what makes a claim about the feature demonstrable rather than asserted:
+//
+//   the feed catalog   — what was copied, and what has been deleted. Deletion is planned from this
+//                        table and never from a bucket listing, so an object the catalog does not
+//                        know about is a detected inconsistency rather than a silent miss.
+//   the usage meter    — what the feature cost, counted from calls the platform itself made, with
+//                        the one figure it can only estimate kept in its own columns.
+//   the acknowledgement— which version of the disclosure the firm accepted, and who accepted it.
+//
+// The instance record itself is NOT here: it is control-plane, because it names a resource in the
+// platform's own account rather than a fact about the firm's matters.
+
+// One row per object written into the feed. `removed_at` rather than a delete, because "this text
+// was copied out and has since been deleted" is exactly the question a firm asks on opt-out, and a
+// deleted row answers it with silence.
+export const aiSearchFeedObject = sqliteTable(
+  "ai_search_feed_object",
+  {
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    // The file's version NUMBER, matching how the keyword index catalog names a version — one fed
+    // object per committed version, and a re-feed of the same version overwrites its own object.
+    version: integer("version").notNull(),
+    // The matter as it stood when the object was fed. It is on the row as well as in the object key
+    // because a reassignment rewrites both together, and a row whose matter disagreed with its key
+    // is the inconsistency reconciliation exists to find.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    objectKey: text("object_key").notNull(),
+    byteCount: integer("byte_count").notNull(),
+    fedAt: text("fed_at").notNull(),
+    removedAt: text("removed_at"),
+  },
+  (table) => [
+    // One live object per document version. The write is an upsert on this key, so a retried feed
+    // write converges on one row instead of leaving a second.
+    primaryKey({ columns: [table.fileId, table.version] }),
+    // The two reads that matter: everything fed for a matter (the deletion plan, and the exclusion
+    // flag's teardown), and everything fed since an instant (the pending count in the freshness
+    // envelope on every answer).
+    index("ai_search_feed_object_matter_id_index").on(table.matterId),
+    index("ai_search_feed_object_fed_at_index").on(table.fedAt),
+    check("ai_search_feed_object_version_positive_check", sql`${table.version} > 0`),
+    check("ai_search_feed_object_byte_count_nonnegative_check", sql`${table.byteCount} >= 0`),
+  ],
+);
+
+// Per-firm usage of the managed search index, on the same civil-day delta-upsert shape as the token
+// meter beside it: the rollup rides the same atomic batch as the operation it counts, so a queue
+// redelivery no-ops with it rather than double-counting.
+//
+// AUTHORITATIVE AND ESTIMATED FIGURES ARE IN DIFFERENT COLUMNS and are rendered differently, which
+// is the point of the table's shape. Three of these are exact because the platform makes every one
+// of the calls and writes every one of the bytes. The ingestion-token figure is not: the service
+// returns no ingestion count to the feed writer, so it is derived from fed bytes at a ratio recorded
+// beside it. An estimate labelled an estimate is useful; an estimate presented as a meter is a
+// future billing dispute.
+//
+// MANAGED STORAGE IS NOT METERED AND NOT ESTIMATED. No per-instance storage figure is available, so
+// there is no column for it and no guess in place of one — the gap is stated in the usage feed
+// rather than filled.
+export const aiSearchUsageMeter = sqliteTable(
+  "ai_search_usage_meter",
+  {
+    // One row per civil day, and the DAY is the row. This is a tally updated in place by delta,
+    // never an event anybody appends, so a separate handle would let two tallies exist for the same
+    // day — the one state a meter must never have to reconcile.
+    day: text("day").primaryKey(), // YYYY-MM-DD civil date bucket (UTC)
+    // Authoritative: one increment per call the platform made.
+    semanticQueryCount: integer("semantic_query_count").notNull().default(0),
+    // Authoritative, and INCLUDING the weekly keep-alive. The keep-alive is a real query that a real
+    // invoice will charge for, so hiding it here would make the meter disagree with the bill.
+    fullTextQueryCount: integer("full_text_query_count").notNull().default(0),
+    // Authoritative: the byte count of every object the feed writer put, from the bytes it wrote.
+    fedBytes: integer("fed_bytes").notNull().default(0),
+    // ESTIMATED. Derived from fed_bytes at the ratio in the next column, never observed.
+    estimatedIngestionTokens: integer("estimated_ingestion_tokens").notNull().default(0),
+    // The bytes-per-token ratio the estimate above was computed at, recorded so a later correction
+    // can be applied to historical rows instead of guessing what they assumed.
+    estimatedIngestionBytesPerToken: integer("estimated_ingestion_bytes_per_token")
+      .notNull()
+      .default(0),
+  },
+  (table) => [
+    check(
+      "ai_search_usage_meter_semantic_query_count_check",
+      sql`${table.semanticQueryCount} >= 0`,
+    ),
+    check(
+      "ai_search_usage_meter_full_text_query_count_check",
+      sql`${table.fullTextQueryCount} >= 0`,
+    ),
+    check("ai_search_usage_meter_fed_bytes_check", sql`${table.fedBytes} >= 0`),
+    check(
+      "ai_search_usage_meter_estimated_ingestion_tokens_check",
+      sql`${table.estimatedIngestionTokens} >= 0`,
+    ),
+  ],
+);
+
+// The firm's acknowledgement of the disclosure, and the only thing that permits the gate to be
+// opened. FIRM-LEVEL, not per-member, which is why there is one row rather than one per user: what
+// is being consented to is that the firm's privileged material comes to rest in a store outside the
+// firm's own, and that is a judgement about the firm's client agreements rather than a fact each
+// member needs telling separately.
+//
+// The version column is the whole point of the table. When the disclosure changes because the
+// feature can do something materially new, the stored version stops matching the current one, the
+// gate refuses to stay open on the old acceptance, and the firm is asked again. An acknowledgement
+// without a version is an acknowledgement of an unknown thing.
+export const aiSearchDisclosureAcknowledgement = sqliteTable(
+  "ai_search_disclosure_acknowledgement",
+  {
+    // A fixed literal, because the row is the firm's and the per-firm database IS the firm. A single
+    // named key rather than an auto-increment so the write is a plain upsert with no read first.
+    scope: text("scope").primaryKey(),
+    disclosureVersion: integer("disclosure_version").notNull(),
+    // WHO accepted it. An acknowledgement nobody signed is a record of a click, not of a decision.
+    acknowledgedBy: text("acknowledged_by")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    acknowledgedAt: text("acknowledged_at").notNull(),
+  },
+  (table) => [
+    check("ai_search_disclosure_acknowledgement_scope_check", sql`${table.scope} = 'firm'`),
   ],
 );

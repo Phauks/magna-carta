@@ -525,6 +525,23 @@ One gateway per environment (`magna-carta-inference`), reached only through the 
 
 **The consequence, stated plainly so it is not discovered later: the AI Gateway dashboard will show nothing for this traffic.** No logs, therefore no per-request analytics, no cost graph, and no request inspector. That is by design, and everything the firm or the platform needs about model spend comes from the in-repo record instead — the per-run token meter and, for the assistant, the per-turn provenance columns. The account-level spend rule and credit alarm still operate; they are not log-derived.
 
+### 17.1 The same gateway carries AI Search's own model calls — and our per-request pins do not reach them
+
+Natural-language document search runs on Cloudflare AI Search, which makes its **own** embedding and reranking calls to Workers AI while indexing and while answering a query. Those calls go through the same gateway, and they are **not** made by our code.
+
+**That is the whole point of this subsection: the per-request options `packages/inference/src/gateway.ts` pins on every call we make — caching off, log collection off — travel on OUR requests and do not reach AI Search's.** The only control over them is the gateway's own configuration, which means the posture above is not merely a belt-and-braces duplicate of the code for this traffic; for AI Search it is the entire mechanism.
+
+Four settings, all of which must be **off**, verified on the gateway rather than assumed:
+
+- **Log collection — off.** AI Search embeds the member's typed question, which is a member's question about a client matter and is privileged content. A gateway log of it is a retention surface with no code path that can close it.
+- **Guardrails — off.** They log prompts and responses, for the same reason as above, and moderate for a hazard class that has nothing to do with this feature's failure mode.
+- **Caching — off.** Cloudflare's own documentation warns that gateway caching corrupts embeddings. Beyond that, the default cache key carries no firm dimension under shared account credentials.
+- **Rate limiting — off.** It interrupts indexing rather than shedding load gracefully, and a half-indexed corpus is a search that silently omits documents.
+
+**Verify these before turning the feature on for any firm, and re-verify after any gateway change.** There is no fitness function that can see a dashboard toggle, and unlike the assistant, there is no per-request pin standing behind it.
+
+**Bindings.** The two AI Search bindings are declared and **commented out** in `apps/worker/wrangler.jsonc`. Uncommenting `ai_search_namespaces` is not a configuration step but a decision: the first instance it creates fixes an embedding model that cannot be changed afterwards without re-embedding every firm's corpus, and the platform's embedding pin still reads open (`pinState` in `packages/inference/src/catalog.ts`). Freeze that pin first. While both bindings are absent, the resolvers in `apps/worker/src/search/natural-language-binding.ts` return ports that report the feature unavailable — a provisioning job records a failure rather than a control-plane row claiming an instance that does not exist, and a query reports `instance-not-provisioned` rather than an empty result.
+
 **Queues.** The conversational assistant declares `…-magnus` and `…-magnus-deadletter`; create both before deploying (the §3 note applies — a missing queue aborts the deploy).
 
 **Turning the assistant on is three deliberate acts, in this order.** Nothing here happens by deploying the code: the shipped default reaches no provider at all.

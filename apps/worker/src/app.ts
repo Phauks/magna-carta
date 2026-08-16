@@ -228,6 +228,18 @@ export type Bindings = {
   // absent in every test environment and until the deploy-time binding is added; while unset,
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
+  // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
+  // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
+  // environment today — while unset, resolveNaturalLanguageProvisioningPort returns the
+  // not-configured port whose every operation reports `binding-not-configured`, so a provisioning job
+  // records a failure rather than a control-plane row claiming an instance that does not exist.
+  AI_SEARCH_NAMESPACES?: import("./search/natural-language-binding.ts").NaturalLanguageNamespaceBinding;
+  // The managed natural-language search QUERY binding. Optional, and absent in every environment
+  // today. An ABSENT binding resolves to the default port whose every call reports
+  // `instance-not-provisioned` — a misconfigured environment produces an obviously-unavailable
+  // feature rather than a silent empty result, which would be indistinguishable from a corpus in
+  // which nothing matched.
+  AI_SEARCH?: import("./search/natural-language-binding.ts").NaturalLanguageInstanceBinding;
   // The search-index job coordinator: keyed firmId:documentId:version, single-flights one index build
   // per document version and holds its outcome — including the `deferred` state a job parks in while the
   // engines are undeployed.

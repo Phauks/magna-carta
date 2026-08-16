@@ -493,6 +493,25 @@ the lineage head. |
 | Directory pronouns | [-] | [-] | [-] | [x] Opus 5\* | [ ] | [-] | [ ] | Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred. |
 | Matter document surface | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [ ] | The matter's Files page on real rows: list, add from a file, build from a template, save a new version, read the version history. The editing-session launch is real; the Collabora editor itself needs the deployed `magna-carta-edit` container. |
 | Community 1 — public changelog | [-] | [x] Opus 4.8 | [-] | [x] Opus 5\* | [ ] | [-] | [x] Opus 5\* | The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen. |
+| Natural-language document search | [x] Opus 5 | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [~] Opus 5 | Slice 1 landed with **every gate closed**: no firm has the setting on, no instance exists for any
+firm, and no feed object has been written. Built: the consent gate (`search.naturalLanguageEnabled`,
+default off) behind a firm-level **versioned disclosure** whose acceptance is the precondition the
+write path refuses without; the per-matter exclusion flag, which deletes a matter's existing feed
+objects rather than merely stopping new ones; the derived text feed and its catalog, written by the
+existing search index job as a **second consumer of the extraction it already computed**; the
+instance lifecycle (derived opaque name, one versioned configuration constant, queue-dispatched
+provisioning and teardown, weekly keep-alive); catalog-driven deletion with reconciliation against
+the bucket; the usage meter, keeping authoritative counts structurally apart from the one estimated
+figure and naming managed storage as an unmetered gap; audit and error-pipeline events carrying no
+query text; both bindings declared-and-commented in `wrangler.jsonc` with the gateway posture in the
+deploy runbook.
+
+**Deliberately not built: the retrieval adapter and route.** The managed index's metadata-filter
+semantics have not been observed against a real instance, and a filter that fails open — or is
+accepted and silently ignored — cannot bear even the recall-optimization weight the design puts on
+it. Both ports resolve to typed unavailable outcomes reached through the production resolvers.
+Owner direction (ADR-0255) removed the general-availability gate: enablement waits on the firm's
+versioned disclosure, not on Cloudflare leaving beta. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

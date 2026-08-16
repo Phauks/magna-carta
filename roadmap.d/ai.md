@@ -201,6 +201,45 @@
   status: deferred
   evidence: A position rather than a deferral for now — the assistant answers and its answer is text no other subsystem reads. Requires an explicit owner decision.
 
+- id: ai.natural-language-search
+  name: Natural-language document search
+  scope: A retrieval-only question-and-answer search over a firm's own committed working documents, on a Cloudflare AI Search instance per firm fed by a derived text feed. Passages with their citations, never composed prose; matter-scoped, with the metadata filter treated as a recall optimization and read-time re-authorization through the firm-scoped data-access layer as the boundary.
+  status: partial
+  slices: natural-language-document-search
+  adrs: ADR-0003, ADR-0110, ADR-0111, ADR-0255
+  spec: docs/specs/2026-08-06-ai-search-integration-design.md
+  evidence: packages/search/src/natural-language-enablement.ts is the one write path (the gate, the disclosure acknowledgement, the matter exclusion); packages/search/src/natural-language-feed.ts and apps/worker/src/search/natural-language-feed-writer.ts are the feed; apps/worker/src/search/natural-language-lifecycle.ts is provisioning, teardown and deletion. Three per-firm tables and one control-plane table in packages/database/drizzle/per-firm/20260816T152756_natural-language-search.sql and packages/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql. Off for every firm and no instance exists — apps/worker/test/natural-language-gates-closed.test.ts asserts a firm with no setting row produces no feed object, no instance, and an instance-not-provisioned outcome from the production resolver. The retrieval adapter and route are deliberately unbuilt.
+  audience: public
+  public-name: Ask a question of a matter's documents
+  public-summary: Ask an ordinary question about a matter and get back the passages of your own documents that answer it, each with its source.
+  notes: The route is blocked on the ethical-wall filter experiment's E1 and E2 — the protocol is built and sensitivity-proven, and the live run against a fenced account has not been executed.
+
+- id: ai.natural-language-search.consent
+  name: Consent gate and versioned disclosure
+  scope: A firm setting defaulting off, openable only against a current-version firm-level disclosure acknowledgement recorded with its acceptor, plus a per-matter exclusion that deletes the matter's existing feed objects rather than only stopping new ones.
+  status: shipped
+  evidence: packages/search/src/natural-language-settings.ts, packages/search/src/natural-language-disclosure.ts and packages/search/src/natural-language-enablement.ts; the ai_search_disclosure_acknowledgement table. The write path returns a typed refusal for an absent or stale acknowledgement and packages/search/test/natural-language-enablement.test.ts drives both. Enablement gates on the disclosure alone, per the owner's override of the general-availability flag.
+
+- id: ai.natural-language-search.feed
+  name: The derived text feed and its catalog
+  scope: The only thing that can reach the managed index — extracted text of committed file versions, written by the existing search index job as a second consumer of the extraction already computed there, catalogued per object so deletion is demonstrable and freshness computable.
+  status: shipped
+  evidence: packages/search/src/natural-language-feed.ts + apps/worker/src/search/natural-language-feed-writer.ts; the ai_search_feed_object table. A fitness test asserts exactly one emitted object class and that no reserved class is reachable; a worker test asserts the extraction runs exactly once per version.
+
+- id: ai.natural-language-search.lifecycle
+  name: Instance lifecycle, deletion, and the meter
+  scope: One instance per firm under a derived opaque name and a single versioned configuration constant; queue-dispatched provisioning and teardown; catalog-driven deletion reconciled against the bucket; a weekly keep-alive inside the inactivity-pause window; a usage meter keeping authoritative counts structurally apart from the one estimated figure.
+  status: shipped
+  evidence: apps/worker/src/search/natural-language-lifecycle.ts, apps/worker/src/search/natural-language-keep-alive.ts and apps/worker/src/search/natural-language-binding.ts; packages/search/src/natural-language-instance.ts, packages/search/src/natural-language-provisioning.ts and packages/search/src/natural-language-instance-statements.ts; the control-plane ai_search_instance table and the per-firm ai_search_usage_meter. Managed storage is recorded as a named unmetered gap rather than estimated. Both bindings are declared and commented out in apps/worker/wrangler.jsonc.
+
+- id: ai.natural-language-search.retrieval
+  name: Matter-scoped retrieval and read-time re-authorization
+  scope: The one query shape — a matter and an object class, both server-derived — with every returned pointer re-resolved through the firm-scoped data-access layer before any text is returned, a freshness envelope on every response, and dropped hits raised on the error pipeline but never counted to the caller.
+  status: partial
+  spec: docs/specs/2026-08-06-ai-search-integration-design.md
+  evidence: The port, its typed outcomes and its not-configured default resolution are built (packages/search/src/natural-language-port.ts) and reached through apps/worker/src/search/natural-language-binding.ts; the adapter, the filter builder and the route are not. The construction protocol and its sensitivity proof are runnable in packages/search/test/natural-language-filter-wall/.
+  notes: Blocked on observing the managed index's filter semantics against a real instance — a filter that fails open, or is accepted and silently ignored, cannot bear even the recall-optimization weight the design assigns it.
+
 - id: ai.consumer-seams
   name: Downstream consumer seams
   scope: Document automation generation, discovery semantic search / RAG over Vectorize, and search query expansion referencing the inference chokepoint.
