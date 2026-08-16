@@ -1,3 +1,5 @@
+// @repo-wide-fitness — the naming, timestamp and composite-key rules bind every table in both
+// lineages; the schema is one file but the tables in it arrive from every slice in the repository.
 import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import * as controlPlaneSchema from "../src/control-plane-schema.ts";

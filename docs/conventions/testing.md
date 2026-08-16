@@ -105,6 +105,37 @@ Every package or vertical slice gets an **adversarial review with empirical veri
 
 Run it as a fan-out of independent reviewers (one per angle, or grouped), each returning findings with a `file:line` and the verifier that proves it; fix findings and update docs in the same pass. A finding without a runnable verifier is a hypothesis, not a result.
 
+## A repo-wide fitness function declares itself repo-wide
+
+A fitness function whose jurisdiction is the **whole repository** — it scans every package's source, or
+pins a registry against a schema owned elsewhere — cannot live in the package whose code it governs, and
+that is what makes it dangerous. The diff that breaks it is routinely in a package that has never heard of
+it, so a diff-scoped gate runs everything except the check that would have caught the change. Three
+changes reached `main` red in one session that way.
+
+So the rule is: **when you write a fitness function that a change made anywhere can break, say so in its
+header.**
+
+```ts
+// @repo-wide-fitness — scans apps/*/src and packages/*/src, so any package's diff can break it.
+```
+
+That one comment is the whole registration. `pnpm check:scoped` discovers members by scanning for the
+directive and runs them in one process on every diff that touches source; nothing else has to be edited,
+and there is no list to forget. A check whose only input is the Drizzle schema declares
+`scope=schema` instead, so it triggers on a `packages/database` change rather than on all source. The
+mechanism, the cost budget, and what qualifies live in
+[`tooling/check-scoped/repo-wide.mjs`](../../tooling/check-scoped/repo-wide.mjs) and
+[`build-performance.md`](build-performance.md).
+
+The converse also matters: **do not mark a fitness function repo-wide when its only possible input is its
+own package's source.** Those are already covered — the diff that breaks one is the diff that reaches it —
+and marking them only makes the inner loop slower for no coverage.
+
+Where to put a repo-wide check is unchanged: it lives with the rule it enforces (the console ban belongs
+to `packages/telemetry`, which owns the one logging path). The directive is how the gate finds it, not a
+reason to move it.
+
 ## Whole-repo security audit
 
 The 7-angle review is scoped to a slice's diff, so it structurally cannot see exploit chains that cross slice boundaries — an SSRF in one package reaching a tenancy gap in another. A periodic **whole-repo** adversarial security audit covers that ground, run via the vendored [`security-audit`](../../.claude/skills/security-audit/) skill (Cloudflare, MIT): a multi-agent recon → hunt → validate → independent-verify pipeline where the agent that validates a finding is never the one that found it. It is **not** a merge gate — its coverage is probabilistic (roughly half the findings surface in any single run, so run it more than once and let it read prior runs' `findings.json` to skip known issues). The 7-angle stays the deterministic gate; this is the periodic depth pass behind it.

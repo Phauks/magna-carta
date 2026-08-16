@@ -86,6 +86,10 @@ what that change can break: fmt + lint on the changed paths, the incremental `ts
 schema package, or a crate was actually touched**. It prints what it skipped and why — a gate that
 quietly checks nothing is worse than a slow one.
 
+**And it runs the repo-wide set, which is deliberately NOT scoped to the diff.** See _The repo-wide
+tier_ below: some checks are structurally unreachable from a diff-scoped gate, and leaving them to a CI
+tier that could be down is how three red merges happened in one session.
+
 The conditional passes are conditional on **cost**, not on importance, and the bar for adding one is the
 same each time: it has to be cheap enough that the change set which triggers it does not notice. The
 snapshot check (`pnpm --filter @magna-carta/database run check-snapshots`, both lineages, ~3 s) clears
@@ -119,6 +123,72 @@ The distinction matters because the full gate's cost is nearly all fixed: seven 
 run identically whether the diff is three files or three hundred, and in practice the overwhelming
 majority of those runs re-confirm what was already true. Scope the local loop; keep the whole-repo sweep
 in CI, where it gates the merge into `main`.
+
+### The repo-wide tier — the checks a diff-scoped gate structurally cannot find (now)
+
+A **repo-wide** check is one that scans the whole repository, or a registry spread across it, and can be
+broken by a change made **anywhere**. Its defining property is that it does not live in the package whose
+code it governs: the console ban lives in `packages/telemetry` and binds every app's source; the PII
+classification registry lives in `packages/data-access` and its input is the schema in
+`packages/database`; `lint:status` reads `status.d/` fragments against `docs/active-work/` notes and is
+broken by a documentation sweep.
+
+That is not a rule of thumb, it is a measured hole. In one session `main` went red three times, each on a
+different check, each merged on a diff-scoped run that **could not** have caught it — the diff never
+touched the package holding the check. The tier that would have caught all three is the whole-repo one
+(`pnpm check` plus the CI gate), and that tier is exactly the one that can be unavailable: GitHub Actions
+started no job for eleven days under a billing block, and `pnpm check` was OOM-killed at step one until
+its order was fixed. A gate you rely on being run by somebody else is not a gate.
+
+So `pnpm check:scoped` runs the repo-wide set itself, as two clearly-labelled steps:
+
+| Step                        | When                                             | Measured cost                             |
+| --------------------------- | ------------------------------------------------ | ----------------------------------------- |
+| `repo-wide lints`           | **always**, whatever the diff                    | ~0.7 s (twelve scans, run concurrently)   |
+| `repo-wide fitness sweep`   | any first-party source under `apps/`/`packages/` | ~2.5 s (nine Vitest scans in one process) |
+| ... plus the `schema` scope | a `packages/database/` change                    | ~+0.6 s (ten more)                        |
+
+Where the line is drawn, and why. **The lints are unconditional** because the diff shape that breaks them
+is often docs-only — a swept stream note leaving a dangling `status.d/` pointer did exactly that, twice —
+so any condition would reopen the hole. **The fitness sweep is conditional on source having changed at
+all**, which is a sound precondition rather than a guess: every member reads source or the Drizzle schema,
+so a documentation-only diff cannot break one, and gating on it keeps the cheapest inner loop (edit a
+markdown file, run the gate) at ~1.6 s instead of ~4 s. The condition is deliberately "any source
+anywhere", never "the package that owns the check" — narrowing it that way is the original bug.
+
+Measured before and after, warm, on this machine:
+
+| Diff shape                        | before | after  |
+| --------------------------------- | ------ | ------ |
+| one markdown file                 | ~0.9 s | ~1.6 s |
+| one source file, ordinary package | ~2.3 s | ~4.9 s |
+| a `packages/database` schema file | ~4.7 s | ~7.8 s |
+
+**Two checks are excluded, with their numbers.** `lint:licenses` is 1.6 s — twenty times the median lint,
+because it reads every installed package's license file — and its only possible input is the dependency
+set, so the inner loop runs it exactly when a manifest or lockfile moves. `lint:test-collection` is 26 s
+(four list-only Vitest collections over ~70 projects), an order of magnitude past the inner loop's budget,
+and only a change to the CI test split can break it; its home is the gate's own `test-collection` job.
+`apps/worker`'s route-conformance suite is 26 s as well — it runs in the Miniflare pool, which costs far
+more to start than the assertions are worth here — so it stays a CI check. An honest exclusion with a
+number beats a gate people disable.
+
+**Membership derives itself; there is no roster.** A hand-maintained list of repo-wide checks is the same
+bug one level up — the next one somebody writes will not be on it, and nothing will say so. So:
+
+- The **lints** are enumerated from the `lint:*` scripts in the root `package.json`. Adding
+  `"lint:whatever"` there puts it in the inner loop and in the CI `governance` job (which calls the same
+  runner with `--all`), with no other edit anywhere.
+- The **fitness tests** self-register with a directive comment in their own header:
+  `// @repo-wide-fitness — <why the diff can't reach it>`, or `scope=schema` for one whose only input is
+  the Drizzle schema. The check declares its own jurisdiction in the file a reader is already looking at.
+
+Both mechanisms, the two deferrals, and what qualifies as repo-wide live in
+[`tooling/check-scoped/repo-wide.mjs`](../../tooling/check-scoped/repo-wide.mjs). The sweep runs under its
+own Vitest config rather than the root workspace — 2.5 s against 8.5 s for the same files, because the
+root config resolves ~70 project configs before it filters — and that config is therefore a **re-runner**,
+not a test project: every file it runs already belongs to its own package's project.
+`lint:test-registration` knows about that shape and refuses to let it be registered twice.
 
 ### The fix pass applies only autofixes that are safe unattended
 

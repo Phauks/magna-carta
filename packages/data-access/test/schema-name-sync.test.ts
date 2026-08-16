@@ -1,3 +1,5 @@
+// @repo-wide-fitness scope=schema — the statements are here, the tables they name are in
+// packages/database, so the diff that renames one never touches this package.
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { authAudit } from "@magna-carta/database/control-plane-schema";

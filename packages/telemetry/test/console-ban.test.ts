@@ -1,3 +1,5 @@
+// @repo-wide-fitness — scans apps/*/src and packages/*/src, so any package's diff can break it and
+// almost none of them touch this one.
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";

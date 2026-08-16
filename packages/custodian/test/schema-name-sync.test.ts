@@ -1,3 +1,5 @@
+// @repo-wide-fitness scope=schema — the statements are here, the tables they name are in
+// packages/database, so the diff that renames one never touches this package.
 import {
   custodyDestructionRequest,
   custodyHold,

@@ -1,3 +1,5 @@
+// @repo-wide-fitness — sweeps first-party source from the repository root for reads of a protected
+// column, so any package's diff can break it.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";

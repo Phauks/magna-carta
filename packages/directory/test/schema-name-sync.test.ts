@@ -1,3 +1,5 @@
+// @repo-wide-fitness scope=schema — the statements are here, the tables they name are in
+// packages/database, so the diff that renames one never touches this package.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";

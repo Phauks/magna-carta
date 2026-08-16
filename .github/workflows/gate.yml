@@ -736,21 +736,13 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + control characters + workers-types imports + custodian vocabulary + conflicts vocabulary + licenses + status fragments + feature ledger + ledger staleness + decision files + changelog fragments + test registration + lint scope)
-        run: |
-          pnpm run lint:process-refs
-          pnpm run lint:control-characters
-          pnpm run lint:workers-types-import
-          pnpm run lint:custodian-vocabulary
-          pnpm run lint:conflicts-vocabulary
-          pnpm run lint:licenses
-          pnpm run lint:status
-          pnpm run lint:roadmap
-          pnpm run lint:ledger-staleness
-          pnpm run lint:decisions
-          pnpm run lint:changelog-fragments
-          pnpm run lint:test-registration
-          pnpm run lint:affected-scope
+      # Every `lint:*` script in the root package.json, DERIVED rather than listed. A hand-written list
+      # here is a list somebody has to remember to extend, and a governance lint added but never wired
+      # is a governance lint that is not running. The same runner backs `pnpm check:scoped`, so the two
+      # tiers cannot drift apart on membership. `lint:test-collection` is the one exclusion: it has its
+      # own job above (26 s of list-only Vitest collections), and running it twice buys nothing.
+      - name: Governance (every lint:* script, derived)
+        run: node tooling/check-scoped/run-repo-wide-lints.mjs --all --except lint:test-collection
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
