@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import {
+  createMigratedNodeDatabase,
+  type NodeSqlStatement,
+} from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
 import {
@@ -13,6 +17,14 @@ import { MAX_FEED_PAGE_SIZE } from "../src/types.ts";
 // THE BOUND, not a wall-clock number. What matters about these reads is that their cost is set by
 // the page size and the index, never by how much the firm has accumulated — so what is asserted is
 // the statement count, the rows returned, and the plan the database chooses.
+
+// Recover the runtime node-sqlite shape so the EXPLAIN probes below run the REAL query SQL with the
+// REAL bindings. The read builders type their return as the narrower D1-shaped SqlStatement, which
+// omits sql/bindings; the object they actually hand back here comes from nodeSqliteBatchDatabase.
+// Same narrowing as packages/fixtures/src/load-profile/costs-measurements.ts.
+function capturedStatement(statement: SqlStatement): NodeSqlStatement {
+  return statement as NodeSqlStatement;
+}
 
 const NOW_BASE = Date.parse("2026-01-01T00:00:00.000Z");
 const READER = "user_boundsreader000";
@@ -112,10 +124,12 @@ describe("the feed page's bound", () => {
 
   for (const feedCase of FEED_PLAN_CASES) {
     it(`walks an index for ${feedCase.name} rather than sorting the member's history`, () => {
-      const statement = selectNotificationFeedStatement(
-        handle.database,
-        { recipientUserId: READER, visibility: visibleMatterPredicate(), state: feedCase.state },
-        { cursor: undefined, pageSize: MAX_FEED_PAGE_SIZE },
+      const statement = capturedStatement(
+        selectNotificationFeedStatement(
+          handle.database,
+          { recipientUserId: READER, visibility: visibleMatterPredicate(), state: feedCase.state },
+          { cursor: undefined, pageSize: MAX_FEED_PAGE_SIZE },
+        ),
       );
       const plan = handle.raw
         .prepare(`EXPLAIN QUERY PLAN ${statement.sql}`)
@@ -132,10 +146,12 @@ describe("the feed page's bound", () => {
   }
 
   it("keeps the unread count on the same index", async () => {
-    const statement = selectUnreadNotificationCountStatement(handle.database, {
-      recipientUserId: READER,
-      visibility: visibleMatterPredicate(),
-    });
+    const statement = capturedStatement(
+      selectUnreadNotificationCountStatement(handle.database, {
+        recipientUserId: READER,
+        visibility: visibleMatterPredicate(),
+      }),
+    );
     const plan = handle.raw
       .prepare(`EXPLAIN QUERY PLAN ${statement.sql}`)
       .all(...(statement.bindings as string[])) as { detail: string }[];

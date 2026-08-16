@@ -63,7 +63,10 @@ The techniques, in leverage order:
 
 **The full gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
-real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
+a type error in `src/` can no longer slip (`vp check`'s own whole-repo type-error pass is off;
+`typeCheck: false`). Exhaustive over **source**, not over the repository: the reference graph is
+src-only, so no package's `test/` is type-checked by this or any other pass — see _The graph is
+src-only, so no test file is type-checked by anything_ below.
 It is exhaustive and slow by design, and it is the **gate of record — run in GitHub Actions**
 (`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
 not on the inner loop.
@@ -224,6 +227,36 @@ growing monorepo. The prerequisite is an **acyclic** package graph (composite re
 a cycle); the workspace is acyclic today (a source-scan/graph check keeps it so), which is what makes
 this a mechanical rollout rather than an untangling. The build order falls out of the existing
 dependency graph.
+
+#### The graph is src-only, so no test file is type-checked by anything
+
+Each generated `tsconfig.build.json` sets `include: ["src/**/*.ts"]` plus the package's root ambient
+`.d.ts`. That is deliberate — the member projects are `composite` + `emitDeclarationOnly` with
+`rootDir: "src"`, and a file outside `rootDir` cannot take part in that emit. The consequence is not
+deliberate, and it is easy to read the wrong way: **`vp run typecheck` covers the `src/` of every
+package and the `test/` of none.** The whole test corpus is 837 of the workspace's 1,915
+type-checkable files, spread over all 71 graph members — every one of which has a `test/` directory,
+and every one of whose own `tsconfig.json` lists `test/**/*.ts` in `include`, which the generated
+build config then replaces rather than extends.
+
+Nothing else picks them up. `vp check` runs with `lint.options.typeCheck: false` (see the comment in
+the root `vite.config.ts`), so the type-aware **lint** rules run on test files but type **errors** in
+them are reported by no pass in `pnpm check`, `pnpm check:scoped`, or the CI gate. A test file can
+carry a genuine type error indefinitely and every gate stays green; `pnpm test` still passes, because
+Vitest strips types rather than checking them. The way to see them today is per package, against the
+package's own config: `pnpm exec tsc -b packages/<name>` (which reads `tsconfig.json`, tests
+included), not `tsc -b <package>/tsconfig.build.json`.
+
+Closing this means giving each package a second, non-emitting test project — the build graph's
+projects cannot simply widen their `include` without giving up the declaration emit that makes them
+incremental. **The backlog that would surface has been measured:** checking every member against its
+own `tsconfig.json` reports **52 errors across 16 of the 71 members**, all in test files — argument
+mismatches (a raw `string` where a branded id belongs, a hand-rolled database double missing a method
+the real interface declares), possibly-undefined access, bad casts, and three worker test projects
+never wired for `cloudflare:test`. That is a **floor**: `apps/worker` alone holds 240 of the 837 test
+files and its check did not complete in 18 minutes, so it is not in the count. Until that pass lands
+and burns the backlog down, treat a green `tsc -b tsconfig.build.json` as a statement about `src/`
+only.
 
 ### The native compiler (TypeScript 7 / `tsgo`) — after references
 
