@@ -31,6 +31,7 @@ import {
 import {
   CustomFieldError,
   CUSTOM_FIELD_KINDS,
+  CUSTOM_FIELD_TARGETS,
   type CustomFieldKind,
 } from "@magna-carta/custom-fields/types";
 import { CustomFieldIdempotencyConflictError } from "@magna-carta/custom-fields/run-custom-field-effect";
@@ -52,7 +53,8 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 // The custom-fields HTTP surface over the @magna-carta/custom-fields domain package: firm-defined
-// typed fields on matter/entity records, their picklist options, the temporal field values, the
+// typed fields on matter, entity (directory contact), and matter-asset records, their picklist
+// options, the temporal field values, the
 // non-destructive Convert (preview + apply), and the compliance purge seam. The custom-fields domain
 // services own validation, the field/option/firm caps, and idempotency (each mutation rides
 // runCustomFieldEffect internally); these handlers hand the service the firm-scoped per-firm database,
@@ -173,7 +175,9 @@ const DefineFieldRequest = z
   .object({
     name: z.string().min(1),
     kind: customFieldKind,
-    target: z.enum(["matter", "entity"]),
+    // Derived from the domain vocabulary, never restated: a target this schema accepted and no read
+    // recognised would be a field a firm can define and never use.
+    target: z.enum(CUSTOM_FIELD_TARGETS),
     attachmentId: z.string().nullable(),
     numberScale: z.number().int().nullable().optional(),
     required: z.boolean().optional(),
@@ -395,7 +399,10 @@ function readPostMeta(action: string): RouteMeta {
 const defineFieldRoute = defineOpenAPIRoute(mutationMeta("defineField"), {
   method: "post",
   path: "/api/v1/custom-fields/fields",
-  description: "Defines a custom field on a matter type or entity category.",
+  description:
+    "Defines a custom field on a record axis: a matter, a directory contact, or a matter asset. " +
+    "attachmentId narrows it within that axis — a matter type, a contact category, or an asset " +
+    "class — and null applies the field to every record on the axis.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: DefineFieldRequest } }, required: true },

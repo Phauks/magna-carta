@@ -2678,6 +2678,7 @@ export type MatterAssetDetail = {
     custody: MatterAssetCustodyPlacement;
     valueAsOf: MatterAssetResolvedValue;
     classHandlingNote: string | null;
+    customFields: Array<MatterAssetCustomFieldValue>;
 };
 
 export type MatterAssetRealPropertyDetail = {
@@ -2815,6 +2816,22 @@ export type MatterAssetResolvedValue = {
     supportingFileId: string | null;
     recordedAt: string;
 } | null;
+
+export type MatterAssetCustomFieldValue = {
+    fieldId: string;
+    name: string;
+    kind: string;
+    numberScale: number | null;
+    required: boolean;
+    position: number;
+    valueId: string | null;
+    valueText: string | null;
+    valueNumber: number | null;
+    valueDate: string | null;
+    valueOptionId: string | null;
+    valueReferenceId: string | null;
+    validFrom: string | null;
+};
 
 export type MatterAssetSchedule = {
     matterId: string;
@@ -3415,7 +3432,7 @@ export type CustomFieldAck = {
 export type DefineCustomFieldRequest = {
     name: string;
     kind: 'checkbox' | 'date' | 'time' | 'number' | 'currency' | 'picklist' | 'single-line' | 'multi-line' | 'url' | 'email' | 'matter-reference' | 'contact-reference';
-    target: 'matter' | 'entity';
+    target: 'matter' | 'entity' | 'matterAsset';
     attachmentId: string | null;
     numberScale?: number | null;
     required?: boolean;

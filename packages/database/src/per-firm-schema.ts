@@ -1718,10 +1718,17 @@ export const trackingEvent = sqliteTable(
   ],
 );
 
-// Firm-defined fields that extend matter or entity records with arbitrary typed data.
-// kind controls which value_* column is populated in custom_field_value; attachment_id scopes
-// the field to a specific matter type or entity category (null = applies to all).
+// Firm-defined fields that extend matter, entity (directory contact), or matter-asset records with
+// arbitrary typed data. kind controls which value_* column is populated in custom_field_value;
+// attachment_id scopes the field within its target — a matter type, an entity category, or an asset
+// class (null = applies to all of that target).
 // number_scale is the number of decimal places implied by value_number (integer storage).
+//
+// `target` carries no CHECK and never has: the column is a bare TEXT and the enum below is a
+// TypeScript type that emits no SQL, which is why widening it takes no migration. The vocabulary's
+// one home is CUSTOM_FIELD_TARGETS in @magna-carta/custom-fields; this list is restated here only
+// because a schema package cannot import a domain package that imports it, and
+// packages/custom-fields/test/schema-name-sync.test.ts fails if the two ever disagree.
 export const customField = sqliteTable(
   "custom_field",
   {
@@ -1743,7 +1750,7 @@ export const customField = sqliteTable(
         "contact-reference",
       ],
     }).notNull(),
-    target: text("target", { enum: ["matter", "entity"] }).notNull(),
+    target: text("target", { enum: ["matter", "entity", "matterAsset"] }).notNull(),
     attachmentId: text("attachment_id"),
     numberScale: integer("number_scale"),
     required: integer("required").notNull().default(0),

@@ -33,9 +33,21 @@ export interface CustomFieldDefinitionColumns {
   archived: number;
 }
 
-// The firm's ACTIVE matter-axis fields, as the dictionary sees them. Scoped to `target = 'matter'`
-// because an assembly resolves against a matter: an entity-axis field's values hang off a directory
-// record, and offering one as a merge field would produce a key that can never resolve.
+// The firm's ACTIVE matter-axis fields, as the dictionary sees them.
+//
+// SCOPED TO `target = 'matter'`, AND THE FILTER IS THE WHOLE OF THE RULE. A `custom.<handle>` key is
+// a scalar resolved against ONE target row, and the row an assembly has is the matter's. A field on
+// any other axis hangs its values off a different row — a directory record, or one of a matter's
+// many asset rows — so offering it here would mint a key that is present in the catalogue, binds at
+// registration, and then resolves to an absence on every document forever. Excluding it is what
+// makes the catalogue's promise ("a key that exists resolves") true rather than nearly true.
+//
+// An asset's own fields reaching a document is therefore a DIFFERENT feature from this one: the
+// asset subjects are collection-only (`assets.all` and the ten class subjects), so a firm's field on
+// an asset would have to arrive as an item field on those collections, per item, not as a scalar
+// here. Nothing about widening the target vocabulary changes that, which is why this statement did
+// not change when `matterAsset` was added.
+// test/custom-field-catalog-scope.test.ts holds the filter against every non-matter target.
 export function selectCustomFieldCatalogStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
     `SELECT id, name, kind, number_scale, archived
