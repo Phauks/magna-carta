@@ -313,6 +313,12 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The deployment's public origin (e.g. https://app.magnacarta.esq). Public configuration, never a
+  // secret. Every request-serving path derives its own origin from the request; this exists for the
+  // background passes that have no request to derive one from — today, the notification digest,
+  // whose one link back into the product cannot be built without it. Absent, that pass reports an
+  // honest not-configured reason and mails nobody (notifications/digest-send-port.ts).
+  APP_BASE_URL?: string;
   // The dedicated cookieless content domain (a separate registrable domain from the app) that serves all
   // browser-served untrusted bytes: the editor at `<documentKey>.<USERCONTENT_DOMAIN>` and file
   // previews/downloads at `files.<USERCONTENT_DOMAIN>`. Optional and rarely set — the production value is

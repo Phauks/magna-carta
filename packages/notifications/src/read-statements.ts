@@ -5,7 +5,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { NotificationCategory, NotificationRecipientState } from "./types.ts";
-import { MAX_FEED_PAGE_SIZE } from "./types.ts";
+import { MAX_DIGEST_ITEMS_PER_RUN, MAX_FEED_PAGE_SIZE } from "./types.ts";
 import {
   NOTIFICATION_EVENT_TABLE,
   NOTIFICATION_RECIPIENT_TABLE,
@@ -155,6 +155,71 @@ export function selectSweptUnreadStatement(
       `SELECT unread_count, oldest_swept_occurred_at, last_swept_at FROM ${NOTIFICATION_SWEPT_UNREAD_TABLE} WHERE recipient_user_id = ?1`,
     )
     .bind(recipientUserId);
+}
+
+// The watermark one digest run starts after: an instant AND the event id that instant belongs to.
+// Never a bare timestamp — two events sharing an instant would straddle a bare-timestamp boundary,
+// and one of them would be carried twice or not at all.
+export interface DigestWatermark {
+  readonly lastOccurredAt: string;
+  readonly lastEventId: string;
+}
+
+// What one row contributes to a summary. A CATEGORY, an ESCALATION-bearing kind, and the recipient
+// row's own handle so the send can be settled against it — and nothing else. There is no title
+// column to omit here because there is no title column anywhere in this subsystem; what this
+// deliberately does not select is the subject, the matter, and the facts, none of which an email may
+// carry and none of which the aggregation needs.
+export interface DigestWindowRawRow {
+  readonly notification_recipient_id: string;
+  readonly kind: string;
+  readonly category: string;
+  readonly occurred_at: string;
+  readonly notification_event_id: string;
+}
+
+// THE DIGEST READ, and it is the dangerous one: it runs server-side, on a member's behalf, with no
+// request context — exactly where a "we already know who this is for" shortcut gets written. It
+// composes its WHERE from `visibleNotificationScope` like the feed and the count do, so "the digest
+// respects the wall" names ONE implementation rather than a second that can drift from it.
+//
+// ASCENDING, unlike the feed. A summary walks forward from where the last one stopped, so the
+// watermark it leaves behind is the last row it actually carried; the feed walks backward from now
+// because a reader wants the newest first. Same scope, opposite direction, and the ordering pair is
+// the event's rather than the recipient row's because the watermark is stored in the event's terms.
+//
+// No state filter, deliberately. The window is defined by the watermark — "what arrived since we
+// last wrote to you" — and filtering out rows the member happened to have already opened would make
+// two members with identical queues receive different mail depending on when they looked at the app,
+// and would leave the settled set disagreeing with the watermark that claims to cover it.
+export function selectDigestWindowStatement(
+  database: SqlDatabase,
+  scope: Omit<VisibleNotificationScope, "category" | "state">,
+  options: { readonly after: DigestWatermark | null; readonly limit: number },
+): SqlStatement {
+  const { from, conditions, bindings } = visibleNotificationScope(scope);
+  if (options.after !== null) {
+    // Written out rather than as a row-value comparison so the index walk is legible and the shape
+    // matches every other keyset in the platform.
+    conditions.push(
+      `(${NOTIFICATION_EVENT_TABLE}.occurred_at > ? OR (${NOTIFICATION_EVENT_TABLE}.occurred_at = ? AND ${NOTIFICATION_EVENT_TABLE}.id > ?))`,
+    );
+    bindings.push(
+      options.after.lastOccurredAt,
+      options.after.lastOccurredAt,
+      options.after.lastEventId,
+    );
+  }
+  // Over-read by one so the caller can tell a full page from a clamped one without a second count.
+  // A clamped page is reported as "at least N" rather than as N, which is the only honest reading.
+  const limit = Math.min(Math.max(options.limit, 1), MAX_DIGEST_ITEMS_PER_RUN);
+  bindings.push(limit + 1);
+  return database
+    .prepare(
+      `SELECT ${NOTIFICATION_RECIPIENT_TABLE}.id AS notification_recipient_id, ${NOTIFICATION_EVENT_TABLE}.kind AS kind, ${NOTIFICATION_EVENT_TABLE}.category AS category, ${NOTIFICATION_EVENT_TABLE}.occurred_at AS occurred_at, ${NOTIFICATION_EVENT_TABLE}.id AS notification_event_id ` +
+        `FROM ${from} WHERE ${conditions.join(" AND ")} ORDER BY ${NOTIFICATION_EVENT_TABLE}.occurred_at ASC, ${NOTIFICATION_EVENT_TABLE}.id ASC LIMIT ?`,
+    )
+    .bind(...bindings);
 }
 
 // Resolves ONE of the member's own recipient rows, under the same wall. Used by mark-read and

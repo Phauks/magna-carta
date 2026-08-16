@@ -402,9 +402,12 @@
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
   // marked scan_verdict = 'unscanned' onto FILES_INGEST so a now-available scan engine can evaluate
   // them in place; the */10 pass probes the core primitives and polls the upstream provider feeds,
-  // writing the status:derived snapshot in STATUS_KV. src/index.ts routes each Cron expression to
-  // its handler.
+  // writing the status:derived snapshot in STATUS_KV; the hourly pass composes notification email
+  // digests, waking every hour only because a summary is anchored to each firm's OWN morning rather
+  // than to UTC's — firms whose local hour it is not cost two small setting reads, and a deployment
+  // with no outbound-mail provisioning exits before reading a single firm. src/index.ts routes each
+  // Cron expression to its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *", "0 * * * *"],
   },
 }
