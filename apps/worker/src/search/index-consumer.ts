@@ -17,6 +17,7 @@ import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { corpusNeedsCompaction } from "./compaction-consumer.ts";
 import { searchCompactionJobName } from "./compaction-types.ts";
+import { writeNaturalLanguageFeedObject } from "./natural-language-feed-writer.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 import { searchIndexJobName, type SearchIndexMessage } from "./index-types.ts";
 import { resolveTextExtractionPort } from "./text-extraction.ts";
@@ -185,6 +186,35 @@ export async function indexOne(
   );
 
   await coordinator.markIndexed(objectKey);
+
+  // THE SECOND CONSUMER OF THE SAME EXTRACTION. The bytes were read once and parsed once, above;
+  // the keyword split and the natural-language feed both read that one result. Re-extracting here
+  // would be a second parse of the same untrusted document, and would let the two derived copies
+  // disagree about what the document says with nothing comparing them.
+  //
+  // Both of the feature's gates are read inside the writer, at the moment of writing, so a firm that
+  // has not opted in and a matter that has been excluded each produce nothing here.
+  //
+  // A failure is swallowed for the same reason the compaction trigger below swallows one: the
+  // document IS indexed and searchable through the keyword half, and turning a failure on a derived
+  // secondary copy into a failed index job would take a searchable document back out of the corpus.
+  // The daily re-extraction pass re-enqueues the version, which retries this along with everything
+  // else.
+  try {
+    await writeNaturalLanguageFeedObject(
+      database,
+      env.R2,
+      { matterId, documentId, version: message.version, passages: extraction.passages },
+      now,
+    );
+  } catch (caught) {
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `queue:search-index:natural-language-feed`,
+      caught,
+      newCorrelationId(),
+    );
+  }
 
   // THE COMPACTION TRIGGER, and it is deliberately only a count. Publishing a split is what makes a
   // corpus's live split count grow, and the read path's cost grows with it — a query is handed every

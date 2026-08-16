@@ -18,7 +18,16 @@
       "path": "../data-access/tsconfig.build.json"
     },
     {
+      "path": "../database/tsconfig.build.json"
+    },
+    {
       "path": "../identifiers/tsconfig.build.json"
+    },
+    {
+      "path": "../inference/tsconfig.build.json"
+    },
+    {
+      "path": "../object-dimensions/tsconfig.build.json"
     }
   ],
   "include": [

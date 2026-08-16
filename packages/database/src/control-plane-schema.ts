@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AccountId,
@@ -425,4 +425,58 @@ export const emailCaptureRoute = sqliteTable(
     revokedAt: text("revoked_at"), // ISO-8601 instant; null while the token still routes
   },
   (table) => [index("email_capture_route_firm_id_index").on(table.firmId)],
+);
+
+// The platform's own catalog of which firms have a managed natural-language search instance.
+//
+// CONTROL-PLANE, and one row per firm, because the instance is a resource in the platform's account
+// rather than a fact about the firm's matters — and because this row, not the service, is the
+// authority on what exists. Nothing ever calls the service's list operation to learn which firms
+// have instances, for the same reason the keyword index keeps a split catalog rather than listing a
+// bucket prefix: asking the service makes it the authority on a fact the platform owns, and makes an
+// outage indistinguishable from a firm having no instance.
+export const aiSearchInstance = sqliteTable(
+  "ai_search_instance",
+  {
+    // One instance per firm, so the firm IS the key. A natural-key primary key, the same idiom as the
+    // capture-route row above — a separate handle would earn nothing.
+    firmId: text("firm_id")
+      .primaryKey()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // The derived, opaque name. Derived rather than minted so a repeated create converges on the
+    // same instance and a crashed provisioning step is restartable rather than leaky; opaque because
+    // instance names appear in account-level surfaces that are not partitioned per firm, so the name
+    // must carry no firm name, no client name, and no human-readable text.
+    instanceName: text("instance_name").notNull(),
+    // Whatever identifier the service returned, recorded verbatim and never parsed for meaning. Null
+    // until a create has succeeded.
+    instanceIdentifier: text("instance_identifier"),
+    // Which generation of the fixed configuration this instance was created under. An instance whose
+    // generation is behind is identifiable from this row alone — which matters because the metadata
+    // schema is part of that configuration and changing it re-indexes every document in the instance.
+    configurationGeneration: integer("configuration_generation").notNull(),
+    // provisioning | ready | tearing-down | absent. `absent` is a RECORDED state rather than a
+    // missing row: a firm that opted out and was torn down is a different fact from a firm that never
+    // opted in, and only the recorded state tells them apart afterwards.
+    state: text("state", {
+      enum: ["provisioning", "ready", "tearing-down", "absent"],
+    }).notNull(),
+    // What the service said when asked to delete the instance, kept as-is. The platform can
+    // demonstrate deletion of the text it wrote into storage it owns; deletion of the managed index
+    // is a request whose completeness it cannot demonstrate, so the response is recorded and nothing
+    // is concluded from it.
+    teardownResponse: text("teardown_response"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The weekly keep-alive sweep walks every `ready` instance and nothing else.
+    index("ai_search_instance_state_index").on(table.state),
+    uniqueIndex("ai_search_instance_instance_name_unique_index").on(table.instanceName),
+    check(
+      "ai_search_instance_state_check",
+      sql`${table.state} IN ('provisioning', 'ready', 'tearing-down', 'absent')`,
+    ),
+  ],
 );

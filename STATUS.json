@@ -2296,6 +2296,56 @@
       "notes": "The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen."
     },
     {
+      "slice": "Natural-language document search",
+      "group": "cross-cutting",
+      "order": 39,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "in-progress",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "The retrieval port's adapter and the matter-scoped route — blocked until the filter-wall experiment's E1 and E2 have been run against a real instance",
+      "links": {
+        "spec": "docs/specs/2026-08-06-ai-search-integration-design.md",
+        "plan": "docs/specs/2026-08-06-ai-search-integration-implementation-plan.md",
+        "adrs": [
+          "ADR-0003",
+          "ADR-0110",
+          "ADR-0111",
+          "ADR-0255"
+        ]
+      },
+      "blockedBy": [
+        "E1 and E2 of the ethical-wall filter experiment (docs/research/2026-08-07-ai-search-filter-wall-experiment.md) — the local half is proven and runnable; the live run against a fenced account has not been executed"
+      ],
+      "notes": "Slice 1 landed with **every gate closed**: no firm has the setting on, no instance exists for any\nfirm, and no feed object has been written. Built: the consent gate (`search.naturalLanguageEnabled`,\ndefault off) behind a firm-level **versioned disclosure** whose acceptance is the precondition the\nwrite path refuses without; the per-matter exclusion flag, which deletes a matter's existing feed\nobjects rather than merely stopping new ones; the derived text feed and its catalog, written by the\nexisting search index job as a **second consumer of the extraction it already computed**; the\ninstance lifecycle (derived opaque name, one versioned configuration constant, queue-dispatched\nprovisioning and teardown, weekly keep-alive); catalog-driven deletion with reconciliation against\nthe bucket; the usage meter, keeping authoritative counts structurally apart from the one estimated\nfigure and naming managed storage as an unmetered gap; audit and error-pipeline events carrying no\nquery text; both bindings declared-and-commented in `wrangler.jsonc` with the gateway posture in the\ndeploy runbook.\n\n**Deliberately not built: the retrieval adapter and route.** The managed index's metadata-filter\nsemantics have not been observed against a real instance, and a filter that fails open — or is\naccepted and silently ignored — cannot bear even the recall-optimization weight the design puts on\nit. Both ports resolve to typed unavailable outcomes reached through the production resolvers.\nOwner direction (ADR-0255) removed the general-availability gate: enablement waits on the firm's\nversioned disclosure, not on Cloudflare leaving beta."
+    },
+    {
       "slice": "3·1 — Time tracking + WIP + rate engine",
       "group": "phase-3",
       "order": 1,

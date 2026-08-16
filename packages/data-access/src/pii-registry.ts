@@ -722,6 +722,23 @@ export const NO_PII_TABLES: readonly string[] = [
   // anything about the people in them. The passages themselves are in the split object in R2 and leave
   // it when compaction repacks the split, not when a row here is deleted.
   "index_split_member",
+  // The natural-language search feed catalog — one row per object of extracted text copied out to the
+  // managed index: file id, version number, matter id, object key, byte count, and two timestamps.
+  // Identifiers and integers only. The extracted text itself, and any personal data in it, lives in the
+  // feed object in R2 and in the managed index; it is erased by the deletion job that removes the
+  // object and marks the row removed, not by deleting the row — which is exactly why the row is marked
+  // rather than deleted, since it is the record that the erasure happened.
+  "ai_search_feed_object",
+  // Per-firm usage of the managed search index — a civil-day bucket with four counters and one recorded
+  // ratio. It carries no member, no matter, and no query: a query's audit row names the member and the
+  // matter, and this table deliberately cannot, because a per-member usage series would be a record of
+  // who searched what and when built out of a billing meter.
+  "ai_search_usage_meter",
+  // The firm's acknowledgement of the search disclosure: one row, a version number, an instant, and the
+  // administrator who accepted it. The member reference is administrative provenance on a configuration
+  // act — who signed the firm up to an arrangement — and is current state rather than an activity
+  // record about that person, the same line integration_connection and scoped_setting sit on.
+  "ai_search_disclosure_acknowledgement",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

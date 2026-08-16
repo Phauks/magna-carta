@@ -1,0 +1,137 @@
+# @magna-carta/search — CLAUDE.md
+
+**Purpose.** The pure domain package behind both search surfaces: the discovery **keyword** index
+(the corpus scope key, the split-key derivation, the extraction and fusion types, and
+`SearchIndexPort`) and the firm-facing **natural-language** search over a firm's own working
+documents (its consent gate and versioned disclosure, the derived text feed and its catalog, the
+managed-instance configuration and lifecycle, the usage meter, and `NaturalLanguageSearchPort`).
+
+No binding, no `env`, no network, no bucket handle. Every function here takes a firm-scoped database
+handle from its caller, which is the whole of how firm scoping works in this package — nothing in it
+can reach two firms at once. The runtime halves live in `apps/worker/src/search/` (the queue
+consumers, the sweeps, and the binding resolvers) and in `apps/search-worker` + `containers/search`
+(the keyword engine).
+
+**White paper:** _Core domain_ (search and discovery), with _AI / inference_, _Tenancy and data
+isolation_, and _Settings & configuration_ as surrounding context —
+[`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md). (ADR-0003, ADR-0012,
+ADR-0110, ADR-0111.)
+
+## Key files / entry points
+
+**Keyword search**
+
+- `src/corpus.ts` — `CorpusScope`, the partition key both ports share
+- `src/port.ts` — `SearchIndexPort`; `src/split.ts` — the derived split id and R2 key
+- `src/extraction.ts`, `src/fusion.ts` — the extraction port and reciprocal rank fusion
+- `src/settings.ts` — `search.indexing_enabled` and the compaction thresholds
+
+**Natural-language search** (every module prefixed `natural-language-`)
+
+- `natural-language-settings.ts` — `search.naturalLanguageEnabled`, default `false`, and its total read
+- `natural-language-disclosure.ts` — the versioned statement a firm's administrator accepts
+- `natural-language-enablement.ts` — **the write path**: the only place the gate is flipped or a
+  matter excluded, composing effects rather than performing them
+- `natural-language-feed.ts` — the feed key, the one object class, and the document body
+- `natural-language-instance.ts` — the derived instance name, the one configuration, the metadata schema
+- `natural-language-port.ts` / `natural-language-provisioning.ts` — the two ports and their
+  not-configured default resolutions
+- `natural-language-statements.ts` (per-firm) / `natural-language-instance-statements.ts`
+  (control-plane) — the SQL
+- `natural-language-audit.ts`, `natural-language-topics.ts`
+
+**`test/natural-language-filter-wall/`** is not production code and is exported from nothing. It is
+the runnable protocol for verifying the managed index's metadata-filter semantics against a real
+instance, built and sensitivity-proven ahead of the retrieval adapter. Its filter and feed-key shapes
+are the ones the production modules adopted; keep the two in step.
+
+## Local rules — natural-language search
+
+- **The filter is not the boundary. Read-time re-authorization is.** Between firms, isolation is
+  structural: one instance per firm, and a query against one firm's instance cannot reach another's
+  bytes for the same reason a query against its database cannot. **Within** a firm the matter scope is
+  a filter argument constructed on every request, which is weaker than anything else this platform
+  relies on — so every pointer a hit carries is re-resolved through the firm-scoped data-access layer
+  and re-checked against the caller's entitlement **before a single character of it is returned**. The
+  metadata filter is a recall and cost optimization. A hit that fails the check is dropped, and the
+  drop is a platform defect of the most serious kind, not a routine condition. Never write code that
+  treats a filter argument as the thing keeping one matter out of another's results.
+- **No filter value ever comes from a request.** Every value is derived server-side from the
+  authenticated session and the route's path. `NaturalLanguageSearchInput` has no filter field and no
+  slot for one; a fitness test asserts that, and asserts the object-class include list stays a closed
+  literal union rather than becoming `string[]`.
+- **The feed is an ALLOW-LIST with exactly one entry.** Nothing reaches the managed index except by the
+  feed writer producing an object for it, and it produces objects for one class — committed file
+  versions — and nothing else: not the mutable working copy of an open editing session, not
+  conversions, not bundles, not captured email originals, not keyword-index splits, and above all not
+  a discovery review set, which is material an opposing party produced. Assistant transcripts are rows
+  in the per-firm database and are not R2 objects at all, so no misconfiguration reaches them. This is
+  why the instance is pointed at a derived feed prefix and **never at a firm's bucket**.
+- **The metadata schema is a foundation, not a setting.** Changing it re-indexes every document in
+  every firm's instance, so it is declared complete at creation from one constant in
+  `natural-language-instance.ts`. A second literal spelling of the field list anywhere else is a
+  second place it can drift from what the instances were actually created with — a drift whose symptom
+  is a filter that matches nothing while looking like it works. A fitness test refuses one.
+- **Both gates are read at the moment of writing, never inherited.** `mayFeedMatter` reads the firm
+  setting and the matter's exclusion flag together, and both reads are total in the safe direction: an
+  unreadable setting is a shut gate, and a matter that cannot be found is an excluded one.
+- **A matter exclusion DELETES, it does not merely stop.** Setting the flag enqueues deletion of that
+  matter's existing feed objects. An opt-out that only stopped new writes would leave the material
+  that prompted it sitting in the index.
+- **Deletion is planned from the catalog, never from a bucket listing.** A listing-driven delete cannot
+  tell an object it has never heard of from one it wrote. Driven from the catalog, that object is a
+  reconciliation mismatch — a fact somebody can act on — instead of a silent miss.
+- **Say only what can be demonstrated.** The platform deletes the extracted text it wrote, from storage
+  it owns, and can enumerate the catalog to show it. Deletion of the managed index is a request whose
+  completeness it cannot demonstrate, and the disclosure says exactly that. Do not add a sentence
+  anywhere that upgrades "requested" to "gone".
+- **No generation, ever, and no second model chokepoint.** Nothing here constructs a generation call,
+  configures a text-generation model, or enables a public endpoint; fitness tests assert all three.
+  The embedding model is read from `@magna-carta/inference`'s pin rather than named here, so this
+  package names no provider.
+- **No query text in any log, audit row, or error payload.** A member's question about a client matter
+  is privileged content. The audit builders take typed inputs of identifiers, numbers, and closed
+  labels — there is no field it could be passed in — and the dropped-hit count never reaches the
+  caller, because "your query matched fourteen passages you may not see" is itself a disclosure.
+
+## Invariants that apply here
+
+- **All business data through the firm-scoped data-access layer** (golden rule 3): this package holds
+  no binding and crosses no firm; the caller supplies the handle.
+- **Every outcome is a typed value, never a thrown error** — the discipline `SearchIndexPort`,
+  `ConversionPort`, and the integrations `Dispatch` already share. That includes the two
+  not-configured resolutions: an absent binding produces `instance-not-provisioned` /
+  `binding-not-configured`, never a throw at construction and never a clean empty success, which would
+  be indistinguishable from a corpus in which nothing matched.
+- **Derived keys and names are compatibility contracts.** The split key, the feed key, and the
+  instance name are all derived rather than minted, and their exact bytes are pinned in the tests
+  beside them. Changing one orphans everything already written under it.
+
+## Dependencies & contracts
+
+- Depends on `@magna-carta/data-access` (statement and effect shapes), `@magna-carta/identifiers`,
+  `@magna-carta/object-dimensions` (the one home for what a bucket object is stamped with), and
+  `@magna-carta/inference` (the embedding pin only — never a provider).
+- Consumed by `apps/worker/src/search/` and, for the keyword half, by `apps/search-worker`.
+- Table names are tracked against `@magna-carta/database` by
+  `test/natural-language-schema-name-sync.test.ts`; renaming a table there fails here.
+
+## Gotchas
+
+- **The managed-search bindings are declared and commented out in `apps/worker/wrangler.jsonc`.**
+  Uncommenting them is a decision rather than a configuration step: the first instance the management
+  binding creates fixes an embedding model that cannot be changed afterwards without re-embedding the
+  corpus, and the platform's embedding pin still reads open in
+  `packages/inference/src/catalog.ts`. Freeze the pin before the first instance exists.
+- **The retrieval adapter is deliberately unwritten.** The query port resolves to a
+  `instance-not-provisioned` outcome in every deployment. What is missing is not the code but the
+  evidence: the managed index's filter semantics have not been observed against a real instance, and a
+  filter that fails open — or is accepted and silently ignored — cannot bear even the
+  recall-optimization weight this design puts on it. The protocol that closes that question is already
+  runnable in `test/natural-language-filter-wall/`.
+- **`client` and `confidentiality_scope` are declared on the instance and written by nothing.** They
+  are declared because adding a metadata field later re-indexes every firm, and unwritten because the
+  platform reserves both names in `@magna-carta/object-dimensions` and a dimension absent on every
+  object is worse than no dimension. Lifting one reservation is a change in both places.
+- `vp test` runs the whole repo. For this package alone: `npx vitest run --root packages/search`, and
+  never two test invocations at once.

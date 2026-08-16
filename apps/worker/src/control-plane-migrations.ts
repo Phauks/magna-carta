@@ -11,6 +11,8 @@ import selfServeRegistrationAndInvitationsSql from "@magna-carta/database/drizzl
 // per-firm-migrations.ts; the same plain .sql text-import bundling contract (src/sql-modules.d.ts).
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry —
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id.
+import naturalLanguageSearchInstanceSql from "@magna-carta/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql";
+
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
     "20260704T041516_baseline": baselineSql,
@@ -19,6 +21,7 @@ export function controlPlaneMigrations(): Migration[] {
     "20260804T065814_firm-bucket-name-unique": firmBucketNameUniqueSql,
     "20260811T224252_self-serve-registration-and-invitations":
       selfServeRegistrationAndInvitationsSql,
+    "20260816T152908_natural-language-search-instance": naturalLanguageSearchInstanceSql,
   });
 }
 

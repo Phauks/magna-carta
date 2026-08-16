@@ -10,7 +10,18 @@
     "./fusion": "./src/fusion.ts",
     "./extraction": "./src/extraction.ts",
     "./settings": "./src/settings.ts",
-    "./split": "./src/split.ts"
+    "./split": "./src/split.ts",
+    "./natural-language-audit": "./src/natural-language-audit.ts",
+    "./natural-language-disclosure": "./src/natural-language-disclosure.ts",
+    "./natural-language-enablement": "./src/natural-language-enablement.ts",
+    "./natural-language-feed": "./src/natural-language-feed.ts",
+    "./natural-language-instance": "./src/natural-language-instance.ts",
+    "./natural-language-instance-statements": "./src/natural-language-instance-statements.ts",
+    "./natural-language-port": "./src/natural-language-port.ts",
+    "./natural-language-provisioning": "./src/natural-language-provisioning.ts",
+    "./natural-language-settings": "./src/natural-language-settings.ts",
+    "./natural-language-statements": "./src/natural-language-statements.ts",
+    "./natural-language-topics": "./src/natural-language-topics.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -18,11 +29,15 @@
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/inference": "workspace:*",
+    "@magna-carta/object-dimensions": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@magna-carta/database": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
     "vitest": "catalog:"
   }
 }
