@@ -8,6 +8,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -52,7 +53,7 @@ async function openMatter(title: string, clientEntityId: string): Promise<string
     status: "open",
     responsibleMemberId: ownerUserId,
   });
-  const matterId = (await created.json()).matterId as string;
+  const matterId = (await readJson<{ matterId: string }>(created)).matterId;
   await firmDatabase
     .prepare(
       "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",

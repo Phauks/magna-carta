@@ -26,8 +26,8 @@ async function ownerCookie(email: string, name: string): Promise<string> {
   return signInForSessionCookie(email);
 }
 
-function post(path: string, cookie: string, body: string | null): Promise<Response> {
-  return app.request(
+async function post(path: string, cookie: string, body: string | null): Promise<Response> {
+  return await app.request(
     `https://example.com/api/v1/file-repair/${path}`,
     {
       method: "POST",
@@ -76,7 +76,7 @@ describe("POST /api/v1/file-repair/*", () => {
       loss: { fullyRecovered: boolean };
     };
     expect(body.files.length).toBeGreaterThan(0);
-    expect(body.files[0].contentBase64.length).toBeGreaterThan(0);
+    expect(body.files[0]?.contentBase64.length).toBeGreaterThan(0);
     expect(typeof body.loss.fullyRecovered).toBe("boolean");
   });
 

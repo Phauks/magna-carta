@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -51,7 +52,7 @@ async function openMatter(title: string): Promise<string> {
     responsibleMemberId: ownerUserId,
   });
   expect(created.status).toBe(201);
-  return (await created.json()).matterId;
+  return (await readJson<{ matterId: string }>(created)).matterId;
 }
 
 interface CloseBody {
@@ -127,7 +128,7 @@ describe("closing a matter that has custody packets against it", () => {
 
     // The matter really is closed, and the packet is untouched by the close.
     const matter = await get(`/api/v1/matters/${matterId}`);
-    expect((await matter.json()).status).toBe("closed");
+    expect((await readJson<{ status: string }>(matter)).status).toBe("closed");
     const packets = await get(`/api/v1/custody/packets?matterId=${matterId}`);
     const listed = (await packets.json()) as { data: { status: string }[] };
     expect(listed.data[0]?.status).toBe("held");
@@ -137,6 +138,6 @@ describe("closing a matter that has custody packets against it", () => {
     const matterId = await openMatter("Nothing In The Safe");
     const closed = await post(`/api/v1/matters/${matterId}/close`);
     expect(closed.status).toBe(200);
-    expect((await closed.json()).notices).toEqual([]);
+    expect((await readJson<{ notices: unknown[] }>(closed)).notices).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import type { DurableObjectId, DurableObjectStub } from "@cloudflare/workers-types";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { FirmDatabase } from "./firm-database-object.ts";
 
 // The minimal SQL-statement shape the statement modules and effect-batch build against.
@@ -19,9 +19,31 @@ export interface ProxySqlStatement {
 // The full BatchDatabase shape that commitEffectBatch drives: a SqlDatabase (prepare) plus
 // an atomic batch (batch). Every write that goes through commitEffectBatch reaches the DO as
 // one commitBatch RPC, so effects are atomic — the batch either fully commits or fully rolls back.
+//
+// `batch` accepts the PORT's statement type, not this module's richer one. prepare() returning the
+// richer ProxySqlStatement is a promise this proxy keeps; batch() demanding it would be a promise it
+// asks of its callers, and the port it stands in for (BatchDatabase in
+// packages/data-access/src/effect-batch.ts) only ever promises them a SqlStatement — which declares
+// `sql` optional and no `bindings` at all, because a statement module hands back the port type and
+// throws the extra members away. Narrowing an input like that does not fail to compile: TypeScript
+// compares method parameters bivariantly, so the mismatch stays invisible at every call through the
+// port and surfaces only on a direct call. Taking the port shape here is what makes the substitution
+// actually sound rather than merely accepted.
 export interface ProxyBatchDatabase {
   prepare(sql: string): ProxySqlStatement;
-  batch(statements: ProxySqlStatement[]): Promise<{ success: boolean }[]>;
+  batch(statements: readonly SqlStatement[]): Promise<{ success: boolean }[]>;
+}
+
+// Every statement in a batch has to reach the Durable Object as a `sql` + `bindings` pair, and the
+// port type guarantees neither. In practice each one was built by this proxy's own prepare()/bind(),
+// which carries both — so this checks that rather than assuming it. A statement prepared against some
+// other database cannot be committed into a firm's Durable Object at all, and saying so by name beats
+// spreading `undefined` into an RPC argument and reading the failure downstream.
+function isProxyStatement(statement: SqlStatement): statement is SqlStatement & ProxySqlStatement {
+  return (
+    typeof statement.sql === "string" &&
+    Array.isArray((statement as { readonly bindings?: unknown }).bindings)
+  );
 }
 
 // Builds a worker-side BatchDatabase that marshals every operation to the firm's FirmDatabase
@@ -55,9 +77,17 @@ function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDat
   return {
     prepare: (sql: string) => makeStatement(sql, []),
 
-    batch: async (statements: ProxySqlStatement[]) => {
+    batch: async (statements: readonly SqlStatement[]) => {
       const outcome = await stub.commitBatch(
-        statements.map((s) => ({ sql: s.sql, bindings: [...s.bindings] })),
+        statements.map((statement) => {
+          if (!isProxyStatement(statement)) {
+            throw new TypeError(
+              "firmDatabaseFor: batch() accepts only statements prepared against this firm database — " +
+                "one carrying no sql/bindings was prepared elsewhere and cannot commit into this firm's Durable Object.",
+            );
+          }
+          return { sql: statement.sql, bindings: [...statement.bindings] };
+        }),
       );
       if (!outcome.ok) {
         // Reconstruct the SQLite UNIQUE constraint message from the column list the DO parsed, so the

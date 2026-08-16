@@ -214,7 +214,7 @@ async function loadVersionR2Key(
   return row.r2_key;
 }
 
-function postAttach(
+async function postAttach(
   path: string,
   cookie: string,
   body: string,
@@ -223,7 +223,7 @@ function postAttach(
   const queryString = new URLSearchParams(
     Object.entries(query).filter((entry): entry is [string, string] => entry[1] !== undefined),
   ).toString();
-  return app.request(
+  return await app.request(
     `https://example.com/api/v1/file-repair/${path}?${queryString}`,
     {
       method: "POST",

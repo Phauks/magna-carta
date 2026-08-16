@@ -43,8 +43,12 @@ interface Harness {
 function harness(options: Parameters<typeof createApp>[0] = {}): Harness {
   const logger = createMemoryLogger();
   const app = createApp({ ...options, loggerForEnv: () => logger });
-  const post = (path: string, body: unknown, headers: Record<string, string>): Promise<Response> =>
-    app.request(
+  const post = async (
+    path: string,
+    body: unknown,
+    headers: Record<string, string>,
+  ): Promise<Response> =>
+    await app.request(
       `https://example.com${path}`,
       {
         method: "POST",

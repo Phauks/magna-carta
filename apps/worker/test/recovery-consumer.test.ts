@@ -44,6 +44,7 @@ function fakeEnv(options: { jobStatus: RecoveryJobStatus }): FakeBindings {
           progress: { candidatesTried: 0, shardsDone: 0, shardCount: 4 },
           password: null,
           error: null,
+          startedByUserId: "user_recovery_test",
         }),
         reportShard: async (shardIndex, outcome) => {
           reported.push({ shardIndex, outcome });

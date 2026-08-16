@@ -58,7 +58,8 @@ function manifestFor(cacheKey: string): BundleManifest {
       {
         archivePath: "a.txt",
         mtimeEpochSecs: null,
-        source: { source: "r2", r2Key: "files/o1/v1" },
+        source: "r2",
+        r2Key: "files/o1/v1",
       },
     ],
     outputKeyPrefix: `bundles/${cacheKey}`,

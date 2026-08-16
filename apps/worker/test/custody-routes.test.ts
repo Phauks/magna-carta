@@ -7,6 +7,7 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -416,7 +417,7 @@ describe("the custody register end to end", () => {
       key,
     );
     expect(retry.status).toBe(201);
-    expect((await retry.json()).id).toBe(firstId);
+    expect((await readJson<{ id: string }>(retry)).id).toBe(firstId);
 
     const history = await get(`/api/v1/custody/packets/${packetId}/movements`);
     const historyBody = (await history.json()) as { data: Array<{ kind: string }> };
@@ -660,7 +661,7 @@ describe("stocktake — counting the shelves without changing the register", () 
       ...(scopeLocationId === undefined ? {} : { scopeLocationId }),
     });
     expect(response.status).toBe(201);
-    return (await response.json()).id;
+    return (await readJson<{ id: string }>(response)).id;
   }
 
   beforeAll(async () => {
@@ -671,7 +672,7 @@ describe("stocktake — counting the shelves without changing the register", () 
         ...(parentLocationId === undefined ? {} : { parentLocationId }),
       });
       expect(response.status).toBe(201);
-      return (await response.json()).id;
+      return (await readJson<{ id: string }>(response)).id;
     }
     const office = await makeLocation("Stocktake office", "office");
     scaffold.safe = await makeLocation("Stocktake safe", "safe", office);
@@ -682,7 +683,7 @@ describe("stocktake — counting the shelves without changing the register", () 
       family: "Owner",
     });
     expect(person.status).toBe(201);
-    const ownerEntityId = (await person.json()).id;
+    const ownerEntityId = (await readJson<{ id: string }>(person)).id;
 
     async function logPacket(name: string, currentLocationId: string): Promise<string> {
       const response = await stocktakePost("/api/v1/custody/packets", {
@@ -691,7 +692,7 @@ describe("stocktake — counting the shelves without changing the register", () 
         currentLocationId,
       });
       expect(response.status).toBe(201);
-      return (await response.json()).id;
+      return (await readJson<{ id: string }>(response)).id;
     }
     scaffold.matched = await logPacket("Stocktake matched", scaffold.safe);
     scaffold.misplaced = await logPacket("Stocktake misplaced", scaffold.shelf);
@@ -726,7 +727,7 @@ describe("stocktake — counting the shelves without changing the register", () 
       ],
     });
     expect(sighted.status).toBe(201);
-    expect((await sighted.json()).ids).toHaveLength(5);
+    expect((await readJson<{ ids: unknown[] }>(sighted)).ids).toHaveLength(5);
 
     const reconciliation = await stocktakeGet(
       `/api/v1/custody/stocktakes/${stocktakeId}/reconciliation`,

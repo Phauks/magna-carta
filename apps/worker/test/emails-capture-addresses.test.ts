@@ -14,6 +14,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -327,7 +328,7 @@ describe("capture-address rotate", () => {
     // caller's own completed rotation as missing.
     expect(second.status).toBe(201);
     expect(second.headers.get("Idempotency-Replayed")).toBe("true");
-    expect((await second.json()).token).toBe(first.token);
+    expect((await readJson<{ token: string }>(second)).token).toBe(first.token);
 
     // …and exactly one replacement exists on the matter, not two.
     const live = await firmDatabase

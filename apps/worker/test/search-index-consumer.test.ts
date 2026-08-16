@@ -89,6 +89,7 @@ async function messageFor(label: string, version: number): Promise<SearchIndexMe
     version,
     sourceKey,
     contentType: "application/pdf",
+    engineGeneration: "",
   };
 }
 

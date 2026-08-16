@@ -65,8 +65,8 @@ The techniques, in leverage order:
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
 a type error can no longer slip (`vp check`'s own whole-repo type-error pass is off;
 `typeCheck: false`). It builds **two** root solutions, `tsconfig.build.json` (every package's `src/`)
-and `tsconfig.test.json` (every package's `test/`), which between them cover the whole workspace bar
-one deferred member — see _Two projects per package: source emits, tests only check_ below.
+and `tsconfig.test.json` (every package's `test/`), which between them cover the whole workspace with
+nothing held out — see _Two projects per package: source emits, tests only check_ below.
 It is exhaustive and slow by design, and it is the **gate of record — run in GitHub Actions**
 (`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
 not on the inner loop.
@@ -278,46 +278,68 @@ files but type **errors** in them were reported by no pass in `pnpm check`, `pnp
 the CI gate, and `pnpm test` never noticed because Vitest strips types rather than checking them. The
 test corpus is 885 of the workspace's 2,118 type-checkable files — 42% of it — so a green typecheck
 was a statement about a little over half the repository. The backlog that surfaced when the projects
-were turned on was 53 errors across 16 members, all real and all now fixed.
+were turned on was 53 errors across 16 members, and a further 156 in `apps/worker` once its own
+deferral was lifted; all real, and all now fixed.
 
-**Cost.** Both roots are incremental and the test half is cheap. Measured on a 4-core box with the
-`.tsbuild` directories deleted: the build half alone is **1 min 32 s** cold, both roots together are
-**1 min 53 s** cold (the test half is 24 s of that when the build half is already warm), and warm the
-pair is **1.1 s** against 1.0 s before. So the whole-repo gate pays about 21 s more and the inner loop
-pays nothing: `check:scoped` runs `vp run typecheck` over the whole graph precisely because it is
-incremental, so it keeps both roots rather than skipping the test half.
+**Cost.** Both roots are incremental and the test half is cheap. One machine, one session, `.tsbuild`
+deleted before each cold run:
 
-#### `apps/worker`'s tests are the one deferred member, for two separate reasons
+| Cold, both roots                                 |           Time |
+| ------------------------------------------------ | -------------: |
+| build half alone (`tsconfig.build.json`)         |     1 min 54 s |
+| both roots, `apps/worker`'s tests still deferred |     2 min 29 s |
+| both roots, complete graph (all 71 members)      | **2 min 41 s** |
 
-`@magna-carta/worker` gets its `tsconfig.test.json` like everything else and
-`pnpm exec tsc -b apps/worker/tsconfig.test.json` runs it, but it is **not** in the root
-`tsconfig.test.json` solution (`DEFERRED_TEST_PROJECTS` in `tooling/tsconfig-refs/index.mjs`). Both
-reasons are measured, and neither is "it is big".
+Warm, the complete pair is **1–2 s**. So the test half costs about 47 s cold over the build half, of
+which `apps/worker` — 231 test files, more than a quarter of the corpus — is only **12 s (+8%)**: its
+test project references build projects whose declarations are already emitted, so the incremental work
+is checking test files and nothing else. The inner loop pays nothing, which is why `check:scoped` runs
+`vp run typecheck` over the whole graph rather than skipping the test half.
 
-**One file does not type-check at all.**
-`test/firm-database/firm-database-migration-partial-failure.test.ts` does not complete in **600
-seconds on its own**, with the rest of the tree excluded and memory flat at ~2 GB — so it is a
-pathological inference, not a size or a garbage-collection problem. Its 26 neighbours in the same
-batch each check in 2–3 seconds, and the batch containing it goes from over fifteen minutes to
-**4.2 s** when it alone is removed. It is the only file in the tree that behaves this way. The
-suspect is the two-parameter `runInDurableObject(stub, (instance, state) => …)` form — the
-one-parameter form next door in `firm-database-migrate.test.ts` costs nothing — but that is a lead,
-not a diagnosis.
+#### Every member is in the solution — and what `apps/worker` cost to get there
 
-**And the backlog behind it is 156 errors.** Type-checking the remaining 234 files in batches of 28
-takes **38.9 s in total** and reports 156 errors: `TS2571` "object is of type unknown" (89, nearly
-all an unchecked `await response.json()`), `TS2741`/`TS2345` missing or mismatched fixture properties
-(25), `TS18046` (17), and a long tail. They concentrate in the route suites —
-`trust-authorization-routes` 22, `billing-routes` 16, `trust-routes` 15, `document-automation` 10 —
-which is one repeated idiom rather than 156 separate problems, and a burn-down of its own size.
+`@magna-carta/worker` was the one member generated but held out of the root `tsconfig.test.json`, so
+its 231 test files were checked by nothing. It is in now, there is no deferral mechanism left in
+`tooling/tsconfig-refs/index.mjs`, and the graph is complete at 71 members. Two separate problems had
+to be settled first; both are worth keeping written down, because the first is a trap anyone can walk
+back into.
 
-Until both are dealt with, **the worker's test files are type-checked by nothing**, exactly as every
-package's were before. That is the cost of the deferral, and it is stated here rather than implied by
-a green gate. Do not work around it by batching the gate: the batching above is a measurement
-technique, not a design. Removing the deferral means fixing the one file and burning down the 156 —
-and the fan-out that makes the worker expensive in the first place (it depends directly on 39 of the
-workspace's packages and mounts every route through `src/app.ts`, the same shape that makes its
-type-aware lint a whole-repo lint) is tracked under _To formalize_.
+**One file did not type-check in 600 seconds — and the cause was not the file.**
+`test/firm-database/firm-database-migration-partial-failure.test.ts` did not complete on its own with
+the rest of the tree excluded, memory flat at ~2 GB, while its 26 batch-neighbours cost 2–3 s each.
+The standing suspicion was the two-parameter `runInDurableObject(stub, (instance, state) => …)` form.
+**That was wrong.** Bisecting to a minimal file refuted it in two steps: the two-parameter form with
+`state` left contextually typed checks in 2 s, and a file containing no `runInDurableObject` at all —
+just two variable declarations and two assignments — still exceeded 100 s.
+
+The real cause is that **`@cloudflare/workers-types` ships its entire surface twice**. `index.d.ts` is
+a global script (no top-level import or export), and is what `"types": ["@cloudflare/workers-types"]`
+loads. `index.ts` is a parallel module declaring the same ~16,000 lines with `export` in front of
+them, and, because the package publishes no `types`, `main` or `exports` field to redirect it, it is
+what `import ... from "@cloudflare/workers-types"` resolves to — confirmed by `--traceResolution`,
+which reports the specifier resolving to `index.ts`. A program doing both holds two distinct
+declarations of every Workers interface.
+
+Structurally identical, so nothing fails — it just gets compared. Non-generic interfaces are merely
+wasteful to compare (`DurableObjectStorage` crossing the two copies costs nothing measurable). The
+**generic** ones are fatal: `--generateTrace` shows `getVariancesWorker` on `DurableObjectState<Props>`
+returning `in out (unreliable)`, which abandons variance and drops the checker into full structural
+recursion over the mutually recursive graph hanging off it, at 200 ms+ per pair. Deleting the import
+took the file from **over 600 s to 2 s**. The same import appeared in two more places including
+production source, and `tooling/lint-workers-types-import.mjs` (`pnpm run lint:workers-types-import`)
+now fails any package that has the globals and imports the module copy anyway. **The rule is simply:
+inside a package on the worker preset, never import from `@cloudflare/workers-types` — the global of
+that name is the same type and is already in scope.**
+
+**And the backlog behind it was 156 errors**, all now fixed at the seam each one named, with no `any`,
+no `@ts-expect-error`, and no production type weakened. 106 of them were one idiom — `Response.json()`
+is declared `Promise<unknown>`, so reading a field off it is an error — resolved by `readJson<T>()` in
+`apps/worker/test/support/test-auth.ts`, which makes each call site name the shape it expects. The
+remainder were ordinary drift of the kind this pass exists to find, and four of them were substantive:
+a proxy input type narrower than the port it stood in for (sound only through method bivariance), two
+test fakes that had stopped covering fields their production types had gained, and a manifest fixture
+built in a shape the contract does not accept. They are listed in the changelog fragment for this
+change.
 
 ### The native compiler (TypeScript 7 / `tsgo`) — after references
 

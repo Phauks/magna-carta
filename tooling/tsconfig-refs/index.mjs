@@ -40,18 +40,6 @@ const GROUPS = ["packages", "apps"];
 // @magna-carta/tsconfig is config-only (no tsconfig.json) and is discovered out automatically.
 const EXCLUDE = new Set(["@magna-carta/web", "@magna-carta/api-client"]);
 
-// In the graph, but NOT in the root test solution: the member still gets a tsconfig.test.json and is
-// checkable on demand (`tsc -b apps/worker/tsconfig.test.json`), it is just not part of what
-// `vp run typecheck` builds.
-//
-// - @magna-carta/worker — two measured reasons, neither of them "it is big". One of its test files
-//   (test/firm-database/firm-database-migration-partial-failure.test.ts) does not type-check in 600
-//   seconds ON ITS OWN, so the whole tree never completes; and the other 234 files report 156 errors,
-//   a burn-down of its own size. Both are tracked with their numbers in
-//   docs/conventions/build-performance.md. Removing this entry means fixing the first and finishing
-//   the second — not batching the gate around them.
-const DEFERRED_TEST_PROJECTS = new Set(["@magna-carta/worker"]);
-
 // A tsconfig.json is JSONC. Only line comments appear in the ones this script reads, and no include
 // pattern or path in them contains `//`, so stripping those is enough — and a parse failure here
 // should be loud rather than guessed at, so nothing is swallowed.
@@ -87,12 +75,7 @@ function discoverMembers() {
         ),
       );
       const ownInclude = readTsconfig(tsconfigPath).include ?? [];
-      members.set(manifest.name, {
-        dir: `${group}/${entry}`,
-        workspaceDeps,
-        ownInclude,
-        testInSolution: !DEFERRED_TEST_PROJECTS.has(manifest.name),
-      });
+      members.set(manifest.name, { dir: `${group}/${entry}`, workspaceDeps, ownInclude });
     }
   }
   return members;
@@ -269,14 +252,7 @@ function targets(members) {
     "tsconfig.build.json",
     rootConfig(members, "tsconfig.build.json", () => true),
   );
-  files.set(
-    "tsconfig.test.json",
-    rootConfig(
-      members,
-      "tsconfig.test.json",
-      (member) => hasTestProject(member) && member.testInSolution,
-    ),
-  );
+  files.set("tsconfig.test.json", rootConfig(members, "tsconfig.test.json", hasTestProject));
   for (const member of members.values()) {
     files.set(`${member.dir}/tsconfig.build.json`, memberConfig(member, members));
     if (hasTestProject(member)) {

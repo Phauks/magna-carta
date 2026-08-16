@@ -62,9 +62,9 @@ Adopting the `import` and `vitest` plugins is the same shape of work (they surfa
 ## Test files are type-checked, and are held to the same type discipline as source
 
 Every package has a second, non-emitting `tsconfig.test.json` beside its build project, so a type
-error in a test fails the gate exactly as one in `src/` does. The mechanism, the two root solutions,
-and the one deferred member live in [`build-performance.md`](build-performance.md) — _Two projects
-per package_. What belongs here is the consequence for how a test is written.
+error in a test fails the gate exactly as one in `src/` does. Every member is in the solution — the
+mechanism and the two root solutions live in [`build-performance.md`](build-performance.md) — _Two
+projects per package_. What belongs here is the consequence for how a test is written.
 
 **A test that will not type-check is usually right about the seam it exercises.** The failure is
 evidence, so the fix is the thing the compiler is pointing at, not a way past it. Never reach for
@@ -88,3 +88,24 @@ almost every case, and each is an established idiom here rather than a suppressi
 for something `src/` shares, or under `test/support/` for something only tests use. A test whose
 imports the package's `tsconfig.json` cannot resolve is telling you the package under-declares what
 it contains.
+
+**Say what a response body is; never read a field off `unknown`.** `Response.json()` is declared
+`Promise<unknown>`, because a body is whatever crossed the wire. Reading a field off it is an error,
+and the fix is for the test to name the shape it expects — which is the assertion, not a formality: a
+route that stops returning `remainingMinor` then fails to compile at the test claiming it, instead of
+comparing `undefined` at runtime and passing. In the worker suites that is
+`readJson<T>(response)` from `test/support/test-auth.ts` (`readJson<ProblemBody>(response)` for any
+RFC 9457 refusal, so the whole problem document is typed at once); elsewhere the equivalent
+`(await response.json()) as T` at the point of use is the same discipline. What is not acceptable is
+leaving the read on `unknown` and reaching past the error. A helper that returns a parsed body
+annotates its return type — an unannotated `return await response.json()` pushes `unknown` into every
+caller and turns one missing annotation into a dozen errors.
+
+**Inside a package on the worker preset, never `import` from `@cloudflare/workers-types`.** Those
+types are already in scope as globals (`"types": ["@cloudflare/workers-types"]`), and the package
+ships its whole surface a second time as a module, so an import puts two distinct copies of every
+Workers interface into one program. Comparing them across a generic type does not terminate in useful
+time — one such annotation cost a single file over 600 seconds. Delete the import and use the global
+of the same name. `pnpm run lint:workers-types-import` enforces this; the full mechanism is in
+[`build-performance.md`](build-performance.md). A package **without** the globals (`packages/database`,
+typed for Node because it also runs outside workerd) must import them, and is not scanned.

@@ -35,6 +35,13 @@ pnpm run lint:control-characters || fail "lint:control-characters"
 step "governance — dependency license allowlist"
 pnpm run lint:licenses || fail "lint:licenses"
 
+# Cheap, and the thing it prevents is not cheap: importing @cloudflare/workers-types where the
+# globals already exist loads a SECOND declaration of every Workers interface, and a generic
+# comparison across the two copies abandons variance and recurses structurally. One such import put
+# a single test file past ten minutes of type-checking.
+step "governance — no redundant @cloudflare/workers-types imports"
+pnpm run lint:workers-types-import || fail "lint:workers-types-import"
+
 # Runs first-and-fast (node:sqlite, no Miniflare) so migration corruption fail-fasts locally even
 # though the full suite now lives in CI.
 step "migration integrity (journal/chain/rebuild guards)"

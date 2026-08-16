@@ -7,11 +7,13 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The matter asset register's route surface, driven through the chokepoint over real Miniflare
 // bindings: a firm opens an estate matter, bulk-adds a house and two accounts, attaches a deed,
@@ -573,7 +575,9 @@ describe("every class, end to end", () => {
       vehicle: { vehicleIdentificationNumber: "1FTEW1E50KFA12345" },
     });
     expect(response.status).toBe(422);
-    expect((await response.json()).type).toContain("matter-asset-type-class-mismatch");
+    expect((await readJson<ProblemBody>(response)).type).toContain(
+      "matter-asset-type-class-mismatch",
+    );
   });
 });
 
@@ -713,7 +717,9 @@ describe("the estate schedule", () => {
       basis: "statement",
     });
     expect(misfiled.status).toBe(422);
-    expect((await misfiled.json()).type).toContain("matter-asset-encumbrance-not-on-asset");
+    expect((await readJson<ProblemBody>(misfiled)).type).toContain(
+      "matter-asset-encumbrance-not-on-asset",
+    );
   });
 
   it("keeps a released charge on the record and out of the equity after the release date", async () => {
@@ -820,7 +826,9 @@ describe("the safekeeping link", () => {
       custodyItemId: "custodyItem_nothingHere0000000000",
     });
     expect(response.status).toBe(422);
-    expect((await response.json()).type).toContain("matter-asset-unknown-custody-item");
+    expect((await readJson<ProblemBody>(response)).type).toContain(
+      "matter-asset-unknown-custody-item",
+    );
   });
 });
 

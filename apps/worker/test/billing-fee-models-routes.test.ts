@@ -18,6 +18,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -274,7 +275,9 @@ describe("the fee models", () => {
 
     const read = await get(`/api/v1/billing/matters/${matterId}/arrangement`, draftOnlyCookie);
     expect(read.status).toBe(200);
-    expect((await read.json()).inForce?.kind).toBe("retainer");
+    expect((await readJson<{ inForce: { kind: string } | null }>(read)).inForce?.kind).toBe(
+      "retainer",
+    );
   });
 
   it("a malformed agreement is refused on its own terms", async () => {
@@ -321,7 +324,7 @@ describe("the fee models", () => {
       dueDate: todayInUtc(),
     });
     expect(finalized.status).toBe(201);
-    expect((await finalized.json()).totalMinor).toBe(750_000);
+    expect((await readJson<{ totalMinor: number }>(finalized)).totalMinor).toBe(750_000);
     const locked = await firmDatabase
       .prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(entryId)
@@ -437,7 +440,9 @@ describe("the fee models", () => {
     // The firm's default is readable and settable only with billing:configure.
     expect((await get("/api/v1/billing/render-shape", draftOnlyCookie)).status).toBe(403);
     const defaulted = await get("/api/v1/billing/render-shape");
-    expect((await defaulted.json()).renderShape).toBe("per_matter_pages");
+    expect((await readJson<{ renderShape: string }>(defaulted)).renderShape).toBe(
+      "per_matter_pages",
+    );
 
     const firstMatter = await openMatterWithClient("Render first");
     const secondMatter = await openMatterWithClient("Render second");
@@ -476,6 +481,6 @@ describe("the fee models", () => {
     const set = await put("/api/v1/billing/render-shape", { renderShape: "combined" });
     expect(set.status).toBe(200);
     const after = await get(`/api/v1/billing/invoices/${invoiceId}/render-model`);
-    expect((await after.json()).renderShape).toBe("per_matter_pages");
+    expect((await readJson<{ renderShape: string }>(after)).renderShape).toBe("per_matter_pages");
   });
 });

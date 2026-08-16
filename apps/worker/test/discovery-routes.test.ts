@@ -7,11 +7,13 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The discovery surface, driven through the chokepoint over real Miniflare bindings: a firm opens a
 // matter, creates a review set, names whose records are in it, declares a load, and pulls its own
@@ -244,11 +246,11 @@ describe("the review set", () => {
     const setId = await createReviewSet("Second request");
     const locked = await post(`/api/v1/review-sets/${setId}/state`, { state: "locked" });
     expect(locked.status).toBe(200);
-    expect((await locked.json()).state).toBe("locked");
+    expect((await readJson<{ state: string }>(locked)).state).toBe("locked");
 
     const closed = await post(`/api/v1/review-sets/${setId}/state`, { state: "closed" });
     expect(closed.status).toBe(200);
-    expect((await closed.json()).state).toBe("closed");
+    expect((await readJson<{ state: string }>(closed)).state).toBe("closed");
 
     // There is no route that could ask for `open` — the request schema does not offer it — so the
     // reopen a firm actually attempts is a re-lock of a closed set.
@@ -276,9 +278,13 @@ describe("the review set", () => {
       semanticIndexEnabled: true,
     });
     expect(response.status).toBe(200);
-    expect((await response.json()).semanticIndexEnabled).toBe(true);
+    expect((await readJson<{ semanticIndexEnabled: boolean }>(response)).semanticIndexEnabled).toBe(
+      true,
+    );
     const off = await patch(`/api/v1/review-sets/${reviewSetId}`, { semanticIndexEnabled: false });
-    expect((await off.json()).semanticIndexEnabled).toBe(false);
+    expect((await readJson<{ semanticIndexEnabled: boolean }>(off)).semanticIndexEnabled).toBe(
+      false,
+    );
   });
 });
 
@@ -348,7 +354,7 @@ describe("record custodians", () => {
       kind: "person",
     });
     expect(response.status).toBe(200);
-    expect((await response.json()).displayName).toBe("Jordan Smith");
+    expect((await readJson<{ displayName: string }>(response)).displayName).toBe("Jordan Smith");
     const listed = await get(`/api/v1/review-sets/${setId}/record-custodians`);
     const page = (await listed.json()) as { data: unknown[] };
     expect(page.data).toHaveLength(1);
@@ -377,7 +383,7 @@ describe("declaring a load", () => {
     // which is the stronger place for it: a body with no transcriptScope cannot reach code that
     // might supply one. There is no default anywhere on the path, in either direction.
     expect(response.status).toBe(422);
-    expect(String((await response.json()).type)).toContain("validation");
+    expect(String((await readJson<ProblemBody>(response)).type)).toContain("validation");
   });
 
   it("refuses an include by name rather than dropping it or pretending to honour it", async () => {
@@ -551,7 +557,9 @@ describe("the internal file lane", () => {
       fileIds: [stranger.fileId],
     });
     expect(run.status).toBe(422);
-    expect(String((await run.json()).type)).toContain("discovery-selection-refused");
+    expect(String((await readJson<ProblemBody>(run)).type)).toContain(
+      "discovery-selection-refused",
+    );
   });
 
   // Structural idempotency from the derived key rather than a guard: a retried run converges on the

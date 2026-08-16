@@ -18,10 +18,12 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The billing HTTP surface over real Miniflare bindings. What is proved here is the wiring the domain
 // suites cannot reach: that the chokepoint gates each route on the right billing capability, that
@@ -302,7 +304,7 @@ describe("the billing HTTP surface", () => {
     // Before anything is claimed, the matter's unbilled work is visible.
     const unbilledBefore = await get(`/api/v1/billing/matters/${matterId}/unbilled`);
     expect(unbilledBefore.status).toBe(200);
-    expect((await unbilledBefore.json()).timeEntryCount).toBe(2);
+    expect((await readJson<{ timeEntryCount: number }>(unbilledBefore)).timeEntryCount).toBe(2);
 
     const claimed = await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
       claims: [
@@ -318,8 +320,8 @@ describe("the billing HTTP surface", () => {
     const duringReview = await firmDatabase
       .prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(firstEntryId)
-      .all();
-    expect(duringReview.results[0].status).toBe("draft");
+      .all<{ status: string }>();
+    expect(duringReview.results[0]?.status).toBe("draft");
 
     // The reviewer trims the first line. The client is told less; the timekeeper's record stands.
     const reviewed = await patch(`/api/v1/billing/invoices/${invoiceId}/lines/${lineIds[0]}`, {
@@ -345,8 +347,8 @@ describe("the billing HTTP surface", () => {
     const afterFinalize = await firmDatabase
       .prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(firstEntryId)
-      .all();
-    expect(afterFinalize.results[0].status).toBe("billed");
+      .all<{ status: string }>();
+    expect(afterFinalize.results[0]?.status).toBe("billed");
     const unbilledAfter = await get(`/api/v1/billing/matters/${matterId}/unbilled`);
     const unbilledAfterBody = (await unbilledAfter.json()) as {
       timeEntryCount: number;
@@ -412,7 +414,9 @@ describe("the billing HTTP surface", () => {
       dueDate: todayInUtc(),
     });
     expect(impossible.status).toBe(422);
-    expect((await impossible.json()).type).toBe("https://api.magnacarta.esq/problems/validation");
+    expect((await readJson<ProblemBody>(impossible)).type).toBe(
+      "https://api.magnacarta.esq/problems/validation",
+    );
   });
 
   // A scope key is free text that selects which counter the number is drawn from, so a near-miss
@@ -435,7 +439,9 @@ describe("the billing HTTP surface", () => {
       numberScopeKey: "RENO",
     });
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toBe("https://api.magnacarta.esq/problems/billing-refused");
+    expect((await readJson<ProblemBody>(refused)).type).toBe(
+      "https://api.magnacarta.esq/problems/billing-refused",
+    );
 
     const opened = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
       issueDate: todayInUtc(),
@@ -444,7 +450,7 @@ describe("the billing HTTP surface", () => {
       createNumberScope: true,
     });
     expect(opened.status).toBe(201);
-    expect((await opened.json()).invoiceNumber).toBe("RENO-00001");
+    expect((await readJson<{ invoiceNumber: string }>(opened)).invoiceNumber).toBe("RENO-00001");
   });
 
   it("replays a finalization under the same Idempotency-Key without drawing a second number", async () => {
@@ -478,7 +484,9 @@ describe("the billing HTTP surface", () => {
     );
     expect(replayed.status).toBe(201);
     expect(replayed.headers.get("Idempotency-Replayed")).toBe("true");
-    expect((await replayed.json()).invoiceNumber).toBe(firstBody.invoiceNumber);
+    expect((await readJson<{ invoiceNumber: string }>(replayed)).invoiceNumber).toBe(
+      firstBody.invoiceNumber,
+    );
 
     const allocations = await firmDatabase
       .prepare("SELECT COUNT(*) AS count FROM invoice_number_allocation WHERE invoice_id = ?1")
@@ -535,14 +543,14 @@ describe("the billing HTTP surface", () => {
     );
     expect(released.status).toBe(201);
     const afterRelease = await get(`/api/v1/billing/matters/${matterId}/unbilled`);
-    expect((await afterRelease.json()).timeEntryCount).toBe(1);
+    expect((await readJson<{ timeEntryCount: number }>(afterRelease)).timeEntryCount).toBe(1);
 
     const voided = await post(`/api/v1/billing/invoices/${invoiceId}/void`, {
       reason: "billed to the wrong period",
     });
     expect(voided.status).toBe(201);
     const afterVoid = await get(`/api/v1/billing/matters/${matterId}/unbilled`);
-    expect((await afterVoid.json()).timeEntryCount).toBe(2);
+    expect((await readJson<{ timeEntryCount: number }>(afterVoid)).timeEntryCount).toBe(2);
   });
 
   it("refuses a matter belonging to another client with a 422 naming the mismatch", async () => {
@@ -550,7 +558,7 @@ describe("the billing HTTP surface", () => {
       title: "Borealis retainer",
       status: "open",
       responsibleMemberId: ownerUserId,
-    }).then(async (response) => (await response.json()).matterId);
+    }).then(async (response) => (await readJson<{ matterId: string }>(response)).matterId);
     await firmDatabase
       .prepare(
         "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, 'directoryOrganization_borealis', 'client', ?3, ?3)",
@@ -744,9 +752,11 @@ describe("applying trust funds to a finalized bill", () => {
     expect(second.headers.get("Idempotency-Replayed")).toBe("true");
     // A retried request that posted a second transfer would be a second real movement of somebody
     // else's money.
-    expect((await first.json()).transferId).toBe((await second.json()).transferId);
+    expect((await readJson<{ transferId: string }>(first)).transferId).toBe(
+      (await readJson<{ transferId: string }>(second)).transferId,
+    );
     const detail = await get(`/api/v1/billing/invoices/${invoiceId}`);
-    expect((await detail.json()).appliedMinor).toBe(totalMinor);
+    expect((await readJson<{ appliedMinor: number }>(detail)).appliedMinor).toBe(totalMinor);
   });
 
   it("refuses a transfer against a bill that is still a draft, with a 422 naming why", async () => {
@@ -803,7 +813,9 @@ describe("applying trust funds to a finalized bill", () => {
     // The money is there; the DEBT is not. Retrying against the balance as it now stands is the
     // remedy, which is what makes it a 409.
     expect(response.status).toBe(409);
-    expect((await response.json()).type).toContain("billing-exceeds-unpaid-balance");
+    expect((await readJson<ProblemBody>(response)).type).toContain(
+      "billing-exceeds-unpaid-balance",
+    );
   });
 
   it("passes trust's own refusal through when the funds are under a disputed-funds hold", async () => {
@@ -826,7 +838,7 @@ describe("applying trust funds to a finalized bill", () => {
     );
     // Available, not balance, is the ceiling — and that rule is trust's, restated nowhere in billing.
     expect(response.status).toBe(409);
-    expect((await response.json()).type).toContain("trust-insufficient-available");
+    expect((await readJson<ProblemBody>(response)).type).toContain("trust-insufficient-available");
   });
 
   it("refuses paying one client's bill out of another client's trust ledger", async () => {
@@ -857,7 +869,7 @@ describe("applying trust funds to a finalized bill", () => {
       applyBody(matterId, [{ invoiceId, amountMinor: 100_00 }]),
     );
     expect(response.status).toBe(422);
-    expect((await response.json()).type).toContain("billing-earned-fee-refused");
+    expect((await readJson<ProblemBody>(response)).type).toContain("billing-earned-fee-refused");
   });
 });
 

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { doSqliteMigrationTarget } from "@magna-carta/database/do-sqlite-migration-target";
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import type { Migration } from "@magna-carta/database/migration";
-import type { DurableObjectState } from "@cloudflare/workers-types";
 import type { FirmDatabase } from "../../src/firm-database/firm-database-object.ts";
 import { perFirmMigrations } from "../../src/per-firm-migrations.ts";
 

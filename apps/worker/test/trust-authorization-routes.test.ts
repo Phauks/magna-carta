@@ -9,10 +9,24 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
+
+// What this suite reads off the matter-ledger reply — the fields of the route's
+// TrustClientLedgerResponse that these assertions actually depend on.
+interface LedgerBody {
+  readonly trustLedgerNodeId: string;
+  readonly balanceMinor: number;
+  readonly movements: readonly {
+    readonly kind: string;
+    readonly recordedBy: string;
+    readonly authorizedBy: string | null;
+  }[];
+}
 
 // Two-person disbursement authorization over the HTTP surface, in a firm that has SEVERAL members
 // holding trust:manage — which is the case the rule is really about. What is proved here is the
@@ -82,7 +96,7 @@ async function openMatter(title: string, clientEntityId: string): Promise<string
     { title, status: "open", responsibleMemberId: submitterUserId },
     submitterCookie,
   );
-  const matterId = (await created.json()).matterId as string;
+  const matterId = (await readJson<{ matterId: string }>(created)).matterId;
   await firmDatabase
     .prepare(
       "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
@@ -147,12 +161,12 @@ async function pendingRequest(
   return { matterId, requestId: ack.trustDisbursementRequestId };
 }
 
-const ledgerOf = async (matterId: string) => {
+const ledgerOf = async (matterId: string): Promise<LedgerBody> => {
   const response = await get(
     `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
     submitterCookie,
   );
-  return await response.json();
+  return await readJson<LedgerBody>(response);
 };
 
 beforeAll(async () => {
@@ -301,7 +315,7 @@ describe("two-person disbursement authorization", () => {
       submitterCookie,
     );
     expect(response.status).toBe(422);
-    expect((await response.json()).type).toBe(
+    expect((await readJson<ProblemBody>(response)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-disbursement-authorization-refused",
     );
     expect((await ledgerOf(matterId)).balanceMinor).toBe(500000);
@@ -318,7 +332,8 @@ describe("two-person disbursement authorization", () => {
       submitterCookie,
     );
     expect(drain.status).toBe(201);
-    const drainId = (await drain.json()).trustDisbursementRequestId;
+    const drainId = (await readJson<{ trustDisbursementRequestId: string }>(drain))
+      .trustDisbursementRequestId;
     expect(
       (
         await post(
@@ -411,7 +426,7 @@ describe("two-person disbursement authorization", () => {
       approverCookie,
     );
     expect(again.status).toBe(409);
-    expect((await again.json()).type).toBe(
+    expect((await readJson<ProblemBody>(again)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-disbursement-not-pending",
     );
   });
@@ -449,7 +464,7 @@ describe("two-person disbursement authorization", () => {
       approverCookie,
     );
     expect(byOther.status).toBe(422);
-    expect((await byOther.json()).type).toBe(
+    expect((await readJson<ProblemBody>(byOther)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-disbursement-authorization-refused",
     );
 

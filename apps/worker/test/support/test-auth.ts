@@ -166,6 +166,19 @@ export function liveCookie(
   return cookies.find((cookie) => cookie.name.endsWith(nameSuffix) && cookie.value !== "");
 }
 
+// `Response.json()` is declared `Promise<unknown>`, because a response body is whatever crossed the
+// wire and the compiler has no way to know its shape. Reading a field off it is therefore an error,
+// and the honest fix is for the test to SAY what it expects back — which is what the type argument
+// here is. Naming the shape is the assertion: a route that stops returning `remainingMinor` fails to
+// compile at the test that claims it, instead of comparing `undefined` at runtime.
+//
+// One home for the conversion, so the day this should validate at runtime rather than trust the
+// declaration (a zod parse against the route's own response schema) is a change to this function
+// and to nothing that calls it. Standard: docs/conventions/typescript.md.
+export async function readJson<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
+
 export async function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method: "POST",

@@ -24,8 +24,8 @@ async function ownerCookie(email: string, name: string): Promise<string> {
   return signInForSessionCookie(email);
 }
 
-function post(cookie: string | null, body: string | null): Promise<Response> {
-  return app.request(
+async function post(cookie: string | null, body: string | null): Promise<Response> {
+  return await app.request(
     "https://example.com/api/v1/ocr/searchable",
     {
       method: "POST",

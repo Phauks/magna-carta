@@ -9,10 +9,12 @@ import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.t
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The document-automation surface end to end under Miniflare: register a template, assemble it against
 // a matter, and confirm the produced document reached the matter's File Manager THROUGH THE INGEST
@@ -359,7 +361,7 @@ async function seedMatter(firm: SeededFirm, title: string, client: string): Prom
     firm.cookie,
   );
   expect(created.status, await created.clone().text()).toBe(201);
-  return (await created.json()).matterId;
+  return (await readJson<{ matterId: string }>(created)).matterId;
 }
 
 beforeAll(async () => {
@@ -789,9 +791,9 @@ describe("the per-firm field-mapping library", () => {
       mappingCookie,
     );
     expect(confirming.status).toBe(201);
-    expect((await confirming.json()).confirmedFieldMappings).toEqual([
-      { fieldName: "client.displayName", mergeKey: "client.displayName" },
-    ]);
+    expect(
+      (await readJson<{ confirmedFieldMappings: unknown[] }>(confirming)).confirmedFieldMappings,
+    ).toEqual([{ fieldName: "client.displayName", mergeKey: "client.displayName" }]);
 
     // The library is visible: what this firm has confirmed, and how often it has been used.
     const listed = await get("/api/v1/merge-field-mappings", mappingCookie);
@@ -811,15 +813,17 @@ describe("the per-firm field-mapping library", () => {
       mappingCookie,
     );
     expect(second.status).toBe(201);
-    expect((await second.json()).mergeFieldsDetected[0]).toMatchObject({
+    expect(
+      (await readJson<{ mergeFieldsDetected: unknown[] }>(second)).mergeFieldsDetected[0],
+    ).toMatchObject({
       mappedKey: "client.displayName",
       // Confirmed once already, so this detection came THROUGH the library rather than past it.
       mappedFromLibrary: true,
     });
     const relisted = await get("/api/v1/merge-field-mappings", mappingCookie);
-    const reentry = (await relisted.json()).data.find(
-      (row) => row.fieldName === "client.displayName",
-    );
+    const reentry = (
+      await readJson<{ data: { fieldName: string; timesApplied: number }[] }>(relisted)
+    ).data.find((row) => row.fieldName === "client.displayName");
     expect(reentry?.timesApplied).toBe(2);
 
     // And it is editable: a mapping is a statement the firm made, so it can withdraw it.
@@ -874,7 +878,7 @@ describe("assembly, end to end through the ingest chokepoint", () => {
       `/api/v1/matters/${matterId}/assemblies/${assemblyId}`,
       assemblyCookie,
     );
-    expect((await queued.json()).status).toBe("queued");
+    expect((await readJson<{ status: string }>(queued)).status).toBe("queued");
 
     const { batch, acks } = makeBatch({
       firmId: assemblyFirmId,
@@ -1191,7 +1195,7 @@ describe("assembly, end to end through the ingest chokepoint", () => {
       assemblyCookie,
     );
     expect(submitted.status).toBe(422);
-    expect((await submitted.json()).type).toContain("template-not-activatable");
+    expect((await readJson<ProblemBody>(submitted)).type).toContain("template-not-activatable");
   });
 
   it("404s a submit against a template version that does not exist", async () => {
@@ -1402,7 +1406,7 @@ describe("assembly as a PDF", () => {
       pdfCookie,
     );
     expect(submitted.status, await submitted.clone().text()).toBe(202);
-    return (await submitted.json()).assemblyId;
+    return (await readJson<{ assemblyId: string }>(submitted)).assemblyId;
   }
 
   function pdfBatch(
@@ -1583,7 +1587,7 @@ async function seedMatterAtLocation(locationId: string): Promise<string> {
     widenedCookie,
   );
   expect(created.status, await created.clone().text()).toBe(201);
-  return (await created.json()).matterId;
+  return (await readJson<{ matterId: string }>(created)).matterId;
 }
 
 // The smallest PNG whose IHDR declares a size — all the engine reads out of one.

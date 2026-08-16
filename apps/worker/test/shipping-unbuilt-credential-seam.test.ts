@@ -6,10 +6,12 @@ import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The shipping surface with NO secret store injected — the production wiring, where the per-firm
 // credential read is still a seam. shipping-e2e.test.ts injects an in-memory store and therefore
@@ -120,7 +122,7 @@ describe("shipping with the per-firm credential read unbuilt", () => {
     // shipment was told the platform had broken rather than told what it cannot do.
     expect(rates.status).toBe(501);
     expect(rates.headers.get("content-type")).toContain("application/problem+json");
-    expect((await rates.json()).type).toContain("not-implemented");
+    expect((await readJson<ProblemBody>(rates)).type).toContain("not-implemented");
 
     const purchase = await app.request(
       `${base}/shipments/${id}/purchase`,

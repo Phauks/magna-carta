@@ -7,10 +7,12 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
+  readJson,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import type { ProblemBody } from "../src/contracts/problem.ts";
 
 // The destruction surface and the will-deposit duty lookup, driven through the chokepoint over real
 // Miniflare bindings.
@@ -169,7 +171,7 @@ describe("the destruction routes", () => {
     expect(ledger.data.some((movement) => movement.id === result.movementId)).toBe(true);
 
     const packet = await get(`/api/v1/custody/packets/${packetId}`);
-    expect((await packet.json()).status).toBe("destroyed");
+    expect((await readJson<{ status: string }>(packet)).status).toBe("destroyed");
   });
 
   it("refuses an approval by the person who raised the request", async () => {
@@ -190,7 +192,9 @@ describe("the destruction routes", () => {
       approverCookie,
     );
     expect(response.status).toBe(409);
-    expect((await response.json()).type).toContain("custody-destruction-not-actionable");
+    expect((await readJson<ProblemBody>(response)).type).toContain(
+      "custody-destruction-not-actionable",
+    );
   });
 
   it("refuses a request while a hold is in force", async () => {
@@ -206,7 +210,7 @@ describe("the destruction routes", () => {
       basis: "routine",
     });
     expect(response.status).toBe(409);
-    expect((await response.json()).type).toContain("custody-hold-blocks-action");
+    expect((await readJson<ProblemBody>(response)).type).toContain("custody-hold-blocks-action");
   });
 
   // The one hard policy, and the surface carries no way round it: no override field on the request,
@@ -219,7 +223,9 @@ describe("the destruction routes", () => {
       basis: "retention cycle reached",
     });
     expect(refused.status).toBe(422);
-    expect((await refused.json()).type).toContain("custody-intrinsic-value-not-destructible");
+    expect((await readJson<ProblemBody>(refused)).type).toContain(
+      "custody-intrinsic-value-not-destructible",
+    );
 
     // Every field a caller might reach for changes nothing: the refusal fires exactly as it did
     // without them, because no such field exists in the contract for the handler to read. "There is
@@ -243,10 +249,12 @@ describe("the destruction routes", () => {
       kind: "destroyed",
     });
     expect(movement.status).toBe(422);
-    expect((await movement.json()).type).toContain("custody-intrinsic-value-not-destructible");
+    expect((await readJson<ProblemBody>(movement)).type).toContain(
+      "custody-intrinsic-value-not-destructible",
+    );
 
     const packet = await get(`/api/v1/custody/packets/${packetId}`);
-    expect((await packet.json()).status).toBe("held");
+    expect((await readJson<{ status: string }>(packet)).status).toBe("held");
   });
 
   it("refuses to re-decide a request that was already refused", async () => {
@@ -333,6 +341,6 @@ describe("the will-deposit duty lookup", () => {
   it("refuses an unencoded sub-jurisdiction and names its encoded parent", async () => {
     const response = await get("/api/v1/custody/will-deposit-duties?jurisdiction=US-NV-01");
     expect(response.status).toBe(422);
-    expect((await response.json()).detail).toContain("US-NV is encoded");
+    expect((await readJson<ProblemBody>(response)).detail).toContain("US-NV is encoded");
   });
 });

@@ -1,6 +1,11 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { FirmId, MagnusTurnId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  MagnusConversationId,
+  MagnusTurnId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { startConversation } from "@magna-carta/magnus/conversation";
 import { completeTurn, submitTurn } from "@magna-carta/magnus/turn";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -85,7 +90,7 @@ async function subscribe(
 
 // Composes a conversation with one submitted turn, leaving the Magnus turn pending.
 async function conversationWithPendingTurn(): Promise<{
-  conversationId: string;
+  conversationId: MagnusConversationId;
   magnusTurnId: MagnusTurnId;
 }> {
   const context = { clock, actorUserId: USER };
@@ -130,13 +135,14 @@ describe("MagnusConversation push", () => {
       firmDatabase,
       { clock, actorUserId: null },
       {
-        conversationId: conversationId as never,
+        conversationId,
         magnusTurnId,
         content: "an answer",
         modelId: "anthropic/claude-opus-4-8",
         snapshotId: "stub",
         inputTokens: 3,
         outputTokens: 4,
+        contextTruncated: false,
       },
     );
     expect(completion.ok).toBe(true);
