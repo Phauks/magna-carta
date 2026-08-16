@@ -68,6 +68,11 @@ that is the fastest route to two subtly different notions of what a notification
   register's own collection point, bucketed by civil date and capped per kind
 - `src/job-completion.ts` — the row for the tab that was closed when a job finished
 - `src/retention.ts` — the bounded nightly sweep and the swept-unread tally
+- `src/digest.ts` — the summary's read and its bookkeeping: the keyset watermark, the candidate
+  walk, the cadence partition, and the delivery rows that settle both what was sent and what was not
+- `src/digest-render.ts` — **the content boundary**: the only place anything here crosses out of the
+  platform, and the reason its whole parameter list is a closed label, integers, a cadence and a
+  configured origin
 
 ## Invariants that apply here
 
@@ -141,6 +146,38 @@ that is the fastest route to two subtly different notions of what a notification
   them. Do not add a visibility check at fan-out to "save" the row — that is emission-time
   enforcement, which this subsystem refuses because access changes after emission, and it would also
   need a `notification_delivery` row against a recipient row that by definition does not exist.
+- **AN EMAIL IS THE ONE CHANNEL THAT CANNOT BE RE-FILTERED, so it carries only what never depended
+  on access.** Every other surface here is read inside the product, where a row shown to the wrong
+  person is corrected by the next read; a summary is a copy in a mailbox the firm may not
+  administer, retained, forwarded, and rendered on a lock screen. So it says how many items are
+  waiting in which categories, and nothing else: **no matter title, matter number, client or party
+  name, filename, email subject line, deadline description or date, custody number, amount, invoice
+  number, or platform handle.** A matter title is client-identifying by construction and a matter
+  number is client-identifying to anyone holding a prior invoice. The boundary is STRUCTURAL, not a
+  rule to remember — the digest read selects a category, a kind, an instant and two handles, and
+  `renderNotificationDigest` takes a closed category label, integers, a cadence and a configured
+  origin, so there is no argument a title could arrive in. `test/digest-render.test.ts` renders over
+  a fixture whose matter is named after its parties and numbered, and fails if any of it appears.
+  Widening the digest `SELECT` fails a source scan in that same file.
+- **`matter-number` renders as `counts-only`, and that is not a bug to fix in passing.** The level is
+  declared so a firm's stored ceiling is not silently rewritten when it ships; until it does, a
+  resolved level of `matter-number` gets the most private reading of what the firm chose.
+- **SEND FIRST, MARK SECOND, and the watermark moves only where the run settled what it walked.** A
+  crash between the two re-sends a summary — an annoyance — where marking first risks losing one, a
+  missed deadline. The delivery rows and the watermark commit in one batch, after the send returns.
+  A send that did not happen leaves the mark where it was and the next run re-reads the same window.
+- **AN EMAIL THAT WAS NOT SENT IS SETTLED, never merely absent** — the email half of the suppression
+  rule above, using the mechanism the schema already had. Every row a run withheld gets a
+  `notification_delivery` row with `state = 'suppressed'`, a closed reason (`preference` where the
+  category's cadence is `off` or the resolved detail level is `off`, `no-address` where there is no
+  mailbox), and a null `digest_id`, because no summary carried it. Without it, a member who chose
+  not to be written to and a member the platform silently failed to write to are the same observable.
+- **A member with nothing visible in the window gets NO email**, and the run is still recorded — "we
+  have never written to you" and "there was nothing to write about" are different facts.
+- **A kind declaring `escalation: "immediate"` HALTS the walk; it is never folded into a summary.**
+  No registered kind declares one and `test/digest.test.ts` holds that to being deliberate, so
+  registering the first is a gate failure until its send path ships. Halting rather than skipping is
+  what keeps the watermark honest: stepping over it would settle a row no channel carried.
 - **Nothing on an emitting write path.** No producing package resolves a recipient, reads a
   preference, or renders anything. Fan-out and rendering run in the queue consumer or the cron pass.
 - **A translator failure never fails an owning consumer's ack.** A missed notification is an
@@ -206,7 +243,24 @@ is not enforced.
   permission check on the hot path for the one class of row with no anchor to check against; the fix,
   when it is worth it, is a capability column on the event resolved by this same shared read.
 - **`matter-number` is a declared and unbuilt email detail level.** It is in the vocabulary so a
-  firm's stored ceiling is not silently rewritten when the level ships; nothing renders it today.
+  firm's stored ceiling is not silently rewritten when the level ships; the renderer treats it as
+  `counts-only`.
+- **Outbound mail is an UNPROVISIONED SEAM, and the digest resolves its own port rather than reusing
+  the worker's shared `emailAdapterForEnv`.** That resolver falls back to the dev logging adapter
+  when the Email Service binding is absent — right for a password reset, catastrophic here: a
+  summary resolved through it returns successfully having mailed nobody, and the run then records
+  `sent` rows and advances the watermark, so the member never hears about those notifications again.
+  `apps/worker/src/notifications/digest-send-port.ts` answers `unavailable` with a closed reason
+  instead, and the pass exits before reading a single firm.
+- **The digest run is HOURLY, and most of what it does is decline to run.** A summary lands in the
+  firm's own morning, so the pass wakes every hour and asks each firm whether its local hour has come
+  round; the zone is read from the firm's default office rather than stored a second time. A firm
+  that has set no default location is anchored on the platform's clock — stated, not substituted
+  silently.
+- **The two cadences are independent walks over the same rows.** `notification_digest_run` is unique
+  per `(member, cadence)`, so a category on the weekly cadence is skipped by the daily run — neither
+  carried nor withheld — and settled by the weekly one. A member who changes cadence mid-window can
+  leave a row settled by neither; it stays in the feed, and no mail claims otherwise.
 - **`matter-team` is the responsible member PLUS the currently-valid `matter_assignment` rows.** The
   responsible member is always an arm of that read and never conditional on holding an assignment:
   `matter.responsible_member_id` is that fact's one home and the assignment write path refuses a

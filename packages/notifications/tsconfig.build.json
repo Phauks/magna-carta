@@ -48,6 +48,9 @@
       "path": "../ledger/tsconfig.build.json"
     },
     {
+      "path": "../locations/tsconfig.build.json"
+    },
+    {
       "path": "../matters/tsconfig.build.json"
     }
   ],

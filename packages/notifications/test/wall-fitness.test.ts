@@ -6,6 +6,7 @@ import {
 } from "@magna-carta/calendar/visibility";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
+  selectDigestWindowStatement,
   selectNotificationFeedStatement,
   selectOwnNotificationStatement,
   selectUnreadNotificationCountStatement,
@@ -73,6 +74,33 @@ const READS: readonly {
         recipientUserId: "user_reader",
         visibility,
       }),
+  },
+  {
+    name: "the digest window at the start of a member's first summary",
+    build: (database, visibility) =>
+      void selectDigestWindowStatement(
+        database,
+        { recipientUserId: "user_reader", visibility },
+        { after: null, limit: 100 },
+      ),
+  },
+  {
+    name: "the digest window resumed from a watermark",
+    // The dangerous read: it runs server-side, on a member's behalf, with no request context —
+    // exactly where a "we already know who this is for" shortcut gets written. It composes the same
+    // predicate as the feed because it composes the same function.
+    build: (database, visibility) =>
+      void selectDigestWindowStatement(
+        database,
+        { recipientUserId: "user_reader", visibility },
+        {
+          after: {
+            lastOccurredAt: "2026-08-01T00:00:00.000Z",
+            lastEventId: "notificationEvent_x",
+          },
+          limit: 100,
+        },
+      ),
   },
   {
     name: "the single-row resolve behind mark-read and dismiss",

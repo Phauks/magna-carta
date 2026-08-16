@@ -49,6 +49,13 @@ export type NotificationInAppChoice = (typeof NOTIFICATION_IN_APP_CHOICES)[numbe
 export const NOTIFICATION_EMAIL_CADENCES = Object.freeze(["off", "daily", "weekly"] as const);
 export type NotificationEmailCadence = (typeof NOTIFICATION_EMAIL_CADENCES)[number];
 
+// The cadences that actually compose a summary. `off` is a cadence a member may CHOOSE and never a
+// run that happens, so it is excluded here rather than filtered at every call site — and the
+// `notification_digest_run` watermark is keyed by one of these two, so a value that cannot be a run
+// must not be able to reach that column.
+export const NOTIFICATION_DIGEST_CADENCES = Object.freeze(["daily", "weekly"] as const);
+export type NotificationDigestCadence = (typeof NOTIFICATION_DIGEST_CADENCES)[number];
+
 // The recommended default set: every category on in app, and mailed daily except the two that are
 // about the platform working rather than about the firm's work. A conversion finishing is a thing
 // you are watching; a nightly mail about it is a thing you learn to filter, and a channel people
@@ -257,6 +264,37 @@ export const MAX_COMPARISON_FINDINGS_PER_KIND = 200;
 // committed in chunks. Chunking rather than one giant batch also means a firm whose database fails
 // halfway keeps what already landed, and the dedupe keys make the next pass top up the rest.
 export const MAX_SWEEP_STATEMENTS_PER_WRITE = 100;
+
+// How many of a member's un-summarized rows ONE digest run reads.
+//
+// A digest has no per-item list to truncate — it states counts — so a cap does not cost the reader a
+// line. What it costs is precision: past this the counts are reported as "at least N", which is the
+// honest reading of a capped page and is why the overrun is carried through the renderer rather than
+// silently rounded away. A member back from three weeks' leave is exactly the case this bounds.
+export const MAX_DIGEST_ITEMS_PER_RUN = 500;
+
+// How many members ONE firm's digest pass composes for, per cadence. A firm's staff is the natural
+// bound and this sits above any plausible one; a pass that hits it is a pass that fanned out to more
+// people than the firm employs, which is a resolver fault and is counted rather than mailed.
+export const MAX_DIGEST_RECIPIENTS_PER_RUN = 500;
+
+// WHEN a summary lands, in the firm's OWN wall-clock hour rather than UTC's.
+//
+// A digest that leaves at UTC midnight arrives in the middle of the previous afternoon in Nevada and
+// before breakfast in Berlin, which makes "your morning mail" a property of where the platform's
+// clock happens to be set. So the hour is the firm's, resolved against the firm's own default
+// office, and seven is the default because the mail should be waiting when the day starts rather
+// than arriving during it.
+export const MIN_DIGEST_LOCAL_HOUR = 0;
+export const MAX_DIGEST_LOCAL_HOUR = 23;
+export const DEFAULT_DIGEST_LOCAL_HOUR = 7;
+
+// The weekday a weekly summary lands on, as `Date.prototype.getUTCDay` numbers it — Monday. A
+// platform constant rather than a firm setting: the hour is the part a firm has an opinion about
+// (their working day starts when it starts), and a second knob whose only effect is which morning
+// the same counts arrive on is a setting nobody would ever revisit. It is named here so the choice
+// is visible and one edit wide if that turns out to be wrong.
+export const DIGEST_WEEKLY_LOCAL_WEEKDAY = 1;
 
 // The bounds a firm's retention window may be set within, and the platform default inside them.
 // Thirty days is the floor because a member returning from two weeks' leave must still see what

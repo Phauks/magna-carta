@@ -1964,6 +1964,9 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/locations':
+        specifier: workspace:*
+        version: link:../locations
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
