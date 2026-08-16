@@ -28,6 +28,7 @@ import {
   recordSweptUnreadStatement,
   retentionCutoff,
   retentionSweepDeleteStatements,
+  retentionSweepSuppressionDeleteStatement,
   selectSweepableUnreadTallyStatement,
 } from "@magna-carta/notifications/retention";
 import { readNotificationRetentionDays } from "@magna-carta/notifications/settings";
@@ -674,6 +675,17 @@ export async function runNotificationComparisonSweep(env: Bindings): Promise<num
           logger.count("notifications.comparison_clamped", topic, counts.clampedFindings);
         }
       }
+      // Reported by category and by whose choice it was rather than by emission point, because that
+      // is the grain a preference is set at and the grain somebody investigating "nobody was told"
+      // asks about. A suppression that went uncounted is indistinguishable afterwards from a
+      // notification that was never raised, which is the whole failure mode of a preference system.
+      for (const suppression of result.suppressedInApp) {
+        logger.count(
+          "notifications.suppressed_by_preference",
+          { category: suppression.category, reason: suppression.reason },
+          suppression.count,
+        );
+      }
     } catch (caught) {
       logOperationFailed(
         logger,
@@ -734,6 +746,10 @@ export async function runNotificationRetentionSweep(env: Bindings): Promise<numb
           }),
         ),
         ...retentionSweepDeleteStatements(firm.database, cutoff),
+        // The suppression tally ages on the SAME window as the notifications it explains. Left
+        // standing it would become a growing record of one member's settings with nothing left to
+        // compare it against, since the feed rows it accounts for are gone.
+        retentionSweepSuppressionDeleteStatement(firm.database, cutoff),
       ];
       // One batch: recording what was taken and taking it must not be separable, or a crash between
       // them loses the tally and leaves the member with nothing but a zero.

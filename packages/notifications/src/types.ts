@@ -31,6 +31,47 @@ export const MANDATORY_CATEGORIES: readonly NotificationCategory[] = Object.free
   "trust",
 ] as const);
 
+// WHAT A MEMBER MAY CHOOSE, per category.
+//
+// `off` for the in-app channel means NO FEED ROW IS WRITTEN — not "the row is hidden". A suppressed
+// notification must not be a row somebody later discovers, and a hidden row is a row that reappears
+// the day a filter is loosened by accident. What replaces it is not silence either: the fan-out
+// records the suppression as a per-member, per-category tally, so a member who chose not to hear
+// something is distinguishable afterwards from a member nobody told.
+export const NOTIFICATION_IN_APP_CHOICES = Object.freeze(["on", "off"] as const);
+export type NotificationInAppChoice = (typeof NOTIFICATION_IN_APP_CHOICES)[number];
+
+// Email is DIGEST-ONLY, which is why the cadences are periods rather than an "immediate". An email
+// per event is a mail-bomb on any active matter, and it inverts the content rule by disclosing the
+// timing and volume of activity per matter even when each line says nothing about it. The one
+// bypass is a registry-declared `escalation: "immediate"`, which is a property of a KIND and not
+// something a member elects.
+export const NOTIFICATION_EMAIL_CADENCES = Object.freeze(["off", "daily", "weekly"] as const);
+export type NotificationEmailCadence = (typeof NOTIFICATION_EMAIL_CADENCES)[number];
+
+// The recommended default set: every category on in app, and mailed daily except the two that are
+// about the platform working rather than about the firm's work. A conversion finishing is a thing
+// you are watching; a nightly mail about it is a thing you learn to filter, and a channel people
+// filter is a channel that has stopped working for the categories that matter.
+export const CATEGORIES_DEFAULTING_TO_NO_EMAIL: readonly NotificationCategory[] = Object.freeze([
+  "jobs",
+  "system",
+] as const);
+
+export function defaultEmailCadenceFor(category: NotificationCategory): NotificationEmailCadence {
+  return CATEGORIES_DEFAULTING_TO_NO_EMAIL.includes(category) ? "off" : "daily";
+}
+
+// Why an in-app row was not written for somebody the audience did reach. A CLOSED LABEL, and the
+// only two answers the fan-out can give: the member silenced the category, or the firm's policy did.
+// Recorded rather than inferred, because "nobody was told" and "this person asked not to be told"
+// are different facts and only one of them is a bug.
+export const IN_APP_SUPPRESSION_REASONS = Object.freeze([
+  "member-preference",
+  "firm-policy",
+] as const);
+export type InAppSuppressionReason = (typeof IN_APP_SUPPRESSION_REASONS)[number];
+
 export const NOTIFICATION_SEVERITIES = Object.freeze([
   "informational",
   "attention",
@@ -121,7 +162,11 @@ export const NOTIFICATION_AUDIENCES = Object.freeze([
   // Members whose effective permissions include a capability the type declares. This is how the
   // trust category reaches whoever can act on trust rather than whoever happens to be nearby.
   "capability-holders",
-  // A firm-tier designation. Resolves to nobody until the designation setting is built.
+  // The firm's own trust-compliance designation, read as an audience in its own right — a type
+  // declaring it reaches exactly the designated members and nobody else. No type declares it today:
+  // what actually ships is the additive rule on the trust CATEGORY, which composes the same list
+  // over whatever a kind's own audience already resolved. An unconfigured designation resolves to
+  // nobody either way, never to the firm.
   "designated",
   // The matter's responsible member plus everyone holding a currently-valid `matter_assignment` row
   // on it — the people carrying the file right now, ended assignments excluded.

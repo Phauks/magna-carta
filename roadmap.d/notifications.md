@@ -27,8 +27,15 @@
   name: Recipients & preferences
   scope: Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent.
   status: partial
-  evidence: packages/notifications/src/recipients.ts resolves the declared audiences off the hot path; the per-category preference matrix and the firm policy floor are the next sub-slice, and the messaging port external routing depends on is still unbuilt.
-  notes: The email detail level (a member's choice under a firm ceiling) is built ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest ships.
+  evidence: packages/notifications/src/recipients.ts resolves the declared audiences off the hot path and applies the per-category in-app floor before anything is written; the matrix itself is packages/notifications/src/preferences.ts on the shipped scope chain, read and written through apps/worker/src/routes/notification-preferences.ts. Still unbuilt here - the messaging port external routing depends on (ADR-0047) and Directory-entity recipients, since every audience resolver returns firm members.
+  notes: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands.
+
+- id: notifications.trust-compliance-designation
+  name: Trust-compliance designation
+  scope: A firm-tier list of members who join the recipient set of every trust-category notification, written under the trust-management capability and audited by count.
+  status: shipped
+  evidence: The setting and its resolver are packages/notifications/src/preferences.ts (trustComplianceRecipientsDefinition, readTrustComplianceRecipients), applied to the trust CATEGORY in packages/notifications/src/recipients.ts so all three production paths inherit it; GET/PUT /api/v1/firm/notifications/trust-compliance-recipients in apps/worker/src/routes/notification-preferences.ts under trust:manage. Held by packages/notifications/test/preference-enforcement.test.ts and apps/worker/test/notification-preferences-routes.test.ts.
+  notes: A designation is not a grant of access. The designated member gets an ordinary recipient row and the visible-matter predicate still decides at read, so a notification about a matter they cannot see leaves their feed and unread count byte-identical to a firm where it was never raised - no placeholder, which would be an existence oracle. The audit row carries the recipient COUNT and never the names.
 
 - id: notifications.center
   name: In-app notification center
@@ -109,5 +116,5 @@
   scope: External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories.
   status: partial
   adrs: ADR-0059, ADR-0251
-  evidence: The closed fact grammar (packages/notifications/src/facts-grammar.ts) refuses a text-valued declaration; every read composes the visible-matter predicate in SQL before the LIMIT, proved for all of them by packages/notifications/test/wall-fitness.test.ts.
-  notes: The external-channel half lands with the email digest. Audited dispatch lands with the preference slice.
+  evidence: The closed fact grammar (packages/notifications/src/facts-grammar.ts) refuses a text-valued declaration; every read composes the visible-matter predicate in SQL before the LIMIT, proved for all of them by packages/notifications/test/wall-fitness.test.ts. A preference change writes an audit_log row carrying the categories touched and nothing else, held by apps/worker/test/notification-preferences-routes.test.ts.
+  notes: The external-channel half lands with the email digest. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.

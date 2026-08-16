@@ -3,9 +3,11 @@ import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { FactsValidationError } from "./facts-grammar.ts";
 import { jobCompletionDedupeKey, materializeNotification } from "./materialize.ts";
+import { createNotificationPolicyReader } from "./preferences.ts";
 import { resolveNotificationRecipients } from "./recipients.ts";
 import { notificationTypesForJobCompletionPoint } from "./registry.ts";
 import { insertNotificationStatements } from "./statements.ts";
+import { inAppSuppressionEffects, type InAppSuppressionCount } from "./suppression-statements.ts";
 
 // THE ROW FOR THE TAB THAT WAS CLOSED.
 //
@@ -53,12 +55,17 @@ export interface JobCompletionResult {
   readonly materializedEvents: number;
   readonly recipientRows: number;
   readonly refusedFacts: number;
+  // The requester silenced the jobs category. Recorded rather than dropped: "the thing you asked
+  // for is ready" not arriving is the single most likely thing a member reports as broken, and the
+  // tally is what lets somebody answer it without guessing.
+  readonly suppressedInApp: readonly InAppSuppressionCount[];
 }
 
 const NOTHING_WRITTEN: JobCompletionResult = {
   materializedEvents: 0,
   recipientRows: 0,
   refusedFacts: 0,
+  suppressedInApp: [],
 };
 
 export async function recordJobCompletionNotification(
@@ -71,6 +78,8 @@ export async function recordJobCompletionNotification(
   let materializedEvents = 0;
   let recipientRows = 0;
   let refusedFacts = 0;
+  const suppressedInApp: InAppSuppressionCount[] = [];
+  const policy = createNotificationPolicyReader(input.database);
 
   for (const type of types) {
     if (type.matterAnchored && input.matterId === null) continue;
@@ -83,8 +92,21 @@ export async function recordJobCompletionNotification(
       matterId: input.matterId,
       actorUserId: input.requestedByUserId,
       now: () => input.now,
+      policy,
     });
-    if (audience.recipientUserIds.length === 0) continue;
+
+    const suppression = inAppSuppressionEffects(input.database, {
+      category: type.category,
+      suppressed: audience.suppressed,
+      now: input.now,
+    });
+    suppressedInApp.push(...suppression.counts);
+
+    if (audience.recipientUserIds.length === 0) {
+      if (suppression.statements.length > 0)
+        await input.database.batch([...suppression.statements]);
+      continue;
+    }
 
     let materialization;
     try {
@@ -107,10 +129,13 @@ export async function recordJobCompletionNotification(
       throw caught;
     }
 
-    await input.database.batch([...insertNotificationStatements(input.database, materialization)]);
+    await input.database.batch([
+      ...insertNotificationStatements(input.database, materialization),
+      ...suppression.statements,
+    ]);
     materializedEvents++;
     recipientRows += materialization.recipients.length;
   }
 
-  return { materializedEvents, recipientRows, refusedFacts };
+  return { materializedEvents, recipientRows, refusedFacts, suppressedInApp };
 }

@@ -22118,6 +22118,506 @@
           "throughCursor"
         ]
       },
+      "NotificationPreferencesResponse": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResolvedCategoryPreference"
+            }
+          },
+          "suppressedInApp": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationSuppressionTally"
+            }
+          },
+          "suppressedSinceCivilDate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "categories",
+          "suppressedInApp",
+          "suppressedSinceCivilDate"
+        ]
+      },
+      "NotificationResolvedCategoryPreference": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "deadlines",
+              "calendar",
+              "trust",
+              "billing",
+              "documents",
+              "custody",
+              "email",
+              "conflicts",
+              "jobs",
+              "security",
+              "system"
+            ]
+          },
+          "inApp": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "enum": [
+              "off",
+              "daily",
+              "weekly"
+            ]
+          },
+          "inAppLockedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "mandatory",
+              "firm-policy",
+              null
+            ]
+          },
+          "memberChoice": {
+            "$ref": "#/components/schemas/NotificationCategoryChoice"
+          },
+          "firmChoice": {
+            "$ref": "#/components/schemas/NotificationCategoryChoice"
+          }
+        },
+        "required": [
+          "category",
+          "inApp",
+          "email",
+          "inAppLockedBy",
+          "memberChoice",
+          "firmChoice"
+        ]
+      },
+      "NotificationCategoryChoice": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "inApp": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "enum": [
+              "off",
+              "daily",
+              "weekly"
+            ]
+          }
+        }
+      },
+      "NotificationSuppressionTally": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "deadlines",
+              "calendar",
+              "trust",
+              "billing",
+              "documents",
+              "custody",
+              "email",
+              "conflicts",
+              "jobs",
+              "security",
+              "system"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "member-preference",
+              "firm-policy"
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "lastSuppressedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "reason",
+          "count",
+          "lastSuppressedAt"
+        ]
+      },
+      "PatchNotificationPreferencesRequest": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "object",
+            "properties": {
+              "deadlines": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "calendar": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "trust": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "billing": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "documents": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "custody": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "conflicts": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "jobs": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "security": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "system": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "categories"
+        ]
+      },
+      "TrustComplianceRecipientsResponse": {
+        "type": "object",
+        "properties": {
+          "recipientUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "recipientUserIds"
+        ]
+      },
+      "PutTrustComplianceRecipientsRequest": {
+        "type": "object",
+        "properties": {
+          "recipientUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "recipientUserIds"
+        ]
+      },
       "ConversionUploadResponse": {
         "type": "object",
         "properties": {
@@ -69574,6 +70074,396 @@
         }
       }
     },
+    "/api/v1/notifications/preferences": {
+      "get": {
+        "description": "Returns the session member's own notification preferences, resolved per category: what applies, whether the in-app switch is locked and by whom, and the raw member and firm choices behind it. Two categories are always on in app. A firm may raise the in-app floor for a category and can never raise a member's email cadence. Also returns how many notifications the member's own settings have stopped, per category, within the firm's retention window.",
+        "operationId": "notificationPreferences.get",
+        "tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-operationId": "notificationPreferences.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notifications:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's resolved notification preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the session member's own notification preferences. Sparse: a category absent is left alone, a field set to null clears the member's choice for that channel so the firm's setting and then the platform default apply again. Setting a mandatory category off in app is accepted and stored but does not take effect — the response reports what actually applies. Returns the full re-resolved matrix.",
+        "operationId": "notificationPreferences.update",
+        "tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-operationId": "notificationPreferences.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notifications:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchNotificationPreferencesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's re-resolved notification preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/notifications/trust-compliance-recipients": {
+      "get": {
+        "description": "Returns the members the firm has designated to hear about every trust-category notification, in addition to whoever each kind's own audience already reaches. An empty list is the default and means nobody is designated.",
+        "operationId": "notificationPreferences.getTrustComplianceRecipients",
+        "tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-operationId": "notificationPreferences.getTrustComplianceRecipients",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's designated trust-compliance recipients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustComplianceRecipientsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Replaces the firm's designated trust-compliance recipients. A designation is not a grant of access: a designated member is added to the recipient set and nothing else, so a notification about a matter they may not see is simply not on their feed and not in their count, with no placeholder standing in for it. The audit record carries how many members were designated and never who they are.",
+        "operationId": "notificationPreferences.setTrustComplianceRecipients",
+        "tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-operationId": "notificationPreferences.setTrustComplianceRecipients",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "notificationPreferences"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutTrustComplianceRecipientsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's designated trust-compliance recipients after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustComplianceRecipientsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -72667,6 +73557,9 @@
     },
     {
       "name": "nonBillableCategories"
+    },
+    {
+      "name": "notificationPreferences"
     },
     {
       "name": "notifications"

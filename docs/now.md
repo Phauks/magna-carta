@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 736 nodes of the feature ledger in
+is the complete register rather than a digest: all 737 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,24 +19,24 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**736 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**737 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 255 | 35% |
+| Done | shipped | 256 | 35% |
 | Part-built | partial, in-build | 215 | 29% |
 | Ahead | designed, planned, researching, not-started | 223 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **736** | **100%** |
+| **All capabilities** | | **737** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 255 | 35% |
+| `shipped` | 256 | 35% |
 | `partial` | 200 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 38 | 5% |
@@ -45,11 +45,11 @@ below; these are the totals over that list.
 | `not-started` | 161 | 22% |
 | `deferred` | 41 | 6% |
 | `cut` | 2 | 0% |
-| **All statuses** | **736** | **100%** |
+| **All statuses** | **737** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 255 of 736 (35%). Shipped plus partial is 455 (62%).**
+**Shipped alone is 256 of 737 (35%). Shipped plus partial is 456 (62%).**
 
 The 200 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -79,7 +79,7 @@ true and neither is the answer on its own.
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
-| Notifications | 1 | 7 | 0 | 0 | 0 | 0 | 3 | 4 | 0 | 15 | 7% |
+| Notifications | 2 | 7 | 0 | 0 | 0 | 0 | 3 | 4 | 0 | 16 | 13% |
 | Observability & Diagnostics | 11 | 5 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 24 | 46% |
 | Payments | 0 | 0 | 0 | 7 | 0 | 0 | 3 | 0 | 0 | 10 | 0% |
 | Performance & Concurrency | 6 | 4 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 13 | 46% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **255** | **200** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **736** | **35%** |
+| **All areas** | **256** | **200** | **15** | **38** | **18** | **6** | **161** | **41** | **2** | **737** | **35%** |
 
 ## Where we have been
 
@@ -950,11 +950,12 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Notifications
 
-[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 15 nodes, 7% shipped. 1 done, 7 part-built, 3 ahead, 4 parked.
+[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 16 nodes, 13% shipped. 2 done, 7 part-built, 3 ahead, 4 parked.
 
 - `notifications` · `partial` · **Notifications subsystem** — One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   - `notifications.registry` · `shipped` · **Notification type registry** — Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable. _Note: Seventeen types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why._
-  - `notifications.recipients-preferences` · `partial` · **Recipients & preferences** — Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent. _Note: The email detail level (a member's choice under a firm ceiling) is built ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest ships._
+  - `notifications.recipients-preferences` · `partial` · **Recipients & preferences** — Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent. _Note: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands._
+  - `notifications.trust-compliance-designation` · `shipped` · **Trust-compliance designation** — A firm-tier list of members who join the recipient set of every trust-category notification, written under the trust-management capability and audited by count. _Note: A designation is not a grant of access. The designated member gets an ordinary recipient row and the visible-matter predicate still decides at read, so a notification about a matter they cannot see leaves their feed and unread count byte-identical to a firm where it was never raised - no placeholder, which would be an existence oracle. The audit row carries the recipient COUNT and never the names._
   - `notifications.center` · `partial` · **In-app notification center** — Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through. _Note: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored._
   - `notifications.channels` · `not-started` · **Delivery channels** — The channels a notification can route to — in-app, email, SMS, web push, desktop
     - `notifications.channels.email` · `not-started` · **Email channel** — External delivery via the communications layer: transactional provider for system/billing, matter mailbox for thread-bound mail.
@@ -966,7 +967,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `notifications.digest` · `deferred` · **Digest rollup** — Cadence-based rollup of multiple items into one summary notification.
   - `notifications.freshness` · `partial` · **Freshness & delivery mechanics** — Durable rows plus refetch-on-focus, cross-tab BroadcastChannel invalidation, cheap unread-count poll; job-completion rides the per-job Durable Object channel. _Note: The poll also reports what the retention sweep took while unread, so a member returning from leave is told there is a gap rather than shown a zero. Four of the five job coordinators still write no durable row — three record no requester and the bundle builder is single-flight across several of them._
     - `notifications.freshness.per-user-do-push` · `deferred` · **Per-user Durable Object push channel** — Real-time push per user extending the DO-per-job primitive, adoptable behind existing call sites.
-  - `notifications.confidentiality` · `partial` · **Confidentiality & read-time enforcement** — External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories. _Note: The external-channel half lands with the email digest. Audited dispatch lands with the preference slice._
+  - `notifications.confidentiality` · `partial` · **Confidentiality & read-time enforcement** — External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories. _Note: The external-channel half lands with the email digest. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes._
 
 ### Observability & Diagnostics
 

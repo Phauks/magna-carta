@@ -5,6 +5,7 @@ import {
   NOTIFICATION_RECIPIENT_TABLE,
   NOTIFICATION_SWEPT_UNREAD_TABLE,
 } from "./statements.ts";
+import { NOTIFICATION_IN_APP_SUPPRESSION_TABLE } from "./suppression-statements.ts";
 
 // AGEING A POINTER OUT, honestly.
 //
@@ -115,4 +116,22 @@ export function retentionSweepDeleteStatements(
       .prepare(`DELETE FROM ${NOTIFICATION_EVENT_TABLE} WHERE id IN (${selection})`)
       .bind(cutoff, RETENTION_SWEEP_BATCH_SIZE),
   ];
+}
+
+// The suppression tally ages on the SAME window as the notifications it describes. It is bounded by
+// the civil date rather than by the event selection above because it has no event to be bounded by —
+// that is the whole point of a tally — so it is a separate, unbounded-in-rows but
+// bounded-in-window delete. The row count it can touch is members times categories times reasons
+// times the days that fell out of the window on this pass, which is small by construction.
+//
+// Left standing, it would become a growing record of one member's settings with nothing left to
+// compare it against: the feed rows it explains are gone, and a count of what somebody declined to
+// hear in a quarter nobody can look at any more answers no question worth keeping it for.
+export function retentionSweepSuppressionDeleteStatement(
+  database: SqlDatabase,
+  cutoff: string,
+): SqlStatement {
+  return database
+    .prepare(`DELETE FROM ${NOTIFICATION_IN_APP_SUPPRESSION_TABLE} WHERE civil_date < ?1`)
+    .bind(cutoff.slice(0, 10));
 }

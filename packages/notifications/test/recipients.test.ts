@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import { createNotificationPolicyReader } from "../src/preferences.ts";
 import { notificationTypeForKey } from "../src/registry.ts";
 import { resolveNotificationRecipients } from "../src/recipients.ts";
 
@@ -75,6 +76,7 @@ function resolveTeam(database: Database, matterId: string | null = MATTER) {
     matterId,
     actorUserId: null,
     now: () => NOW,
+    policy: createNotificationPolicyReader(database),
   });
 }
 

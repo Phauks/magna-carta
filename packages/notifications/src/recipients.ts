@@ -1,7 +1,8 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { UserId } from "@magna-carta/identifiers/types";
+import type { NotificationPolicyReader } from "./preferences.ts";
 import type { NotificationType } from "./registry.ts";
-import { MAX_RECIPIENTS_PER_EVENT } from "./types.ts";
+import { MAX_RECIPIENTS_PER_EVENT, type InAppSuppressionReason } from "./types.ts";
 
 // WHO HEARS IT. Resolved in the queue consumer, off the hot path, never in the emitting write —
 // which is the whole reason no producing package had to change. A write path that resolved
@@ -23,18 +24,96 @@ export interface RecipientResolutionContext {
   // Supplied rather than read here: this package holds no binding and reads no clock, so the one
   // resolver that needs the time (direct-grant expiry) is handed it by whoever is running the pass.
   readonly now: () => string;
+  // REQUIRED, on the same reasoning the visible-matter predicate is required on every read: the
+  // preference floor is not something a caller may forget. A fan-out that resolved an audience and
+  // skipped this would write feed rows for members who switched the category off, and nothing about
+  // the result would look wrong. Constructed once per pass by whoever is running it, so the
+  // hundreds of resolutions in one firm's sweep share one read.
+  readonly policy: NotificationPolicyReader;
+}
+
+// A member the audience reached who will get no feed row, and whose choice that was. Carried out of
+// here rather than dropped, because the caller is the only place that can count it and record it —
+// and a suppression nobody counted is indistinguishable afterwards from a notification that was
+// never raised.
+export interface SuppressedRecipient {
+  readonly recipientUserId: UserId;
+  readonly reason: InAppSuppressionReason;
 }
 
 export interface RecipientResolution {
   readonly recipientUserIds: readonly UserId[];
   // Set when a declared audience could not be resolved as declared and something narrower stood in.
   readonly substituted: boolean;
+  readonly suppressed: readonly SuppressedRecipient[];
+  // How many of the recipients the firm's trust-compliance designation added, over and above the
+  // type's own audience. Counted because a designation quietly reaching nobody — an empty list, a
+  // departed member — is exactly the kind of setting a firm believes is working.
+  readonly designatedAdded: number;
 }
 
 export async function resolveNotificationRecipients(
   type: NotificationType,
   context: RecipientResolutionContext,
 ): Promise<RecipientResolution> {
+  const audience = await resolveDeclaredAudience(type, context);
+
+  // THE TRUST-COMPLIANCE DESIGNATION, applied to the CATEGORY rather than to one audience. A firm
+  // designating somebody is saying "this person hears about trust", not "this person hears about
+  // the one trust kind whose audience happens to be `designated`" — so it composes over whatever
+  // the kind's own audience already resolved rather than replacing it. Doing it here means all
+  // three production paths inherit it and none of them can forget.
+  const designated =
+    type.category === "trust" ? await context.policy.trustComplianceRecipients() : [];
+  const combined = [...new Set([...audience.recipientUserIds, ...designated])];
+  const designatedAdded = combined.length - new Set(audience.recipientUserIds).size;
+
+  const { kept, suppressed } = await applyInAppPreferences(type, combined, context);
+  return {
+    recipientUserIds: kept,
+    substituted: audience.substituted,
+    suppressed,
+    designatedAdded,
+  };
+}
+
+// The category's in-app switch, per member, applied AFTER the audience and never inside it. Keeping
+// the two apart is what lets a suppression be reported as "the audience reached them and their
+// preference stopped it" rather than as an audience that mysteriously returned fewer people.
+//
+// A mandatory category never reaches here with anything to suppress: `resolveCategoryPreference`
+// resolves it to `on` whatever either tier stored, so a member cannot silence a trust or security
+// notification and a firm cannot silence it on their behalf.
+async function applyInAppPreferences(
+  type: NotificationType,
+  recipientUserIds: readonly UserId[],
+  context: RecipientResolutionContext,
+): Promise<{ kept: readonly UserId[]; suppressed: readonly SuppressedRecipient[] }> {
+  if (recipientUserIds.length === 0) return { kept: [], suppressed: [] };
+  const preferences = await context.policy.preferencesFor(recipientUserIds);
+  const kept: UserId[] = [];
+  const suppressed: SuppressedRecipient[] = [];
+  for (const recipientUserId of recipientUserIds) {
+    const resolved = preferences.get(recipientUserId)?.get(type.category);
+    // An unresolvable member falls through to being notified. The alternative — silence on a read
+    // that did not answer — would turn a database hiccup into an undelivered deadline, and the
+    // recommended default is on for every category anyway.
+    if (resolved === undefined || resolved.inApp === "on") {
+      kept.push(recipientUserId);
+      continue;
+    }
+    suppressed.push({
+      recipientUserId,
+      reason: resolved.inAppSuppressionReason ?? "member-preference",
+    });
+  }
+  return { kept, suppressed };
+}
+
+async function resolveDeclaredAudience(
+  type: NotificationType,
+  context: RecipientResolutionContext,
+): Promise<{ recipientUserIds: readonly UserId[]; substituted: boolean }> {
   switch (type.audience) {
     case "responsible-member":
       return { recipientUserIds: await responsibleMember(context), substituted: false };
@@ -55,11 +134,15 @@ export async function resolveNotificationRecipients(
         substituted: false,
       };
     case "designated":
-      // The firm-tier designation of trust-compliance recipients is a later slice. It resolves to
-      // nobody rather than to everybody: an audience that has not been configured has not been
-      // configured, and defaulting it to the firm would be inventing a disclosure out of an absent
-      // setting.
-      return { recipientUserIds: [], substituted: false };
+      // The firm's trust-compliance designation, read as an audience in its own right. A type
+      // declaring it reaches exactly the designated members and nobody else; the trust CATEGORY's
+      // additive rule above is a different mechanism using the same list, and no type declares this
+      // audience today. An unconfigured designation resolves to nobody, never to the firm —
+      // defaulting it would be inventing a disclosure out of an absent setting.
+      return {
+        recipientUserIds: await context.policy.trustComplianceRecipients(),
+        substituted: false,
+      };
   }
 }
 

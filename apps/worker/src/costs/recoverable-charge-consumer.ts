@@ -379,6 +379,28 @@ async function offerToNotifications(
       // simply stopped, which is the failure mode this whole bus is prone to.
       logger.count("notifications.refused_facts", { topic: message.topic }, result.refusedFacts);
     }
+    // A member the audience reached who got no feed row because they silenced the category, or
+    // because their firm's policy did. The one counter here that reports an ABSENCE, and the reason
+    // it exists: without it a working preference and a broken fan-out look identical afterwards —
+    // nothing arrived either way — and neither a member's question nor an operator's can be
+    // answered. Both dimensions are closed labels and no member appears in them; the per-member
+    // detail is in the firm's own tally, where that member can read it.
+    for (const suppression of result.suppressedInApp) {
+      logger.count(
+        "notifications.suppressed_by_preference",
+        { category: suppression.category, reason: suppression.reason },
+        suppression.count,
+      );
+    }
+    if (result.designatedRecipients > 0) {
+      // A firm's trust-compliance designation reaching somebody. Counted because a designation that
+      // quietly reaches nobody is precisely the kind of control a firm believes is working.
+      logger.count(
+        "notifications.designated_recipients",
+        { category: "trust" },
+        result.designatedRecipients,
+      );
+    }
   } catch (caught) {
     logOperationFailed(logger, `queue:notifications:${message.id}`, caught, newCorrelationId());
     logger.count("notifications.translate_failed", { topic: message.topic }, 1);
