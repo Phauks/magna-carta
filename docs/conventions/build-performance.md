@@ -71,6 +71,14 @@ It is exhaustive and slow by design, and it is the **gate of record — run in G
 (`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
 not on the inner loop.
 
+**Cheap and certain first, expensive and fragile last.** The chain leads with the two checks that cost
+seconds and cannot fail spuriously — the build-reference sync and the drizzle snapshot freshness — and
+only then reaches the format, lint and type passes that take minutes. The ordering is not cosmetic: a
+run that dies partway reports nothing about the steps behind the one that died, and the type-aware lint
+pass (tsgolint over ~3,300 files) has been observed OOM-killed at step one in a container, which took
+the whole chain down before any of the cheap checks had spoken. Put the seconds-long, high-signal
+checks where a partial run still answers them.
+
 **The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
 derives the change set from the git diff (the merge-base with the trunk, plus the working tree) and runs only
 what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
