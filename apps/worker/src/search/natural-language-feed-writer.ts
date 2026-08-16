@@ -89,13 +89,19 @@ export async function writeNaturalLanguageFeedObject(
   const bytes = new TextEncoder().encode(body);
 
   const objectKey = naturalLanguageFeedObjectKey(input.matterId, input.documentId, input.version);
+  // The matter is COPIED from the authoritative version's own stamp by the caller and passed through
+  // here — never re-derived from the database by this writer. One home per fact: the feed object and
+  // its source cannot disagree about which matter they belong to, and if they ever did, the
+  // disagreement is detectable by comparison rather than invisible.
+  //
+  // The stamp is built above the call rather than inline in the options object on purpose: the
+  // object-dimension scan in apps/worker/test reads a bounded window after each `.put(`, and a
+  // comment sitting between the call and its `customMetadata` pushes the stamp out of that window —
+  // so a correctly stamped write reads to the scan as an unstamped one.
+  const dimensions = naturalLanguageFeedObjectDimensions(input.matterId);
   await bucket.put(objectKey, bytes, {
+    customMetadata: dimensions,
     httpMetadata: { contentType: "text/markdown; charset=utf-8" },
-    // The matter is COPIED from the authoritative version's own stamp by the caller and passed
-    // through here — never re-derived from the database by this writer. One home per fact: the feed
-    // object and its source cannot disagree about which matter they belong to, and if they ever did,
-    // the disagreement is detectable by comparison rather than invisible.
-    customMetadata: naturalLanguageFeedObjectDimensions(input.matterId),
   });
 
   const fedAt = now();

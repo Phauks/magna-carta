@@ -200,9 +200,7 @@ describe("the matter exclusion flag", () => {
 
 describe("both gates together, which is what the feed writer reads", () => {
   it("refuses while the firm gate is shut, however the matter flag stands", async () => {
-    expect(await mayFeedMatter(fixture.database, MATTER)).toBe(
-      false,
-    );
+    expect(await mayFeedMatter(fixture.database, MATTER)).toBe(false);
   });
 
   it("refuses an excluded matter even with the firm gate open", async () => {
@@ -220,13 +218,9 @@ describe("both gates together, which is what the feed writer reads", () => {
       { now: () => clockValue },
     );
 
-    expect(await mayFeedMatter(fixture.database, MATTER)).toBe(
-      false,
-    );
+    expect(await mayFeedMatter(fixture.database, MATTER)).toBe(false);
     // The other matter is unaffected: exclusion is per matter and never firm-wide by accident.
-    expect(
-      await mayFeedMatter(fixture.database, OTHER_MATTER),
-    ).toBe(true);
+    expect(await mayFeedMatter(fixture.database, OTHER_MATTER)).toBe(true);
   });
 
   it("reads the firm gate through the same total accessor a corrupt row cannot open", async () => {
