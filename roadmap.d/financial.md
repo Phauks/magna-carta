@@ -401,6 +401,53 @@
   status: not-started
   evidence: no submission integration in tree
 
+- id: financial.billing.automations
+  name: Billing automations
+  scope: The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment.
+  status: designed
+  slices: 3-7-billing-automations
+  spec: docs/specs/2026-08-16-billing-automations-design.md
+  evidence: docs/specs/2026-08-16-billing-automations-design.md and its implementation plan; no automations module in packages/billing and no billing cron pass in apps/worker
+  awaiting-owner: Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.
+  notes: Every automation is tiered by consequence, and nothing scheduled moves client money — a cron pass has no actor and the trust authorization posture is built on one.
+
+- id: financial.billing.automations.recurring
+  name: Recurring bill generation
+  scope: A per-matter standing instruction that composes a bill for each period, versioned and pinned to the fee agreement it was authorized against.
+  status: designed
+  slices: 3-7-billing-automations
+  evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; the composers it would call (createInvoiceDraft, addClaimsToDraft) ship in packages/billing/src/draft.ts and nothing schedules them
+
+- id: financial.billing.automations.batch
+  name: Batch bill generation
+  scope: A member selects matters and gets drafts, with one run record per target naming what happened to each including the skips.
+  status: designed
+  slices: 3-7-billing-automations
+  evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; no run tables in packages/database/src/per-firm-schema.ts
+
+- id: financial.billing.automations.reminders
+  name: Payment reminders
+  scope: A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem.
+  status: designed
+  slices: 3-7-billing-automations
+  evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; no reminder table and no billing notification type beyond invoice finalized and voided in packages/notifications/src/registry.ts
+  notes: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member, the client portal is not started, and the invoice delivery record the billing design specified was never built.
+
+- id: financial.billing.automations.payment-plans
+  name: Payment plans
+  scope: An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
+  status: designed
+  slices: 3-7-billing-automations
+  evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; no payment plan tables in tree
+  notes: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against.
+
+- id: financial.billing.automations.replenishment
+  name: Evergreen below-floor replenishment
+  scope: A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
+  status: designed
+  slices: 3-7-billing-automations
+  evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; readRetainerStatus and requestRetainerReplenishment ship in packages/billing/src/retainer.ts with the billing.retainer.replenishment_requested topic, and nothing calls them on a schedule or subscribes to the topic
+
 - id: financial.costs
   name: Costs and expenses (disbursements)
   scope: Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced.
