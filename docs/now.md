@@ -9,9 +9,11 @@ nothing collapsed and nothing curated away.
 
 **Where we are, and where we have been.** The ledger records only each capability's current status,
 but it is version controlled, so its counts at every past commit are read back in
-[Where we have been](#where-we-have-been) below rather than estimated. Two limits hold: a snapshot
-shows when a node's **status** changed and never when the work happened, and a capability added to
-the ledger late arrives as a jump in the total rather than as work done.
+[Where we have been](#where-we-have-been) below rather than estimated. Three limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened; a capability added to
+the ledger late arrives as a jump in the total rather than as work done; and **the series counts
+every node, roll-up parents included**, where the standing above counts only units of work — so its
+totals are the larger pair of numbers and are not comparable to them.
 [`CHANGELOG.md`](../CHANGELOG.md) is still the dated record of what shipped and when.
 Slice-by-slice build stages live in [`STATUS.md`](../STATUS.md), the narrative of what each stream
 is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statuses means lives in
@@ -32,7 +34,7 @@ not](#what-a-roll-up-is-not).
 | Part-built | partial, in-build | 102 | 17% |
 | Ahead | designed, planned, researching, not-started | 219 | 35% |
 | Parked | deferred, cut | 43 | 7% |
-| **All capabilities** | | **621** | **100%** |
+| **All units of work** | | **621** | **100%** |
 
 ### Every status
 
@@ -134,6 +136,12 @@ that renders the counts above, and the result is kept in
 [`docs/register-history.json`](register-history.json).
 
 ### What has moved
+
+Every figure in this section counts **every node**, parents and children alike, because that is what
+the committed reconstruction holds — it was written before the register began counting units of
+work, and recomputing it means re-parsing the ledger at every past commit, which happens on the
+trunk. Read the trend, not the level: the direction and the rate are unaffected, and the totals are
+the ones that differ from [Where the program stands](#where-the-program-stands).
 
 **+63 shipped since the ledger began** — 204 on 2026-07-14, 267 on 2026-08-17, across 34 days. The
 ledger itself grew by +91 nodes over the same period (663 to 754), so the share shipped went from

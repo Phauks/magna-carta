@@ -97,7 +97,8 @@ ol.nodes{list-style:none;margin:0;padding:0}
 .callout li strong{color:var(--ink)}
 .callout h3{font-size:14px;font-family:system-ui,sans-serif;letter-spacing:.02em}
 footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padding-top:18px}
-.controls{display:flex;flex-wrap:wrap;align-items:end;gap:18px 26px;
+.controls{position:static;z-index:auto;
+  display:flex;flex-wrap:wrap;align-items:end;gap:18px 26px;
   padding:16px 18px;background:var(--raised);border:1px solid var(--rule);border-radius:3px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field span{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:650}
@@ -542,8 +543,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="changing">
-  <h2>These change something that already runs <span class="ac">19</span></h2>
-  <p class="lede">Code exists behind every one of these. Nobody is blocked waiting, and an answer changes something that is already built — so they are the ones worth taking slowly.</p>
+  <h2>These are not holding a build still <span class="ac">19</span></h2>
+  <p class="lede">Nobody is waiting on these to start writing something. Most have code behind them already, so an answer changes what is built rather than deciding it; the parked ones are set aside by an earlier decision and an answer is what would bring them back.</p>
   <div class="cards">
     <article class="card" data-node="ai.inference.embedding-pin-window" data-name="Embedding pin held open until the first index" data-area="ai.md">
       <div class="chips"><span class="chip done">Shipped</span><span class="chip live">Built · no screen by nature</span><code>ai.inference.embedding-pin-window</code></div>
@@ -557,10 +558,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="auth" data-name="Authentication, access control and encryption" data-area="auth.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>auth</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>auth</code></div>
       <h3>Authentication, access control and encryption</h3>
       <p class="q">The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -568,10 +569,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="conflicts" data-name="Conflicts Check" data-area="conflicts.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>conflicts</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>conflicts</code></div>
       <h3>Conflicts Check</h3>
       <p class="q">Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -590,10 +591,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="matters" data-name="Matters" data-area="core-domain.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>matters</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>matters</code></div>
       <h3>Matters</h3>
       <p class="q">The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Matter as the top-level access unit and cost center, opened directly with the client as a Directory link.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -612,10 +613,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="discovery.search" data-name="Search" data-area="discovery.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>discovery.search</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>discovery.search</code></div>
       <h3>Search</h3>
       <p class="q">Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Full-text and semantic search over the discovery corpus.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -656,10 +657,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="financial.trust" data-name="Trust accounting" data-area="financial.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>financial.trust</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>financial.trust</code></div>
       <h3>Trust accounting</h3>
       <p class="q">Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -667,10 +668,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="financial.trust.jurisdiction-engine" data-name="Jurisdiction-configurable compliance engine" data-area="financial.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>financial.trust.jurisdiction-engine</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>financial.trust.jurisdiction-engine</code></div>
       <h3>Jurisdiction-configurable compliance engine</h3>
       <p class="q">An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -689,10 +690,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="financial.billing" data-name="Billing and invoicing" data-area="financial.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · reach not classified</span><code>financial.billing</code></div>
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>financial.billing</code></div>
       <h3>Billing and invoicing</h3>
       <p class="q">Whether a credit note draws its own number from the invoice sequence or a sequence of its own.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -700,10 +701,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="financial.billing.corrections" data-name="Corrections after finalization" data-area="financial.md">
-      <div class="chips"><span class="chip done">Shipped</span><span class="chip live">Built · reach not classified</span><code>financial.billing.corrections</code></div>
+      <div class="chips"><span class="chip done">Shipped</span><span class="chip live">A group of capabilities</span><code>financial.billing.corrections</code></div>
       <h3>Corrections after finalization</h3>
       <p class="q">What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.</p>
-      <p class="reach">Code exists. Whether anybody can reach it has not been recorded yet.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -818,6 +819,9 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
     return lines.join("\n").trimEnd() + "\n";
   };
 
+  // applyFilters deliberately does NOT run here. It used to, and with "only what I have not
+  // answered" checked it hid the card 220 ms into typing in it, taking the focus with it. Filters
+  // change when a filter changes, not when an answer does.
   const refresh = () => {
     const answered = answersInOrder().length;
     answeredCount.textContent = String(answered);
@@ -828,7 +832,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
     for (const card of cards) {
       card.classList.toggle("done", (state[card.dataset.node] || "").trim() !== "");
     }
-    applyFilters();
   };
 
   const applyFilters = () => {
@@ -920,7 +923,12 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   document.querySelector("[data-download]").addEventListener("click", async () => {
     const text = block();
     if (text === "") { answeredLine.textContent = "Write an answer first."; return; }
-    const host = await globalThis.claude?.use?.("downloads").catch(() => null);
+    let host = null;
+    try {
+      host = (await globalThis.claude?.use?.("downloads")) ?? null;
+    } catch {
+      host = null;
+    }
     if (host) {
       try {
         await host.save({ filename: "magna-carta-decisions.md", data: text });
@@ -933,10 +941,13 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       return;
     }
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+    const href = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+    link.href = href;
     link.download = "magna-carta-decisions.md";
     link.click();
-    URL.revokeObjectURL(link.href);
+    // Revoked on a later turn of the loop, never in the same tick as the click: the browser reads
+    // the blob asynchronously, and revoking immediately races it into an empty or absent file.
+    setTimeout(() => URL.revokeObjectURL(href), 10_000);
   });
 
   document.querySelector("[data-clear]").addEventListener("click", () => {
@@ -952,5 +963,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   });
 
   refresh();
+  applyFilters();
 })();
 </script>

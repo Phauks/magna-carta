@@ -378,9 +378,11 @@ is doing lives in [\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine sta
 // that survive the reconstruction, and they are real.
 const PREAMBLE_WITH_HISTORY = `**Where we are, and where we have been.** The ledger records only each capability's current status,
 but it is version controlled, so its counts at every past commit are read back in
-[Where we have been](#where-we-have-been) below rather than estimated. Two limits hold: a snapshot
-shows when a node's **status** changed and never when the work happened, and a capability added to
-the ledger late arrives as a jump in the total rather than as work done.
+[Where we have been](#where-we-have-been) below rather than estimated. Three limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened; a capability added to
+the ledger late arrives as a jump in the total rather than as work done; and **the series counts
+every node, roll-up parents included**, where the standing above counts only units of work — so its
+totals are the larger pair of numbers and are not comparable to them.
 [\`CHANGELOG.md\`](../CHANGELOG.md) is still the dated record of what shipped and when.`;
 
 const PREAMBLE_WITHOUT_HISTORY = `**This is where we are, not where we were.** The reconstruction of the ledger's past —
@@ -475,10 +477,6 @@ function renderStanding(areas, nodes) {
   ].join("\n");
 }
 
-// Statuses that mean something exists to be reached. A `designed` node has no surface question to
-// answer yet — the honest answer is "nothing is built", which its status already says.
-const STATUSES_WITH_SOMETHING_BUILT = new Set(["shipped", "partial", "in-build"]);
-
 const SURFACE_LABEL = {
   screen: "A person can open it today",
   "awaiting-screen": "Built — the screen is the only thing missing",
@@ -489,7 +487,7 @@ const SURFACE_LABEL = {
 // rather than omitted when empty: a reader who cannot see how much of this is unanswered will read
 // the answered part as the whole.
 function renderSurfaceStanding(units) {
-  const built = units.filter((unit) => STATUSES_WITH_SOMETHING_BUILT.has(unit.status));
+  const built = units.filter((unit) => STATUSES_WITH_SOMETHING_BUILT.includes(unit.status));
   const tally = new Map(SURFACES.map((surface) => [surface, 0]));
   let unclassified = 0;
   for (const unit of built) {
@@ -570,7 +568,7 @@ function renderRollUpTable(nodes, counts) {
       `| ${rollUp.name} | ${rollUp.statuses.join(", ")} | ${totals[index]} | ${shares[index]}% |`,
     );
   }
-  rows.push(`| **All capabilities** | | **${nodes.length}** | **100%** |`);
+  rows.push(`| **All units of work** | | **${nodes.length}** | **100%** |`);
   return rows.join("\n");
 }
 
@@ -686,6 +684,15 @@ function renderHistory(summary, areas) {
 
 function renderMovement(summary) {
   const lines = [
+    wrap(
+      "Every figure in this section counts **every node**, parents and children alike, because that" +
+        " is what the committed reconstruction holds — it was written before the register began" +
+        " counting units of work, and recomputing it means re-parsing the ledger at every past" +
+        " commit, which happens on the trunk. Read the trend, not the level: the direction and the" +
+        " rate are unaffected, and the totals are the ones that differ from" +
+        " [Where the program stands](#where-the-program-stands).",
+    ),
+    "",
     wrap(
       `**${signed(summary.shippedChange)} shipped since the ledger began** —` +
         ` ${summary.shippedFirst} on ${summary.first.date}, ${summary.shippedLast} on` +
@@ -856,6 +863,14 @@ function asSentenceFragment(text) {
 // holding a build, and anything else is refining one. Deliberately not a `blocking: true` field —
 // that would be a fact about the node recorded twice, and the two copies would drift. Exported so
 // register-artifact.mjs splits its own list on exactly this set rather than on a restatement of it.
+// The complement of STATUSES_WITH_NOTHING_BUILT on the built side: statuses that mean something
+// exists to be reached, so the reach question is worth asking. Exported for the same reason its
+// sibling is — the register, the page, the desk and the lint all split on this set, and four copies
+// of one list is four chances for them to disagree about what "built" means. Not derived from the
+// sibling by subtraction: `deferred` and `cut` are in neither, because parked work may or may not
+// have code behind it and the status does not say.
+export const STATUSES_WITH_SOMETHING_BUILT = ["shipped", "partial", "in-build"];
+
 export const STATUSES_WITH_NOTHING_BUILT = new Set([
   "not-started",
   "researching",

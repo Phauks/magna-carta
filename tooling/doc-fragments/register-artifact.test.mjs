@@ -280,10 +280,14 @@ describe("the two renderings of the real ledger", () => {
   });
 
   it("emit the same per-area totals", () => {
-    // The per-area heading counts every node in the area, because the list under it is every node.
+    // The per-area heading counts units of work, matching the By-area table and the standing. The
+    // LIST under the heading is still every node — this is the register — but a heading counted one
+    // way over a table counted another is the page contradicting itself on one screen.
+    const inUnits = new Set(workUnits(nodes).map((entry) => entry.id));
     for (const entry of areas) {
-      const shipped = entry.nodes.filter((candidate) => candidate.status === "shipped").length;
-      expect(page).toContain(`<span class="ac">${shipped} of ${entry.nodes.length} shipped</span>`);
+      const areaUnits = entry.nodes.filter((candidate) => inUnits.has(candidate.id));
+      const shipped = areaUnits.filter((candidate) => candidate.status === "shipped").length;
+      expect(page).toContain(`<span class="ac">${shipped} of ${areaUnits.length} shipped</span>`);
     }
   });
 

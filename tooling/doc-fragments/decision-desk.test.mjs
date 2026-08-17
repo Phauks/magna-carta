@@ -61,7 +61,7 @@ describe("renderDecisionDesk", () => {
 
   it("separates a question holding a build from one changing something that runs", () => {
     const blocking = page.indexOf("Nothing is built behind these");
-    const changing = page.indexOf("These change something that already runs");
+    const changing = page.indexOf("These are not holding a build still");
     expect(blocking).toBeGreaterThan(-1);
     expect(changing).toBeGreaterThan(blocking);
     // The unbuilt one is above the boundary, the built one below it — the ordering is the point,
@@ -73,6 +73,67 @@ describe("renderDecisionDesk", () => {
   it("labels each card with whether anything is built behind it", () => {
     expect(page).toContain("Not built");
     expect(page).toContain("Built \u00b7 no screen yet");
+  });
+
+  it("labels a roll-up parent as a group rather than as unclassified reach", () => {
+    // The lint refuses `surface:` on a parent — its reach is its children's — so asking for one
+    // would be a prompt nothing could satisfy.
+    const withParent = [
+      parseArea(
+        area(
+          node({
+            id: "trust",
+            name: "Trust accounting",
+            status: "partial",
+            awaiting: "Whether the whole subsystem waits on outside counsel.",
+          }),
+          node({ id: "trust.ledger", name: "Ledger", status: "shipped", surface: "internal" }),
+        ),
+        "trust.md",
+      ),
+    ];
+    const rendered = renderDecisionDesk(withParent);
+    expect(rendered).toContain("A group of capabilities");
+    expect(rendered).not.toContain("reach not classified");
+  });
+
+  it("does not tell a reader that code exists behind a parked question", () => {
+    const parked = [
+      parseArea(
+        area(
+          node({
+            id: "trust.escheat",
+            name: "Escheat",
+            status: "deferred",
+            awaiting: "Whether unclaimed funds move on a schedule.",
+          }),
+        ),
+        "trust.md",
+      ),
+    ];
+    const rendered = renderDecisionDesk(parked);
+    expect(rendered).toContain("Parked");
+    expect(rendered).not.toContain("Code exists behind every one of these");
+  });
+
+  it("escapes a quote in a value it puts in an attribute", () => {
+    // escapeHtml leaves quotes alone on purpose, for element content. A name carrying one would
+    // close the attribute early and turn the rest of the sentence into markup.
+    const quoted = [
+      parseArea(
+        area(
+          node({
+            id: "trust.quote",
+            name: 'The "held" balance',
+            status: "not-started",
+            awaiting: "Whether it is called held.",
+          }),
+        ),
+        "trust.md",
+      ),
+    ];
+    const rendered = renderDecisionDesk(quoted);
+    expect(rendered).toContain('data-name="The &quot;held&quot; balance"');
   });
 
   it("gives every question an answer box keyed by the node's own id", () => {

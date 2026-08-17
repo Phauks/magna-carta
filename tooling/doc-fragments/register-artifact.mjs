@@ -32,6 +32,7 @@ import {
   STATUSES_WITH_NOTHING_BUILT,
   allNodes,
   REACH_LABEL,
+  STATUSES_WITH_SOMETHING_BUILT,
   countByStatus,
   reachOf,
   share,
@@ -126,7 +127,7 @@ export function renderBuildRegisterArtifact(areas) {
     "",
     renderAwaiting(nodes),
     "",
-    renderEveryNode(areas, nodes, everyNodeCounts),
+    renderEveryNode(areas, nodes, everyNodeCounts, new Set(units.map((unit) => unit.id))),
     "",
     FOOTER,
     "</div>",
@@ -224,7 +225,7 @@ const REACH_CARDS = [
 ];
 
 function renderReach(units) {
-  const built = units.filter((unit) => BUILT_STATUSES.has(unit.status));
+  const built = units.filter((unit) => STATUSES_WITH_SOMETHING_BUILT.includes(unit.status));
   const tally = (surface) => built.filter((unit) => unit.surface === surface).length;
   const unclassified = built.filter((unit) => unit.surface === null).length;
 
@@ -250,10 +251,6 @@ ${cards}
   <em>partial</em>: work that is engineered, paid for, and unreachable.</p>
 </section>`;
 }
-
-// Statuses that mean something exists to be reached. A designed capability has no reach question to
-// answer; its status already says nothing is built.
-const BUILT_STATUSES = new Set(["shipped", "partial", "in-build"]);
 
 // The one paragraph on the page that argues rather than reports. `partial` is the count most likely to
 // be read as progress and least likely to mean it, so the page says so where the number is, instead of
@@ -406,7 +403,7 @@ function awaitingItem(node) {
 
 // --- every node ----------------------------------------------------------------------------------
 
-function renderEveryNode(areas, nodes, counts) {
+function renderEveryNode(areas, nodes, counts, units) {
   const filters = LEDGER_STATUSES.map((status) => {
     const { label } = STATUS_PRESENTATION[status];
     return (
@@ -425,15 +422,19 @@ function renderEveryNode(areas, nodes, counts) {
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
     <span id="hits">${nodes.length} shown</span>
   </div>
-${areas.map((area) => renderArea(area)).join("\n")}
+${areas.map((area) => renderArea(area, units)).join("\n")}
 </section>`;
 }
 
-function renderArea(area) {
-  const shipped = countByStatus(area.nodes).get("shipped");
+// The heading counts units of work, matching the By-area table and the standing; the LIST under it
+// is every node, parents included, because this is the register. The two were counted differently
+// for one revision and the page said "18 of 34 shipped" over a table row reading 17 of 29.
+function renderArea(area, units) {
+  const areaUnits = area.nodes.filter((node) => units.has(node.id));
+  const shipped = countByStatus(areaUnits).get("shipped");
   const items = area.nodes.map((node) => renderNode(node)).join("");
   return `<section class="area" id="area-${area.name}">
-<h3>${renderInlineMarkup(area.title)} <span class="ac">${shipped} of ${area.nodes.length} shipped</span></h3>
+<h3>${renderInlineMarkup(area.title)} <span class="ac">${shipped} of ${areaUnits.length} shipped</span></h3>
 <ol class="nodes">${items}</ol>
 </section>`;
 }
@@ -469,6 +470,15 @@ function renderNode(node) {
 // kebab-case), so escaping them would only make the page source harder to read.
 export function escapeHtml(text) {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+// For a value going into a double-quoted attribute rather than into text. escapeHtml deliberately
+// leaves quotes alone — it was written for element content, where a bare quote is a quote — and a
+// ledger `name` or `scope` containing one would otherwise close the attribute early and turn the
+// rest of the sentence into markup. Separate from escapeHtml rather than folded into it so the
+// element-content path keeps printing readable quotation marks.
+export function escapeAttribute(text) {
+  return escapeHtml(text).replaceAll('"', "&quot;");
 }
 
 // The ledger's prose fields are Markdown — they are written for docs/now.md, which is Markdown — so a

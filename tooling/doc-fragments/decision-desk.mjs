@@ -27,8 +27,19 @@
 // No generation timestamp, for the same reason the other two carry none: the output is a byte-exact
 // function of the ledger so a diff gate can hold it, and a clock would break that every day.
 
-import { STYLESHEET, escapeHtml, renderInlineMarkup } from "./register-artifact.mjs";
-import { AWAITING_BOUNDARY, STATUSES_WITH_NOTHING_BUILT, allNodes, reachOf } from "./roadmap.mjs";
+import {
+  STYLESHEET,
+  escapeAttribute,
+  escapeHtml,
+  renderInlineMarkup,
+} from "./register-artifact.mjs";
+import {
+  AWAITING_BOUNDARY,
+  STATUSES_WITH_NOTHING_BUILT,
+  allNodes,
+  reachOf,
+  rollUpIds,
+} from "./roadmap.mjs";
 
 const STATUS_LABEL = {
   shipped: "Shipped",
@@ -78,6 +89,13 @@ const REACH_PRESENTATION = {
     tone: "live",
     detail: "This runs underneath the product and will never have a screen of its own.",
   },
+  "roll-up": {
+    label: "A group of capabilities",
+    tone: "live",
+    detail:
+      "This is a heading over several capabilities rather than one of them, so its reach is" +
+      " whatever its parts' is. The answer here applies across the group.",
+  },
   built: {
     label: "Built · reach not classified",
     tone: "live",
@@ -102,6 +120,10 @@ const QUICK_ANSWERS = [
 
 export function renderDecisionDesk(areas) {
   const nodes = allNodes(areas);
+  // A roll-up parent carries no `surface:` — the lint refuses one, because its reach is its
+  // children's. Asking reachOf about it would answer "built, reach not classified", which reads as a
+  // gap somebody could close and is a prompt nothing can satisfy.
+  const parents = rollUpIds(nodes);
   const open = nodes.filter((node) => node.awaitingOwner !== null);
   const blocking = open.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
   const changing = open.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
@@ -121,14 +143,17 @@ export function renderDecisionDesk(areas) {
       "An answer here decides what gets written next. Until one lands, the work has no shape to" +
         " take — so these are the questions that cost time by staying open.",
       blocking,
+      parents,
     ),
     "",
     renderGroup(
       "changing",
-      "These change something that already runs",
-      "Code exists behind every one of these. Nobody is blocked waiting, and an answer changes" +
-        " something that is already built — so they are the ones worth taking slowly.",
+      "These are not holding a build still",
+      "Nobody is waiting on these to start writing something. Most have code behind them already," +
+        " so an answer changes what is built rather than deciding it; the parked ones are set aside" +
+        " by an earlier decision and an answer is what would bring them back.",
       changing,
+      parents,
     ),
     "",
     renderOutbox(),
@@ -194,7 +219,7 @@ function renderControls(areas, open) {
     .filter((area) => present.has(area.name))
     .map(
       (area) =>
-        `<option value="${escapeHtml(area.name)}">${escapeHtml(area.title)} (${
+        `<option value="${escapeAttribute(area.name)}">${escapeHtml(area.title)} (${
           open.filter((node) => node.area === area.name).length
         })</option>`,
     )
@@ -211,7 +236,7 @@ function renderControls(areas, open) {
 
 // --- the questions ------------------------------------------------------------------------------
 
-function renderGroup(key, heading, lede, nodes) {
+function renderGroup(key, heading, lede, nodes, parents) {
   if (nodes.length === 0) {
     return `<section class="group" data-group="${key}">
   <h2>${heading}</h2>
@@ -222,13 +247,14 @@ function renderGroup(key, heading, lede, nodes) {
   <h2>${heading} <span class="ac">${nodes.length}</span></h2>
   <p class="lede">${lede}</p>
   <div class="cards">
-${nodes.map(renderQuestion).join("\n")}
+${nodes.map((node) => renderQuestion(node, parents)).join("\n")}
   </div>
 </section>`;
 }
 
-function renderQuestion(node) {
-  const reach = REACH_PRESENTATION[reachOf(node)];
+function renderQuestion(node, parents) {
+  const isRollUp = parents.has(node.id) && !STATUSES_WITH_NOTHING_BUILT.has(node.status);
+  const reach = REACH_PRESENTATION[isRollUp ? "roll-up" : reachOf(node)];
   const chips = [
     `<span class="chip ${STATUS_TONE[node.status]}">${STATUS_LABEL[node.status]}</span>`,
     `<span class="chip ${reach.tone}">${reach.label}</span>`,
@@ -242,7 +268,7 @@ function renderQuestion(node) {
   // The name is carried in a data attribute as well as in the heading: the answer block names each
   // decision by node id and by name, and reading the name back out of the heading would break the
   // moment the heading gains a chip or a link.
-  return `    <article class="card" data-node="${escapeHtml(node.id)}" data-name="${escapeHtml(node.name)}" data-area="${escapeHtml(node.area)}">
+  return `    <article class="card" data-node="${escapeAttribute(node.id)}" data-name="${escapeAttribute(node.name)}" data-area="${escapeAttribute(node.area)}">
       <div class="chips">${chips}<code>${escapeHtml(node.id)}</code></div>
       <h3>${renderInlineMarkup(node.name)}</h3>
       <p class="q">${renderInlineMarkup(node.awaitingOwner)}</p>
@@ -294,7 +320,8 @@ const FOOTER =
 
 // --- the fixed parts ------------------------------------------------------------------------------
 
-const DESK_STYLESHEET = `.controls{display:flex;flex-wrap:wrap;align-items:end;gap:18px 26px;
+const DESK_STYLESHEET = `.controls{position:static;z-index:auto;
+  display:flex;flex-wrap:wrap;align-items:end;gap:18px 26px;
   padding:16px 18px;background:var(--raised);border:1px solid var(--rule);border-radius:3px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field span{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:650}
@@ -392,6 +419,9 @@ const DESK_SCRIPT = `(() => {
     return lines.join("\\n").trimEnd() + "\\n";
   };
 
+  // applyFilters deliberately does NOT run here. It used to, and with "only what I have not
+  // answered" checked it hid the card 220 ms into typing in it, taking the focus with it. Filters
+  // change when a filter changes, not when an answer does.
   const refresh = () => {
     const answered = answersInOrder().length;
     answeredCount.textContent = String(answered);
@@ -402,7 +432,6 @@ const DESK_SCRIPT = `(() => {
     for (const card of cards) {
       card.classList.toggle("done", (state[card.dataset.node] || "").trim() !== "");
     }
-    applyFilters();
   };
 
   const applyFilters = () => {
@@ -494,7 +523,12 @@ const DESK_SCRIPT = `(() => {
   document.querySelector("[data-download]").addEventListener("click", async () => {
     const text = block();
     if (text === "") { answeredLine.textContent = "Write an answer first."; return; }
-    const host = await globalThis.claude?.use?.("downloads").catch(() => null);
+    let host = null;
+    try {
+      host = (await globalThis.claude?.use?.("downloads")) ?? null;
+    } catch {
+      host = null;
+    }
     if (host) {
       try {
         await host.save({ filename: "magna-carta-decisions.md", data: text });
@@ -507,10 +541,13 @@ const DESK_SCRIPT = `(() => {
       return;
     }
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+    const href = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+    link.href = href;
     link.download = "magna-carta-decisions.md";
     link.click();
-    URL.revokeObjectURL(link.href);
+    // Revoked on a later turn of the loop, never in the same tick as the click: the browser reads
+    // the blob asynchronously, and revoking immediately races it into an empty or absent file.
+    setTimeout(() => URL.revokeObjectURL(href), 10_000);
   });
 
   document.querySelector("[data-clear]").addEventListener("click", () => {
@@ -526,4 +563,5 @@ const DESK_SCRIPT = `(() => {
   });
 
   refresh();
+  applyFilters();
 })();`;
