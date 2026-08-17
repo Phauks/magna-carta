@@ -385,6 +385,19 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "who the firm owes money back to, on a record it must be able to produce until the obligation is discharged",
   },
+  // WHERE THE FIRM SENT A BILL: the address, mailbox, portal account, or the person it was handed to.
+  // Free text with no structured subject — whose bill it was resolves through the invoice, registered
+  // above — and the residue class the contact a firm records using to reach a client it holds
+  // unclaimed money for sits in, on the same reasoning. It is also the same kind of record: an
+  // append-only attempt on an obligation the firm has to be able to certify it discharged, read years
+  // later in a fee dispute or a bar audit, and rewriting the address a letter actually went to would
+  // make the record stop being evidence of what the firm did.
+  {
+    table: "invoice_delivery",
+    subjectKey: "recipient_reference",
+    action: "report-manual",
+    note: "where the firm sent a bill and who received it, held as free text with no structured subject, on an append-only row the firm must be able to produce as evidence it gave the client its bill",
+  },
   // The case calendar. Only one of its four tables carries a structured reference to a person: who
   // was, or will be, at a hearing. It resolves to a subject three ways because all three shapes
   // really occur, and the third is why one key would not be enough — an EXTERNAL participant (the

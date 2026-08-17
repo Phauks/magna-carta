@@ -386,3 +386,21 @@ export function billingArrangementOverlapsStatement(database: SqlDatabase): SqlS
     )
     .bind();
 }
+
+// A DELIVERY RECORDS THAT A FINALIZED BILL REACHED A CLIENT, and cannot predate the bill it delivered.
+// Both are triggers on the table, so a row here means one of them was bypassed — and the consequence
+// is not cosmetic: a delivery attached to a draft, or dated before the bill existed, is a row that
+// would answer "yes, the client was given this bill" for a bill the client could not have been given.
+// That answer is read before fees leave a client's trust ledger.
+export function deliveriesOfBillsThatWereNeverIssuedStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT d.id AS delivery_id, d.invoice_id AS invoice_id, i.status AS status,
+              d.delivery_date AS delivery_date, i.issue_date AS issue_date
+         FROM invoice_delivery d
+         JOIN invoice i ON i.id = d.invoice_id
+        WHERE i.status <> 'final'
+           OR (i.issue_date IS NOT NULL AND d.delivery_date < i.issue_date)`,
+    )
+    .bind();
+}

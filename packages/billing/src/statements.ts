@@ -5,6 +5,7 @@ import type {
   CreditNoteId,
   CreditNoteLineId,
   InvoiceApplicationId,
+  InvoiceDeliveryId,
   InvoiceId,
   InvoiceLineId,
   InvoiceTrustApplicationLineId,
@@ -21,6 +22,8 @@ import type {
   InvoiceApplicationKind,
   InvoiceApplicationSnapshot,
   InvoiceClaimSnapshot,
+  InvoiceDeliveryChannel,
+  InvoiceDeliveryOutcome,
   InvoiceLineKind,
   InvoiceLineSnapshot,
   InvoiceMatterBalanceSnapshot,
@@ -1162,4 +1165,210 @@ export async function readInvoiceTrustApplicationLines(
     amountMinor: row.amount_minor,
     currency: row.currency,
   }));
+}
+
+// THE DELIVERY RECORD — one append-only row per attempt at giving a client a bill, and the reads that
+// turn those rows into "has this bill been given to the client".
+//
+// A second delivery of the same bill is a new row, never an edit to an existing one: a bill posted and
+// then emailed is two deliveries, and a bill posted twice after the first came back is also two, with
+// the second being the one that matters. There is deliberately no unique constraint anywhere on this
+// table — replay of one request is held off by the idempotency key on the route, which is the layer
+// that can tell a retry from a genuine second attempt.
+
+export interface InsertInvoiceDeliveryInput {
+  readonly id: InvoiceDeliveryId;
+  readonly invoiceId: InvoiceId;
+  readonly channel: InvoiceDeliveryChannel;
+  readonly recipientReference: string;
+  readonly deliveryDate: string;
+  readonly externalReference: string | null;
+  readonly outcome: InvoiceDeliveryOutcome;
+  readonly recordedBy: UserId | null;
+  readonly now: string;
+}
+
+export function insertInvoiceDeliveryStatement(
+  database: SqlDatabase,
+  input: InsertInvoiceDeliveryInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO invoice_delivery (id, invoice_id, channel, recipient_reference, delivery_date, external_reference, outcome, recorded_by, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+    )
+    .bind(
+      input.id,
+      input.invoiceId,
+      input.channel,
+      input.recipientReference,
+      input.deliveryDate,
+      input.externalReference,
+      input.outcome,
+      input.recordedBy,
+      input.now,
+    );
+}
+
+export interface InvoiceDeliverySnapshot {
+  readonly id: InvoiceDeliveryId;
+  readonly invoiceId: InvoiceId;
+  readonly channel: InvoiceDeliveryChannel;
+  readonly recipientReference: string;
+  readonly deliveryDate: string;
+  readonly externalReference: string | null;
+  readonly outcome: InvoiceDeliveryOutcome;
+  readonly recordedBy: UserId | null;
+  readonly recordedAt: string;
+}
+
+interface InvoiceDeliveryRow {
+  id: string;
+  invoice_id: string;
+  channel: InvoiceDeliveryChannel;
+  recipient_reference: string;
+  delivery_date: string;
+  external_reference: string | null;
+  outcome: InvoiceDeliveryOutcome;
+  recorded_by: string | null;
+  recorded_at: string;
+}
+
+function toInvoiceDeliverySnapshot(row: InvoiceDeliveryRow): InvoiceDeliverySnapshot {
+  return {
+    id: row.id as InvoiceDeliveryId,
+    invoiceId: row.invoice_id as InvoiceId,
+    channel: row.channel,
+    recipientReference: row.recipient_reference,
+    deliveryDate: row.delivery_date,
+    externalReference: row.external_reference,
+    outcome: row.outcome,
+    recordedBy: row.recorded_by as UserId | null,
+    recordedAt: row.recorded_at,
+  };
+}
+
+// Every attempt on one bill, oldest first — the complete delivery history, which is what it has to be
+// because a failed attempt followed by a successful one is a different story from either alone.
+export async function readInvoiceDeliveries(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<InvoiceDeliverySnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, invoice_id, channel, recipient_reference, delivery_date, external_reference, outcome, recorded_by, recorded_at
+         FROM invoice_delivery WHERE invoice_id = ?1 ORDER BY delivery_date, recorded_at, id`,
+    )
+    .bind(invoiceId)
+    .all<InvoiceDeliveryRow>();
+  return results.map(toInvoiceDeliverySnapshot);
+}
+
+// THE ANSWER TO "HAS THIS BILL BEEN GIVEN TO THE CLIENT", reduced to the three facts a surface needs
+// without reading the whole history: whether any delivery succeeded, when the earliest success was,
+// and how many attempts there have been at all.
+//
+// `deliveredOn` is the EARLIEST success rather than the latest, because the question a jurisdiction
+// asks is when the client was first given the bill — a courtesy re-send months later does not move
+// the date the clock started running from.
+//
+// `attemptCount` is what stops "not delivered" being one sentence. A bill with no rows at all has
+// never been sent; a bill with three failed attempts has been chased and has not landed. A surface
+// that collapsed those into the same message would tell a firm nothing it needs.
+export interface InvoiceDeliveryState {
+  readonly invoiceId: InvoiceId;
+  readonly delivered: boolean;
+  readonly deliveredOn: string | null;
+  readonly attemptCount: number;
+  readonly failedAttemptCount: number;
+  readonly lastAttemptOn: string | null;
+}
+
+interface InvoiceDeliveryStateRow {
+  attempt_count: number;
+  failed_attempt_count: number;
+  delivered_on: string | null;
+  last_attempt_on: string | null;
+}
+
+export async function readInvoiceDeliveryState(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<InvoiceDeliveryState> {
+  const { results } = await database
+    .prepare(
+      `SELECT COUNT(*) AS attempt_count,
+              SUM(CASE WHEN outcome = 'failed' THEN 1 ELSE 0 END) AS failed_attempt_count,
+              MIN(CASE WHEN outcome = 'delivered' THEN delivery_date END) AS delivered_on,
+              MAX(delivery_date) AS last_attempt_on
+         FROM invoice_delivery WHERE invoice_id = ?1`,
+    )
+    .bind(invoiceId)
+    .all<InvoiceDeliveryStateRow>();
+  const row = results[0];
+  const deliveredOn = row?.delivered_on ?? null;
+  return {
+    invoiceId,
+    delivered: deliveredOn !== null,
+    deliveredOn,
+    attemptCount: row?.attempt_count ?? 0,
+    failedAttemptCount: row?.failed_attempt_count ?? 0,
+    lastAttemptOn: row?.last_attempt_on ?? null,
+  };
+}
+
+// The same state for a set of bills in ONE query. A pass over a firm's open receivables — the shape a
+// reminder sweep takes — asking per invoice would be an N+1 against the table that grows with the
+// firm's whole billing history rather than with its month.
+//
+// Bills with no delivery row at all come back with a zeroed state rather than being absent, because
+// "no delivery has been recorded" is the answer the caller asked for, and a missing key would make
+// every caller re-derive it.
+export async function readInvoiceDeliveryStates(
+  database: SqlDatabase,
+  invoiceIds: readonly InvoiceId[],
+): Promise<Map<InvoiceId, InvoiceDeliveryState>> {
+  const states = new Map<InvoiceId, InvoiceDeliveryState>();
+  for (const invoiceId of invoiceIds) {
+    states.set(invoiceId, {
+      invoiceId,
+      delivered: false,
+      deliveredOn: null,
+      attemptCount: 0,
+      failedAttemptCount: 0,
+      lastAttemptOn: null,
+    });
+  }
+  const unique = [...states.keys()];
+  // Chunked against D1's bound-parameter ceiling, the same bound the claim reads take: one query per
+  // chunk rather than one per invoice.
+  for (let offset = 0; offset < unique.length; offset += MAX_BOUND_PARAMETERS) {
+    const chunk = unique.slice(offset, offset + MAX_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT invoice_id,
+                COUNT(*) AS attempt_count,
+                SUM(CASE WHEN outcome = 'failed' THEN 1 ELSE 0 END) AS failed_attempt_count,
+                MIN(CASE WHEN outcome = 'delivered' THEN delivery_date END) AS delivered_on,
+                MAX(delivery_date) AS last_attempt_on
+           FROM invoice_delivery
+          WHERE invoice_id IN (${placeholders})
+          GROUP BY invoice_id`,
+      )
+      .bind(...chunk)
+      .all<InvoiceDeliveryStateRow & { invoice_id: string }>();
+    for (const row of results) {
+      const invoiceId = row.invoice_id as InvoiceId;
+      states.set(invoiceId, {
+        invoiceId,
+        delivered: row.delivered_on !== null,
+        deliveredOn: row.delivered_on,
+        attemptCount: row.attempt_count,
+        failedAttemptCount: row.failed_attempt_count,
+        lastAttemptOn: row.last_attempt_on,
+      });
+    }
+  }
+  return states;
 }

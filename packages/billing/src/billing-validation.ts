@@ -60,7 +60,10 @@ export type BillingValidationCode =
   | "client-credit-client-mismatch"
   | "unknown-invoice-application"
   | "application-reversal-invalid"
-  | "application-reversal-refused";
+  | "application-reversal-refused"
+  // The delivery record. A delivery is recorded rather than performed, so the only refusals possible
+  // are about whether the row describes something that could have happened.
+  | "invoice-delivery-invalid";
 
 export class BillingValidationError extends Error {
   constructor(
