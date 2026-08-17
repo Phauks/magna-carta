@@ -7,7 +7,7 @@ import { renderDecisionDesk } from "./doc-fragments/decision-desk.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
 import { renderBuildRegisterArtifact } from "./doc-fragments/register-artifact.mjs";
 import {
-  STATUSES_WITH_NOTHING_BUILT,
+  STATUSES_WITH_SOMETHING_BUILT,
   parseArea,
   renderBuildRegister,
   rollUpIds,
@@ -103,10 +103,7 @@ for (const area of areas) {
     // read as one number. Refused everywhere else, so the key can never be a second opinion: a
     // roll-up parent's reach is its children's, and a capability nothing has been written for has no
     // reach to record beyond what its status already says.
-    const somethingIsBuilt =
-      !STATUSES_WITH_NOTHING_BUILT.has(node.status) &&
-      node.status !== "deferred" &&
-      node.status !== "cut";
+    const somethingIsBuilt = STATUSES_WITH_SOMETHING_BUILT.includes(node.status);
     if (parents.has(node.id)) {
       if (node.surface !== null) {
         problems.push(

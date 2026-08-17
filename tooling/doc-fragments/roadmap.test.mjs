@@ -618,6 +618,30 @@ describe("surface", () => {
     const [unset] = parseArea(area(shippedPublicNode), "trust.md").nodes;
     expect(unset.surface).toBeNull();
   });
+
+  it("reads a key written with no value as absent, not as an empty answer", () => {
+    // `surface:` with nothing after it parses to "". Kept, it slips past every rule that tests for
+    // presence at once: the vocabulary check skips it as falsy, the lint requiring a surface on a
+    // built leaf sees one, and the reach table counts the node in no column at all.
+    const [blank] = parseArea(
+      area(
+        [
+          "- id: trust.ledger",
+          "  name: Ledger",
+          "  scope: Double-entry ledger.",
+          "  status: shipped",
+          "  surface:",
+          "  audience:",
+          "  public-name:",
+          "",
+        ].join("\n"),
+      ),
+      "trust.md",
+    ).nodes;
+    expect(blank.surface).toBeNull();
+    expect(blank.audience).toBe("internal");
+    expect(blank.publicName).toBe("Ledger");
+  });
 });
 
 const at = (status, surface = null) => ({ status, surface });

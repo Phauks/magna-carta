@@ -6,8 +6,8 @@ import { renderDecisionDesk } from "./decision-desk.mjs";
 import { renderBuildRegisterArtifact } from "./register-artifact.mjs";
 import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 
-// Regenerate docs/now.md and docs/now.html — the complete build register — from the roadmap.d/*
-// feature ledger.
+// Regenerate docs/now.md, docs/now.html and docs/decisions-open.html — the complete build register
+// as a document and as a page, and the decision desk — from the roadmap.d/* feature ledger.
 // Persistent, NOT consume-once: a capability's status keeps moving, so nodes live on and the
 // document is re-rendered whole from the current ledger every run (same shape as build-status.mjs;
 // contrast build-changelog.mjs, which deletes fragments).
@@ -16,12 +16,14 @@ import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 // a byte-exact function of the ledger and tooling/lint-roadmap.mjs fails the gate when the file on
 // disk differs from a fresh render — which is what makes the register unable to drift.
 //
-// TWO OUTPUTS, ONE RUN (the same shape as build-status.mjs, which writes STATUS.md + STATUS.json).
-// docs/now.html is the same register as a self-contained web page, for the reader who reads it as a
-// page rather than as a file in a repository. It is written here rather than by a second command on
-// purpose: a register whose two renderings are refreshed by two commands is a register whose two
-// renderings disagree the first time somebody runs one of them. The page's own renderer is pure —
-// tooling/doc-fragments/register-artifact.mjs — and takes the same `areas` the Markdown takes.
+// THREE OUTPUTS, ONE RUN (the same shape as build-status.mjs, which writes STATUS.md +
+// STATUS.json). docs/now.html is the same register as a self-contained web page, for the reader who
+// reads it as a page rather than as a file in a repository; docs/decisions-open.html is the same
+// ledger's `awaiting-owner` questions, gathered with somewhere to answer them. They are written here
+// rather than by two more commands on purpose: a register whose renderings are refreshed by
+// different commands is a register whose renderings disagree the first time somebody runs one of
+// them. Both renderers are pure — tooling/doc-fragments/register-artifact.mjs and
+// tooling/doc-fragments/decision-desk.mjs — and take the same `areas` the Markdown takes.
 //
 // The ledger's other rendering, renderPublicRoadmap, is deliberately not written here: it is written
 // for people using the product and there are none yet, so it has no audience to be accurate for.

@@ -422,7 +422,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 34 nodes, 53% shipped. 18 done, 7 part-built, 6 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 units of work, 59% shipped. 17 done, 3 part-built, 6 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
@@ -461,7 +461,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Authentication, Access Control & Encryption
 
-[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 31 nodes, 42% shipped. 13 done, 10 part-built, 5 ahead, 3 parked.
+[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 25 units of work, 48% shipped. 12 done, 5 part-built, 5 ahead, 3 parked.
 
 - `auth` · `partial` · **Authentication, access control and encryption** — First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
   - `auth.first-party-login` · `shipped` · **First-party login** — Better Auth on control-plane D1 (Drizzle adapter), firm = organization, exactly one organization per user; role/profile mirrored to the per-firm member row. _Note: API-only to date; the login/2FA UI is the 0-7b slice (branch active)._
@@ -497,7 +497,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 13 nodes, 38% shipped. 5 done, 1 part-built, 7 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 11 units of work, 45% shipped. 5 done, 0 part-built, 6 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Backend only — the calendar screens are their own slice._
@@ -515,7 +515,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Communications Layer
 
-[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 21 nodes, 14% shipped. 3 done, 4 part-built, 13 ahead, 1 parked.
+[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 16 units of work, 19% shipped. 3 done, 1 part-built, 11 ahead, 1 parked.
 
 - `communications` · `partial` · **Communications layer** — Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   - `communications.email` · `partial` · **Email** — Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
@@ -541,7 +541,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Community & Feedback Forum
 
-[`roadmap.d/community.md`](../roadmap.d/community.md) — 11 nodes, 0% shipped. 0 done, 0 part-built, 10 ahead, 1 parked.
+[`roadmap.d/community.md`](../roadmap.d/community.md) — 10 units of work, 0% shipped. 0 done, 0 part-built, 9 ahead, 1 parked.
 
 - `community` · `designed` · **Community and feedback forum** — Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
   - `community.board` · `designed` · **Feedback board** — Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.
@@ -557,7 +557,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 9 nodes, 56% shipped. 5 done, 4 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 7 units of work, 57% shipped. 4 done, 3 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
@@ -571,7 +571,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 74 nodes, 43% shipped. 32 done, 34 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 58 units of work, 53% shipped. 31 done, 19 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -650,7 +650,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Custodian (Safe Custody)
 
-[`roadmap.d/custodian.md`](../roadmap.d/custodian.md) — 12 nodes, 50% shipped. 6 done, 3 part-built, 1 ahead, 2 parked.
+[`roadmap.d/custodian.md`](../roadmap.d/custodian.md) — 11 units of work, 55% shipped. 6 done, 2 part-built, 1 ahead, 2 parked.
 
 - `custodian` · `partial` · **Custodian** — Register of physical client originals held in safekeeping — what the firm holds, where it is, whose it is — with custody log, labels, scans, and reminders. _Note: Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built._
   - `custodian.register` · `shipped` · **Item register** — Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, optional matter link, status. _Note: The design splits packet (unit of custody) from item (unit of description); co-ownership is a firm-configurable role label rather than a platform enum of tenancy forms._
@@ -667,7 +667,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 20 nodes, 60% shipped. 12 done, 7 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 15 units of work, 73% shipped. 11 done, 3 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -692,7 +692,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 26 nodes, 23% shipped. 6 done, 13 part-built, 5 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 20 units of work, 25% shipped. 5 done, 8 part-built, 5 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
   - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
@@ -723,7 +723,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 33% shipped. 3 done, 6 part-built, 0 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 8 units of work, 38% shipped. 3 done, 5 part-built, 0 ahead, 0 parked.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
@@ -737,7 +737,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 115 nodes, 53% shipped. 61 done, 26 part-built, 24 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 62% shipped. 60 done, 9 part-built, 24 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -857,7 +857,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Exhibits and Exhibit Lists
 
-[`roadmap.d/exhibits.md`](../roadmap.d/exhibits.md) — 9 nodes, 0% shipped. 0 done, 0 part-built, 8 ahead, 1 parked.
+[`roadmap.d/exhibits.md`](../roadmap.d/exhibits.md) — 8 units of work, 0% shipped. 0 done, 0 part-built, 7 ahead, 1 parked.
 
 - `exhibits` · `planned` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages. _Note: Court e-filing, docket integration and trial-presentation software stay outside this capability, and so does any jurisdiction numbering-rules catalog — two departments of one Nevada courthouse currently direct incompatible schemes, so numbering ships as copyable presets rather than as rules._
   - `exhibits.register` · `planned` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own. _Note: An exhibit never spans matters — one document used in two matters is two exhibits over one file, because the two matters have different access boundaries and different filings. A production's Bates range rides the exhibit as recorded provenance and is never computed from the label._
@@ -871,7 +871,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 69 nodes, 28% shipped. 19 done, 26 part-built, 21 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 54 units of work, 31% shipped. 17 done, 15 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -945,7 +945,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Intake / CRM
 
-[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 7 nodes, 0% shipped. 0 done, 0 part-built, 7 ahead, 0 parked.
+[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 6 units of work, 0% shipped. 0 done, 0 part-built, 6 ahead, 0 parked.
 
 - `intake` · `not-started` · **Client intake / CRM** — Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, and receptionist call intake.
   - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding prospective matters.
@@ -957,7 +957,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Integrations & Plugins
 
-[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 48 nodes, 35% shipped. 17 done, 8 part-built, 20 ahead, 3 parked.
+[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 41 units of work, 39% shipped. 16 done, 3 part-built, 19 ahead, 3 parked.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
@@ -1010,7 +1010,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Maintenance Agents
 
-[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 12 nodes, 17% shipped. 2 done, 4 part-built, 6 ahead, 0 parked.
+[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 10 units of work, 20% shipped. 2 done, 2 part-built, 6 ahead, 0 parked.
 
 - `maintenance-agents` · `partial` · **Maintenance agents** — Scheduled propose-only Claude agents plus CI tooling (open PRs/reports, never auto-merge; trust/ledger/conflicts paths always human-reviewed).
   - `maintenance-agents.security` · `not-started` · **Security agent** — pnpm/cargo audit, CVE triage, secret scanning on a schedule.
@@ -1027,7 +1027,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Notifications
 
-[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 16 nodes, 13% shipped. 2 done, 9 part-built, 1 ahead, 4 parked.
+[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 13 units of work, 15% shipped. 2 done, 6 part-built, 1 ahead, 4 parked.
 
 - `notifications` · `partial` · **Notifications subsystem** — One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   - `notifications.registry` · `shipped` · **Notification type registry** — Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable. _Note: Twenty types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why. Each path also declares how long its dedupe key must hold (CONVERGENCE_HORIZON_BY_RAISER in packages/notifications/src/materialize.ts) — the uniqueness lives on a row the retention sweep deletes, so a fourth path is a compile error until it states a horizon shorter than the retention floor, and a condition needing once-per-subject-forever convergence carries it in the owning subsystem's own tables instead._
@@ -1048,7 +1048,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Observability & Diagnostics
 
-[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 24 nodes, 46% shipped. 11 done, 5 part-built, 6 ahead, 2 parked.
+[`roadmap.d/observability.md`](../roadmap.d/observability.md) — 20 units of work, 55% shipped. 11 done, 1 part-built, 6 ahead, 2 parked.
 
 - `observability` · `partial` · **Observability & diagnostics** — Diagnose without exfiltrating privileged content: redacted operational telemetry, user-initiated incidents, correlation IDs, usage analytics, status page; no third-party error SaaS, no session replay.
   - `observability.redaction-model` · `shipped` · **Redact-by-default event model** — Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
@@ -1077,7 +1077,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Payments
 
-[`roadmap.d/payments.md`](../roadmap.d/payments.md) — 10 nodes, 0% shipped. 0 done, 0 part-built, 10 ahead, 0 parked.
+[`roadmap.d/payments.md`](../roadmap.d/payments.md) — 9 units of work, 0% shipped. 0 done, 0 part-built, 9 ahead, 0 parked.
 
 - `payments` · `designed` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
   - `payments.port` · `designed` · **Payments port** — Vendor-swappable payments adapter behind the plugin/port system.
@@ -1092,7 +1092,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Performance & Concurrency
 
-[`roadmap.d/performance.md`](../roadmap.d/performance.md) — 13 nodes, 46% shipped. 6 done, 4 part-built, 1 ahead, 2 parked.
+[`roadmap.d/performance.md`](../roadmap.d/performance.md) — 11 units of work, 55% shipped. 6 done, 2 part-built, 1 ahead, 2 parked.
 
 - `performance` · `partial` · **Performance & concurrency model** — Deliberate compute placement (Workers / Containers+Queues / Durable Objects / Rust core / browser / desktop) plus a measure-first discipline against the load-profile harness.
   - `performance.compute-placement` · `partial` · **Compute-placement model** — Each unit of work assigned to its tier; concurrency lives in the platform, not hand-threaded Workers.
@@ -1110,7 +1110,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 82 nodes, 38% shipped. 31 done, 21 part-built, 23 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 66 units of work, 47% shipped. 31 done, 6 part-built, 22 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1197,7 +1197,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Portal
 
-[`roadmap.d/portal.md`](../roadmap.d/portal.md) — 16 nodes, 0% shipped. 0 done, 0 part-built, 15 ahead, 1 parked.
+[`roadmap.d/portal.md`](../roadmap.d/portal.md) — 14 units of work, 0% shipped. 0 done, 0 part-built, 13 ahead, 1 parked.
 
 - `portal` · `not-started` · **Client portal** — External-facing surface for clients, co-counsel, experts, and other Directory contacts — document sharing, invoice viewing/payment, secure messaging, e-signature, bug reporting. _Note: Recipients are always Directory entities (no shadow user list); Directory is shipped._
   - `portal.grant-model` · `not-started` · **Unified PortalGrant model** — One first-class grant record per share (matter/folder/file scope) carrying recipient, capability set, assurance level, expiry, status, and audit fields.
@@ -1218,7 +1218,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Product Updates & User-Facing Documentation
 
-[`roadmap.d/product-updates.md`](../roadmap.d/product-updates.md) — 16 nodes, 13% shipped. 2 done, 4 part-built, 10 ahead, 0 parked.
+[`roadmap.d/product-updates.md`](../roadmap.d/product-updates.md) — 14 units of work, 14% shipped. 2 done, 2 part-built, 10 ahead, 0 parked.
 
 - `product-updates` · `partial` · **Product updates** — In-app and public changelog, release notes, roadmap, and live known-issues/status — versioned content bundled with the build, live content in control-plane KV.
   - `product-updates.sources` · `shipped` · **Authoring homes and fragment assembly** — CHANGELOG.md and ROADMAP.md as the single authoring homes, fed by fragment directories assembled on main; propose-only docs-maintenance agent drafts entries.
@@ -1239,7 +1239,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Release Channels
 
-[`roadmap.d/release-channels.md`](../roadmap.d/release-channels.md) — 9 nodes, 78% shipped. 7 done, 1 part-built, 1 ahead, 0 parked.
+[`roadmap.d/release-channels.md`](../roadmap.d/release-channels.md) — 8 units of work, 88% shipped. 7 done, 0 part-built, 1 ahead, 0 parked.
 
 - `release-channels` · `partial` · **Release channels** — Firm-level stable/beta/alpha channels gating behavior (never schema) through feature flags, with consent-gated self-serve beta and developer-only alpha.
   - `release-channels.firm-channel` · `shipped` · **firm.release_channel model** — One control-plane column, values stable/beta/alpha with alpha superset nesting; channel is a firm property, never per-user; default stable.
@@ -1253,7 +1253,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 nodes, 9% shipped. 1 done, 2 part-built, 6 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 10 units of work, 10% shipped. 1 done, 1 part-built, 6 ahead, 2 parked.
 
 - `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
   - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
@@ -1269,7 +1269,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Self-Serve Provisioning and Entitlements
 
-[`roadmap.d/self-serve.md`](../roadmap.d/self-serve.md) — 9 nodes, 11% shipped. 1 done, 1 part-built, 7 ahead, 0 parked.
+[`roadmap.d/self-serve.md`](../roadmap.d/self-serve.md) — 7 units of work, 14% shipped. 1 done, 0 part-built, 6 ahead, 0 parked.
 
 - `self-serve` · `partial` · **Self-serve provisioning and entitlements** — A stranger founding a firm without a platform operator, the free evaluation tier and what it withholds, the entitlement mask that enforces it, the lifecycle of an abandoned tenant, and the seam a future payments integration fills. _Note: Pricing, the terms of service, payments themselves and per-subject erasure are all outside this capability; the design defines the seam a payments integration writes through and builds none of it._
   - `self-serve.registration` · `shipped` · **Self-serve firm registration** — The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed. _Note: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script._
@@ -1283,7 +1283,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 17 nodes, 24% shipped. 4 done, 9 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 14 units of work, 29% shipped. 4 done, 6 part-built, 4 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
@@ -1305,7 +1305,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Tasks and Workflows / Matter Plans
 
-[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 4 nodes, 0% shipped. 0 done, 0 part-built, 4 ahead, 0 parked.
+[`roadmap.d/tasks.md`](../roadmap.d/tasks.md) — 3 units of work, 0% shipped. 0 done, 0 part-built, 3 ahead, 0 parked.
 
 - `tasks` · `not-started` · **Tasks and workflows** — Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.
   - `tasks.task-lists` · `not-started` · **Task lists** — Tasks with assignments and due dates on matters.
@@ -1314,7 +1314,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Translation Services
 
-[`roadmap.d/translation.md`](../roadmap.d/translation.md) — 7 nodes, 0% shipped. 0 done, 0 part-built, 6 ahead, 1 parked.
+[`roadmap.d/translation.md`](../roadmap.d/translation.md) — 6 units of work, 0% shipped. 0 done, 0 part-built, 5 ahead, 1 parked.
 
 - `translation` · `designed` · **Translation services** — Machine translation of pasted text and of matter documents, aligned side-by-side and target-only renditions, and a provenance record of how each translation was produced. _Note: Spoken interpretation is a person and not a feature; translation memory, glossaries and term bases, product localization, and any automated judgement of translation quality are all outside this capability._
   - `translation.pasted-text` · `designed` · **Pasted-text translation** — A member pastes a passage, names a language pair, and reads the result aligned beside the original on the matter-free tool surface.

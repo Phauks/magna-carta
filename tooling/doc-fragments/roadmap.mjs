@@ -194,10 +194,15 @@ function finishNode({ fields, line, area }, name) {
     status: fields.status,
     area,
     line,
-    audience: fields.audience ?? "internal",
-    surface: fields.surface ?? null,
-    publicName: fields["public-name"] ?? fields.name,
-    publicSummary: fields["public-summary"] ?? null,
+    // `||`, not `??`, on every optional key: a node written `surface:` with nothing after it
+    // parses to the empty string, and `??` would keep it. An empty value then slips past every
+    // rule that tests for presence — the vocabulary check skips it as falsy, the lint requiring a
+    // surface on a built leaf sees one, and the reach table counts the node in no column at all.
+    // Absent and blank are the same statement, so they parse to the same value.
+    audience: fields.audience || "internal",
+    surface: fields.surface || null,
+    publicName: fields["public-name"] || fields.name,
+    publicSummary: fields["public-summary"] || null,
     awaitingOwner: fields["awaiting-owner"] ?? null,
     slices: splitList(fields.slices),
     notes: fields.notes ?? null,
@@ -967,9 +972,14 @@ roll-up of what is beneath it. Nothing is collapsed, nothing is summarised, and 
 to change a line here, edit the node in its area file and re-run the build.`;
 
 function renderLedger(areas) {
+  // The per-area line counts units of work, matching the matrix in [By area]. The LIST under it is
+  // every node — this is the register — but a heading counted one way over a table counted another
+  // is one document contradicting itself, which is what it did for one revision.
+  const parents = rollUpIds(allNodes(areas));
   const sections = [LEDGER_INTRO];
   for (const area of areas) {
-    const counts = countByStatus(area.nodes);
+    const units = area.nodes.filter((node) => !parents.has(node.id));
+    const counts = countByStatus(units);
     const shippedCount = counts.get("shipped");
     const rollUpCounts = ROLL_UPS.map(
       (rollUp) =>
@@ -979,8 +989,8 @@ function renderLedger(areas) {
       [
         `### ${area.title}`,
         "",
-        `[\`roadmap.d/${area.name}\`](../roadmap.d/${area.name}) — ${area.nodes.length} nodes,` +
-          ` ${share(shippedCount, area.nodes.length)} shipped. ${capitalise(rollUpCounts)}.`,
+        `[\`roadmap.d/${area.name}\`](../roadmap.d/${area.name}) — ${units.length} units of work,` +
+          ` ${share(shippedCount, units.length)} shipped. ${capitalise(rollUpCounts)}.`,
         "",
         area.nodes.map((node) => renderLedgerNode(node)).join("\n"),
       ].join("\n"),

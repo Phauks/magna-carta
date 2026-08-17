@@ -169,8 +169,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   <div class="band" style="margin-top:8px">
     <div class="k "><span>Open questions</span><b>51</b><em>Every one is on this page.</em></div>
     <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
-    <div class="k y"><span>Changing something live</span><b>19</b><em>Code already exists behind these.</em></div>
-    <div class="k g"><span>Answered here</span><b><span data-answered-count="">0</span></b><em>Saved in this browser until you copy them out.</em></div>
+    <div class="k y"><span>Not holding a build</span><b>19</b><em>Mostly built already; some are parked.</em></div>
+    <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:66ch">Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in <code>docs/deploy-queue.md</code>, which is their one home.</p>
 </header>
@@ -960,6 +960,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       card.querySelector("[data-saved]").textContent = "";
     }
     refresh();
+    applyFilters();
   });
 
   refresh();

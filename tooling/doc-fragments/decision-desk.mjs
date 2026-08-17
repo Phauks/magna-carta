@@ -178,12 +178,16 @@ function renderHeader(open, blocking, changing) {
     },
     {
       value: changing.length,
-      label: "Changing something live",
-      detail: "Code already exists behind these.",
+      label: "Not holding a build",
+      detail: "Mostly built already; some are parked.",
       tone: "y",
     },
     {
-      value: '<span data-answered-count="">0</span>',
+      // The counter is the <b> itself, not a <span> inside it. The shared stylesheet's `.k span`
+      // rule is the card's small uppercase label, and it beat `.k b` on specificity, rendering this
+      // one tile's number at 12px and grey beside three at 38-60px.
+      value: "0",
+      valueAttributes: ' data-answered-count=""',
       label: "Answered here",
       detail: "Saved in this browser until you copy them out.",
       tone: "g",
@@ -207,8 +211,11 @@ ${cards.map(renderCard).join("\n")}
 </header>`;
 }
 
-function renderCard({ value, label, detail, tone }) {
-  return `    <div class="k ${tone}"><span>${label}</span><b>${value}</b><em>${detail}</em></div>`;
+function renderCard({ value, valueAttributes = "", label, detail, tone }) {
+  return (
+    `    <div class="k ${tone}"><span>${label}</span>` +
+    `<b${valueAttributes}>${value}</b><em>${detail}</em></div>`
+  );
 }
 
 // --- the controls -------------------------------------------------------------------------------
@@ -560,6 +567,7 @@ const DESK_SCRIPT = `(() => {
       card.querySelector("[data-saved]").textContent = "";
     }
     refresh();
+    applyFilters();
   });
 
   refresh();
