@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: todo
 branch: claude/billing-automations-design
-active-work: docs/active-work/claude/billing-automations-design.md
+active-work:
 next: Owner flags M1, M2 and M3 — they decide whether a schedule may finalize, whether reminders ship on or off, and whether a payment plan may charge anything
 link-spec: docs/specs/2026-08-16-billing-automations-design.md
 link-plan: docs/specs/2026-08-16-billing-automations-implementation-plan.md
