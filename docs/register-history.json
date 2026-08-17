@@ -1852,6 +1852,45 @@
         {"name":"tasks.md","total":4,"shipped":0},
         {"name":"translation.md","total":7,"shipped":0}
       ]
+    },
+    {
+      "commit": "5ac8797ec0aaa706ed4f1b6680eb524d6c0cdd4c",
+      "date": "2026-08-17",
+      "read": true,
+      "total": 752,
+      "statuses": {"shipped":263,"partial":203,"in-build":15,"designed":44,"planned":19,"researching":6,"not-started":159,"deferred":41,"cut":2},
+      "areas": [
+        {"name":"ai.md","total":34,"shipped":18},
+        {"name":"auth.md","total":31,"shipped":13},
+        {"name":"calendar.md","total":13,"shipped":5},
+        {"name":"communications.md","total":21,"shipped":3},
+        {"name":"community.md","total":11,"shipped":0},
+        {"name":"conflicts.md","total":9,"shipped":5},
+        {"name":"core-domain.md","total":74,"shipped":32},
+        {"name":"custodian.md","total":12,"shipped":6},
+        {"name":"design-system.md","total":20,"shipped":12},
+        {"name":"discovery.md","total":26,"shipped":6},
+        {"name":"document-automation.md","total":9,"shipped":3},
+        {"name":"documents.md","total":115,"shipped":60},
+        {"name":"exhibits.md","total":9,"shipped":0},
+        {"name":"financial.md","total":67,"shipped":19},
+        {"name":"intake.md","total":7,"shipped":0},
+        {"name":"integrations.md","total":48,"shipped":17},
+        {"name":"maintenance-agents.md","total":12,"shipped":0},
+        {"name":"notifications.md","total":16,"shipped":2},
+        {"name":"observability.md","total":24,"shipped":11},
+        {"name":"payments.md","total":10,"shipped":0},
+        {"name":"performance.md","total":13,"shipped":6},
+        {"name":"platform.md","total":82,"shipped":30},
+        {"name":"portal.md","total":16,"shipped":0},
+        {"name":"product-updates.md","total":16,"shipped":2},
+        {"name":"release-channels.md","total":9,"shipped":7},
+        {"name":"reports.md","total":11,"shipped":1},
+        {"name":"self-serve.md","total":9,"shipped":1},
+        {"name":"settings.md","total":17,"shipped":4},
+        {"name":"tasks.md","total":4,"shipped":0},
+        {"name":"translation.md","total":7,"shipped":0}
+      ]
     }
   ]
 }

@@ -96,7 +96,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**47 of 66 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
+**48 of 67 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -109,7 +109,7 @@ ledger itself grew by +89 nodes over the same period (663 to 752), so the share 
 31% to 35% against a denominator that was moving too.
 
 That is **12.1 capabilities shipped a week** across the whole series, and **28.0 a week** over the
-40 snapshots since the last gap (2026-08-11 to 2026-08-17, +24 shipped in 6 days).
+41 snapshots since the last gap (2026-08-11 to 2026-08-17, +24 shipped in 6 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -166,10 +166,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-16 | `d17b40fb` | 262 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | +6 | 0 | 0 |
 | 2026-08-17 | `39e1a9ec` | 263 | 202 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | 0 | +1 | 0 |
 | 2026-08-17 | `1161e54c` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | +1 | 0 | 0 |
+| 2026-08-17 | `5ac8797e` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 66 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 67 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with

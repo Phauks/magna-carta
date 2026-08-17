@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: todo
 branch: claude/notification-dedupe
-active-work: docs/active-work/claude/notification-dedupe.md
+active-work:
 next: Provisioning, then the user interface. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships
 link-spec: docs/specs/2026-08-06-notifications-delivery-design.md
 link-plan: docs/specs/2026-08-06-notifications-delivery-implementation-plan.md
