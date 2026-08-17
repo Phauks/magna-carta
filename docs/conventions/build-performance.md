@@ -270,10 +270,45 @@ Two rules follow, and CI depends on both:
   to no filter at all — again silently. Exclude one project by name; select the rest positively.
 
 The gate cannot rely on review to keep this right, so `pnpm run lint:test-collection`
-(`tooling/lint-test-collection.mjs`) re-runs each of the gate's test invocations in list-only mode and
+(`tooling/lint-test-collection/`) re-runs each of the gate's test invocations in list-only mode and
 asserts that the whole-suite collection clears a **committed floor**, that the union of the jobs equals
-it, and that the jobs do not overlap. The floor and its update procedure live in that file, next to the
-number. It runs locally on demand and in CI as the gate's `test-collection` job.
+it, that the jobs do not overlap, and that the workflow holds no test invocation the lint has not been
+told about — the list is closed in both directions, so a fourth test job cannot quietly take a share of
+the suite the coverage check then credits to nobody. The floor and its update procedure live in
+`index.mjs`, next to the number; the set arithmetic lives in `collection.mjs` and is driven from
+constructed inputs by `collection.test.mjs`, so each assertion is shown to bite rather than merely to
+exist. It runs locally on demand and in CI as the gate's `test-collection` job.
+
+**What it proves stops at collection.** `vp test list` resolves configs and globs files; it never
+executes one, so this lint answers "which files would run", not "which files ran". The step between
+them holds — measured directly at 949 registered files: test-node collects 656 and executes
+`Test Files 656 passed (656)` unsharded, 328 + 328 across the two shards with nothing overlapping and
+nothing dropped; test-worker collects 238 and executes `238 passed (238)`.
+
+**Reading a run's file count: take the number in parentheses, not the one before it.** The summary
+line is `Test Files <per-state counts> (<collected>)`, and the two differ whenever a collected file
+produces no result — a worker that died, a browser project whose browser is not installed, a run cut
+short. A local run that omitted `--project='!storybook'` on a machine without Chromium printed
+`Test Files 2 failed | 684 passed (695)`: nine files collected, dispatched, and never heard from, all
+of them inside the parenthetical and none of them in either state count. Comparing the `passed`
+number against a collected figure therefore manufactures a shortfall out of a run that dropped
+nothing, and the same subtraction is what makes a genuine drop invisible.
+
+**Reproduce a count with `pnpm run lint:test-collection --print-invocations`, never by retyping the
+paths.** `test-node` passes **fourteen** positional paths and the workflow wraps them across five
+indented YAML lines. A copy that stops short does not fail — it runs a subset and reports a confident
+green, the same property that made the original mis-scoped filter invisible. Truncating after the
+tenth path drops `apps/{recovery,scan,search,sign}-worker`, which is **7 files and 41 tests**: the run
+then prints `Test Files 649 passed (649)` against the lint's 656 and reads as a seven-file coverage
+hole in the gate, when it is seven paths missing from the command. That exact mistake has now cost two
+separate investigations, which is why the flag exists. The printed form drops `--shard` (there is no
+runnable `--shard=0/0`, and the whole-job count is what a reconciliation wants) and keeps the quotes.
+
+Two more traps. `--shard=i/N` is applied inside the runner's pool, after the point `list` stops, so a
+sharded collection cannot be listed — it partitions a hash-sorted list by index range, which is a
+partition for any N. And a count taken from one sharded job is that shard's count, not the job's:
+reading `328` off a single shard and comparing it against the lint's whole-job figure reports a gap
+that is only the split.
 
 ### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
 

@@ -42,10 +42,18 @@ pnpm run lint:licenses || fail "lint:licenses"
 step "governance — no redundant @cloudflare/workers-types imports"
 pnpm run lint:workers-types-import || fail "lint:workers-types-import"
 
-# Runs first-and-fast (node:sqlite, no Miniflare) so migration corruption fail-fasts locally even
-# though the full suite now lives in CI.
+# A plain node script, deliberately NOT a test-runner invocation. These are structural assertions over
+# the committed journal/.sql/snapshot set plus one in-memory node:sqlite apply — a runner buys them
+# nothing and costs something real: it stands up a worker pool and a transform cache on a machine that
+# may already have a suite running in another worktree, and when that contention fails the step, the
+# words this hook prints are "migration integrity". That is the scariest false positive available here
+# and the one most likely to send someone hunting a lineage break that does not exist; twice it did,
+# and the second lesson an agent took from it was to reach for --no-verify. The script takes no lock,
+# holds no pool, and finishes in well under a second.
+# The same checks run under Vitest via tooling/migration-integrity/migration-integrity.test.mts, from
+# the same module — one implementation, so the hook and the suite cannot disagree.
 step "migration integrity (journal/chain/rebuild guards)"
-pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts || fail "migration integrity"
+node tooling/migration-integrity/index.mts || fail "migration integrity"
 
 echo "pre-push: fast local gates passed — the authoritative whole-repo gate runs in GitHub Actions on main"
 exit 0

@@ -512,7 +512,7 @@ jobs:
       - run: tar -xzf wasm-pkg.tgz
       - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
         # Absolute paths, for the reason in the block comment above this job. Kept byte-identical to the
-        # copy in tooling/lint-test-collection.mjs, which fails if the two drift.
+        # copy in tooling/lint-test-collection/index.mjs, which fails if the two drift.
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
           "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
@@ -552,7 +552,7 @@ jobs:
         # this guarantees it can never lazily boot in a job that installs no browser. Absolute paths for
         # the reason in the block comment above test-node — these two happen to resolve to project roots
         # exactly, which is the one relative spelling that does collect, but the gate does not rely on
-        # that coincidence. Kept byte-identical to tooling/lint-test-collection.mjs.
+        # that coincidence. Kept byte-identical to tooling/lint-test-collection/index.mjs.
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
           "$PWD/apps/worker" "$PWD/apps/status-worker"
@@ -744,9 +744,13 @@ jobs:
       - name: Governance (every lint:* script, derived)
         run: node tooling/check-scoped/run-repo-wide-lints.mjs --all --except lint:test-collection
       - name: Migration integrity (journal/chain/rebuild guards)
-        run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
+        # A plain node script rather than a single-file test run: these are structural assertions over
+        # the committed journal/.sql/snapshot set plus one in-memory node:sqlite apply, so standing up
+        # the test runner to take them buys nothing. Its Vitest twin runs in test-node from the same
+        # module (tooling/migration-integrity), so this is a fail-fast, not a second implementation.
+        run: node tooling/migration-integrity/index.mts
 
-      # The integrity test above proves the committed chain is sound; this proves the drizzle SNAPSHOT
+      # The integrity guard above proves the committed chain is sound; this proves the drizzle SNAPSHOT
       # still describes it. drizzle-kit writes a snapshot only when it emits a migration, so every
       # hand-written migration advances the journal while meta/ stands still — and the damage shows up
       # only later, when the next generate diffs against the stale snapshot and re-emits every table

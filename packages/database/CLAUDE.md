@@ -68,7 +68,7 @@ To confirm a repair by hand: `generate-per-firm-migrations` on an unchanged sche
 
 **This is gated, not reviewed.** `check-snapshots` runs in `pnpm check:scoped` whenever the change
 touches this package, in the whole-repo `pnpm check`, and in the CI gate's `governance` job beside the
-migration-integrity test — so a stale snapshot fails before it lands rather than surfacing weeks later
+migration-integrity guard — so a stale snapshot fails before it lands rather than surfacing weeks later
 in someone else's `generate`. It drifted twice unnoticed before that wiring existed, both times because
 the rule above was a rule a reviewer had to remember. Nobody has to remember it now; do not re-add it as
 a review step.
@@ -78,8 +78,12 @@ a review step.
 - **A migration is immutable once committed.** Firms have already applied it. Corrections are new
   migrations, never edits to an existing `.sql` or a renumbered journal entry.
 - **The journal is the apply order.** `idx` is dense from 0, every entry has its `.sql`, and every
-  snapshot maps to a journal idx — asserted by `test/migration-integrity.test.ts`, which also applies
-  the whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild.
+  snapshot maps to a journal idx — asserted by `tooling/migration-integrity/`, which also applies the
+  whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild. It lives outside
+  this package because it is a plain node script rather than a test: `node tooling/migration-integrity/index.mts`
+  runs it in under a second, which is what lets the pre-push hook and the CI gate take it as a
+  fail-fast without standing up a test runner. Its Vitest twin, driving the same module, runs with the
+  normal suite. The reviewed-table-rebuild allowlist is `REVIEWED_REBUILDS` in `checks.mts`.
 - **Protected columns hold ciphertext only.** A column listed in `src/protected-columns.ts` is
   written and read exclusively through the data-access `protected()` chokepoint.
 - **No cross-firm reachability.** The per-firm schema carries no firm id and no auth table; isolation
