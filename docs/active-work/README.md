@@ -51,8 +51,19 @@ Run it **before starting a stream or editing a cross-cutting file** (golden rule
 
 ## When your stream merges
 
-Delete `docs/active-work/<branch>.md` in the same change that removes the worktree and branch (see
-the worktree-lifecycle rule in the root `CLAUDE.md`).
+**`vp run retire-note <branch>`.** Not a hand deletion — a note is not the only thing that names it.
 
-`vp run worktrees` lists the ones you forgot, so a missed deletion is a line of output rather than a
-false collision warning — but delete them anyway. The list is a backstop, not the routine.
+A `status.d/<slice>.md` fragment may carry `active-work: docs/active-work/<branch>.md`, and
+`pnpm run lint:status` fails when that path stops existing. Nothing in this directory knows who
+references it, so the pointer is invisible from where the deletion happens, and the only way to find
+it by hand is to think of grepping — which is the step that fails. The command clears every pointer
+naming the note, re-renders `STATUS.md`/`STATUS.json`, deletes the note, and removes the worktree and
+branch, so the pointer cannot survive the note.
+
+It refuses a branch that has not landed unless you pass `--force`, because retiring a live stream
+removes the only collision warning other worktrees get. `--dry-run` prints the plan and writes
+nothing; `--keep-workspace` does the paperwork and leaves the worktree and branch alone.
+
+`vp run worktrees` lists the notes you forgot — each with the fragments pointing at it and the command
+that retires it — so a missed retirement is a line of output rather than a false collision warning.
+The list is a backstop, not the routine.

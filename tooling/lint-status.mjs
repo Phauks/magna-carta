@@ -42,7 +42,17 @@ for (const name of readdirSync(FRAGMENT_DIR).filter((n) => n.endsWith(".md") && 
     ["active-work", fragment.activeWork],
   ]) {
     if (path && !existsSync(join(ROOT, path))) {
-      errors.push(`  status.d/${name}  ${field} points at a missing file: ${path}`);
+      // A dangling `active-work` pointer has exactly one cause — a stream note was retired without its
+      // pointer — and the closing line's generic advice is wrong for it: re-rendering STATUS cannot
+      // invent the missing note back. Name the command that actually repairs it, at the line that
+      // reports it, so a reader who hits this never has to go looking.
+      const remedy =
+        field === "active-work"
+          ? ` — the stream note was deleted without clearing this; run \`vp run retire-note ${path
+              .replace(/^docs\/active-work\//, "")
+              .replace(/\.md$/, "")}\``
+          : "";
+      errors.push(`  status.d/${name}  ${field} points at a missing file: ${path}${remedy}`);
     }
   }
 }
