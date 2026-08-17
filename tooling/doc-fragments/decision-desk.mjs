@@ -487,9 +487,25 @@ const DESK_SCRIPT = `(() => {
     window.open(url, "_blank", "noopener");
   });
 
-  document.querySelector("[data-download]").addEventListener("click", () => {
+  // Two ways to hand over a file, because this page is read in two places. Opened from the
+  // repository or from disk it is an ordinary document and an anchor download works. Opened through
+  // a hosted viewer the frame is sandboxed and an anchor download is silently inert — the host
+  // mediates saving instead — so ask the host first and fall back only when there is none.
+  document.querySelector("[data-download]").addEventListener("click", async () => {
     const text = block();
     if (text === "") { answeredLine.textContent = "Write an answer first."; return; }
+    const host = await globalThis.claude?.use?.("downloads").catch(() => null);
+    if (host) {
+      try {
+        await host.save({ filename: "magna-carta-decisions.md", data: text });
+      } catch (error) {
+        answeredLine.textContent =
+          error?.code === "declined"
+            ? "Download cancelled — the answers are still here."
+            : "Could not save a file here. Copy the answers instead.";
+      }
+      return;
+    }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
     link.download = "magna-carta-decisions.md";
