@@ -420,7 +420,10 @@ function wrap(text, width = 100) {
   return lines.join("\n");
 }
 
-function countByStatus(nodes) {
+// Exported because register-artifact.mjs — the other rendering of this same ledger — counts with it.
+// Two renderings of one source that each did their own arithmetic could disagree, and a disagreement
+// between them is unresolvable: neither is more authoritative than the other.
+export function countByStatus(nodes) {
   const counts = new Map(LEDGER_STATUSES.map((status) => [status, 0]));
   for (const node of nodes) counts.set(node.status, counts.get(node.status) + 1);
   return counts;
@@ -486,7 +489,9 @@ function renderAreaMatrix(areas) {
   return rows.join("\n");
 }
 
-function share(value, total) {
+// Shared with register-artifact.mjs for the same reason countByStatus is: a percentage that differs
+// between two renderings of one ledger is a defect neither of them can be blamed for.
+export function share(value, total) {
   return `${total === 0 ? 0 : Math.round((value * 100) / total)}%`;
 }
 
@@ -718,8 +723,14 @@ function asSentenceFragment(text) {
 // The split reads the node's own status, so it needs no second key that could disagree with the
 // first: a status with no artifact behind it yet (not-started, researching, designed, planned) is
 // holding a build, and anything else is refining one. Deliberately not a `blocking: true` field —
-// that would be a fact about the node recorded twice, and the two copies would drift.
-const STATUSES_WITH_NOTHING_BUILT = new Set(["not-started", "researching", "designed", "planned"]);
+// that would be a fact about the node recorded twice, and the two copies would drift. Exported so
+// register-artifact.mjs splits its own list on exactly this set rather than on a restatement of it.
+export const STATUSES_WITH_NOTHING_BUILT = new Set([
+  "not-started",
+  "researching",
+  "designed",
+  "planned",
+]);
 
 function renderAwaiting(nodes) {
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
