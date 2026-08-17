@@ -350,6 +350,19 @@ export const notificationsSweptUnread = defineMetric("notifications.swept_unread
 export const notificationsComparisonClamped = defineMetric("notifications.comparison_clamped", [
   "topic",
 ] as const);
+// A comparison pass whose TIME-ZONE DISCOVERY was truncated, which is the one way this pass can stop
+// finding things without the count above moving. The deadline comparison needs one cutoff per zone
+// because no SQLite query can resolve a zone, so it first reads the distinct zones in play; a zone
+// that read never returns contributes no cutoff, and every deadline in that zone then matches neither
+// the overdue bound nor the due-today window. The pass reports zero findings for a whole jurisdiction
+// and `comparison_clamped` stays at zero beside it, which reads as coverage. Kept apart from that
+// counter deliberately: a clamp bounds what was missed, and this does not bound it at all — the value
+// counts truncated PASSES, because a read that over-reads by one to catch its own truncation learns
+// that it truncated and can never learn by how much.
+export const notificationsComparisonZoneDiscoveryTruncated = defineMetric(
+  "notifications.comparison_zone_discovery_truncated",
+  ["topic"] as const,
+);
 // A member the audience reached who got no feed row because a preference silenced the category.
 // The one counter in this group that exists to make an ABSENCE visible: every other one counts
 // something that happened, and this counts something that deliberately did not. Without it a
@@ -462,6 +475,7 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsTranslateFailed,
   notificationsSweptUnread,
   notificationsComparisonClamped,
+  notificationsComparisonZoneDiscoveryTruncated,
   notificationsSuppressedByPreference,
   notificationsDesignatedRecipients,
   notificationsDigestSent,

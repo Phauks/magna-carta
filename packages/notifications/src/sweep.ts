@@ -76,6 +76,14 @@ export interface ComparisonKindCounts {
   // Findings the per-kind cap removed before they were ever considered. A firm reporting this every
   // night is a firm being told about some of its overdue work and not the rest.
   readonly clampedFindings: number;
+  // Passes whose ZONE DISCOVERY was truncated — a different and worse failure than `clampedFindings`,
+  // which is why it is not folded into it. A clamped finding count says "we found more than we
+  // carried"; a truncated zone list says an entire time zone was never asked about, so every deadline
+  // in it produced no finding while every other counter read healthy. Counting PASSES rather than
+  // zones is deliberate: a read that over-reads by one to detect its own truncation learns that it
+  // truncated and cannot learn by how much, and inventing a magnitude here would be the same dishonesty
+  // one level down.
+  readonly truncatedZoneDiscovery: number;
   readonly refusedFacts: number;
   // Members the finding's audience reached who got no feed row because a preference silenced the
   // category. Distinct from `emptyAudiences`: an audience that resolved to nobody is a resolver
@@ -96,6 +104,7 @@ const NO_COUNTS: ComparisonKindCounts = {
   emptyAudiences: 0,
   clampedRecipients: 0,
   clampedFindings: 0,
+  truncatedZoneDiscovery: 0,
   refusedFacts: 0,
   preferenceSuppressed: 0,
 };
@@ -112,6 +121,7 @@ class KindTally {
       emptyAudiences: current.emptyAudiences + (delta.emptyAudiences ?? 0),
       clampedRecipients: current.clampedRecipients + (delta.clampedRecipients ?? 0),
       clampedFindings: current.clampedFindings + (delta.clampedFindings ?? 0),
+      truncatedZoneDiscovery: current.truncatedZoneDiscovery + (delta.truncatedZoneDiscovery ?? 0),
       refusedFacts: current.refusedFacts + (delta.refusedFacts ?? 0),
       preferenceSuppressed: current.preferenceSuppressed + (delta.preferenceSuppressed ?? 0),
     });
@@ -141,8 +151,8 @@ export async function sweepFirmComparisonNotifications(
   const findings: ComparisonFinding[] = [];
   for (const collection of collections) {
     findings.push(...collection.findings);
-    for (const [emissionPoint, clampedFindings] of collection.clampedByEmissionPoint) {
-      tally.add(emissionPoint, { clampedFindings });
+    for (const [emissionPoint, delta] of collection.countsByEmissionPoint) {
+      tally.add(emissionPoint, delta);
     }
   }
   const suppressedInApp = await materializeComparisonFindings({
@@ -161,7 +171,11 @@ export async function sweepFirmComparisonNotifications(
 
 interface Collection {
   readonly findings: readonly ComparisonFinding[];
-  readonly clampedByEmissionPoint: ReadonlyMap<string, number>;
+  // What the collection itself already knows about its own incompleteness, in the tally's own delta
+  // shape so a collector can report any counter it learns rather than only a clamp. Carrying one map
+  // of deltas instead of one map per counter is what keeps a new kind of incompleteness from needing
+  // a new parallel channel — which is how the zone-discovery truncation went uncounted.
+  readonly countsByEmissionPoint: ReadonlyMap<string, Partial<ComparisonKindCounts>>;
 }
 
 // ---- the calendar's comparison ----
@@ -182,16 +196,39 @@ async function collectDeadlineFindings(database: SqlDatabase, now: string): Prom
   // zone-discovery read to deadlines that could plausibly be due or overdue right now.
   const zoneDiscoveryCeiling = civilDateOffsetByDays(nowCivilDate, 1);
 
+  // Over-read by one so a truncated ZONE LIST is detected, for the same reason the finding reads
+  // below do it — but the consequence of missing it is worse here and that is why it is counted
+  // separately. A dropped finding is one thing the firm is not told about; a dropped ZONE is every
+  // deadline in that zone, silently, because a zone that never reaches `overdueCutoffFor` contributes
+  // no cutoff, so its deadlines match neither the overdue bound nor the due-today window. The pass
+  // would then report zero findings for a whole jurisdiction with `clampedFindings` at zero beside
+  // it — a check that stopped looking and still read as coverage.
   const zones = await readOpenDeadlineTimeZones(database, {
     throughDate: zoneDiscoveryCeiling,
-    limit: MAX_COMPARISON_FINDINGS_PER_KIND,
+    limit: MAX_COMPARISON_FINDINGS_PER_KIND + 1,
     visibilityFragment,
     visibilityBindings: visibility.bindings,
   });
-  const cutoffs = zones
+  const discovery = clamp(zones);
+  // Charged to BOTH deadline points, because the zone list feeds both reads and both are therefore
+  // incomplete. It is one truncation reported twice rather than a magnitude double-counted: the value
+  // is a count of truncated passes, and each kind's coverage is independently in question.
+  const truncationCounts: Partial<ComparisonKindCounts> =
+    discovery.clamped > 0 ? { truncatedZoneDiscovery: 1 } : {};
+  const countsByEmissionPoint = new Map<string, Partial<ComparisonKindCounts>>();
+
+  const cutoffs = discovery.kept
     .map((zone) => overdueCutoffFor(zone, now))
     .filter((cutoff): cutoff is OverdueCutoff => cutoff !== undefined);
-  if (cutoffs.length === 0) return { findings: [], clampedByEmissionPoint: new Map() };
+  if (cutoffs.length === 0) {
+    // Nothing to compare, and if the zone list was truncated that is not the same statement as "this
+    // firm has no open deadlines" — so the truncation is still reported from the early return.
+    if (discovery.clamped > 0) {
+      countsByEmissionPoint.set(CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT, truncationCounts);
+      countsByEmissionPoint.set(CALENDAR_DEADLINE_DUE_EMISSION_POINT, truncationCounts);
+    }
+    return { findings: [], countsByEmissionPoint };
+  }
 
   const currentCivilDateByZone = new Map(
     cutoffs.map((cutoff) => [cutoff.timeZone, cutoff.currentCivilDate]),
@@ -241,11 +278,17 @@ async function collectDeadlineFindings(database: SqlDatabase, now: string): Prom
     ),
   );
 
+  countsByEmissionPoint.set(CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT, {
+    ...truncationCounts,
+    clampedFindings: overdue.clamped,
+  });
+  countsByEmissionPoint.set(CALENDAR_DEADLINE_DUE_EMISSION_POINT, {
+    ...truncationCounts,
+    clampedFindings: dueToday.clamped,
+  });
+
   return {
-    clampedByEmissionPoint: new Map([
-      [CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT, overdue.clamped],
-      [CALENDAR_DEADLINE_DUE_EMISSION_POINT, dueToday.clamped],
-    ]),
+    countsByEmissionPoint,
     findings: [
       ...overdue.kept.map((row) =>
         deadlineFinding(CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT, row, currentCivilDateByZone, now),
@@ -300,7 +343,9 @@ async function collectCustodyFindings(database: SqlDatabase, now: string): Promi
     // The register caps both reasons in one read and reports one combined list, so a clamp cannot be
     // attributed to a reason without asking it a second question. It is charged to the review point,
     // which is the one both reads share a ceiling with, rather than double-counted or dropped.
-    clampedByEmissionPoint: new Map([[CUSTODY_REVIEW_DUE_EMISSION_POINT, clamped]]),
+    countsByEmissionPoint: new Map([
+      [CUSTODY_REVIEW_DUE_EMISSION_POINT, { clampedFindings: clamped }],
+    ]),
     findings: kept.map((reminder) => ({
       emissionPoint: CUSTODY_EMISSION_POINT_BY_REASON[reminder.reason],
       subjectId: reminder.packetId,
