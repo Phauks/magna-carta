@@ -294,11 +294,21 @@ of them inside the parenthetical and none of them in either state count. Compari
 number against a collected figure therefore manufactures a shortfall out of a run that dropped
 nothing, and the same subtraction is what makes a genuine drop invisible.
 
-Two more traps for anyone re-measuring. `--shard=i/N` is applied inside the runner's pool, after the
-point `list` stops, so a sharded collection cannot be listed — it partitions a hash-sorted list by
-index range, which is a partition for any N. And a count taken from one sharded job is that shard's
-count, not the job's: reading `328` off a single shard and comparing it against the lint's whole-job
-figure reports a gap that is only the split.
+**Reproduce a count with `pnpm run lint:test-collection --print-invocations`, never by retyping the
+paths.** `test-node` passes **fourteen** positional paths and the workflow wraps them across five
+indented YAML lines. A copy that stops short does not fail — it runs a subset and reports a confident
+green, the same property that made the original mis-scoped filter invisible. Truncating after the
+tenth path drops `apps/{recovery,scan,search,sign}-worker`, which is **7 files and 41 tests**: the run
+then prints `Test Files 649 passed (649)` against the lint's 656 and reads as a seven-file coverage
+hole in the gate, when it is seven paths missing from the command. That exact mistake has now cost two
+separate investigations, which is why the flag exists. The printed form drops `--shard` (there is no
+runnable `--shard=0/0`, and the whole-job count is what a reconciliation wants) and keeps the quotes.
+
+Two more traps. `--shard=i/N` is applied inside the runner's pool, after the point `list` stops, so a
+sharded collection cannot be listed — it partitions a hash-sorted list by index range, which is a
+partition for any N. And a count taken from one sharded job is that shard's count, not the job's:
+reading `328` off a single shard and comparing it against the lint's whole-job figure reports a gap
+that is only the split.
 
 ### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
 

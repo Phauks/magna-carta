@@ -87,6 +87,32 @@ export function listArgumentsFor(command, root) {
 }
 
 /**
+ * The same command, resolved into something a human can paste and run. `test-node` carries FOURTEEN
+ * positional paths and the workflow wraps them across five indented YAML lines, which is exactly the
+ * shape that gets hand-copied short — and a short path list does not fail, it silently runs a subset
+ * and reports a confident green (the same property that made the original mis-scoped filter invisible).
+ * A truncation after the tenth path drops apps/{recovery,scan,search,sign}-worker: 7 files and 41
+ * tests, which then reads as the gate collecting 7 fewer files than this lint asserts. Printing the
+ * invocations means nobody has to retype them to reproduce a count.
+ */
+export function runnableCommand(command, root) {
+  return (
+    command
+      .replaceAll(/\$\{\{[^}]*\}\}/g, "0")
+      .replaceAll(/\s+/g, " ")
+      .split(" ")
+      // Drop the shard split rather than printing `--shard=0/0`, which is not a runnable spelling. The
+      // whole-job count is what a reconciliation wants anyway: one shard's count is not the job's.
+      .filter((token) => !token.startsWith("--shard="))
+      .join(" ")
+      // Quotes are KEPT — the printed form is meant to be pasted, and an unquoted path breaks the
+      // moment a checkout lives under a directory with a space in it.
+      .replaceAll("$PWD", root.replace(/[/\\]$/, ""))
+      .trim()
+  );
+}
+
+/**
  * Key a collected entry on the repo-relative path PLUS the project that claimed it, so the same file
  * registered by two projects counts as two entries and every diagnostic names something actionable.
  */

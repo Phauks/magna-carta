@@ -3,6 +3,7 @@ import {
   driftedInvocations,
   listArgumentsFor,
   reconcile,
+  runnableCommand,
   specificationKey,
   unregisteredInvocations,
 } from "./collection.mjs";
@@ -144,6 +145,18 @@ describe("listArgumentsFor — a workflow command as a list-only selection", () 
       "/repo/packages",
       "/repo/apps/web",
     ]);
+  });
+
+  it("prints a runnable one-line form that keeps every positional path", () => {
+    // The whole point is that nobody retypes the path list. A printed command that lost a path would
+    // reproduce the very truncation it exists to prevent.
+    const printed = runnableCommand(command, "/repo/");
+    expect(printed).toBe(
+      `pnpm exec vp test run --project='!storybook' "/repo/packages" "/repo/apps/web"`,
+    );
+    // No un-runnable `--shard=0/0`, and every positional survives.
+    expect(printed).not.toContain("--shard");
+    expect(printed.split(" ").filter((token) => token.includes("/repo/"))).toHaveLength(2);
   });
 
   it("leaves no stray positional behind when the shard expression is dropped", () => {

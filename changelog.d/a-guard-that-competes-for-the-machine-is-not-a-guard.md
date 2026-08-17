@@ -26,13 +26,19 @@ clears nothing is indistinguishable from a guard that ran. And any error raised 
 checks — an unreadable journal, an absent `drizzle/` directory — is reported as a failure rather than
 allowed to look like a clean run.
 
-**The gate's `lint:test-collection` was also reported as counting more files than the gate collects.
-It does not.** Measured on a quiet machine at 949 registered test files: the lint asserts 656 for
-`test-node`, an unfiltered run executes 656, and the two CI shards execute 328 and 328 with no file
-in both and no file in neither. `test-worker` reconciles the same way. The reported gap is what a
-single shard's `Test Files N passed` line looks like when it is compared against the whole job's
-figure — sharding is applied inside the runner's pool, after the point a list-only collection stops,
-so the lint necessarily counts the job and the shard necessarily counts a half.
+**The gate's `lint:test-collection` was also reported as counting seven files more than the gate
+collects. It does not, and the seven have a name.** Measured on a quiet machine at 949 registered
+test files: the lint asserts 656 for `test-node`, an unfiltered run executes `Test Files 656 passed
+(656)`, and the two CI shards execute 328 and 328 with no file in both and no file in neither.
+`test-worker` reconciles the same way at 238.
+
+The reported 649 came from an invocation carrying **ten** of `test-node`'s **fourteen** positional
+paths. The four missing ones — `apps/{recovery,scan,search,sign}-worker` — hold exactly 7 files and
+41 tests, which is the whole of the reported gap in both figures (656 − 7 = 649, 7475 − 41 = 7434).
+Nothing runs nowhere. The path list wraps over five YAML lines and gets copied short, and a short
+list does not fail: it runs a subset and reports green, which is the same property that made the
+original mis-scoped filter invisible. `pnpm run lint:test-collection --print-invocations` now emits
+each job's command resolved onto one line so a count can be reproduced without retyping anything.
 
 What the episode did expose is that the lint had no way to be checked. It existed to prove something
 about the gate, and its own set arithmetic — floor, union, disjointness, drift — had never been run

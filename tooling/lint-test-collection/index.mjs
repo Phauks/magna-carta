@@ -6,6 +6,7 @@ import {
   driftedInvocations,
   listArgumentsFor,
   reconcile,
+  runnableCommand,
   specificationKey,
   unregisteredInvocations,
 } from "./collection.mjs";
@@ -108,6 +109,19 @@ function fail(messages) {
 // ---------------------------------------------------------------------------------------------------
 
 const workflowText = readFileSync(WORKFLOW_PATH, "utf8");
+
+// `--print-invocations` emits each job's command, resolved and on one line, and stops. Reproducing a
+// count by hand means reproducing the gate's argument list exactly, and test-node's is fourteen
+// positional paths wrapped over five YAML lines — the one that gets copied short. A short list runs a
+// subset and reports green, so the mistake looks like a finding rather than a typo.
+if (process.argv.includes("--print-invocations")) {
+  for (const invocation of GATE_INVOCATIONS) {
+    console.log(`# ${invocation.job}`);
+    console.log(`${runnableCommand(invocation.command, ROOT)}\n`);
+  }
+  process.exit(0);
+}
+
 const registration = [
   ...driftedInvocations(workflowText, GATE_INVOCATIONS),
   ...unregisteredInvocations(workflowText, GATE_INVOCATIONS),
