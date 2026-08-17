@@ -341,12 +341,50 @@ Fillable-PDF form templates and the signing surface are written into
 [`docs/specs/2026-08-13-document-automation-tail-remainder-plan.md`](../docs/specs/2026-08-13-document-automation-tail-remainder-plan.md)
 rather than half-built.
 
+**Fillable-PDF form templates shipped as a template KIND rather than a second subsystem.**
+`document_template_version.kind` is `wordProcessing | pdfForm`, defaulting to the existing value, and
+the two kinds share the catalogue, the immutable version ladder, the ingest gate, the field-manifest
+shape, the binding index, the per-firm dictionary, the formatters, the absence model, the provenance
+row, and the telemetry — while sharing no engine. `prepareFormTemplateVersion` reads the AcroForm field
+set through an injected reader (`crates/pdf-core` behind `@magna-carta/pdf`, so the domain package stays
+pure TypeScript), scrubs the upload, and builds the manifest from the SCRUBBED bytes; `fillFormTemplate`
+plans the fill and hands it to the same engine. The assembly job branches in exactly one place, and
+everything either side of the branch is shared.
+
+**A box binds only what a human confirmed, and the exact name match is refused too.** A mapping comes
+from the registration request or from the firm's existing `document_template_field_mapping` library —
+the same store the Word `MERGEFIELD` conversion writes to. A field whose name IS a merge key character
+for character is reported as a proposal and nothing applies it: a proposal built on exactness becomes
+one built on normalization and then on resemblance, and the line has to sit where it fits in one
+sentence. Every terminal field the form declares comes out either bound or on a fourth manifest list
+(`unboundFormFields`) with its reason — `no-confirmed-mapping`, `not-fillable`, or `unclassified` — and
+a field the engine cannot classify is never filled as text, because a text fill writes an appearance
+stream and an appearance stream prints. A form that binds nothing warns that every document from it is
+the blank form, which is the failure `FORMTEXT` and the placeholder-showing content control each
+produced before their lists existed. The absence model is unchanged, with one honest divergence: a tick
+box and a set-answer box have nowhere to print a marker, so an unanswerable one is left unanswered with
+the reason recorded rather than ticked.
+
+**Flatten-or-not is left open as a typed seam rather than decided.** `FormFillFinish` is a REQUIRED
+parameter on the fill, and the platform's one answer is a named constant in the worker's engine wiring,
+`interactive` while the question is open — flattening is irreversible and a flattened form cannot be
+corrected, so the non-destructive option is what sits behind an unanswered owner decision. Answering it
+is a one-line change to that constant, or a change from a constant to a per-template column read. A
+curated jurisdiction court-form library stays out of scope: these are the forms a firm supplies.
+
+Named but not fixed, in an area this slice does not own: `crates/pdf-core`'s sanitizer removes metadata,
+attachments, the XFA dataset, field values, the structure tree, bookmarks, and optional content, but not
+document-level JavaScript or additional actions — so a fillable PDF is not made inert the way the OOXML
+macro strip makes a `.docx` inert, and there is no consent gate matching the macro one. What stands
+between a hostile form and a firm today is the scan every uploaded byte already crosses, run over the
+stored bytes at registration.
+
 Deliberately deferred to the structured-value slice (2·6·6): the member's office address, the court's
 address, and the signature block as merge facets — each needs the structured `address` type or real
 line-break (`w:br`) emission, and flattened text would render documents that look right and are
-subtly wrong. The records store the facts today. Remaining for the subsystem: the signing ceremony and
-fillable-PDF form templates (the 2·6·3 remainder), authoring surfaces (2·6·4), the office-settings UI
-for the logo, and the interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
+subtly wrong. The records store the facts today. Remaining for the subsystem: the signing ceremony (the
+rest of the 2·6·3 remainder, sequenced against slice 2·5), authoring surfaces (2·6·4), the
+office-settings UI for the logo, and the interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
 subjects at scale (2·6·7) — `capacityLine` extends to the nine new party subjects automatically when
 their rows land. |
 | 2·7 — Exhibits and exhibit lists | [-] | [x] Opus 5 | [x] Opus 5 | [ ] | [ ] | [ ] | [ ] | Designed 2026-08-11. An exhibit is identity, position, and label — three separately-changing facts —

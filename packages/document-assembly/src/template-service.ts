@@ -71,6 +71,9 @@ function versionStatements(
       id: versionId,
       templateId,
       versionNumber,
+      // Stated by the preparation that produced the bytes, never chosen here: this composition does not
+      // look at the bytes and has no business deciding which engine fills them in.
+      kind: input.preparation.kind,
       r2Key: templateVersionObjectKey(templateId, versionId),
       sizeBytes: input.preparation.bytes.byteLength,
       contentSha256: input.contentSha256,
@@ -135,6 +138,7 @@ export function composeTemplateRegistration(
       // Non-privileged counts only: how many fields the template declares and how many macro payloads
       // were removed from it. Never a field key, never a name, never any template content.
       metadata: {
+        kind: input.preparation.kind,
         fieldCount: input.preparation.manifest.fields.length,
         macroPartsRemoved: input.preparation.removedMacroParts.length,
       },
@@ -170,6 +174,7 @@ export async function composeTemplateVersionRegistration(
       metadata: {
         templateId,
         versionNumber,
+        kind: input.preparation.kind,
         fieldCount: input.preparation.manifest.fields.length,
         macroPartsRemoved: input.preparation.removedMacroParts.length,
       },

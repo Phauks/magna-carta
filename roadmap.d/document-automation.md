@@ -55,10 +55,11 @@
 - id: document-automation.pdf-form-filling
   name: Dedicated PDF form filling
   scope: Court/government fillable PDFs filled via the PDF engine.
-  status: partial
+  status: shipped
   adrs: ADR-0152
-  evidence: AcroForm fill engine shipped in crates/pdf-core/src/forms.rs; no automation-facing surface, template binding, or UI exists.
-  notes: Binding firm-supplied fillable PDFs to the same data dictionary is slice 2-6-3.
+  evidence: A firm-supplied fillable PDF registers as a template of kind pdfForm — document_template_version.kind is wordProcessing | pdfForm, and the two kinds share the catalogue, the immutable version ladder, the ingest gate, the field-manifest shape, the binding index, the dictionary, the formatters, the absence model, and the provenance row while sharing no engine. prepareFormTemplateVersion (packages/document-assembly/src/pdf-form.ts) reads the AcroForm field set through an injected reader over crates/pdf-core, scrubs the upload, and builds the manifest from the stored bytes; fillFormTemplate (src/fill-form.ts) plans the fill and the assembly job branches on the kind in exactly one place. A box binds ONLY through a mapping a human confirmed, stored in the firm's existing document_template_field_mapping library — an exact name match is offered as a proposal and never applied. Every field the form declares is either bound or on manifest.unboundFormFields with its reason (no-confirmed-mapping, not-fillable, unclassified); an unclassifiable field is never filled as text, and a form that binds nothing warns that every document from it is the blank form.
+  notes: Whether a filled form files flattened or interactive is an open owner decision, held as a required typed FormFillFinish parameter at the fill seam and answered today by one constant set to interactive, because flattening is irreversible. The registration and field-list surfaces are backend only; the browser screens are slice 2-6-4.
+  awaiting-owner: Does a filled form file flattened, interactive, or is it a per-template setting? A flattened form is what a signature wants and cannot be corrected; an interactive one is what a firm wants when the recipient still has to complete a box. Today it is interactive, which is the non-destructive answer to sit behind the question — changing it is one constant, or one column read. Document automation tail remainder plan, flag B5.
 
 - id: document-automation.field-mapping-library
   name: Per-firm merge-field mapping library

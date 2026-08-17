@@ -318,8 +318,10 @@ describe("load-profile smoke", () => {
       [
         "templates.list-catalogue",
         "templates.version-for-assembly",
+        "templates.form-version-for-assembly",
         "assembly.merge-context",
         "assembly.merge-context-expressions",
+        "assembly.merge-context-form",
         "templates.custom-field-catalog",
         "templates.merge-field-catalog",
         "templates.field-binding-lookup",

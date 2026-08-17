@@ -25,13 +25,41 @@ export function failed<R extends string>(
 }
 
 // ---------------------------------------------------------------------------------------------
+// The template kind
+// ---------------------------------------------------------------------------------------------
+
+// WHAT KIND OF DOCUMENT A REGISTERED TEMPLATE VERSION HOLDS. Stored on the version rather than sniffed
+// from the bytes, so every reader asks the row instead of assuming a `.docx`.
+//
+// `wordProcessing` is the normalized OOXML package this package's own engine walks: run-split
+// placeholders reassembled into one run each, blocks and expression sites recorded, a normalizer
+// version stamped on the row. `pdfForm` is a firm-supplied fillable PDF — no normalization pass, no run
+// splitting, no blocks, no expression sites, and a field manifest DISCOVERED from the AcroForm field
+// set rather than authored by a person typing keys.
+//
+// The two kinds share everything about a template except the engine: the catalogue row, the immutable
+// version ladder, the ingest gate, the manifest shape, the binding index, the absence model, and the
+// provenance record. That is the whole reason a discriminator is cheaper than a second subsystem.
+export type TemplateKind = "wordProcessing" | "pdfForm";
+
+export const TEMPLATE_KINDS: readonly TemplateKind[] = ["wordProcessing", "pdfForm"];
+
+export function isTemplateKind(value: string): value is TemplateKind {
+  return TEMPLATE_KINDS.includes(value as TemplateKind);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Placeholders and the field manifest
 // ---------------------------------------------------------------------------------------------
 
 // How a placeholder was authored before normalization rewrote it. Recorded per occurrence so the
 // registration telemetry can answer whether text delimiters were the right primary authoring form —
 // and so a firm migrating from Word mail merge can see that its constructs were understood.
-export type PlaceholderForm = "brace" | "mergeField";
+// `acroForm` is the third: a fillable-PDF widget, whose binding was never authored in the document at
+// all — it was confirmed once, by a person, against the form's own field name. Named rather than folded
+// into one of the two above, because "how was this placeholder written" is the question the
+// registration telemetry answers, and a form field was not written.
+export type PlaceholderForm = "brace" | "mergeField" | "acroForm";
 
 // One merge field a template version uses, with everywhere it appears. `key` is the dictionary key
 // (`matter.number`); `format` is the per-placeholder format override, absent when the placeholder took
@@ -42,10 +70,99 @@ export interface ManifestField {
   readonly format: string | null;
   readonly occurrences: number;
   // The OPC part names the placeholder occurs in, sorted, so the field inspector can say "in the
-  // header" rather than only "in this template".
+  // header" rather than only "in this template". A `pdfForm` version has no parts, so it records the
+  // pages its widgets sit on in the same slot — the field inspector's sentence is "where in the
+  // document", and a page answers that question exactly as a part name does.
   readonly parts: readonly string[];
   readonly forms: readonly PlaceholderForm[];
+  // WHICH ACROFORM FIELDS THIS MERGE KEY FILLS, present only on a `pdfForm` manifest. A Word template's
+  // binding IS the key an author typed, so there is nothing further to record; a form template's
+  // binding is a confirmed mapping from the form's OWN field name onto the key, and the fill pass needs
+  // that name to know which widget to write. Two sites for one key is ordinary — a court form asks for
+  // the client's name on the caption and again on the verification page.
+  readonly formFields?: readonly ManifestFormFieldSite[];
 }
+
+// One AcroForm field a merge key fills. Everything here is read off the form at registration and
+// recorded, so the fill pass plans from the manifest rather than re-reading the document — the same
+// reason a Word manifest exists at all.
+export interface ManifestFormFieldSite {
+  // The form's fully-qualified field name, as the PDF records it.
+  readonly fieldName: string;
+  readonly kind: AcroFormFieldKind;
+  // 0-based page index of the field's first widget; null when the form declares a field no page
+  // carries a widget for.
+  readonly page: number | null;
+  // Whether the FORM says the field must be answered (/Ff bit 2). Recorded but never enforced here: it
+  // is the form's own statement about its own filing requirements, and the absence behaviour that
+  // decides whether an unfilled field fails an assembly is the DICTIONARY entry's, which is the one
+  // place that decision lives for both kinds of template.
+  readonly required: boolean;
+  // The states a choice or radio field will accept. A value that is not one of them cannot be written:
+  // the engine would set a state with no appearance behind it, which prints as an empty box that looks
+  // answered. Recorded so the fill pass can refuse it as a reported absence instead.
+  readonly options: readonly string[];
+}
+
+// The interactive role of an AcroForm field, as this package sees it. `unclassified` is this package's
+// own name for the engine's "unknown": a field whose /FT the form does not state, or states as
+// something no version of the specification defines. It is NEVER defaulted to text — a text fill writes
+// an appearance stream into a widget whose real type nobody established, and the result prints as a
+// filled-in answer.
+export type AcroFormFieldKind =
+  | "text"
+  | "checkbox"
+  | "radio"
+  | "choice"
+  | "pushButton"
+  | "signature"
+  | "unclassified";
+
+// One ACROFORM FIELD A REGISTERED FORM TEMPLATE CARRIES THAT NOTHING WILL FILL IN. The fourth list on
+// the manifest, and the direct counterpart of `legacyFormFields` and `unboundContentControls`: a hole
+// the merge engine leaves, recorded at registration so it is visible at every later surface rather than
+// discovered by whoever receives the document.
+//
+// A FIELD IS NEVER SILENTLY DROPPED AND NEVER DEFAULTED TO A TYPE. Every terminal field the form
+// declares appears either in `fields` (bound, through a confirmed mapping) or here, with the reason it
+// is not bound stated. The platform has been bitten twice by form fields that bind nothing and report
+// no absence — a Word `FORMTEXT`, and a content control showing its placeholder — and both times the
+// document read as finished and was not.
+//
+// `proposedMergeKey` IS A PROPOSAL, NOT A BINDING, and it is offered only where the form's field name
+// is EXACTLY a merge key the firm's dictionary has. Nothing resembling anything is ever proposed: a
+// `ClientName` that becomes `client.displayName` because it looked close is a silent binding decision
+// on privileged content, which is the rule the Word merge-field conversion is built on and the reason
+// the mapping library exists. A proposal is what an administrator confirms; until they do, the field
+// is unbound and says so.
+export interface UnboundFormField {
+  readonly fieldName: string;
+  readonly kind: AcroFormFieldKind;
+  readonly page: number | null;
+  readonly required: boolean;
+  readonly reason: UnboundFormFieldReason;
+  // A merge key the firm could confirm this field means, or the empty string when the platform has
+  // nothing to propose. Never applied by anything.
+  readonly proposedMergeKey: string;
+  // What the form prints in the field today — the value the PDF was stored carrying. Empty for a field
+  // the form left blank, which is the ordinary case for a template.
+  readonly frozenText: string;
+}
+
+// Why a field the form declares binds nothing. Three distinct repairs, so three distinct reasons.
+//
+// `no-confirmed-mapping` — an ordinary fillable field nobody has said what to fill from. The repair is
+// to confirm a mapping, which is a person's decision and a one-line registration input.
+//
+// `not-fillable` — a push button or a signature field. Nothing about a merge value can be written into
+// either: a push button carries an action, and a signature field is filled by the signing ceremony, not
+// by an assembly. There is no repair and none is wanted; it is listed so the field set the manifest
+// reports is the field set the form has.
+//
+// `unclassified` — the form declares a field whose type this engine could not establish. The repair is
+// to the FORM, and the reason it is reported rather than guessed at is that a wrong guess writes a
+// visible answer into a field nobody classified.
+export type UnboundFormFieldReason = "no-confirmed-mapping" | "not-fillable" | "unclassified";
 
 // One conditional or repeating block a template version carries. The EXPRESSION SOURCE is stored, never
 // a serialized syntax tree: assembly re-parses and re-checks from the source, which is the only thing
@@ -100,6 +217,12 @@ export interface FieldManifest {
   // replacement, while a content control is what Word produces today and what this engine intends to
   // bind, so the two entries stand for different futures as well as different repairs.
   readonly unboundContentControls: readonly UnboundContentControl[];
+  // The ACROFORM FIELDS a `pdfForm` version carries that nothing will fill in. Always empty on a
+  // word-processing manifest, and the fourth list rather than a widening of any of the three above for
+  // the same reason those three are separate: the repairs differ. A Word merge field is converted, a
+  // legacy form field is replaced, a content control awaits a binding this engine intends to grow, and
+  // an unbound AcroForm field is CONFIRMED — one sentence from a person and it fills in.
+  readonly unboundFormFields: readonly UnboundFormField[];
   readonly blocks: readonly ManifestBlock[];
   readonly computedFields: readonly ManifestComputedField[];
 }
@@ -257,6 +380,7 @@ export interface NormalizationWarning {
     | "merge-field-unconverted" // Word MERGEFIELD constructs were left as authored and will render frozen text
     | "legacy-form-field" // legacy Word form fields, which nothing binds and no opt-in converts
     | "unbound-content-control" // `w:sdt` regions showing a placeholder, or bound to the template's own data
+    | "unbound-form-field" // AcroForm fields on a form template that no confirmed mapping binds
     | "no-placeholders"; // the package registered cleanly but carries no merge fields at all
   readonly part: string;
   readonly detail: string;

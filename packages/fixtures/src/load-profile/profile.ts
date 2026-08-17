@@ -271,6 +271,21 @@ export interface DocumentAutomationVolume {
   // Stored template package size, drawn per version (the modeled R2 object size the version row
   // records; node:sqlite has no R2, so the recorded size stands in for the bytes).
   readonly templateSizeBytes: { readonly min: number; readonly max: number };
+  // FILLABLE-PDF FORM TEMPLATES in the catalogue, alongside the word-processing ones. A firm's court
+  // and agency forms are a smaller set than its letters and pleadings, and they change when a court
+  // reissues one rather than when a paralegal edits one — so they are a minority of the catalogue and
+  // a single version each. They are in the profile because the catalogue list, the current-version
+  // resolve, and the binding index all page over both kinds now.
+  readonly formTemplateCount: number;
+  // Boxes on a form. A one-page intake form has a dozen; a family-law financial disclosure has a few
+  // hundred, which is the top of the range and the case that makes reading the whole field set at
+  // registration worth doing once rather than per assembly.
+  readonly boxesPerFormTemplate: { readonly min: number; readonly max: number };
+  // Fraction of a form's boxes left UNBOUND — no confirmed mapping, so every document assembled from
+  // the template leaves them for a person. This is the realistic case rather than an edge one: a firm
+  // confirms the boxes it fills every time and leaves the rest, and the unbound list is what the
+  // registration surface, the field list, and every assembly report.
+  readonly unboundBoxFraction: number;
 }
 
 // The trust volume laid over the practice book: one real trust account with its sub-ledger tree, a
@@ -490,7 +505,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 14,
+  version: 15,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -605,6 +620,9 @@ export const ledgerVolume: LedgerVolumeProfile = {
     assembliesPerMatter: { min: 0, max: 8 },
     fieldMappingCount: 120,
     templateSizeBytes: { min: 20_000, max: 400_000 },
+    formTemplateCount: 24,
+    boxesPerFormTemplate: { min: 12, max: 160 },
+    unboundBoxFraction: 0.35,
   },
   trust: {
     // An established firm's trust book: a third of the open caseload holding client money, a few
@@ -767,6 +785,7 @@ export function scaleProfile(
       // party links on the probe matter (so the batched merge reads have a real fan), and a few mapping
       // library rows at the smoke multiplier. The fractions and the size range are not scaled.
       templateCount: scaleCount(profile.documentAutomation.templateCount, 6),
+      formTemplateCount: scaleCount(profile.documentAutomation.formTemplateCount, 2),
       customFieldBindings: scaleCount(profile.documentAutomation.customFieldBindings, 4),
       partyLinksOnProbeMatter: scaleCount(profile.documentAutomation.partyLinksOnProbeMatter, 3),
       fieldMappingCount: scaleCount(profile.documentAutomation.fieldMappingCount, 4),

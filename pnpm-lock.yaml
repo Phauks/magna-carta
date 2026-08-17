@@ -1429,6 +1429,9 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3
     devDependencies:
+      '@magna-carta/pdf':
+        specifier: workspace:*
+        version: link:../pdf
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

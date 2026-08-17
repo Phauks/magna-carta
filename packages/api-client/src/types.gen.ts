@@ -5263,6 +5263,10 @@ export type RegisteredTemplate = {
     templateId: string;
     versionId: string;
     versionNumber: number;
+    /**
+     * What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.
+     */
+    kind: 'wordProcessing' | 'pdfForm';
     status: string;
     fieldCount: number;
     macrosStripped: boolean;
@@ -5272,6 +5276,8 @@ export type RegisteredTemplate = {
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
     legacyFormFields: Array<TemplateLegacyFormField>;
     unboundContentControls: Array<TemplateUnboundContentControl>;
+    formFields: Array<TemplateFormField>;
+    unboundFormFields: Array<TemplateUnboundFormField>;
     confirmedFieldMappings: Array<{
         fieldName: string;
         mergeKey: string;
@@ -5320,6 +5326,28 @@ export type TemplateUnboundContentControl = {
     frozenText: string;
 };
 
+export type TemplateFormField = {
+    fieldName: string;
+    kind: string;
+    page: number | null;
+    required: boolean;
+    options: Array<string>;
+    mergeKey: string;
+    boundFromLibrary: boolean;
+    proposedMergeKey: string;
+    unboundReason: string | null;
+};
+
+export type TemplateUnboundFormField = {
+    fieldName: string;
+    kind: string;
+    page: number | null;
+    required: boolean;
+    reason: string;
+    proposedMergeKey: string;
+    frozenText: string;
+};
+
 export type TemplateNormalizationWarning = {
     code: string;
     part: string;
@@ -5333,6 +5361,10 @@ export type RegisterTemplateRequest = {
     matterTypeId?: string | null;
     locationId?: string | null;
     /**
+     * What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.
+     */
+    kind?: 'wordProcessing' | 'pdfForm';
+    /**
      * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
      */
     convertMergeFields?: boolean;
@@ -5340,11 +5372,22 @@ export type RegisterTemplateRequest = {
      * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
      */
     stripMacros?: boolean;
+    /**
+     * For a fillable-PDF template: which merge field each box on the form is filled from, by the form's own field name. Nothing is guessed — a box you do not name here is left empty in every document assembled from the template, and the response lists every one of them along with the boxes whose names happen to match a merge field exactly, which you can confirm rather than choose. Each entry is remembered for this firm, so a second form using the same field names arrives already filled in. Ignored for a Word template, whose binding is the {{field}} an author typed.
+     */
+    fieldMappings?: Array<{
+        fieldName: string;
+        mergeKey: string;
+    }>;
 };
 
 export type RegisterTemplateVersionRequest = {
     uploadKey: string;
     /**
+     * What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.
+     */
+    kind?: 'wordProcessing' | 'pdfForm';
+    /**
      * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
      */
     convertMergeFields?: boolean;
@@ -5352,6 +5395,13 @@ export type RegisterTemplateVersionRequest = {
      * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
      */
     stripMacros?: boolean;
+    /**
+     * For a fillable-PDF template: which merge field each box on the form is filled from, by the form's own field name. Nothing is guessed — a box you do not name here is left empty in every document assembled from the template, and the response lists every one of them along with the boxes whose names happen to match a merge field exactly, which you can confirm rather than choose. Each entry is remembered for this firm, so a second form using the same field names arrives already filled in. Ignored for a Word template, whose binding is the {{field}} an author typed.
+     */
+    fieldMappings?: Array<{
+        fieldName: string;
+        mergeKey: string;
+    }>;
 };
 
 export type TemplatePage = {
@@ -5375,11 +5425,16 @@ export type TemplateFields = {
     templateId: string;
     versionId: string;
     versionNumber: number;
+    /**
+     * What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.
+     */
+    kind: 'wordProcessing' | 'pdfForm';
     normalizerVersion: number;
     fields: Array<TemplateFieldEntry>;
     unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
     legacyFormFields: Array<TemplateLegacyFormField>;
     unboundContentControls: Array<TemplateUnboundContentControl>;
+    unboundFormFields: Array<TemplateUnboundFormField>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 
@@ -5394,6 +5449,13 @@ export type TemplateFieldEntry = {
     absence: string | null;
     sensitivity: string | null;
     description: string | null;
+    formFields: Array<{
+        fieldName: string;
+        kind: string;
+        page: number | null;
+        required: boolean;
+        options: Array<string>;
+    }>;
 };
 
 export type ArchivedTemplate = {
@@ -25293,7 +25355,12 @@ export type ConversionsEventsError = ConversionsEventsErrors[keyof ConversionsEv
 export type TemplatesUploadData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.
+         */
+        kind?: 'wordProcessing' | 'pdfForm';
+    };
     url: '/api/v1/templates/upload';
 };
 

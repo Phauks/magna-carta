@@ -1,0 +1,14 @@
+-- What KIND of document a registered template version holds, so no reader has to assume it is a
+-- word-processing package. `wordProcessing` is the normalized OOXML package the merge engine walks;
+-- `pdfForm` is a firm-supplied fillable PDF whose AcroForm fields are filled by the PDF engine. The two
+-- share the catalogue, the version ladder, the ingest gate, the field manifest, and the binding index,
+-- and share no engine at all — which is exactly why the discriminator is a stored column rather than
+-- something inferred from the bytes at read time. Column comments live beside the Drizzle definitions
+-- in packages/database/src/per-firm-schema.ts.
+--
+-- Purely additive, so the table is not rebuilt, and every existing row takes the default — which is the
+-- truth about them: everything registered before this column existed was a word-processing package.
+--
+-- The closed set rides the column as a CHECK: there is no ALTER TABLE ADD CONSTRAINT in SQLite, and a
+-- column CHECK on the ADD is the one place the constraint can be stated without rewriting the table.
+ALTER TABLE `document_template_version` ADD COLUMN `kind` text DEFAULT 'wordProcessing' NOT NULL CONSTRAINT `document_template_version_kind_check` CHECK (`kind` IN ('wordProcessing', 'pdfForm'));

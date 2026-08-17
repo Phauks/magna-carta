@@ -99,6 +99,8 @@ export interface SnapshotManifest {
   // probe identifiers the automation measurement layer binds its catalogue list / current-version
   // resolve / batched merge context / custom-field manifest read to.
   readonly documentTemplateCount: number;
+  // How many of those are fillable-PDF form templates rather than word-processing ones.
+  readonly documentFormTemplateCount: number;
   readonly archivedDocumentTemplateCount: number;
   readonly documentTemplateVersionCount: number;
   readonly documentAssemblyCount: number;
@@ -392,6 +394,7 @@ export async function loadProfileSnapshot(
         rateCardCount: time.rateCardCount,
         timeProbes: time.probes,
         documentTemplateCount: documentAutomation.templateCount,
+        documentFormTemplateCount: documentAutomation.formTemplateCount,
         archivedDocumentTemplateCount: documentAutomation.archivedTemplateCount,
         documentTemplateVersionCount: documentAutomation.templateVersionCount,
         documentAssemblyCount: documentAutomation.assemblyCount,

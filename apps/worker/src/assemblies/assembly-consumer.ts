@@ -20,6 +20,8 @@ import { selectMatterEstateDateOfDeathStatement } from "@magna-carta/document-as
 import { readTemplateVersionForAssembly } from "@magna-carta/document-assembly/template-statements";
 import { assetSubjectsIn } from "@magna-carta/document-assembly/asset-bindings";
 import { contentControlLabel } from "@magna-carta/document-assembly/normalize";
+import { fillFormTemplate } from "@magna-carta/document-assembly/fill-form";
+import type { AssemblyAbsence } from "@magna-carta/document-assembly/assemble";
 import { manifestKeys, type FieldManifest } from "@magna-carta/document-assembly/types";
 import type { ProtectedIdentifierReader } from "@magna-carta/document-assembly/protected-bindings";
 import { readIdentifier } from "@magna-carta/directory/identifiers";
@@ -45,6 +47,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { resolveEnginePort } from "../conversions/conversion-engine.ts";
+import { fillAcroForm, FILLED_FORM_FINISH } from "./pdf-form-engine.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
@@ -54,6 +57,15 @@ import type { DocumentAssemblyMessage } from "./assembly-types.ts";
 
 // The assembly consumer: read the template version's bytes, resolve the merge context through the
 // firm-scoped data-access layer, assemble, and file the output.
+//
+// TWO ENGINES, ONE JOB. The job branches on the template version's KIND, and it branches in exactly one
+// place: everything before the branch — the version read, the gate check, the byte read and its cache,
+// the manifest, the dictionary the firm has today, the batched merge-context resolution, and the
+// protected-field chokepoint — runs identically and does not know which kind it served. A
+// `wordProcessing` version goes through the OOXML assembler; a `pdfForm` version goes through the PDF
+// engine's AcroForm filler. Everything after the branch — the absence accounting, the frozen-field list,
+// the ingest chokepoint, the provenance row, and the telemetry — is shared again, which is what keeps
+// the two kinds honest about producing the same KIND of answer.
 //
 // THE OUTPUT ENTERS THE NORMAL FILE PIPELINE, SCAN INCLUDED. The tempting shortcut is to commit a
 // server-generated version directly as `clean`, since we produced the bytes. It is refused: the moment
@@ -74,6 +86,7 @@ type AssemblyStage =
   | "read-bytes"
   | "resolve"
   | "merge"
+  | "fill"
   | "convert"
   | "file"
   | "done";
@@ -113,6 +126,14 @@ type AssemblyFailureCode =
   // files a word-processing package instead — a member who asked for a PDF and silently got a `.docx`
   // finds out when they try to sign it.
   | "conversion-failed"
+  // A form template could not be filled: the stored PDF would not open, or the engine refused it. The
+  // same shape `template-unreadable` has on the word-processing side, named separately so a firm reading
+  // the failure knows which engine could not read its document.
+  | "form-fill-failed"
+  // The job asked for an output format the template's kind cannot produce — a word-processing document
+  // out of a fillable PDF. The submit route refuses this while the caller can act on the answer; the
+  // code exists because the consumer must not silently file the other format instead.
+  | "output-format-unavailable"
   | "assembly-error";
 
 // An isolate-level cache of template bytes, safe because a template version is immutable: the key pins
@@ -195,6 +216,10 @@ function parseManifest(json: string): FieldManifest {
       unboundContentControls: Array.isArray(parsed.unboundContentControls)
         ? parsed.unboundContentControls
         : [],
+      // Empty on every word-processing manifest, and on a form manifest only when every box on the form
+      // is bound. Absent altogether on a manifest stored before form templates existed, which is a
+      // word-processing one by construction.
+      unboundFormFields: Array.isArray(parsed.unboundFormFields) ? parsed.unboundFormFields : [],
       // Absent on a manifest stored before blocks and computed fields existed, which is a template
       // that carried neither. The read plans its batched reads from the keys these carry, so an
       // older manifest simply asks for fewer.
@@ -208,6 +233,7 @@ function parseManifest(json: string): FieldManifest {
       unconvertedMergeFields: [],
       legacyFormFields: [],
       unboundContentControls: [],
+      unboundFormFields: [],
       blocks: [],
       computedFields: [],
     };
@@ -360,35 +386,85 @@ async function assembleOne(
     return { code: "matter-not-found", stage: "resolve", keys: [] };
   }
 
-  const merged = assemble(templateBytes, resolution.context, { dictionary });
-  // How each expression site came out, counted whichever way the assembly went. No expression text, no
-  // merge-field key, and no value is ever a dimension.
-  for (const site of merged.expressions) {
-    for (let counted = 0; counted < site.count; counted += 1) {
-      logger.count(documentAssemblyExpression.metricName, {
-        outcome: site.outcome,
-        site: site.site,
-      });
-    }
-  }
-  if (!merged.ok) {
-    return {
-      code:
-        merged.reason === "missing-required-field"
-          ? "merge-field-unresolvable"
-          : merged.reason === "package-integrity"
-            ? "package-integrity"
-            : merged.reason === "expression-invalid"
-              ? "template-expression-invalid"
-              : merged.reason === "expression-refused" || merged.reason === "expression-unresolved"
-                ? "assembly-expression-refused"
-                : "template-unreadable",
-      stage: "merge",
-      keys: merged.keys,
-    };
+  // THE MERGE CONTEXT IS RESOLVED IDENTICALLY FOR BOTH KINDS OF TEMPLATE, and only what happens to it
+  // afterwards differs: a word-processing template goes through the OOXML assembler, and a form template
+  // goes through the PDF engine's AcroForm filler. Everything above this line — the manifest, the read
+  // plan, the batched reads, the protected-field chokepoint, the absence reasons — has already run and
+  // does not know which kind it served.
+  const isFormTemplate = templateVersion.kind === "pdfForm";
+
+  // What each output format is for THIS kind of template. A merge emits a word-processing package that a
+  // `pdf` job converts; a form fill emits a PDF and nothing converts it back. A job that asked for the
+  // other one fails rather than filing something else under the name the member asked for.
+  const outputFormat: AssemblyOutputFormat = message.outputFormat === "pdf" ? "pdf" : "docx";
+  if (isFormTemplate && outputFormat !== "pdf") {
+    return { code: "output-format-unavailable", stage: "fill", keys: [] };
   }
 
-  for (const absence of merged.absences) {
+  let mergedBytes: Uint8Array;
+  let absences: readonly AssemblyAbsence[];
+
+  if (isFormTemplate) {
+    const filled = await fillFormTemplate(
+      templateBytes,
+      resolution.context,
+      manifest,
+      fillAcroForm,
+      {
+        dictionary,
+        // The one place the platform decides what a filled form IS when it is filed. See
+        // pdf-form-engine.ts — the choice between interactive and flattened is the firm owner's, and
+        // the parameter is explicit here so nothing can acquire a default by omission.
+        finish: FILLED_FORM_FINISH,
+      },
+    );
+    if (!filled.ok) {
+      return {
+        code:
+          filled.reason === "missing-required-field"
+            ? "merge-field-unresolvable"
+            : "form-fill-failed",
+        stage: "fill",
+        keys: filled.keys,
+      };
+    }
+    mergedBytes = filled.bytes;
+    absences = filled.absences;
+  } else {
+    const merged = assemble(templateBytes, resolution.context, { dictionary });
+    // How each expression site came out, counted whichever way the assembly went. No expression text, no
+    // merge-field key, and no value is ever a dimension. A form template has no expression sites at all —
+    // there is nowhere on a PDF widget to write a condition — so it counts none rather than counting zero.
+    for (const site of merged.expressions) {
+      for (let counted = 0; counted < site.count; counted += 1) {
+        logger.count(documentAssemblyExpression.metricName, {
+          outcome: site.outcome,
+          site: site.site,
+        });
+      }
+    }
+    if (!merged.ok) {
+      return {
+        code:
+          merged.reason === "missing-required-field"
+            ? "merge-field-unresolvable"
+            : merged.reason === "package-integrity"
+              ? "package-integrity"
+              : merged.reason === "expression-invalid"
+                ? "template-expression-invalid"
+                : merged.reason === "expression-refused" ||
+                    merged.reason === "expression-unresolved"
+                  ? "assembly-expression-refused"
+                  : "template-unreadable",
+        stage: "merge",
+        keys: merged.keys,
+      };
+    }
+    mergedBytes = merged.bytes;
+    absences = merged.absences;
+  }
+
+  for (const absence of absences) {
     const source = lookupDictionaryEntry(absence.key, dictionary)?.source;
     if (source !== undefined) {
       // A reason means resolution knew the firm's data could not answer the question as the template
@@ -428,6 +504,17 @@ async function assembleOne(
         : `${field.fieldName} (Word ${field.kind} form field)`,
     ),
     ...manifest.unboundContentControls.map(contentControlLabel),
+    // A form template's UNBOUND BOXES are the same failure in the fourth construct: a field on the form
+    // that no confirmed mapping fills, so the filed document has a blank where the court expects an
+    // answer. A push button and a signature field are deliberately NOT listed — neither is a hole a
+    // merge could ever close, and a warning every form earns is a warning a firm learns to skip past.
+    ...manifest.unboundFormFields
+      .filter((field) => field.reason !== "not-fillable")
+      .map((field) =>
+        field.reason === "unclassified"
+          ? `${field.fieldName} (a form box of no stated type)`
+          : `${field.fieldName} (an unbound form box)`,
+      ),
   ].sort();
   for (const field of manifest.unconvertedMergeFields) {
     logger.count(documentAssemblyFrozenField.metricName, { form: field.form });
@@ -440,7 +527,11 @@ async function assembleOne(
       form: `content-control-${control.kind}`,
     });
   }
-  const needsReview = merged.absences.length > 0 || frozenFieldNames.length > 0;
+  for (const field of manifest.unboundFormFields) {
+    if (field.reason === "not-fillable") continue;
+    logger.count(documentAssemblyFrozenField.metricName, { form: `form-box-${field.reason}` });
+  }
+  const needsReview = absences.length > 0 || frozenFieldNames.length > 0;
 
   // The PDF arm. The merge emits a word-processing package whatever was asked for; a job asked for a
   // PDF hands those bytes to the registry's own docx-to-pdf edge and files what comes back. This is
@@ -451,10 +542,13 @@ async function assembleOne(
   // A refusal here FAILS THE JOB. Filing the word-processing package instead would hand a member who
   // asked for a PDF something that reads as the document they wanted and cannot be sealed; the row
   // records which of the two it was trying to make, so the failure explains itself.
-  const outputFormat: AssemblyOutputFormat = message.outputFormat === "pdf" ? "pdf" : "docx";
-  let outputBytes = merged.bytes;
-  if (outputFormat === "pdf") {
-    const converted = await runConversion("docx", "pdf", merged.bytes, resolveEngines(env));
+  //
+  // A FILLED FORM DOES NOT TAKE THIS ARM. It is already a PDF, produced by the engine that owns the
+  // form's own appearances, so handing it to the office suite would re-render a document that is already
+  // exactly what the court published.
+  let outputBytes = mergedBytes;
+  if (outputFormat === "pdf" && !isFormTemplate) {
+    const converted = await runConversion("docx", "pdf", mergedBytes, resolveEngines(env));
     if (!converted.ok) {
       return { code: "conversion-failed", stage: "convert", keys: [] };
     }
@@ -505,7 +599,7 @@ async function assembleOne(
           fileId: initiated.fileId,
           fileVersionId: initiated.versionId,
           outcome: needsReview ? "succeeded_with_absences" : "succeeded",
-          absentFieldKeys: merged.absences.map((absence) => absence.key),
+          absentFieldKeys: absences.map((absence) => absence.key),
           frozenFieldNames,
           completedAt: now(),
         }),
@@ -530,7 +624,7 @@ async function assembleOne(
         reason: "",
         // Both classes of blank, counted together: a field nothing resolved and a field nothing
         // substituted are the same number to whoever reads this — how many holes the document has.
-        absenceCount: merged.absences.length + frozenFieldNames.length,
+        absenceCount: absences.length + frozenFieldNames.length,
       },
     ),
   );

@@ -199,6 +199,36 @@ by whichever service that resolver names for the `libreoffice` engine. Rules for
 - **The engine resolver is injectable on `documentAssemblyQueue`**, on the same terms the conversion
   consumer takes it: the engine Container cannot run under the local test pool.
 
+## Document assembly — the two template kinds, and the one place the finish is decided
+
+`document_template_version.kind` is `wordProcessing` or `pdfForm`, and the assembly job branches on it in
+**exactly one place**. Everything before the branch — the version read, the gate check, the byte read and
+its cache, the manifest, the dictionary the firm has today, the batched merge-context resolution, the
+protected-field chokepoint — runs identically for both. Everything after it — the absence accounting, the
+frozen-field list, the ingest chokepoint, the provenance row, the telemetry — is shared again.
+
+- **`src/assemblies/pdf-form-engine.ts` is the only wiring of the PDF engine into assembly**, and it is
+  three functions: read the AcroForm field set, scrub an uploaded form, fill one. The domain package
+  declares each as a seam and holds no WebAssembly, which is what keeps the fill DECISION testable
+  without a PDF. Nothing here may grow a second filler, for the reason nothing may grow a second way to
+  make a PDF: a firm's court form has one appearance.
+- **`FILLED_FORM_FINISH` is the platform's one answer to whether a filed form is interactive or
+  flattened, and today it is `interactive` because the owner has not decided.** Flattening is
+  irreversible — a flattened form cannot be corrected — so the non-destructive option is what sits behind
+  the open question. When it is answered, this constant changes or becomes a read of a per-template
+  column, and nothing downstream has a default of its own to unpick: `fillFormTemplate` takes the finish
+  as a required parameter.
+- **A form template produces a PDF and only a PDF.** The submit route defaults its `outputFormat` to
+  `pdf` and REFUSES `docx` with a 422, where the caller can act on the answer; the consumer carries
+  `output-format-unavailable` as well, because it must never file the other format instead. A filled form
+  never crosses the office-suite conversion edge — it is already the firm's own document with its boxes
+  filled, and re-rendering it would be a different document under the same name.
+- **The registration route branches before the pipeline, not inside it.** `POST /api/v1/templates/upload`
+  takes `?kind=` and signs the matching content type into the presigned PUT; `POST /api/v1/templates`
+  (and the versions route) take `kind` plus `fieldMappings`, the human confirmation of what each box on
+  the form means. The mappings go to the firm's existing `document_template_field_mapping` library in the
+  same commit as the version they bound.
+
 ## The split-object host — how the search engine reads R2 without credentials
 
 `src/search/split-object-host.ts` mounts `/search-objects/*`: cookieless, capability-token guarded,

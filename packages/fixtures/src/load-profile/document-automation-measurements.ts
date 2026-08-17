@@ -73,6 +73,7 @@ export interface DocumentAutomationMeasurementHandle {
   readonly firmDictionary: Awaited<ReturnType<typeof dictionaryForFirm>>;
   // The handles the probe manifest binds, in the order the batched value statement binds them.
   readonly probeCustomHandles: readonly string[];
+  readonly formProbeManifest: FieldManifest;
 }
 
 // The catalogue list's page size — the templates route's default page, so the measured cost matches one
@@ -98,11 +99,15 @@ export async function documentAutomationMeasurementHandle(
   const expressionProbeManifest = JSON.parse(
     documentAutomationProbes.expressionProbeFieldManifestJson,
   ) as FieldManifest;
+  const formProbeManifest = JSON.parse(
+    documentAutomationProbes.probeFormFieldManifestJson,
+  ) as FieldManifest;
   return {
     database: snapshot.database,
     snapshot,
     probeManifest,
     expressionProbeManifest,
+    formProbeManifest,
     firmDictionary,
     probeCustomHandles,
   };
@@ -183,6 +188,39 @@ export const documentAutomationMeasurements: readonly Measurement<
       });
       if (!result.ok) {
         throw new Error(`load-profile: expression merge context did not resolve: ${result.detail}`);
+      }
+    },
+  },
+  {
+    name: "templates.form-version-for-assembly",
+    operation: async (handle) => {
+      // The head of a FORM assembly job, which is the same one read a word-processing job takes — the
+      // point being that it stays one read now that the row carries a kind and the manifest carries a
+      // site list per field. A second read for "which engine fills this in" would be a round trip at
+      // the head of every job for a fact that travels with everything else.
+      await readTemplateVersionForAssembly(
+        handle.database,
+        handle.snapshot.manifest.documentAutomationProbes.probeFormTemplateVersionId,
+      );
+    },
+  },
+  {
+    name: "assembly.merge-context-form",
+    operation: async (handle) => {
+      // THE BATCHING RULE HAS TO HOLD FOR A FORM MANIFEST TOO. A key bound through a confirmed AcroForm
+      // mapping is still one key, and a form that asks for the client's name in six boxes must cost the
+      // same reads as one that asks in one — so the resolution is measured against a manifest whose
+      // fields carry site lists rather than only against the word-processing shape.
+      const result = await resolveMergeContext(handle.database, {
+        matterId: handle.snapshot.manifest.documentAutomationProbes.probeMatterId,
+        manifest: handle.formProbeManifest,
+        firmName: "Load Profile LLP",
+        assembledAt: "2026-01-01T00:00:00.000Z",
+        currencyCode: "USD",
+        dictionary: handle.firmDictionary,
+      });
+      if (!result.ok) {
+        throw new Error(`load-profile: form merge context did not resolve: ${result.detail}`);
       }
     },
   },

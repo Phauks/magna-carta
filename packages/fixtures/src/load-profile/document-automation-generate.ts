@@ -39,6 +39,9 @@ import type {
   ManifestBlock,
   ManifestComputedField,
   ManifestField,
+  ManifestFormFieldSite,
+  TemplateKind,
+  UnboundFormField,
 } from "@magna-carta/document-assembly/types";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -150,6 +153,12 @@ export interface DocumentAutomationProbes {
   // by design (one permission check, one audit row, one decrypt each). Neither shows up in a profile
   // unless a manifest actually carries them.
   readonly expressionProbeFieldManifestJson: string;
+  // The FORM probe: a fillable-PDF template version and the manifest it stores. The batching rule has
+  // to hold for a form manifest as well — resolution plans its reads from the keys, and a key bound
+  // through an AcroForm site is still one key — and that claim is only measurable against a manifest
+  // whose fields carry sites and whose fourth list is non-empty.
+  readonly probeFormTemplateVersionId: DocumentTemplateVersionId;
+  readonly probeFormFieldManifestJson: string;
   // The name of the first catalogue page's last row, and its id — the keyset cursor a second page
   // starts from, so the list measurement can be taken at a real page boundary rather than only at the
   // head of the table.
@@ -159,6 +168,7 @@ export interface DocumentAutomationProbes {
 
 export interface DocumentAutomationGenerationResult {
   readonly templateCount: number;
+  readonly formTemplateCount: number;
   readonly archivedTemplateCount: number;
   readonly templateVersionCount: number;
   readonly assemblyCount: number;
@@ -194,6 +204,7 @@ function manifestFor(
     unconvertedMergeFields: [],
     legacyFormFields: [],
     unboundContentControls: [],
+    unboundFormFields: [],
     blocks: [],
     computedFields: [],
   };
@@ -275,8 +286,71 @@ function expressionManifestFor(
     unconvertedMergeFields: [],
     legacyFormFields: [],
     unboundContentControls: [],
+    unboundFormFields: [],
     blocks,
     computedFields,
+  };
+}
+
+// A FORM TEMPLATE'S manifest: one entry per merge key a confirmed mapping bound, each carrying the
+// boxes it fills, plus the boxes nobody bound. The shape is the whole point of the volume — the
+// catalogue, the binding index, the current-version resolve, and the merge-context resolution all have
+// to page over a manifest with sites on its fields and a fourth list beside the three word-processing
+// ones, at the size a real court form has.
+function formManifestFor(
+  keys: readonly string[],
+  boxCount: number,
+  unboundFraction: number,
+): FieldManifest {
+  const boundCount = Math.max(1, Math.round(boxCount * (1 - unboundFraction)));
+  const sitesByKey = new Map<string, ManifestFormFieldSite[]>();
+  const unboundFormFields: UnboundFormField[] = [];
+
+  for (let index = 0; index < boxCount; index += 1) {
+    const fieldName = `Field_${String(index).padStart(3, "0")}`;
+    // Pages of roughly thirty boxes each, which is what a real disclosure form runs to and what makes
+    // the manifest's `parts` list more than one entry.
+    const page = Math.floor(index / 30);
+    if (index < boundCount) {
+      // Two boxes can bind the same key — a court form asks for the client's name on the caption and
+      // again on the verification page — which is exactly the many-sites-per-key case.
+      const key = keys[index % keys.length]!;
+      const sites = sitesByKey.get(key) ?? [];
+      sites.push({ fieldName, kind: "text", page, required: index % 4 === 0, options: [] });
+      sitesByKey.set(key, sites);
+      continue;
+    }
+    unboundFormFields.push({
+      fieldName,
+      kind: "text",
+      page,
+      required: false,
+      reason: "no-confirmed-mapping",
+      proposedMergeKey: "",
+      frozenText: "",
+    });
+  }
+
+  const fields: ManifestField[] = [...sitesByKey.entries()]
+    .map(([key, sites]) => ({
+      key,
+      format: null,
+      occurrences: sites.length,
+      parts: [...new Set(sites.map((site) => `page ${(site.page ?? 0) + 1}`))].sort(),
+      forms: ["acroForm" as const],
+      formFields: sites,
+    }))
+    .sort((left, right) => left.key.localeCompare(right.key));
+
+  return {
+    fields,
+    totalOccurrences: fields.reduce((total, field) => total + field.occurrences, 0),
+    unconvertedMergeFields: [],
+    legacyFormFields: [],
+    unboundContentControls: [],
+    unboundFormFields,
+    blocks: [],
+    computedFields: [],
   };
 }
 
@@ -284,12 +358,19 @@ function expressionManifestFor(
 // shared pool buffer rather than a fresh array per version: the only thing that reaches the row is
 // `bytes.byteLength` (node:sqlite has no R2), and allocating a real quarter-megabyte package per version
 // would spend a hundred megabytes to record a number.
-function preparationFor(manifest: FieldManifest, bytes: Uint8Array): TemplatePreparation {
+function preparationFor(
+  manifest: FieldManifest,
+  bytes: Uint8Array,
+  kind: TemplateKind = "wordProcessing",
+): TemplatePreparation {
   return {
+    kind,
     bytes,
     manifest,
     warnings: [],
-    normalizerVersion: 1,
+    // A form template has no normalization pass, so its versions record no normalizer version — the
+    // same zero the column already holds for anything registered before normalization was versioned.
+    normalizerVersion: kind === "pdfForm" ? 0 : 1,
     removedMacroParts: [],
     macrosStripped: false,
     mergeFieldDetections: [],
@@ -623,6 +704,53 @@ export async function generateDocumentAutomationVolume(
     versionId: probeVersionId,
   });
 
+  // --- The firm's fillable-PDF forms: court and agency forms it fills every week, registered as
+  // `pdfForm` versions through the same composition a Word template takes. A minority of the catalogue
+  // and a single version each, which is how a firm's forms actually behave — a court reissues one and
+  // the firm registers a new version, rather than a paralegal editing it. ---
+  const formKeys = PLATFORM_MERGE_KEYS.slice(0, 12);
+  let probeFormVersionId: DocumentTemplateVersionId | undefined;
+  let probeFormManifest: FieldManifest | undefined;
+  for (let index = 0; index < volume.formTemplateCount; index += 1) {
+    const manifest = formManifestFor(
+      formKeys,
+      faker.number.int(volume.boxesPerFormTemplate),
+      volume.unboundBoxFraction,
+    );
+    const name = `${faker.location.state()} Form ${index}`;
+    const registered = composeTemplateRegistration(
+      database,
+      {
+        name,
+        description: "A fillable form this firm files.",
+        matterTypeId: (matterTypeIds[index % matterTypeIds.length] ??
+          null) as RegisterTemplateInput["matterTypeId"],
+        locationId: null,
+        preparation: preparationFor(manifest, modeledBytes(), "pdfForm"),
+        contentSha256: faker.string.hexadecimal({ length: 64, prefix: "", casing: "lower" }),
+      },
+      serviceOptions,
+    );
+    await commit(registered.effect.statements);
+    clock.advanceMinutes(1);
+    const currentVersionId = await registerVersions(
+      registered.templateId,
+      registered.versionId,
+      0,
+      manifest,
+    );
+    activeTemplates.push({ name, id: registered.templateId, versionId: currentVersionId });
+    // The widest form is the probe: the merge-context measurement resolves against the manifest that
+    // asks the most of it, the same way the word-processing probe does.
+    if (
+      probeFormManifest === undefined ||
+      manifest.fields.length > probeFormManifest.fields.length
+    ) {
+      probeFormManifest = manifest;
+      probeFormVersionId = currentVersionId;
+    }
+  }
+
   // --- Assembly provenance. Each matter records a few filed documents, pointing at real file/version
   // rows the practice generator committed, through the SAME insert + complete statements the queue
   // consumer commits. ---
@@ -697,8 +825,13 @@ export async function generateDocumentAutomationVolume(
   );
   const cursor = sortedActive[Math.floor(sortedActive.length / 2)] ?? sortedActive[0]!;
 
+  if (probeFormVersionId === undefined || probeFormManifest === undefined) {
+    throw new Error("load-profile: document-automation volume needs at least one form template");
+  }
+
   return {
-    templateCount: volume.templateCount + 1,
+    templateCount: volume.templateCount + 1 + volume.formTemplateCount,
+    formTemplateCount: volume.formTemplateCount,
     archivedTemplateCount,
     templateVersionCount,
     assemblyCount,
@@ -709,6 +842,8 @@ export async function generateDocumentAutomationVolume(
       probeTemplateVersionId: probeVersionId,
       probeFieldManifestJson: JSON.stringify(probeManifest),
       expressionProbeFieldManifestJson: JSON.stringify(expressionProbeManifest),
+      probeFormTemplateVersionId: probeFormVersionId,
+      probeFormFieldManifestJson: JSON.stringify(probeFormManifest),
       catalogueCursorName: cursor.name,
       catalogueCursorId: cursor.id,
     },

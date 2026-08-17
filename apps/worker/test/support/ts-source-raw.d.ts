@@ -21,3 +21,12 @@ declare module "virtual:pdf-core-fixtures" {
   const fixtures: Record<string, string>;
   export default fixtures;
 }
+
+// Virtual module provided by the documentAssemblyFormFixtures() Vite plugin in vitest.config.ts.
+// Exposes the fillable-PDF fixtures under packages/document-assembly/test/fixtures as a map from file
+// name to base64, so the worker's form-template tests register the same bytes that package's own tests
+// assert the manifest against.
+declare module "virtual:document-assembly-form-fixtures" {
+  const fixtures: Record<string, string>;
+  export default fixtures;
+}

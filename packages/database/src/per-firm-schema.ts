@@ -2816,6 +2816,16 @@ export const documentTemplateVersion = sqliteTable(
       .$type<DocumentTemplateId>()
       .references((): AnySQLiteColumn => documentTemplate.id),
     versionNumber: integer("version_number").notNull(),
+    // WHAT KIND OF DOCUMENT THIS VERSION HOLDS, so no reader has to assume it is a `.docx`.
+    // `wordProcessing` is the normalized OOXML package the merge engine walks — run-split placeholders
+    // reassembled, blocks and expression sites recorded, a normalizer version stamped. `pdfForm` is a
+    // firm-supplied fillable PDF: no normalization pass, no blocks, no expression sites, and a field
+    // manifest discovered from the AcroForm field set rather than authored. The two share the
+    // catalogue, the version ladder, the ingest gate, the manifest shape, and the binding index; they
+    // share no engine, which is why the discriminator is stored rather than sniffed at read time.
+    kind: text("kind", { enum: ["wordProcessing", "pdfForm"] })
+      .notNull()
+      .default("wordProcessing"),
     r2Key: text("r2_key").notNull(),
     sizeBytes: integer("size_bytes"),
     contentSha256: text("content_sha256"),

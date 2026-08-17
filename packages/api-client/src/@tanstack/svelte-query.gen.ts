@@ -7723,7 +7723,7 @@ export const conversionsEventsOptions = (options: Options<ConversionsEventsData>
 });
 
 /**
- * Mints a staging slot for a template document and returns a short-lived presigned PUT URL the client uploads the .docx to directly (bytes never transit the Worker). After uploading, register the template with POST /api/v1/templates, or add a version with POST /api/v1/templates/{templateId}/versions.
+ * Mints a staging slot for a template document and returns a short-lived presigned PUT URL the client uploads the file to directly (bytes never transit the Worker). Pass kind=pdfForm to upload a fillable PDF instead of a Word document; the returned URL's signature covers the content type, so the upload is refused if it sends the other one. After uploading, register the template with POST /api/v1/templates, or add a version with POST /api/v1/templates/{templateId}/versions.
  */
 export const templatesUploadMutation = (options?: Partial<Options<TemplatesUploadData>>): MutationOptions<TemplatesUploadResponse, TemplatesUploadError, Options<TemplatesUploadData>> => {
     const mutationOptions: MutationOptions<TemplatesUploadResponse, TemplatesUploadError, Options<TemplatesUploadData>> = {
@@ -7934,7 +7934,7 @@ export const templatesMergeFieldsOptions = (options?: Options<TemplatesMergeFiel
 });
 
 /**
- * Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done.
+ * Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done. A fillable-PDF template fills the firm's own form and always produces a PDF; asking it for a word-processing document is refused.
  */
 export const assembliesSubmitMutation = (options?: Partial<Options<AssembliesSubmitData>>): MutationOptions<AssembliesSubmitResponse, AssembliesSubmitError, Options<AssembliesSubmitData>> => {
     const mutationOptions: MutationOptions<AssembliesSubmitResponse, AssembliesSubmitError, Options<AssembliesSubmitData>> = {
