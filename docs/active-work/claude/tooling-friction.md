@@ -1,7 +1,7 @@
 ---
 worktree: /home/user/magna-carta/.claude/worktrees/tooling-friction
 area: three developer-tooling defects — zero-match test filters, WASM-artefact gate scoping, load-profile temp reaping
-status: building
+status: review
 touches: tooling/test-single-flight, tooling/check-scoped, tooling/clean, packages/fixtures/src/load-profile, docs/conventions/build-performance.md, changelog.d
 ---
 
