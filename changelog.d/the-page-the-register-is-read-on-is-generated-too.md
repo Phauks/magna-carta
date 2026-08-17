@@ -18,8 +18,22 @@ two commands are two renderings that disagree the first time somebody runs one o
 
 `pnpm run lint:roadmap` now re-derives and diff-gates the page exactly as it does the document, so
 the published page cannot silently fall behind the ledger either. The counts are not recomputed for
-it: `roadmap.mjs` exports `countByStatus`, `share` and `STATUSES_WITH_NOTHING_BUILT`, and both
-renderings count with those, because a percentage that differs between two views of one ledger is a
-defect neither view can be blamed for. Node text is escaped for markup and nothing else — no ledger
-value ever reaches an attribute. The design of the page is unchanged from the hand-authored one it
-replaces, down to the token names and the two dark-theme definitions.
+it: `roadmap.mjs` exports `countByStatus`, `share`, `STATUSES_WITH_NOTHING_BUILT` and
+`AWAITING_BOUNDARY`, and both renderings use those. A percentage that differs between two views of
+one ledger is a defect neither view can be blamed for, and the page had already drifted to its own
+wording of the owner-list boundary — including an assertion that the Actions budget is exhausted,
+which is a live operational state `docs/deploy-queue.md` owns and no ledger change could ever make
+false again.
+
+Three things the hand-authored page got away with do not survive being generated, because a wart in
+one file is a wart and the same wart in a generator is a policy. Where `partial` ranks by size is
+derived rather than typed, so the sentence cannot go on asserting "the second largest" after
+something overtakes it — and it says "joint" instead of picking a winner when two statuses are level.
+Inline code spans in `scope` and `notes` render as `<code>` instead of printing their own backticks.
+And the boundary paragraph comes from the shared constant. The renderer handles exactly the two
+Markdown constructs the ledger and that constant actually use, code spans and one link, and
+deliberately no more: an unused branch is an untested branch, and anything else renders as its own
+source characters, which reads as a bug rather than swallowing content silently.
+
+The design of the page is otherwise unchanged from the hand-authored one it replaces, down to the
+token names and the two dark-theme definitions.

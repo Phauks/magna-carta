@@ -11,17 +11,22 @@
 // Everything that is NOT derived from the ledger is a fixed string in this file — the headline, the
 // standing prose, the section ledes, the footer, the stylesheet and the filter script. Those are the
 // page's editorial voice and they have no source in roadmap.d/; they are written once here rather
-// than re-typed into the published page every refresh.
+// than re-typed into the published page every refresh. Nothing here states a fact that lives
+// somewhere else: an operational state, a schedule, a count. A sentence in this file has to still be
+// true on any ledger, or it does not belong in a generator.
 //
-// The counts come from the same helpers renderBuildRegister uses (ROLL_UPS, countByStatus, share,
-// STATUSES_WITH_NOTHING_BUILT), never from a second arithmetic of their own, so the two renderings
-// of the ledger cannot disagree — which is the whole reason this file exists rather than a person
+// Everything shared with the Markdown rendering comes from roadmap.mjs and is never restated here:
+// ROLL_UPS, countByStatus, share and STATUSES_WITH_NOTHING_BUILT for the arithmetic and the split,
+// AWAITING_BOUNDARY for the sentence bounding the owner list. Two renderings of one ledger that each
+// keep their own copy will disagree, and the disagreement is unresolvable because neither is more
+// authoritative than the other — which is the whole reason this file exists rather than a person
 // re-authoring the page after each merge.
 //
 // No generation timestamp, for the same reason docs/now.md carries none: the output is a byte-exact
 // function of the ledger so a diff gate can hold it, and a clock would break that every day.
 
 import {
+  AWAITING_BOUNDARY,
   LEDGER_STATUSES,
   ROLL_UPS,
   STATUSES_WITH_NOTHING_BUILT,
@@ -185,7 +190,7 @@ function renderPartialCallout(nodes, counts) {
 
   return `<section class="callout">
   <h2>Read &ldquo;Partial&rdquo; carefully</h2>
-  <p>It is the single most misleading number here, and it is the second largest.
+  <p>It is the single most misleading number here, and it is ${rankingOf("partial", counts)}.
   <strong>${partial} nodes are partial</strong> — most often a backend that is built and tested
   with no screen on it. The capability exists in the database and the API and cannot be reached by a
   person. Counting those as progress is honest; counting them as done is not.</p>
@@ -193,6 +198,33 @@ function renderPartialCallout(nodes, counts) {
   (${share(delivered, nodes.length)}). Shipped alone is ${share(shipped, nodes.length)}. The gap between those two figures is roughly the size of
   the interface debt.</p>
 </section>`;
+}
+
+// Where one status sits among the nine by size. The sentence above used to say "the second largest"
+// as a typed phrase, which was true when it was typed and had no way of stopping being true out loud:
+// the day another status overtook `partial`, the page would have gone on asserting it with nothing to
+// notice. Derived, the claim moves when the ledger does. A tie says so rather than picking a winner —
+// "the second largest" is a stronger statement than the counts support when two statuses are level.
+const SIZE_PLACES = [
+  "the largest",
+  "the second largest",
+  "the third largest",
+  "the fourth largest",
+  "the fifth largest",
+  "the sixth largest",
+  "the seventh largest",
+  "the eighth largest",
+  "the ninth largest",
+];
+
+export function rankingOf(status, counts) {
+  const value = counts.get(status);
+  const larger = LEDGER_STATUSES.filter((other) => counts.get(other) > value).length;
+  const level = LEDGER_STATUSES.filter(
+    (other) => other !== status && counts.get(other) === value,
+  ).length;
+  const place = SIZE_PLACES[larger];
+  return level === 0 ? place : place.replace("the ", "the joint ");
 }
 
 // --- the per-area matrix ------------------------------------------------------------------------
@@ -266,17 +298,21 @@ function renderAwaiting(nodes) {
     }
   }
 
-  // The boundary of this list, stated where the list is. It holds capabilities and nothing else, so a
-  // reader who trusts it as "everything waiting on me" would be trusting something that is wrong.
-  parts.push(`  <p style="color:var(--soft);font-size:13.5px">Capability decisions only. Account-side steps no session can
-  perform — the exhausted Actions budget, dashboard actions, repository settings — live in
-  <code>docs/deploy-queue.md</code>.</p></section>`);
+  // The boundary of this list, stated where the list is: it holds capabilities and nothing else, so a
+  // reader who trusts it as "everything waiting on me" would be trusting something that is wrong. The
+  // sentence is not written here — it is AWAITING_BOUNDARY, the same string the Markdown rendering
+  // prints. The page carried its own wording for a while and the two had already drifted into
+  // different lists of examples, one of which asserted a live operational state that no ledger change
+  // could ever make false again.
+  parts.push(
+    `  <p style="color:var(--soft);font-size:13.5px">${renderInlineMarkup(AWAITING_BOUNDARY)}</p></section>`,
+  );
 
   return parts.join("\n");
 }
 
 function awaitingItem(node) {
-  return `<li><strong>${escapeHtml(node.name)}</strong> — ${escapeHtml(node.awaitingOwner)}</li>`;
+  return `<li><strong>${renderInlineMarkup(node.name)}</strong> — ${renderInlineMarkup(node.awaitingOwner)}</li>`;
 }
 
 // --- every node ----------------------------------------------------------------------------------
@@ -308,7 +344,7 @@ function renderArea(area) {
   const shipped = countByStatus(area.nodes).get("shipped");
   const items = area.nodes.map((node) => renderNode(node)).join("");
   return `<section class="area" id="area-${area.name}">
-<h3>${escapeHtml(area.title)} <span class="ac">${shipped} of ${area.nodes.length} shipped</span></h3>
+<h3>${renderInlineMarkup(area.title)} <span class="ac">${shipped} of ${area.nodes.length} shipped</span></h3>
 <ol class="nodes">${items}</ol>
 </section>`;
 }
@@ -322,14 +358,16 @@ function renderNode(node) {
   const lines = [
     `<li class="n d${depth}" data-s="${node.status}">`,
     `<span class="chip ${tone}">${label}</span>`,
-    `<span class="nm">${escapeHtml(node.name)}</span>`,
+    `<span class="nm">${renderInlineMarkup(node.name)}</span>`,
+    // The id is an identifier, not prose: it is already inside a <code>, and a dotted kebab-case path
+    // has no markup in it to render.
     `<code>${escapeHtml(node.id)}</code>`,
-    `<p>${escapeHtml(node.scope)}</p>`,
+    `<p>${renderInlineMarkup(node.scope)}</p>`,
   ];
-  if (node.notes !== null) lines.push(`<p class="note">${escapeHtml(node.notes)}</p>`);
+  if (node.notes !== null) lines.push(`<p class="note">${renderInlineMarkup(node.notes)}</p>`);
   if (node.awaitingOwner !== null) {
     lines.push(
-      `<p class="ask"><strong>Waiting on you.</strong> ${escapeHtml(node.awaitingOwner)}</p>`,
+      `<p class="ask"><strong>Waiting on you.</strong> ${renderInlineMarkup(node.awaitingOwner)}</p>`,
     );
   }
   lines.push("</li>");
@@ -342,6 +380,38 @@ function renderNode(node) {
 // kebab-case), so escaping them would only make the page source harder to read.
 export function escapeHtml(text) {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+// The ledger's prose fields are Markdown — they are written for docs/now.md, which is Markdown — so a
+// page that only escaped them printed a code span's own backticks (`custom.<handle>` came out with
+// the backticks visible). Escaping is the floor, not the whole job.
+//
+// Two constructs, because two are what the source actually contains: inline code spans, used in five
+// nodes' `notes`, and one Markdown link, in AWAITING_BOUNDARY. Nothing in roadmap.d/ uses bold,
+// emphasis, links or HTML entities, and this deliberately does not invent support for them — an
+// unused branch is an untested branch. If the ledger starts using one, the text will render as its own
+// source characters, which is visible and reads as a bug rather than silently swallowing content.
+//
+// A link becomes its own text, with the target dropped. The page is published standalone, so a
+// repository-relative target resolves to nothing wherever it is actually read, and a link that goes
+// nowhere is worse than the name of the file the reader can then go and find.
+const INLINE_MARKUP = /\[([^\]]+)\]\(([^)]*)\)|`([^`]+)`/g;
+
+export function renderInlineMarkup(text) {
+  let rendered = "";
+  let consumedTo = 0;
+  for (const match of text.matchAll(INLINE_MARKUP)) {
+    rendered += escapeHtml(text.slice(consumedTo, match.index));
+    const [whole, linkText, , codeText] = match;
+    // A link's text is rendered in turn, because the one link in the source has a code span for its
+    // text and the backticks would otherwise survive into the page.
+    rendered +=
+      linkText === undefined
+        ? `<code>${escapeHtml(codeText)}</code>`
+        : renderInlineMarkup(linkText);
+    consumedTo = match.index + whole.length;
+  }
+  return rendered + escapeHtml(text.slice(consumedTo));
 }
 
 // --- the fixed parts ------------------------------------------------------------------------------

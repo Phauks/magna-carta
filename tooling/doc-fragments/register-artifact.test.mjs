@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { loadAreas } from "./build-register.mjs";
-import { escapeHtml, renderBuildRegisterArtifact } from "./register-artifact.mjs";
-import { LEDGER_STATUSES, allNodes, parseArea, renderBuildRegister } from "./roadmap.mjs";
+import {
+  escapeHtml,
+  rankingOf,
+  renderBuildRegisterArtifact,
+  renderInlineMarkup,
+} from "./register-artifact.mjs";
+import {
+  AWAITING_BOUNDARY,
+  LEDGER_STATUSES,
+  allNodes,
+  parseArea,
+  renderBuildRegister,
+} from "./roadmap.mjs";
 
 // The page and docs/now.md are two renderings of one ledger. Most of what is worth asserting here is
 // therefore not "the page says 42" but "the page and the Markdown say the same thing", which is why
@@ -32,7 +43,7 @@ const trustReconciliation = node({
   name: "Three-way reconciliation",
   scope: "Bank, book and client ledgers proved against each other.",
   status: "partial",
-  notes: "Backend only, no screen.",
+  notes: "Backend only, no screen; the bank leg reads `statement_line` rows.",
 });
 
 const trustSweep = node({
@@ -47,6 +58,9 @@ const trustSweep = node({
 const oneArea = () => [
   parseArea(area("Trust accounting", trustLedger, trustReconciliation, trustSweep), "trust.md"),
 ];
+
+// A status-count map with the named statuses set and the rest at zero, for the ranking tests.
+const counts = (values) => new Map(LEDGER_STATUSES.map((status) => [status, values[status] ?? 0]));
 
 describe("renderBuildRegisterArtifact", () => {
   it("renders a page with a title, both themes and the filter script", () => {
@@ -83,7 +97,10 @@ describe("renderBuildRegisterArtifact", () => {
 
   it("renders notes and the owner question on the node they belong to", () => {
     const page = renderBuildRegisterArtifact(oneArea());
-    expect(page).toContain('<p class="note">Backend only, no screen.</p>');
+    // The note's inline code span is rendered as code, not printed with its own backticks.
+    expect(page).toContain(
+      '<p class="note">Backend only, no screen; the bank leg reads <code>statement_line</code> rows.</p>',
+    );
     expect(page).toContain(
       '<p class="ask"><strong>Waiting on you.</strong> Whether a sweep may be scheduled, or must always be a person pressing a button.</p>',
     );
@@ -108,6 +125,36 @@ describe("renderBuildRegisterArtifact", () => {
     expect(page).toContain('<td class="zero">·</td>');
   });
 
+  it("states the boundary of the owner list in the words the Markdown states it in", () => {
+    const page = renderBuildRegisterArtifact(oneArea());
+    expect(page).toContain(renderInlineMarkup(AWAITING_BOUNDARY));
+    // The page used to carry its own wording, which had drifted into a different list of examples —
+    // one of them a live operational state that no ledger change could ever make false again.
+    expect(page).not.toContain("Actions budget");
+  });
+
+  it("derives where partial ranks rather than asserting a place that can go stale", () => {
+    // Two partial against one shipped: the sentence has to say the largest, not the second largest.
+    const areas = [
+      parseArea(area("Trust accounting", trustLedger, trustReconciliation, trustSweep), "trust.md"),
+      parseArea(
+        area(
+          "Financial",
+          node({
+            id: "billing",
+            name: "Billing",
+            scope: "Invoices and credit notes.",
+            status: "partial",
+          }),
+        ),
+        "financial.md",
+      ),
+    ];
+    expect(renderBuildRegisterArtifact(areas)).toContain(
+      "It is the single most misleading number here, and it is the largest.",
+    );
+  });
+
   it("is a pure function of the ledger — same input, same bytes", () => {
     expect(renderBuildRegisterArtifact(oneArea())).toBe(renderBuildRegisterArtifact(oneArea()));
   });
@@ -124,6 +171,55 @@ describe("escapeHtml", () => {
 
   it("leaves quotes alone — no ledger value is ever placed in an attribute", () => {
     expect(escapeHtml('answer "what was true then"')).toBe('answer "what was true then"');
+  });
+});
+
+describe("renderInlineMarkup", () => {
+  it("renders an inline code span as code, and escapes what is inside it", () => {
+    expect(renderInlineMarkup("fields as `custom.<handle>` merge keys")).toBe(
+      "fields as <code>custom.&lt;handle&gt;</code> merge keys",
+    );
+  });
+
+  it("renders every code span in a line, not only the first", () => {
+    expect(renderInlineMarkup("`value` beside `valueAsOf`")).toBe(
+      "<code>value</code> beside <code>valueAsOf</code>",
+    );
+  });
+
+  it("keeps a link's text and drops its target — the page is read away from the repository", () => {
+    expect(
+      renderInlineMarkup("listed in [`docs/deploy-queue.md`](deploy-queue.md), their home"),
+    ).toBe("listed in <code>docs/deploy-queue.md</code>, their home");
+  });
+
+  it("escapes prose with no markup in it exactly as escapeHtml does", () => {
+    const plain = 'a & b <c> with "quotes"';
+    expect(renderInlineMarkup(plain)).toBe(escapeHtml(plain));
+  });
+
+  it("leaves an unpaired backtick as itself rather than swallowing the rest of the line", () => {
+    expect(renderInlineMarkup("an unpaired ` backtick")).toBe("an unpaired ` backtick");
+  });
+});
+
+describe("rankingOf", () => {
+  it("names the place a status holds among the nine", () => {
+    expect(rankingOf("partial", counts({ shipped: 262, partial: 203 }))).toBe("the second largest");
+    expect(rankingOf("partial", counts({ partial: 300, shipped: 262 }))).toBe("the largest");
+  });
+
+  it("says joint rather than picking a winner when two statuses are level", () => {
+    expect(rankingOf("partial", counts({ shipped: 262, partial: 262 }))).toBe("the joint largest");
+  });
+
+  it("has a word for every place, so no count can run off the end of the table", () => {
+    const descending = Object.fromEntries(
+      LEDGER_STATUSES.map((status, index) => [status, LEDGER_STATUSES.length - index]),
+    );
+    for (const status of LEDGER_STATUSES) {
+      expect(rankingOf(status, counts(descending))).toMatch(/^the [a-z]+( largest)?$/);
+    }
   });
 });
 

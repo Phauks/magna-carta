@@ -762,7 +762,9 @@ function renderAwaiting(nodes) {
   return parts.join("\n");
 }
 
-const AWAITING_BOUNDARY =
+// Exported so the page states this boundary in these words rather than its own. It is written as
+// Markdown because the document it was written for is Markdown; the page renders the inline markup.
+export const AWAITING_BOUNDARY =
   "Decisions about a capability only. Account-side steps that no session can perform — a" +
   " Cloudflare dashboard action, a billing budget, a repository setting — are listed in" +
   " [`docs/deploy-queue.md`](deploy-queue.md), which is their one home.";
