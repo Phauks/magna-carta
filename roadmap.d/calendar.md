@@ -18,6 +18,7 @@
   name: Litigation events and deadlines
   scope: Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0055
   notes: Backend only — the calendar screens are their own slice.
   evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar.
@@ -26,6 +27,7 @@
   name: Matter timeline (federated)
   scope: One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0051, ADR-0068
   notes: Backend only — the calendar screens are their own slice.
   evidence: Fourteen declared sources in packages/calendar/src/sources/all.ts; nothing projected, copied, or backfilled; every source declares its visibility anchor — matter anchors compose the required predicate, firm anchors sit on a reviewed allowlist — proven by a table-driven fitness test.
@@ -34,6 +36,7 @@
   name: Firm events
   scope: Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0055, ADR-0068
   notes: Backend only — the calendar screens are their own slice.
   evidence: firm_event and firm_event_participant in 20260807T070000_calendar-firm-events-resources-links; write paths in packages/calendar/src/firm-event-service.ts; the firmEvent federated source with visibilityAnchor 'firm'; scope and widened member filters on GET /api/v1/calendar/events.
@@ -42,6 +45,7 @@
   name: Rooms and resources
   scope: Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact.
   status: shipped
+  surface: awaiting-screen
   notes: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams.
   evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability and booking routes in apps/worker/src/routes/calendar.ts.
 
@@ -49,6 +53,7 @@
   name: Event links and continuance
   scope: Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved.
   status: shipped
+  surface: awaiting-screen
   notes: Backend only. Continuance binds matter events; a moved staff meeting stays an edit.
   evidence: calendar_event_link with two hand-written partial uniques; packages/calendar/src/continuance-service.ts (one-batch operation, depth-capped chain read, trigger-linked deadline lookup as pure SELECT); continue and continuance-chain routes.
 

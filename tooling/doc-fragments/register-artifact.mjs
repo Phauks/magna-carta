@@ -29,17 +29,22 @@ import {
   AWAITING_BOUNDARY,
   LEDGER_STATUSES,
   ROLL_UPS,
-  STATUSES_WITH_NOTHING_BUILT,
   allNodes,
+  REACH_LABEL,
+  STATUSES_WITH_SOMETHING_BUILT,
   countByStatus,
+  holdsUpABuild,
+  reachOf,
+  rollUpIds,
   share,
+  workUnits,
 } from "./roadmap.mjs";
 
 // The nine ledger statuses, as the page writes them and colours them. `tone` selects one of the six
 // colour pairs the stylesheet defines: three statuses share the `plan` pair because "specified but
 // unbuilt" is one visual weight, and two share `park`. The statuses themselves are never collapsed —
 // every one of the nine keeps its own chip, its own legend entry and its own column.
-const STATUS_PRESENTATION = {
+export const STATUS_PRESENTATION = {
   shipped: { label: "Shipped", tone: "done" },
   partial: { label: "Partial", tone: "part" },
   "in-build": { label: "In build", tone: "live" },
@@ -59,7 +64,10 @@ const ROLL_UP_CARDS = {
   Done: {
     heading: "Shipped",
     modifier: "g",
-    detail: () => "Built, tested, reachable",
+    // Not "reachable": the reach band below counts how many of these a person can actually open,
+    // and it is a small fraction. A headline that claimed otherwise would be refuted two sections
+    // down by the same page.
+    detail: () => "The artifact exists on main",
   },
   "Part-built": {
     heading: "Part-built",
@@ -96,7 +104,15 @@ const METER_SEGMENTS = [
 
 export function renderBuildRegisterArtifact(areas) {
   const nodes = allNodes(areas);
-  const counts = countByStatus(nodes);
+  // Two count sets, for two different questions, and mixing them is what made this page overstate
+  // `partial` for as long as it existed. The standing — the headline cards, the meter, the legend,
+  // the per-area matrix — answers "how much of the product exists", so it runs over units of work: a
+  // roll-up parent is a summary of its children and counting it beside them adds the same work twice,
+  // under `partial` almost every time. The filter buttons at the bottom answer "how many rows will
+  // this button show me", and the list they filter is every node, parents included.
+  const units = workUnits(nodes);
+  const counts = countByStatus(units);
+  const everyNodeCounts = countByStatus(nodes);
 
   const document = [
     "<title>Magna Carta Build Register</title>",
@@ -105,15 +121,17 @@ export function renderBuildRegisterArtifact(areas) {
     '<div class="wrap">',
     renderHeader(nodes),
     "",
-    renderStanding(nodes, counts),
+    renderStanding(units, counts, nodes),
     "",
-    renderPartialCallout(nodes, counts),
+    renderPartialCallout(units, counts, nodes),
     "",
-    renderAreaTable(areas, counts, nodes),
+    renderReach(units),
+    "",
+    renderAreaTable(areas, counts, units),
     "",
     renderAwaiting(nodes),
     "",
-    renderEveryNode(areas, nodes, counts),
+    renderEveryNode(areas, nodes, everyNodeCounts, new Set(units.map((unit) => unit.id))),
     "",
     FOOTER,
     "</div>",
@@ -133,7 +151,7 @@ function renderHeader(nodes) {
 </header>`;
 }
 
-function renderStanding(nodes, counts) {
+function renderStanding(nodes, counts, everyNode) {
   const totals = new Map(
     ROLL_UPS.map((rollUp) => [
       rollUp.name,
@@ -177,26 +195,89 @@ ${cards}
 ${segments}
   </div>
   <p class="legend">${legend}</p>
+  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the ${nodes.length}
+  nodes that are units of work. The other ${everyNode.length - nodes.length} are roll-up parents
+  &mdash; a node another node sits beneath &mdash; and a parent goes <em>partial</em> the moment its
+  children stop agreeing, so counting them here would add the same work twice under a status nobody
+  chose. Every node, parents included, is listed further down.</p>
+</section>`;
+}
+
+// The delineation `status` cannot make: whether anybody can get to the thing. Rendered as its own
+// band rather than folded into the standing, because it answers a question the nine statuses have
+// never been able to answer, and the number that matters here — how much works and cannot be reached
+// — is the one a reader would otherwise have to infer from `partial` and get wrong.
+const REACH_CARDS = [
+  {
+    surface: "screen",
+    heading: "Reachable",
+    modifier: "g",
+    detail: "A person can open it in the application today.",
+  },
+  {
+    surface: "awaiting-screen",
+    heading: "Waiting on a screen",
+    modifier: "y",
+    detail: "It works. Nobody can get to it, because its interface is not built.",
+  },
+  {
+    surface: "internal",
+    heading: "Under the floor",
+    modifier: "b",
+    detail: "A port, a table, a queue. Finished without a screen, and always will be.",
+  },
+];
+
+function renderReach(units) {
+  const built = units.filter((unit) => STATUSES_WITH_SOMETHING_BUILT.includes(unit.status));
+  const tally = (surface) => built.filter((unit) => unit.surface === surface).length;
+  const unclassified = built.filter((unit) => unit.surface === null).length;
+
+  const cards = REACH_CARDS.map(
+    (card) =>
+      `    <div class="k ${card.modifier}"><span>${card.heading}</span>` +
+      `<b>${tally(card.surface)}</b><em>${card.detail}</em></div>`,
+  ).join("\n");
+
+  return `<section style="display:flex;flex-direction:column;gap:14px">
+  <h2>Built, and can anybody reach it</h2>
+  <p class="lede">${built.length} units of work have something built behind them. Whether a person
+  can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
+  can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
+  <div class="band">
+${cards}
+  </div>
+  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">${
+    unclassified === 0
+      ? "Every one of them is classified."
+      : `${unclassified} are not classified yet and are counted in none of the three.`
+  } The middle figure is the interface debt stated directly rather than guessed at from
+  <em>partial</em>: work that is engineered, paid for, and unreachable.</p>
 </section>`;
 }
 
 // The one paragraph on the page that argues rather than reports. `partial` is the count most likely to
 // be read as progress and least likely to mean it, so the page says so where the number is, instead of
 // leaving a reader to work it out from a table.
-function renderPartialCallout(nodes, counts) {
+function renderPartialCallout(nodes, counts, everyNode) {
   const shipped = counts.get("shipped");
   const partial = counts.get("partial");
   const delivered = shipped + partial;
+  const parentPartials = everyNode.filter(
+    (node) => node.status === "partial" && !nodes.includes(node),
+  ).length;
 
   return `<section class="callout">
   <h2>Read &ldquo;Partial&rdquo; carefully</h2>
   <p>It is the single most misleading number here, and it is ${rankingOf("partial", counts)}.
-  <strong>${partial} nodes are partial</strong> — most often a backend that is built and tested
-  with no screen on it. The capability exists in the database and the API and cannot be reached by a
-  person. Counting those as progress is honest; counting them as done is not.</p>
+  <strong>${partial} units of work are partial</strong> — delivered in part, and not finished.
+  Counting those as progress is honest; counting them as done is not. A further
+  ${parentPartials} roll-up parents are also partial and are deliberately not counted: a parent is
+  partial by definition once its children disagree, so it reports its subtree rather than any work of
+  its own.</p>
   <p style="color:var(--soft)">Shipped plus partial is ${delivered} of ${nodes.length}
-  (${share(delivered, nodes.length)}). Shipped alone is ${share(shipped, nodes.length)}. The gap between those two figures is roughly the size of
-  the interface debt.</p>
+  (${share(delivered, nodes.length)}). Shipped alone is ${share(shipped, nodes.length)}. Which of the
+  two a reader wants is usually really a question about reach, which is the band below.</p>
 </section>`;
 }
 
@@ -229,32 +310,37 @@ export function rankingOf(status, counts) {
 
 // --- the per-area matrix ------------------------------------------------------------------------
 
-function renderAreaTable(areas, counts, nodes) {
+function renderAreaTable(areas, counts, units) {
   const headings = LEDGER_STATUSES.map(
     (status) => `<th scope="col">${STATUS_PRESENTATION[status].label}</th>`,
   ).join("");
 
+  // Units of work, matching the standing above rather than the full node list: a matrix whose rows
+  // summed to a different total than the page's own headline would read as one of the two being wrong.
+  const inUnits = new Set(units.map((unit) => unit.id));
   const rows = areas
     .map((area) => {
-      const areaCounts = countByStatus(area.nodes);
+      const areaUnits = area.nodes.filter((node) => inUnits.has(node.id));
+      const areaCounts = countByStatus(areaUnits);
       const cells = LEDGER_STATUSES.map((status) => cell(areaCounts.get(status))).join("");
-      const shippedShare = share(areaCounts.get("shipped"), area.nodes.length);
+      const shippedShare = share(areaCounts.get("shipped"), areaUnits.length);
       return (
         `<tr><th scope="row"><a href="#area-${area.name}">${escapeHtml(area.title)}</a></th>` +
-        `${cells}<td class="tot">${area.nodes.length}</td>` +
+        `${cells}<td class="tot">${areaUnits.length}</td>` +
         `<td class="bar"><span style="--p:${shippedShare}"></span><em>${shippedShare}</em></td></tr>`
       );
     })
     .join("");
 
   const totalCells = LEDGER_STATUSES.map((status) => `<td>${counts.get(status)}</td>`).join("");
+  const total = units.length;
 
   return `<section style="display:flex;flex-direction:column;gap:14px">
   <h2>By area</h2>
   <div class="scroll"><table>
     <thead><tr><th scope="col" style="text-align:left">Area</th>${headings}<th scope="col">Total</th><th scope="col">Shipped</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><th scope="row" style="text-align:left">All areas</th>${totalCells}<td class="tot">${nodes.length}</td><td>${share(counts.get("shipped"), nodes.length)}</td></tr></tfoot>
+    <tfoot><tr><th scope="row" style="text-align:left">All areas</th>${totalCells}<td class="tot">${total}</td><td>${share(counts.get("shipped"), total)}</td></tr></tfoot>
   </table></div>
 </section>`;
 }
@@ -273,27 +359,28 @@ function cell(value) {
 // question on a capability with nothing built behind it is holding work still; a question on one that
 // already runs is refining something that works, and those are different asks.
 function renderAwaiting(nodes) {
+  const parents = rollUpIds(nodes);
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
   const parts = ['<section class="callout"><h2>Blocked on a decision from you</h2>'];
 
   if (awaiting.length === 0) {
     parts.push("<p>No capability is blocked on an owner decision.</p>");
   } else {
-    const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
-    const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+    const holdingABuild = awaiting.filter((node) => holdsUpABuild(node, parents.has(node.id)));
+    const refining = awaiting.filter((node) => !holdsUpABuild(node, parents.has(node.id)));
 
     if (holdingABuild.length > 0) {
       parts.push(
         `<h3>${holdingABuild.length} answer${holdingABuild.length === 1 ? "" : "s"} would let work start</h3>`,
         '<p style="color:var(--soft);font-size:13.5px">Nothing is built behind these yet, and nothing can be until they land.</p>',
-        `<ul>${holdingABuild.map(awaitingItem).join("")}</ul>`,
+        `<ul>${holdingABuild.map((node) => awaitingItem(node, parents)).join("")}</ul>`,
       );
     }
     if (refining.length > 0) {
       parts.push(
-        `<h3>${refining.length} would change something that already runs</h3>`,
-        '<p style="color:var(--soft);font-size:13.5px">These are not holding anybody up.</p>',
-        `<ul>${refining.map(awaitingItem).join("")}</ul>`,
+        `<h3>${refining.length} are not holding a build still</h3>`,
+        '<p style="color:var(--soft);font-size:13.5px">Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.</p>',
+        `<ul>${refining.map((node) => awaitingItem(node, parents)).join("")}</ul>`,
       );
     }
   }
@@ -311,13 +398,17 @@ function renderAwaiting(nodes) {
   return parts.join("\n");
 }
 
-function awaitingItem(node) {
-  return `<li><strong>${renderInlineMarkup(node.name)}</strong> — ${renderInlineMarkup(node.awaitingOwner)}</li>`;
+function awaitingItem(node, parents) {
+  return (
+    `<li><strong>${renderInlineMarkup(node.name)}</strong> — ` +
+    `<em style="font-style:normal;color:var(--faint)">${REACH_LABEL[reachOf(node, parents.has(node.id))]}</em> ` +
+    `${renderInlineMarkup(node.awaitingOwner)}</li>`
+  );
 }
 
 // --- every node ----------------------------------------------------------------------------------
 
-function renderEveryNode(areas, nodes, counts) {
+function renderEveryNode(areas, nodes, counts, units) {
   const filters = LEDGER_STATUSES.map((status) => {
     const { label } = STATUS_PRESENTATION[status];
     return (
@@ -336,15 +427,19 @@ function renderEveryNode(areas, nodes, counts) {
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
     <span id="hits">${nodes.length} shown</span>
   </div>
-${areas.map((area) => renderArea(area)).join("\n")}
+${areas.map((area) => renderArea(area, units)).join("\n")}
 </section>`;
 }
 
-function renderArea(area) {
-  const shipped = countByStatus(area.nodes).get("shipped");
+// The heading counts units of work, matching the By-area table and the standing; the LIST under it
+// is every node, parents included, because this is the register. The two were counted differently
+// for one revision and the page said "18 of 34 shipped" over a table row reading 17 of 29.
+function renderArea(area, units) {
+  const areaUnits = area.nodes.filter((node) => units.has(node.id));
+  const shipped = countByStatus(areaUnits).get("shipped");
   const items = area.nodes.map((node) => renderNode(node)).join("");
   return `<section class="area" id="area-${area.name}">
-<h3>${renderInlineMarkup(area.title)} <span class="ac">${shipped} of ${area.nodes.length} shipped</span></h3>
+<h3>${renderInlineMarkup(area.title)} <span class="ac">${shipped} of ${areaUnits.length} shipped</span></h3>
 <ol class="nodes">${items}</ol>
 </section>`;
 }
@@ -380,6 +475,15 @@ function renderNode(node) {
 // kebab-case), so escaping them would only make the page source harder to read.
 export function escapeHtml(text) {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+// For a value going into a double-quoted attribute rather than into text. escapeHtml deliberately
+// leaves quotes alone — it was written for element content, where a bare quote is a quote — and a
+// ledger `name` or `scope` containing one would otherwise close the attribute early and turn the
+// rest of the sentence into markup. Separate from escapeHtml rather than folded into it so the
+// element-content path keeps printing readable quotation marks.
+export function escapeAttribute(text) {
+  return escapeHtml(text).replaceAll('"', "&quot;");
 }
 
 // The ledger's prose fields are Markdown — they are written for docs/now.md, which is Markdown — so a
@@ -424,7 +528,10 @@ const FOOTER =
 // once under the media query, guarded so an explicit light choice wins over the system preference, and
 // once under an explicit dark choice. A colour defined only inside a media block would have no value
 // at all for a reader whose host stamps a theme on the root element.
-const STYLESHEET = `:root{
+// Exported so the decision desk is styled by this palette rather than by a second one that drifts
+// from it. The two pages are read minutes apart by the same person and a status chip that is one
+// green here and a different green there reads as two different systems.
+export const STYLESHEET = `:root{
   --paper:#F6F6F4; --raised:#FFFFFF; --ink:#141821; --soft:#5A6070; --faint:#8A8F9C;
   --rule:#DAD8D3; --hair:#EAE8E4; --accent:#9E3B2F;
   --done:#2F6E4F; --part:#A8761F; --live:#2C5C8F; --plan:#6B5CA5; --todo:#8A8F9C; --park:#94908A;

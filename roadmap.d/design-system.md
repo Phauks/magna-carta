@@ -23,24 +23,28 @@
   name: DTCG source with Resolver theming
   scope: Spec-pure W3C DTCG source; themes and light/dark carried entirely by resolver contexts, pure data on html attributes.
   status: shipped
+  surface: internal
   evidence: packages/design-tokens/resolver.json, tokens/modes/dark.json
 
 - id: design-system.tokens.terrazzo-pipeline
   name: Terrazzo generation
   scope: Terrazzo build to committed CSS custom properties with golden-file byte pins and generator invariant gates (Style Dictionary portability accepted).
   status: shipped
+  surface: internal
   evidence: packages/design-tokens/terrazzo.config.mjs, generated/
 
 - id: design-system.tokens.theme-gallery
   name: Curated theme gallery
   scope: Six-theme gallery times light/dark modes as resolver contexts; adding a theme is a data change, zero component changes.
   status: shipped
+  surface: screen
   evidence: packages/design-tokens tokens + WCAG contrast gates over every theme-mode pair
 
 - id: design-system.tokens.per-firm-branding
   name: Per-firm branding generation
   scope: Generated accessible palettes from firm anchor colors via the Culori engine.
   status: partial
+  surface: awaiting-screen
   evidence: packages/design-tokens/scripts (generate-theme with gamut mapping and contrast validation)
   notes: Engine built but unexposed to firms, matching the white paper's built-but-unexposed framing.
 
@@ -48,6 +52,7 @@
   name: Tailwind v4 token binding
   scope: Tailwind configured via @theme to consume only generated tokens so off-scale values cannot be expressed naturally.
   status: shipped
+  surface: internal
   evidence: packages/design-tokens/tailwind.template.css, apps/web Tailwind wiring
 
 - id: design-system.components
@@ -62,6 +67,7 @@
   name: Component catalog
   scope: Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks.
   status: shipped
+  surface: internal
   evidence: packages/design-system storybook scripts, vitest.storybook.config.ts
   notes: Histoire dead without Svelte 5 support, as the white paper records.
 
@@ -69,6 +75,7 @@
   name: Lucide icons, no emojis
   scope: Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   status: shipped
+  surface: internal
   evidence: @lucide/svelte dependency; no-emoji fitness gate (fifth off-token scanner)
 
 - id: design-system.enforcement
@@ -80,12 +87,14 @@
   name: Off-token value gates
   scope: Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
   status: shipped
+  surface: internal
   evidence: packages/design-system fitness gates (mutation-verified, zero allowances)
 
 - id: design-system.enforcement.visual-regression
   name: Visual regression testing
   scope: Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade.
   status: partial
+  surface: internal
   evidence: packages/design-system/visual-regression (harness + pinned Playwright container CI job)
   notes: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted.
 
@@ -93,6 +102,7 @@
   name: Design language foundation
   scope: Human-set distinctive, restrained language: type system, palette with intent, legal power-user density, functional motion, signature elements.
   status: shipped
+  surface: internal
   spec: docs/specs/2026-06-12-design-language.md
   evidence: Engraved Ledger register folded into the system (self-hosted fonts, BrandMark, Masthead, gilt-draw Tabs)
   notes: Dark design pass named as a remaining close-out item.
@@ -101,6 +111,7 @@
   name: Page archetypes
   scope: Canonical page templates (List/Index, Record Detail, Editor, Form/Wizard, Dashboard) fixing layout grammar, hierarchy, and full state sets.
   status: shipped
+  surface: internal
   spec: docs/specs/2026-06-12-page-archetypes.md
   evidence: Sidebar (Layout A) + app-shell components in packages/design-system
   notes: Archetype application across feature screens rides each UI slice.
@@ -115,12 +126,14 @@
   name: Design critique standard
   scope: Explicit anti-generic and usability rubric as the practitioner standard for the judgment gate.
   status: shipped
+  surface: internal
   evidence: docs/conventions/ui-design.md
 
 - id: design-system.ui-pipeline.accessibility
   name: Keyboard-first accessibility
   scope: Keyboard-first and WCAG; axe checks enforced in stories; screen-reader passes per tier.
   status: partial
+  surface: internal
   evidence: Storybook axe failures enforced
   notes: Per-tier NVDA passes pending per STATUS close-out list.
 
@@ -128,6 +141,7 @@
   name: Real-density UI data
   scope: UI built and reviewed on load-profile fixtures — real density, long values, empty states, large lists — never toy data.
   status: shipped
+  surface: internal
   slices: load-profile-harness
   adrs: ADR-0083
   spec: docs/specs/2026-06-11-load-profile-harness-design.md

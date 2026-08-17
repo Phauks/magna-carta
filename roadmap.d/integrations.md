@@ -26,6 +26,7 @@
   name: Connection & credential model
   scope: Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle.
   status: partial
+  surface: internal
   adrs: ADR-0092, ADR-0095
   evidence: packages/integrations/src/connection.ts + credentials.ts; apps/worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
   notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.
@@ -34,6 +35,7 @@
   name: Manifest-driven registration
   scope: One declarative IntegrationManifest per integration; central registry drives route mounting, adapter resolution, and PluginRuntime wiring.
   status: shipped
+  surface: internal
   slices: integration-platform-foundation
   adrs: ADR-0096
   spec: docs/specs/2026-06-17-integration-platform-foundation-design.md
@@ -126,6 +128,7 @@
   name: EasyPost adapter & firm routes
   scope: Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables.
   status: shipped
+  surface: awaiting-screen
   slices: shipping-postage-backend
   adrs: ADR-0094
   evidence: packages/shipping/src/easypost/ + shipment routes; per status.d fragment built done, tests todo.
@@ -135,6 +138,7 @@
   name: Certified mail
   scope: USPS Certified Mail with return receipt and signature as a first-class shipment option.
   status: shipped
+  surface: awaiting-screen
   evidence: Certified-mail options modeled in packages/shipping/src/canonical.ts and easypost/map.ts.
 
 - id: integrations.shipping.tracking-webhook
@@ -147,6 +151,7 @@
   name: Postage cost-recovery seam
   scope: shipment.purchased event recording postage against the matter for cost recovery.
   status: shipped
+  surface: internal
   adrs: ADR-0156
   evidence: Recoverable-charge seam decision + shipment.purchased seam named in status.d/shipping-postage-backend.md.
 
@@ -169,6 +174,7 @@
   name: Tools catalog package
   scope: Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
   status: shipped
+  surface: internal
   slices: tools-area
   adrs: ADR-0101
   evidence: packages/tools/src/catalog.ts + apps/worker/src/routes/tools-connection.ts.
@@ -177,6 +183,7 @@
   name: Tools listing page
   scope: /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges.
   status: shipped
+  surface: screen
   slices: tools-area
   spec: docs/specs/2026-07-08-tools-listing-page-design.md
   evidence: changelog.d/tools-listing-page.md; unbuilt tools read "Soon".
@@ -185,12 +192,14 @@
   name: Contextual entry points
   scope: Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
   status: partial
+  surface: screen
   evidence: changelog.d/command-palette-individual-tools.md + tools-file-context-tags.md merged; entity-context entries not built.
 
 - id: integrations.tools-area.diagnostics-group
   name: Diagnostics group (firm usage)
   scope: Read-only firm usage and connectivity snapshot in the Tools area.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
   evidence: apps/worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
@@ -200,6 +209,7 @@
   name: Network speed test
   scope: First tool with its own page: Cloudflare measurement engine, per-direction charts, AIM score, authenticated round-trip probe.
   status: shipped
+  surface: screen
   spec: docs/specs/2026-07-09-network-speed-test-design.md
   evidence: changelog.d/network-speed-test.md; stage alpha on the listing page.
 
@@ -216,6 +226,7 @@
   name: Government & licensing links
   scope: Curated deep-links to government portals, business registries, and attorney-license lookups (renamed from parcels).
   status: shipped
+  surface: awaiting-screen
   evidence: packages/government-links/src (business/, licensing/, property/, registry.ts); docs/research/attorney-license-lookup-coverage.md.
   notes: Coverage is uneven by domain and that is what a firm feels — business and attorney-licence are all 51 jurisdictions, property is 835 assessor sites across only 22 (Nevada and the Mountain West; no TX/FL/NY/IL/PA/OH/GA/NC/MI/NJ), plus 17 recorder sites and no GIS. Links verified live 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
@@ -223,6 +234,7 @@
   name: Property external links
   scope: Zillow/Redfin/Maps/Realtor deep-links for a Location; pure link helper, not a plugin.
   status: shipped
+  surface: awaiting-screen
   slices: property-external-links
   adrs: ADR-0093
   spec: docs/specs/2026-06-16-property-links-design.md
@@ -233,6 +245,7 @@
   name: WHOIS lookup
   scope: Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene.
   status: shipped
+  surface: screen
   adrs: ADR-0120, ADR-0121
   evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts + changelog.d/whois-lookup-tool-page.md.
   notes: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md.
@@ -241,6 +254,7 @@
   name: Safe website viewer
   scope: Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).
   status: partial
+  surface: awaiting-screen
   adrs: ADR-0119, ADR-0120
   evidence: packages/safe-browse/src/capture.ts + apps/worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
   notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.
@@ -249,6 +263,7 @@
   name: Metadata inspector & scrubber
   scope: Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless.
   status: shipped
+  surface: awaiting-screen
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   evidence: packages/metadata + apps/worker/src/routes/metadata.ts.
@@ -258,6 +273,7 @@
   name: File hash & integrity
   scope: Five-algorithm streaming hash, ingest-baseline compare, integrity receipt; introduced the file context tag.
   status: shipped
+  surface: awaiting-screen
   slices: file-hash-integrity
   adrs: ADR-0143
   evidence: packages/file-integrity + apps/worker/src/routes/file-integrity.ts.
@@ -267,6 +283,7 @@
   name: File type verifier
   scope: Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint.
   status: shipped
+  surface: awaiting-screen
   slices: file-type-verifier
   adrs: ADR-0160
   evidence: packages/file-type + apps/worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
@@ -276,6 +293,7 @@
   name: Outbound SSRF guard
   scope: Shared validation of every user-supplied outbound target before any fetch or render; platform invariant for outbound tools.
   status: shipped
+  surface: internal
   adrs: ADR-0118
   evidence: packages/integrations/src/safe-target.ts consumed by whois/safe-browse paths.
 
@@ -307,6 +325,7 @@
   name: Wellbeing resources directory
   scope: Per-jurisdiction lawyer-assistance and mental-health resource registry (50 states, DC, territories, national safety net).
   status: shipped
+  surface: awaiting-screen
   slices: wellbeing-resources
   evidence: packages/wellbeing-resources with generated data + verify:data drift guard; in-app UI deferred.
 

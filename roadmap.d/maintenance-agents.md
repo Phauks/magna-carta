@@ -58,6 +58,7 @@
   name: Per-merge fragment assembly workflow
   scope: CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers.
   status: shipped
+  surface: internal
   evidence: .github/workflows/assemble-docs.yml on main, triggered on push to main, delivering the assembly as an auto-merging pull request from the docs-assembly branch.
   notes: Was in-build against the branch it was written on; that branch's remaining diff over main is four files.
 
@@ -65,12 +66,14 @@
   name: Weekly docs-sync routine
   scope: Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
   status: in-build
+  surface: internal
   evidence: Skill + canonical trigger configuration in docs/maintenance/README.md; the Routine itself is not yet created (pending owner sign-off).
 
 - id: maintenance-agents.docs-maintenance.run-reports
   name: Run-report registry
   scope: One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state.
   status: shipped
+  surface: internal
   evidence: docs/maintenance/reports/ on main holds the pinned baseline plus a report per run since, each carrying the window-start/window-end frontmatter the next run reads its window from.
   notes: Was in-build against the branch the registry was written on; the registry is on main and in use.
 
@@ -78,4 +81,5 @@
   name: Deterministic doc-hygiene CI rules
   scope: CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
   status: partial
+  surface: internal
   evidence: lint:process-refs in CI and status-fragment lint joined the gate governance job (commit 6452603); dead-link and empty-Unreleased gates not yet found in gate.yml.

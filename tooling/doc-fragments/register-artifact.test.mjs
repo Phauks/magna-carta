@@ -9,9 +9,13 @@ import {
 import {
   AWAITING_BOUNDARY,
   LEDGER_STATUSES,
+  REACH_LABEL,
   allNodes,
   parseArea,
+  reachOf,
   renderBuildRegister,
+  rollUpIds,
+  workUnits,
 } from "./roadmap.mjs";
 
 // The page and docs/now.md are two renderings of one ledger. Most of what is worth asserting here is
@@ -238,30 +242,67 @@ describe("the two renderings of the real ledger", () => {
   });
 
   it("emit the same count for every one of the nine statuses", () => {
+    // Two counts per status, and which one belongs where is the whole point. The standing in both
+    // renderings answers "how much of the product exists", so it counts units of work — a roll-up
+    // parent summarises its children and counting it beside them would add the same work twice. The
+    // page's filter buttons answer "how many rows will this show me", over a list that is every node.
+    const units = workUnits(nodes);
     for (const status of LEDGER_STATUSES) {
-      const count = nodes.filter((entry) => entry.status === status).length;
-      // The Markdown's per-status table row, and the page's filter button for the same status.
-      expect(register).toContain(`| \`${status}\` | ${count} |`);
+      const unitCount = units.filter((entry) => entry.status === status).length;
+      const everyNodeCount = nodes.filter((entry) => entry.status === status).length;
+      expect(register).toContain(`| \`${status}\` | ${unitCount} |`);
       expect(page).toContain(`data-s="${status}" aria-pressed="false">`);
       expect(page).toMatch(
-        new RegExp(`data-s="${status}" aria-pressed="false">[^<]*<b>${count}</b>`),
+        new RegExp(`data-s="${status}" aria-pressed="false">[^<]*<b>${everyNodeCount}</b>`),
       );
     }
   });
 
+  it("count the standing over units of work in both renderings, never over the parents too", () => {
+    const units = workUnits(nodes);
+    const shipped = units.filter((entry) => entry.status === "shipped").length;
+    expect(register).toContain(`| **All statuses** | **${units.length}** | **100%** |`);
+    expect(page).toContain(`<b>${shipped}</b><em>The artifact exists on main</em>`);
+    expect(page).toContain(`Counted over the ${units.length}`);
+  });
+
+  it("agree on how much is built and how much of it anybody can reach", () => {
+    const built = workUnits(nodes).filter((entry) =>
+      ["shipped", "partial", "in-build"].includes(entry.status),
+    );
+    const reachable = built.filter((entry) => entry.surface === "screen").length;
+    const waiting = built.filter((entry) => entry.surface === "awaiting-screen").length;
+    expect(register).toContain(
+      `**${built.length} units of work have something built behind them**`,
+    );
+    expect(register).toContain(`| A person can open it today (\`screen\`) | ${reachable} |`);
+    expect(page).toContain(`${built.length} units of work have something built behind them.`);
+    expect(page).toContain(`<b>${waiting}</b><em>It works. Nobody can get to it`);
+  });
+
   it("emit the same per-area totals", () => {
+    // The per-area heading counts units of work, matching the By-area table and the standing. The
+    // LIST under the heading is still every node — this is the register — but a heading counted one
+    // way over a table counted another is the page contradicting itself on one screen.
+    const inUnits = new Set(workUnits(nodes).map((entry) => entry.id));
     for (const entry of areas) {
-      const shipped = entry.nodes.filter((candidate) => candidate.status === "shipped").length;
-      expect(page).toContain(`<span class="ac">${shipped} of ${entry.nodes.length} shipped</span>`);
+      const areaUnits = entry.nodes.filter((candidate) => inUnits.has(candidate.id));
+      const shipped = areaUnits.filter((candidate) => candidate.status === "shipped").length;
+      expect(page).toContain(`<span class="ac">${shipped} of ${areaUnits.length} shipped</span>`);
     }
   });
 
   it("list the same nodes as blocked on an owner decision", () => {
+    const parents = rollUpIds(nodes);
     const awaiting = nodes.filter((entry) => entry.awaitingOwner !== null);
     const listed = [...page.matchAll(/<li><strong>([^<]*)<\/strong> — /g)].length;
     expect(listed).toBe(awaiting.length);
     for (const entry of awaiting) {
-      expect(register).toContain(`- **${entry.name}** (\`${entry.id}\`) — ${entry.awaitingOwner}`);
+      // Both renderings prefix the same reach tag, from reachOf, so a question cannot read as
+      // "not built" in one document and "built" in the other.
+      const label = REACH_LABEL[reachOf(entry, parents.has(entry.id))];
+      expect(register).toContain(`(\`${entry.id}\`) — **${label}** ${entry.awaitingOwner}`);
+      expect(page).toContain(`>${label}</em> `);
     }
   });
 

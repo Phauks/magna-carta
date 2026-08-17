@@ -29,6 +29,7 @@
   name: Invitation-only membership
   scope: Nobody adds themselves to an existing firm; Better Auth's own signup stays structurally off, and joining a firm goes through invitation redemption with an email-verified flip.
   status: shipped
+  surface: screen
   adrs: ADR-0280
   evidence: apps/worker fitness-tested signup-off configuration (disableSignUp stays true); invitation redemption takes a code plus surname and date of birth against one digest over all three, so the handler cannot report which fact was wrong.
   notes: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers.
@@ -37,9 +38,10 @@
   name: Login and 2FA UI
   scope: The login/2FA surface over the auth backend — the design system's first consumer.
   status: partial
+  surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
-  notes: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
+  notes: Sign-in shipped, and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
 
 - id: auth.two-factor
   name: Second factors
@@ -53,6 +55,7 @@
   name: TOTP
   scope: TOTP enrollment and login with transition-exact audit events.
   status: shipped
+  surface: awaiting-screen
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
   evidence: apps/worker end-to-end TOTP coverage; two_factor audit hooks
 
@@ -83,12 +86,14 @@
   name: Auth audit log
   scope: Immutable control-plane auth audit (login success, 2FA transitions, password reset, key shred, alpha-door writes).
   status: shipped
+  surface: internal
   evidence: packages/data-access/src/auth-audit-statements.ts
 
 - id: auth.hardening.rate-limiting
   name: Rate limiting
   scope: Rate limiting on the API surface via the chokepoint's declared limits.
   status: partial
+  surface: internal
   slices: 0-5a-api-contract-foundation
   evidence: async-capable rate-limiter seam in apps/worker/src/contracts
   notes: Seam built into the chokepoint; a production limiter backend is not verified in the tree.
@@ -97,6 +102,7 @@
   name: Human verification on anonymous endpoints
   scope: A bot check ahead of the platform's anonymous writes — server-side verification of a Cloudflare Turnstile challenge solution, with a typed absence when no verifier is provisioned.
   status: partial
+  surface: internal
   evidence: apps/worker/src/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/worker/test/turnstile-verifier.test.ts and apps/worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
   notes: PARTIAL, and specifically: the server half exists and enforces nothing today. No Turnstile widget has been created, so no secret is provisioned, so every environment resolves the not-configured verifier and the protected endpoints serve exactly as before — counting each unprotected pass as human_verification.decided/unenforced. Two things are outstanding and neither is server work: the owner creating the widget and setting TURNSTILE_SECRET_KEY (queued in docs/deploy-queue.md), and a client that renders the challenge and mints a token, which is UI reserved to the owner. The Better Auth credential endpoints are deliberately NOT gated — their shipped sign-in screen mints no token, so gating them would break a working surface; that mounting belongs to the identity slice that owns them.
 
@@ -110,6 +116,7 @@
   name: Permission registry
   scope: Fixed platform registry, one namespace per subsystem (subsystem:action); every route declares one, cross-checked by a fitness function.
   status: shipped
+  surface: internal
   adrs: ADR-0067
   evidence: packages/access-control, 0-5b conformance suite
 
@@ -117,6 +124,7 @@
   name: Roles as data
   scope: role-to-permissions and member-to-roles rows seeded with editable defaults; effective permissions = roles held union direct grants.
   status: shipped
+  surface: internal
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
   evidence: member-rbac migration, packages/access-control resolver, GET /v1/me
 
@@ -130,6 +138,7 @@
   name: Access requests and direct grants
   scope: Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.
   status: partial
+  surface: awaiting-screen
   evidence: apps/worker/src/chokepoint/chokepoint.ts (403 + requestAccess flag)
   notes: Denial surface shipped; the request-to-grant flow is an explicit seam. The separate support-access framework (support_grant) covers platform staff, not member grants.
 
@@ -137,6 +146,7 @@
   name: 404-not-403 boundary
   scope: Cross-firm and unauthorized-but-existing resources return 404 so responses are never an existence oracle; 403 reserved for within-firm denial.
   status: shipped
+  surface: internal
   slices: 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0052
   evidence: chokepoint deactivated-member 404 unification
@@ -168,30 +178,35 @@
   name: Envelope key hierarchy
   scope: Root KEK as Worker secret wrapping a per-firm key; HKDF-derived purpose keys (pii, secrets, index); AES-KW/AES-GCM/HKDF/HMAC via Web Crypto.
   status: shipped
+  surface: internal
   evidence: packages/encryption, packages/data-access/src/firm-key-provider.ts
 
 - id: auth.encryption.protected-fields
   name: protected() field chokepoint
   scope: Declarative field type encrypting on write, role-gated audited decrypt on read, inside the data-access layer — no separate crypto service.
   status: shipped
+  surface: internal
   evidence: packages/data-access/src/{protected-fields,protected-field-registry}.ts
 
 - id: auth.encryption.blind-index
   name: HMAC blind index
   scope: Blind index so conflicts matching works over encrypted identifiers without decrypting.
   status: shipped
+  surface: internal
   evidence: packages/encryption/src/blind-index.ts; directory protected identifiers use it
 
 - id: auth.encryption.firm-secrets
   name: Per-firm plugin credentials
   scope: getSecret/putSecret for per-firm plugin credentials; ciphertext in the firm database, plugin Workers never see key material.
   status: shipped
+  surface: internal
   evidence: packages/data-access/src/{secret-statements,firm-secret-credential-store}.ts
 
 - id: auth.encryption.crypto-shred
   name: Per-firm crypto-shred
   scope: Destroying a firm's wrapped key renders its encrypted corpus permanently unreadable — instant per-firm offboard.
   status: shipped
+  surface: internal
   evidence: apps/worker/src/firm-key-shred.ts
   notes: Function only; the offboarding flow that invokes it is its own future design.
 
@@ -205,6 +220,7 @@
   name: Post-quantum posture
   scope: Symmetric corpus already quantum-resistant; crypto-agility via per-ciphertext algorithm/key version identifiers; PQ signatures seamed on upstream standards.
   status: partial
+  surface: internal
   adrs: ADR-0046
   evidence: packages/encryption/src/envelope.ts (algoVersion + keyVersion frame)
   notes: Agility seam shipped; PQC-TLS gap logging for third-party endpoints and signature migration not built.
@@ -213,6 +229,7 @@
   name: TOTP seed placement
   scope: TOTP seeds stay in Better Auth's tables under its at-rest encryption (user-owned, pre-firm-context), verified against the pinned version.
   status: shipped
+  surface: internal
   adrs: ADR-0084
   evidence: docs/decisions/0084-encryption-keys-protected-concretization-envelope-context.md
 

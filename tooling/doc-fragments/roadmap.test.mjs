@@ -6,9 +6,13 @@ import {
   bandForStatus,
   parseArea,
   publicEntries,
+  reachOf,
   renderBuildRegister,
   renderPublicRoadmap,
+  rollUpIds,
+  rollUps,
   wholePercentages,
+  workUnits,
 } from "./roadmap.mjs";
 
 function area(...blocks) {
@@ -255,7 +259,7 @@ describe("renderBuildRegister", () => {
 
   it("states what is blocked on the owner, and states the question", () => {
     expect(renderBuildRegister(areas)).toContain(
-      "- **Bank charges on a trust account** (`trust.charges`) — Whether a bank charge may ever be met from the pooled balance.",
+      "- **Bank charges on a trust account** (`trust.charges`) — **Not built.** Whether a bank charge may ever be met from the pooled balance.",
     );
   });
 
@@ -285,7 +289,7 @@ describe("renderBuildRegister", () => {
     ];
     const rendered = renderBuildRegister(withBoth);
     expect(rendered).toContain("**1 answer would let work start.**");
-    expect(rendered).toContain("**1 would change something that already runs.**");
+    expect(rendered).toContain("**1 are not holding a build still.**");
     // The split is derived from the node's own status, so the shipped capability's question sits
     // below the designed one however the ledger happens to order them.
     expect(rendered.indexOf("Bank charges on a trust account** (`trust.charges`)")).toBeLessThan(
@@ -511,5 +515,163 @@ describe("renderBuildRegister — where we have been", () => {
   it("renders nothing about the past when every commit in the series went unread", () => {
     const allUnread = { ...history, snapshots: [history.snapshots[1]] };
     expect(renderBuildRegister(areas, allUnread)).not.toContain("## Where we have been");
+  });
+});
+
+describe("rollUpIds and workUnits", () => {
+  const ledger = parseArea(
+    area(
+      ["- id: trust", "  name: Trust", "  scope: The money spine.", "  status: partial", ""].join(
+        "\n",
+      ),
+      [
+        "- id: trust.ledger",
+        "  name: Ledger",
+        "  scope: Double-entry ledger.",
+        "  status: shipped",
+        "  surface: internal",
+        "",
+      ].join("\n"),
+      [
+        "- id: trust.reconciliation",
+        "  name: Reconciliation",
+        "  scope: Three-way reconciliation.",
+        "  status: not-started",
+        "",
+      ].join("\n"),
+    ),
+    "trust.md",
+  ).nodes;
+
+  it("reads parenthood off the dotted id, which is where the hierarchy is encoded", () => {
+    expect([...rollUpIds(ledger)]).toEqual(["trust"]);
+  });
+
+  it("leaves a node whose id merely shares a prefix alone", () => {
+    // "trust" is a parent of "trust.ledger"; it is not a parent of "trustee-report", and a
+    // startsWith test on the raw string would have said it was.
+    const withSibling = parseArea(
+      area(
+        ["- id: trust", "  name: A", "  scope: One.", "  status: not-started", ""].join("\n"),
+        ["- id: trustee-report", "  name: B", "  scope: Two.", "  status: not-started", ""].join(
+          "\n",
+        ),
+      ),
+      "trust.md",
+    ).nodes;
+    expect([...rollUpIds(withSibling)]).toEqual([]);
+  });
+
+  it("splits the ledger into the parents and the units of work, losing nothing", () => {
+    expect(workUnits(ledger).map((node) => node.id)).toEqual([
+      "trust.ledger",
+      "trust.reconciliation",
+    ]);
+    expect(rollUps(ledger).map((node) => node.id)).toEqual(["trust"]);
+  });
+
+  it("counts a parent as a parent even when no node between them exists", () => {
+    // The ledger does not require every intermediate id to be present, so parenthood is tested
+    // against every ancestor rather than only the immediate one.
+    const skipped = parseArea(
+      area(
+        ["- id: trust", "  name: A", "  scope: One.", "  status: partial", ""].join("\n"),
+        [
+          "- id: trust.reconciliation.three-way",
+          "  name: B",
+          "  scope: Two.",
+          "  status: not-started",
+          "",
+        ].join("\n"),
+      ),
+      "trust.md",
+    ).nodes;
+    expect([...rollUpIds(skipped)]).toEqual(["trust"]);
+  });
+});
+
+describe("surface", () => {
+  const node = (surface) =>
+    parseArea(
+      area(
+        [
+          "- id: trust.ledger",
+          "  name: Ledger",
+          "  scope: Double-entry ledger.",
+          "  status: shipped",
+          `  surface: ${surface}`,
+          "",
+        ].join("\n"),
+      ),
+      "trust.md",
+    ).nodes[0];
+
+  it("carries a recorded reach, which no status can express", () => {
+    expect(node("awaiting-screen").surface).toBe("awaiting-screen");
+  });
+
+  it("refuses a value outside the vocabulary rather than rendering an unknown reach", () => {
+    expect(() => node("soon")).toThrow(/unknown surface "soon"/);
+  });
+
+  it("defaults to null, so an unclassified node is never counted as reachable", () => {
+    const [unset] = parseArea(area(shippedPublicNode), "trust.md").nodes;
+    expect(unset.surface).toBeNull();
+  });
+
+  it("refuses a key written with no value, which nothing below the parser could report", () => {
+    // A blank value is neither absent nor valid. Everything downstream reads absent and blank as
+    // the same thing, on purpose, so that a blank cannot satisfy a rule testing for presence —
+    // which leaves the parser as the only place that can still tell them apart and say so.
+    expect(() =>
+      parseArea(
+        area(
+          [
+            "- id: trust.ledger",
+            "  name: Ledger",
+            "  scope: Double-entry ledger.",
+            "  status: shipped",
+            "  surface:",
+            "",
+          ].join("\n"),
+        ),
+        "trust.md",
+      ),
+    ).toThrow(/"surface" is written with no value/);
+  });
+
+  it("reads a key that is simply absent as absent", () => {
+    const [unset] = parseArea(
+      area("- id: trust.x", "  name: X", "  scope: Y.", "  status: not-started", ""),
+      "trust.md",
+    ).nodes;
+    expect(unset.surface).toBeNull();
+    expect(unset.audience).toBe("internal");
+    expect(unset.notes).toBeNull();
+  });
+});
+
+const at = (status, surface = null) => ({ status, surface });
+
+describe("reachOf", () => {
+  it("reads a status with nothing built as not built, whatever else is set", () => {
+    for (const status of ["not-started", "researching", "designed", "planned"]) {
+      expect(reachOf(at(status))).toBe("not-built");
+    }
+  });
+
+  it("reads a parked capability as parked rather than as unbuilt", () => {
+    expect(reachOf(at("deferred"))).toBe("parked");
+    expect(reachOf(at("cut"))).toBe("parked");
+  });
+
+  it("returns the recorded reach where one is recorded", () => {
+    expect(reachOf(at("shipped", "screen"))).toBe("screen");
+    expect(reachOf(at("partial", "awaiting-screen"))).toBe("awaiting-screen");
+    expect(reachOf(at("shipped", "internal"))).toBe("internal");
+  });
+
+  it("says built-but-unclassified rather than guessing at a reach nobody recorded", () => {
+    expect(reachOf(at("shipped"))).toBe("built");
   });
 });

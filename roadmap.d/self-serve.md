@@ -19,11 +19,12 @@
   name: Self-serve firm registration
   scope: The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed.
   status: shipped
+  surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0280
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
   evidence: apps/worker/src/routes/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
-  notes: Backend only — the founding, details and confirmation screens exist as components but are not wired to a route, which the authentication area's own interface node already accounts for. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.
+  notes: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.
 
 - id: self-serve.firm-lifecycle
   name: Firm lifecycle states

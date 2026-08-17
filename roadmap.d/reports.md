@@ -18,6 +18,7 @@
   name: Ledger projections
   scope: Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date.
   status: shipped
+  surface: internal
   slices: 3-6-financial-reporting, 0-3-ledger-core-fixtures
   adrs: ADR-0072
   evidence: packages/reporting/src/temporal.ts holds the (period, knowledge instant) contract and its validation; the bitemporal select builders are in packages/trust/src/statements.ts and packages/reporting/test/reproducibility.test.ts proves a stated triple re-derives across a backdated correction.
@@ -27,6 +28,7 @@
   name: Trust-compliance reports
   scope: Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
   status: partial
+  surface: awaiting-screen
   slices: 3-6-financial-reporting, 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0246
   evidence: packages/reporting/src/trust-compliance/pack.ts assembles the cover, reconciliations, client ledgers, journal, firm cushion, exceptions and provenance; GET /api/v1/reports/trust-compliance/{trustAccountId} serves it on reports:trustCompliance; packages/reporting/test/agreement.test.ts proves each decomposition equals the aggregate trust owns.

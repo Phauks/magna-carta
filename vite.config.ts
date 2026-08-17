@@ -44,9 +44,11 @@ export default defineConfig({
       // reconstruction of its own past is written by the same build, in a layout chosen so that one
       // landed commit appends one readable block of lines; reflowing it would cost that. docs/now.html
       // is the same register as a self-contained page, emitted by the same build and held to the same
-      // byte-exact gate, so it is ignored for the same reason.
+      // byte-exact gate, so it is ignored for the same reason. docs/decisions-open.html is the third
+      // rendering of the same ledger, from the same build and under the same gate.
       "docs/now.md",
       "docs/now.html",
+      "docs/decisions-open.html",
       "docs/register-history.json",
     ],
   },
@@ -236,10 +238,12 @@ export default defineConfig({
         command: "node tooling/doc-fragments/build-status.mjs",
       },
       // Regenerate the complete build register — every capability at its real status — from the
-      // roadmap.d/* feature ledger, in both its renderings: docs/now.md and docs/now.html, the
-      // self-contained page the owner reads. Persistent, like status-build. Both are byte-exact
-      // functions of the ledger and `pnpm run lint:roadmap` fails when either falls behind, so a
-      // capability that ships moves itself in the register with nobody remembering to.
+      // roadmap.d/* feature ledger, in all three of its renderings: docs/now.md, docs/now.html (the
+      // self-contained page the owner reads) and docs/decisions-open.html (the decision desk, which
+      // gathers the questions the build is waiting on and takes the answers). Persistent, like
+      // status-build. All three are byte-exact functions of the ledger and `pnpm run lint:roadmap`
+      // fails when any falls behind, so a capability that ships moves itself in the register, and a
+      // question that is settled leaves the desk, with nobody remembering to.
       "register-build": {
         command: "node tooling/doc-fragments/build-register.mjs",
       },

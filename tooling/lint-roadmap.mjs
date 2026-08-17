@@ -3,9 +3,15 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadHistory } from "./doc-fragments/build-register-history.mjs";
 import { containsEmoji } from "./doc-fragments/changelog.mjs";
+import { renderDecisionDesk } from "./doc-fragments/decision-desk.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
 import { renderBuildRegisterArtifact } from "./doc-fragments/register-artifact.mjs";
-import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
+import {
+  STATUSES_WITH_SOMETHING_BUILT,
+  parseArea,
+  renderBuildRegister,
+  rollUpIds,
+} from "./doc-fragments/roadmap.mjs";
 
 // Fitness function for the roadmap.d/* feature ledger and the document rendered from it (mirrors
 // lint-status.mjs). Three jobs, in increasing order of what they carry:
@@ -17,7 +23,9 @@ import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
 //      document cannot, which is the same reasoning lint-changelog-fragments gives. Nothing is
 //      published from those keys today — the public rendering has no audience yet — and the check
 //      stays on so the copy is already sound on the day it does.
-//   3. docs/now.md and docs/now.html both match a fresh render of the ledger, byte for byte.
+//   3. `surface:` is set where it means something and absent where it does not — see below.
+//   4. docs/now.md, docs/now.html and docs/decisions-open.html all match a fresh render of the
+//      ledger, byte for byte.
 //
 // The third is the point of the whole design. A capability that ships flips one word in its ledger
 // node, and this gate refuses the two ways a derived document rots: flipping the node without
@@ -43,6 +51,11 @@ for (const name of readdirSync(LEDGER_DIR)
     problems.push(error.message);
   }
 }
+
+// Which nodes are roll-up parents, read off the id set. Needed by the `surface:` rules: a parent's
+// reach is whatever its children's is, so a parent that carried its own value would be a second
+// answer to a question its subtree has already answered, free to disagree with all of them.
+const parents = rollUpIds(areas.flatMap((area) => area.nodes));
 
 const seen = new Map();
 for (const area of areas) {
@@ -75,13 +88,36 @@ for (const area of areas) {
       );
     }
 
-    if (node.awaitingOwner !== null && node.awaitingOwner.trim() === "") {
-      problems.push(
-        `${where}  has an empty awaiting-owner — state the question, or drop the key; a flag with no question has moved the problem rather than solved it`,
-      );
-    }
+    // A blank `awaiting-owner:` is caught where the file is parsed, not here: every optional key
+    // reads absent and blank as the same value below the parser, so by this point there is nothing
+    // left to see. The rule that used to live here could not fire and said nothing about it.
     if (node.awaitingOwner !== null && containsEmoji(node.awaitingOwner)) {
       problems.push(`${where}  awaiting-owner contains an emoji`);
+    }
+
+    // `surface:` answers "can anybody reach this", which is only a question once something exists to
+    // be reached. Required on every leaf with code behind it — a shipped backend nobody can open and
+    // a screen somebody uses daily are both `shipped`, and leaving the key off is what let the two
+    // read as one number. Refused everywhere else, so the key can never be a second opinion: a
+    // roll-up parent's reach is its children's, and a capability nothing has been written for has no
+    // reach to record beyond what its status already says.
+    const somethingIsBuilt = STATUSES_WITH_SOMETHING_BUILT.includes(node.status);
+    if (parents.has(node.id)) {
+      if (node.surface !== null) {
+        problems.push(
+          `${where}  is a roll-up parent and carries surface: ${node.surface} — a parent's reach is its children's, so the key belongs on them`,
+        );
+      }
+    } else if (somethingIsBuilt) {
+      if (node.surface === null) {
+        problems.push(
+          `${where}  is ${node.status} with no surface: — say whether a person can reach it (screen), whether only the interface is missing (awaiting-screen), or whether it has no user surface by nature (internal)`,
+        );
+      }
+    } else if (node.surface !== null) {
+      problems.push(
+        `${where}  is ${node.status} and carries surface: ${node.surface} — nothing is built to be reached, which the status already says`,
+      );
     }
   }
 }
@@ -110,6 +146,7 @@ if (problems.length === 0) {
     : [
         ["docs/now.md", renderBuildRegister(areas, history)],
         ["docs/now.html", renderBuildRegisterArtifact(areas)],
+        ["docs/decisions-open.html", renderDecisionDesk(areas)],
       ]) {
     const absolute = join(ROOT, path);
     const onDisk = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
@@ -146,5 +183,5 @@ const publicNodes = areas.reduce(
   0,
 );
 console.log(
-  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md + docs/now.html are current.`,
+  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md + docs/now.html + docs/decisions-open.html are current.`,
 );

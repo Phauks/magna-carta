@@ -21,6 +21,7 @@
   name: Item register
   scope: Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, optional matter link, status.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_packet / custody_item / custody_owner / custody_item_type in packages/database/src/per-firm-schema.ts; packages/custodian/src/{packet,item,item-type}-service.ts. Backend only.
@@ -30,6 +31,7 @@
   name: Physical location hierarchy
   scope: Recursive container tree rooted at a Location (office), default safe > box > position, arbitrary depth.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_location + packages/custodian/src/location-service.ts (cycle walk, depth cap, occupied-close refusal). Backend only.
@@ -39,6 +41,7 @@
   name: Check-in/out custody log
   scope: Append-only ledger of custody events (logged, moved, checked out, returned, released, destroyed) with actor and timestamp.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_movement with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers; packages/custodian/src/movement-service.ts is the one write path for every state change. Backend only.
@@ -48,6 +51,7 @@
   name: Labels and barcodes
   scope: Printable barcode/QR labels on items and containers.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian/src/label-service.ts + src/labels/ (in-house Code 128 encoder, A4 24-up SVG sheet); GET /api/v1/custody/labels. Backend only — the print screen is authored when the register surface ships.
@@ -57,6 +61,7 @@
   name: Review dates and the reminder feed
   scope: Firm-set review dates on packets and items with an anniversary-anchored cycle, and one collection point serving both due reviews and overdue check-outs.
   status: partial
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian/src/{review-service,review-statements,reminders}.ts; POST /api/v1/custody/packets/{packetId}/reviews and GET /api/v1/custody/reminders.
@@ -66,6 +71,7 @@
   name: Register reports
   scope: Holdings per owner, occupancy per location including subtree counts, holds in force, and overdue check-outs.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian/src/reports.ts; GET /api/v1/custody/reports/{holdings-by-owner,holdings-by-location,holds} and GET /api/v1/custody/overdue. Backend only.
@@ -74,6 +80,7 @@
   name: Attached digital scans
   scope: R2 digital scans attached to each custody item.
   status: shipped
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_scan links ordinary File Manager files; packages/custodian/src/scan-service.ts. Bytes ride the existing presigned upload and quarantine chokepoint — there is no upload route in Custodian. Backend only.
@@ -98,6 +105,7 @@
   name: Gated release and signed receipts
   scope: Named-borrower check-out/return, gated release with identity and authority captured before an original leaves, and signed deposit/release receipts.
   status: partial
+  surface: awaiting-screen
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian/src/release-gate.ts + src/settings.ts, four release columns and three BEFORE INSERT triggers on custody_movement (migration 20260805T130000_custody-gated-release). The gate rides the existing movement write path — there is still no release route.

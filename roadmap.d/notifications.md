@@ -19,6 +19,7 @@
   name: Notification type registry
   scope: Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable.
   status: shipped
+  surface: internal
   adrs: ADR-0059, ADR-0251
   evidence: packages/notifications/src/registry.ts, with the declaration rules held by packages/notifications/test/registry-fitness.test.ts.
   notes: Twenty types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why. Each path also declares how long its dedupe key must hold (CONVERGENCE_HORIZON_BY_RAISER in packages/notifications/src/materialize.ts) — the uniqueness lives on a row the retention sweep deletes, so a fourth path is a compile error until it states a horizon shorter than the retention floor, and a condition needing once-per-subject-forever convergence carries it in the owning subsystem's own tables instead.
@@ -27,6 +28,7 @@
   name: Recipients & preferences
   scope: Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent.
   status: partial
+  surface: awaiting-screen
   evidence: packages/notifications/src/recipients.ts resolves the declared audiences off the hot path and applies the per-category in-app floor before anything is written; the matrix itself is packages/notifications/src/preferences.ts on the shipped scope chain, read and written through apps/worker/src/routes/notification-preferences.ts. Still unbuilt here - the messaging port external routing depends on (ADR-0047) and Directory-entity recipients, since every audience resolver returns firm members.
   notes: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands.
 
@@ -34,6 +36,7 @@
   name: Trust-compliance designation
   scope: A firm-tier list of members who join the recipient set of every trust-category notification, written under the trust-management capability and audited by count.
   status: shipped
+  surface: awaiting-screen
   evidence: The setting and its resolver are packages/notifications/src/preferences.ts (trustComplianceRecipientsDefinition, readTrustComplianceRecipients), applied to the trust CATEGORY in packages/notifications/src/recipients.ts so all three production paths inherit it; GET/PUT /api/v1/firm/notifications/trust-compliance-recipients in apps/worker/src/routes/notification-preferences.ts under trust:manage. Held by packages/notifications/test/preference-enforcement.test.ts and apps/worker/test/notification-preferences-routes.test.ts.
   notes: A designation is not a grant of access. The designated member gets an ordinary recipient row and the visible-matter predicate still decides at read, so a notification about a matter they cannot see leaves their feed and unread count byte-identical to a firm where it was never raised - no placeholder, which would be an existence oracle. The audit row carries the recipient COUNT and never the names.
 
@@ -41,6 +44,7 @@
   name: In-app notification center
   scope: Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through.
   status: partial
+  surface: awaiting-screen
   evidence: Six per-firm tables plus the member-scoped read API (page, unread count, mark read/dismiss/read-all) behind notifications:read; the bell and the list are UI and unbuilt.
   notes: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored.
 
@@ -54,6 +58,7 @@
   name: Email channel
   scope: External delivery via the communications layer: transactional provider for system/billing, matter mailbox for thread-bound mail.
   status: partial
+  surface: internal
   adrs: ADR-0074, ADR-0251
   evidence: The digest reader, its renderer and its per-firm hourly run are packages/notifications/src/digest.ts, src/digest-render.ts and runNotificationDigestPass in apps/worker/src/scheduled.ts, sending through apps/worker/src/notifications/digest-send-port.ts over the shipped SendEmail port; held by packages/notifications/test/digest.test.ts and test/digest-render.test.ts. Unbuilt here - thread-bound mail through the matter mailbox, and the matter-number detail level, which is declared and renders as counts-only.
   notes: Digest-only, counts-only. A summary carries a fixed matter-free subject holding a count, a line of per-category counts and one link - no title, number, name, filename, date or amount, enforced by a golden test over a fixture whose matter is named after its parties. Composed per member per cadence from a keyset watermark through the SAME shared read the feed composes, so the wall binds at delivery time in one implementation; sends before it marks; and every row it did not mail is settled as a suppressed notification_delivery row naming a closed reason. Cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL are provisioned - absent any of the three the port reports a typed not-configured reason and the pass mails nobody (docs/deploy-queue.md).
@@ -82,6 +87,7 @@
   name: notify() raise port & co-located raises
   scope: Single raise port with high-value raises co-located on unbypassable paths (audit-log write for money/trust, task write path, conflicts/portal/deadline/job seams); fan-out off the hot path via Queues.
   status: partial
+  surface: internal
   adrs: ADR-0251
   evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; thirteen topics are registered, the newest three being the calendar's own matter-event write paths, which commit an outbox row in the batch they were already composing (packages/calendar/src/notifications.ts, packages/calendar/src/event-service.ts, packages/calendar/src/continuance-service.ts). The comparison-shaped points are raised by packages/notifications/src/sweep.ts, and a job coordinator's terminal state by packages/notifications/src/job-completion.ts.
   notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. One of the five job coordinators (DocumentAssemblyJob) is wired; RecoveryJobCoordinator's type is registered and unwired, and the other three record no requester, which apps/worker/src/jobs/job-completion-notification.ts and the pending decision fragment explain per coordinator.
@@ -90,6 +96,7 @@
   name: Scheduled reminders
   scope: Cron-triggered Workflow sweeping due reminders per firm; deadline dates computed in the court's zone.
   status: partial
+  surface: internal
   evidence: runNotificationComparisonSweep in apps/worker/src/scheduled.ts runs on the daily cron over listReachableActiveFirms, calling packages/notifications/src/sweep.ts, which reads the calendar's own overdue arithmetic (packages/calendar/src/overdue.ts) and collectCustodyReminders (packages/custodian/src/reminders.ts); the once-per-civil-day bucket and the audience count are held by packages/notifications/test/comparison-sweep.test.ts and apps/worker/test/notifications-comparison-sweep.test.ts, and the bucket's retention-safety by packages/notifications/test/retention-convergence.test.ts.
   notes: Due and overdue deadlines and both custody reasons are swept. calendar.deadline.horizon is declared and raises nothing — it needs a firm-configured lead window that no setting defines, and a fitness test asserts the emission point resolves to no type so the gap cannot be mistaken for an oversight. Every way this pass can stop finding things now announces itself: the per-kind findings clamp on notifications.comparison_clamped, and the zone-discovery truncation that produces no findings at all for a whole jurisdiction on notifications.comparison_zone_discovery_truncated.
   awaiting-owner: Two, both about how much of a firm's overdue work one pass carries. The deadline horizon's lead window — "an open deadline enters the firm's configured lead window" needs a number and a bound, and a lead the platform picks is a lead the firm did not choose. And whether 200 findings per kind per pass is the right ceiling: it is counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it is a firm-observable change in how much gets reported as well as a load question.
@@ -117,6 +124,7 @@
   name: Confidentiality & read-time enforcement
   scope: External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories.
   status: partial
+  surface: internal
   adrs: ADR-0059, ADR-0251
   evidence: The closed fact grammar (packages/notifications/src/facts-grammar.ts) refuses a text-valued declaration; every read composes the visible-matter predicate in SQL before the LIMIT, proved for all of them by packages/notifications/test/wall-fitness.test.ts. A preference change writes an audit_log row carrying the categories touched and nothing else, held by apps/worker/test/notification-preferences-routes.test.ts.
   notes: The external-channel half lands with the email digest. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.

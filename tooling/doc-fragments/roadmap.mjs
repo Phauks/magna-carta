@@ -36,6 +36,20 @@ export const LEDGER_STATUSES = [
 
 export const AUDIENCES = ["public", "internal"];
 
+// Whether a person can reach this capability, which `status` cannot say and never could: `shipped`
+// covers both a screen somebody uses and a backend nobody can get to, and reading the two as one
+// number is what makes a register overstate the product. It is a second key rather than something
+// derived because it is genuinely a second fact — measured before it was added, prose in `notes`
+// carried a usable signal on 63 nodes of 754, and an `evidence` path naming a screen on 14 of the
+// 359 built leaves. Deriving it would have invented the other 302.
+//
+//   screen          a person can open this in the application today
+//   awaiting-screen the capability works and the interface is the only thing missing
+//   internal        it has no user surface by nature — a port, a table, a queue, a fitness function
+//
+// Unset means unclassified, and every rendering says so in those words rather than assuming one.
+export const SURFACES = ["screen", "awaiting-screen", "internal"];
+
 // The public horizon bands. These are the community board's own status names, adopted verbatim so a
 // request card and a roadmap entry never say the same thing in two vocabularies — see
 // docs/specs/2026-08-11-community-surfaces-design.md. `Beta` is theirs too and is deliberately
@@ -122,7 +136,17 @@ export function parseArea(markdown, name = "area") {
       }
       const field = key[1] ?? "";
       if (field in node.fields) problems.push(`line ${at}: "${field}" is set twice on one node`);
-      node.fields[field] = (key[2] ?? "").trim();
+      const value = (key[2] ?? "").trim();
+      // A key with nothing after it is always a mistake, and this is the only place that can see
+      // it. Everything downstream reads absent and blank as the same thing, deliberately, so that a
+      // blank value cannot satisfy a rule testing for presence — which means nothing downstream can
+      // report one either. A blank `awaiting-owner:` would otherwise be a question that disappears.
+      if (value === "") {
+        problems.push(
+          `line ${at}: "${field}" is written with no value — give it one, or drop the key; a blank key reads as absent everywhere below this line`,
+        );
+      }
+      node.fields[field] = value;
       continue;
     }
 
@@ -167,6 +191,11 @@ function finishNode({ fields, line, area }, name) {
       `line ${line}: "${fields.id}" has unknown audience "${fields.audience}" (expected ${AUDIENCES.join(" or ")})`,
     );
   }
+  if (fields.surface && !SURFACES.includes(fields.surface)) {
+    problems.push(
+      `line ${line}: "${fields.id}" has unknown surface "${fields.surface}" (expected one of ${SURFACES.join(", ")})`,
+    );
+  }
   if (problems.length > 0) throw new RoadmapParseError(name, problems);
   return {
     id: fields.id,
@@ -175,18 +204,24 @@ function finishNode({ fields, line, area }, name) {
     status: fields.status,
     area,
     line,
-    audience: fields.audience ?? "internal",
-    publicName: fields["public-name"] ?? fields.name,
-    publicSummary: fields["public-summary"] ?? null,
-    awaitingOwner: fields["awaiting-owner"] ?? null,
+    // `||`, not `??`, on every optional key: a node written `surface:` with nothing after it
+    // parses to the empty string, and `??` would keep it. An empty value then slips past every
+    // rule that tests for presence — the vocabulary check skips it as falsy, the lint requiring a
+    // surface on a built leaf sees one, and the reach table counts the node in no column at all.
+    // Absent and blank are the same statement, so they parse to the same value.
+    audience: fields.audience || "internal",
+    surface: fields.surface || null,
+    publicName: fields["public-name"] || fields.name,
+    publicSummary: fields["public-summary"] || null,
+    awaitingOwner: fields["awaiting-owner"] || null,
     slices: splitList(fields.slices),
-    notes: fields.notes ?? null,
+    notes: fields.notes || null,
     // Carried but never rendered. The register prints name/scope/status/notes; these three are the
     // node's claims ABOUT the repository — the artifact that justifies the status, the design it was
     // written from, the decisions behind it — and they are what tooling/lint-ledger-staleness checks
     // the tree against. Dropping them here is what made the ledger uncheckable in that direction.
-    evidence: fields.evidence ?? null,
-    spec: fields.spec ?? null,
+    evidence: fields.evidence || null,
+    spec: fields.spec || null,
     adrs: splitList(fields.adrs),
   };
 }
@@ -202,6 +237,37 @@ function splitList(value) {
 // sorted), nodes in the order they are written in their file.
 export function allNodes(areas) {
   return areas.flatMap((area) => area.nodes);
+}
+
+// The ids of nodes that some other node sits beneath. Hierarchy is encoded in the dotted id and
+// nowhere else, so this is read off the id set rather than stored — there is no second copy to drift.
+export function rollUpIds(nodes) {
+  const present = new Set(nodes.map((node) => node.id));
+  const parents = new Set();
+  for (const node of nodes) {
+    const segments = node.id.split(".");
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      const ancestor = segments.slice(0, depth).join(".");
+      if (present.has(ancestor)) parents.add(ancestor);
+    }
+  }
+  return parents;
+}
+
+// A roll-up parent is not a unit of work, and counting it as one skews every share in the register.
+// The distortion is not small and it is not evenly spread: it lands almost entirely on `partial`,
+// because `partial` is what a parent is defined to be the moment its children stop agreeing. So the
+// document says how much of the product exists using workUnits, and reports the roll-up count beside
+// it rather than silently dropping the parents — a parent's status is a real claim about a subtree,
+// it is just not a claim about one more thing having been built.
+export function workUnits(nodes) {
+  const parents = rollUpIds(nodes);
+  return nodes.filter((node) => !parents.has(node.id));
+}
+
+export function rollUps(nodes) {
+  const parents = rollUpIds(nodes);
+  return nodes.filter((node) => parents.has(node.id));
 }
 
 export function publicEntries(areas) {
@@ -327,9 +393,11 @@ is doing lives in [\`ROADMAP.md\`](../ROADMAP.md), and what each of the nine sta
 // that survive the reconstruction, and they are real.
 const PREAMBLE_WITH_HISTORY = `**Where we are, and where we have been.** The ledger records only each capability's current status,
 but it is version controlled, so its counts at every past commit are read back in
-[Where we have been](#where-we-have-been) below rather than estimated. Two limits hold: a snapshot
-shows when a node's **status** changed and never when the work happened, and a capability added to
-the ledger late arrives as a jump in the total rather than as work done.
+[Where we have been](#where-we-have-been) below rather than estimated. Three limits hold: a snapshot
+shows when a node's **status** changed and never when the work happened; a capability added to
+the ledger late arrives as a jump in the total rather than as work done; and **the series counts
+every node, roll-up parents included**, where the standing above counts only units of work — so its
+totals are the larger pair of numbers and are not comparable to them.
 [\`CHANGELOG.md\`](../CHANGELOG.md) is still the dated record of what shipped and when.`;
 
 const PREAMBLE_WITHOUT_HISTORY = `**This is where we are, not where we were.** The reconstruction of the ledger's past —
@@ -359,7 +427,10 @@ function section(heading, body) {
 // --- the counts -------------------------------------------------------------------------------
 
 function renderStanding(areas, nodes) {
-  const counts = countByStatus(nodes);
+  const units = workUnits(nodes);
+  const parents = rollUps(nodes);
+  const counts = countByStatus(units);
+  const parentCounts = countByStatus(parents);
   const shipped = counts.get("shipped");
   const partial = counts.get("partial");
   const delivered = shipped + partial;
@@ -367,37 +438,106 @@ function renderStanding(areas, nodes) {
   return [
     wrap(
       `**${nodes.length} capabilities across ${areas.length} areas.** Every one of them is listed` +
-        " in [the register](#the-register) below; these are the totals over that list.",
+        ` in [the register](#the-register) below. ${parents.length} of them are roll-up parents —` +
+        " a node another node sits beneath — and the totals here count the" +
+        ` **${units.length} that are units of work**, for the reason set out under` +
+        " [What a roll-up is not](#what-a-roll-up-is-not).",
     ),
     "",
     "### The roll-up",
     "",
-    renderRollUpTable(nodes, counts),
+    renderRollUpTable(units, counts),
     "",
     "### Every status",
     "",
-    renderStatusTable(nodes, counts),
+    renderStatusTable(units, counts),
+    "",
+    "### What a roll-up is not",
+    "",
+    wrap(
+      `**${parents.length} of the ${nodes.length} nodes are parents, and ${parentCounts.get("partial")}` +
+        " of those parents are `partial`.** A parent's status is a summary of its children, so a" +
+        " parent goes `partial` the moment its children stop agreeing — which means counting" +
+        " parents beside leaves does not add work, it adds the same work a second time under a" +
+        " status nobody chose. The distortion is not spread evenly either: it lands almost" +
+        " entirely on `partial`, the one status the reader is most likely to mistake for progress." +
+        " So every share above is taken over units of work. The parents are still in the register" +
+        " and still carry their status; they are not counted as one more thing built.",
+    ),
     "",
     "### What `partial` hides",
     "",
     wrap(
-      `**Shipped alone is ${shipped} of ${nodes.length} (${share(shipped, nodes.length)}).` +
-        ` Shipped plus partial is ${delivered} (${share(delivered, nodes.length)}).**`,
+      `**Shipped alone is ${shipped} of ${units.length} (${share(shipped, units.length)}).` +
+        ` Shipped plus partial is ${delivered} (${share(delivered, units.length)}).**`,
     ),
     "",
     wrap(
-      `The ${partial} nodes between those two numbers are the most decision-relevant fact in this` +
-        " document. A `partial` capability is most often a backend that works with nothing on" +
-        ` screen to reach it, so the distance from ${share(shipped, nodes.length)} to` +
-        ` ${share(delivered, nodes.length)} is approximately the program's interface debt: work` +
-        " that is engineered and paid for, and that nobody can use. Reading the larger number as" +
-        " how much of the product exists overstates what a user can do; reading the smaller one" +
-        " understates what has been built. Both are true and neither is the answer on its own.",
+      `The ${partial} units between those two numbers are work that is engineered and paid for and` +
+        " is not finished. Reading the larger number as how much of the product exists overstates" +
+        " it; reading the smaller one understates what has been built. Both are true and neither" +
+        " is the answer on its own. Which of the two a reader wants is usually really a question" +
+        " about reach — whether anybody can get to the thing — and that is" +
+        " [Built, and can anybody reach it](#built-and-can-anybody-reach-it) below, which reads a" +
+        " fact the status field does not hold.",
     ),
+    "",
+    "### Built, and can anybody reach it",
+    "",
+    renderSurfaceStanding(units),
     "",
     "### By area",
     "",
     renderAreaMatrix(areas),
+  ].join("\n");
+}
+
+const SURFACE_LABEL = {
+  screen: "A person can open it today",
+  "awaiting-screen": "Built — the screen is the only thing missing",
+  internal: "No user surface by nature",
+};
+
+// The delineation `status` cannot make. Written as a table with the unclassified row always present
+// rather than omitted when empty: a reader who cannot see how much of this is unanswered will read
+// the answered part as the whole.
+function renderSurfaceStanding(units) {
+  const built = units.filter((unit) => STATUSES_WITH_SOMETHING_BUILT.includes(unit.status));
+  const tally = new Map(SURFACES.map((surface) => [surface, 0]));
+  let unclassified = 0;
+  for (const unit of built) {
+    if (unit.surface === null) unclassified += 1;
+    else tally.set(unit.surface, tally.get(unit.surface) + 1);
+  }
+
+  const values = [...SURFACES.map((surface) => tally.get(surface)), unclassified];
+  const shares = wholePercentages(values, built.length);
+  const rows = ["| Reach | Units | Share of what is built |", "| --- | ---: | ---: |"];
+  for (const [index, surface] of SURFACES.entries()) {
+    rows.push(
+      `| ${SURFACE_LABEL[surface]} (\`${surface}\`) | ${values[index]} | ${shares[index]}% |`,
+    );
+  }
+  rows.push(`| Not yet classified | ${unclassified} | ${shares[SURFACES.length]}% |`);
+  rows.push(`| **Everything with something built** | **${built.length}** | **100%** |`);
+
+  return [
+    wrap(
+      `**${built.length} units of work have something built behind them** — \`shipped\`,` +
+        " `partial` or `in-build`. Whether a person can reach any of them is a different fact" +
+        " from how complete it is, and `status` has never held it: a backend nobody can open and" +
+        " a screen somebody uses every day are both `shipped`. The ledger records it separately," +
+        " in `surface:`.",
+    ),
+    "",
+    rows.join("\n"),
+    "",
+    wrap(
+      "`awaiting-screen` is the program's interface debt stated directly rather than inferred" +
+        " from `partial`: capabilities that work, that are paid for, and that nobody can get to." +
+        " `internal` is not debt — a port, a table or a fitness function is finished without a" +
+        " screen and will never have one.",
+    ),
   ].join("\n");
 }
 
@@ -443,7 +583,7 @@ function renderRollUpTable(nodes, counts) {
       `| ${rollUp.name} | ${rollUp.statuses.join(", ")} | ${totals[index]} | ${shares[index]}% |`,
     );
   }
-  rows.push(`| **All capabilities** | | **${nodes.length}** | **100%** |`);
+  rows.push(`| **All units of work** | | **${nodes.length}** | **100%** |`);
   return rows.join("\n");
 }
 
@@ -462,7 +602,10 @@ function renderStatusTable(nodes, counts) {
 
 // The per-area matrix, one column per ledger status — never per band. Emitted width-independent
 // (one space around each cell) so one long area name cannot re-pad every row of the diff.
+// Counts units of work, matching the tables above it: a matrix whose rows summed to a different
+// total than the document's own totals would be read as one of the two being wrong.
 function renderAreaMatrix(areas) {
+  const parents = rollUpIds(allNodes(areas));
   const rows = [
     `| Area | ${LEDGER_STATUSES.map((status) => `\`${status}\``).join(" | ")} | Total | Shipped |`,
     `| --- | ${LEDGER_STATUSES.map(() => "---:").join(" | ")} | ---: | ---: |`,
@@ -471,14 +614,15 @@ function renderAreaMatrix(areas) {
   let grandTotal = 0;
 
   for (const area of areas) {
-    const counts = countByStatus(area.nodes);
+    const units = area.nodes.filter((node) => !parents.has(node.id));
+    const counts = countByStatus(units);
     for (const status of LEDGER_STATUSES) {
       totals.set(status, totals.get(status) + counts.get(status));
     }
-    grandTotal += area.nodes.length;
+    grandTotal += units.length;
     const cells = LEDGER_STATUSES.map((status) => counts.get(status)).join(" | ");
     rows.push(
-      `| ${area.title} | ${cells} | ${area.nodes.length} | ${share(counts.get("shipped"), area.nodes.length)} |`,
+      `| ${area.title} | ${cells} | ${units.length} | ${share(counts.get("shipped"), units.length)} |`,
     );
   }
 
@@ -555,6 +699,15 @@ function renderHistory(summary, areas) {
 
 function renderMovement(summary) {
   const lines = [
+    wrap(
+      "Every figure in this section counts **every node**, parents and children alike, because that" +
+        " is what the committed reconstruction holds — it was written before the register began" +
+        " counting units of work, and recomputing it means re-parsing the ledger at every past" +
+        " commit, which happens on the trunk. Read the trend, not the level: the direction and the" +
+        " rate are unaffected, and the totals are the ones that differ from" +
+        " [Where the program stands](#where-the-program-stands).",
+    ),
+    "",
     wrap(
       `**${signed(summary.shippedChange)} shipped since the ledger began** —` +
         ` ${summary.shippedFirst} on ${summary.first.date}, ${summary.shippedLast} on` +
@@ -725,6 +878,14 @@ function asSentenceFragment(text) {
 // holding a build, and anything else is refining one. Deliberately not a `blocking: true` field —
 // that would be a fact about the node recorded twice, and the two copies would drift. Exported so
 // register-artifact.mjs splits its own list on exactly this set rather than on a restatement of it.
+// The complement of STATUSES_WITH_NOTHING_BUILT on the built side: statuses that mean something
+// exists to be reached, so the reach question is worth asking. Exported for the same reason its
+// sibling is — the register, the page, the desk and the lint all split on this set, and four copies
+// of one list is four chances for them to disagree about what "built" means. Not derived from the
+// sibling by subtraction: `deferred` and `cut` are in neither, because parked work may or may not
+// have code behind it and the status does not say.
+export const STATUSES_WITH_SOMETHING_BUILT = ["shipped", "partial", "in-build"];
+
 export const STATUSES_WITH_NOTHING_BUILT = new Set([
   "not-started",
   "researching",
@@ -733,14 +894,16 @@ export const STATUSES_WITH_NOTHING_BUILT = new Set([
 ]);
 
 function renderAwaiting(nodes) {
+  const parents = rollUpIds(nodes);
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
   if (awaiting.length === 0) {
     return ["_No capability is blocked on an owner decision._", "", AWAITING_BOUNDARY].join("\n");
   }
 
-  const line = (node) => `- **${node.name}** (\`${node.id}\`) — ${node.awaitingOwner}`;
-  const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
-  const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+  const line = (node) =>
+    `- **${node.name}** (\`${node.id}\`) — ${reachTag(node, parents)}${node.awaitingOwner}`;
+  const holdingABuild = awaiting.filter((node) => holdsUpABuild(node, parents.has(node.id)));
+  const refining = awaiting.filter((node) => !holdsUpABuild(node, parents.has(node.id)));
 
   const parts = [];
   if (holdingABuild.length > 0) {
@@ -753,13 +916,60 @@ function renderAwaiting(nodes) {
   if (refining.length > 0) {
     if (parts.length > 0) parts.push("");
     parts.push(
-      `**${refining.length} would change something that already runs.** These are not holding anybody up.`,
+      `**${refining.length} are not holding a build still.** Nobody is waiting on these to start` +
+        " writing something: most have code behind them already, and the parked ones are set aside" +
+        " by an earlier decision that an answer would revisit.",
       "",
       refining.map(line).join("\n"),
     );
   }
   parts.push("", AWAITING_BOUNDARY);
   return parts.join("\n");
+}
+
+// What a reader most wants to know about an open question, after the question itself: is there
+// working code behind it. The two answers cost very different things to be wrong about — a decision
+// that unblocks a build is a schedule; a decision about something already running is a change to
+// something people may already depend on. Exported so the decision desk labels its cards from this
+// one function rather than restating the mapping.
+export function reachOf(node, isRollUp = false) {
+  // The parent test comes first, before status. A parent carries no `surface:` — the lint refuses
+  // one, because its reach is its children's — and its status is itself a roll-up of theirs, so a
+  // parent sitting at `not-started` over children that are built would otherwise be labelled "no
+  // code exists behind this yet" about a subtree that has some.
+  if (isRollUp) return "roll-up";
+  if (STATUSES_WITH_NOTHING_BUILT.has(node.status)) return "not-built";
+  if (node.status === "deferred" || node.status === "cut") return "parked";
+  if (node.surface === "awaiting-screen") return "awaiting-screen";
+  if (node.surface === "screen") return "screen";
+  if (node.surface === "internal") return "internal";
+  return "built";
+}
+
+// One label per reach, exported so both renderings of the ledger prefix the same words. The Markdown
+// emphasises it and the page colours it; neither writes the words themselves, because a question that
+// read "not built" in one document and "built" in the other would be a contradiction no reader could
+// settle.
+// Whether leaving this question open is stopping something from being written. Derived from reachOf
+// rather than from status directly, so a roll-up parent — whose status is a summary of its children
+// and whose reach is theirs — is never filed under "nothing is built behind these" while its own
+// chip says it is a group. Exported so the desk and the register split on one answer.
+export function holdsUpABuild(node, isRollUp = false) {
+  return reachOf(node, isRollUp) === "not-built";
+}
+
+export const REACH_LABEL = {
+  "not-built": "Not built.",
+  parked: "Parked.",
+  "roll-up": "A group of capabilities.",
+  "awaiting-screen": "Built; no screen yet.",
+  screen: "Built and reachable.",
+  internal: "Built; no screen by nature.",
+  built: "Built.",
+};
+
+function reachTag(node, parents) {
+  return `**${REACH_LABEL[reachOf(node, parents.has(node.id))]}** `;
 }
 
 // Exported so the page states this boundary in these words rather than its own. It is written as
@@ -789,9 +999,14 @@ roll-up of what is beneath it. Nothing is collapsed, nothing is summarised, and 
 to change a line here, edit the node in its area file and re-run the build.`;
 
 function renderLedger(areas) {
+  // The per-area line counts units of work, matching the matrix in [By area]. The LIST under it is
+  // every node — this is the register — but a heading counted one way over a table counted another
+  // is one document contradicting itself, which is what it did for one revision.
+  const parents = rollUpIds(allNodes(areas));
   const sections = [LEDGER_INTRO];
   for (const area of areas) {
-    const counts = countByStatus(area.nodes);
+    const units = area.nodes.filter((node) => !parents.has(node.id));
+    const counts = countByStatus(units);
     const shippedCount = counts.get("shipped");
     const rollUpCounts = ROLL_UPS.map(
       (rollUp) =>
@@ -801,8 +1016,8 @@ function renderLedger(areas) {
       [
         `### ${area.title}`,
         "",
-        `[\`roadmap.d/${area.name}\`](../roadmap.d/${area.name}) — ${area.nodes.length} nodes,` +
-          ` ${share(shippedCount, area.nodes.length)} shipped. ${capitalise(rollUpCounts)}.`,
+        `[\`roadmap.d/${area.name}\`](../roadmap.d/${area.name}) — ${units.length} units of work,` +
+          ` ${share(shippedCount, units.length)} shipped. ${capitalise(rollUpCounts)}.`,
         "",
         area.nodes.map((node) => renderLedgerNode(node)).join("\n"),
       ].join("\n"),

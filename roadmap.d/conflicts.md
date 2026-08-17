@@ -21,6 +21,7 @@
   name: Directory matching seams
   scope: Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
   status: shipped
+  surface: internal
   slices: 1-3-directory, 1-4-custom-fields-engine
   adrs: ADR-0085, ADR-0086
   evidence: packages/directory/src (normalize-name.ts, phonetics.ts, search.ts, merge.ts) on main, plus the derivation the deepening added beside the frozen normalization — match-key.ts producing the normalized_match_key and normalized_match_key_bare columns on directory_name, computed inside insertNameStatement in packages/directory/src/statements.ts so no name-writing path can omit them, filled for existing corpora by the resumable budgeted sweep in packages/directory/src/name-index-backfill.ts, and audited by findNamesMissingDerivedMatchingData in packages/directory/src/fitness.ts. Held by match-key.test.ts and name-index-backfill.test.ts in packages/directory/test.
@@ -29,6 +30,7 @@
   name: Check triggers
   scope: Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   status: partial
+  surface: internal
   slices: slice-4-1-conflicts
   evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/worker/src/conflicts/, and apps/worker/src/conflicts/periodic-rescan.ts; TRIGGER_BY_TOPIC already records a matter.created check as preliminary and a matter.opened or matter.reopened one as comprehensive. Missing is the check that runs BEFORE a matter exists to raise an event about — the pre-engagement screen an intake flow would fire, which no topic can reach because there is no matter row yet.
 
@@ -46,6 +48,7 @@
   name: Configurable strictness
   scope: Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row.
   status: partial
+  surface: awaiting-screen
   slices: slice-4-1-conflicts
   evidence: The two levels are a typed vocabulary in packages/conflicts/src/types.ts; matchOptionsFor in packages/conflicts/src/matching.ts picks the channels and name roles each level sees, and over_inclusive is a structural superset by construction — it searches every name role and is deliberately not configurable, while ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts makes the narrower band's role set a firm setting defaulting to current, former, maiden and alias, so a party who married and changed surname is found at the default band. Beider-Morse runs at over_inclusive only for the same structural reason. resolveScope raises a per-run request to the firm's floor and records floorRaised, and runConflictsCheck writes inputs_json.matching with the name keys compared, the phonetic schemes that ran and the resolved roles, so a reader of an old row does not have to know what the preset word meant that day. Held by packages/conflicts/test/matching.test.ts, which drives the narrowed setting as well as the default.
   notes: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly.
@@ -54,6 +57,7 @@
   name: Configurable search depth
   scope: Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan.
   status: partial
+  surface: awaiting-screen
   slices: slice-4-1-conflicts
   evidence: The structured scan is the party, graph and imputation source classes registered in packages/conflicts/src/sources.ts, and traversal depth is configurable per KIND of relationship rather than by one number — ConflictsPolicy.edgeClassBudgets and closureCap in packages/conflicts/src/settings.ts over the edge-class map in packages/conflicts/src/edge-classes.ts, both firm settings with per-run overrides on the check request, both resolved by resolveScope and written verbatim into the check row's inputs_json. expandGraph in packages/conflicts/src/expansion.ts spends each class's budget separately while corporate parent/subsidiary/successor hops stay free and transitive, traverses edges whose validity has ended and marks the expiry on the path step, and on reaching the closure cap stops and returns a truncation record the check row carries, the posture read reports on latestCheck.scope.traversal, and describeCheck states in words as an incomplete search. Held by packages/conflicts/test/expansion.test.ts, including the refusal of degree-based hub suppression.
   notes: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path.
@@ -62,6 +66,7 @@
   name: Firm-wide imputation
   scope: Conflicts impute across the whole firm and every office; locations never partition the conflicts graph.
   status: shipped
+  surface: internal
   slices: slice-4-1-conflicts
   evidence: findImputationHits in packages/conflicts/src/imputation.ts joins the firm's members to a matter's parties by identity through the member_id link on the directory entity — never by name similarity — and a deactivated member still imputes; readConflictsPolicy in packages/conflicts/src/settings.ts unions the party class back into the floor on every read, so a stored policy cannot drop the firm-wide corpus. Held by packages/conflicts/test/imputation.test.ts and settings.test.ts.
   notes: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph.
@@ -70,6 +75,7 @@
   name: Human clearance
   scope: Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected.
   status: shipped
+  surface: awaiting-screen
   slices: slice-4-1-conflicts
   evidence: recordDisposition in packages/conflicts/src/disposition.ts appends one conflicts_disposition row per adjudication across the four kinds (cleared, waiver_obtained, wall_erected, representation_declined), refusing a blank rationale and an unknown hit, behind POST /api/v1/conflicts/hits/{hitId}/dispositions on conflicts:dispose; readHitDispositionStates resolves every hit's current word in one query, and the matter posture read reports hits no reviewer has answered by evidence tier alongside how the answered ones were disposed of and by whom.
   notes: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything.
@@ -78,6 +84,7 @@
   name: Immutable conflicts log
   scope: Every check and clearance recorded in an immutable, defensible log.
   status: shipped
+  surface: awaiting-screen
   slices: slice-4-1-conflicts
   evidence: Three append-only per-firm tables — conflicts_check, conflicts_hit and conflicts_disposition in packages/database/src/per-firm-schema.ts — each carrying BEFORE UPDATE, BEFORE DELETE and a BEFORE INSERT guard against REPLACE, asserted by packages/database/test/conflicts-append-only.test.ts and probed at runtime by assertConflictsFitness in packages/conflicts/src/fitness.ts. A check row records the trigger, its source, the accumulated causes, the scope asked for against the scope that ran, the strictness, the depth and whether the floor was raised; packages/conflicts/src/report-text.ts renders that into the plain-language statement GET /api/v1/conflicts/checks/{checkId} returns beside the hits.
   notes: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it.
