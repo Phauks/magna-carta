@@ -204,7 +204,7 @@ calendar event changes and email filings become transactional topics; delivered 
       **Deviation:** `raiseEmailFiledNotification` is deleted rather than kept as the documented call
       site. Once the row is written at the same place the no-op documents nothing the row does not,
       and a no-op call beside a real emission reads as a second mechanism. Recorded as
-      `ADR-an-email-filing-announces-itself-with-a-row-not-a-call`.
+      `ADR-0352`.
 - [x] Register the type. Payload and `facts` carry identifiers only — never a subject line.
 
 ### Task 2.3 — the per-firm sweep

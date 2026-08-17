@@ -9,7 +9,7 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 4.8"
-next: An attorney review of the encoded Nevada profile, then compliance surfacing over it; routes and interface for the bank-charge carve-out and the unclaimed-funds diligence file
+next: An attorney review of the encoded Nevada profile, then compliance surfacing over it; screens for the bank-charge carve-out and the unclaimed-funds diligence file (routes shipped in #210, backend only)
 link-spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
 link-plan:
 adrs: ADR-0009

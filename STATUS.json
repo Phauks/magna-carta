@@ -2422,7 +2422,7 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "An attorney review of the encoded Nevada profile, then compliance surfacing over it; routes and interface for the bank-charge carve-out and the unclaimed-funds diligence file",
+      "next": "An attorney review of the encoded Nevada profile, then compliance surfacing over it; screens for the bank-charge carve-out and the unclaimed-funds diligence file (routes shipped in #210, backend only)",
       "links": {
         "spec": "docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md",
         "plan": null,

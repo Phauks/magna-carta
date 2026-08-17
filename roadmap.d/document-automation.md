@@ -10,11 +10,11 @@
   status: partial
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
-  evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. The widened dictionary sources, PDF output, and the authoring surfaces are unbuilt.
+  evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. An outputFormat on the assembly request chains the existing docx-to-pdf conversion edge after the merge (#214) — no new engine, dormant until the LibreOffice engine is deployed (documents.conversion.office). The widened dictionary sources and the authoring surfaces are unbuilt.
   audience: public
   public-name: Documents built from your templates
   public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
-  notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.
+  notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. PDF output is wired but inert until the office-conversion engine goes live.
 
 - id: document-automation.conditional-assembly
   name: Conditional document assembly
@@ -50,7 +50,7 @@
   scope: In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
   status: partial
   adrs: ADR-0210
-  evidence: The merge engine is built as a pure package over fflate + fast-xml-parser and runs in the document-assembly queue consumer behind a DocumentAssemblyJob Durable Object; assembly output is filed through initiateUpload/completeUploadSession. The DOCX-to-PDF arm waits on the LibreOffice engine (see documents.conversion.office).
+  evidence: The merge engine is built as a pure package over fflate + fast-xml-parser and runs in the document-assembly queue consumer behind a DocumentAssemblyJob Durable Object; assembly output is filed through initiateUpload/completeUploadSession. An outputFormat: pdf arm now chains the merge into the existing docx-to-pdf registry edge in the same job (#214) — wired, but the DOCX-to-PDF hop itself still waits on the LibreOffice engine going live (see documents.conversion.office).
 
 - id: document-automation.pdf-form-filling
   name: Dedicated PDF form filling

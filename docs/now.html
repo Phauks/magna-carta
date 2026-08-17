@@ -369,7 +369,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Login and 2FA UI</span>
 <code>auth.first-party-login.auth-ui</code>
 <p>The login/2FA surface over the auth backend — the design system's first consumer.</p>
-<p class="note">Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+<p class="note">Sign-in, registration and invitation-redemption ship. Still missing: the two-factor enrolment screens, a Turnstile widget on the joining forms (the server-side gate exists and ships dormant), a confirmation email that carries a link rather than a bare token, and the Terms of Service/Privacy Policy pages the registration acknowledgements point at; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Second factors</span>
@@ -1598,7 +1598,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Document Automation</span>
 <code>document-automation</code>
 <p>Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling.</p>
-<p class="note">A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.</p>
+<p class="note">A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. PDF output is wired but inert until the office-conversion engine goes live.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Conditional document assembly</span>
