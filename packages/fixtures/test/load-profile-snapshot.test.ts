@@ -106,6 +106,48 @@ describe("load-profile snapshots", () => {
     second.close();
   });
 
+  it("reaps its own working copy on close", async () => {
+    // The working copy is a full copy of the snapshot database. Nothing but the snapshotter knows its
+    // name, so nothing but the snapshotter can remove it — and when it did not, ~125 of them
+    // accumulated in the system temp directory and filled the disk.
+    const snapshot = track(
+      await loadProfileSnapshot(TINY, "reap-seed", {
+        allowSeeding: true,
+        cacheDirectory: newCacheDirectory(),
+      }),
+    );
+    const workingDirectory = dirname(snapshot.workingPath);
+    expect(existsSync(workingDirectory)).toBe(true);
+    snapshot.close();
+    expect(existsSync(workingDirectory)).toBe(false);
+    // Still idempotent — collector-style cleanup closes again, and must not throw on the second call.
+    expect(() => {
+      snapshot.close();
+    }).not.toThrow();
+  });
+
+  it("reaps the working copy even when closing the database handle throws", async () => {
+    const snapshot = track(
+      await loadProfileSnapshot(TINY, "reap-throw-seed", {
+        allowSeeding: true,
+        cacheDirectory: newCacheDirectory(),
+      }),
+    );
+    const workingDirectory = dirname(snapshot.workingPath);
+    // Close the real handle, then throw: the failure shape where the handle is gone but the caller
+    // still sees an error on the way out. Reaping has to survive it, or the paths that already went
+    // wrong are exactly the ones that strand a database copy on disk.
+    const realClose = snapshot.raw.close.bind(snapshot.raw);
+    (snapshot.raw as { close: () => void }).close = () => {
+      realClose();
+      throw new Error("handle close failed");
+    };
+    expect(() => {
+      snapshot.close();
+    }).toThrow(/handle close failed/);
+    expect(existsSync(workingDirectory)).toBe(false);
+  });
+
   it("refuses without the seeding opt-in", async () => {
     await expect(
       loadProfileSnapshot(TINY, "guard-seed", {

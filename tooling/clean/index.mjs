@@ -10,9 +10,16 @@
 // worktree except the current one — still git-ignored dirs only).
 import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { landedBranchesIn, listWorktrees } from "../branch-landing/index.mjs";
-import { eligibleWorktrees, isArtifactDir, normalizePath } from "./select.mjs";
+import {
+  eligibleWorktrees,
+  isArtifactDir,
+  normalizePath,
+  STALE_WORKING_DIRECTORY_AGE_MS,
+  staleWorkingDirectories,
+} from "./select.mjs";
 
 const flags = new Set(process.argv.slice(2));
 const dryRun = flags.has("--dry-run");
@@ -166,6 +173,45 @@ for (const worktree of targets) {
 console.log(
   `  ${dryRun ? "would reclaim" : "reclaimed"} ${formatBytes(reclaimed)} of build artifacts\n`,
 );
+
+// The load-profile snapshotter's abandoned working copies. It reaps its own (on close and on process
+// exit), so anything here belongs to a run that was killed before it could — the only case left. Each
+// one holds a full copy of a snapshot database, and ~125 of them once filled the disk, which is why
+// the backstop exists at all rather than being left to whoever notices.
+console.log(
+  `Load-profile working copies in ${tmpdir()} (older than ${STALE_WORKING_DIRECTORY_AGE_MS / 3_600_000}h):`,
+);
+let temporaryEntries = [];
+try {
+  temporaryEntries = readdirSync(tmpdir(), { withFileTypes: true }).map((entry) => {
+    let modifiedMs = Date.now();
+    try {
+      modifiedMs = statSync(join(tmpdir(), entry.name)).mtimeMs;
+    } catch {
+      // Vanished mid-scan, or unreadable. Dated now, so the age bound declines to touch it.
+    }
+    return { name: entry.name, isDirectory: entry.isDirectory(), modifiedMs };
+  });
+} catch (error) {
+  console.log(`  could not read the temp directory — skipped (${error.code ?? error.message})`);
+}
+const stale = staleWorkingDirectories({ entries: temporaryEntries, now: Date.now() });
+if (stale.length === 0) {
+  console.log("  none");
+} else {
+  let temporaryReclaimed = 0;
+  for (const entry of stale) {
+    const full = join(tmpdir(), entry.name);
+    const size = directorySize(full);
+    temporaryReclaimed += size;
+    console.log(`  ${dryRun ? "would remove" : "removing"} ${full}  (${formatBytes(size)})`);
+    if (!dryRun) rmSync(full, { recursive: true, force: true });
+  }
+  console.log(
+    `  ${dryRun ? "would reclaim" : "reclaimed"} ${formatBytes(temporaryReclaimed)} of abandoned working copies`,
+  );
+}
+console.log("");
 
 console.log("Docker cache prune:");
 console.log(dryRun ? "  skipped in dry-run" : dockerPrune());

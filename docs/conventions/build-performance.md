@@ -264,10 +264,28 @@ Two rules follow, and CI depends on both:
   against the file's absolute path — so `"$PWD/packages"` selects every package's tests, which is what a
   reader expects the relative form to do. Every path in the gate's test jobs is spelled `"$PWD/..."` for
   this reason.
+
+  **`pnpm test` now does this for you**, so the relative form is no longer the broken one: a positional
+  filter naming a directory in the repository is resolved to its absolute path before the runner sees it
+  (`tooling/test-single-flight/path-filters.mjs`), which is why `pnpm test tooling` collects all 34 of
+  that directory's files. Anything that is not a directory here — `select.test.mjs`, an option's value —
+  is passed through untouched, because a token the wrapper cannot identify is one it has no business
+  rewriting. CI is unchanged and still spells its paths absolutely: its shards invoke the runner
+  directly, so nothing resolves them on the way through.
+
 - **At most one negated `--project`.** Project patterns are OR-ed (`.some`), and a negation compiles to
   "any name that is not this one". Two negations therefore cancel: `--project='!a' --project='!b'`
   matches project `a` (it satisfies `!b`) and project `b` (it satisfies `!a`), so the filter degenerates
   to no filter at all — again silently. Exclude one project by name; select the rest positively.
+
+**A selection that provably cannot match is refused, and says so.** "No test files found" is the
+runner's answer to both _this directory holds no tests_ and _your filter selected nothing_, and only one
+of those is ever true — the same silent-narrowing shape as a truncated path list. `pnpm test` refuses
+before it takes the single-flight lock when a directory filter has no vitest project at, above, or
+inside it, because the project list in `vite.config.ts` is closed and no such path can yield a file
+however it is spelled. That is the only refusal: a directory that does hold a project but whose
+`include` globs happen not to cover it is left to the runner, since proving that case means
+re-implementing glob resolution and a wrong refusal blocks a run that would have worked.
 
 The gate cannot rely on review to keep this right, so `pnpm run lint:test-collection`
 (`tooling/lint-test-collection/`) re-runs each of the gate's test invocations in list-only mode and
@@ -321,6 +339,23 @@ is paid once per worktree — of which several are live at any time.
 have actually changed, and is a sub-second no-op when everything is current, so it is safe to run at the
 top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with the fix, rather
 than surfacing the gap as a confusing type error.
+
+**That `--check` step is unconditional on purpose, and it is the one step in the scoped gate that cannot
+be scoped to the diff.** It reads like an oversight — svelte-check, the Rust gate, the drizzle snapshot
+check, the repo-wide fitness sweep and `lint:licenses` all skip with a stated reason when the diff does
+not reach them, so a docs-only change still paying a bootstrap looks like the same condition simply
+missing. It is not. **Whether the artefacts are needed is a fact about the build graph, not about the
+diff:** the type-check step is itself unconditional, and `tsc -b` builds the whole project-reference
+graph, so in a worktree with no warm `.tsbuildinfo` it type-checks `packages/{pdf,decryption,email}`
+whatever the diff contains. Measured on a fresh worktree with a two-file docs-only diff: with the
+artefacts absent, `vp run typecheck` fails with **twelve `TS2307`s** on the missing generated `.d.ts`
+files. A diff-shaped skip would therefore not save the bootstrap — it would trade one message that names
+its own repair for twelve that do not, which is the failure mode a false skip always has.
+
+So the asymmetry is real but points the other way: the gate is willing to skip checks that could catch
+something, and insists on a prerequisite that cannot, because the prerequisite is what makes the rest of
+the gate able to run at all. **Do not add a condition to it.** A fresh worktree is bootstrapped once and
+is then warm for every later run; that cost belongs to creating the worktree, not to the diff.
 
 **Staleness is a content question, and success is a verified one.** Each output carries a stamp holding
 the hash of the sources it was built from — its crate, that crate's workspace-local path dependencies,

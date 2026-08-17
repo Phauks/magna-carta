@@ -83,3 +83,10 @@ ADR-0083); `STATUS.md`'s **Load profile** column audits it per slice. The v1 mec
 
 - node:sqlite is experimental on Node — warning noise is expected.
 - The fixed clock advances only when scenarios explicitly move it.
+- **The snapshotter reaps its own working copy; keep it that way.** Each `loadProfileSnapshot` call
+  `mkdtemp`s a directory and copies the whole snapshot database into it, so a load that does not clean
+  up strands tens of megabytes — ~125 of them once filled a disk. `close()` removes it (in a `finally`,
+  so a failed handle-close still reaps), and a `process.once("exit")` reaper covers the `measure` CLI,
+  whose straight-line script never reaches its own `close()` when a measurement throws. A new exit path
+  out of the snapshotter needs to reap too. Only a `SIGKILL` can now leak one, and the age-bounded
+  sweep in `tooling/clean/` is the backstop for that.

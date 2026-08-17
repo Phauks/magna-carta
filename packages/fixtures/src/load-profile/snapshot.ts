@@ -446,6 +446,17 @@ export async function loadProfileSnapshot(
     rmSync(workingDirectory, { recursive: true, force: true });
     throw error;
   }
+  const reapWorkingDirectory = () => {
+    rmSync(workingDirectory, { recursive: true, force: true });
+  };
+  // Also reap on process exit, because the measure CLI is a straight-line script: a measurement that
+  // throws half way through never reaches its own `close()`, and that is how a hundred-plus working
+  // copies accumulated into a full disk. Registering it here rather than asking each caller to wrap in
+  // `finally` keeps the reaping with the code that created the directory — the only code that knows
+  // the name. `once`, and removed again by close(), so a test file loading many snapshots does not
+  // collect a listener per snapshot. A SIGKILL still cannot run this; the age-bounded sweep in
+  // tooling/clean/index.mjs is the backstop for exactly that case.
+  process.once("exit", reapWorkingDirectory);
   let closed = false;
   return {
     ...opened,
@@ -455,7 +466,21 @@ export async function loadProfileSnapshot(
     close: () => {
       if (closed) return;
       closed = true;
-      opened.raw.close();
+      process.off("exit", reapWorkingDirectory);
+      // The working directory is this function's to reap. Nothing else can name it (mkdtemp chose the
+      // name), and it holds a whole copy of the snapshot artifact — at full profile scale that is tens
+      // of megabytes per load, and a hundred un-reaped loads once filled the disk. So closing the
+      // handle and removing the directory are one operation, not two, and the caller cannot do the
+      // first without the second.
+      //
+      // `finally`, because a failed close must still reap: the handle is dead either way, and a
+      // throw here would otherwise leak the directory precisely on the paths that already went wrong.
+      // rmSync is idempotent under `force`, and `closed` makes the whole body run once.
+      try {
+        opened.raw.close();
+      } finally {
+        reapWorkingDirectory();
+      }
     },
   };
 }
