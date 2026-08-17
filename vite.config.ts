@@ -42,8 +42,11 @@ export default defineConfig({
       // the generator owns the exact bytes and tooling/lint-roadmap.mjs re-derives and diff-gates
       // them, so formatter reflow would fight the assembler and fail the gate. The register's
       // reconstruction of its own past is written by the same build, in a layout chosen so that one
-      // landed commit appends one readable block of lines; reflowing it would cost that.
+      // landed commit appends one readable block of lines; reflowing it would cost that. docs/now.html
+      // is the same register as a self-contained page, emitted by the same build and held to the same
+      // byte-exact gate, so it is ignored for the same reason.
       "docs/now.md",
+      "docs/now.html",
       "docs/register-history.json",
     ],
   },
@@ -231,9 +234,10 @@ export default defineConfig({
       "status-build": {
         command: "node tooling/doc-fragments/build-status.mjs",
       },
-      // Regenerate docs/now.md — the complete build register, every capability at its real status —
-      // from the roadmap.d/* feature ledger. Persistent, like status-build. It is a byte-exact
-      // function of the ledger and `pnpm run lint:roadmap` fails when it falls behind, so a
+      // Regenerate the complete build register — every capability at its real status — from the
+      // roadmap.d/* feature ledger, in both its renderings: docs/now.md and docs/now.html, the
+      // self-contained page the owner reads. Persistent, like status-build. Both are byte-exact
+      // functions of the ledger and `pnpm run lint:roadmap` fails when either falls behind, so a
       // capability that ships moves itself in the register with nobody remembering to.
       "register-build": {
         command: "node tooling/doc-fragments/build-register.mjs",

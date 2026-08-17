@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadHistory } from "./doc-fragments/build-register-history.mjs";
 import { containsEmoji } from "./doc-fragments/changelog.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
+import { renderBuildRegisterArtifact } from "./doc-fragments/register-artifact.mjs";
 import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
 
 // Fitness function for the roadmap.d/* feature ledger and the document rendered from it (mirrors
@@ -16,11 +17,13 @@ import { parseArea, renderBuildRegister } from "./doc-fragments/roadmap.mjs";
 //      document cannot, which is the same reasoning lint-changelog-fragments gives. Nothing is
 //      published from those keys today — the public rendering has no audience yet — and the check
 //      stays on so the copy is already sound on the day it does.
-//   3. docs/now.md matches a fresh render of the ledger, byte for byte.
+//   3. docs/now.md and docs/now.html both match a fresh render of the ledger, byte for byte.
 //
 // The third is the point of the whole design. A capability that ships flips one word in its ledger
 // node, and this gate refuses the two ways a derived document rots: flipping the node without
 // rebuilding, and hand-editing the rendered file. Same contract as the committed OpenAPI snapshot.
+// Both renderings are held to it, because the published page is the one the owner actually reads and
+// a page that is only regenerated when somebody remembers is the hand-maintained copy again.
 //
 // Run: `pnpm run lint:roadmap`.
 
@@ -104,7 +107,10 @@ if (problems.length === 0) {
   }
   for (const [path, rendered] of problems.length > 0
     ? []
-    : [["docs/now.md", renderBuildRegister(areas, history)]]) {
+    : [
+        ["docs/now.md", renderBuildRegister(areas, history)],
+        ["docs/now.html", renderBuildRegisterArtifact(areas)],
+      ]) {
     const absolute = join(ROOT, path);
     const onDisk = existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
     if (onDisk === rendered) continue;
@@ -140,5 +146,5 @@ const publicNodes = areas.reduce(
   0,
 );
 console.log(
-  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md is current.`,
+  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md + docs/now.html are current.`,
 );

@@ -2,9 +2,11 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build as buildHistory } from "./build-register-history.mjs";
+import { renderBuildRegisterArtifact } from "./register-artifact.mjs";
 import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 
-// Regenerate docs/now.md — the complete build register — from the roadmap.d/* feature ledger.
+// Regenerate docs/now.md and docs/now.html — the complete build register — from the roadmap.d/*
+// feature ledger.
 // Persistent, NOT consume-once: a capability's status keeps moving, so nodes live on and the
 // document is re-rendered whole from the current ledger every run (same shape as build-status.mjs;
 // contrast build-changelog.mjs, which deletes fragments).
@@ -13,6 +15,13 @@ import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 // a byte-exact function of the ledger and tooling/lint-roadmap.mjs fails the gate when the file on
 // disk differs from a fresh render — which is what makes the register unable to drift.
 //
+// TWO OUTPUTS, ONE RUN (the same shape as build-status.mjs, which writes STATUS.md + STATUS.json).
+// docs/now.html is the same register as a self-contained web page, for the reader who reads it as a
+// page rather than as a file in a repository. It is written here rather than by a second command on
+// purpose: a register whose two renderings are refreshed by two commands is a register whose two
+// renderings disagree the first time somebody runs one of them. The page's own renderer is pure —
+// tooling/doc-fragments/register-artifact.mjs — and takes the same `areas` the Markdown takes.
+//
 // The ledger's other rendering, renderPublicRoadmap, is deliberately not written here: it is written
 // for people using the product and there are none yet, so it has no audience to be accurate for.
 // Everything behind it is kept ready — see the comment at the top of roadmap.mjs.
@@ -20,6 +29,7 @@ import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const LEDGER_DIR = join(ROOT, "roadmap.d");
 const REGISTER = join(ROOT, "docs", "now.md");
+const REGISTER_PAGE = join(ROOT, "docs", "now.html");
 
 const RESERVED = new Set(["README.md"]);
 
@@ -32,7 +42,13 @@ export function loadAreas(dir = LEDGER_DIR) {
 }
 
 export function render(areas, history = null) {
-  return { register: renderBuildRegister(areas, history) };
+  return {
+    register: renderBuildRegister(areas, history),
+    // The page takes no history: the reconstructed series is a Markdown-shaped answer (tables of
+    // commits) and the page is the "where does everything stand right now" instrument. Leaving it
+    // out is what keeps the page a pure function of the ledger alone.
+    page: renderBuildRegisterArtifact(areas),
+  };
 }
 
 export function build(argv = []) {
@@ -43,10 +59,13 @@ export function build(argv = []) {
   // or one. Pass --rebuild-history to recompute the whole series — what to run after a change to the
   // ledger parser, since a commit that used to be unreadable may have become readable.
   const history = buildHistory(argv.includes("--rebuild-history") ? ["--rebuild"] : []);
-  const { register } = render(areas, history);
+  const { register, page } = render(areas, history);
   writeFileSync(REGISTER, register);
+  writeFileSync(REGISTER_PAGE, page);
   const nodes = areas.reduce((total, area) => total + area.nodes.length, 0);
-  console.log(`roadmap: rendered docs/now.md from ${nodes} node(s) across ${areas.length} area(s)`);
+  console.log(
+    `roadmap: rendered docs/now.md + docs/now.html from ${nodes} node(s) across ${areas.length} area(s)`,
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

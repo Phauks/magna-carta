@@ -47,10 +47,12 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
 
 ## The rendered view
 
-[`docs/now.md`](../docs/now.md) — **the build register** — is rendered from this ledger by
-`vp run register-build` and is never hand-edited: every node, at its real status, with the counts
-over the whole set. `pnpm run lint:roadmap` fails when it differs from a fresh render, so a
-capability that ships moves in the register on the `status` flip alone. Design:
+[`docs/now.md`](../docs/now.md) and [`docs/now.html`](../docs/now.html) — **the build register**, as a
+document and as a self-contained page — are rendered from this ledger by `vp run register-build` and
+are never hand-edited: every node, at its real status, with the counts over the whole set.
+`pnpm run lint:roadmap` fails when either differs from a fresh render, so a capability that ships
+moves in the register on the `status` flip alone. What each rendering is for:
+[`docs/conventions/documentation.md`](../docs/conventions/documentation.md). Design:
 [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
 
 **A node holds one status and forgets the last one, so the register's history is reconstructed from
