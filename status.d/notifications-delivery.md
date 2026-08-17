@@ -9,12 +9,12 @@ built: in-progress by="Opus 5"
 ui: todo
 load-profile: todo
 tested: todo
-branch: claude/notifications-4
-active-work:
+branch: claude/notification-dedupe
+active-work: docs/active-work/claude/notification-dedupe.md
 next: Provisioning, then the user interface. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships
 link-spec: docs/specs/2026-08-06-notifications-delivery-design.md
 link-plan: docs/specs/2026-08-06-notifications-delivery-implementation-plan.md
-adrs: notifications-delivery-half, notifications-retention-and-swept-unread, a-comparison-is-a-third-production-path-and-the-registry-says-so, a-hearing-that-moved-is-not-a-hearing-that-was-edited, a-job-notification-is-a-reply-and-only-a-requester-can-receive-one, a-silenced-notification-is-counted-not-absent, a-digest-states-the-shape-of-the-queue-and-never-its-contents
+adrs: notifications-delivery-half, notifications-retention-and-swept-unread, a-comparison-is-a-third-production-path-and-the-registry-says-so, a-hearing-that-moved-is-not-a-hearing-that-was-edited, a-job-notification-is-a-reply-and-only-a-requester-can-receive-one, a-silenced-notification-is-counted-not-absent, a-digest-states-the-shape-of-the-queue-and-never-its-contents, a-dedupe-key-is-bounded-by-the-retention-window
 blocked-by:
 ---
 
@@ -84,3 +84,42 @@ digest cannot reach anybody until the firm's outbound mail is provisioned.
 (the discovery processing-route migration was hand-written without refreshing it), so the next
 `generate` would have emitted a destructive `review_document` rebuild. The snapshot is refreshed to
 the lineage head.
+
+**Slice 4 — what the dedupe key actually guarantees, resolved and named.** A correctness question
+raised against the shipped subsystem: the UNIQUE index that makes a notification fire once lives on
+`notification_event.dedupe_key`, and the retention sweep deletes that row, so the uniqueness that
+enforces "once" does not outlive the firm's window. Settled as **the intended contract, not a defect**,
+on the subsystem's own evidence: the design spec frames the key as a redelivery floor throughout (path
+A "a redelivery is a no-op by construction", path B raising "once per day" in as many words), and each
+production path's required lifetime is far shorter than the thirty-day retention floor — an outbox row
+is published once and flipped out of `pending` so the relay never re-carries it, a comparison's bucket
+is derived from the pass's own instant so it only ever moves forward, and a job reports each terminal
+state once inside its own life. No shipped consumer relies on forever semantics, and the platform
+already routes conditions that need it away from this key: the billing automations put their
+convergence in `invoice_reminder` rows for exactly this reason and wrote down why.
+
+So nothing durable was built. What was wrong was that the boundary lived only in another subsystem's
+design document while the code said "dedupe key" and "UNIQUE" and left the reader to infer "once,
+ever". The horizons are now declared per production path in `CONVERGENCE_HORIZON_BY_RAISER`, as a
+`Record<NotificationRaisedBy, …>` so a fourth path is a **compile error** until it states one; both
+`materialize.ts` and `retention.ts` name the boundary and the rule that follows it (a condition needing
+once-per-subject-forever convergence carries it in the owning subsystem's own tables and points a
+notification at that record); and `test/retention-convergence.test.ts` states the semantics out loud by
+re-inserting a key the sweep took, then proves the property that makes it safe — the comparison bucket
+follows the clock, so a swept bucket is unreachable rather than merely unlikely.
+
+**One real hole closed beside it.** The comparison pass's per-kind findings cap was already counted
+(`notifications.comparison_clamped`, over-reading by one to detect rather than infer). Its **zone
+discovery** was not. The deadline comparison needs one cutoff per zone because no D1 query resolves a
+zone, and that read was bounded at the same 200 with no over-read and no counter — so a truncated zone
+list meant every deadline in an undiscovered zone matched neither the overdue bound nor the due-today
+window, and the pass reported nothing about a whole jurisdiction with every other counter reading
+healthy. It now over-reads by one and reports `notifications.comparison_zone_discovery_truncated`, kept
+apart from the findings clamp because a clamp bounds what was missed and this does not bound it at all.
+The value counts truncated **passes** rather than zones, because a read that over-reads by one to catch
+its own truncation learns that it truncated and can never learn by how much.
+
+**Left to the owner, not shipped:** whether 200 findings per kind per pass is the right ceiling. It is
+counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it
+changes how much of a firm's overdue work gets reported — a firm-observable change and a load question,
+recorded on the `notifications.scheduling` ledger node.

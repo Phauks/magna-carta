@@ -734,6 +734,18 @@ export async function runNotificationComparisonSweep(env: Bindings): Promise<num
         if (counts.clampedFindings > 0) {
           logger.count("notifications.comparison_clamped", topic, counts.clampedFindings);
         }
+        // Its own metric rather than a second contribution to `comparison_clamped`, because the two
+        // say different things and only one of them bounds what was missed. A clamp says the pass
+        // found more than it carried; this says the pass never asked about a whole time zone, so the
+        // findings it does report for this kind are of unknown completeness and the zero beside them
+        // is not evidence of anything.
+        if (counts.truncatedZoneDiscovery > 0) {
+          logger.count(
+            "notifications.comparison_zone_discovery_truncated",
+            topic,
+            counts.truncatedZoneDiscovery,
+          );
+        }
       }
       // Reported by category and by whose choice it was rather than by emission point, because that
       // is the grain a preference is set at and the grain somebody investigating "nobody was told"

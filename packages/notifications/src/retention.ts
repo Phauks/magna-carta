@@ -96,6 +96,16 @@ export function recordSweptUnreadStatement(
 //
 // Nothing here touches a source record. That is the property the whole retention posture rests on,
 // and it is visible in the statements: every one of them names a notification table.
+//
+// IT ALSO DELETES THE ONLY COPY OF THE IDEMPOTENCY KEY. The UNIQUE index that makes a duplicate
+// raise a no-op is on `notification_event.dedupe_key`, on the row the third statement below removes,
+// so the dedupe key is a duplicate-suppression floor bounded by this window and not a permanent
+// record that a subject was ever notified about. That is safe because no production path can
+// re-present a key this sweep took: the horizons are declared and reasoned in `materialize.ts`, and
+// every one of them is far shorter than the thirty-day retention floor. The rule that keeps it safe
+// is there too — a condition that must raise once per subject FOREVER carries its convergence in the
+// owning subsystem's own tables and points a notification at that record, rather than resting on this
+// key.
 export function retentionSweepDeleteStatements(
   database: SqlDatabase,
   cutoff: string,

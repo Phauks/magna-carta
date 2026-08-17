@@ -111,6 +111,25 @@ that is the fastest route to two subtly different notions of what a notification
   time the sweep runs, forever; the job key carries the **terminal outcome**, because a job the
   stuck-alarm failed and that then reported success reported two terminal states and both happened —
   keying on the job alone would leave the timeout's row standing as the last word.
+- **THE DEDUPE KEY IS BOUNDED BY THE RETENTION WINDOW, and reading it as "once, ever" is the one
+  mistake this subsystem invites.** The UNIQUE index lives on `notification_event.dedupe_key` — a
+  column on a row `retention.ts` DELETES on the firm's window — so it is a duplicate-suppression floor,
+  never a permanent record that a subject was ever notified about. That is the intended contract and
+  not a defect, because no production path can re-present a key the sweep took: each declares a
+  **convergence horizon** in `CONVERGENCE_HORIZON_BY_RAISER` (`src/materialize.ts`), and every one is
+  far shorter than the thirty-day retention floor. An outbox row is published once and flipped out of
+  `pending`, so the relay never re-carries it; a comparison's bucket is derived from the pass's own
+  instant and therefore only moves forward, which makes a swept bucket **unreachable** rather than
+  merely unlikely; a job reports each terminal state once inside its own life. The table is
+  `Record<NotificationRaisedBy, …>`, so a fourth production path is a **compile error** until it states
+  a horizon — which is the review this exists to force. The rule that follows: **a condition that must
+  raise once per subject FOREVER does not use this key for that.** It carries its convergence in the
+  owning subsystem's own tables, with their own UNIQUE index and their own retention posture, and the
+  notification points at that record — billing's `invoice_reminder` rows are the worked example, and
+  they outlive the notification that announced them precisely because they are billing rows rather than
+  pointers. It is the same rule as "a notification is a pointer and never a record", applied to
+  idempotency. `test/retention-convergence.test.ts` states the semantics out loud by re-inserting a key
+  the sweep took, and holds the comparison bucket to following the clock.
 - **A comparison's civil-date bucket is computed in the SUBJECT's zone, not the firm's or UTC's.** A
   deadline's zone is the court's, and it is on the row. The custody register keeps no zone at all —
   it is one firm's own list of civil dates the firm typed — so its bucket is the platform's civil
@@ -118,7 +137,17 @@ that is the fastest route to two subtly different notions of what a notification
 - **A comparison is unbounded, so its read is capped and the clamp is COUNTED.** Two hundred findings
   per kind, per kind rather than per sweep so one runaway comparison cannot starve the others. A firm
   reporting `notifications.comparison_clamped` every night is a firm being told about some of its
-  overdue work and not the rest, which is a fact an operator has to be able to see.
+  overdue work and not the rest, which is a fact an operator has to be able to see. **Every bound in
+  the pass announces itself, including the one that is not a findings cap.** Zone discovery is capped
+  too — the deadline comparison needs one cutoff per zone because no D1 query resolves a zone — and a
+  truncated zone list is the one way this pass stops finding things without the findings clamp moving:
+  a zone that read never returns contributes no cutoff, so every deadline in it matches neither the
+  overdue bound nor the due-today window, and the pass reports nothing about a whole jurisdiction with
+  every other counter reading healthy. It over-reads by one and reports
+  `notifications.comparison_zone_discovery_truncated`, kept apart from the findings clamp because a
+  clamp bounds what was missed and this does not bound it at all. The value counts truncated **passes**,
+  not zones: a read that over-reads by one to catch its own truncation learns that it truncated and can
+  never learn by how much, and a magnitude invented there would be the same dishonesty one level down.
 - **A matter-anchored type does not reach one person** unless it is on the short list in
   `test/registry-fitness.test.ts` saying why. Three kinds shipped reaching exactly one reader once,
   on the strength of a comment; the list is what makes narrowing a deliberate, written act.
