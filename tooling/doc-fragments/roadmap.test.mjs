@@ -289,7 +289,7 @@ describe("renderBuildRegister", () => {
     ];
     const rendered = renderBuildRegister(withBoth);
     expect(rendered).toContain("**1 answer would let work start.**");
-    expect(rendered).toContain("**1 would change something that already runs.**");
+    expect(rendered).toContain("**1 are not holding a build still.**");
     // The split is derived from the node's own status, so the shipped capability's question sits
     // below the designed one however the ledger happens to order them.
     expect(rendered.indexOf("Bank charges on a trust account** (`trust.charges`)")).toBeLessThan(

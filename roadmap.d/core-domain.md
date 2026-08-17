@@ -291,7 +291,7 @@
   name: Content hash on every stored object
   scope: SHA-256 computed at write time for fixity, delta verification, duplicate detection, upload short-circuit, scan-verdict caching, and no-op version skip.
   status: shipped
-  surface: screen
+  surface: internal
   slices: file-hash-integrity, 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0078
   spec: docs/specs/2026-06-23-file-hash-integrity-design.md

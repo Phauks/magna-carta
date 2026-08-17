@@ -35,6 +35,7 @@ import {
   STATUSES_WITH_SOMETHING_BUILT,
   countByStatus,
   reachOf,
+  rollUpIds,
   share,
   workUnits,
 } from "./roadmap.mjs";
@@ -43,7 +44,7 @@ import {
 // colour pairs the stylesheet defines: three statuses share the `plan` pair because "specified but
 // unbuilt" is one visual weight, and two share `park`. The statuses themselves are never collapsed —
 // every one of the nine keeps its own chip, its own legend entry and its own column.
-const STATUS_PRESENTATION = {
+export const STATUS_PRESENTATION = {
   shipped: { label: "Shipped", tone: "done" },
   partial: { label: "Partial", tone: "part" },
   "in-build": { label: "In build", tone: "live" },
@@ -355,6 +356,7 @@ function cell(value) {
 // question on a capability with nothing built behind it is holding work still; a question on one that
 // already runs is refining something that works, and those are different asks.
 function renderAwaiting(nodes) {
+  const parents = rollUpIds(nodes);
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
   const parts = ['<section class="callout"><h2>Blocked on a decision from you</h2>'];
 
@@ -368,14 +370,14 @@ function renderAwaiting(nodes) {
       parts.push(
         `<h3>${holdingABuild.length} answer${holdingABuild.length === 1 ? "" : "s"} would let work start</h3>`,
         '<p style="color:var(--soft);font-size:13.5px">Nothing is built behind these yet, and nothing can be until they land.</p>',
-        `<ul>${holdingABuild.map(awaitingItem).join("")}</ul>`,
+        `<ul>${holdingABuild.map((node) => awaitingItem(node, parents)).join("")}</ul>`,
       );
     }
     if (refining.length > 0) {
       parts.push(
-        `<h3>${refining.length} would change something that already runs</h3>`,
-        '<p style="color:var(--soft);font-size:13.5px">These are not holding anybody up.</p>',
-        `<ul>${refining.map(awaitingItem).join("")}</ul>`,
+        `<h3>${refining.length} are not holding a build still</h3>`,
+        '<p style="color:var(--soft);font-size:13.5px">Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.</p>',
+        `<ul>${refining.map((node) => awaitingItem(node, parents)).join("")}</ul>`,
       );
     }
   }
@@ -393,10 +395,10 @@ function renderAwaiting(nodes) {
   return parts.join("\n");
 }
 
-function awaitingItem(node) {
+function awaitingItem(node, parents) {
   return (
     `<li><strong>${renderInlineMarkup(node.name)}</strong> — ` +
-    `<em style="font-style:normal;color:var(--faint)">${REACH_LABEL[reachOf(node)]}</em> ` +
+    `<em style="font-style:normal;color:var(--faint)">${REACH_LABEL[reachOf(node, parents.has(node.id))]}</em> ` +
     `${renderInlineMarkup(node.awaitingOwner)}</li>`
   );
 }

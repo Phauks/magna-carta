@@ -68,7 +68,7 @@
   name: Content hashing at write
   scope: SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
   status: shipped
-  surface: screen
+  surface: internal
   adrs: ADR-0078
   evidence: packages/file-manager/src/ingest-core.ts hash step; @magna-carta/file-integrity supplies the streaming hash; scan-cache keys on content hash.
 

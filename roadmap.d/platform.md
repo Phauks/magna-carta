@@ -159,7 +159,7 @@
   name: Source-agnostic ingest pipeline
   scope: One staged/quarantine incoming pipeline (scan verdict, staff-accept onto a matter) shared by uploads and future scan/email sources.
   status: shipped
-  surface: screen
+  surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
   evidence: apps/worker/src/files/, containers/scan, apps/scan-worker

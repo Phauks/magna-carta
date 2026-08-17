@@ -55,7 +55,7 @@
   name: TOTP
   scope: TOTP enrollment and login with transition-exact audit events.
   status: shipped
-  surface: screen
+  surface: awaiting-screen
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
   evidence: apps/worker end-to-end TOTP coverage; two_factor audit hooks
 

@@ -28,6 +28,7 @@
 // function of the ledger so a diff gate can hold it, and a clock would break that every day.
 
 import {
+  STATUS_PRESENTATION,
   STYLESHEET,
   escapeAttribute,
   escapeHtml,
@@ -40,30 +41,6 @@ import {
   reachOf,
   rollUpIds,
 } from "./roadmap.mjs";
-
-const STATUS_LABEL = {
-  shipped: "Shipped",
-  partial: "Partial",
-  "in-build": "In build",
-  designed: "Designed",
-  planned: "Planned",
-  researching: "Researching",
-  "not-started": "Not started",
-  deferred: "Deferred",
-  cut: "Cut",
-};
-
-const STATUS_TONE = {
-  shipped: "done",
-  partial: "part",
-  "in-build": "live",
-  designed: "plan",
-  planned: "plan",
-  researching: "plan",
-  "not-started": "todo",
-  deferred: "park",
-  cut: "park",
-};
 
 // The answer to "is there working code behind this question", which is the first thing a reader
 // wants after the question itself and the thing `status` alone cannot say. reachOf is roadmap.mjs's,
@@ -196,7 +173,7 @@ function renderHeader(open, blocking, changing) {
 
   return `<header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; decisions</p>
-  <h1>${open.length} questions the build is waiting on you to answer</h1>
+  <h1>${open.length} question${open.length === 1 ? "" : "s"} the build is waiting on you to answer</h1>
   <p class="lede">Every one of these was recorded where the work stopped, by whoever stopped. They
   are gathered here with the answer boxes, sorted by what leaving them open actually costs. Write
   as much or as little as you want; a sentence is usually enough, and &ldquo;not yet&rdquo; is an
@@ -260,10 +237,9 @@ ${nodes.map((node) => renderQuestion(node, parents)).join("\n")}
 }
 
 function renderQuestion(node, parents) {
-  const isRollUp = parents.has(node.id) && !STATUSES_WITH_NOTHING_BUILT.has(node.status);
-  const reach = REACH_PRESENTATION[isRollUp ? "roll-up" : reachOf(node)];
+  const reach = REACH_PRESENTATION[reachOf(node, parents.has(node.id))];
   const chips = [
-    `<span class="chip ${STATUS_TONE[node.status]}">${STATUS_LABEL[node.status]}</span>`,
+    `<span class="chip ${STATUS_PRESENTATION[node.status].tone}">${STATUS_PRESENTATION[node.status].label}</span>`,
     `<span class="chip ${reach.tone}">${reach.label}</span>`,
   ].join("");
 

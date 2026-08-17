@@ -203,15 +203,15 @@ function finishNode({ fields, line, area }, name) {
     surface: fields.surface || null,
     publicName: fields["public-name"] || fields.name,
     publicSummary: fields["public-summary"] || null,
-    awaitingOwner: fields["awaiting-owner"] ?? null,
+    awaitingOwner: fields["awaiting-owner"] || null,
     slices: splitList(fields.slices),
-    notes: fields.notes ?? null,
+    notes: fields.notes || null,
     // Carried but never rendered. The register prints name/scope/status/notes; these three are the
     // node's claims ABOUT the repository — the artifact that justifies the status, the design it was
     // written from, the decisions behind it — and they are what tooling/lint-ledger-staleness checks
     // the tree against. Dropping them here is what made the ledger uncheckable in that direction.
-    evidence: fields.evidence ?? null,
-    spec: fields.spec ?? null,
+    evidence: fields.evidence || null,
+    spec: fields.spec || null,
     adrs: splitList(fields.adrs),
   };
 }
@@ -884,13 +884,14 @@ export const STATUSES_WITH_NOTHING_BUILT = new Set([
 ]);
 
 function renderAwaiting(nodes) {
+  const parents = rollUpIds(nodes);
   const awaiting = nodes.filter((node) => node.awaitingOwner !== null);
   if (awaiting.length === 0) {
     return ["_No capability is blocked on an owner decision._", "", AWAITING_BOUNDARY].join("\n");
   }
 
   const line = (node) =>
-    `- **${node.name}** (\`${node.id}\`) — ${reachTag(node)}${node.awaitingOwner}`;
+    `- **${node.name}** (\`${node.id}\`) — ${reachTag(node, parents)}${node.awaitingOwner}`;
   const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
   const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
 
@@ -905,7 +906,9 @@ function renderAwaiting(nodes) {
   if (refining.length > 0) {
     if (parts.length > 0) parts.push("");
     parts.push(
-      `**${refining.length} would change something that already runs.** These are not holding anybody up.`,
+      `**${refining.length} are not holding a build still.** Nobody is waiting on these to start` +
+        " writing something: most have code behind them already, and the parked ones are set aside" +
+        " by an earlier decision that an answer would revisit.",
       "",
       refining.map(line).join("\n"),
     );
@@ -919,9 +922,12 @@ function renderAwaiting(nodes) {
 // that unblocks a build is a schedule; a decision about something already running is a change to
 // something people may already depend on. Exported so the decision desk labels its cards from this
 // one function rather than restating the mapping.
-export function reachOf(node) {
+export function reachOf(node, isRollUp = false) {
   if (STATUSES_WITH_NOTHING_BUILT.has(node.status)) return "not-built";
   if (node.status === "deferred" || node.status === "cut") return "parked";
+  // A parent carries no `surface:` — the lint refuses one, because its reach is its children's.
+  // Answering "built, reach not classified" for it names a gap nothing can close.
+  if (isRollUp) return "roll-up";
   if (node.surface === "awaiting-screen") return "awaiting-screen";
   if (node.surface === "screen") return "screen";
   if (node.surface === "internal") return "internal";
@@ -935,14 +941,15 @@ export function reachOf(node) {
 export const REACH_LABEL = {
   "not-built": "Not built.",
   parked: "Parked.",
+  "roll-up": "A group of capabilities.",
   "awaiting-screen": "Built; no screen yet.",
   screen: "Built and reachable.",
   internal: "Built; no screen by nature.",
   built: "Built.",
 };
 
-function reachTag(node) {
-  return `**${REACH_LABEL[reachOf(node)]}** `;
+function reachTag(node, parents) {
+  return `**${REACH_LABEL[reachOf(node, parents.has(node.id))]}** `;
 }
 
 // Exported so the page states this boundary in these words rather than its own. It is written as

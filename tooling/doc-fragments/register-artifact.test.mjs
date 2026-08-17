@@ -14,6 +14,7 @@ import {
   parseArea,
   reachOf,
   renderBuildRegister,
+  rollUpIds,
   workUnits,
 } from "./roadmap.mjs";
 
@@ -292,16 +293,16 @@ describe("the two renderings of the real ledger", () => {
   });
 
   it("list the same nodes as blocked on an owner decision", () => {
+    const parents = rollUpIds(nodes);
     const awaiting = nodes.filter((entry) => entry.awaitingOwner !== null);
     const listed = [...page.matchAll(/<li><strong>([^<]*)<\/strong> — /g)].length;
     expect(listed).toBe(awaiting.length);
     for (const entry of awaiting) {
       // Both renderings prefix the same reach tag, from reachOf, so a question cannot read as
       // "not built" in one document and "built" in the other.
-      expect(register).toContain(
-        `(\`${entry.id}\`) — **${REACH_LABEL[reachOf(entry)]}** ${entry.awaitingOwner}`,
-      );
-      expect(page).toContain(`>${REACH_LABEL[reachOf(entry)]}</em> `);
+      const label = REACH_LABEL[reachOf(entry, parents.has(entry.id))];
+      expect(register).toContain(`(\`${entry.id}\`) — **${label}** ${entry.awaitingOwner}`);
+      expect(page).toContain(`>${label}</em> `);
     }
   });
 
