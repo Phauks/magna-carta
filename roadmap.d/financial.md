@@ -30,34 +30,63 @@
 - id: financial.ledger.operating-gl
   name: Operating accounting / general ledger
   scope: Extends the ledger to full firm operating books.
-  status: in-build
-  evidence: branch slice-3-5-operating-general-ledger carries design + implementation-plan commits (docs(ledger): design/plan slice 3·5); nothing on main
-  notes: Specs live only on the branch; phase-3 slice map marks this slice loosely coupled.
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: design + implementation plan only; no operating-books code on main and none on a branch
+  notes: The design supersedes the stale one on the dormant slice-3-5-operating-general-ledger branch, which predates billing's shipped account-role map. Five sub-slices, each shippable alone; sixteen owner flags gate what is built.
 
 - id: financial.ledger.operating-gl.chart-of-accounts
   name: Chart of accounts
-  scope: The product chart-of-accounts the baseline schema defers, with the firm account resolver invoicing needs.
-  status: in-build
-  evidence: designed on branch slice-3-5-operating-general-ledger; fixtures/demo-chart-of-accounts.ts on main is explicitly not the product chart
+  scope: The product chart-of-accounts the baseline schema defers, over the account resolver billing already shipped.
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: designed as four additive columns on ledger_account; fixtures/demo-chart-of-accounts.ts on main is explicitly not the product chart, and firm_account_role on main is the resolver rather than a second semantic-key map
+  notes: A chart may classify a trust-registered account for statement presentation and may never map, re-section, or re-type one.
+
+- id: financial.ledger.operating-gl.general-journal
+  name: General journal
+  scope: Firm-authored journal entries and their reversals over the operating books.
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: designed; no journal composer on main
+  notes: A third door onto the posting primitive, refused at the door — every line resolves through trust's own role read and the entry refuses unless every line is outside trust.
+
+- id: financial.ledger.operating-gl.period-close
+  name: Fiscal-period close
+  scope: A monotonic lock date closing every effective date at or before it, with soft reopen.
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: designed; no accounting_lock table on main
+  notes: A scope addition to the slice rather than in its slice-map scope, and flagged for the owner as a clean cut — nothing else in the slice reads the lock.
 
 - id: financial.ledger.operating-gl.accounts-payable
   name: Accounts payable
   scope: Accounts payable as a subledger of the operating books.
-  status: in-build
-  evidence: in the slice scope per docs/specs/2026-06-21-phase-3-financial-core-slice-map.md; design on the GL branch
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: designed; no vendor-bill tables on main
+  notes: Closes the negative Client Costs Advanced position billing documents as open. Payment execution at a bank stays with the Phase 6 rails.
 
 - id: financial.ledger.operating-gl.financial-statements
   name: Financial statements
   scope: Trial balance, balance sheet, and income statement read primitives over the operating books.
-  status: in-build
-  evidence: in the slice scope per docs/specs/2026-06-21-phase-3-financial-core-slice-map.md; design on the GL branch
+  status: designed
+  slices: 3-5-operating-general-ledger
+  spec: docs/specs/2026-08-17-general-ledger-design.md
+  evidence: designed, bitemporal in the shape packages/reporting already shipped; no statement assembly on main
+  notes: This slice owns the figures and the reporting surface renders them. Each statement refuses rather than printing a figure it cannot stand behind.
 
 - id: financial.ledger.operating-gl.quickbooks-sync
   name: QuickBooks sync
   scope: QuickBooks as an optional sync, not the system of record.
   status: not-started
   evidence: no QuickBooks integration in packages/integrations; integration platform foundation exists but carries no accounting connector
-  notes: Bank-feed is a reserved seam per the phase-3 slice map.
+  notes: The seam's direction is designed — an export-only capability descriptor and no column anywhere that could hold a remote figure — but the adapter Worker is Phase 7·2. Bank feed is a reserved seam.
 
 - id: financial.time
   name: Time tracking

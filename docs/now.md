@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 752 nodes of the feature ledger in
+is the complete register rather than a digest: all 754 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**752 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**754 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -27,10 +27,10 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 263 | 35% |
-| Part-built | partial, in-build | 218 | 29% |
-| Ahead | designed, planned, researching, not-started | 228 | 30% |
+| Part-built | partial, in-build | 214 | 28% |
+| Ahead | designed, planned, researching, not-started | 234 | 31% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **752** | **100%** |
+| **All capabilities** | | **754** | **100%** |
 
 ### Every status
 
@@ -38,18 +38,18 @@ below; these are the totals over that list.
 | --- | ---: | ---: |
 | `shipped` | 263 | 35% |
 | `partial` | 203 | 27% |
-| `in-build` | 15 | 2% |
-| `designed` | 44 | 6% |
+| `in-build` | 11 | 1% |
+| `designed` | 50 | 7% |
 | `planned` | 19 | 3% |
 | `researching` | 6 | 1% |
 | `not-started` | 159 | 21% |
 | `deferred` | 41 | 5% |
 | `cut` | 2 | 0% |
-| **All statuses** | **752** | **100%** |
+| **All statuses** | **754** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 263 of 752 (35%). Shipped plus partial is 466 (62%).**
+**Shipped alone is 263 of 754 (35%). Shipped plus partial is 466 (62%).**
 
 The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
@@ -75,7 +75,7 @@ true and neither is the answer on its own.
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
-| Financial Core | 19 | 26 | 4 | 7 | 0 | 0 | 8 | 3 | 0 | 67 | 28% |
+| Financial Core | 19 | 26 | 0 | 13 | 0 | 0 | 8 | 3 | 0 | 69 | 28% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **263** | **203** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **752** | **35%** |
+| **All areas** | **263** | **203** | **11** | **50** | **19** | **6** | **159** | **41** | **2** | **754** | **35%** |
 
 ## Where we have been
 
@@ -300,10 +300,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.conversion.output-placement` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
 - `documents.ocr.raster-cap` · **Raster cap & skip gate** — Caps raster size and skips already-text pages in the OCR path.
 - `documents.decryption.gpu` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards.
-- `financial.ledger.operating-gl` · **Operating accounting / general ledger** — Extends the ledger to full firm operating books.
-- `financial.ledger.operating-gl.chart-of-accounts` · **Chart of accounts** — The product chart-of-accounts the baseline schema defers, with the firm account resolver invoicing needs.
-- `financial.ledger.operating-gl.accounts-payable` · **Accounts payable** — Accounts payable as a subledger of the operating books.
-- `financial.ledger.operating-gl.financial-statements` · **Financial statements** — Trial balance, balance sheet, and income statement read primitives over the operating books.
 - `maintenance-agents.docs-maintenance` · **Docs-maintenance system (docs-sync)** — Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run.
 - `maintenance-agents.docs-maintenance.per-merge-assembly` · **Per-merge fragment assembly workflow** — CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers.
 - `maintenance-agents.docs-maintenance.weekly-routine` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
@@ -340,6 +336,12 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `exhibits.issue` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards.
 - `exhibits.list` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary.
 - `exhibits.package` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.
+- `financial.ledger.operating-gl` · **Operating accounting / general ledger** — Extends the ledger to full firm operating books.
+- `financial.ledger.operating-gl.chart-of-accounts` · **Chart of accounts** — The product chart-of-accounts the baseline schema defers, over the account resolver billing already shipped.
+- `financial.ledger.operating-gl.general-journal` · **General journal** — Firm-authored journal entries and their reversals over the operating books.
+- `financial.ledger.operating-gl.period-close` · **Fiscal-period close** — A monotonic lock date closing every effective date at or before it, with soft reopen.
+- `financial.ledger.operating-gl.accounts-payable` · **Accounts payable** — Accounts payable as a subledger of the operating books.
+- `financial.ledger.operating-gl.financial-statements` · **Financial statements** — Trial balance, balance sheet, and income statement read primitives over the operating books.
 - `financial.trust.jurisdiction-engine.rules-catalog` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data.
 - `financial.billing.automations` · **Billing automations** — The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment.
 - `financial.billing.automations.recurring` · **Recurring bill generation** — A per-matter standing instruction that composes a bill for each period, versioned and pinned to the fee agreement it was authorized against.
@@ -835,16 +837,18 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 67 nodes, 28% shipped. 19 done, 30 part-built, 15 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 69 nodes, 28% shipped. 19 done, 26 part-built, 21 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
     - `financial.ledger.append-only` · `shipped` · **Reversals, never edits** — Transactions are never edited, only reversed with new balancing entries; provable correctness and full history.
-    - `financial.ledger.operating-gl` · `in-build` · **Operating accounting / general ledger** — Extends the ledger to full firm operating books. _Note: Specs live only on the branch; phase-3 slice map marks this slice loosely coupled._
-      - `financial.ledger.operating-gl.chart-of-accounts` · `in-build` · **Chart of accounts** — The product chart-of-accounts the baseline schema defers, with the firm account resolver invoicing needs.
-      - `financial.ledger.operating-gl.accounts-payable` · `in-build` · **Accounts payable** — Accounts payable as a subledger of the operating books.
-      - `financial.ledger.operating-gl.financial-statements` · `in-build` · **Financial statements** — Trial balance, balance sheet, and income statement read primitives over the operating books.
-      - `financial.ledger.operating-gl.quickbooks-sync` · `not-started` · **QuickBooks sync** — QuickBooks as an optional sync, not the system of record. _Note: Bank-feed is a reserved seam per the phase-3 slice map._
+    - `financial.ledger.operating-gl` · `designed` · **Operating accounting / general ledger** — Extends the ledger to full firm operating books. _Note: The design supersedes the stale one on the dormant slice-3-5-operating-general-ledger branch, which predates billing's shipped account-role map. Five sub-slices, each shippable alone; sixteen owner flags gate what is built._
+      - `financial.ledger.operating-gl.chart-of-accounts` · `designed` · **Chart of accounts** — The product chart-of-accounts the baseline schema defers, over the account resolver billing already shipped. _Note: A chart may classify a trust-registered account for statement presentation and may never map, re-section, or re-type one._
+      - `financial.ledger.operating-gl.general-journal` · `designed` · **General journal** — Firm-authored journal entries and their reversals over the operating books. _Note: A third door onto the posting primitive, refused at the door — every line resolves through trust's own role read and the entry refuses unless every line is outside trust._
+      - `financial.ledger.operating-gl.period-close` · `designed` · **Fiscal-period close** — A monotonic lock date closing every effective date at or before it, with soft reopen. _Note: A scope addition to the slice rather than in its slice-map scope, and flagged for the owner as a clean cut — nothing else in the slice reads the lock._
+      - `financial.ledger.operating-gl.accounts-payable` · `designed` · **Accounts payable** — Accounts payable as a subledger of the operating books. _Note: Closes the negative Client Costs Advanced position billing documents as open. Payment execution at a bank stays with the Phase 6 rails._
+      - `financial.ledger.operating-gl.financial-statements` · `designed` · **Financial statements** — Trial balance, balance sheet, and income statement read primitives over the operating books. _Note: This slice owns the figures and the reporting surface renders them. Each statement refuses rather than printing a figure it cannot stand behind._
+      - `financial.ledger.operating-gl.quickbooks-sync` · `not-started` · **QuickBooks sync** — QuickBooks as an optional sync, not the system of record. _Note: The seam's direction is designed — an export-only capability descriptor and no column anywhere that could hold a remote figure — but the adapter Worker is Phase 7·2. Bank feed is a reserved seam._
   - `financial.time` · `partial` · **Time tracking** — Keyboard-first time capture on every matter (billed on hourly; captured internally on flat-fee/contingency for profitability/realization). _Note: Backend complete; all daily-driver surfaces await the app shell._
     - `financial.time.capture` · `partial` · **Time capture surfaces** — The ways time enters the system — live timer, manual/quick-add, weekly grid, calendar drafts
       - `financial.time.capture.timer` · `partial` · **Single active live timer** — One timer at a time bound to a matter (+ optional UTBMS code + narrative), start/pause/stop, server-persisted state surviving tab close and following across devices, always-visible timer bar. _Note: Server-side timer shipped; the global timer bar is UI, not built._
