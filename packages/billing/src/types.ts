@@ -38,6 +38,32 @@ export type InvoiceApplicationKind =
 // that nothing set until this package existed.
 export type WorkInProgressKind = "time_entry" | "cost_entry";
 
+// How a bill reached a client. The closed set, carried in the schema's CHECK from the start for the
+// reason `InvoiceApplicationKind` is: SQLite cannot widen a CHECK without a destructive table
+// rebuild, so the alternative to naming them now is that they could never be added additively.
+//
+// EVERY ONE OF THESE IS RECORDED, NOT PERFORMED. Nothing here renders an invoice or carries one to a
+// client. `email` is a mail the firm sent from its own mailbox; `e_billing_gateway` is a submission
+// the firm made to the client's own portal; `client_portal` is the one value nothing can produce yet,
+// and it is enumerated anyway so the portal lands without rebuilding a financial-evidence table.
+export const INVOICE_DELIVERY_CHANNELS = [
+  "email",
+  "post",
+  "hand",
+  "client_portal",
+  "e_billing_gateway",
+] as const;
+
+export type InvoiceDeliveryChannel = (typeof INVOICE_DELIVERY_CHANNELS)[number];
+
+// What became of the attempt. Two values, and the second is why the column exists: a letter comes
+// back, an address is dead, a gateway submission is rejected. A history that could only hold
+// successes reads as complete when it is not, and a payment reminder sent on the strength of it
+// would be a reminder about a bill nobody received.
+export const INVOICE_DELIVERY_OUTCOMES = ["delivered", "failed"] as const;
+
+export type InvoiceDeliveryOutcome = (typeof INVOICE_DELIVERY_OUTCOMES)[number];
+
 // The closed set of roles a billing posting resolves. The product chart of accounts does not exist
 // yet; until it does, this map is how a firm says which of its ledger accounts plays each part, and
 // an unmapped role refuses finalization rather than posting somewhere plausible.

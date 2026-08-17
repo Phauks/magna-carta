@@ -76,6 +76,7 @@ import type {
   IndexSplitId,
   IntegrationConnectionId,
   InvoiceApplicationId,
+  InvoiceDeliveryId,
   InvoiceId,
   InvoiceLineId,
   InvoiceTrustApplicationLineId,
@@ -5321,6 +5322,84 @@ export const clientCredit = sqliteTable(
     check(
       "client_credit_bounds_check",
       sql`${table.dischargedMinor} >= 0 AND ${table.dischargedMinor} <= ${table.amountMinor}`,
+    ),
+  ],
+);
+
+// THE RECORD THAT A BILL WAS GIVEN TO A CLIENT. One append-only row per delivery attempt, so
+// "has this bill been given to the client" is a read over rows.
+//
+// SENT IS DELIBERATELY NOT AN INVOICE STATUS. A bill is delivered possibly several times and possibly
+// by several channels, and a re-send is not a change to the financial record; modelling delivery as a
+// status would force the finalized invoice row to stay mutable for its least load-bearing field,
+// which is the one concession that stops an append-only table being one. A second delivery of the
+// same bill is therefore a new row here, never an edit to an existing one.
+//
+// WHAT THIS IS AND IS NOT. It is a record, not a transmission. Nothing in the platform renders an
+// invoice or carries one to a client, and this table does not pretend otherwise: what a firm records
+// here is overwhelmingly a delivery it performed itself — handed over at a meeting, posted, emailed
+// from the firm's own mailbox, or submitted to the client's own e-billing portal. That is the point
+// rather than a shortfall. Several jurisdictions expect a client to have been given a bill before fees
+// are taken from trust, and a table that could only hold deliveries the platform performed would
+// leave every out-of-band delivery unrecordable — which is the firm that most needs to be able to
+// answer the question.
+//
+// The read this exists for is surfaced, never a gate: the apply-funds path shows whether any delivery
+// has been recorded and the firm proceeds knowingly, because a hard gate would be satisfied by firms
+// recording deliveries that never happened, which turns a compliance record into a checkbox.
+export const invoiceDelivery = sqliteTable(
+  "invoice_delivery",
+  {
+    id: text("id").primaryKey().$type<InvoiceDeliveryId>(), // invoiceDelivery_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    // A CLOSED VOCABULARY, closed now rather than later on purpose: SQLite cannot widen a table CHECK
+    // without a destructive rebuild, so the ways a bill actually reaches a client are enumerated once.
+    // `client_portal` is here with nothing yet able to produce it — the portal is unbuilt — because
+    // the alternative is rebuilding a financial-evidence table on the day it lands.
+    channel: text("channel", {
+      enum: ["email", "post", "hand", "client_portal", "e_billing_gateway"],
+    }).notNull(),
+    // WHO IT WENT TO, in the firm's own words: an address, a mailbox, a portal account, or the person
+    // it was handed to. Free text with no structured subject — the residue class the contact a firm
+    // records using to reach a client it holds unclaimed money for sits in. Required and non-empty,
+    // because a record whose whole job is to answer "was this given to the client" and which cannot
+    // say who received it answers nothing.
+    recipientReference: text("recipient_reference").notNull(),
+    // WHEN IT HAPPENED, as a civil date, supplied by the firm — not when the row was written. An
+    // out-of-band delivery is recorded days later, and a firm that posted a bill last Tuesday knows
+    // the date and not the instant; making it supply an instant would have it invent one. The pairing
+    // is `credit_note`'s: the business date the firm asserts, plus the provenance stamp below.
+    deliveryDate: text("delivery_date").notNull(), // civil PlainDate
+    // The thread back to whatever system carried the bill, where one did — a tracking number, a
+    // gateway submission id, the message id of a mail sent elsewhere. Absent means nothing carried
+    // it, which is the ordinary case for a bill handed over in a meeting.
+    externalReference: text("external_reference"),
+    // Two values, and the second is why the column exists: a letter comes back, an address is dead, a
+    // gateway submission is rejected. A firm that could only record successes would have a delivery
+    // history that reads as complete when it is not, and a reminder sent on the strength of it would
+    // be a reminder about a bill nobody received.
+    outcome: text("outcome", { enum: ["delivered", "failed"] }).notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("invoice_delivery_invoice_index").on(table.invoiceId),
+    index("invoice_delivery_date_index").on(table.deliveryDate),
+    check(
+      "invoice_delivery_channel_check",
+      sql`${table.channel} IN ('email', 'post', 'hand', 'client_portal', 'e_billing_gateway')`,
+    ),
+    check(
+      "invoice_delivery_recipient_nonempty_check",
+      sql`length(trim(${table.recipientReference})) > 0`,
+    ),
+    check("invoice_delivery_outcome_check", sql`${table.outcome} IN ('delivered', 'failed')`),
+    check(
+      "invoice_delivery_external_reference_nonempty_check",
+      sql`${table.externalReference} IS NULL OR length(trim(${table.externalReference})) > 0`,
     ),
   ],
 );

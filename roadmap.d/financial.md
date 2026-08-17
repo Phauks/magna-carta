@@ -291,7 +291,7 @@
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
   status: partial
-  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, and the corrections after finalization are on main (packages/billing-core, packages/billing) behind apps/worker/src/routes/billing.ts; tax computation, invoice delivery, the renderer and LEDES export are not built
+  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, the corrections after finalization, and the delivery record are on main (packages/billing-core, packages/billing) behind apps/worker/src/routes/billing.ts; tax computation, the renderer and LEDES export are not built
   audience: public
   public-name: Billing and invoices
   public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
@@ -360,6 +360,18 @@
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/worker/src/routes/billing.ts.
   notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
+
+- id: financial.billing.delivery
+  name: Invoice delivery record
+  scope: An append-only row per attempt at giving a client a bill — channel, recipient reference, date, external reference, outcome, and who recorded it — plus the delivery-state read the apply-funds surface shows.
+  status: partial
+  slices: 3-4-billing-and-invoicing
+  evidence: the invoice_delivery table and its append-only, finalized-bill and not-before-issue triggers in the 20260817T000000_billing-invoice-delivery per-firm migration, recordInvoiceDelivery in packages/billing/src/delivery.ts, readInvoiceDeliveries / readInvoiceDeliveryState / readInvoiceDeliveryStates in packages/billing/src/statements.ts (the state also rides readInvoiceDetail), and the record and list routes in apps/worker/src/routes/billing.ts
+  audience: public
+  public-name: Recording that a bill went out
+  public-summary: Record how and when a client was given a bill — by post, by hand, or by an email you sent yourself — so you can always show whether the bill reached them.
+  awaiting-owner: Whether a delivery recorded in error can be corrected. The record is append-only by design and a wrong row cannot be edited or removed, but the design names no correction shape either — unlike a credit note, whose answer is a further credit note. Either a superseding row that names the one it corrects, or the record simply stands. Also unresolved: the design names outcome as a column without enumerating it, so delivered and failed are the built floor rather than an answered vocabulary.
+  notes: Partial because it is a record and not a transmission - the platform renders no invoice and carries nothing to a client, so every row is a delivery the firm made and is reporting. Backend only, no screen. The client_portal channel is enumerated with nothing able to produce it until the portal lands.
 
 - id: financial.billing.location-letterhead
   name: Location letterhead and remit-to on invoices
@@ -431,7 +443,7 @@
   status: designed
   slices: 3-7-billing-automations
   evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; no reminder table and no billing notification type beyond invoice finalized and voided in packages/notifications/src/registry.ts
-  notes: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member, the client portal is not started, and the invoice delivery record the billing design specified was never built.
+  notes: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one.
 
 - id: financial.billing.automations.payment-plans
   name: Payment plans

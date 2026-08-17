@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 751 nodes of the feature ledger in
+is the complete register rather than a digest: all 752 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -19,7 +19,7 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**751 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**752 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below; these are the totals over that list.
 
 ### The roll-up
@@ -27,17 +27,17 @@ below; these are the totals over that list.
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 263 | 35% |
-| Part-built | partial, in-build | 217 | 29% |
+| Part-built | partial, in-build | 218 | 29% |
 | Ahead | designed, planned, researching, not-started | 228 | 30% |
 | Parked | deferred, cut | 43 | 6% |
-| **All capabilities** | | **751** | **100%** |
+| **All capabilities** | | **752** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 263 | 35% |
-| `partial` | 202 | 27% |
+| `partial` | 203 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 44 | 6% |
 | `planned` | 19 | 3% |
@@ -45,13 +45,13 @@ below; these are the totals over that list.
 | `not-started` | 159 | 21% |
 | `deferred` | 41 | 5% |
 | `cut` | 2 | 0% |
-| **All statuses** | **751** | **100%** |
+| **All statuses** | **752** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 263 of 751 (35%). Shipped plus partial is 465 (62%).**
+**Shipped alone is 263 of 752 (35%). Shipped plus partial is 466 (62%).**
 
-The 202 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -75,7 +75,7 @@ true and neither is the answer on its own.
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
-| Financial Core | 19 | 25 | 4 | 7 | 0 | 0 | 8 | 3 | 0 | 66 | 29% |
+| Financial Core | 19 | 26 | 4 | 7 | 0 | 0 | 8 | 3 | 0 | 67 | 28% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
 | Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **263** | **202** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **751** | **35%** |
+| **All areas** | **263** | **203** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **752** | **35%** |
 
 ## Where we have been
 
@@ -267,7 +267,7 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**18 would change something that already runs.** These are not holding anybody up.
+**19 would change something that already runs.** These are not holding anybody up.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -284,6 +284,7 @@ shows up in the nodes columns and not in this one.
 - **Interactive three-way reconciliation** (`financial.trust.reconciliation`) — The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
 - **Billing and invoicing** (`financial.billing`) — Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
 - **Corrections after finalization** (`financial.billing.corrections`) — What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
+- **Invoice delivery record** (`financial.billing.delivery`) — Whether a delivery recorded in error can be corrected. The record is append-only by design and a wrong row cannot be edited or removed, but the design names no correction shape either — unlike a credit note, whose answer is a further credit note. Either a superseding row that names the one it corrects, or the record simply stands. Also unresolved: the design names outcome as a column without enumerating it, so delivered and failed are the built floor rather than an answered vocabulary.
 - **Scheduled reminders** (`notifications.scheduling`) — The deadline horizon's lead window. "An open deadline enters the firm's configured lead window" needs a number and a bound — a firm-tier setting on the retention window's pattern would cost little, but the default value is the question, and a lead the platform picks is a lead the firm did not choose. Nothing else in the sweep is blocked on it.
 - **Trust-compliance reports** (`reports.trust-compliance`) — What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 - **Human-attested certification** (`translation.certification`) — Whether the platform offers human-attested certification at all. It is the difference between a reading aid and something a firm can file — under the governing federal standard a competent person may run an engine, review the output line by line and then sign, at which point the certificate is true — and it is also the part with the most ways to go wrong, so the recommendation is yes but only once the artifacts it would certify exist. A no means the product ships permanently as an explicitly non-certifying reading aid, which changes nothing else in this area. Translation design flag T3.
@@ -832,7 +833,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 66 nodes, 29% shipped. 19 done, 29 part-built, 15 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 67 nodes, 28% shipped. 19 done, 30 part-built, 15 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -879,6 +880,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.billing.corrections` · `shipped` · **Corrections after finalization** — Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application. _Note: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision._
       - `financial.billing.corrections.contingency-residual` · `shipped` · **Contingency shrunk-basis residual** — Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding. _Note: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it._
     - `financial.billing.invoice-composition` · `partial` · **Invoice composition** — Bills combine time/fees plus costs plus taxes. _Note: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen._
+    - `financial.billing.delivery` · `partial` · **Invoice delivery record** — An append-only row per attempt at giving a client a bill — channel, recipient reference, date, external reference, outcome, and who recorded it — plus the delivery-state read the apply-funds surface shows. _Note: Partial because it is a record and not a transmission - the platform renders no invoice and carries nothing to a client, so every row is a delivery the firm made and is reporting. Backend only, no screen. The client_portal channel is enumerated with nothing able to produce it until the portal lands._
     - `financial.billing.location-letterhead` · `not-started` · **Location letterhead and remit-to on invoices** — Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
     - `financial.billing.wip-to-ar` · `shipped` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock. _Note: Backend only, no screen._
     - `financial.billing.ledes` · `partial` · **LEDES e-billing** — Export invoices in LEDES 1998B and LEDES XML 2.0/2.1 with UTBMS codes carried through from time and cost entries.
@@ -888,7 +890,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.billing.automations` · `designed` · **Billing automations** — The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment. _Note: Every automation is tiered by consequence, and nothing scheduled moves client money — a cron pass has no actor and the trust authorization posture is built on one._
       - `financial.billing.automations.recurring` · `designed` · **Recurring bill generation** — A per-matter standing instruction that composes a bill for each period, versioned and pinned to the fee agreement it was authorized against.
       - `financial.billing.automations.batch` · `designed` · **Batch bill generation** — A member selects matters and gets drafts, with one run record per target naming what happened to each including the skips.
-      - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member, the client portal is not started, and the invoice delivery record the billing design specified was never built._
+      - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one._
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice._
