@@ -29,18 +29,21 @@
   name: Folder navigation
   scope: Folder model, CRUD, and listing over the firm-scoped data-access layer.
   status: shipped
+  surface: awaiting-screen
   evidence: packages/file-manager/src/folder-service.ts + apps/worker/src/routes/folders.ts (folders.list landed via the file-manager-contract stream).
 
 - id: documents.file-manager.document-types
   name: Document types
   scope: Per-firm document-type taxonomy attached to files.
   status: shipped
+  surface: awaiting-screen
   evidence: packages/file-manager/src/document-type-service.ts + apps/worker/src/routes/document-types.ts.
 
 - id: documents.file-manager.ui-primitives
   name: File UI primitives
   scope: FileIcon, Breadcrumb, ContextMenu, Tree, Dropzone design-system components for file surfaces.
   status: shipped
+  surface: internal
   slices: file-manager-primitives
   evidence: packages/design-system components merged to main (2026-07-14 baseline report: file-surface-web merge folded in file-manager primitives + contract).
   notes: Container VRT baselines and NVDA pass still outstanding per the fragment.
@@ -49,6 +52,7 @@
   name: Matter Files surface
   scope: The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it.
   status: in-build
+  surface: screen
   spec: docs/specs/2026-07-09-matter-file-manager-design.md
   evidence: Branch claude/document-surface — apps/web/src/lib/documents/ + the matters/[id]/files route, on same-origin /api/v1 calls; the matter chrome now resolves a live matter, so a firm's own matter is reachable at its own URL. Predecessor branch file-surface-web is unmerged and superseded for this node (its view shell and dev-seed/login e2e are already on main).
   notes: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions.
@@ -64,6 +68,7 @@
   name: Content hashing at write
   scope: SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
   status: shipped
+  surface: screen
   adrs: ADR-0078
   evidence: packages/file-manager/src/ingest-core.ts hash step; @magna-carta/file-integrity supplies the streaming hash; scan-cache keys on content hash.
 
@@ -79,6 +84,7 @@
   name: Async bulk bundle
   scope: Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.
   status: shipped
+  surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   spec: docs/specs/2026-06-17-slice-2-1-plan-3-async-bulk-download-implementation-plan.md
   evidence: apps/worker/src/routes/bundle-status.ts; slice 2-1 fragment records the async bulk download as the platform's first Durable Object, built.
@@ -87,6 +93,7 @@
   name: Storage metering
   scope: Per-firm rollup of bytes and object counts by storage class and key prefix, exact in D1, reconciled against R2, feeding firm-usage diagnostics.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0078, ADR-0103
   evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/worker/src/routes/firm-usage.ts; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
 
@@ -104,6 +111,7 @@
   name: Direct-to-R2 transfer
   scope: Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
   status: shipped
+  surface: screen
   adrs: ADR-0081
   evidence: apps/worker/src/routes/uploads.ts (uploads.get added by the file-manager-contract stream); slice 2-1 fragment built/deployed.
 
@@ -111,18 +119,21 @@
   name: Pre-acceptance gates
   scope: Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
   status: shipped
+  surface: internal
   evidence: packages/file-manager/src/upload-policy.ts + validation.ts; ingest-core re-verifies at the quarantine gate.
 
 - id: documents.upload.quarantine
   name: Quarantine-on-arrival
   scope: Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
   status: shipped
+  surface: internal
   evidence: packages/file-manager/src/ingest-core.ts; serving queries filter on version status = 'clean' (queries.ts).
 
 - id: documents.upload.archive-opacity
   name: Opaque archive storage
   scope: Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
   status: shipped
+  surface: internal
   adrs: ADR-0027
   evidence: No server-side extraction code in the tree; ADR-0027 records the opaque posture; client-side extraction path deferred to Discovery.
 
@@ -139,12 +150,14 @@
   name: Scan port
   scope: ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
   status: shipped
+  surface: internal
   evidence: packages/file-manager/src/scan-port.ts.
 
 - id: documents.scanning.engine
   name: In-house scan engine (YARA + raw facts)
   scope: YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0124, ADR-0147, ADR-0122
   spec: docs/specs/2026-06-22-scan-service-extraction-design.md
   evidence: containers/scan (Rust, with harness and prefilter validation images) + apps/scan-worker; Magika file-type model co-hosted here.
@@ -153,6 +166,7 @@
   name: Per-firm scan policy
   scope: Firm-configurable tier and suspicious-score floor turning raw facts into verdicts; score-histogram seam for threshold tuning.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0158
   spec: docs/specs/2026-06-25-scan-per-firm-policy-design.md
   evidence: packages/file-manager/src/scan-policy-settings.ts + verdict.ts + apps/worker/src/routes/scan-policy.ts; histogram seam per docs/specs/2026-06-28-scan-policy-histogram-seam-design.md.
@@ -161,12 +175,14 @@
   name: Verdict as file metadata
   scope: clean/flagged/unscanned verdict persisted per version; flagged versions never served; infected files quarantined, never deleted.
   status: shipped
+  surface: internal
   evidence: packages/file-manager/src/verdict.ts + scan_verdict column in queries.ts; preview policy refuses flagged versions.
 
 - id: documents.scanning.rescan
   name: Re-scan on signature updates
   scope: Access-triggered re-scan with a content-hash + engine-version scan cache, so an engine/signature update forces re-scan on next access.
   status: shipped
+  surface: internal
   spec: docs/specs/2026-06-22-access-triggered-rescan-design.md
   evidence: packages/file-manager/src/scan-cache.ts + apps/worker/src/routes/scan-matter.ts; dev seed provisions a re-scan-flagged file.
 
@@ -174,6 +190,7 @@
   name: Malware Scan tool page
   scope: User-facing scan/diagnose tool in the Tools area.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/scan-diagnose.ts; 2026-07-14 baseline report lists the Malware Scan page merged in the tools UI wave.
 
 - id: documents.scanning.cdr
@@ -210,6 +227,7 @@
   name: Collabora container host
   scope: One container per open document, spun up on demand by a Durable Object and reaped when idle, in a dedicated edit worker.
   status: shipped
+  surface: internal
   adrs: ADR-0125, ADR-0138
   evidence: apps/magna-carta-edit/src/document-editor-container.ts + containers/collabora/Dockerfile; slice 2-2 fragment: magna-carta-edit deployed.
 
@@ -217,6 +235,7 @@
   name: WOPI host & version-cut policy
   scope: WOPI callbacks with autosave-aware version cutting (explicit save and session close cut versions; autosaves overwrite current) and timestamp-guarded current overwrite.
   status: shipped
+  surface: internal
   adrs: ADR-0126
   evidence: apps/worker/src/editing (module CLAUDE.md names the WOPI host, app-managed versioning, sweeps); version-cut-on-reap in document-editor-container.ts.
 
@@ -224,6 +243,7 @@
   name: Offline checkout / check-in
   scope: Optimistic checkout with check-in reconciliation and an active-to-stale-to-released idle-checkout sweep on cron.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0126
   evidence: packages/file-manager/src/checkout-statements.ts + apps/worker/src/editing idle-checkout-sweep.ts.
 
@@ -253,6 +273,7 @@
   name: App-managed version objects
   scope: Churning current key overwritten per save; immutable vN snapshots cut deliberately, never per autosave.
   status: shipped
+  surface: screen
   adrs: ADR-0035
   evidence: packages/file-manager/src/file-statements.ts + queries.ts version model; editing module cuts versions per policy.
 
@@ -260,12 +281,14 @@
   name: Supersede-to-IA tiering
   scope: Superseded versions transitioned Standard to Infrequent Access server-side on a sweep; tiering, never pruning.
   status: shipped
+  surface: internal
   evidence: apps/worker/src/editing/tiering-sweep.ts (daily reconciliation cron; respects the 30-day IA minimum-duration floor).
 
 - id: documents.versioning.storage-encoding-seam
   name: storage_encoding seam
   scope: Version metadata discriminator (full today, patch encoding later) so nothing outside the data-access layer assumes a version object is raw bytes.
   status: shipped
+  surface: internal
   adrs: ADR-0077
   evidence: storage_encoding column selected in packages/file-manager/src/queries.ts.
 
@@ -287,6 +310,7 @@
   name: Trash & restore
   scope: Soft-delete hides the record from the File Manager (firm-scoped state change, bytes untouched); restore clears the flag in place.
   status: shipped
+  surface: awaiting-screen
   evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts.
 
 - id: documents.versioning.deleted-lifecycle.cold-retention
@@ -316,12 +340,14 @@
   name: Authorization-gated delivery
   scope: Short-lived tokened URLs minted only after matter/RBAC checks; originals stream from R2 (progressive playback, free egress).
   status: shipped
+  surface: internal
   evidence: apps/worker/src/downloads + routes/downloads.ts; slice 2-3 fragment: delivery under a first-party HMAC token, backend on main.
 
 - id: documents.preview.sandbox-origin
   name: Safe-delivery sandbox
   scope: Untrusted bytes served from a separate cookieless files._ origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
   status: shipped
+  surface: internal
   adrs: ADR-0115
   evidence: Slice 2-3 fragment: cookieless files._ subresource delivery landed on main.
 
@@ -329,6 +355,7 @@
   name: inlinePlayable verdict
   scope: Cheap container/codec sniff recorded per version at ingest; preview policy serves inline only on a playable verdict.
   status: shipped
+  surface: internal
   adrs: ADR-0114
   evidence: packages/file-manager/src/preview-policy.ts gates on version.inlinePlayable; inline_playable column in queries.ts.
   notes: Firm-wide Reports rollup of the verdict awaits the Reports subsystem.
@@ -337,6 +364,7 @@
   name: Derived safe renditions
   scope: Active formats previewed only via a derived rasterized/transcoded rendition (artifact_role derived version), never the raw file.
   status: partial
+  surface: awaiting-screen
   evidence: packages/file-manager/src/safe-rendition-port.ts ships the port plus an engine-less adapter that refuses; active formats are download-only until the engine wires in.
   notes: Rasterize/transcode engine wires in with the player UI.
 
@@ -367,6 +395,7 @@
   name: Format registry & pathfinding
   scope: Declarative (source, target) to {engine, recipe} table with weighted single-engine edges and multi-hop chain computation; single source of format knowledge.
   status: shipped
+  surface: internal
   adrs: ADR-0116
   evidence: packages/conversion/src/registry.ts + pathfinding.ts + format.ts.
 
@@ -374,6 +403,7 @@
   name: ConversionPort & adapters
   scope: Port/adapter seam so engines are testable and swappable; external adapters deliberately not enabled.
   status: shipped
+  surface: internal
   adrs: ADR-0116
   evidence: packages/conversion/src/port.ts + engines.ts + adapters/.
 
@@ -381,6 +411,7 @@
   name: Conversion API
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/worker/src/conversions.
   notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
 
@@ -388,6 +419,7 @@
   name: Raster image engine
   scope: Pure-Rust image conversion engine in a dedicated container behind the convert worker (memory-safe replacement for native libvips).
   status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-06-23-slice-2-4d-raster-engine-design.md
   evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts.
 
@@ -395,6 +427,7 @@
   name: Image to PDF
   scope: Image-to-PDF conversion edge on the registry.
   status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-06-23-slice-2-4e-image-to-pdf-design.md
   evidence: Slice 2-4 fragment lists image-to-PDF among the built core.
 
@@ -429,6 +462,7 @@
   name: Background job orchestration
   scope: Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions.
   status: partial
+  surface: internal
   adrs: ADR-0116
   evidence: apps/worker/src/conversions/conversion-coordinator.ts is the per-job ConversionJob Durable Object (start, markRunning, markDone, markFailed, status, alarm) fed by the CONVERSION queue consumer; apps/convert-worker dispatches the hop per engine id.
   notes: Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone.
@@ -437,6 +471,7 @@
   name: Output placement
   scope: Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
   status: in-build
+  surface: awaiting-screen
   evidence: packages/conversion/src/placement.ts on main; slice 2-4 built in-progress, matter-save wiring gated on the execution substrate.
 
 - id: documents.conversion.convert-ui
@@ -463,6 +498,7 @@
   name: Pure-Rust engine core
   scope: crates/pdf-core compiled to WASM for client and Worker, superseding the composed pdf-lib/PDFium/qpdf roster with one memory-safe engine.
   status: shipped
+  surface: awaiting-screen
   slices: pdf-render-engine
   adrs: ADR-0127, ADR-0128, ADR-0088, ADR-0089
   evidence: crates/pdf-core (bates, forms, redact, scrub, secure, surgery, generate, guard, detect, watermark modules) + @magna-carta/pdf WASM wrapper; feasibility results at docs/specs/2026-06-21-pdf-engine-feasibility-results.md.
@@ -471,6 +507,7 @@
   name: Render to raster
   scope: PDF page rendering for preview/flatten via the pure-Rust engine (hayro dependency doctrine).
   status: shipped
+  surface: awaiting-screen
   slices: pdf-render-engine
   adrs: ADR-0127
   spec: docs/specs/2026-06-21-pdf-slice-1-core-render-design.md
@@ -480,6 +517,7 @@
   name: True redaction (rasterize route)
   scope: Content-removing redaction via the rasterize route — underlying content destroyed, not covered.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0134
   spec: docs/specs/2026-06-22-pdf-slice-2-redaction-design.md
   evidence: crates/pdf-core/src/redact.rs; feasibility findings at docs/specs/2026-06-22-pdf-redaction-feasibility-findings.md.
@@ -489,6 +527,7 @@
   name: Bad-redaction detector
   scope: Detects cover-up-style redactions with recoverable underlying text (observing-device model).
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0137
   spec: docs/specs/2026-06-22-pdf-detector-engine-design.md
   evidence: crates/pdf-core/src/detect.rs + textpos.rs; fast-follow design/plan also in docs/specs/.
@@ -497,6 +536,7 @@
   name: PDF document scrub
   scope: Removes hidden content and metadata from PDFs.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0136
   spec: docs/specs/2026-06-22-pdf-document-scrub-design.md
   evidence: crates/pdf-core/src/scrub.rs.
@@ -505,6 +545,7 @@
   name: Structural surgery & repair
   scope: Content-stream and structural PDF surgery (the qpdf role, in-house): repair, restructure, linearize-class operations.
   status: partial
+  surface: awaiting-screen
   adrs: ADR-0139
   spec: docs/specs/2026-07-03-pdf-byte-level-surgery-design.md
   evidence: crates/pdf-core/src/surgery.rs; pdf-render-engine fragment: surgery v1 passes 3/10 corpus, completion is the named next step.
@@ -513,6 +554,7 @@
   name: Bates numbering
   scope: Bates stamping across documents with configurable format/position.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0142
   spec: docs/specs/2026-06-23-pdf-bates-numbering-design.md
   evidence: crates/pdf-core/src/bates.rs; configurability plan at docs/specs/2026-06-25-pdf-bates-configurability-plan.md.
@@ -521,6 +563,7 @@
   name: PDF form fill
   scope: AcroForm form filling in the pure-Rust engine.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0152
   spec: docs/specs/2026-06-25-pdf-forms-design.md
   evidence: crates/pdf-core/src/forms.rs.
@@ -530,12 +573,14 @@
   name: Stamp / watermark
   scope: Stamping and watermarking pages.
   status: shipped
+  surface: awaiting-screen
   evidence: crates/pdf-core/src/watermark.rs.
 
 - id: documents.pdf.secure
   name: Secure / encrypt
   scope: PDF encryption, passwords, and permissions (plus decrypt support).
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0159
   spec: docs/specs/2026-06-26-pdf-secure-encrypt-design.md
   evidence: crates/pdf-core/src/secure.rs + decrypt.rs.
@@ -544,6 +589,7 @@
   name: Generate primitives
   scope: Programmatic PDF generation (text, standard fonts, drawing primitives) for invoices/reports/certificates.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0162
   spec: docs/specs/2026-06-26-pdf-generate-primitives-design.md
   evidence: crates/pdf-core/src/generate.rs + standard_fonts.rs.
@@ -552,6 +598,7 @@
   name: Decompression-bomb guard
   scope: Raw-bytes pre-flight guard against decompression bombs before engine work.
   status: shipped
+  surface: internal
   spec: docs/specs/2026-06-28-pdf-decompression-guard-design.md
   evidence: crates/pdf-core/src/guard.rs; pdf-render-engine fragment notes encrypted-stream bodies as a disclosed residual.
   notes: Decision fragment pdf-decompression-guard still pending assembly (unnumbered).
@@ -584,6 +631,7 @@
   name: PAdES platform seal
   scope: Server-applied tamper-evidence seal with the firm certificate on completed documents.
   status: shipped
+  surface: awaiting-screen
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0205, ADR-0206
   evidence: crates/pdf-core seal primitive (incremental update, ByteRange, CMS splice) with WASM bindings; packages/signing CMS backend at PAdES-B-B with signing-certificate-v2; apps/sign-worker holding the platform key; apps/worker/src/routes/document-seal.ts over a SealPort binding; tooling/platform-seal-certificate provisions the identity.
@@ -599,6 +647,7 @@
   name: Audit trail & certificate of completion
   scope: Server-observed signer IP/timestamp/consent/document hash assembled into a stored Certificate of Completion.
   status: partial
+  surface: awaiting-screen
   slices: 2-5-pdf-services-e-signature-core
   evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event.
   notes: The certificate can be assembled and rendered, but nothing yet captures a signer's consent through a signing flow, and the certificate is not stored against a document.
@@ -631,12 +680,14 @@
   name: TypeScript bundle lane
   scope: In-Worker lane for plain streaming bundles (formats/layout/manifest/options in the file-manager package).
   status: shipped
+  surface: awaiting-screen
   evidence: packages/file-manager/src/bundle-formats.ts, bundle-layout.ts, bundle-manifest.ts, bundle-options.ts, bundle-paths.ts, contents-manifest.ts.
 
 - id: documents.bundling.container-lane
   name: Container bundle lane
   scope: Heavy/encrypted lane — alternative formats, compression, AES-256, multi-volume — in a dedicated Rust container behind its own worker.
   status: shipped
+  surface: awaiting-screen
   evidence: containers/bundle + apps/bundle-worker on main.
   notes: Lanes return 503 until the image is deployed and BUNDLE_SERVICE binds (per the status fragment).
 
@@ -659,6 +710,7 @@
   name: ocr-core engine
   scope: PP-OCR ONNX model pipeline (small tier) through Rust ort, with pinned SHA-256-guarded model set.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0060
   evidence: crates/ocr-core + containers/ocr.
   notes: ADR-0060 selected PP-OCRv5; the built engine runs PP-OCRv6 per the status fragment.
@@ -667,6 +719,7 @@
   name: OCR API
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
   notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
@@ -674,6 +727,7 @@
   name: Raster cap & skip gate
   scope: Caps raster size and skips already-text pages in the OCR path.
   status: shipped
+  surface: internal
   evidence: containers/ocr/src/pages.rs derives the render density from a pixel budget so an outsize page cannot be rastered whole, and containers/ocr/src/lib.rs skips a page that already carries a text layer with a recorded reason; both carry tests in that crate.
   notes: Was in-build against the remote branch ocr-raster-cap-and-skip-gate; the capability reached main independently of it.
 
@@ -703,18 +757,21 @@
   name: Format repair pillars
   scope: ZIP/OOXML, CFB/OLE2, PDF xref-rebuild, and content-carving repair pillars in pure Rust (native-only).
   status: shipped
+  surface: awaiting-screen
   evidence: crates/recovery-core; per-pillar plans in docs/specs/ (plan-2 zip-ooxml through plan-5 carving).
 
 - id: documents.file-repair.stateless-api
   name: Stateless repair API
   scope: /api/v1/file-repair/{diagnose,repair,carve}; reconstructed output re-scanned and withheld if flagged.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/file-repair.ts + apps/file-repair-worker + FILE_REPAIR_SERVICE binding per the status fragment.
 
 - id: documents.file-repair.attach-to-matter
   name: Attach repaired output to matter
   scope: Repair/carve outputs saved as server-side uploads through the ingest gate (new version or new files; flagged goes to quarantine) with loss manifest persisted per version.
   status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-07-03-file-repair-salvage-plan-6b-attach-to-matter.md
   evidence: Status fragment describes the /{repair,carve}/attach routes and the file_repair_provenance table as built.
 
@@ -740,12 +797,14 @@
   name: Inspect & unlock
   scope: PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
   status: shipped
+  surface: awaiting-screen
   evidence: /decryption/inspect + /unlock routes; crates/decryption-core on the engine-host seam.
 
 - id: documents.decryption.recovery
   name: Password recovery orchestration
   scope: Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
   status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-06-26-decryption-slice-2-recovery-design.md
   evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes.
 
@@ -753,6 +812,7 @@
   name: GPU recovery rungs
   scope: GPU-accelerated recovery tiers above the CPU shards.
   status: in-build
+  surface: internal
   spec: docs/specs/2026-07-03-decryption-slice-3-gpu-recovery-design.md
   evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment.
 
@@ -778,12 +838,14 @@
   name: OOXML metadata
   scope: Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
   status: shipped
+  surface: awaiting-screen
   evidence: packages/metadata/src/ooxml + engine.ts/port.ts.
 
 - id: documents.metadata.image
   name: Image metadata
   scope: Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
   status: shipped
+  surface: awaiting-screen
   evidence: packages/metadata/src/image + tests.
 
 - id: documents.metadata.extended-formats
@@ -803,6 +865,7 @@
   name: File hash & integrity
   scope: Multi-algorithm streaming hash, ingest-baseline comparison, and verification receipt for evidence-grade fixity.
   status: partial
+  surface: awaiting-screen
   slices: file-hash-integrity
   adrs: ADR-0143
   spec: docs/specs/2026-06-23-file-hash-integrity-design.md
@@ -813,6 +876,7 @@
   name: File type verification
   scope: Content-based file-type identification (Magika ONNX) with filename/extension mismatch analysis and a report.
   status: partial
+  surface: awaiting-screen
   slices: file-type-verifier
   adrs: ADR-0160
   spec: docs/specs/2026-06-26-file-type-verifier-design.md
@@ -832,18 +896,21 @@
   name: EML / MSG / mbox parse
   scope: Full message parse to a normalized record model.
   status: shipped
+  surface: awaiting-screen
   evidence: crates/email-core + WASM edge per the status fragment.
 
 - id: documents.email.msg-mapi
   name: MSG via CFB + in-house MAPI
   scope: .msg read over the cfb crate with MAPI property decoding written in-house.
   status: shipped
+  surface: awaiting-screen
   evidence: Status fragment: msg_parser audited and rejected for a release-profile panic on the unwind-less WASM runtime.
 
 - id: documents.email.lzfu-rtf
   name: LZFu compressed-RTF bodies
   scope: Decoder for compressed-RTF .msg bodies.
   status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-07-10-lzfu-compressed-rtf-decoder-design.md
   evidence: 2026-07-14 baseline report lists email LZFu compressed-RTF decoding merged to main.
 
@@ -851,12 +918,14 @@
   name: Email Inspector tool
   scope: Worker route + tool exposing the parse engine.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/email-inspector.ts.
 
 - id: documents.engine-host
   name: Engine-host harness
   scope: Shared hosting seam (format / wasm_edge / host) so pure-Rust file engines run identically as WASM edges and container services.
   status: shipped
+  surface: internal
   slices: engine-host-harness
   adrs: ADR-0161
   spec: docs/specs/2026-06-28-engine-host-framework-design.md

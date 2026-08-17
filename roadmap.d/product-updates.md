@@ -13,6 +13,7 @@
   name: Authoring homes and fragment assembly
   scope: CHANGELOG.md and ROADMAP.md as the single authoring homes, fed by fragment directories assembled on main; propose-only docs-maintenance agent drafts entries.
   status: shipped
+  surface: internal
   adrs: ADR-0037, ADR-0104, ADR-0058
   evidence: changelog.d/ + docs/decisions/pending/ + status.d/ with build assemblers, plus the docs-sync routine (docs/specs/2026-07-14-docs-sync-routine-design.md, docs/maintenance/reports/2026-07-14-baseline.md).
 
@@ -48,6 +49,7 @@
   name: Live known issues / status
   scope: Incident/known-issue content in control-plane KV, written through an owner/admin RBAC-gated endpoint (and propose-only agents), read by an in-app banner with no deploy.
   status: partial
+  surface: awaiting-screen
   slices: service-status
   adrs: ADR-0048
   evidence: KV status snapshot, platform_operator principal, and status machinery shipped (packages/status, apps/status-worker, status.d/service-status.md — explicitly extends ADR-0048); the in-app banner does not exist.
@@ -106,11 +108,13 @@
   name: Per-feature user guides
   scope: End-user guides per shipped feature under docs/user/features/.
   status: partial
+  surface: awaiting-screen
   evidence: Guides exist for file-hash-integrity, file-unlock-password-recovery, metadata-inspector-scrubber, safe-website-viewer, shipping, whois-lookup, and network-speed-test; coverage tracks only a subset of shipped surfaces.
 
 - id: user-docs.same-commit-rule
   name: Docs-with-code maintenance rule
   scope: User docs change in the same commit as the feature, audited by the docs-sync routine.
   status: shipped
+  surface: internal
   adrs: ADR-0037, ADR-0058
   evidence: Golden rule in CLAUDE.md enforced by process; docs-sync routine operational (docs/maintenance/reports/2026-07-14-baseline.md).

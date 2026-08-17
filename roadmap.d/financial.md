@@ -23,6 +23,7 @@
   name: Reversals, never edits
   scope: Transactions are never edited, only reversed with new balancing entries; provable correctness and full history.
   status: shipped
+  surface: internal
   slices: 0-3-ledger-core-fixtures
   adrs: ADR-0072
   evidence: packages/ledger/src/reverse-entry.ts + invariants in validate.ts
@@ -124,6 +125,7 @@
   name: Manual entry and quick-add
   scope: Duration or start-end entry, free backdating, one-line quick-add parsing ("0.5 Smith — drafted demand letter").
   status: partial
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: time-entry-service.ts + quick-add-parser.ts + routes/time-entries.ts
   notes: Backend shipped; entry UI not built.
@@ -132,6 +134,7 @@
   name: Weekly timesheet grid
   scope: Matters-by-days grid for catching up a whole week.
   status: partial
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: listWeeklyGrid fan query in packages/timekeeping/src/queries.ts; source=grid provenance
   notes: Backend query shipped; the grid itself is UI, not built.
@@ -148,6 +151,7 @@
   name: Entry anatomy and audit
   scope: Date, timekeeper, required matter, duration, narrative, billable flag, resolved rate, optional UTBMS codes, non-billable category; every change audited.
   status: shipped
+  surface: internal
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: time-entry-statements.ts, non-billable-category-service.ts, audit.ts in packages/timekeeping
 
@@ -155,6 +159,7 @@
   name: Increments and rounding
   scope: Configurable minimum increment (default 0.1 hr) and rounding rule; firm default with per-client/per-matter override.
   status: shipped
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: packages/timekeeping/src/rounding.ts + scoped-setting resolver in settings.ts
 
@@ -162,6 +167,7 @@
   name: Effective-dated rate engine
   scope: Resolution chain matter rate, client rate, timekeeper standard, role default; multiple rate cards; an entry keeps the rate in force on its date.
   status: shipped
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: rate-resolution.ts, rate-service.ts, rate-validation.ts + routes/rate-cards.ts
 
@@ -169,6 +175,7 @@
   name: Narrative ergonomics
   scope: Snippet/abbreviation expansion, recent-narrative reuse, per-task-code templates.
   status: partial
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: narrative-template-service.ts + routes/narrative-templates.ts
   notes: Template store shipped; expansion/reuse ergonomics are capture-UI behaviors, not built.
@@ -177,6 +184,7 @@
   name: Draft-to-Billed lifecycle with optional review gate
   scope: Draft (editable) to Billed (locked) by default; firm-configurable Submitted/Approved gate, off by default; post-bill corrections are new adjusting entries.
   status: shipped
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
   evidence: packages/billing-core/src/lifecycle.ts (transition rules, isFrozen) + review-gate.ts (approvalRequired setting)
   notes: The Billed transition is driven at invoice finalize by packages/billing/src/finalize.ts, which may move an entry into billed and never back out; the capture screens the gate would appear on are not built.
@@ -185,6 +193,7 @@
   name: Time is WIP, not a ledger posting
   scope: Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing.
   status: partial
+  surface: internal
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger
   notes: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store.
@@ -193,6 +202,7 @@
   name: My Day visibility
   scope: Running billable/non-billable totals, missing-time detection, billable-hour targets (daily/monthly/annual), per-matter and calendar-overlay views.
   status: partial
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: my-day.ts (target shortfall + un-logged-day detection) + routes/my-day.ts; time.target_daily/monthly/annual_hours settings
   notes: Backend shipped; the My Day view is UI, not built; calendar overlay is a deferred Calendar-subsystem seam.
@@ -207,6 +217,7 @@
   name: UTBMS codes
   scope: UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
   status: shipped
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: utbms-catalog.ts, utbms-service.ts + routes/utbms-codes.ts; isEBillingMatter enforcement in time-entry-service.ts
 
@@ -234,6 +245,7 @@
   name: Per-client trust ledgers, no negative balance
   scope: Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
   status: partial
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
   evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; deposits, disbursements and matter-to-matter reallocations ship as domain operations in packages/trust/src/movements.ts behind required-idempotency routes
@@ -243,6 +255,7 @@
   name: Disbursement authorization policy (per-firm)
   scope: Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under.
   status: shipped
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion, resolveLoneTrustManagerException, resolveTrustAuthorizationDisposition); composeTrustDisbursementSubmission in packages/trust/src/disbursement-authorization.ts (proposal plus solo release, one batch); the seeded version-1 posture in packages/database/drizzle/per-firm/20260808T020000_trust-authority-default-posture.sql; policy-aware decision and transfer triggers in the per-firm migration; billing's applyEarnedFeesUnderAuthorizationPolicy in packages/billing/src/apply-authorization.ts; routes for the policy read/change, the disbursement submission, and the application submit/approve
   notes: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
@@ -251,6 +264,7 @@
   name: Bank-charge cushion (the firm-funds carve-out)
   scope: The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first.
   status: shipped
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/worker/src/routes/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
   notes: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
@@ -259,6 +273,7 @@
   name: Unclaimed client funds diligence file
   scope: Finding client money that has sat unmoved, recording the diligence done to return it, and closing the file against a payment somebody already made - never moving money and never asserting an obligation.
   status: shipped
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/research/2026-08-07-nevada-unclaimed-client-funds-escheat.md
   evidence: packages/trust/src/unclaimed-funds.ts holds readDormantTrustBalances (the only definition of dormancy anywhere - a comparison against a date the caller states, never a stored flag), the review, its contact attempts and its closure, plus the review read; five routes in apps/worker/src/routes/trust-unclaimed-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds per-firm migration; a trigger independently refuses a closure naming a payment out of another client's ledger
@@ -268,6 +283,7 @@
   name: No commingling
   scope: Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
   status: shipped
+  surface: internal
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0032
   evidence: packages/trust/src/composition-guard.ts refuses any entry mixing a trust account's accounts with anything outside it (which is also what leaves a processor fee nowhere to sit on a trust entry), plus a fitness query over posted lines; tests cover the netted-fee and client-to-client cases
@@ -294,6 +310,7 @@
   name: Multiple active jurisdictions per firm
   scope: Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location.
   status: partial
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: openTrustAccount in packages/trust/src/account-tree.ts binds every account to a location and to the jurisdiction derived from that office rather than chosen, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded none (jurisdiction-not-recorded in packages/trust/src/trust-validation.ts, deliberately distinct from not-encoded and not-verified)
   notes: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for.
@@ -302,6 +319,7 @@
   name: Interactive three-way reconciliation
   scope: Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account.
   status: partial
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0246
   evidence: the whole workflow is on main behind routes — packages/trust/src/bank-statements.ts (the recorded period and its lines), packages/trust/src/statement-import.ts (a preview that stores nothing, then a confirmation quoting the preview's fingerprint), packages/trust/src/matching.ts (ranked candidates a person confirms; nothing matches on its own), packages/trust/src/three-way-proof.ts (the statement, book and client-ledger legs plus the firm-funds cushion, computed from dated rows), and packages/trust/src/reconciliation.ts (open, the frozen close, the proof read) over apps/worker/src/routes/trust-reconciliation.ts and the 20260805T200000_trust-reconciliation per-firm migration
@@ -312,6 +330,7 @@
   name: Zero-balance close precondition
   scope: Registers "all bills paid, no remaining balance" on the matter close-precondition hook.
   status: shipped
+  surface: internal
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: packages/trust/src/close-precondition.ts exports matterTrustClosePrecondition and readMatterTrustPositions, registered on the matter shell's hook by the composition root in apps/worker/src/routes/matters.ts; the same question is re-asked inside the close batch by refuseMatterCloseWithTrustBalanceStatement, so a deposit landing mid-close aborts it, and packages/trust/test/close-precondition.test.ts covers both layers
   notes: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts.
@@ -339,6 +358,7 @@
   name: Hourly billing
   scope: Hourly bills from billable WIP time at resolved rates.
   status: shipped
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/draft.ts (lines composed from each entry's own rate snapshot; billing never re-resolves a rate; a flat-fee or contingency matter refuses hourly time claims by name)
 
@@ -346,6 +366,7 @@
   name: Flat/fixed fee
   scope: Flat and fixed-fee billing.
   status: shipped
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/flat-fee.ts (one flat_fee line from the agreement; contributing time claimed at zero for realization; instalments representable with over-billing reported by flatFeeBilledBeyondArrangementStatement)
 
@@ -353,6 +374,7 @@
   name: Contingency and settlement statements
   scope: Contingency agreements (share, costs-before-or-after election), recorded recoveries, and the fee derived at invoice time; settlement disbursement statements splitting client share, fee, costs, and liens.
   status: partial
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/contingency.ts (matter_recovery records the fact; the fee is always derived at composition, never stored as a decided number)
   notes: The fee model is shipped; settlement disbursement statements and lien handling stay deferred to a later financial slice, once a real matter demands them.
@@ -361,6 +383,7 @@
   name: Retainer/evergreen
   scope: Retainer and evergreen billing with auto-replenishment alerts below threshold.
   status: partial
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/retainer.ts (target and floor on the agreement; floor status from trust's available figure; retainer_replenishment_request with the billing.retainer.replenishment_requested topic)
   notes: The record and the topic are shipped; the automated below-floor alert belongs to the billing-automations slice, which consumes this same event.
@@ -378,6 +401,7 @@
   name: Contingency shrunk-basis residual
   scope: Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding.
   status: shipped
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: readContingencyResidual in packages/billing/src/contingency.ts (the amount and the fee lines a correction would be aimed at) and contingencyBilledBeyondEntitlementStatement in packages/billing/src/fitness.ts (billed read net of credits attributed through credit_note_line.credits_invoice_line_id)
   notes: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it.
@@ -386,6 +410,7 @@
   name: Invoice composition
   scope: Bills combine time/fees plus costs plus taxes.
   status: partial
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/worker/src/routes/billing.ts.
   notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
@@ -394,6 +419,7 @@
   name: Invoice delivery record
   scope: An append-only row per attempt at giving a client a bill — channel, recipient reference, date, external reference, outcome, and who recorded it — plus the delivery-state read the apply-funds surface shows.
   status: partial
+  surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
   evidence: the invoice_delivery table and its append-only, finalized-bill and not-before-issue triggers in the 20260817T000000_billing-invoice-delivery per-firm migration, recordInvoiceDelivery in packages/billing/src/delivery.ts, readInvoiceDeliveries / readInvoiceDeliveryState / readInvoiceDeliveryStates in packages/billing/src/statements.ts (the state also rides readInvoiceDetail), and the record and list routes in apps/worker/src/routes/billing.ts
   audience: public
@@ -412,6 +438,7 @@
   name: WIP to A/R posting at finalize
   scope: At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock.
   status: shipped
+  surface: internal
   slices: 3-4-billing-and-invoicing
   evidence: finalizeInvoice in packages/billing/src/finalize.ts locks every claimed entry into billed through the shared freeze contract, resolves each line's posting role (fee income, client costs advanced for a hard cost, cost-recovery income for a soft one, tax payable, fee adjustments) and writes the receivable ledger entry in the same batch, guarded so an entry that moved underneath the read fails the commit rather than leaving a finalized invoice with an unlocked entry; served by the finalize route in apps/worker/src/routes/billing.ts.
   notes: Backend only, no screen.
@@ -426,6 +453,7 @@
   name: Per-matter e-billing flag
   scope: Per-matter flag driving required-code validation upstream in time and cost capture.
   status: shipped
+  surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
   evidence: selectMatterEBillingStatement read by both time-entry-service.ts and cost-entry-service.ts
   notes: Landed early per the phase-3 slice map coordination pin.
@@ -505,6 +533,7 @@
   name: Cost entry anatomy
   scope: Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation.
   status: partial
+  surface: awaiting-screen
   slices: 3-3-costs-expenses-disbursements
   evidence: cost-entry-service.ts, cost-validation.ts (shared UTBMS catalog; isEBillingMatter check)
   notes: Backend shipped; entry UI not built.
@@ -513,6 +542,7 @@
   name: Hard costs as client receivable
   scope: Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back.
   status: partial
+  surface: awaiting-screen
   slices: 3-3-costs-expenses-disbursements
   evidence: hard-cost capture as billable WIP in packages/costs
   notes: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built.
@@ -521,6 +551,7 @@
   name: Soft/in-house costs
   scope: In-house costs (printing, copies) tracked separately from hard costs.
   status: partial
+  surface: awaiting-screen
   slices: 3-3-costs-expenses-disbursements
   evidence: hard/soft distinction in cost entry model
   notes: Backend shipped; UI not built.
@@ -543,6 +574,7 @@
   name: Shipping cost auto-capture
   scope: Purchased shipments flow into recoverable cost charges via the shipment.purchased outbox seam.
   status: shipped
+  surface: internal
   slices: 3-3-costs-expenses-disbursements, shipping-postage-backend
   evidence: recoverable-charge.ts + recovery-policy.ts in packages/costs; the codebase's first per-firm queue consumer (status.d/3-3)
 

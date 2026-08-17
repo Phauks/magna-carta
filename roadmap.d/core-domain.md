@@ -29,6 +29,7 @@
   name: Entity categories
   scope: Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   evidence: packages/directory/src/categories.ts; category repointing handled in merge.ts
   notes: Backend shipped; category management UI not built.
@@ -37,6 +38,7 @@
   name: Category-specific custom fields
   scope: Category-specific data (bar number, jurisdiction, specialty/rate) defined through the shared custom-fields engine; add-only, equal depth preserved.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory, 1-4-custom-fields-engine
   adrs: ADR-0087
   evidence: packages/custom-fields consumed for directory entities per ADR-0087
@@ -46,6 +48,7 @@
   name: Structured names and name history
   scope: Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts
   notes: Backend shipped including phonetic codes on every name row; UI not built.
@@ -54,6 +57,7 @@
   name: Pronouns on a person
   scope: Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory, 2-6-document-automation
   evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
   awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
@@ -71,6 +75,7 @@
   name: Affiliations (person-org)
   scope: Typed, dated person-to-organization links (officer, employee, partner, member, registered agent, attorney-at-firm) with per-contact flags (primary, billing, do-not-contact).
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   evidence: edge_type "affiliation" with role qualifier + valid_from/valid_to in edges.ts
   notes: Typed/dated edges shipped; the promised contact flags (primary/billing/do-not-contact) were not found in the schema or package.
@@ -79,6 +84,7 @@
   name: Relationships (person-person, org-org)
   scope: Typed relationship edges — spouse/family, guardian/ward, trustee, beneficiary, business partner; corporate parent/subsidiary/successor/affiliate — feeding conflicts, estate planning, corporate work.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   evidence: EDGE_TYPES includes relationship, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts
   notes: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.
@@ -87,6 +93,7 @@
   name: Representation edges
   scope: Counsel-represents-party edges scoped within a matter.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   evidence: EDGE_TYPES includes "representation" in packages/directory/src/types.ts
   notes: Backend edge type shipped; no UI.
@@ -95,6 +102,7 @@
   name: Matter role assignments
   scope: Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory, 1-1-matters-locations-file-manager
   evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity))
   notes: Backend shipped; party management UI not built.
@@ -111,6 +119,7 @@
   name: Field-level encryption and access control
   scope: Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
   status: shipped
+  surface: internal
   slices: 1-2-protected-crypto-module, 1-3-directory
   adrs: ADR-0084
   spec: docs/specs/2026-06-12-slice-1-2-protected-crypto-module-design.md
@@ -120,6 +129,7 @@
   name: Duplicate detection
   scope: Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates.
   status: partial
+  surface: awaiting-screen
   slices: 1-3-directory
   adrs: ADR-0086
   evidence: findDuplicateCandidates export (phonetic-block, trigram, blind-index equality) in packages/directory/src/search.ts, phonetics.ts
@@ -146,6 +156,7 @@
   name: Soft-delete and archival
   scope: Entities referenced by a matter or the conflicts log are archived, never hard-deleted.
   status: shipped
+  surface: internal
   slices: 1-3-directory
   evidence: deleted_at soft-delete columns throughout directory statements; merged subordinate archived with status merged_into
 
@@ -153,6 +164,7 @@
   name: Temporal history and audit
   scope: Key fields (names, addresses, affiliations, roles) time-bounded (valid-from/valid-to) to answer "what was true then"; every change audited (who/what/when).
   status: shipped
+  surface: internal
   slices: 1-3-directory
   evidence: valid_from/valid_to on directory_edge; name-history current/former flips; packages/directory/src/audit.ts
 
@@ -181,6 +193,7 @@
   name: Matter parties
   scope: Parties attached via Directory role-links; multiple roles per entity on one matter.
   status: partial
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
   evidence: packages/directory/src/party.ts wired to matters
   notes: Backend shipped; UI not built.
@@ -198,6 +211,7 @@
   name: Location segment in numbering
   scope: Optional location segment/prefix in the numbering scheme.
   status: shipped
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: location_code segment kind in packages/matters/src/numbering/segments.ts
 
@@ -221,6 +235,7 @@
   name: Optional home Location
   scope: A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise.
   status: partial
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: matter-location reference + location_code numbering segment on main
   notes: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice.
@@ -238,6 +253,7 @@
   name: Consultations (prospective matters)
   scope: Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
   status: partial
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
   evidence: prospective status with no number/counter in matter-service.ts; consultation queries with staleness in queries.ts
@@ -248,6 +264,7 @@
   name: Close-precondition hook
   scope: Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance".
   status: shipped
+  surface: internal
   slices: 1-1-matters-locations-file-manager
   evidence: packages/matters/src/close-preconditions.ts (registry empty by design at this layer)
   notes: The zero-balance rule registration belongs to the trust slice and is not yet registered.
@@ -256,6 +273,7 @@
   name: Stale-consultation policy and bulk close
   scope: Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history.
   status: partial
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: staleAgeDays setting in packages/matters/src/settings.ts; isStale flag in queries.ts
   notes: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found.
@@ -273,6 +291,7 @@
   name: Content hash on every stored object
   scope: SHA-256 computed at write time for fixity, delta verification, duplicate detection, upload short-circuit, scan-verdict caching, and no-op version skip.
   status: shipped
+  surface: screen
   slices: file-hash-integrity, 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0078
   spec: docs/specs/2026-06-23-file-hash-integrity-design.md
@@ -292,6 +311,7 @@
   name: Async bulk-download jobs
   scope: Seam switching very large bundles to an async job producing an R2 artifact behind a signed URL.
   status: shipped
+  surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   evidence: apps/bundle-worker + routes/bundle-status.ts; docs/specs/2026-06-17-slice-2-1-plan-3-async-bulk-download-implementation-plan.md
   notes: White paper scoped v1 to live-stream only; the async path was built anyway per the 2-1 plan.
@@ -300,6 +320,7 @@
   name: Direct-to-R2 inbound upload
   scope: Worker mints presigned URLs and records metadata; presigned PUT for small files, resumable S3 multipart above a threshold; per-firm max-size/content-type policy enforced at presign and re-verified at the quarantine gate.
   status: shipped
+  surface: screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0081
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
@@ -318,6 +339,7 @@
   name: Pre-acceptance gates
   scope: Authenticated upload, per-firm size and content-type allow-list, magic-byte validation, decompression-bomb and nested-archive guards, filename sanitization.
   status: shipped
+  surface: internal
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   evidence: packages/file-type verifier; pdf-decompression-guard specs built; per-firm scan policy landed (status.d/2-1)
 
@@ -325,6 +347,7 @@
   name: Quarantine-on-arrival
   scope: Bytes land not visible/servable/indexed until cleared; async scan via R2 event, Queue, scanner; verdict stored as file metadata; quarantine, never auto-delete.
   status: shipped
+  surface: internal
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   evidence: ingest consumer + quarantine status gate per the 2-1 design; status.d/2-1 built
 
@@ -332,6 +355,7 @@
   name: Malware scan engine port
   scope: Scanning as a swappable port with one or more engines behind it; no privileged bytes leave firm-controlled infrastructure.
   status: partial
+  surface: internal
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   evidence: YARA Forge rules + raw-facts engine + score-histogram seam landed (status.d/2-1); apps/scan-worker
   notes: Baseline engines shipped; the concrete commercial engine choice is explicitly deferred behind the port (its own future ADR).
@@ -347,6 +371,7 @@
   name: Safe delivery (structural)
   scope: Separate cookieless sandbox origin, CSP, iframe sandbox, safe-rendition preview defeating stored-XSS uploads.
   status: shipped
+  surface: internal
   slices: 2-3-inline-preview-safe-delivery-sandbox
   adrs: ADR-0115
   spec: docs/specs/2026-06-19-slice-2-3-inline-preview-safe-delivery-design.md
@@ -357,6 +382,7 @@
   name: Continuous re-scan
   scope: Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits.
   status: partial
+  surface: internal
   evidence: access-triggered rescan built (rescan handling in apps/scan-worker; docs/specs/2026-06-22-access-triggered-rescan-design.md + implementation plan)
   notes: Access-triggered rescan exists; the signature-update cron sweep was not verified in tree.
 
@@ -377,6 +403,7 @@
   name: Location fields
   scope: Name/label, active/closed status, physical addresses + contact info, jurisdiction, letterhead and branding assets (logo, address block, footer, remit-to), optional matter-number prefix/segment.
   status: partial
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: location-service.ts carries jurisdiction, remitTo, one physical + one mailing address, status
   notes: Core fields shipped; branding assets (logo, address block, footer) beyond remit-to were not found — they land with document automation consumers.
@@ -385,6 +412,7 @@
   name: Staff assignment
   scope: Users belong to one or more locations with exactly one designated primary.
   status: shipped
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: member-location assignments with exactly-one-primary validation in packages/locations/src/location-service.ts
 
@@ -397,6 +425,7 @@
   name: Location on matters
   scope: Optional home-Location reference supplying number prefix and firm-default fallback.
   status: shipped
+  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: matter home-location reference + location_code numbering segment on main
 
@@ -404,6 +433,7 @@
   name: Location on trust accounts
   scope: Each trust account associated with a Location; jurisdiction trust-rule profile binds per account.
   status: partial
+  surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
   evidence: the trust_account row carries location_id and the jurisdiction derived from that office, written by openTrustAccount in packages/trust/src/account-tree.ts, and packages/trust/src/movements.ts refuses every movement on an account whose office recorded no jurisdiction
@@ -427,6 +457,7 @@
   name: Location as filter, not gate
   scope: Location is a view/reporting filter; data stays firm-wide open by default; hard per-location separation is a reserved seam.
   status: shipped
+  surface: internal
   adrs: ADR-0068
   evidence: ADR-0068 access-control model; no location gating in the access-control registry
 
@@ -434,6 +465,7 @@
   name: Location soft-delete
   scope: A Location referenced by a matter, trust account, or custody record is closed/archived, never hard-deleted.
   status: shipped
+  surface: internal
   slices: 1-1-matters-locations-file-manager
   evidence: closeLocation + active/closed status in location-service.ts; no hard-delete path
 
@@ -454,6 +486,7 @@
   name: Typed fields and values
   scope: Typed field definitions with value coercion, picklist options, and limits.
   status: shipped
+  surface: awaiting-screen
   slices: 1-4-custom-fields-engine
   evidence: types.ts, coercion.ts, picklist-option-service.ts, limits.ts in packages/custom-fields/src
 
@@ -461,6 +494,7 @@
   name: Stable field identity
   scope: Renaming a field never breaks stored data or templates.
   status: shipped
+  surface: internal
   slices: 1-4-custom-fields-engine
   evidence: identity-keyed typed-EAV model in custom-field-service.ts; rename is metadata-only
 
@@ -468,6 +502,7 @@
   name: Non-destructive retype
   scope: Retyping is a guided, reversible convert.
   status: shipped
+  surface: awaiting-screen
   slices: 1-4-custom-fields-engine
   evidence: packages/custom-fields/src/convert.ts
   notes: The guided UX is UI and not built; the reversible conversion machinery is.
@@ -476,6 +511,7 @@
   name: Archive and gated purge
   scope: Retiring a field archives it without losing history; purge is gated.
   status: shipped
+  surface: awaiting-screen
   slices: 1-4-custom-fields-engine
   evidence: packages/custom-fields/src/purge.ts; archive/gated-purge noted in status.d/1-4
 
@@ -483,6 +519,7 @@
   name: Temporal history and audit
   scope: Value history retained over time; changes audited.
   status: shipped
+  surface: internal
   slices: 1-4-custom-fields-engine
   evidence: temporal history in status.d/1-4; packages/custom-fields/src/audit.ts
 
@@ -490,6 +527,7 @@
   name: Searchable, reportable, automation-usable
   scope: Custom fields usable in search, reporting, and document automation.
   status: partial
+  surface: awaiting-screen
   slices: 1-4-custom-fields-engine
   evidence: typed reads in packages/custom-fields/src/reads.ts; the document-automation consumer is packages/document-assembly/src/custom-field-bindings.ts, deriving one dictionary entry per active matter-axis field at read time.
   notes: Document automation consumes matter-axis fields as `custom.<handle>` merge keys; the reporting consumer does not exist. A field on the entity or matter-asset axis is deliberately not a merge key — a `custom.<handle>` is a scalar and an assembly has only the matter's row to resolve one against.
@@ -510,6 +548,7 @@
   name: The asset row and the class spine
   scope: An asset rooted NOT NULL to one matter, a closed ten-value platform class, a per-firm type catalog under that class, a frozen class, an asserted estate treatment and disposition, and soft delete.
   status: partial
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset / matter_asset_type in packages/database/src/per-firm-schema.ts; packages/matter-assets/src/{asset,asset-type}-service.ts and src/classes.ts.
@@ -519,6 +558,7 @@
   name: Per-class structured attributes
   scope: One one-to-one attribute table per class that has structure, with indexes on the identifiers people search by; no table for a class that has none.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: eight one-to-one attribute tables in packages/database/src/per-firm-schema.ts, with searchable indexes on parcel_number, vehicle_identification_number, plate_number and serial_number; packages/matter-assets/src/asset-service.ts drives them from one table of builders.
@@ -528,6 +568,7 @@
   name: Append-only valuation history and the as-of read
   scope: Dated valuations on a closed basis vocabulary, corrected by compensating rows, with the as-of resolution that returns amount, date, and basis together — and no current-value column anywhere.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset_valuation with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers in packages/database/drizzle/per-firm/20260806T020000_matter-assets.sql; packages/matter-assets/src/{valuation-service,as-of}.ts.
@@ -537,6 +578,7 @@
   name: Interests held by directory entities
   scope: Who holds a stake, under a firm-configurable label, as a rational share, temporally end-dated rather than deleted.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset_interest + packages/matter-assets/src/interest-service.ts; the label catalog reuses the custody ownership-role setting shape.
@@ -546,6 +588,7 @@
   name: Document links over ordinary matter files
   scope: Many-to-many links from an asset to already-ingested matter files, with no upload path of its own.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset_document + packages/matter-assets/src/document-link-service.ts; bytes ride the File Manager's presigned-upload and quarantine chokepoint only.
@@ -555,6 +598,7 @@
   name: Protected identifiers and the credential refusal
   scope: Full account, policy, certificate, and tax numbers sealed with only the last four characters readable; public-record identifiers left plaintext and searchable; credentials refused outright.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset_identifier.value_ciphertext in packages/database/src/protected-columns.ts; packages/matter-assets/src/identifier-service.ts reads only through the data-access protected chokepoint.
@@ -564,6 +608,7 @@
   name: Encumbrances and net equity
   scope: Mortgages, liens, and security interests with their own dated balances, and equity computed per currency as of a date.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset_encumbrance + packages/matter-assets/src/{encumbrance-service,equity}.ts; a balance is a matter_asset_valuation row naming the encumbrance, resolved by the same as-of shape.
@@ -573,6 +618,7 @@
   name: The estate schedule
   scope: Grouped by class as of a date, with value, basis, actual as-of date, unreleased encumbrances, equity, per-class subtotals per currency, and a stated unvalued count.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: packages/matter-assets/src/schedule.ts behind GET /api/v1/matters/{matterId}/asset-schedule — five batched reads for a whole matter, never one per asset.
@@ -582,6 +628,7 @@
   name: Class handling notices
   scope: A standing, non-jurisdictional sentence on a class whose type carries known legal handling, rendered and acted on by nothing.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: the firearm note in packages/matter-assets/src/classes.ts, guarded by a test asserting it names no jurisdiction, cites no statute, and carries no numeral.
@@ -591,6 +638,7 @@
   name: The custody item link
   scope: One nullable column joining a scheduled asset to the custody item that physically holds it, with neither side copying the other's facts.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset.custody_item_id set and cleared through the patch route; packages/matter-assets/src/custody-link-statements.ts composes location, status and hold state by reading Custodian, and test/custody-link.test.ts scans the source in both directions.
@@ -600,6 +648,7 @@
   name: Asset subjects in the merge catalogue
   scope: Collection-only merge subjects per class plus an aggregate, filled by one new assembly source, with value and its date declared together and no protected value as a facet.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: the assetClass subject kind and eleven subjects in packages/document-assembly/src/catalog/subjects.ts, filled by the one `asset` source in src/resolve.ts; packages/document-assembly/test/asset-subjects.test.ts holds the collection-only rule and test/resolve-batching.test.ts the one-read budget.
@@ -609,6 +658,7 @@
   name: The firm's own fields on an asset
   scope: custom_field.target widened to matterAsset, scoped per class through the engine's existing attachment_id column, with the asset detail returning each scoped field and this asset's value for it.
   status: shipped
+  surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/worker/src/routes/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/worker/test/matter-assets-routes.test.ts.

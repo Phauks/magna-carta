@@ -16,6 +16,7 @@
   name: Redact-by-default event model
   scope: Three data classes (metadata / opaque identifiers / content-never); allowlist event assembly with a boundary scrubbing pass.
   status: shipped
+  surface: internal
   adrs: ADR-0017
   evidence: packages/telemetry/src/scrub.ts + event.ts/events.ts allowlist construction; standard at docs/conventions/error-logging.md.
 
@@ -23,12 +24,14 @@
   name: Correlation & Error IDs
   scope: Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   status: shipped
+  surface: internal
   evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/worker/src/telemetry-middleware.ts.
 
 - id: observability.operational-telemetry
   name: Always-on operational telemetry
   scope: Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID.
   status: shipped
+  surface: internal
   slices: 0-6-telemetry-baseline-platform-closeout
   adrs: ADR-0074
   spec: docs/specs/2026-06-09-slice-0-6-telemetry-baseline-design.md
@@ -48,6 +51,7 @@
   name: Error pages with trace identity
   scope: Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
   status: shipped
+  surface: screen
   evidence: apps/web/src/routes/+error.svelte + changelog.d/developer-console-and-error-tracing.md.
 
 - id: observability.client-reporter.breadcrumbs
@@ -60,6 +64,7 @@
   name: Report a problem affordance
   scope: Always-available help-menu reporting usable without a crash.
   status: partial
+  surface: screen
   evidence: Profile-menu "Report a bug" dialog assembles a paste-ready trace-grade report (changelog.d/settings-foundation-and-profile-menu.md); in-app submission to the ingest endpoint not wired.
 
 - id: observability.client-reporter.send-to-developer
@@ -79,6 +84,7 @@
   name: Incident ingest endpoint
   scope: POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/routes/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
 
 - id: observability.incidents.screenshot
@@ -125,24 +131,28 @@
   name: Server-side reached/completed events
   scope: Route-to-feature middleware for reached; outbox sweep topic-to-feature for completed; versioned feature taxonomy.
   status: shipped
+  surface: internal
   evidence: apps/worker/src/usage/ (reached-middleware.ts, completed.ts, feature-map.ts) + packages/telemetry/src/usage-features.ts.
 
 - id: observability.usage-analytics.pseudonymization
   name: HMAC pseudonymization
   scope: firmId/userId HMAC-pseudonymized under a server pepper before write; missing pepper drops the event (fail-closed).
   status: shipped
+  surface: internal
   evidence: packages/telemetry/src/pseudonymize.ts.
 
 - id: observability.usage-analytics.consent
   name: Usage-analytics consent resolution
   scope: Firm-level enable (default on) with per-member opt-out, resolved off the hot path via a cached resolver.
   status: shipped
+  surface: awaiting-screen
   evidence: apps/worker/src/usage/consent.ts + packages/data-access/src/usage-consent-statements.ts.
 
 - id: observability.usage-analytics.aggregate-queries
   name: Aggregate queries with small-n suppression
   scope: Cross-firm aggregate-only queries, k=5 suppression with suppressed counts reported separately; canonical query set.
   status: shipped
+  surface: internal
   evidence: packages/telemetry/src/usage-suppression.ts + docs/analytics/usage-queries.md.
 
 - id: observability.usage-analytics.client-beacon
@@ -155,6 +165,7 @@
   name: Public service status page
   scope: Isolated status Worker (KV-only) rendering zero-JS server-side HTML: live snapshot, 90-day per-component uptime history, upstream-provider advisories, subscribe panel.
   status: shipped
+  surface: awaiting-screen
   slices: service-status
   adrs: ADR-0048
   spec: docs/specs/2026-07-02-service-status-design.md
@@ -168,6 +179,7 @@
   name: Audited support access
   scope: Pull-not-push help-desk access: time-boxed audited support_grant, diagnostic vs privileged-self tiers.
   status: shipped
+  surface: awaiting-screen
   slices: support-access-framework
   adrs: ADR-0157
   evidence: apps/worker/src/support/ + routes/support-grants.ts, support-sessions.ts, support-diagnostics.ts.

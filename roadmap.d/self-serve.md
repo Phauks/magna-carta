@@ -19,6 +19,7 @@
   name: Self-serve firm registration
   scope: The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed.
   status: shipped
+  surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0280
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md

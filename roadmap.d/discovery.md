@@ -27,6 +27,7 @@
   name: Discovery engine core
   scope: Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion.
   status: shipped
+  surface: internal
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: crates/discovery-core (dual-target, no C-backed feature on any path, asserted by a manifest test) behind containers/discovery + apps/discovery-worker; the passage chunker moved out of packages/search/src/extraction.ts with its corpus.
@@ -36,6 +37,7 @@
   name: Composite extraction port
   scope: Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran.
   status: partial
+  surface: internal
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: apps/worker/src/search/text-extraction.ts routes through DISCOVERY_SERVICE, falls back to the in-Worker PDF reader plus recognition when it is unbound, and converts a legacy binary through the consented office container before reading the conversion with the memory-safe engine; the route and the recognized-page count land on review_document (20260815T000000_discovery-processing-route) and the per-page provenance in the R2 sidecar.
@@ -45,6 +47,7 @@
   name: Processing queue lane
   scope: The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state.
   status: partial
+  surface: internal
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: The DISCOVERY_PROCESS queue and its dead-letter queue, the keyset-paged dispatch walk in apps/worker/src/discovery/dispatch-processing.ts resuming from the coordinator's durable cursor, and apps/worker/src/discovery/process-consumer.ts writing extracted text and the metadata sidecar to R2, the derived scalars to the row, and a named exception code for every non-success. The remainder is built: deduplication before a byte is read with occurrence rows (apps/worker/src/discovery/deduplication.ts, held by the partial unique index in 20260816T090000_discovery-dedup-and-report), container families over the engine's guarded expansion (apps/worker/src/discovery/archive-expansion.ts), and the manifest and exception report streamed to R2 at load completion (apps/worker/src/discovery/load-artifacts.ts over the pure builders in packages/discovery/src/manifest.ts). Twenty-one cases in apps/worker/test/discovery-process-consumer.test.ts and twenty in packages/discovery/test/{dedup,manifest}.test.ts.
@@ -54,6 +57,7 @@
   name: Load manifest and exception report
   scope: The two records a load produces — what arrived, and every document that could not be read with the named reason for each — written once to R2 in a machine-readable and a printable form.
   status: shipped
+  surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: Pure builders that take the knowledge instant as an argument and read no clock (packages/discovery/src/manifest.ts, proved byte-identical across two renders and source-scanned for a clock in packages/discovery/test/manifest.test.ts); keyset-ordered walks in packages/discovery/src/manifest-statements.ts; the streaming writer and the completion guard in apps/worker/src/discovery/load-artifacts.ts, which refuses to write while the load's counters and its rows disagree. User guide: docs/user/features/discovery-exception-report.md.
@@ -65,6 +69,7 @@
   name: Review-set model
   scope: The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest.
   status: partial
+  surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
@@ -74,6 +79,7 @@
   name: Load source lanes
   scope: Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system.
   status: partial
+  surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: Both internal lanes resolve a selection into review documents with no byte moved and the version pinned, refusing a quarantined version and a cross-matter selection by name; email enters as a family over the shipped email_attachment links. The received-production lane has its destination and reconciliation; its upload path is the existing quarantine gate unchanged.
@@ -83,6 +89,7 @@
   name: OCR engine
   scope: PaddleOCR PP-OCR models run as ONNX through a Rust ort pipeline, one pinned versioned model set for server Container and desktop.
   status: shipped
+  surface: internal
   slices: ocr-engine
   adrs: ADR-0060
   spec: docs/specs/2026-07-09-ocr-engine-design.md
@@ -102,6 +109,7 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   status: shipped
+  surface: internal
   evidence: The engine enumerates and expands an archive under five guards (crates/discovery-core/src/archive.rs) and the discovery processing lane wires that expansion into a real family (apps/worker/src/discovery/archive-expansion.ts): every entry re-enters the ordinary ingest gate by the path email attachments already take, entries become container-child documents of the archive sorted by path, the archive becomes the family head, and every entry the engine described rather than opened becomes a named exception carrying a count and a kind. Expansion is one level per document because the engine already recursed to its own nesting ceiling. Four cases in apps/worker/test/discovery-process-consumer.test.ts. File Manager archives stay opaque.
   notes: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all. The narrow exception is scoped to this lane and nowhere else.
 
@@ -121,6 +129,7 @@
   name: Tantivy keyword search
   scope: Tantivy (Rust) behind a swappable index interface.
   status: partial
+  surface: awaiting-screen
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
   evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, generation gating, the range-reading directory (a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks — an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail), a SplitSearcher that holds a split open across queries (2 warm reads against 40 cold at the smoke tier), a ranged multi-split query, and the COMPACTION merge — a segment-level merge over ranged readers that applies a delete set and repacks, measured by crates/search-eval at 9x fewer ranged reads over 10 splits for the identical hits. The RangeReader's R2 adapter now exists end to end: containers/search wraps the crate in an axum service whose HttpRangeReader issues one HEAD plus exactly one closed-Range GET per engine read, apps/search-worker owns that Container with enableInternet false and intercepts its object calls (outboundByHost) into the app Worker, and apps/worker/src/search/split-object-host.ts verifies a per-operation corpus-scoped HMAC capability token, resolves the firm's bucket through the one home for that decision, refuses an unranged GET outright, and stamps a published split object_class search-split. All unit-tested, including the adapter over a real socket against a recording object host. Still dormant end to end — resolveSearchIndexPort returns the deferred port until SEARCH_SERVICE is bound, so activation is the deploy step in docs/deploy-queue.md. Deferred within the design: the container's warm split cache (a cached searcher would answer from bytes authorized on an earlier call, and its sizing needs a resident corpus) and the footer pruning digest, both within the same format. The app-Worker half of compaction — the threshold trigger, the per-corpus coordinator, the queue consumer, the atomic catalog swap, and the retirement sweep — is built and wired-but-dormant behind the same port.
 
@@ -154,6 +163,7 @@
   name: Tagging and coding
   scope: Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage.
   status: partial
+  surface: awaiting-screen
   slices: 5-2-discovery-review-workflow
   adrs: ADR-0262
   spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
@@ -164,6 +174,7 @@
   name: Redaction
   scope: Applied redactions on documents under review.
   status: partial
+  surface: awaiting-screen
   slices: pdf-render-engine
   adrs: ADR-0134
   spec: docs/specs/2026-06-22-pdf-slice-2-redaction-design.md
@@ -195,6 +206,7 @@
   name: Bates numbering engine
   scope: Bates stamping of produced documents.
   status: shipped
+  surface: awaiting-screen
   adrs: ADR-0142
   spec: docs/specs/2026-06-23-pdf-bates-numbering-design.md
   evidence: crates/pdf-core/src/bates.rs plus configurability plan (docs/specs/2026-06-25-pdf-bates-configurability-plan.md).
@@ -210,6 +222,7 @@
   name: Defensibility
   scope: Per-document hashing, content-addressed storage, chain of custody, audit log.
   status: partial
+  surface: internal
   slices: file-hash-integrity
   adrs: ADR-0143
   evidence: File hash integrity shipped (packages/file-integrity; user guide docs/user/features/file-hash-integrity.md); chain-of-custody and production audit trail not built.

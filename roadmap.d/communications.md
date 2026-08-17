@@ -24,6 +24,7 @@
   name: Transactional email adapter
   scope: Billing/system mail through a transactional provider adapter.
   status: shipped
+  surface: internal
   slices: 0-6-telemetry-baseline-platform-closeout
   adrs: ADR-0074, ADR-0100
   evidence: Email Service adapter shipped with slice 0-6 (status.d fragment); company account-of-record decided in ADR-0100.
@@ -42,6 +43,7 @@
   name: Capture-address management
   scope: Minting, rotating, and revoking the forward/CC capture address a matter files mail through, plus the firm's single catch-all address.
   status: shipped
+  surface: awaiting-screen
   slices: email-filing
   adrs: ADR-0193, ADR-0202
   spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
@@ -52,6 +54,7 @@
   name: Auto-file rules
   scope: Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture.
   status: partial
+  surface: awaiting-screen
   slices: email-filing
   spec: docs/specs/2026-08-05-auto-file-rules-design.md
   evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, and the emails:manageAutoFileRules capability with its role seed.
@@ -61,6 +64,7 @@
   name: Email parse core
   scope: Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route.
   status: shipped
+  surface: awaiting-screen
   slices: email-core-parse-engine
   spec: docs/specs/2026-07-09-email-core-parse-engine-design.md
   evidence: crates/email-core + packages/email on main, tested (status.d fragment); LZFu compressed-RTF decoder added (docs/specs/2026-07-10-lzfu-compressed-rtf-decoder-design.md, changelog.d/lzfu-compressed-rtf.md).

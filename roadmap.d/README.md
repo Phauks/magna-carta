@@ -29,29 +29,61 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
   notes: Text-preserving surgery route shipped separately
 ```
 
-| Key              | Required | Meaning                                                                                     |
-| ---------------- | -------- | ------------------------------------------------------------------------------------------- |
-| `id`             | yes      | Dotted kebab-case path; the segment count is the tree depth; stable forever                 |
-| `name`           | yes      | Short display name                                                                          |
-| `scope`          | yes      | One factual line — an index entry, not prose                                                |
-| `status`         | yes      | See vocabulary below                                                                        |
-| `slices`         | no       | Comma-separated `status.d/` slugs this capability's build is tracked under                  |
-| `adrs`           | no       | Comma-separated `ADR-NNNN` (must exist in `docs/decisions/`)                                |
-| `spec`           | no       | One `docs/specs/` path                                                                      |
-| `evidence`       | no       | One line naming the artifact that justifies the status (package, crate, route)              |
-| `audience`       | no       | `public` publishes the node to the public roadmap; `internal` (the default) does not        |
-| `public-name`    | no       | The name users see; defaults to `name`. Set it when the internal name is builder vocabulary |
-| `public-summary` | no       | One sentence of user language. **Required whenever `audience: public`** — never defaulted   |
-| `awaiting-owner` | no       | One line: the question blocking this capability on an owner decision. Presence is the flag  |
-| `notes`          | no       | One line of qualification                                                                   |
+| Key              | Required  | Meaning                                                                                     |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `id`             | yes       | Dotted kebab-case path; the segment count is the tree depth; stable forever                 |
+| `name`           | yes       | Short display name                                                                          |
+| `scope`          | yes       | One factual line — an index entry, not prose                                                |
+| `status`         | yes       | See vocabulary below                                                                        |
+| `slices`         | no        | Comma-separated `status.d/` slugs this capability's build is tracked under                  |
+| `adrs`           | no        | Comma-separated `ADR-NNNN` (must exist in `docs/decisions/`)                                |
+| `spec`           | no        | One `docs/specs/` path                                                                      |
+| `evidence`       | no        | One line naming the artifact that justifies the status (package, crate, route)              |
+| `surface`        | see below | `screen` · `awaiting-screen` · `internal` — whether a person can reach it                   |
+| `audience`       | no        | `public` publishes the node to the public roadmap; `internal` (the default) does not        |
+| `public-name`    | no        | The name users see; defaults to `name`. Set it when the internal name is builder vocabulary |
+| `public-summary` | no        | One sentence of user language. **Required whenever `audience: public`** — never defaulted   |
+| `awaiting-owner` | no        | One line: the question blocking this capability on an owner decision. Presence is the flag  |
+| `notes`          | no        | One line of qualification                                                                   |
+
+## Reach — the fact `status` cannot hold
+
+`status` says how complete a capability is. It has never been able to say whether anybody can get to
+it, and the two are not the same question: **a backend nobody can open and a screen somebody uses
+every day are both `shipped`.** Read as one number, that overstates the product by exactly the amount
+of interface that has not been built — which on this program is most of it. `surface:` records the
+second fact.
+
+| Value             | Meaning                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `screen`          | A person can open this in the application today, on a page that exists                    |
+| `awaiting-screen` | The capability works; the interface is the only thing missing. This is the interface debt |
+| `internal`        | No user surface by nature — a port, a table, a queue, a fitness function, a migration     |
+
+**Required on every leaf whose status is `shipped`, `partial` or `in-build`; refused everywhere
+else.** A roll-up parent takes no value — its reach is its children's, and a parent carrying its own
+would be free to disagree with all of them. A node with nothing built takes none either: there is
+nothing to reach, which its status already says. `pnpm run lint:roadmap` holds both directions.
+
+It is a recorded key rather than something derived, and that was measured before it was added:
+across 754 nodes, prose in `notes` carried a usable signal on 63, and an `evidence:` path naming a
+screen on 14 of the 359 leaves with code behind them. Deriving it would have been inventing the other 302.
+
+**`awaiting-screen` when torn.** The failure this key exists to prevent is overstating reach, and
+`awaiting-screen` never overstates: it claims working code and no way in. Reserve `internal` for
+things that are genuinely finished without a screen and always will be.
 
 ## The rendered view
 
 [`docs/now.md`](../docs/now.md) and [`docs/now.html`](../docs/now.html) — **the build register**, as a
 document and as a self-contained page — are rendered from this ledger by `vp run register-build` and
 are never hand-edited: every node, at its real status, with the counts over the whole set.
-`pnpm run lint:roadmap` fails when either differs from a fresh render, so a capability that ships
-moves in the register on the `status` flip alone. What each rendering is for:
+[`docs/decisions-open.html`](../docs/decisions-open.html) — **the decision desk** — is rendered by the
+same command from the `awaiting-owner` nodes: every question the program is waiting on, gathered with
+somewhere to write the answer and a block to paste the answers back. `pnpm run lint:roadmap` fails
+when any of the three differs from a fresh render, so a capability that ships moves in the register
+on the `status` flip alone, and a question that is settled leaves the desk when its key does. What
+each rendering is for:
 [`docs/conventions/documentation.md`](../docs/conventions/documentation.md). Design:
 [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).
 

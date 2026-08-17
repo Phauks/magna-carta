@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build as buildHistory } from "./build-register-history.mjs";
+import { renderDecisionDesk } from "./decision-desk.mjs";
 import { renderBuildRegisterArtifact } from "./register-artifact.mjs";
 import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 
@@ -30,6 +31,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const LEDGER_DIR = join(ROOT, "roadmap.d");
 const REGISTER = join(ROOT, "docs", "now.md");
 const REGISTER_PAGE = join(ROOT, "docs", "now.html");
+const DECISION_DESK = join(ROOT, "docs", "decisions-open.html");
 
 const RESERVED = new Set(["README.md"]);
 
@@ -48,6 +50,10 @@ export function render(areas, history = null) {
     // commits) and the page is the "where does everything stand right now" instrument. Leaving it
     // out is what keeps the page a pure function of the ledger alone.
     page: renderBuildRegisterArtifact(areas),
+    // The third rendering of the same ledger, for the reader who has come to answer rather than to
+    // read. Built by this command rather than its own for the reason the page is: a question that is
+    // open in one rendering and settled in another is a question nobody can trust either copy of.
+    desk: renderDecisionDesk(areas),
   };
 }
 
@@ -59,12 +65,13 @@ export function build(argv = []) {
   // or one. Pass --rebuild-history to recompute the whole series — what to run after a change to the
   // ledger parser, since a commit that used to be unreadable may have become readable.
   const history = buildHistory(argv.includes("--rebuild-history") ? ["--rebuild"] : []);
-  const { register, page } = render(areas, history);
+  const { register, page, desk } = render(areas, history);
   writeFileSync(REGISTER, register);
   writeFileSync(REGISTER_PAGE, page);
+  writeFileSync(DECISION_DESK, desk);
   const nodes = areas.reduce((total, area) => total + area.nodes.length, 0);
   console.log(
-    `roadmap: rendered docs/now.md + docs/now.html from ${nodes} node(s) across ${areas.length} area(s)`,
+    `roadmap: rendered docs/now.md + docs/now.html + docs/decisions-open.html from ${nodes} node(s) across ${areas.length} area(s)`,
   );
 }
 
