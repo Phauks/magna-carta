@@ -195,6 +195,17 @@ It is **never** a change to the owning subsystem's write path, and never a new t
 - **A page over-reads to under-return.** Every source reads `pageSize + 1` so the MERGED result can
   tell "there is more" from "that is all"; the extras are discarded. At thirteen sources and a
   fifty-row page that is up to 663 rows read to return 50.
+- **The zone read returns its own clamp, and callers consume it rather than re-derive it.**
+  `readOpenDeadlineTimeZones` over-reads by one and answers `{ timeZones, clamped }`. The signal is
+  on the read because the consequence of missing it is not an under-filled page: a zone the read
+  never returns contributes no cutoff, so every deadline in it matches neither the overdue bound nor
+  the due-today window and a whole jurisdiction goes unreported while every counter beside it reads
+  healthy. `clamped` is a BOOLEAN — over-reading by one learns that the bound bit and never by how
+  much, and a magnitude invented there would be the same dishonesty one level down. The other
+  bounded reads here (`readOpenDeadlinesByTriggerEvent`, `readLinksTouchingEvent`,
+  `readLiveBookingsInWindow`) still return bare arrays; each is a backstop on a read whose natural
+  size is a handful, and each says so in its own comment. If one of those bounds ever becomes
+  reachable in practice, this is the shape it takes.
 - **The cursor is the platform's, not the calendar's.** `encodeCursor`/`decodeCursor` from
   `@magna-carta/data-access/cursor-pagination`, byte-identical to every other list read's — the
   calendar mints no wire contract of its own. One cursor serves every source because they all sort by

@@ -1943,7 +1943,10 @@ const DEFAULT_PAGE = 50;
 // the zones of the courts it appears in — a handful — and this bound exists so a corrupt or
 // adversarially-varied zone column cannot turn one page read into a thousand-clause query. Reached,
 // it under-reports rather than over-reports, which is the safe direction for a list that says a firm
-// has missed something.
+// has missed something. The read reports whether the bound bit; this caller DISCARDS that, because a
+// list read has nowhere honest to put it — an extra page field would be a wire contract, and a
+// refusal would take a whole firm's overdue list away over one corrupt zone column. The nightly
+// comparison pass is where the same truncation is counted, on its own operator counter.
 const MAX_OVERDUE_ZONES = 64;
 
 // The per-zone cutoffs the overdue narrowing composes: read the zones the page could contain, then
@@ -1959,7 +1962,7 @@ async function readOverdueCutoffs(
   // cannot be overdue in any zone, which makes this an index-friendly coarse bound the per-zone
   // clauses then narrow exactly.
   const throughDate = new Date(Date.parse(now) + 86_400_000).toISOString().slice(0, 10);
-  const timeZones = await readOpenDeadlineTimeZones(database, {
+  const { timeZones } = await readOpenDeadlineTimeZones(database, {
     throughDate,
     limit: MAX_OVERDUE_ZONES,
     ...visibility,

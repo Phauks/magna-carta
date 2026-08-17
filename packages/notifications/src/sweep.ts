@@ -196,34 +196,34 @@ async function collectDeadlineFindings(database: SqlDatabase, now: string): Prom
   // zone-discovery read to deadlines that could plausibly be due or overdue right now.
   const zoneDiscoveryCeiling = civilDateOffsetByDays(nowCivilDate, 1);
 
-  // Over-read by one so a truncated ZONE LIST is detected, for the same reason the finding reads
-  // below do it — but the consequence of missing it is worse here and that is why it is counted
-  // separately. A dropped finding is one thing the firm is not told about; a dropped ZONE is every
-  // deadline in that zone, silently, because a zone that never reaches `overdueCutoffFor` contributes
-  // no cutoff, so its deadlines match neither the overdue bound nor the due-today window. The pass
-  // would then report zero findings for a whole jurisdiction with `clampedFindings` at zero beside
-  // it — a check that stopped looking and still read as coverage.
-  const zones = await readOpenDeadlineTimeZones(database, {
+  // The zone read reports its own truncation, so this pass consumes that signal rather than
+  // re-deriving it. Counted apart from `clampedFindings` because the consequence is worse: a dropped
+  // finding is one thing the firm is not told about, where a dropped ZONE is every deadline in that
+  // zone, silently — a zone that never reaches `overdueCutoffFor` contributes no cutoff, so its
+  // deadlines match neither the overdue bound nor the due-today window. The pass would then report
+  // zero findings for a whole jurisdiction with `clampedFindings` at zero beside it: a check that
+  // stopped looking and still read as coverage.
+  const discovery = await readOpenDeadlineTimeZones(database, {
     throughDate: zoneDiscoveryCeiling,
-    limit: MAX_COMPARISON_FINDINGS_PER_KIND + 1,
+    limit: MAX_COMPARISON_FINDINGS_PER_KIND,
     visibilityFragment,
     visibilityBindings: visibility.bindings,
   });
-  const discovery = clamp(zones);
   // Charged to BOTH deadline points, because the zone list feeds both reads and both are therefore
   // incomplete. It is one truncation reported twice rather than a magnitude double-counted: the value
   // is a count of truncated passes, and each kind's coverage is independently in question.
-  const truncationCounts: Partial<ComparisonKindCounts> =
-    discovery.clamped > 0 ? { truncatedZoneDiscovery: 1 } : {};
+  const truncationCounts: Partial<ComparisonKindCounts> = discovery.clamped
+    ? { truncatedZoneDiscovery: 1 }
+    : {};
   const countsByEmissionPoint = new Map<string, Partial<ComparisonKindCounts>>();
 
-  const cutoffs = discovery.kept
+  const cutoffs = discovery.timeZones
     .map((zone) => overdueCutoffFor(zone, now))
     .filter((cutoff): cutoff is OverdueCutoff => cutoff !== undefined);
   if (cutoffs.length === 0) {
     // Nothing to compare, and if the zone list was truncated that is not the same statement as "this
     // firm has no open deadlines" — so the truncation is still reported from the early return.
-    if (discovery.clamped > 0) {
+    if (discovery.clamped) {
       countsByEmissionPoint.set(CALENDAR_DEADLINE_OVERDUE_EMISSION_POINT, truncationCounts);
       countsByEmissionPoint.set(CALENDAR_DEADLINE_DUE_EMISSION_POINT, truncationCounts);
     }

@@ -562,6 +562,7 @@
 - id: platform.schema-migration.monotonic-ids
   name: Monotonic migration ids
   scope: Collision-proof migration numbering across parallel branches.
-  status: in-build
+  status: shipped
   spec: docs/specs/2026-07-03-monotonic-migration-ids-design.md
-  evidence: docs/active-work/monotonic-migration-ids.md
+  evidence: packages/database/scripts/timestamp-latest-migration.mjs post-processes drizzle-kit generate into a UTC-timestamp id and rewrites the journal tag; both lineages under packages/database/drizzle/ carry timestamp-named migrations over a single collapsed baseline.
+  notes: Was in-build against an active-work note that no longer exists; the scheme and the pre-production baseline collapse the design called for are both on main.
