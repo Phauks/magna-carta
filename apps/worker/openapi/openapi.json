@@ -19981,6 +19981,9 @@
           {
             "type": "object",
             "properties": {
+              "delivery": {
+                "$ref": "#/components/schemas/BillingInvoiceDeliveryState"
+              },
               "lines": {
                 "type": "array",
                 "items": {
@@ -20043,10 +20046,44 @@
               }
             },
             "required": [
+              "delivery",
               "lines",
               "matterBalances"
             ]
           }
+        ]
+      },
+      "BillingInvoiceDeliveryState": {
+        "type": "object",
+        "properties": {
+          "delivered": {
+            "type": "boolean"
+          },
+          "deliveredOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attemptCount": {
+            "type": "integer"
+          },
+          "failedAttemptCount": {
+            "type": "integer"
+          },
+          "lastAttemptOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "delivered",
+          "deliveredOn",
+          "attemptCount",
+          "failedAttemptCount",
+          "lastAttemptOn"
         ]
       },
       "BillingUnbilledResponse": {
@@ -20982,6 +21019,124 @@
           }
         },
         "required": [
+          "data"
+        ]
+      },
+      "BillingDeliveryAck": {
+        "type": "object",
+        "properties": {
+          "deliveryId": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deliveryId",
+          "invoiceId"
+        ]
+      },
+      "BillingDeliveryRequest": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "post",
+              "hand",
+              "client_portal",
+              "e_billing_gateway"
+            ]
+          },
+          "recipientReference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deliveryDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "externalReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "delivered",
+              "failed"
+            ],
+            "default": "delivered"
+          }
+        },
+        "required": [
+          "channel",
+          "recipientReference",
+          "deliveryDate"
+        ]
+      },
+      "BillingDeliveryListResponse": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/BillingInvoiceDeliveryState"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                },
+                "recipientReference": {
+                  "type": "string"
+                },
+                "deliveryDate": {
+                  "type": "string"
+                },
+                "externalReference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "recordedBy": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "recordedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "channel",
+                "recipientReference",
+                "deliveryDate",
+                "externalReference",
+                "outcome",
+                "recordedBy",
+                "recordedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "state",
           "data"
         ]
       },
@@ -65839,6 +65994,231 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BillingCreditNoteListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/invoices/{invoiceId}/deliveries": {
+      "post": {
+        "description": "Records that a bill was given to a client: how it went, who received it, on what date, and whether it arrived. This records a delivery the firm made — it does not send anything. A bill handed over at a meeting, put in the post, emailed from the firm's own mailbox, or submitted to the client's e-billing portal is recorded here the same way, which is the point: what matters is being able to show that the client got the bill, and most bills go out by means the firm arranges itself. Each attempt is its own permanent record, so a bill sent twice has two, a returned letter followed by a successful re-send reads as exactly that, and nothing already recorded is edited or withdrawn. Only a finalized bill can be delivered. Recording a delivery does not permit or prevent anything: it is shown beside the decision to take fees from a client's trust money, where several jurisdictions expect the client to have been given the bill first, and the firm decides knowingly.",
+        "operationId": "billing.recordDelivery",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.recordDelivery",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:draft",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingDeliveryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The delivery was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDeliveryAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Every recorded attempt at getting one bill to its client, oldest first, with the summary a surface needs: whether it ever arrived, the date it first arrived, and how many attempts there have been. A bill with no attempts at all and a bill chased three times without landing both come back as not delivered, and the attempt counts are what tell them apart. Nothing here is ever edited or removed, so this is the complete delivery history of that bill.",
+        "operationId": "billing.listDeliveries",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.listDeliveries",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bill's delivery history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDeliveryListResponse"
                 }
               }
             }

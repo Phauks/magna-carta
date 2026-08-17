@@ -480,9 +480,7 @@ describe("a recorded delivery is evidence, so it is append-only", () => {
     );
     await commit(fixture.database, recorded.effect);
 
-    const { results } = await deliveriesOfBillsThatWereNeverIssuedStatement(
-      fixture.database,
-    ).all<Record<string, unknown>>();
+    const { results } = await deliveriesOfBillsThatWereNeverIssuedStatement(fixture.database).all();
     expect(results).toEqual([]);
   });
 });

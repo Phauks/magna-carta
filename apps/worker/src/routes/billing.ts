@@ -45,9 +45,12 @@ import {
   composeInvoiceWriteOff,
   issueCreditNote,
 } from "@magna-carta/billing/credit-note";
+import { recordInvoiceDelivery } from "@magna-carta/billing/delivery";
 import {
   readCreditNoteLines,
   readCreditNotesForInvoice,
+  readInvoiceDeliveries,
+  readInvoiceDeliveryState,
   readOpenClientCreditsForClient,
 } from "@magna-carta/billing/statements";
 import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
@@ -61,7 +64,11 @@ import {
   readInvoiceRenderModel,
 } from "@magna-carta/billing/render-shape";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
-import { ACCOUNT_ROLES } from "@magna-carta/billing/types";
+import {
+  ACCOUNT_ROLES,
+  INVOICE_DELIVERY_CHANNELS,
+  INVOICE_DELIVERY_OUTCOMES,
+} from "@magna-carta/billing/types";
 import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -349,7 +356,27 @@ const InvoiceListResponse = z
   .object({ data: z.array(InvoiceListItem), nextCursor: z.string().nullable() })
   .openapi("BillingInvoiceListResponse");
 
+// Whether there is any record of a bill having reached the client, and what the attempts were. It
+// rides the invoice detail rather than waiting to be asked for separately, because the surface that
+// has to show it is the one where a firm decides to take fees out of a client's trust ledger — a fact
+// that must be fetched on purpose is a fact a surface forgets to show.
+const InvoiceDeliveryState = z
+  .object({
+    // False with `attemptCount` at zero means the bill has never been sent. False with attempts
+    // behind it means it has been chased and has not landed. They are different situations and a
+    // surface that showed one message for both would tell a firm nothing it needs.
+    delivered: z.boolean(),
+    // The date of the FIRST recorded success, not the most recent one: the question is when the client
+    // was first given the bill, and a courtesy re-send later does not move that date.
+    deliveredOn: z.string().nullable(),
+    attemptCount: z.number().int(),
+    failedAttemptCount: z.number().int(),
+    lastAttemptOn: z.string().nullable(),
+  })
+  .openapi("BillingInvoiceDeliveryState");
+
 const InvoiceDetailResponse = InvoiceListItem.extend({
+  delivery: InvoiceDeliveryState,
   lines: z.array(
     z.object({
       id: z.string(),
@@ -704,6 +731,49 @@ const ReverseApplicationAck = z
     reversesApplicationId: z.string(),
   })
   .openapi("BillingReverseApplicationAck");
+
+const DeliveryRequest = z
+  .object({
+    // How the bill reached the client. Every one of these is a delivery the FIRM made and is telling
+    // the platform about: the platform sends nothing itself.
+    channel: z.enum(INVOICE_DELIVERY_CHANNELS),
+    // Who received it, in the firm's own words — the address it was posted to, the mailbox it was
+    // emailed to, the portal account it was submitted to, or the person it was handed to.
+    recipientReference: z.string().min(1),
+    // The date the bill reached the client, which is the firm's to state and is usually not today: a
+    // bill posted last Tuesday and recorded this morning carries last Tuesday's date.
+    deliveryDate: civilDate,
+    // The handle of whatever carried it, where something did — a tracking number, a gateway submission
+    // reference, the message id of a mail sent elsewhere.
+    externalReference: z.string().min(1).nullable().optional(),
+    // Whether it arrived. A returned letter or a rejected submission is recorded as a failed attempt
+    // rather than left out, because a history that holds only successes reads as complete when it is
+    // not.
+    outcome: z.enum(INVOICE_DELIVERY_OUTCOMES).default("delivered"),
+  })
+  .openapi("BillingDeliveryRequest");
+
+const DeliveryAck = z
+  .object({ deliveryId: z.string(), invoiceId: z.string() })
+  .openapi("BillingDeliveryAck");
+
+const DeliveryListResponse = z
+  .object({
+    state: InvoiceDeliveryState,
+    data: z.array(
+      z.object({
+        id: z.string(),
+        channel: z.string(),
+        recipientReference: z.string(),
+        deliveryDate: z.string(),
+        externalReference: z.string().nullable(),
+        outcome: z.string(),
+        recordedBy: z.string().nullable(),
+        recordedAt: z.string(),
+      }),
+    ),
+  })
+  .openapi("BillingDeliveryListResponse");
 
 const ContingencyResidualResponse = z
   .object({
@@ -1554,6 +1624,40 @@ const reverseApplicationRoute = defineOpenAPIRoute(
     },
   },
 );
+
+const recordDeliveryRoute = defineOpenAPIRoute(writeMeta("billing.recordDelivery", DRAFT), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/deliveries",
+  description:
+    "Records that a bill was given to a client: how it went, who received it, on what date, and whether it arrived. This records a delivery the firm made — it does not send anything. A bill handed over at a meeting, put in the post, emailed from the firm's own mailbox, or submitted to the client's e-billing portal is recorded here the same way, which is the point: what matters is being able to show that the client got the bill, and most bills go out by means the firm arranges itself. Each attempt is its own permanent record, so a bill sent twice has two, a returned letter followed by a successful re-send reads as exactly that, and nothing already recorded is edited or withdrawn. Only a finalized bill can be delivered. Recording a delivery does not permit or prevent anything: it is shown beside the decision to take fees from a client's trust money, where several jurisdictions expect the client to have been given the bill first, and the firm decides knowingly.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: DeliveryRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The delivery was recorded",
+      content: { "application/json": { schema: DeliveryAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const listDeliveriesRoute = defineOpenAPIRoute(readMeta("billing.listDeliveries"), {
+  method: "get",
+  path: "/api/v1/billing/invoices/{invoiceId}/deliveries",
+  description:
+    "Every recorded attempt at getting one bill to its client, oldest first, with the summary a surface needs: whether it ever arrived, the date it first arrived, and how many attempts there have been. A bill with no attempts at all and a bill chased three times without landing both come back as not delivered, and the attempt counts are what tell them apart. Nothing here is ever edited or removed, so this is the complete delivery history of that bill.",
+  request: { params: invoiceParam },
+  responses: {
+    200: {
+      description: "The bill's delivery history",
+      content: { "application/json": { schema: DeliveryListResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
 
 const contingencyResidualRoute = defineOpenAPIRoute(readMeta("billing.contingencyResidual"), {
   method: "get",
@@ -2626,6 +2730,73 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
         });
       }
       return c.json({ data } as never, 200);
+    },
+  );
+
+  // POST /api/v1/billing/invoices/{invoiceId}/deliveries — record that a bill was given to a client
+  app.openapi(
+    { ...recordDeliveryRoute, middleware: chokepointMiddleware(chokepoint, recordDeliveryRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof DeliveryAck>>(
+        c,
+        201,
+        async (recordedBy) => {
+          const recorded = await recordInvoiceDelivery(
+            firm.firmDatabase,
+            {
+              invoiceId,
+              channel: request.channel,
+              recipientReference: request.recipientReference,
+              deliveryDate: request.deliveryDate,
+              externalReference: request.externalReference ?? null,
+              outcome: request.outcome,
+              recordedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: recorded.effect,
+            body: { deliveryId: recorded.deliveryId, invoiceId },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...listDeliveriesRoute, middleware: chokepointMiddleware(chokepoint, listDeliveriesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const attempts = await readInvoiceDeliveries(firm.firmDatabase, invoiceId);
+      const state = await readInvoiceDeliveryState(firm.firmDatabase, invoiceId);
+      return c.json(
+        {
+          state: {
+            delivered: state.delivered,
+            deliveredOn: state.deliveredOn,
+            attemptCount: state.attemptCount,
+            failedAttemptCount: state.failedAttemptCount,
+            lastAttemptOn: state.lastAttemptOn,
+          },
+          data: attempts.map((attempt) => ({
+            id: attempt.id,
+            channel: attempt.channel,
+            recipientReference: attempt.recipientReference,
+            deliveryDate: attempt.deliveryDate,
+            externalReference: attempt.externalReference,
+            outcome: attempt.outcome,
+            recordedBy: attempt.recordedBy,
+            recordedAt: attempt.recordedAt,
+          })),
+        } as never,
+        200,
+      );
     },
   );
 

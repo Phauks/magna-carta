@@ -82,7 +82,11 @@ export async function recordInvoiceDelivery(
       "a delivery names who received the bill: an address, a mailbox, a portal account, or the person it was handed to",
     );
   }
-  const externalReference = input.externalReference?.trim() ?? null;
+  // Blank and absent mean the same thing here: nothing carried it. Collapsing them keeps the column's
+  // meaning single — present is a handle back to a system, and the CHECK on the table refuses the
+  // whitespace-only middle ground either way.
+  const trimmedExternalReference = input.externalReference?.trim() ?? "";
+  const externalReference = trimmedExternalReference === "" ? null : trimmedExternalReference;
   // A delivery that predates the bill describes something that could not have happened. It is the one
   // thing about a firm-supplied date the platform can check, so it checks it — the rest of the date's
   // truth is the firm's to assert, which is what makes an out-of-band delivery recordable at all.
@@ -103,7 +107,7 @@ export async function recordInvoiceDelivery(
           channel: input.channel,
           recipientReference,
           deliveryDate: input.deliveryDate,
-          externalReference: externalReference === "" ? null : externalReference,
+          externalReference,
           outcome: input.outcome,
           recordedBy: input.recordedBy,
           now: options.clock.now(),

@@ -7,6 +7,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { InvoiceId, MatterId } from "@magna-carta/identifiers/types";
+import { type InvoiceDeliveryState, readInvoiceDeliveryState } from "./statements.ts";
 import type { InvoiceStatus } from "./types.ts";
 
 // THE HOT READ: what is still unbilled on this matter. Served entirely from the mirror column on
@@ -158,6 +159,14 @@ export interface InvoiceDetail extends InvoiceListItem {
     readonly appliedMinor: number;
     readonly unpaidMinor: number;
   }[];
+  // WHETHER THERE IS ANY RECORD OF THIS BILL REACHING THE CLIENT. It rides the detail read rather
+  // than waiting to be asked for separately, because the surface that has to show it is the one where
+  // a firm decides to take fees out of a client's trust ledger — several jurisdictions expect the
+  // client to have been given a bill first — and a fact that has to be fetched on purpose is a fact a
+  // surface forgets to show. It is shown, never a gate: finalization gates, and a firm proceeds
+  // knowingly, because a hard gate would be satisfied by firms recording deliveries that never
+  // happened.
+  readonly delivery: InvoiceDeliveryState;
 }
 
 export async function readInvoiceDetail(
@@ -197,8 +206,11 @@ export async function readInvoiceDetail(
     .bind(invoiceId)
     .all<{ matter_id: string; total_minor: number; applied_minor: number }>();
 
+  const delivery = await readInvoiceDeliveryState(database, invoiceId);
+
   return {
     ...toListItem(row),
+    delivery,
     lines: lines.results.map((line) => ({
       id: line.id,
       lineIndex: line.line_index,

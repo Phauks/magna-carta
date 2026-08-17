@@ -46,6 +46,10 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/credit-note.ts` — the four corrections after finalization: `issueCreditNote` (the split
   against what the bill can still absorb, and the `client_credit` for what it cannot),
   `composeInvoiceWriteOff`, `applyClientCreditToInvoice`, `composeApplicationReversal`
+- `src/delivery.ts` — `recordInvoiceDelivery`: one append-only attempt at getting a bill to its
+  client, and the `billing.invoice.delivered` topic. The delivery-state reads live in
+  `src/statements.ts` (`readInvoiceDeliveries`, `readInvoiceDeliveryState`, and the batched
+  `readInvoiceDeliveryStates`), and the state rides `readInvoiceDetail`
 - `src/close-precondition.ts` — `matterClientCreditClosePrecondition`: the hard block on closing a
   matter over money the firm has conceded it owes back
 - `src/render-shape.ts` — the multi-matter render-shape firm setting and `readInvoiceRenderModel`
@@ -125,6 +129,30 @@ ADR-0072, ADR-0079.) **Invariants:**
   to the gross charge: a finalized line cannot be edited, so the credit note is the only record that
   can answer a shrunk basis, and a gross comparison leaves the matter reported forever with the
   correct remedy already applied.
+- **A DELIVERY IS A RECORDED ATTEMPT, AND "SENT" IS NOT AN INVOICE STATUS.** `invoice_delivery` is
+  append-only from birth (three triggers, including the BEFORE INSERT guard that catches
+  `INSERT OR REPLACE`, which fires neither of the other two), and a second delivery of the same bill
+  is a second row. Never add a `sent` column or status to `invoice`: a bill goes out possibly several
+  times by several channels, and a status would force the finalized row — frozen, with no
+  un-finalize — to stay mutable for its least load-bearing field. Two triggers bound what a row may
+  describe: a delivery names a **finalized** bill, and cannot predate that bill's `issue_date`. The
+  channel vocabulary is closed at five and `client_portal` is enumerated before anything can produce
+  it, because SQLite cannot widen a CHECK without a destructive rebuild of what is now an
+  evidence table.
+- **THE DELIVERY RECORD IS SURFACED, NEVER A GATE.** Finalization alone gates an earned-fee transfer;
+  `readInvoiceDeliveryState` rides `readInvoiceDetail` so the surface deciding to move client money
+  cannot forget to show it. Never promote it to a precondition on `applyEarnedFeesUnderAuthorizationPolicy`
+  or into `invoiceBackedEarnedFeePrecondition`: a hard gate would be satisfied by firms recording
+  deliveries that never happened, which converts a compliance record into a checkbox and makes the
+  record worse than not having one. The state reports the **earliest** success, not the latest — when
+  the client was first given the bill is the question — and carries attempt counts, because a bill
+  never sent and a bill chased three times without landing are both "not delivered" and are not the
+  same situation.
+- **NOTHING HERE PERFORMS A DELIVERY.** No renderer, no transmission, no client-facing channel. Every
+  row is a delivery the FIRM made out of band and is reporting, with the firm's own date on it, which
+  is why only the two checkable things are checked. `billing.invoice.delivered` carries identifiers,
+  the channel and the outcome — never `recipient_reference`, which is the client's own fact and
+  resolves behind the deep link through this package's access-checked read.
 - **The earned-fee precondition is billing's, the transfer is trust's.** Billing implements the port;
   `@magna-carta/trust` never learns what an invoice is, and no trust file changed to close this. The
   port's context (node, matter, amount, currency) is enough precisely because the precondition is

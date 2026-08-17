@@ -4576,6 +4576,7 @@ export type BillingInvoiceListItem = {
 };
 
 export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
+    delivery: BillingInvoiceDeliveryState;
     lines: Array<{
         id: string;
         lineIndex: number;
@@ -4590,6 +4591,14 @@ export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
         appliedMinor: number;
         unpaidMinor: number;
     }>;
+};
+
+export type BillingInvoiceDeliveryState = {
+    delivered: boolean;
+    deliveredOn: string | null;
+    attemptCount: number;
+    failedAttemptCount: number;
+    lastAttemptOn: string | null;
 };
 
 export type BillingUnbilledResponse = {
@@ -4808,6 +4817,33 @@ export type BillingCreditNoteListResponse = {
             amountMinor: number;
             creditsInvoiceLineId: string | null;
         }>;
+    }>;
+};
+
+export type BillingDeliveryAck = {
+    deliveryId: string;
+    invoiceId: string;
+};
+
+export type BillingDeliveryRequest = {
+    channel: 'email' | 'post' | 'hand' | 'client_portal' | 'e_billing_gateway';
+    recipientReference: string;
+    deliveryDate: string;
+    externalReference?: string | null;
+    outcome?: 'delivered' | 'failed';
+};
+
+export type BillingDeliveryListResponse = {
+    state: BillingInvoiceDeliveryState;
+    data: Array<{
+        id: string;
+        channel: string;
+        recipientReference: string;
+        deliveryDate: string;
+        externalReference: string | null;
+        outcome: string;
+        recordedBy: string | null;
+        recordedAt: string;
     }>;
 };
 
@@ -23073,6 +23109,103 @@ export type BillingIssueCreditNoteResponses = {
 };
 
 export type BillingIssueCreditNoteResponse = BillingIssueCreditNoteResponses[keyof BillingIssueCreditNoteResponses];
+
+export type BillingListDeliveriesData = {
+    body?: never;
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/deliveries';
+};
+
+export type BillingListDeliveriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingListDeliveriesError = BillingListDeliveriesErrors[keyof BillingListDeliveriesErrors];
+
+export type BillingListDeliveriesResponses = {
+    /**
+     * The bill's delivery history
+     */
+    200: BillingDeliveryListResponse;
+};
+
+export type BillingListDeliveriesResponse = BillingListDeliveriesResponses[keyof BillingListDeliveriesResponses];
+
+export type BillingRecordDeliveryData = {
+    body: BillingDeliveryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/deliveries';
+};
+
+export type BillingRecordDeliveryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRecordDeliveryError = BillingRecordDeliveryErrors[keyof BillingRecordDeliveryErrors];
+
+export type BillingRecordDeliveryResponses = {
+    /**
+     * The delivery was recorded
+     */
+    201: BillingDeliveryAck;
+};
+
+export type BillingRecordDeliveryResponse = BillingRecordDeliveryResponses[keyof BillingRecordDeliveryResponses];
 
 export type BillingWriteOffBalanceData = {
     body: BillingWriteOffRequest;
