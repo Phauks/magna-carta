@@ -8,7 +8,10 @@
 //   - path-filter resolution, so `pnpm test tooling` selects the tests under `tooling/` instead of
 //     reporting that it found none (path-filters.mjs explains why the short spelling misses);
 //   - broken-pipe teardown, so `pnpm test | head` ends the run and releases the lock instead of sitting
-//     at 0% CPU still holding it (broken-pipe.mjs explains why the parent has to notice, not the child).
+//     at 0% CPU still holding it (broken-pipe.mjs explains why the parent has to notice, not the child);
+//   - process-group teardown, so ending the run ends the RUNNERS rather than only the `vp` process two
+//     levels above them, and the lock is released once the group is empty rather than once the direct
+//     child has exited (process-group.mjs explains what leaks otherwise, with the measurement).
 //
 // Options are passed through untouched, and so is any filter that is not a directory in this
 // repository, so `pnpm test run packages/ledger` and `pnpm test --watch` behave exactly as the runner
@@ -21,10 +24,11 @@
 // project filters you have reason to believe will not collide), and as the escape hatch if the guard
 // itself is ever the thing in the way.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { hostname } from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import {
   BROKEN_PIPE_EXIT_CODE,
@@ -35,6 +39,7 @@ import {
 } from "./broken-pipe.mjs";
 import { acquireSingleFlightLock, blockedMessage } from "./lock.mjs";
 import { planPathFilters } from "./path-filters.mjs";
+import { reapProcessGroup, reapReport, shouldLeadOwnProcessGroup } from "./process-group.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -169,39 +174,81 @@ if (skipLock) {
 }
 
 const mode = outputMode(Boolean(process.stdout.isTTY));
+// Whether the runner leads its own process group, so teardown can reach every descendant rather than
+// only `vp`. process-group.mjs holds the reasoning and the measurement.
+const leadsOwnGroup = shouldLeadOwnProcessGroup({
+  platform: process.platform,
+  stdinIsTerminal: Boolean(process.stdin.isTTY),
+});
 
 const child = spawn("vp", ["test", ...passthroughArguments], {
   cwd: ROOT,
   stdio: stdioFor(mode),
   shell: process.platform === "win32",
+  detached: leadsOwnGroup,
 });
+
+// With `detached`, the child's own pid IS its process group id, so the negated pid addresses the whole
+// tree. `kill(pgid, 0)` is the emptiness probe: ESRCH means the last member is gone, EPERM means one is
+// alive under another user, and a plain success means alive. When the runner was NOT detached there is
+// no group of ours to address — the child shares this process's group — so both degrade to the direct
+// child, which is exactly the behaviour this file had before.
+const signalRunners = (signal) => {
+  try {
+    if (leadsOwnGroup) process.kill(-child.pid, signal);
+    else child.kill(signal);
+  } catch {
+    // ESRCH: already gone, which is the outcome being asked for.
+  }
+};
+const runnersGone = () => {
+  if (!leadsOwnGroup) return child.exitCode !== null || child.signalCode !== null;
+  try {
+    process.kill(-child.pid, 0);
+    return false;
+  } catch (error) {
+    return error.code === "ESRCH";
+  }
+};
 
 // The lock must not outlive this process by any exit path — a normal finish, a runner crash, the Ctrl-C
 // that ends a watch run, or the reader of a pipe walking away. A lock left behind by a clean exit is the
 // fastest way to make the guard look like the bug it exists to prevent.
+//
+// And it must not be released EARLY either, which is the other half and the one that was missing: a lock
+// released while the previous run's vitest, esbuild and workerd processes are still up hands the next run
+// a clean claim into a machine that is not clean. So the reap comes first and the release waits on it,
+// bounded — a lock held until a wedged runner dies would be the 0%-CPU holder this guard exists to
+// eliminate, so a survivor is reported and the lock released regardless.
 let finished = false;
-const finish = (code) => {
+const finish = async (code) => {
   if (finished) return;
   finished = true;
+  if (process.platform === "win32") {
+    // No process groups to signal; taskkill walks the child tree itself. Synchronous, and its failure
+    // (the tree is already gone) is the outcome wanted anyway.
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  } else {
+    const report = reapReport(
+      await reapProcessGroup({ signalGroup: signalRunners, groupIsEmpty: runnersGone, sleep }),
+    );
+    if (report !== null) writeIgnoringBrokenPipe(process.stderr, report + "\n");
+  }
   release();
   process.exit(code);
 };
 
 // The reader is gone, so there is nowhere left to report anything: end the run rather than write into a
-// closed pipe forever. SIGTERM first so the runner can tear its workers down, then an unconditional
-// SIGKILL-and-exit on a short timer — this path exists precisely because the child may never react, so
-// the timer is deliberately NOT unref'd. Anything less leaves the lock held by a process at 0% CPU.
+// closed pipe forever. The SIGTERM-grace-SIGKILL ladder this used to spell out by hand is now `finish`'s
+// reap, which runs it against the whole process group instead of the direct child and does not return
+// until the group is empty — so this path both ends the run and leaves nothing behind it.
 let brokenPipe = false;
 const endForBrokenPipe = () => {
   if (finished || brokenPipe) return;
   brokenPipe = true;
   child.stdout?.unpipe(process.stdout);
   child.stderr?.unpipe(process.stderr);
-  child.kill("SIGTERM");
-  setTimeout(() => {
-    child.kill("SIGKILL");
-    finish(BROKEN_PIPE_EXIT_CODE);
-  }, 2000);
+  void finish(BROKEN_PIPE_EXIT_CODE);
 };
 
 // Installing an `error` listener is what stops an EPIPE becoming an uncaught exception — which also
@@ -233,18 +280,27 @@ if (mode === "forward") {
 // having gone, so the last lines of a piped run are not cut off by the `process.exit` below. With
 // `stdio: "inherit"` there is no stdio to drain and it follows `exit` immediately.
 child.on("close", (code, signal) => {
-  if (brokenPipe) return finish(BROKEN_PIPE_EXIT_CODE);
-  return finish(signal ? 1 : (code ?? 1));
+  if (brokenPipe) return void finish(BROKEN_PIPE_EXIT_CODE);
+  return void finish(signal ? 1 : (code ?? 1));
 });
 child.on("error", (error) => {
   console.error("test: could not start the test runner —", error.message);
-  finish(1);
+  void finish(1);
 });
+// A detached runner does NOT receive the terminal's Ctrl-C for free — that is the same isolation that
+// makes the group addressable — so forwarding here stops being a courtesy and becomes the only way the
+// runner hears about it. The signal goes to the whole group so the runner's workers get their chance to
+// close cleanly; `finish` then reaps whatever ignored it.
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   process.on(signal, () => {
-    child.kill(signal);
-    // Let the child's own close handler do the release; this is the backstop if it never reports.
-    setTimeout(() => finish(1), 5000).unref();
+    signalRunners(signal);
+    // Let the child's own close handler do the release; this is the backstop if it never reports. NOT
+    // unref'd: an unref'd backstop lets this process exit while the group is still populated, which is
+    // the leak the reap exists to close — the exit handler below would then free the lock with runners
+    // still up, and the next run would claim it into a busy machine.
+    setTimeout(() => void finish(1), 5000);
   });
 }
+// Last resort only — a hard crash, or an exit path that never reached `finish`. It cannot reap (exit
+// handlers must be synchronous), so it frees the lock without the emptiness guarantee.
 process.on("exit", () => release());

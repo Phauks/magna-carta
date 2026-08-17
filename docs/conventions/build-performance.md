@@ -247,6 +247,33 @@ child's failed writes at all, the child's output is forwarded through the parent
 TTY; on a TTY there is no reader that can walk away, so `inherit` is kept and interactive behaviour is
 byte-for-byte unchanged.
 
+**Ending the run ends the RUNNERS, not just `vp`** (`tooling/test-single-flight/process-group.mjs`).
+`vp` is two levels above the thing doing the work: under it sits the Vitest CLI, and under that the
+esbuild services and the workerd instances the Miniflare suites stand up. Signalling only the direct
+child orphans the rest, and they keep the CPU, the transform cache and the `.wrangler` state. Measured
+here, interrupting `pnpm test apps/worker`: the guard exited after 17 s and **released the lock with
+nine runner processes still alive**, which stayed up for a further **44 s**. The next `pnpm test` then
+claims the lock correctly — its holder really is gone — and starts into the previous run's live
+runners, which is the contention the lock exists to prevent arriving through the one door it does not
+watch. It presents as timeouts in files neither run touched.
+
+So the runner is spawned **detached**, leading its own process group, and teardown is SIGTERM to the
+group, a 2 s grace, SIGKILL for the remainder — and the lock is released only once the group is
+confirmed **empty**, never merely once the direct child has exited. The wait is bounded (a survivor is
+reported and the lock released anyway), because a lock held until an unkillable runner dies would be the
+very 0%-CPU holder this guard exists to eliminate. Same target after the change: **zero survivors, lock
+released clean.**
+
+Detaching is gated on **stdin not being a terminal**, which is the shape of the hazard rather than a
+proxy for it: a detached process that reads its controlling terminal from a background process group
+takes `SIGTTIN` and stops, which would wedge `vp test --watch` on its keypress reader. No terminal on
+stdin, no such read, no `SIGTTIN`. The gate costs nothing where it declines, because an interactive run
+sits in the terminal's **foreground** process group and Ctrl-C is delivered by the kernel to every
+process in it. One residual gap, named rather than papered over: an interactive terminal with only
+stdout redirected (`pnpm test | head` typed at a prompt) keeps the single-child teardown, since stdin is
+still the terminal. Windows has no process groups to signal, so the tree-kill there is `taskkill /T /F`
+— implemented, but the numbers above are POSIX and that branch is unmeasured.
+
 A bare `vp test` is unguarded — it is the invocation that produces the wedge — so reach for `pnpm test`.
 CI is unaffected: its shards run in separate containers, each with its own filesystem, and each shard
 invokes the runner directly.
@@ -379,7 +406,7 @@ The question that answers it is one level up: **why is the type-check itself run
 nothing but prose cannot move a type-check result, and the artefacts are needed exactly when something
 builds the graph — so the two skip together or neither does. `tooling/check-scoped/typecheck-scope.mjs`
 decides, and it is written as the list of paths that **provably cannot** be an input to `tsc -b` — prose
-anywhere, the `docs/` tree, and the rendered `STATUS.json` — with the type-check running unless *every*
+anywhere, the `docs/` tree, and the rendered `STATUS.json` — with the type-check running unless _every_
 changed path is one of them. Deny by default: a new extension, a new top-level directory, a config
 nobody anticipated all take the check. A `.ts`, `.svelte`, `.mts`, a package manifest, a `tsconfig`, a
 JSON fixture under `packages/`, or the lockfile all still type-check, and the gate prints which path
