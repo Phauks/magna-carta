@@ -41,7 +41,7 @@
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
-  notes: Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
+  notes: Sign-in shipped, and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
 
 - id: auth.two-factor
   name: Second factors

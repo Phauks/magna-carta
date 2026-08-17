@@ -390,7 +390,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Login and 2FA UI</span>
 <code>auth.first-party-login.auth-ui</code>
 <p>The login/2FA surface over the auth backend — the design system's first consumer.</p>
-<p class="note">Sign-in shipped. Registration and invitation-redemption screens are not built (their routes are), nor are the two-factor enrolment screens; passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+<p class="note">Sign-in shipped, and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Second factors</span>
@@ -4205,7 +4205,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Self-serve firm registration</span>
 <code>self-serve.registration</code>
 <p>The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed.</p>
-<p class="note">Backend only — the founding, details and confirmation screens exist as components but are not wired to a route, which the authentication area's own interface node already accounts for. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.</p>
+<p class="note">Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.</p>
 </li><li class="n d1" data-s="designed">
 <span class="chip plan">Designed</span>
 <span class="nm">Firm lifecycle states</span>
