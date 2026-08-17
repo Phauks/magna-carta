@@ -232,6 +232,20 @@ command it is running. It is reclaimed automatically when the holding process is
 older than 90 minutes, so a run killed with `SIGKILL` can never leave a worktree unable to test.
 `MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1` skips it for the deliberate case.
 
+**A closed output pipe ends the run rather than wedging it** (`tooling/test-single-flight/broken-pipe.mjs`).
+`pnpm test | head` is the obvious thing to type against a long suite, and `head` exits as soon as it has
+its lines. Node ignores `SIGPIPE` and turns the failed write into an asynchronous `EPIPE` on the stream,
+so a reporter that swallows that error neither finishes nor makes progress: the run sits at 0% CPU
+**still holding the lock**, which is indistinguishable from the contention the lock exists to prevent and
+so sends the diagnosis to the wrong place. It has to be cleared by hand. Note that pid-based reclaim
+cannot help — the holder is blocked, not dead, so a liveness probe correctly reports it alive and
+correctly refuses the next run. The guard therefore notices the broken pipe itself, tears the run down,
+releases the lock, and exits **141** (the conventional `128 + SIGPIPE`, so a run cut short is neither a
+pass nor mistaken for a test failure). Because a parent using `stdio: "inherit"` cannot observe the
+child's failed writes at all, the child's output is forwarded through the parent whenever stdout is not a
+TTY; on a TTY there is no reader that can walk away, so `inherit` is kept and interactive behaviour is
+byte-for-byte unchanged.
+
 A bare `vp test` is unguarded — it is the invocation that produces the wedge — so reach for `pnpm test`.
 CI is unaffected: its shards run in separate containers, each with its own filesystem, and each shard
 invokes the runner directly.
@@ -255,8 +269,19 @@ that project's own root_ and asks whether the filter is a substring of it — or
 That is why `pnpm test run packages/ledger/test/posting.test.ts` works while `pnpm test run packages`
 runs nothing: a path that resolves **exactly to a project root** reduces to the empty string, which is a
 substring of everything, so the whole project is selected; a path **inside** a project matches by
-substring; a path **above** one matches nothing. There is no error and no warning — an under-scoped
-filter is indistinguishable from a fast suite.
+substring; a path **above** one matches nothing.
+
+**How that fails matters, and it is not "silently green".** When _nothing at all_ matches, the runner
+does fail: it prints `No test files found, exiting with code 1` and exits **1** — measured on this
+version across `run`, `--shard=i/N` and `--project` alike (`passWithNoTests` is deliberately left off).
+The dangerous case is the **partial** one. A filter set that matches _some_ files collects those and
+exits **0**, with no mention that a sibling filter contributed nothing: substituting one relative path
+for its absolute spelling alongside a good one collected 34 files and reported a confident green
+`Test Files 34 passed (34)`, two orders of magnitude short of that selection's real size (run
+`pnpm run lint:test-collection` for the current figures). So an under-scoped filter is
+indistinguishable from a fast suite **only when it still matches something** — which is exactly the case
+a multi-path CI job is exposed to, and why the count needs an independent check
+(`tooling/lint-test-collection/`) rather than a reading.
 
 Two rules follow, and CI depends on both:
 
@@ -267,7 +292,7 @@ Two rules follow, and CI depends on both:
 
   **`pnpm test` now does this for you**, so the relative form is no longer the broken one: a positional
   filter naming a directory in the repository is resolved to its absolute path before the runner sees it
-  (`tooling/test-single-flight/path-filters.mjs`), which is why `pnpm test tooling` collects all 34 of
+  (`tooling/test-single-flight/path-filters.mjs`), which is why `pnpm test tooling` collects all 35 of
   that directory's files. Anything that is not a directory here — `select.test.mjs`, an option's value —
   is passed through untouched, because a token the wrapper cannot identify is one it has no business
   rewriting. CI is unchanged and still spells its paths absolutely: its shards invoke the runner

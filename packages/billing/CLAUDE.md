@@ -260,7 +260,10 @@ ADR-0072, ADR-0079.) **Invariants:**
 ## Gotchas
 
 - D1 has no interactive transactions — read before composing, or assert inside the batch.
-- **`.all()` + `results[0]`, never `.first()`** — the node-sqlite test adapter has no `.first()`.
+- **`.all()` + `results[0]`, never `.first()`** — for one spelling of "no row", not because `.first()`
+  is missing. Every adapter behind the statement interface implements it, so an existing `.first()` call
+  is not a bug; it just returns `null` where the rest of the platform's reads return `undefined`. Stated
+  once in [`packages/data-access/src/idempotency-statements.ts`](../data-access/src/idempotency-statements.ts).
 - **A guarded UPDATE cannot abort a batch.** Where finalization needs a business condition to abort,
   it aims a value the table's CHECK forbids at exactly the offending rows
   (`refuseFinalizeOnFrozenWorkInProgressStatements`). A guard that could store a row is a write, not

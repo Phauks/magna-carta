@@ -16,6 +16,16 @@ export interface SqlStatement {
   // D1PreparedStatement.first(colName) supports is intentionally excluded: no implementation
   // in this codebase handles it, so including it would silently return a wrong shape in tests
   // vs. production. D1 remains assignable to this narrower interface.
+  //
+  // THE ONE-ROW READ CONVENTION, and its one home. Single-row reads in this codebase are written
+  // `.all()` + `results[0]`, not `.first()`, and the reason is uniformity rather than capability:
+  // `first()` is implemented by every adapter behind this interface (D1 itself, node-sqlite, the
+  // sqlite batch database, the scriptable stub) and works, so a call site that uses it is not broken.
+  // What it costs is a second way to spell "no row": `results[0]` is `undefined`, `first()` is `null`,
+  // and the several hundred existing read sites all compose the `undefined` form with `?.` and `??`.
+  // Splitting that in two buys nothing and means every reader of a one-row read has to check which
+  // sentinel this one returns. Prefer `.all()` for consistency; do not "correct" it to `.first()`, and
+  // do not claim an adapter lacks it.
   first<T = Record<string, unknown>>(): Promise<T | null>;
 }
 

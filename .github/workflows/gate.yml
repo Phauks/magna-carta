@@ -479,10 +479,19 @@ jobs:
   # PASS THE PATHS ABSOLUTE — "$PWD/packages", never "packages". The runner matches a positional path
   # filter PER PROJECT, against the candidate file's path relative to THAT PROJECT'S OWN root, not
   # against the repository-relative path. A relative filter naming a directory that is an ANCESTOR of a
-  # project root reduces to `..` under that project and matches none of its files, so the job runs
-  # nothing and exits 0 — a mis-scoped path does NOT fail loud, it reports a fast green. An absolute
-  # filter takes the runner's other branch, a prefix test against the file's absolute path, and narrows
-  # the way a reader expects. Mechanism: docs/conventions/build-performance.md.
+  # project root reduces to `..` under that project and matches none of its files. An absolute filter
+  # takes the runner's other branch, a prefix test against the file's absolute path, and narrows the way
+  # a reader expects.
+  # WHY A MIS-SCOPED PATH IS DANGEROUS HERE — and it is NOT that an empty filter passes. A filter set
+  # that matches nothing at all fails: the runner prints "No test files found, exiting with code 1" and
+  # exits 1, measured on this version across `run`, `--shard=i/N` and `--project`. The hazard is a
+  # PARTIAL match. These jobs pass many paths at once, so one bad entry among good ones still collects
+  # the others and the run exits 0 over a silently narrowed selection — measured: swapping one absolute
+  # path for its relative spelling alongside a good one collected 34 files and reported a confident green
+  # `Test Files 34 passed (34)`, two orders of magnitude short of this job's real selection. Nothing in
+  # that output says a filter matched nothing, so the count needs a check rather than a reading; the
+  # honest current figures are whatever `pnpm run lint:test-collection` prints.
+  # Mechanism: docs/conventions/build-performance.md.
 
   # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
   # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
@@ -597,13 +606,19 @@ jobs:
       - name: Tests — stories (Storybook browser)
         run: pnpm exec vp test run --project=storybook
 
-  # Prove the three test jobs above actually cover the suite. Nothing in the runner does: a filter that
-  # matches no file exits 0 having run nothing, so an under-scoped test job reports a FAST GREEN rather
-  # than a failure — which is precisely how a relative `packages` filter silently dropped every package's
-  # tests out of test-node while the gate stayed green. This job re-runs each job's own invocation in
-  # list-only mode (no test executes) and asserts three things: the unfiltered whole-suite collection
-  # meets a committed floor, the union of the three jobs equals it, and they do not overlap. It reads the
-  # invocations out of this file, so a filter edited here without the same edit in the lint fails loudly.
+  # Prove the three test jobs above actually cover the suite. Nothing in the runner does, and the reason
+  # is SILENT NARROWING rather than an empty filter passing. An empty filter does fail — the runner prints
+  # "No test files found, exiting with code 1" and exits 1 (measured across `run`, `--shard=i/N` and
+  # `--project`), so do not delete this job on the theory that the runner already catches a bad path. What
+  # it cannot catch is a filter set that still matches SOME files: these jobs pass a dozen-odd paths each,
+  # so one wrong or dropped entry leaves the rest collecting and the job exits 0 over a fraction of the
+  # suite, reporting a confident green with a plausible-looking count. That is not hypothetical — ten of
+  # test-node's fourteen paths, lost in a copy out of the folded YAML block above, reported 649 files /
+  # 7434 tests twice running against the true 656 / 7475, and nothing in the output distinguished the two.
+  # This job re-runs each job's own invocation in list-only mode (no test executes) and asserts three
+  # things: the unfiltered whole-suite collection meets a committed floor, the union of the three jobs
+  # equals it, and they do not overlap. It reads the invocations out of this file, so a filter edited here
+  # without the same edit in the lint fails loudly.
   test-collection:
     needs: [changes, wasm]
     # Deliberately NOT gated on test_battery: this verifies the SHAPE of the split, not the tests, and

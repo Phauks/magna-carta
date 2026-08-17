@@ -926,8 +926,8 @@ interface InvoiceRow {
   due_date: string | null;
 }
 
-// `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter has no `.first()`, so the
-// whole platform reads this way.
+// `.all()` + `results[0]`, never `.first()` — the one-row read convention (one sentinel for
+// "no row"), stated in packages/data-access/src/idempotency-statements.ts.
 export async function readInvoice(
   database: SqlDatabase,
   id: InvoiceId,

@@ -295,7 +295,10 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 ## Gotchas
 
 - D1 has no interactive transactions — read before composing, or assert inside the batch.
-- **`.all()` + `results[0]`, never `.first()`** — the node-sqlite test adapter has no `.first()`.
+- **`.all()` + `results[0]`, never `.first()`** — for one spelling of "no row", not because `.first()`
+  is missing. Every adapter behind the statement interface implements it, so an existing `.first()` call
+  is not a bug; it just returns `null` where the rest of the platform's reads return `undefined`. Stated
+  once in [`packages/data-access/src/idempotency-statements.ts`](../data-access/src/idempotency-statements.ts).
 - A parent created in the same batch is not readable yet, which is why `createAccount` takes
   `pendingParents`. Do not "fix" this by splitting the tiers across batches: that reintroduces a
   window in which a half-built tree exists.

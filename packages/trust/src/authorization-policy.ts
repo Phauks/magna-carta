@@ -89,8 +89,8 @@ function toPolicySnapshot(row: TrustAuthorizationPolicyRow): TrustAuthorizationP
 }
 
 // The policy governing a NEW authorization: the latest version, or the shipped default when the firm
-// has never written one. `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter
-// has no `.first()`.
+// has never written one. `.all()` + `results[0]`, never `.first()` — the one-row read convention (one sentinel for
+// "no row"), stated in packages/data-access/src/idempotency-statements.ts.
 export async function readCurrentTrustAuthorizationPolicy(
   database: SqlDatabase,
 ): Promise<TrustAuthorizationPolicySnapshot> {
