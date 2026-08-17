@@ -10,7 +10,7 @@ ui: todo
 load-profile: todo
 tested: todo
 branch: claude/general-ledger-design
-active-work: docs/active-work/claude/general-ledger-design.md
+active-work:
 next: Owner answers on the sixteen flagged questions — the gating ones are G1 (does a starter chart ship), G3 (is period close in scope for this slice), G10/G11 (the two extractions out of shipped billing and reporting code), and G15 (do these books ship ahead of payments' manual receipt); then sub-slice 3·5·1, the chart of accounts, which also gives billing the role-mapping surface it currently has none of
 link-spec: docs/specs/2026-08-17-general-ledger-design.md
 link-plan: docs/specs/2026-08-17-general-ledger-implementation-plan.md
