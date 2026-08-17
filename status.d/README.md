@@ -51,8 +51,13 @@ So `built: done by="Opus 4.8" gap` renders `[x] Opus 4.8\*`. Stage semantics: se
 
 ## Workflow
 
-- **On a branch:** create or edit `status.d/<slice>.md`. Never touch `STATUS.md` / `STATUS.json`.
-- **On `main` after merge:** `vp run status-build` regenerates both, committed alongside the merge —
-  next to `vp run changelog-build` / `vp run decisions-build`. The branch view lags until then, the
-  same accepted trade as CHANGELOG's `[Unreleased]`.
+- **On a branch:** create or edit `status.d/<slice>.md`, then run **`vp run status-build`** and commit
+  `STATUS.md` and `STATUS.json` **with** the fragment. `pnpm run lint:status` fails otherwise
+  ("STATUS.md does not match a fresh render of status.d/"), so a branch that adds a fragment and
+  stops cannot pass its own gate. The render is additive — one row for your slice, no other slice's
+  row moves — so there is no collision surface for a concurrent stream.
+- **Unlike CHANGELOG and the Decision Log**, which really are assembled on `main` by
+  `vp run changelog-build` / `vp run decisions-build` and which a branch must never write. Status is
+  the exception, and mistaking it for the rule costs a round trip: the branch renders nothing, the
+  lint refuses the push, and its remedy line tells you to do the thing this file used to forbid.
 - **Validate anytime:** `pnpm run lint:status` (schema + link existence + duplicate-slot check).
