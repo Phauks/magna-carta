@@ -81,10 +81,11 @@ checks where a partial run still answers them.
 
 **The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
 derives the change set from the git diff (the merge-base with the trunk, plus the working tree) and runs only
-what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
-`svelte-check`, the drizzle snapshot freshness check, or the Rust gate **only when a `.svelte` file, the
-schema package, or a crate was actually touched**. It prints what it skipped and why — a gate that
-quietly checks nothing is worse than a slow one.
+what that change can break: fmt + lint on the changed paths, and the incremental `tsc -b` type-check,
+`svelte-check`, the drizzle snapshot freshness check or the Rust gate **only when something that can
+reach each was actually touched** — respectively a path in the TypeScript project graph, a `.svelte`
+file, the schema package, a crate. It prints what it skipped and why — a gate that quietly checks
+nothing is worse than a slow one.
 
 **And it runs the repo-wide set, which is deliberately NOT scoped to the diff.** See _The repo-wide
 tier_ below: some checks are structurally unreachable from a diff-scoped gate, and leaving them to a CI
@@ -365,22 +366,32 @@ have actually changed, and is a sub-second no-op when everything is current, so 
 top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with the fix, rather
 than surfacing the gap as a confusing type error.
 
-**That `--check` step is unconditional on purpose, and it is the one step in the scoped gate that cannot
-be scoped to the diff.** It reads like an oversight — svelte-check, the Rust gate, the drizzle snapshot
-check, the repo-wide fitness sweep and `lint:licenses` all skip with a stated reason when the diff does
-not reach them, so a docs-only change still paying a bootstrap looks like the same condition simply
-missing. It is not. **Whether the artefacts are needed is a fact about the build graph, not about the
-diff:** the type-check step is itself unconditional, and `tsc -b` builds the whole project-reference
-graph, so in a worktree with no warm `.tsbuildinfo` it type-checks `packages/{pdf,decryption,email}`
-whatever the diff contains. Measured on a fresh worktree with a two-file docs-only diff: with the
-artefacts absent, `vp run typecheck` fails with **twelve `TS2307`s** on the missing generated `.d.ts`
-files. A diff-shaped skip would therefore not save the bootstrap — it would trade one message that names
-its own repair for twelve that do not, which is the failure mode a false skip always has.
+**That `--check` step is conditional on exactly one thing — the type-check running — and never on
+anything narrower.** The distinction is the whole of it, and getting it wrong in either direction has
+been tried. Skipping the artefact check on its own, because "a docs diff does not touch
+`packages/pdf`", is the wrong half: `tsc -b` builds the whole project-reference graph, so a worktree
+with no warm `.tsbuildinfo` type-checks `packages/{pdf,decryption,email}` whatever the diff contains,
+and dropping only the prerequisite trades one message that names its own repair for **twelve `TS2307`s**
+that do not — measured, on a fresh worktree with a two-file docs-only diff. That is the failure mode a
+false skip always has, and it is why the artefact check is not scoped to the diff by file path.
 
-So the asymmetry is real but points the other way: the gate is willing to skip checks that could catch
-something, and insists on a prerequisite that cannot, because the prerequisite is what makes the rest of
-the gate able to run at all. **Do not add a condition to it.** A fresh worktree is bootstrapped once and
-is then warm for every later run; that cost belongs to creating the worktree, not to the diff.
+The question that answers it is one level up: **why is the type-check itself running?** A change set of
+nothing but prose cannot move a type-check result, and the artefacts are needed exactly when something
+builds the graph — so the two skip together or neither does. `tooling/check-scoped/typecheck-scope.mjs`
+decides, and it is written as the list of paths that **provably cannot** be an input to `tsc -b` — prose
+anywhere, the `docs/` tree, and the rendered `STATUS.json` — with the type-check running unless *every*
+changed path is one of them. Deny by default: a new extension, a new top-level directory, a config
+nobody anticipated all take the check. A `.ts`, `.svelte`, `.mts`, a package manifest, a `tsconfig`, a
+JSON fixture under `packages/`, or the lockfile all still type-check, and the gate prints which path
+made it run rather than asserting the answer.
+
+What this buys is the honest path: a branch touching only `docs/` and the ledger fragments passes its
+own gate in about a second in a **fresh, un-bootstrapped worktree**, instead of building three Rust
+crates (~80–100 s cold) for a pass that would not read a line of its diff. That gap is why documentation
+changes were being pushed with `--no-verify`; a gate that makes bypassing it the rational choice trains
+people to bypass it. A fresh worktree is still bootstrapped once before any code work, and is warm for
+every later run — that cost belongs to creating the worktree, and now it is charged to the first diff
+that needs it rather than to the first diff of any kind.
 
 **Staleness is a content question, and success is a verified one.** Each output carries a stamp holding
 the hash of the sources it was built from — its crate, that crate's workspace-local path dependencies,

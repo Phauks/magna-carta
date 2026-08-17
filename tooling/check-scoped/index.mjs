@@ -37,6 +37,7 @@ import {
 } from "./changed-files.mjs";
 import { DEPENDENCY_MANIFEST_PATTERN, FITNESS_SCOPES_ENV } from "./repo-wide.mjs";
 import { mentionsMissingWorkspaceModule } from "./stale-workspace-link.mjs";
+import { reachesTypeGraph, reachingPaths } from "./typecheck-scope.mjs";
 
 const argv = process.argv.slice(2);
 
@@ -101,6 +102,15 @@ const touchedSource = files.some(
   (f) => (f.startsWith("apps/") || f.startsWith("packages/")) && SOURCE_PATTERN.test(f),
 );
 const touchedDependencies = files.some((f) => DEPENDENCY_MANIFEST_PATTERN.test(f));
+// Whether anything in the diff can be an input to `tsc -b` — the reasoning, and why the predicate is
+// written as "what provably cannot", is typecheck-scope.mjs. Deny by default: only prose, the docs tree
+// and the rendered status index are inert, so the answer is `true` for essentially every code change.
+const touchesTypeGraph = reachesTypeGraph(files);
+// Every step that has to RESOLVE a TypeScript import, which is the real precondition for the generated
+// wasm below: the type-check, and the fitness sweep's Vitest run. `touchedSource` implies
+// `touchesTypeGraph` today (nothing under apps/ or packages/ is inert), so the second term is redundant
+// — it is here so that stays true by construction if either predicate is ever widened.
+const resolvesTypeScriptImports = touchesTypeGraph || touchedSource;
 
 console.log(`check:scoped: ${files.length} changed file(s) since ${base.slice(0, 12)}\n`);
 
@@ -108,19 +118,20 @@ const steps = [];
 // Generated wasm must exist before tsc/vitest can resolve the imports in pdf/decryption/email. A no-op
 // when the artefacts are current, so it costs nothing on the common path.
 //
-// UNCONDITIONAL, and deliberately the one step here that is not scoped to the diff — it reads like a
-// missing condition, and adding one is wrong. Whether the artefacts are needed is a fact about the build
-// graph rather than the diff: the type-check step below is itself unconditional and `tsc -b` builds the
-// whole project-reference graph, so a cold worktree type-checks those three packages whatever changed.
-// Measured with a docs-only diff and the artefacts absent, `vp run typecheck` fails with twelve TS2307s
-// on the missing generated .d.ts files. Skipping this would not save the bootstrap; it would replace one
-// message that names its own repair with twelve that do not. Full reasoning:
+// Conditional on the same predicate as the type-check, and it has to be: those three packages are
+// reached because `tsc -b` builds the whole project-reference graph, so the artefacts are needed exactly
+// when something builds that graph. Skipping the artefact check ALONE would be the bug — it would trade
+// one message naming its own repair for twelve TS2307s that do not — but skipping it together with the
+// step that needs it costs nothing and is the difference between a docs-only diff being checkable in a
+// fresh worktree and having to build three Rust crates first. Full reasoning:
 // docs/conventions/build-performance.md.
-steps.push({
-  name: "wasm artefacts present",
-  cmd: "node",
-  args: ["tooling/bootstrap/index.mjs", "--check"],
-});
+if (resolvesTypeScriptImports) {
+  steps.push({
+    name: "wasm artefacts present",
+    cmd: "node",
+    args: ["tooling/bootstrap/index.mjs", "--check"],
+  });
+}
 // drizzle-kit writes a snapshot only as a side effect of emitting a migration, so a hand-written
 // migration leaves meta/ behind the schema and the NEXT generate re-emits everything added since —
 // against firms that already have it. Cheap (~2.6 s for both lineages, serial: the two runs share one
@@ -167,16 +178,22 @@ if (touchedSource) {
   });
 }
 // tsc -b is incremental over the project-reference graph: it re-checks only the changed projects and
-// their dependents, so the whole-graph invocation IS the scoped one.
+// their dependents, so for a diff that reaches the graph at all the whole-graph invocation IS the
+// scoped one. What it is not is unconditional: a diff of nothing but prose cannot move a type-check
+// result, and running it anyway is what forced a docs-only change in a fresh worktree to build three
+// Rust crates for the artefacts the graph needs — a gate that checked not one line of its own diff.
+// The condition names the paths that triggered it rather than asserting the answer.
 // `capture` buffers this one step's output instead of inheriting the terminal, so a failure can be
 // read before it is reported. tsc emits its diagnostics in one burst at the end regardless, so
 // nothing streaming is lost.
-steps.push({
-  name: "type-check (tsc -b, incremental)",
-  cmd: "vp",
-  args: ["run", "typecheck"],
-  capture: true,
-});
+if (touchesTypeGraph) {
+  steps.push({
+    name: `type-check (tsc -b, incremental) — reached by ${reachingPaths(files).join(", ")}`,
+    cmd: "vp",
+    args: ["run", "typecheck"],
+    capture: true,
+  });
+}
 if (touchedSvelteApp) {
   steps.push({
     name: "svelte-check (web)",
@@ -196,6 +213,11 @@ if (touchedRust) {
 }
 
 const skipped = [
+  !touchesTypeGraph
+    ? "type-check (tsc -b) and the wasm artefact check with it — every changed path is prose, docs/ or " +
+      "the rendered status index, none of which the project-reference graph can read " +
+      "(tooling/check-scoped/typecheck-scope.mjs)"
+    : null,
   !touchedSvelteApp && !touchedSvelteDs ? "svelte-check (no .svelte changed)" : null,
   !touchedRust ? "rust gate (no crate changed)" : null,
   !touchedSchemaPackage ? "drizzle snapshot freshness (no packages/database change)" : null,
