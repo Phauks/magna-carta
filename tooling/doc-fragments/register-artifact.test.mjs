@@ -262,7 +262,7 @@ describe("the two renderings of the real ledger", () => {
     const units = workUnits(nodes);
     const shipped = units.filter((entry) => entry.status === "shipped").length;
     expect(register).toContain(`| **All statuses** | **${units.length}** | **100%** |`);
-    expect(page).toContain(`<b>${shipped}</b><em>Built, tested, reachable</em>`);
+    expect(page).toContain(`<b>${shipped}</b><em>The artifact exists on main</em>`);
     expect(page).toContain(`Counted over the ${units.length}`);
   });
 

@@ -34,13 +34,7 @@ import {
   escapeHtml,
   renderInlineMarkup,
 } from "./register-artifact.mjs";
-import {
-  AWAITING_BOUNDARY,
-  STATUSES_WITH_NOTHING_BUILT,
-  allNodes,
-  reachOf,
-  rollUpIds,
-} from "./roadmap.mjs";
+import { AWAITING_BOUNDARY, allNodes, holdsUpABuild, reachOf, rollUpIds } from "./roadmap.mjs";
 
 // The answer to "is there working code behind this question", which is the first thing a reader
 // wants after the question itself and the thing `status` alone cannot say. reachOf is roadmap.mjs's,
@@ -102,8 +96,8 @@ export function renderDecisionDesk(areas) {
   // gap somebody could close and is a prompt nothing can satisfy.
   const parents = rollUpIds(nodes);
   const open = nodes.filter((node) => node.awaitingOwner !== null);
-  const blocking = open.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
-  const changing = open.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+  const blocking = open.filter((node) => holdsUpABuild(node, parents.has(node.id)));
+  const changing = open.filter((node) => !holdsUpABuild(node, parents.has(node.id)));
 
   const document = [
     "<title>Magna Carta Decision Desk</title>",
@@ -540,6 +534,7 @@ const DESK_SCRIPT = `(() => {
     if (host) {
       try {
         await host.save({ filename: "magna-carta-decisions.md", data: text });
+        answeredLine.textContent = "Downloaded.";
       } catch (error) {
         answeredLine.textContent =
           error?.code === "declined"
@@ -553,8 +548,11 @@ const DESK_SCRIPT = `(() => {
     link.href = href;
     link.download = "magna-carta-decisions.md";
     link.click();
-    // Revoked on a later turn of the loop, never in the same tick as the click: the browser reads
-    // the blob asynchronously, and revoking immediately races it into an empty or absent file.
+    // Said out loud, because this branch cannot know whether it worked. A sandboxed frame makes an
+    // anchor download inert with no error, so silence here is indistinguishable from success, and
+    // the reader would be left believing they have a file they do not have.
+    answeredLine.textContent =
+      "Asked the browser for a file. If nothing arrives, this page cannot save here — copy instead.";
     setTimeout(() => URL.revokeObjectURL(href), 10_000);
   });
 

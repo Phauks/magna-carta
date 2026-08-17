@@ -902,8 +902,8 @@ function renderAwaiting(nodes) {
 
   const line = (node) =>
     `- **${node.name}** (\`${node.id}\`) — ${reachTag(node, parents)}${node.awaitingOwner}`;
-  const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
-  const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+  const holdingABuild = awaiting.filter((node) => holdsUpABuild(node, parents.has(node.id)));
+  const refining = awaiting.filter((node) => !holdsUpABuild(node, parents.has(node.id)));
 
   const parts = [];
   if (holdingABuild.length > 0) {
@@ -950,6 +950,14 @@ export function reachOf(node, isRollUp = false) {
 // emphasises it and the page colours it; neither writes the words themselves, because a question that
 // read "not built" in one document and "built" in the other would be a contradiction no reader could
 // settle.
+// Whether leaving this question open is stopping something from being written. Derived from reachOf
+// rather than from status directly, so a roll-up parent — whose status is a summary of its children
+// and whose reach is theirs — is never filed under "nothing is built behind these" while its own
+// chip says it is a group. Exported so the desk and the register split on one answer.
+export function holdsUpABuild(node, isRollUp = false) {
+  return reachOf(node, isRollUp) === "not-built";
+}
+
 export const REACH_LABEL = {
   "not-built": "Not built.",
   parked: "Parked.",

@@ -29,11 +29,11 @@ import {
   AWAITING_BOUNDARY,
   LEDGER_STATUSES,
   ROLL_UPS,
-  STATUSES_WITH_NOTHING_BUILT,
   allNodes,
   REACH_LABEL,
   STATUSES_WITH_SOMETHING_BUILT,
   countByStatus,
+  holdsUpABuild,
   reachOf,
   rollUpIds,
   share,
@@ -64,7 +64,10 @@ const ROLL_UP_CARDS = {
   Done: {
     heading: "Shipped",
     modifier: "g",
-    detail: () => "Built, tested, reachable",
+    // Not "reachable": the reach band below counts how many of these a person can actually open,
+    // and it is a small fraction. A headline that claimed otherwise would be refuted two sections
+    // down by the same page.
+    detail: () => "The artifact exists on main",
   },
   "Part-built": {
     heading: "Part-built",
@@ -363,8 +366,8 @@ function renderAwaiting(nodes) {
   if (awaiting.length === 0) {
     parts.push("<p>No capability is blocked on an owner decision.</p>");
   } else {
-    const holdingABuild = awaiting.filter((node) => STATUSES_WITH_NOTHING_BUILT.has(node.status));
-    const refining = awaiting.filter((node) => !STATUSES_WITH_NOTHING_BUILT.has(node.status));
+    const holdingABuild = awaiting.filter((node) => holdsUpABuild(node, parents.has(node.id)));
+    const refining = awaiting.filter((node) => !holdsUpABuild(node, parents.has(node.id)));
 
     if (holdingABuild.length > 0) {
       parts.push(
