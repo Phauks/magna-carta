@@ -56,8 +56,9 @@
 - id: documents.file-manager.file-inspector
   name: File Inspector workbench
   scope: Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane.
-  status: in-build
-  evidence: Remote branch file-inspector-spec; the workbench design is referenced from docs/active-work/file-surface-web.md but not yet on main.
+  status: not-started
+  evidence: nothing on main — no inspector route, no inspector module, and no design under docs/specs/. The workbench design is one unmerged doc on the remote branch file-inspector-spec, so no accepted spec exists for `designed` to point at either.
+  notes: Was in-build on the strength of that branch, which carries a single documentation commit and no code. The branch it would build on (file-surface-web) is recorded abandoned and superseded.
 
 - id: documents.file-manager.content-hash
   name: Content hashing at write
@@ -672,8 +673,9 @@
 - id: documents.ocr.raster-cap
   name: Raster cap & skip gate
   scope: Caps raster size and skips already-text pages in the OCR path.
-  status: in-build
-  evidence: Remote branch ocr-raster-cap-and-skip-gate (listed in-flight in the 2026-07-14 baseline report).
+  status: shipped
+  evidence: containers/ocr/src/pages.rs derives the render density from a pixel budget so an outsize page cannot be rastered whole, and containers/ocr/src/lib.rs skips a page that already carries a text layer with a recorded reason; both carry tests in that crate.
+  notes: Was in-build against the remote branch ocr-raster-cap-and-skip-gate; the capability reached main independently of it.
 
 - id: documents.ocr.ui
   name: OCR tool UI

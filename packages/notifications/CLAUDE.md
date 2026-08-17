@@ -143,7 +143,10 @@ that is the fastest route to two subtly different notions of what a notification
   truncated zone list is the one way this pass stops finding things without the findings clamp moving:
   a zone that read never returns contributes no cutoff, so every deadline in it matches neither the
   overdue bound nor the due-today window, and the pass reports nothing about a whole jurisdiction with
-  every other counter reading healthy. It over-reads by one and reports
+  every other counter reading healthy. **The calendar's own read reports that truncation** —
+  `readOpenDeadlineTimeZones` over-reads by one and answers `{ timeZones, clamped }` — so this pass
+  consumes the signal rather than deriving it at the call site, and the next caller inherits it instead
+  of re-deriving it. The pass turns it into
   `notifications.comparison_zone_discovery_truncated`, kept apart from the findings clamp because a
   clamp bounds what was missed and this does not bound it at all. The value counts truncated **passes**,
   not zones: a read that over-reads by one to catch its own truncation learns that it truncated and can

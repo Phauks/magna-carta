@@ -26,9 +26,9 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 263 | 35% |
-| Part-built | partial, in-build | 214 | 28% |
-| Ahead | designed, planned, researching, not-started | 234 | 31% |
+| Done | shipped | 267 | 35% |
+| Part-built | partial, in-build | 209 | 28% |
+| Ahead | designed, planned, researching, not-started | 235 | 31% |
 | Parked | deferred, cut | 43 | 6% |
 | **All capabilities** | | **754** | **100%** |
 
@@ -36,22 +36,22 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 263 | 35% |
-| `partial` | 203 | 27% |
-| `in-build` | 11 | 1% |
+| `shipped` | 267 | 35% |
+| `partial` | 204 | 27% |
+| `in-build` | 5 | 1% |
 | `designed` | 50 | 7% |
 | `planned` | 19 | 3% |
 | `researching` | 6 | 1% |
-| `not-started` | 159 | 21% |
+| `not-started` | 160 | 21% |
 | `deferred` | 41 | 5% |
 | `cut` | 2 | 0% |
 | **All statuses** | **754** | **100%** |
 
 ### What `partial` hides
 
-**Shipped alone is 263 of 754 (35%). Shipped plus partial is 466 (62%).**
+**Shipped alone is 267 of 754 (35%). Shipped plus partial is 471 (62%).**
 
-The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 204 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -73,17 +73,17 @@ true and neither is the answer on its own.
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 6 | 13 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 26 | 23% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
+| Documents | 61 | 23 | 3 | 2 | 2 | 0 | 20 | 3 | 1 | 115 | 53% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
 | Financial Core | 19 | 26 | 0 | 13 | 0 | 0 | 8 | 3 | 0 | 69 | 28% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 7 | 0% |
 | Integrations & Plugins | 17 | 8 | 0 | 1 | 0 | 3 | 16 | 3 | 0 | 48 | 35% |
-| Maintenance Agents | 0 | 2 | 4 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 0% |
+| Maintenance Agents | 2 | 3 | 1 | 0 | 0 | 0 | 6 | 0 | 0 | 12 | 17% |
 | Notifications | 2 | 9 | 0 | 0 | 0 | 0 | 1 | 4 | 0 | 16 | 13% |
 | Observability & Diagnostics | 11 | 5 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 24 | 46% |
 | Payments | 0 | 0 | 0 | 7 | 0 | 0 | 3 | 0 | 0 | 10 | 0% |
 | Performance & Concurrency | 6 | 4 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 13 | 46% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 30 | 20 | 2 | 1 | 0 | 0 | 22 | 6 | 1 | 82 | 37% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 20 | 1 | 1 | 0 | 0 | 22 | 6 | 1 | 82 | 38% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 15 | 1 | 0 | 16 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 16 | 13% |
 | Release Channels | 7 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 9 | 78% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **263** | **203** | **11** | **50** | **19** | **6** | **159** | **41** | **2** | **754** | **35%** |
+| **All areas** | **267** | **204** | **5** | **50** | **19** | **6** | **160** | **41** | **2** | **754** | **35%** |
 
 ## Where we have been
 
@@ -297,16 +297,10 @@ Decisions about a capability only. Account-side steps that no session can perfor
 ## Being built now
 
 - `documents.file-manager.matter-files-ui` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it.
-- `documents.file-manager.file-inspector` · **File Inspector workbench** — Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane.
 - `documents.conversion.output-placement` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
-- `documents.ocr.raster-cap` · **Raster cap & skip gate** — Caps raster size and skips already-text pages in the OCR path.
 - `documents.decryption.gpu` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards.
-- `maintenance-agents.docs-maintenance` · **Docs-maintenance system (docs-sync)** — Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run.
-- `maintenance-agents.docs-maintenance.per-merge-assembly` · **Per-merge fragment assembly workflow** — CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers.
 - `maintenance-agents.docs-maintenance.weekly-routine` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
-- `maintenance-agents.docs-maintenance.run-reports` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state.
 - `platform.web-spa.app-shell` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views.
-- `platform.schema-migration.monotonic-ids` · **Monotonic migration ids** — Collision-proof migration numbering across parallel branches.
 
 ## Next up
 
@@ -704,7 +698,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 115 nodes, 52% shipped. 60 done, 28 part-built, 23 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 115 nodes, 53% shipped. 61 done, 26 part-built, 24 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -712,7 +706,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.document-types` · `shipped` · **Document types** — Per-firm document-type taxonomy attached to files.
     - `documents.file-manager.ui-primitives` · `shipped` · **File UI primitives** — FileIcon, Breadcrumb, ContextMenu, Tree, Dropzone design-system components for file surfaces. _Note: Container VRT baselines and NVDA pass still outstanding per the fragment._
     - `documents.file-manager.matter-files-ui` · `in-build` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it. _Note: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions._
-    - `documents.file-manager.file-inspector` · `in-build` · **File Inspector workbench** — Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane.
+    - `documents.file-manager.file-inspector` · `not-started` · **File Inspector workbench** — Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane. _Note: Was in-build on the strength of that branch, which carries a single documentation commit and no code. The branch it would build on (file-surface-web) is recorded abandoned and superseded._
     - `documents.file-manager.content-hash` · `shipped` · **Content hashing at write** — SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
       - `documents.file-manager.bulk-download.async` · `shipped` · **Async bulk bundle** — Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.
@@ -795,7 +789,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `documents.ocr` · `partial` · **OCR** — PaddleOCR models via ort/ONNX in a container behind a dedicated worker; identical output wherever it runs.
     - `documents.ocr.engine` · `shipped` · **ocr-core engine** — PP-OCR ONNX model pipeline (small tier) through Rust ort, with pinned SHA-256-guarded model set. _Note: ADR-0060 selected PP-OCRv5; the built engine runs PP-OCRv6 per the status fragment._
     - `documents.ocr.api` · `shipped` · **OCR API** — POST /api/v1/ocr behind the tools:ocr permission. _Note: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md._
-    - `documents.ocr.raster-cap` · `in-build` · **Raster cap & skip gate** — Caps raster size and skips already-text pages in the OCR path.
+    - `documents.ocr.raster-cap` · `shipped` · **Raster cap & skip gate** — Caps raster size and skips already-text pages in the OCR path. _Note: Was in-build against the remote branch ocr-raster-cap-and-skip-gate; the capability reached main independently of it._
     - `documents.ocr.ui` · `not-started` · **OCR tool UI** — User-facing OCR tool surface.
     - `documents.ocr.desktop-local` · `not-started` · **Local OCR on desktop** — Same pinned model set compiled native for the Tauri client so desktop ingest OCRs locally.
   - `documents.file-repair` · `partial` · **File repair & salvage** — Diagnose/repair/carve corrupted files with an honest per-run loss manifest, re-scanned output, and chain-of-custody provenance. _Note: Decision fragments file-repair-single-container-lane and engine-host-r2-optional pending assembly (unnumbered)._
@@ -977,7 +971,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Maintenance Agents
 
-[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 12 nodes, 0% shipped. 0 done, 6 part-built, 6 ahead, 0 parked.
+[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 12 nodes, 17% shipped. 2 done, 4 part-built, 6 ahead, 0 parked.
 
 - `maintenance-agents` · `partial` · **Maintenance agents** — Scheduled propose-only Claude agents plus CI tooling (open PRs/reports, never auto-merge; trust/ledger/conflicts paths always human-reviewed).
   - `maintenance-agents.security` · `not-started` · **Security agent** — pnpm/cargo audit, CVE triage, secret scanning on a schedule.
@@ -986,10 +980,10 @@ to change a line here, edit the node in its area file and re-run the build.
   - `maintenance-agents.compliance-watch` · `not-started` · **Compliance-watch agent** — Bar/IOLTA rule-change monitoring keeping the trust catalog current.
   - `maintenance-agents.competitive-watch` · `not-started` · **Competitive-watch agent** — Monitor competitor changelogs/feature pages; flag new features and gaps.
   - `maintenance-agents.diagnostics` · `not-started` · **Diagnostics agent** — Triage incoming incident reports, correlate to traces, draft root-cause, propose draft-PR fixes, acknowledge the reporter.
-  - `maintenance-agents.docs-maintenance` · `in-build` · **Docs-maintenance system (docs-sync)** — Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run.
-    - `maintenance-agents.docs-maintenance.per-merge-assembly` · `in-build` · **Per-merge fragment assembly workflow** — CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers.
+  - `maintenance-agents.docs-maintenance` · `partial` · **Docs-maintenance system (docs-sync)** — Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run. _Note: Was in-build against branch claude/docs-sync-routine-setup-c3hy7m, which now carries only a small residue over main._
+    - `maintenance-agents.docs-maintenance.per-merge-assembly` · `shipped` · **Per-merge fragment assembly workflow** — CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers. _Note: Was in-build against the branch it was written on; that branch's remaining diff over main is four files._
     - `maintenance-agents.docs-maintenance.weekly-routine` · `in-build` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
-    - `maintenance-agents.docs-maintenance.run-reports` · `in-build` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state.
+    - `maintenance-agents.docs-maintenance.run-reports` · `shipped` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state. _Note: Was in-build against the branch the registry was written on; the registry is on main and in use._
     - `maintenance-agents.docs-maintenance.ci-doc-hygiene` · `partial` · **Deterministic doc-hygiene CI rules** — CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
 
 ### Notifications
@@ -1077,7 +1071,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 82 nodes, 37% shipped. 30 done, 22 part-built, 23 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 82 nodes, 38% shipped. 31 done, 21 part-built, 23 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1160,7 +1154,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `platform.schema-migration` · `partial` · **Schema migration and the fleet** — Drizzle single source for types and migrations, two lineages, fleet rollout with per-firm isolation, expand-contract discipline.
     - `platform.schema-migration.fleet-runner` · `shipped` · **Fleet rollout orchestrator** — Bounded-concurrency fan-out applying pending per-firm migrations, quarantine on failure, idempotent resume, version recorded in the firm registry.
     - `platform.schema-migration.control-plane-applier` · `shipped` · **Control-plane auto-applier** — Automatic application of control-plane migrations on deploy.
-    - `platform.schema-migration.monotonic-ids` · `in-build` · **Monotonic migration ids** — Collision-proof migration numbering across parallel branches.
+    - `platform.schema-migration.monotonic-ids` · `shipped` · **Monotonic migration ids** — Collision-proof migration numbering across parallel branches. _Note: Was in-build against an active-work note that no longer exists; the scheme and the pre-production baseline collapse the design called for are both on main._
 
 ### Client Portal
 

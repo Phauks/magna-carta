@@ -48,16 +48,18 @@
 - id: maintenance-agents.docs-maintenance
   name: Docs-maintenance system (docs-sync)
   scope: Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run.
-  status: in-build
+  status: partial
   adrs: ADR-0058
   spec: docs/specs/2026-07-14-docs-sync-routine-design.md
-  evidence: docs/maintenance/, .claude/skills/docs-sync/SKILL.md, .github/workflows/assemble-docs.yml — all on branch claude/docs-sync-routine-setup-c3hy7m, unmerged.
+  evidence: docs/maintenance/, .claude/skills/docs-sync/SKILL.md and .github/workflows/assemble-docs.yml are all on main; the deterministic half runs on every push and the run-report registry has entries beyond its baseline. Roll-up of children that mix shipped and not.
+  notes: Was in-build against branch claude/docs-sync-routine-setup-c3hy7m, which now carries only a small residue over main.
 
 - id: maintenance-agents.docs-maintenance.per-merge-assembly
   name: Per-merge fragment assembly workflow
   scope: CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers.
-  status: in-build
-  evidence: .github/workflows/assemble-docs.yml on this branch; repaired status-build collisions recorded in docs/maintenance/reports/2026-07-14-baseline.md.
+  status: shipped
+  evidence: .github/workflows/assemble-docs.yml on main, triggered on push to main, delivering the assembly as an auto-merging pull request from the docs-assembly branch.
+  notes: Was in-build against the branch it was written on; that branch's remaining diff over main is four files.
 
 - id: maintenance-agents.docs-maintenance.weekly-routine
   name: Weekly docs-sync routine
@@ -68,8 +70,9 @@
 - id: maintenance-agents.docs-maintenance.run-reports
   name: Run-report registry
   scope: One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state.
-  status: in-build
-  evidence: docs/maintenance/reports/2026-07-14-baseline.md (verified baseline, first window-end pinned).
+  status: shipped
+  evidence: docs/maintenance/reports/ on main holds the pinned baseline plus a report per run since, each carrying the window-start/window-end frontmatter the next run reads its window from.
+  notes: Was in-build against the branch the registry was written on; the registry is on main and in use.
 
 - id: maintenance-agents.docs-maintenance.ci-doc-hygiene
   name: Deterministic doc-hygiene CI rules

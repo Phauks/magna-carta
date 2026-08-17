@@ -235,6 +235,13 @@ export async function readMatterDeadline(
 // behind a D1 query). Read over the same coarse date bound the narrowing then refines, so the answer
 // is exactly the zones that could possibly appear on the page, and carrying the visible-matter
 // predicate so an invisible matter's zone is not even learned.
+//
+// It over-reads by ONE, so the read below can tell a complete zone list from one the limit cut short
+// without a second count — the shape `selectDigestWindowStatement` uses in
+// packages/notifications/src/read-statements.ts. The consequence of missing a truncation is worse
+// here than it is for a page of rows: a zone this never returns contributes no cutoff, so every
+// deadline recorded in it matches neither the overdue bound nor the due-today window, and a caller
+// reports nothing at all about a whole jurisdiction while every count it keeps reads healthy.
 export function selectOpenDeadlineTimeZonesStatement(
   database: SqlDatabase,
   options: {
@@ -250,7 +257,18 @@ export function selectOpenDeadlineTimeZonesStatement(
         `WHERE matter_deadline.state = 'open' AND matter_deadline.due_on <= ? AND ` +
         `${options.visibilityFragment} LIMIT ?`,
     )
-    .bind(options.throughDate, ...options.visibilityBindings, options.limit);
+    .bind(options.throughDate, ...options.visibilityBindings, options.limit + 1);
+}
+
+// The zones, and whether the limit cut the list short. A bare array cannot say the second thing, and
+// every caller that needs it would otherwise re-derive it by over-reading and comparing — which is
+// the same answer computed in as many places as there are callers, each free to get it wrong.
+export interface OpenDeadlineTimeZones {
+  readonly timeZones: readonly string[];
+  // Whether there were more zones past the limit. A boolean rather than a count, because the read
+  // over-reads by exactly one: it can learn THAT it truncated and never by how much, and a number
+  // here would be a magnitude nothing measured.
+  readonly clamped: boolean;
 }
 
 export async function readOpenDeadlineTimeZones(
@@ -261,11 +279,14 @@ export async function readOpenDeadlineTimeZones(
     readonly visibilityFragment: string;
     readonly visibilityBindings: readonly unknown[];
   },
-): Promise<string[]> {
+): Promise<OpenDeadlineTimeZones> {
   const { results } = await selectOpenDeadlineTimeZonesStatement(database, options).all<{
     time_zone: string;
   }>();
-  return results.map((row) => row.time_zone);
+  return {
+    timeZones: results.slice(0, options.limit).map((row) => row.time_zone),
+    clamped: results.length > options.limit,
+  };
 }
 
 // The open deadlines whose trigger names one event — what the continuance operation reports so the
