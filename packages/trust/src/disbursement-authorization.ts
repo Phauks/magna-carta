@@ -389,7 +389,8 @@ function toRequestSnapshot(row: TrustDisbursementRequestRow): TrustDisbursementR
   };
 }
 
-// `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter has no `.first()`.
+// `.all()` + `results[0]`, never `.first()` — the one-row read convention (one sentinel for
+// "no row"), stated in packages/data-access/src/idempotency-statements.ts.
 export async function loadTrustDisbursementRequest(
   database: SqlDatabase,
   requestId: TrustDisbursementRequestId,

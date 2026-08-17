@@ -15,11 +15,14 @@ import {
 // which guards the layer above: that every vitest config on disk is registered as a project at all).
 //
 // This one guards the layer below it. The gate splits the suite across three jobs whose union is
-// supposed to be every registered test file exactly once. Nothing in the runner enforces that: a job
-// whose filter matches nothing exits 0 having run nothing, so a mis-scoped filter reads as a fast green
-// job rather than as a failure. That is not hypothetical — a filter of `packages` (a directory that is
-// the PARENT of many project roots) silently collected zero files from every package in the repo while
-// the job reported success.
+// supposed to be every registered test file exactly once. Nothing in the runner enforces that — and the
+// gap is SILENT NARROWING, not an empty filter sailing through. A filter set matching nothing does fail:
+// the runner prints "No test files found, exiting with code 1" and exits 1, measured on this version
+// across `run`, `--shard=i/N` and `--project`. What escapes is a filter set that still matches SOME
+// files. Each gate job passes a dozen-odd paths, so one wrong or dropped entry leaves the others
+// collecting and the job exits 0 over a fraction of the suite. That is not hypothetical: a filter of
+// `packages` (a directory that is the PARENT of many project roots) contributed zero files of its own,
+// and because it travelled alongside paths that did resolve, the job reported success on what was left.
 //
 // The mechanism, and why the gate passes ABSOLUTE paths: the runner matches a positional path filter
 // per project, against the candidate file's path relative to THAT PROJECT'S OWN root — not against the

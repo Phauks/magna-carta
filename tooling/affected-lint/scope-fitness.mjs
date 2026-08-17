@@ -8,7 +8,9 @@ import { computeAffected, discoverPackages, resolveFanoutSinks } from "./index.m
 //
 // The gate does not lint the whole repository on a pull request. It lints a computed scope, and a
 // scope that is too NARROW does not fail — it reports a fast green, exactly the way a test filter that
-// matches nothing does. So the scope needs a proof rather than a reading, and that is what this is.
+// still matches SOME files narrows a test job without failing it (lint-test-collection.mjs has the
+// measurements; a filter matching NOTHING is the case the runner does catch, exiting 1). So the scope
+// needs a proof rather than a reading, and that is what this is.
 //
 // What it asserts:
 //   1. COVERAGE. For a change to every workspace package in turn, the unscoped pass (the one every

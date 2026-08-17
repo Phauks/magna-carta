@@ -41,7 +41,10 @@ billing (3·4), and this package never writes the ledger.
 - **Phantom-audit pre-read.** Every lifecycle/receipt op pre-reads the current row and throws
   not-found BEFORE composing any effect, so an unknown id can never produce a phantom audit row; the
   audit's `metadata` stays null (no privileged free-text in the shared audit log).
-- **`.all()` + `results[0]`, never `.first()`.** The node-sqlite test adapter has no `.first()`.
+- **`.all()` + `results[0]`, never `.first()`.** For one spelling of "no row", not because `.first()` is
+  missing. Every adapter behind the statement interface implements it, so an existing `.first()` call is
+  not a bug; it just returns `null` where the rest of the platform's reads return `undefined`. Stated
+  once in [`packages/data-access/src/idempotency-statements.ts`](../data-access/src/idempotency-statements.ts).
 
 ## Dependencies & contracts
 

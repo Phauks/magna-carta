@@ -30,7 +30,8 @@ export async function readLinkedCustodyPacketCount(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<number> {
-  // `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter has no `.first()`.
+  // `.all()` + `results[0]`, never `.first()` — the one-row read convention (one sentinel for "no
+  // row"), stated in packages/data-access/src/idempotency-statements.ts.
   const { results } = await database
     .prepare(
       `SELECT COUNT(*) AS linked_count FROM custody_packet WHERE matter_id = ?1 AND status IN ('held', 'out')`,

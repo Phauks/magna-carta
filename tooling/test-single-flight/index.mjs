@@ -6,7 +6,9 @@
 //     milliseconds with a readable message instead of wedging both at 0% CPU (lock.mjs explains the
 //     contention);
 //   - path-filter resolution, so `pnpm test tooling` selects the tests under `tooling/` instead of
-//     reporting that it found none (path-filters.mjs explains why the short spelling misses).
+//     reporting that it found none (path-filters.mjs explains why the short spelling misses);
+//   - broken-pipe teardown, so `pnpm test | head` ends the run and releases the lock instead of sitting
+//     at 0% CPU still holding it (broken-pipe.mjs explains why the parent has to notice, not the child).
 //
 // Options are passed through untouched, and so is any filter that is not a directory in this
 // repository, so `pnpm test run packages/ledger` and `pnpm test --watch` behave exactly as the runner
@@ -24,6 +26,13 @@ import { readdirSync, statSync } from "node:fs";
 import { hostname } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  BROKEN_PIPE_EXIT_CODE,
+  isBrokenPipe,
+  outputMode,
+  stdioFor,
+  writeIgnoringBrokenPipe,
+} from "./broken-pipe.mjs";
 import { acquireSingleFlightLock, blockedMessage } from "./lock.mjs";
 import { planPathFilters } from "./path-filters.mjs";
 
@@ -107,14 +116,19 @@ const plan = planPathFilters(requestedArguments, inspectFilter);
 // not hold the lock a real run is waiting for, and it should not exit 0 either. The runner's own exit
 // code for an empty selection is already 1; making the refusal explicit here means that stays true
 // however the runner's defaults move.
+// These messages go out through writeIgnoringBrokenPipe rather than console: they are written before the
+// stream error handlers below exist, so an EPIPE here would be an uncaught exception — and the one at
+// "reclaimed an abandoned lock" happens with the lock already taken, where a crash would strand it.
 if (plan.refusals.length > 0) {
-  for (const refusal of plan.refusals) console.error(`test: ${refusal}`);
+  for (const refusal of plan.refusals)
+    writeIgnoringBrokenPipe(process.stderr, `test: ${refusal}\n`);
   process.exit(1);
 }
 if (plan.resolved.length > 0) {
-  console.log(
+  writeIgnoringBrokenPipe(
+    process.stdout,
     `test: resolved ${plan.resolved.length} directory filter(s) to absolute paths — ` +
-      `${plan.resolved.join(", ")} (see tooling/test-single-flight/path-filters.mjs)`,
+      `${plan.resolved.join(", ")} (see tooling/test-single-flight/path-filters.mjs)\n`,
   );
 }
 
@@ -123,7 +137,10 @@ const skipLock = process.env.MAGNA_CARTA_ALLOW_CONCURRENT_TESTS === "1";
 
 let release = () => {};
 if (skipLock) {
-  console.log("test: MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1 — single-flight lock skipped");
+  writeIgnoringBrokenPipe(
+    process.stdout,
+    "test: MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1 — single-flight lock skipped\n",
+  );
 } else {
   const claim = acquireSingleFlightLock({
     lockPath: LOCK_PATH,
@@ -134,24 +151,34 @@ if (skipLock) {
     },
   });
   if (!claim.acquired) {
-    console.error("test: " + blockedMessage(claim.holder, LOCK_PATH));
+    writeIgnoringBrokenPipe(
+      process.stderr,
+      "test: " + blockedMessage(claim.holder, LOCK_PATH) + "\n",
+    );
     process.exit(1);
   }
-  if (claim.reclaimedFrom !== undefined) {
-    console.log(`test: reclaimed an abandoned lock (${claim.reason})`);
-  }
+  // Assigned BEFORE anything is reported, so no write between the claim and this line can strand a lock
+  // whose release still points at the no-op above.
   release = claim.release;
+  if (claim.reclaimedFrom !== undefined) {
+    writeIgnoringBrokenPipe(
+      process.stdout,
+      `test: reclaimed an abandoned lock (${claim.reason})\n`,
+    );
+  }
 }
+
+const mode = outputMode(Boolean(process.stdout.isTTY));
 
 const child = spawn("vp", ["test", ...passthroughArguments], {
   cwd: ROOT,
-  stdio: "inherit",
+  stdio: stdioFor(mode),
   shell: process.platform === "win32",
 });
 
-// The lock must not outlive this process by any exit path — a normal finish, a runner crash, or the
-// Ctrl-C that ends a watch run. A lock left behind by a clean exit is the fastest way to make the guard
-// look like the bug it exists to prevent.
+// The lock must not outlive this process by any exit path — a normal finish, a runner crash, the Ctrl-C
+// that ends a watch run, or the reader of a pipe walking away. A lock left behind by a clean exit is the
+// fastest way to make the guard look like the bug it exists to prevent.
 let finished = false;
 const finish = (code) => {
   if (finished) return;
@@ -160,7 +187,55 @@ const finish = (code) => {
   process.exit(code);
 };
 
-child.on("exit", (code, signal) => finish(signal ? 1 : (code ?? 1)));
+// The reader is gone, so there is nowhere left to report anything: end the run rather than write into a
+// closed pipe forever. SIGTERM first so the runner can tear its workers down, then an unconditional
+// SIGKILL-and-exit on a short timer — this path exists precisely because the child may never react, so
+// the timer is deliberately NOT unref'd. Anything less leaves the lock held by a process at 0% CPU.
+let brokenPipe = false;
+const endForBrokenPipe = () => {
+  if (finished || brokenPipe) return;
+  brokenPipe = true;
+  child.stdout?.unpipe(process.stdout);
+  child.stderr?.unpipe(process.stderr);
+  child.kill("SIGTERM");
+  setTimeout(() => {
+    child.kill("SIGKILL");
+    finish(BROKEN_PIPE_EXIT_CODE);
+  }, 2000);
+};
+
+// Installing an `error` listener is what stops an EPIPE becoming an uncaught exception — which also
+// means it is what stops the process dying on its own, so the listener MUST act on it.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error) => {
+    if (isBrokenPipe(error)) endForBrokenPipe();
+    else throw error;
+  });
+}
+// POSIX only, and only fires because Node ignores SIGPIPE rather than dying of it. Belt to the braces
+// above: on this path the failed write is reported as a signal instead of a stream error.
+process.on("SIGPIPE", endForBrokenPipe);
+
+if (mode === "forward") {
+  // `{ end: false }` because the child's stdout ending must not close OURS — the guard still has its own
+  // exit path to report through. `.pipe()` is what carries backpressure, so nothing is dropped or
+  // reordered when the destination is slower than the runner.
+  child.stdout.pipe(process.stdout, { end: false });
+  child.stderr.pipe(process.stderr, { end: false });
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.on("error", (error) => {
+      if (isBrokenPipe(error)) endForBrokenPipe();
+    });
+  }
+}
+
+// `close` rather than `exit`: it fires once the forwarded stdio has drained as well as the process
+// having gone, so the last lines of a piped run are not cut off by the `process.exit` below. With
+// `stdio: "inherit"` there is no stdio to drain and it follows `exit` immediately.
+child.on("close", (code, signal) => {
+  if (brokenPipe) return finish(BROKEN_PIPE_EXIT_CODE);
+  return finish(signal ? 1 : (code ?? 1));
+});
 child.on("error", (error) => {
   console.error("test: could not start the test runner —", error.message);
   finish(1);
@@ -168,7 +243,7 @@ child.on("error", (error) => {
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   process.on(signal, () => {
     child.kill(signal);
-    // Let the child's own exit handler do the release; this is the backstop if it never reports.
+    // Let the child's own close handler do the release; this is the backstop if it never reports.
     setTimeout(() => finish(1), 5000).unref();
   });
 }

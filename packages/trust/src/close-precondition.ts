@@ -55,7 +55,8 @@ export async function readMatterTrustPositions(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<MatterTrustPosition[]> {
-  // `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter has no `.first()`.
+  // `.all()` + `results[0]`, never `.first()` — the one-row read convention (one sentinel for "no
+  // row"), stated in packages/data-access/src/idempotency-statements.ts.
   const { results } = await selectMatterTrustPositionsStatement(
     database,
     matterId,
