@@ -136,7 +136,17 @@ export function parseArea(markdown, name = "area") {
       }
       const field = key[1] ?? "";
       if (field in node.fields) problems.push(`line ${at}: "${field}" is set twice on one node`);
-      node.fields[field] = (key[2] ?? "").trim();
+      const value = (key[2] ?? "").trim();
+      // A key with nothing after it is always a mistake, and this is the only place that can see
+      // it. Everything downstream reads absent and blank as the same thing, deliberately, so that a
+      // blank value cannot satisfy a rule testing for presence — which means nothing downstream can
+      // report one either. A blank `awaiting-owner:` would otherwise be a question that disappears.
+      if (value === "") {
+        problems.push(
+          `line ${at}: "${field}" is written with no value — give it one, or drop the key; a blank key reads as absent everywhere below this line`,
+        );
+      }
+      node.fields[field] = value;
       continue;
     }
 
@@ -923,11 +933,13 @@ function renderAwaiting(nodes) {
 // something people may already depend on. Exported so the decision desk labels its cards from this
 // one function rather than restating the mapping.
 export function reachOf(node, isRollUp = false) {
+  // The parent test comes first, before status. A parent carries no `surface:` — the lint refuses
+  // one, because its reach is its children's — and its status is itself a roll-up of theirs, so a
+  // parent sitting at `not-started` over children that are built would otherwise be labelled "no
+  // code exists behind this yet" about a subtree that has some.
+  if (isRollUp) return "roll-up";
   if (STATUSES_WITH_NOTHING_BUILT.has(node.status)) return "not-built";
   if (node.status === "deferred" || node.status === "cut") return "parked";
-  // A parent carries no `surface:` — the lint refuses one, because its reach is its children's.
-  // Answering "built, reach not classified" for it names a gap nothing can close.
-  if (isRollUp) return "roll-up";
   if (node.surface === "awaiting-screen") return "awaiting-screen";
   if (node.surface === "screen") return "screen";
   if (node.surface === "internal") return "internal";

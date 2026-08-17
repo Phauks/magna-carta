@@ -314,6 +314,7 @@ const DESK_STYLESHEET = `.controls{position:static;z-index:auto;
 .toggle input{width:16px;height:16px;accent-color:var(--accent)}
 .count{margin-left:auto;font-size:13px;color:var(--faint)}
 .group{display:flex;flex-direction:column;gap:14px}
+.group[hidden]{display:none}
 .group h2 .ac{font-family:system-ui,sans-serif;font-size:12px;font-weight:650;letter-spacing:.08em;
   color:var(--faint);border:1px solid var(--rule);border-radius:2px;padding:3px 7px}
 .cards{display:flex;flex-direction:column;gap:2px;background:var(--rule);
@@ -377,8 +378,18 @@ const DESK_SCRIPT = `(() => {
   const read = () => {
     try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { return {}; }
   };
+  // Reports whether the write actually happened. Storage is refused in more ordinary situations
+  // than it looks — a file:// page with site data off, a private window at quota, a partitioned
+  // frame — and the page promises in its own lede that answers survive a reload. Swallowing the
+  // failure and printing "Saved in this browser" underneath is how an hour of answers disappears
+  // with nothing said.
   const write = (state) => {
-    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* private mode */ }
+    try {
+      localStorage.setItem(STORE, JSON.stringify(state));
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   let state = read();
@@ -427,6 +438,14 @@ const DESK_SCRIPT = `(() => {
       card.hidden = hide;
       if (!hide) shown += 1;
     }
+    // Whole groups follow their cards. Filtering to one area otherwise left a heading and its count
+    // badge over an empty container, which renders as a 2px bar and reads as a rendering fault.
+    for (const group of document.querySelectorAll(".group")) {
+      const visible = [...group.querySelectorAll(".card")].filter((card) => !card.hidden);
+      group.hidden = group.querySelector(".card") !== null && visible.length === 0;
+      const badge = group.querySelector("h2 .ac");
+      if (badge !== null) badge.textContent = String(visible.length);
+    }
     visibleCount.textContent = shown === cards.length
       ? "Showing all " + cards.length + " questions."
       : "Showing " + shown + " of " + cards.length + " questions.";
@@ -439,8 +458,14 @@ const DESK_SCRIPT = `(() => {
     let timer = null;
     box.addEventListener("input", () => {
       state[card.dataset.node] = box.value;
-      write(state);
-      saved.textContent = box.value.trim() === "" ? "" : "Saved in this browser.";
+      const stored = write(state);
+      saved.textContent =
+        box.value.trim() === ""
+          ? ""
+          : stored
+            ? "Saved in this browser."
+            : "Not saved — this browser refused storage. Copy the answers before you leave.";
+      saved.style.color = stored ? "var(--done)" : "var(--accent)";
       clearTimeout(timer);
       timer = setTimeout(refresh, 220);
     });

@@ -619,28 +619,35 @@ describe("surface", () => {
     expect(unset.surface).toBeNull();
   });
 
-  it("reads a key written with no value as absent, not as an empty answer", () => {
-    // `surface:` with nothing after it parses to "". Kept, it slips past every rule that tests for
-    // presence at once: the vocabulary check skips it as falsy, the lint requiring a surface on a
-    // built leaf sees one, and the reach table counts the node in no column at all.
-    const [blank] = parseArea(
-      area(
-        [
-          "- id: trust.ledger",
-          "  name: Ledger",
-          "  scope: Double-entry ledger.",
-          "  status: shipped",
-          "  surface:",
-          "  audience:",
-          "  public-name:",
-          "",
-        ].join("\n"),
+  it("refuses a key written with no value, which nothing below the parser could report", () => {
+    // A blank value is neither absent nor valid. Everything downstream reads absent and blank as
+    // the same thing, on purpose, so that a blank cannot satisfy a rule testing for presence —
+    // which leaves the parser as the only place that can still tell them apart and say so.
+    expect(() =>
+      parseArea(
+        area(
+          [
+            "- id: trust.ledger",
+            "  name: Ledger",
+            "  scope: Double-entry ledger.",
+            "  status: shipped",
+            "  surface:",
+            "",
+          ].join("\n"),
+        ),
+        "trust.md",
       ),
+    ).toThrow(/"surface" is written with no value/);
+  });
+
+  it("reads a key that is simply absent as absent", () => {
+    const [unset] = parseArea(
+      area("- id: trust.x", "  name: X", "  scope: Y.", "  status: not-started", ""),
       "trust.md",
     ).nodes;
-    expect(blank.surface).toBeNull();
-    expect(blank.audience).toBe("internal");
-    expect(blank.publicName).toBe("Ledger");
+    expect(unset.surface).toBeNull();
+    expect(unset.audience).toBe("internal");
+    expect(unset.notes).toBeNull();
   });
 });
 

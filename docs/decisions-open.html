@@ -108,6 +108,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 .toggle input{width:16px;height:16px;accent-color:var(--accent)}
 .count{margin-left:auto;font-size:13px;color:var(--faint)}
 .group{display:flex;flex-direction:column;gap:14px}
+.group[hidden]{display:none}
 .group h2 .ac{font-family:system-ui,sans-serif;font-size:12px;font-weight:650;letter-spacing:.08em;
   color:var(--faint);border:1px solid var(--rule);border-radius:2px;padding:3px 7px}
 .cards{display:flex;flex-direction:column;gap:2px;background:var(--rule);
@@ -265,10 +266,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="financial.billing.automations" data-name="Billing automations" data-area="financial.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>financial.billing.automations</code></div>
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip live">A group of capabilities</span><code>financial.billing.automations</code></div>
       <h3>Billing automations</h3>
       <p class="q">Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">The scheduled no-client-present layer over invoicing — recurring and batch bills, payment reminders, payment plans, and evergreen below-floor replenishment.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -276,10 +277,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="intake" data-name="Client intake / CRM" data-area="intake.md">
-      <div class="chips"><span class="chip todo">Not started</span><span class="chip todo">Not built</span><code>intake</code></div>
+      <div class="chips"><span class="chip todo">Not started</span><span class="chip live">A group of capabilities</span><code>intake</code></div>
       <h3>Client intake / CRM</h3>
       <p class="q">Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, and receptionist call intake.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -331,10 +332,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="payments" data-name="Payments" data-area="payments.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>payments</code></div>
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip live">A group of capabilities</span><code>payments</code></div>
       <h3>Payments</h3>
       <p class="q">The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -419,10 +420,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="self-serve.entitlements" data-name="Entitlement model" data-area="self-serve.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>self-serve.entitlements</code></div>
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip live">A group of capabilities</span><code>self-serve.entitlements</code></div>
       <h3>Entitlement model</h3>
       <p class="q">Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">A tier catalog in code naming permission keys, a per-firm tier and its overrides in the control plane, and the mask that intersects a principal's permissions with what their firm's tier permits at the one existing chokepoint.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -463,10 +464,10 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="tasks" data-name="Tasks and workflows" data-area="tasks.md">
-      <div class="chips"><span class="chip todo">Not started</span><span class="chip todo">Not built</span><code>tasks</code></div>
+      <div class="chips"><span class="chip todo">Not started</span><span class="chip live">A group of capabilities</span><code>tasks</code></div>
       <h3>Tasks and workflows</h3>
       <p class="q">Two calls decide the shape of the first slice. Whether tasks wait for the note primitive or ship independently of it — they are separable in schema but not in surface, and tasks built first would be the subsystem tempted to invent an activity stream of its own. And whether a matter plan's tasks are written onto a matter automatically when it opens, as the white paper says, or proposed for a person to accept, as the design says: eleven dated obligations appearing on a file nobody read is the trusted-because-computed failure, and a high-volume firm may reasonably want the opposite. Tasks and matter plans design flags W7 and W8.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
@@ -794,8 +795,18 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   const read = () => {
     try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { return {}; }
   };
+  // Reports whether the write actually happened. Storage is refused in more ordinary situations
+  // than it looks — a file:// page with site data off, a private window at quota, a partitioned
+  // frame — and the page promises in its own lede that answers survive a reload. Swallowing the
+  // failure and printing "Saved in this browser" underneath is how an hour of answers disappears
+  // with nothing said.
   const write = (state) => {
-    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* private mode */ }
+    try {
+      localStorage.setItem(STORE, JSON.stringify(state));
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   let state = read();
@@ -844,6 +855,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       card.hidden = hide;
       if (!hide) shown += 1;
     }
+    // Whole groups follow their cards. Filtering to one area otherwise left a heading and its count
+    // badge over an empty container, which renders as a 2px bar and reads as a rendering fault.
+    for (const group of document.querySelectorAll(".group")) {
+      const visible = [...group.querySelectorAll(".card")].filter((card) => !card.hidden);
+      group.hidden = group.querySelector(".card") !== null && visible.length === 0;
+      const badge = group.querySelector("h2 .ac");
+      if (badge !== null) badge.textContent = String(visible.length);
+    }
     visibleCount.textContent = shown === cards.length
       ? "Showing all " + cards.length + " questions."
       : "Showing " + shown + " of " + cards.length + " questions.";
@@ -856,8 +875,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
     let timer = null;
     box.addEventListener("input", () => {
       state[card.dataset.node] = box.value;
-      write(state);
-      saved.textContent = box.value.trim() === "" ? "" : "Saved in this browser.";
+      const stored = write(state);
+      saved.textContent =
+        box.value.trim() === ""
+          ? ""
+          : stored
+            ? "Saved in this browser."
+            : "Not saved — this browser refused storage. Copy the answers before you leave.";
+      saved.style.color = stored ? "var(--done)" : "var(--accent)";
       clearTimeout(timer);
       timer = setTimeout(refresh, 220);
     });

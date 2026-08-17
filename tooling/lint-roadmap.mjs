@@ -88,11 +88,9 @@ for (const area of areas) {
       );
     }
 
-    if (node.awaitingOwner !== null && node.awaitingOwner.trim() === "") {
-      problems.push(
-        `${where}  has an empty awaiting-owner — state the question, or drop the key; a flag with no question has moved the problem rather than solved it`,
-      );
-    }
+    // A blank `awaiting-owner:` is caught where the file is parsed, not here: every optional key
+    // reads absent and blank as the same value below the parser, so by this point there is nothing
+    // left to see. The rule that used to live here could not fire and said nothing about it.
     if (node.awaitingOwner !== null && containsEmoji(node.awaitingOwner)) {
       problems.push(`${where}  awaiting-owner contains an emoji`);
     }
