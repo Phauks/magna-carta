@@ -68,6 +68,7 @@ import discoveryDedupAndReportSql from "@magna-carta/database/drizzle/per-firm/2
 import naturalLanguageSearchSql from "@magna-carta/database/drizzle/per-firm/20260816T152756_natural-language-search.sql";
 import directoryMatchKeysSql from "@magna-carta/database/drizzle/per-firm/20260816T160000_directory-match-keys.sql";
 import documentTemplateKindSql from "@magna-carta/database/drizzle/per-firm/20260816T170000_document-template-kind.sql";
+import billingInvoiceDeliverySql from "@magna-carta/database/drizzle/per-firm/20260817T000000_billing-invoice-delivery.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -146,6 +147,7 @@ export function perFirmMigrations(): Migration[] {
     "20260816T152756_natural-language-search": naturalLanguageSearchSql,
     "20260816T160000_directory-match-keys": directoryMatchKeysSql,
     "20260816T170000_document-template-kind": documentTemplateKindSql,
+    "20260817T000000_billing-invoice-delivery": billingInvoiceDeliverySql,
   });
 }
 
