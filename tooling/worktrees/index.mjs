@@ -16,11 +16,30 @@ import {
   listWorktrees,
   resolveBranchRef,
 } from "../branch-landing/index.mjs";
+import { planRetirement } from "../retire-note/dependents.mjs";
 import { branchFromNotePath, findOverlaps, isUnreadable, parseNote } from "./parse-note.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const ACTIVE_DIR = join(ROOT, "docs/active-work");
+const FRAGMENT_DIR = join(ROOT, "status.d");
+const RESERVED = new Set(["_sections.md", "README.md"]);
 const baseline = baselineRef(ROOT);
+
+// Read once, and only if a dead note is found — the healthy run, which is most of them, never touches
+// status.d/ at all.
+let fragmentCache = null;
+function statusFragments() {
+  if (fragmentCache !== null) return fragmentCache;
+  fragmentCache = existsSync(FRAGMENT_DIR)
+    ? readdirSync(FRAGMENT_DIR)
+        .filter((name) => name.endsWith(".md") && !RESERVED.has(name))
+        .map((name) => ({
+          path: `status.d/${name}`,
+          text: readFileSync(join(FRAGMENT_DIR, name), "utf8"),
+        }))
+    : [];
+  return fragmentCache;
+}
 
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString();
@@ -125,10 +144,24 @@ if (overlaps.length > 0) {
 // Both failures below leave the registry looking healthy while it is not: a landed stream's note
 // keeps warning about collisions that cannot happen, and an unreadable note declares a touch list
 // the parser never sees. Neither is inferable from the sections above, so each is named here.
+//
+// A dead note is named together with the status fragments pointing at it and the one command that
+// removes both. Naming the note alone is what this used to do, and it taught the wrong lesson: the
+// deletion looks like one file, the fragment pointer is then dangling, and `pnpm run lint:status`
+// fails afterwards with "active-work points at a missing file". The tool already knows which notes
+// are dead; reading the pointers costs one directory scan, so the discovery and the remedy arrive
+// together rather than one session apart.
 const stale = notes.filter((note) => !isLive(note.branch));
 if (stale.length > 0) {
-  console.log(`\n${stale.length} note(s) for branches that have landed — delete them:`);
-  for (const note of stale) console.log(`  ${note.path}`);
+  console.log(`\n${stale.length} note(s) for branches that have landed — retire them:`);
+  for (const note of stale) {
+    const { dependents } = planRetirement({ notePath: note.path, fragments: statusFragments() });
+    const pointers =
+      dependents.length === 0
+        ? ""
+        : `\n      also clears the active-work pointer in ${dependents.map((d) => d.path).join(", ")}`;
+    console.log(`  ${note.path}\n      vp run retire-note ${note.branch}${pointers}`);
+  }
 }
 
 // A note whose name matches no ref at all, local or remote. Either it is misnamed — the path must

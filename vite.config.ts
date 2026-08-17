@@ -136,6 +136,7 @@ export default defineConfig({
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/lint-test-collection/vitest.config.ts",
       "tooling/migration-integrity/vitest.config.ts",
+      "tooling/retire-note/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/branch-landing/vitest.config.ts",
@@ -246,6 +247,14 @@ export default defineConfig({
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).
       worktrees: {
         command: "node tooling/worktrees/index.mjs",
+      },
+      // End a finished stream in ONE operation: clear every status.d/ fragment pointing at its
+      // active-work note, re-render STATUS.md + STATUS.json, delete the note, and remove the worktree
+      // and branch. Done by hand the pointer is routinely left behind and `pnpm run lint:status` fails
+      // afterwards, which is why the parts are not separable here. Takes the branch name, plus
+      // --dry-run / --force / --keep-workspace: node tooling/retire-note/index.mjs <branch> --dry-run
+      "retire-note": {
+        command: "node tooling/retire-note/index.mjs",
       },
       // Reclaim regenerable build artifacts from merged worktrees + dangling Docker cache. Runs
       // automatically from the post-merge hook (tooling/git-hooks/post-merge); also runnable by
