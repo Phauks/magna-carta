@@ -96,7 +96,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**49 of 68 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
+**50 of 69 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -104,12 +104,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+59 shipped since the ledger began** — 204 on 2026-07-14, 263 on 2026-08-17, across 34 days. The
+**+63 shipped since the ledger began** — 204 on 2026-07-14, 267 on 2026-08-17, across 34 days. The
 ledger itself grew by +91 nodes over the same period (663 to 754), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **12.1 capabilities shipped a week** across the whole series, and **28.0 a week** over the
-42 snapshots since the last gap (2026-08-11 to 2026-08-17, +24 shipped in 6 days).
+That is **13.0 capabilities shipped a week** across the whole series, and **32.7 a week** over the
+43 snapshots since the last gap (2026-08-11 to 2026-08-17, +28 shipped in 6 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -168,10 +168,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-17 | `1161e54c` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | +1 | 0 | 0 |
 | 2026-08-17 | `5ac8797e` | 263 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 752 | 0 | 0 | 0 |
 | 2026-08-17 | `aeb7ce20` | 263 | 203 | 11 | 50 | 19 | 6 | 159 | 41 | 2 | 754 | +2 | 0 | 0 |
+| 2026-08-17 | `e003ea13` | 267 | 204 | 5 | 50 | 19 | 6 | 160 | 41 | 2 | 754 | 0 | +4 | 0 |
 
 ### The gaps
 
-**19 of the 68 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 69 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -202,17 +203,17 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
 | Discovery (e-discovery) | 20 | 26 | 3 | 6 | +3 |
 | Document Automation | 8 | 9 | 0 | 3 | +3 |
-| Documents | 115 | 115 | 59 | 60 | +1 |
+| Documents | 115 | 115 | 59 | 61 | +2 |
 | Exhibits and Exhibit Lists | — | 9 | — | 0 | 0 |
 | Financial Core | 55 | 69 | 8 | 19 | +11 |
 | Client Intake / CRM | 7 | 7 | 0 | 0 | 0 |
 | Integrations & Plugins | 48 | 48 | 17 | 17 | 0 |
-| Maintenance Agents | 12 | 12 | 0 | 0 | 0 |
+| Maintenance Agents | 12 | 12 | 0 | 2 | +2 |
 | Notifications | 15 | 16 | 0 | 2 | +2 |
 | Observability & Diagnostics | 24 | 24 | 11 | 11 | 0 |
 | Payments | 9 | 10 | 0 | 0 | 0 |
 | Performance & Concurrency | 13 | 13 | 6 | 6 | 0 |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 82 | 82 | 30 | 30 | 0 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 82 | 82 | 30 | 31 | +1 |
 | Client Portal | 16 | 16 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 16 | 16 | 2 | 2 | 0 |
 | Release Channels | 9 | 9 | 7 | 7 | 0 |
@@ -223,14 +224,13 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Translation Services | — | 7 | — | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+11), Financial
-Core (+11), AI & Inference (+10). **17 of 30 areas have shipped nothing in that time**:
+Core (+11), AI & Inference (+10). **15 of 30 areas have shipped nothing in that time**:
 Authentication, Access Control & Encryption, Community & Feedback Forum, Design System, UI
 Consistency & Design Quality, Exhibits and Exhibit Lists, Client Intake / CRM, Integrations &
-Plugins, Maintenance Agents, Observability & Diagnostics, Payments, Performance & Concurrency,
-Platform — Delivery, Architecture, Tenancy & Data Conventions, Client Portal, Product Updates &
-User-Facing Documentation, Release Channels, Settings & Configuration, Tasks and Workflows / Matter
-Plans, Translation Services. An area standing still here has not necessarily been idle — a node
-moves in this table only when it reaches `shipped`, so work that went from nothing to `partial`
+Plugins, Observability & Diagnostics, Payments, Performance & Concurrency, Client Portal, Product
+Updates & User-Facing Documentation, Release Channels, Settings & Configuration, Tasks and Workflows
+/ Matter Plans, Translation Services. An area standing still here has not necessarily been idle — a
+node moves in this table only when it reaches `shipped`, so work that went from nothing to `partial`
 shows up in the nodes columns and not in this one.
 
 ## Waiting on you
