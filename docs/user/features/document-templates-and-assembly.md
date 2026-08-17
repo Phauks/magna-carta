@@ -13,6 +13,9 @@ signature.
 You author templates in Word, the way you already write documents. There is nothing new to learn
 about layout, numbering, or styles — a template is a Word document with a few blanks marked in it.
 
+A template can also be **a fillable PDF your firm already has** — a court form, an agency form, your own
+intake sheet. The same merge fields fill its boxes; see _Filling in a form your firm already has_.
+
 ## Marking the blanks
 
 Type the field's name between double braces where the value should go:
@@ -150,6 +153,75 @@ should have been.
 text, and Word puts content controls around ordinary content all the time — a cover page, a citation, a
 table of contents. Only a control still showing its prompt, or one being filled from data stored inside
 the template itself, is reported.
+
+## Filling in a form your firm already has
+
+A great many of the documents a firm files are not letters at all — they are **fillable PDFs**: the
+intake sheet, the financial disclosure, the form the court publishes with boxes you can type into.
+Register one of those as a template and the same merge fields fill it in.
+
+Choose **a fillable PDF** rather than a Word document when you upload it. Everything else about a
+template works the same way: it lives in the same catalogue, it is versioned the same way, an earlier
+version stays readable, and a document you build from it lands in the matter's documents like any other
+file — as a PDF, which is also the form a signature needs.
+
+### Saying what each box means
+
+A Word template tells us what its blanks are, because you typed them. **A form does not.** All a form
+carries is the name whoever built it gave each box — `Petitioner_Name_1`, `TextField12`, sometimes
+nothing you would recognise. So when you register a form, you say which merge field fills each box, and
+**nothing is guessed on your behalf.**
+
+Registering the form lists every box on it: what kind it is, which page it is on, and whether the form
+itself marks it as required. Beside each one you say which merge field it is filled from — and what you
+say is **remembered for your firm**, so the next form that uses the same box names arrives already
+filled in.
+
+Where a box's name happens to be exactly a merge field's name, we say so and offer it — but it is still
+offered, not applied. A box called `ClientName` is not turned into the client's name because it looks
+close: that is a decision about a client's details in a document you are going to file, and it is yours
+to make once rather than ours to make every time.
+
+### The boxes nothing fills in
+
+**Every box on the form is accounted for, and the ones nothing fills in are listed.** You will see three
+kinds:
+
+- **Boxes with no merge field chosen.** Every document you build leaves them empty for someone to
+  complete by hand. That is a perfectly reasonable way to use a form — but you will always be told which
+  boxes they are, and every document you assemble reports them again and is marked as needing review.
+- **Buttons and signature boxes.** Nothing a merge field could do applies to either, so nothing is
+  filled into them and no warning is raised about them.
+- **Boxes the form does not say the type of.** Occasionally a form declares a box without saying what
+  kind of box it is. Nothing is written into one: writing an answer into a box nobody could identify
+  would print as a completed entry. Re-save the form from the tool that produced it, or fill it in by
+  hand.
+
+If a form binds nothing at all, registering it says so plainly — every document from it would be the
+blank form.
+
+### What happens to the form when you register it
+
+The stored template is cleaned first, once, so nothing has to happen on every document: the document's
+properties, any attachments, and **anything already typed into the boxes** are removed. That last one
+matters — firms usually upload the copy they last filed, and a template still carrying the previous
+client's answers is the last thing you want.
+
+### Missing values, in a form
+
+Exactly as in a Word template. A field the matter cannot supply shows the same visible marker —
+`[CLIENT ADDRESS]` — inside the box, and the finished document reports it. A field set to stop the
+build stops it, naming what is missing.
+
+A tick box and a drop-down have nowhere to print a marker, so they are **left unanswered** and the
+report says which box and why. That is deliberate: ticking a box to mean "we do not know" would answer
+the form's question wrongly, which is worse than leaving it for a person.
+
+### The filled form can still be edited
+
+A document built from a form template keeps its boxes: whoever receives it can correct a typo or
+complete a box you left for them. (Locking a filled form so nothing can be changed is a choice the firm
+has not made yet — until it does, the version that can still be corrected is what you get.)
 
 ## Updating a template
 
@@ -667,5 +739,8 @@ is a report, not a template.
 - **Sending an assembled document out to be signed.** Building it as a PDF puts it in the form a
   signature needs, but inviting someone to sign it — the request, the consent record, and the
   certificate that goes with it — is not built yet.
-- **Filling in a fillable PDF form** your firm supplies, from the same fields a Word template uses.
 - **Writing templates in the browser** — today they are written in Word and uploaded.
+- **Locking a filled form.** A document built from a fillable-PDF template keeps its boxes so it can
+  still be corrected; making one permanent instead is a choice the firm has not made yet.
+- **A library of court forms.** Fillable-PDF templates are the forms YOUR firm supplies. We do not
+  publish or maintain a set of jurisdiction forms for you.

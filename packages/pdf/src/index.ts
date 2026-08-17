@@ -367,6 +367,12 @@ export interface FormField {
   options: string[];
   /** True when the field's read-only flag (/Ff bit 1) is set. */
   readOnly: boolean;
+  /**
+   * True when the field's required flag (/Ff bit 2) is set — the form itself says
+   * this field has to be answered. Inherited down the field tree, so a required
+   * group makes its terminal descendants required.
+   */
+  required: boolean;
   /** 0-based page index of the first widget annotation, or null if unknown. */
   page: number | null;
   /** Bounding box of the first widget in display points [llx, lly, urx, ury], or null. */
@@ -783,7 +789,7 @@ export async function embedSignature(
 ): Promise<Uint8Array> {
   await ensureReady(wasmInput);
   try {
-    return wasmEmbedSignature(document, contentsSpan, cmsDer) as Uint8Array;
+    return wasmEmbedSignature(document, contentsSpan, cmsDer);
   } catch (error) {
     mapGuardError(error);
   }

@@ -26,8 +26,8 @@ below; these are the totals over that list.
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 262 | 35% |
-| Part-built | partial, in-build | 218 | 29% |
+| Done | shipped | 263 | 35% |
+| Part-built | partial, in-build | 217 | 29% |
 | Ahead | designed, planned, researching, not-started | 228 | 30% |
 | Parked | deferred, cut | 43 | 6% |
 | **All capabilities** | | **751** | **100%** |
@@ -36,8 +36,8 @@ below; these are the totals over that list.
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 262 | 35% |
-| `partial` | 203 | 27% |
+| `shipped` | 263 | 35% |
+| `partial` | 202 | 27% |
 | `in-build` | 15 | 2% |
 | `designed` | 44 | 6% |
 | `planned` | 19 | 3% |
@@ -49,9 +49,9 @@ below; these are the totals over that list.
 
 ### What `partial` hides
 
-**Shipped alone is 262 of 751 (35%). Shipped plus partial is 465 (62%).**
+**Shipped alone is 263 of 751 (35%). Shipped plus partial is 465 (62%).**
 
-The 203 nodes between those two numbers are the most decision-relevant fact in this document. A
+The 202 nodes between those two numbers are the most decision-relevant fact in this document. A
 `partial` capability is most often a backend that works with nothing on screen to reach it, so the
 distance from 35% to 62% is approximately the program's interface debt: work that is engineered and
 paid for, and that nobody can use. Reading the larger number as how much of the product exists
@@ -72,7 +72,7 @@ true and neither is the answer on its own.
 | Custodian (Safe Custody) | 6 | 3 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 12 | 50% |
 | Design System, UI Consistency & Design Quality | 12 | 7 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 20 | 60% |
 | Discovery (e-discovery) | 6 | 13 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 26 | 23% |
-| Document Automation | 2 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 22% |
+| Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 60 | 23 | 5 | 2 | 2 | 0 | 19 | 3 | 1 | 115 | 52% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 1 | 0 | 9 | 0% |
 | Financial Core | 19 | 25 | 4 | 7 | 0 | 0 | 8 | 3 | 0 | 66 | 29% |
@@ -92,7 +92,7 @@ true and neither is the answer on its own.
 | Settings & Configuration | 4 | 9 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 24% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 4 | 0% |
 | Translation Services | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 1 | 0 | 7 | 0% |
-| **All areas** | **262** | **203** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **751** | **35%** |
+| **All areas** | **263** | **202** | **15** | **44** | **19** | **6** | **159** | **41** | **2** | **751** | **35%** |
 
 ## Where we have been
 
@@ -266,7 +266,7 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**17 would change something that already runs.** These are not holding anybody up.
+**18 would change something that already runs.** These are not holding anybody up.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -275,6 +275,7 @@ shows up in the nodes columns and not in this one.
 - **Matters** (`matters`) — The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Search** (`discovery.search`) — Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
+- **Dedicated PDF form filling** (`document-automation.pdf-form-filling`) — Does a filled form file flattened, interactive, or is it a per-template setting? A flattened form is what a signature wants and cannot be corrected; an interactive one is what a firm wants when the recipient still has to complete a box. Today it is interactive, which is the non-destructive answer to sit behind the question — changing it is one constant, or one column read. Document automation tail remainder plan, flag B5.
 - **Filing-grade generation** (`document-automation.filing-grade-generation`) — The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.
 - **Trial admission tracking** (`exhibits.admission-tracking`) — Whether recording admission at trial is in scope as a later capability at all. The design assumes it stays out: it has a different audience and its own evidentiary weight, and a half-kept record of what a court admitted is worse than none. A yes makes it a capability with its own model rather than three columns bolted to an exhibit set. Exhibits design flag E7.
 - **Trust accounting** (`financial.trust`) — Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
@@ -682,7 +683,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 22% shipped. 2 done, 7 part-built, 0 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 nodes, 33% shipped. 3 done, 6 part-built, 0 ahead, 0 parked.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
@@ -690,7 +691,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `document-automation.data-dictionary` · `partial` · **Data dictionary** — Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
-  - `document-automation.pdf-form-filling` · `partial` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Binding firm-supplied fillable PDFs to the same data dictionary is slice 2-6-3._
+  - `document-automation.pdf-form-filling` · `shipped` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Whether a filled form files flattened or interactive is an open owner decision, held as a required typed FormFillFinish parameter at the fill seam and answered today by one constant set to interactive, because flattening is irreversible. The registration and field-list surfaces are backend only; the browser screens are slice 2-6-4._
   - `document-automation.field-mapping-library` · `shipped` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established. _Note: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in._
   - `document-automation.filing-grade-generation` · `partial` · **Filing-grade generation** — Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
 

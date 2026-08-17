@@ -45,6 +45,10 @@ pub struct FormField {
     pub kind: FieldKind,
     /// True when /Ff bit 1 (0x1) is set.
     pub read_only: bool,
+    /// True when /Ff bit 2 (0x2) is set — the form declares the field must be
+    /// answered before submission. Inherited down the field tree like every other
+    /// flag, so a required group makes its terminal descendants required.
+    pub required: bool,
     /// Effective /V decoded to a Rust value.
     pub value: Option<FieldValue>,
     /// /Opt display entries for Choice; on-state names for Radio.
@@ -638,6 +642,7 @@ pub fn read_form(bytes: &[u8]) -> Result<Vec<FormField>, FormError> {
 
     for w in walked {
         let read_only = w.effective_flags & 0x1 != 0;
+        let required = w.effective_flags & 0x2 != 0;
 
         let value = w
             .effective_value
@@ -669,6 +674,7 @@ pub fn read_form(bytes: &[u8]) -> Result<Vec<FormField>, FormError> {
             name: w.name,
             kind: w.kind,
             read_only,
+            required,
             value,
             options,
             page,
@@ -1687,6 +1693,36 @@ mod tests {
         let fields = read_form(&bytes).expect("read_form");
         assert_eq!(fields.len(), 1);
         assert!(fields[0].read_only);
+        assert!(!fields[0].required);
+    }
+
+    #[test]
+    fn required_flag_is_read_and_inherited() {
+        let (mut doc, page_id) = base_doc();
+        // /Ff bit 2 (0x2) = Required, declared on a PARENT field node so the terminal
+        // descendant has to inherit it — the flag cascade is the part worth asserting.
+        let kid = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "T" => Object::string_literal("Line1"),
+            "Rect" => rect_obj(),
+        };
+        let kid_id = add_annot(&mut doc, page_id, kid);
+        let parent = dictionary! {
+            "FT" => "Tx",
+            "T" => Object::string_literal("Address"),
+            "Ff" => Object::Integer(2i64),
+            "Kids" => Object::Array(vec![Object::Reference(kid_id)]),
+        };
+        let parent_id = doc.add_object(Object::Dictionary(parent));
+        add_acroform(&mut doc, &[parent_id]);
+        let bytes = to_bytes(&mut doc);
+
+        let fields = read_form(&bytes).expect("read_form");
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name, "Address.Line1");
+        assert!(fields[0].required);
+        assert!(!fields[0].read_only);
     }
 
     #[test]

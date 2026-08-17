@@ -6,6 +6,7 @@ import type {
   MatterTypeId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { TemplateKind } from "./types.ts";
 
 // The template catalogue's reads and writes. Table names are tracked against @magna-carta/database's
 // per-firm schema by the schema-name-sync fitness test; both tables exist only in the per-firm database,
@@ -50,6 +51,9 @@ export interface InsertDocumentTemplateVersionRow {
   readonly id: DocumentTemplateVersionId;
   readonly templateId: DocumentTemplateId;
   readonly versionNumber: number;
+  // Which engine fills this version in. Bound explicitly rather than defaulted, so a caller that
+  // registers a fillable PDF cannot store it as a word-processing package by forgetting to say.
+  readonly kind: TemplateKind;
   readonly r2Key: string;
   readonly sizeBytes: number;
   readonly contentSha256: string;
@@ -70,12 +74,13 @@ export function insertDocumentTemplateVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DOCUMENT_TEMPLATE_VERSION_TABLE} (id, template_id, version_number, r2_key, size_bytes, content_sha256, storage_encoding, storage_class, status, field_manifest_json, normalization_warnings_json, normalizer_version, macro_parts_removed, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'full', 'standard', 'pending', ?7, ?8, ?9, ?10, ?11, ?12)`,
+      `INSERT INTO ${DOCUMENT_TEMPLATE_VERSION_TABLE} (id, template_id, version_number, kind, r2_key, size_bytes, content_sha256, storage_encoding, storage_class, status, field_manifest_json, normalization_warnings_json, normalizer_version, macro_parts_removed, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'full', 'standard', 'pending', ?8, ?9, ?10, ?11, ?12, ?13)`,
     )
     .bind(
       row.id,
       row.templateId,
       row.versionNumber,
+      row.kind,
       row.r2Key,
       row.sizeBytes,
       row.contentSha256,
@@ -298,6 +303,7 @@ export interface DocumentTemplateVersionRow {
   readonly id: DocumentTemplateVersionId;
   readonly templateId: DocumentTemplateId;
   readonly versionNumber: number;
+  readonly kind: TemplateKind;
   readonly r2Key: string;
   readonly sizeBytes: number | null;
   readonly contentSha256: string | null;
@@ -314,6 +320,7 @@ interface DocumentTemplateVersionColumns {
   id: string;
   template_id: string;
   version_number: number;
+  kind: string;
   r2_key: string;
   size_bytes: number | null;
   content_sha256: string | null;
@@ -326,7 +333,7 @@ interface DocumentTemplateVersionColumns {
   created_at: string;
 }
 
-const SELECT_VERSION_COLUMNS = `SELECT id, template_id, version_number, r2_key, size_bytes, content_sha256, storage_encoding, status, field_manifest_json, normalization_warnings_json, normalizer_version, macro_parts_removed, created_at FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE}`;
+const SELECT_VERSION_COLUMNS = `SELECT id, template_id, version_number, kind, r2_key, size_bytes, content_sha256, storage_encoding, status, field_manifest_json, normalization_warnings_json, normalizer_version, macro_parts_removed, created_at FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE}`;
 
 function toDocumentTemplateVersionRow(
   row: DocumentTemplateVersionColumns,
@@ -335,6 +342,7 @@ function toDocumentTemplateVersionRow(
     id: row.id as DocumentTemplateVersionId,
     templateId: row.template_id as DocumentTemplateId,
     versionNumber: row.version_number,
+    kind: row.kind as TemplateKind,
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
     contentSha256: row.content_sha256,
@@ -371,6 +379,9 @@ export interface TemplateVersionForAssembly {
   readonly templateName: string;
   readonly templateStatus: TemplateStatus;
   readonly versionNumber: number;
+  // Which engine fills this version in. Read at the head of every job and at submit, so neither the
+  // route nor the consumer has to assume a word-processing package.
+  readonly kind: TemplateKind;
   readonly r2Key: string;
   readonly contentSha256: string | null;
   readonly status: TemplateVersionStatus;
@@ -386,7 +397,7 @@ export function readTemplateVersionForAssemblyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id AS id, v.template_id AS template_id, t.name AS template_name, t.status AS template_status, v.version_number AS version_number, v.r2_key AS r2_key, v.content_sha256 AS content_sha256, v.status AS status, v.field_manifest_json AS field_manifest_json, v.normalizer_version AS normalizer_version FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} v JOIN ${DOCUMENT_TEMPLATE_TABLE} t ON t.id = v.template_id WHERE v.id = ?1`,
+      `SELECT v.id AS id, v.template_id AS template_id, t.name AS template_name, t.status AS template_status, v.version_number AS version_number, v.kind AS kind, v.r2_key AS r2_key, v.content_sha256 AS content_sha256, v.status AS status, v.field_manifest_json AS field_manifest_json, v.normalizer_version AS normalizer_version FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} v JOIN ${DOCUMENT_TEMPLATE_TABLE} t ON t.id = v.template_id WHERE v.id = ?1`,
     )
     .bind(versionId);
 }
@@ -401,6 +412,7 @@ export async function readTemplateVersionForAssembly(
     template_name: string;
     template_status: string;
     version_number: number;
+    kind: string;
     r2_key: string;
     content_sha256: string | null;
     status: string;
@@ -415,6 +427,7 @@ export async function readTemplateVersionForAssembly(
     templateName: row.template_name,
     templateStatus: row.template_status as TemplateStatus,
     versionNumber: row.version_number,
+    kind: row.kind as TemplateKind,
     r2Key: row.r2_key,
     contentSha256: row.content_sha256,
     status: row.status as TemplateVersionStatus,

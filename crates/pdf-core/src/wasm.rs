@@ -314,8 +314,8 @@ fn field_kind_str(k: crate::FieldKind) -> &'static str {
 /// Returns an array of field objects, each with: `name` (string), `kind`
 /// (string — one of `"text"`, `"checkbox"`, `"radio"`, `"choice"`,
 /// `"pushButton"`, `"signature"`, `"unknown"`), `value` (string | boolean |
-/// null), `options` (string[]), `readOnly` (boolean), `page` (number | null),
-/// `rect` ([number,number,number,number] | null).
+/// null), `options` (string[]), `readOnly` (boolean), `required` (boolean),
+/// `page` (number | null), `rect` ([number,number,number,number] | null).
 ///
 /// **Forms are not redaction.** This function reads field metadata only; no
 /// content is removed or modified. Use `redactDocument`/`sanitizeDocument` to
@@ -344,6 +344,7 @@ pub fn read_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
         }
         set(&o, "options", &options_arr);
         set(&o, "readOnly", &JsValue::from(f.read_only));
+        set(&o, "required", &JsValue::from(f.required));
         set(
             &o,
             "page",

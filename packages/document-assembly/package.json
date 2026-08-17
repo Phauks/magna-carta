@@ -32,6 +32,8 @@
     "./resolve": "./src/resolve.ts",
     "./assemble": "./src/assemble.ts",
     "./register": "./src/register.ts",
+    "./pdf-form": "./src/pdf-form.ts",
+    "./fill-form": "./src/fill-form.ts",
     "./template-service": "./src/template-service.ts",
     "./template-statements": "./src/template-statements.ts",
     "./merge-statements": "./src/merge-statements.ts",
@@ -52,6 +54,7 @@
     "fflate": "^0.8.3"
   },
   "devDependencies": {
+    "@magna-carta/pdf": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"

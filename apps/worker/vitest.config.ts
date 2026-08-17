@@ -45,6 +45,37 @@ function pdfCoreFixtures(): Plugin {
   };
 }
 
+// The form-template tests need the committed fillable-PDF fixture, and workerd has no filesystem to
+// read it from. The fixture lives with the package whose registration and fill logic it exercises
+// (packages/document-assembly/test/fixtures), which is outside the Vite root, so this plugin inlines it
+// as base64 at build time — one copy of the fixture, asserted on by both suites, on exactly the terms
+// pdfCoreFixtures() is on.
+function documentAssemblyFormFixtures(): Plugin {
+  const virtualModuleId = "virtual:document-assembly-form-fixtures";
+  const resolvedVirtualModuleId = "\0" + virtualModuleId;
+  const fixtureDir = path.resolve(
+    import.meta.dirname,
+    "../../packages/document-assembly/test/fixtures",
+  );
+
+  return {
+    name: "magna-carta:document-assembly-form-fixtures",
+    resolveId(id) {
+      if (id === virtualModuleId) return resolvedVirtualModuleId;
+      return undefined;
+    },
+    load(id) {
+      if (id !== resolvedVirtualModuleId) return undefined;
+      const fixtures: Record<string, string> = {};
+      for (const entry of fs.readdirSync(fixtureDir)) {
+        if (!entry.endsWith(".pdf")) continue;
+        fixtures[entry] = fs.readFileSync(path.join(fixtureDir, entry)).toString("base64");
+      }
+      return `export default ${JSON.stringify(fixtures)};`;
+    },
+  };
+}
+
 // The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
 // package sources where the SQL statement strings actually live — packages/timekeeping/src,
 // packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
@@ -296,6 +327,7 @@ export default defineConfig({
     sqlAsText(),
     billingPackageSources(),
     pdfCoreFixtures(),
+    documentAssemblyFormFixtures(),
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,

@@ -19,12 +19,17 @@ import {
   fieldMappingResolverFor,
   listFieldMappings,
   readFieldMapping,
+  readFieldMappingLibrary,
 } from "@magna-carta/document-assembly/field-mapping-statements";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
 import {
   contentControlLabel,
   type ConfirmedMergeFieldMapping,
 } from "@magna-carta/document-assembly/normalize";
+import {
+  prepareFormTemplateVersion,
+  type FormFieldReport,
+} from "@magna-carta/document-assembly/pdf-form";
 import { prepareTemplateVersion } from "@magna-carta/document-assembly/register";
 import {
   composeTemplateArchive,
@@ -41,12 +46,15 @@ import {
   setCurrentTemplateVersionStatement,
   type DocumentTemplateRow,
 } from "@magna-carta/document-assembly/template-statements";
-import type {
-  FieldManifest,
-  LegacyFormField,
-  MergeFieldDetection,
-  NormalizationWarning,
-  UnboundContentControl,
+import {
+  TEMPLATE_KINDS,
+  type FieldManifest,
+  type LegacyFormField,
+  type MergeFieldDetection,
+  type NormalizationWarning,
+  type TemplateKind,
+  type UnboundContentControl,
+  type UnboundFormField,
 } from "@magna-carta/document-assembly/types";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { computeVerdict } from "@magna-carta/file-manager/verdict";
@@ -84,6 +92,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { readAcroFormFields, scrubFormTemplate } from "../assemblies/pdf-form-engine.ts";
 
 // The template-catalogue surface: presign an upload slot, register a template (or a new version of
 // one), list the catalogue, read a version's field manifest, archive a template, and read the merge-field
@@ -97,6 +106,22 @@ import { presignerForEnv } from "../files/presigner-wiring.ts";
 // repeats any of it.
 
 const PRESIGN_TTL_SECONDS = 300;
+
+// What each kind of template is uploaded as. The presigned URL's signature covers the content type, so
+// this is also what an upload is refused for sending anything else — and it is the reason the kind is
+// chosen when the slot is minted rather than when the document is registered.
+const TEMPLATE_CONTENT_TYPES: Readonly<Record<TemplateKind, string>> = {
+  wordProcessing: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdfForm: "application/pdf",
+};
+
+const TemplateKindSchema = z.enum(TEMPLATE_KINDS as [TemplateKind, ...TemplateKind[]]).openapi({
+  description:
+    "What kind of document this template is. wordProcessing is a Word document with {{field}} " +
+    "placeholders typed into it — the default, and what most templates are. pdfForm is a fillable " +
+    "PDF your firm already has, such as a court form: its boxes are filled in by this system once you " +
+    "confirm which merge field each one is filled from. Defaults to wordProcessing.",
+});
 
 // The staging prefix a raw upload lands under before registration reads it. It sits inside the
 // `templates/` prefix so template bytes meter under one dimension whether or not registration
@@ -157,6 +182,26 @@ const stripMacrosField = z
       "is the other way through.",
   });
 
+// THE HUMAN CONFIRMATION, and the whole of a form template's binding. Nothing in this system decides
+// what a box on a firm's form means: a merge field is filled into a box only because somebody said this
+// box is that field, and this is where they say it. What is confirmed here is written to the firm's own
+// mapping library in the same commit as the version it bound, so the next form that uses the same field
+// name arrives already bound.
+const fieldMappingsField = z
+  .array(z.object({ fieldName: z.string().min(1), mergeKey: z.string().min(1) }))
+  .max(2000)
+  .optional()
+  .openapi({
+    description:
+      "For a fillable-PDF template: which merge field each box on the form is filled from, by the " +
+      "form's own field name. Nothing is guessed — a box you do not name here is left empty in every " +
+      "document assembled from the template, and the response lists every one of them along with the " +
+      "boxes whose names happen to match a merge field exactly, which you can confirm rather than " +
+      "choose. Each entry is remembered for this firm, so a second form using the same field names " +
+      "arrives already filled in. Ignored for a Word template, whose binding is the {{field}} an " +
+      "author typed.",
+  });
+
 const RegisterTemplateRequest = z
   .object({
     uploadKey: z.string().min(1),
@@ -164,16 +209,20 @@ const RegisterTemplateRequest = z
     description: z.string().max(2000).nullable().optional(),
     matterTypeId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
+    kind: TemplateKindSchema.optional(),
     convertMergeFields: convertMergeFieldsField,
     stripMacros: stripMacrosField,
+    fieldMappings: fieldMappingsField,
   })
   .openapi("RegisterTemplateRequest");
 
 const RegisterTemplateVersionRequest = z
   .object({
     uploadKey: z.string().min(1),
+    kind: TemplateKindSchema.optional(),
     convertMergeFields: convertMergeFieldsField,
     stripMacros: stripMacrosField,
+    fieldMappings: fieldMappingsField,
   })
   .openapi("RegisterTemplateVersionRequest");
 
@@ -249,11 +298,58 @@ const UnboundContentControlSchema = z
   })
   .openapi("TemplateUnboundContentControl");
 
+// One box on a fillable-PDF template, as the registration reports it back. The whole field set is
+// returned — bound and unbound together — because that is what an administrator confirms mappings
+// against, and because a field set reported only in part is how a form ends up with a box nobody knew
+// was there.
+const FormFieldSchema = z
+  .object({
+    fieldName: z.string(),
+    // text, checkbox, radio, choice, pushButton, signature, or unclassified — the last meaning the form
+    // does not say what the box is, so nothing is filled into it.
+    kind: z.string(),
+    // 1-based page the box sits on, or null when the form declares a field no page shows.
+    page: z.number().nullable(),
+    // Whether the FORM says the box must be answered. Reported, never enforced: what makes an unfilled
+    // field stop an assembly is the merge field's own setting, which is the same for both kinds of
+    // template.
+    required: z.boolean(),
+    // The set answers a drop-down or a radio group accepts. Empty for a text box or a tick box.
+    options: z.array(z.string()),
+    // The merge field this box is filled from, or empty when nothing fills it.
+    mergeKey: z.string(),
+    // Whether the binding came from this firm's remembered mappings rather than from this request.
+    boundFromLibrary: z.boolean(),
+    // A merge field this box could be filled from, offered ONLY when the box's own name is exactly a
+    // merge field this firm has. Nothing is ever proposed because it looked similar, and nothing is
+    // ever filled in from a proposal — confirm it and it becomes a binding.
+    proposedMergeKey: z.string(),
+    // Why nothing fills this box in: no-confirmed-mapping, not-fillable (a button or a signature box),
+    // or unclassified. Null for a box that is bound.
+    unboundReason: z.string().nullable(),
+  })
+  .openapi("TemplateFormField");
+
+// One box on a REGISTERED form template that nothing fills in. The counterpart of the two Word lists
+// above, and the same failure they describe: a document that reads as finished with a blank in it.
+const UnboundFormFieldSchema = z
+  .object({
+    fieldName: z.string(),
+    kind: z.string(),
+    page: z.number().nullable(),
+    required: z.boolean(),
+    reason: z.string(),
+    proposedMergeKey: z.string(),
+    frozenText: z.string(),
+  })
+  .openapi("TemplateUnboundFormField");
+
 const RegisteredTemplateResponse = z
   .object({
     templateId: z.string(),
     versionId: z.string(),
     versionNumber: z.number(),
+    kind: TemplateKindSchema,
     status: z.string(),
     fieldCount: z.number(),
     // Whether the macro removal was asked for and ran, and how many payload parts it took out. Zero
@@ -275,6 +371,12 @@ const RegisteredTemplateResponse = z
     // documents assembled from this template print a prompt, or text left over from the document the
     // template was made from, where a person is meant to type.
     unboundContentControls: z.array(UnboundContentControlSchema),
+    // For a fillable-PDF template: every box on the form, bound and unbound, so the whole field set is
+    // in front of whoever is confirming what each one means. Empty for a Word template.
+    formFields: z.array(FormFieldSchema),
+    // The boxes on the form that nothing fills in. A non-empty list means every document assembled
+    // from this template leaves those boxes blank for someone to complete by hand.
+    unboundFormFields: z.array(UnboundFormFieldSchema),
     // The name-to-key mappings this registration added to the firm's field-mapping library, so a later
     // import of documents from the same source arrives already mapped.
     confirmedFieldMappings: z.array(z.object({ fieldName: z.string(), mergeKey: z.string() })),
@@ -313,6 +415,17 @@ const TemplateFieldEntry = z
     // marked gap. Carried here so the field-input surface can say that before anyone assembles.
     sensitivity: z.string().nullable(),
     description: z.string().nullable(),
+    // For a fillable-PDF template: which boxes on the form this merge field fills. Empty for a Word
+    // template, whose binding is the {{field}} an author typed and needs nothing further recorded.
+    formFields: z.array(
+      z.object({
+        fieldName: z.string(),
+        kind: z.string(),
+        page: z.number().nullable(),
+        required: z.boolean(),
+        options: z.array(z.string()),
+      }),
+    ),
   })
   .openapi("TemplateFieldEntry");
 
@@ -321,6 +434,7 @@ const TemplateFieldsResponse = z
     templateId: z.string(),
     versionId: z.string(),
     versionNumber: z.number(),
+    kind: TemplateKindSchema,
     normalizerVersion: z.number(),
     fields: z.array(TemplateFieldEntry),
     // The Word merge fields this version carries unconverted, with the text each one prints. The field
@@ -330,6 +444,8 @@ const TemplateFieldsResponse = z
     legacyFormFields: z.array(LegacyFormFieldSchema),
     // And the regions Word writes today that nothing fills in either.
     unboundContentControls: z.array(UnboundContentControlSchema),
+    // For a fillable-PDF template: the boxes on the form no merge field fills in.
+    unboundFormFields: z.array(UnboundFormFieldSchema),
     warnings: z.array(NormalizationWarningSchema),
   })
   .openapi("TemplateFields");
@@ -463,9 +579,12 @@ const uploadRoute = defineOpenAPIRoute(manageMeta("upload", false, "optional"), 
   path: "/api/v1/templates/upload",
   description:
     "Mints a staging slot for a template document and returns a short-lived presigned PUT URL the " +
-    "client uploads the .docx to directly (bytes never transit the Worker). After uploading, register " +
+    "client uploads the file to directly (bytes never transit the Worker). Pass kind=pdfForm to " +
+    "upload a fillable PDF instead of a Word document; the returned URL's signature covers the " +
+    "content type, so the upload is refused if it sends the other one. After uploading, register " +
     "the template with POST /api/v1/templates, or add a version with " +
     "POST /api/v1/templates/{templateId}/versions.",
+  request: { query: z.object({ kind: TemplateKindSchema.optional() }) },
   responses: {
     200: {
       description: "The staging key and the presigned upload URL",
@@ -877,6 +996,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 // an existing template can never report differently on the same facts.
 function registrationFeedback(prepared: PreparedUpload) {
   return {
+    kind: prepared.kind,
     macrosStripped: prepared.macrosStripped,
     macroPartsRemoved: prepared.removedMacroParts.length,
     mergeFieldsConverted: prepared.mergeFieldsConverted,
@@ -884,8 +1004,42 @@ function registrationFeedback(prepared: PreparedUpload) {
     unconvertedMergeFields: prepared.manifest.unconvertedMergeFields,
     legacyFormFields: prepared.manifest.legacyFormFields,
     unboundContentControls: prepared.manifest.unboundContentControls,
+    formFields: prepared.formFields.map(toFormFieldBody),
+    unboundFormFields: prepared.manifest.unboundFormFields.map(toUnboundFormFieldBody),
     confirmedFieldMappings: prepared.confirmedMergeFieldMappings,
     warnings: prepared.warnings,
+  };
+}
+
+// A page index is 0-based everywhere inside the engine and 1-based everywhere a person reads one. The
+// conversion happens once, here, on the way out.
+function displayPage(page: number | null): number | null {
+  return page === null ? null : page + 1;
+}
+
+function toFormFieldBody(field: FormFieldReport) {
+  return {
+    fieldName: field.fieldName,
+    kind: field.kind,
+    page: displayPage(field.page),
+    required: field.required,
+    options: [...field.options],
+    mergeKey: field.mergeKey,
+    boundFromLibrary: field.boundFromLibrary,
+    proposedMergeKey: field.proposedMergeKey,
+    unboundReason: field.unboundReason,
+  };
+}
+
+function toUnboundFormFieldBody(field: UnboundFormField) {
+  return {
+    fieldName: field.fieldName,
+    kind: field.kind,
+    page: displayPage(field.page),
+    required: field.required,
+    reason: field.reason,
+    proposedMergeKey: field.proposedMergeKey,
+    frozenText: field.frozenText,
   };
 }
 
@@ -903,6 +1057,7 @@ const EXPRESSION_FAILURE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 interface PreparedUpload {
+  readonly kind: TemplateKind;
   readonly bytes: Uint8Array;
   readonly manifest: FieldManifest;
   readonly warnings: readonly NormalizationWarning[];
@@ -914,6 +1069,8 @@ interface PreparedUpload {
   readonly legacyFormFields: readonly LegacyFormField[];
   readonly unboundContentControls: readonly UnboundContentControl[];
   readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
+  // Every box on a fillable-PDF template, bound and unbound. Empty for a Word template.
+  readonly formFields: readonly FormFieldReport[];
   readonly contentSha256: string;
 }
 
@@ -922,8 +1079,32 @@ type PreparationOutcome =
   | { readonly ok: false; readonly response: ProblemResponse<422> };
 
 export interface RegistrationConsent {
+  readonly kind: TemplateKind;
   readonly convertMergeFields: boolean;
   readonly stripMacros: boolean;
+  // What the human confirmed each box on a fillable PDF means. Empty for a Word template, and empty for
+  // a form template whose administrator confirmed nothing — which registers, and says in the response
+  // that every box is blank.
+  readonly fieldMappings: readonly ConfirmedMergeFieldMapping[];
+}
+
+// The three request fields that authorize what happens to the firm's own document, read once so a first
+// version and a new version of an existing template can never read them differently.
+function consentOf(request: {
+  readonly kind?: TemplateKind;
+  readonly convertMergeFields?: boolean;
+  readonly stripMacros?: boolean;
+  readonly fieldMappings?: readonly { readonly fieldName: string; readonly mergeKey: string }[];
+}): RegistrationConsent {
+  return {
+    kind: request.kind ?? "wordProcessing",
+    convertMergeFields: request.convertMergeFields === true,
+    stripMacros: request.stripMacros === true,
+    fieldMappings: (request.fieldMappings ?? []).map((mapping) => ({
+      fieldName: mapping.fieldName,
+      mergeKey: mapping.mergeKey,
+    })),
+  };
 }
 
 // Read the staged upload, run it through the whole preparation pipeline, and hand back the bytes to
@@ -970,6 +1151,17 @@ async function prepareStagedUpload(
   }
   const uploadedBytes = new Uint8Array(await staged.arrayBuffer());
 
+  // The firm's own field catalogue, read ONCE and folded into the dictionary every binding is checked
+  // against — for both kinds of template, because a placeholder naming a field the firm does not have
+  // and a confirmed mapping naming one are the same mistake in two constructs.
+  const firmDictionary = dictionaryForFirm(
+    customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
+  );
+
+  if (consent.kind === "pdfForm") {
+    return prepareStagedFormUpload(c, uploadedBytes, consent, firmDictionary);
+  }
+
   // The metadata scrub runs over the NORMALIZED package, inside the preparation pipeline, so the
   // template's drafting history is removed once here rather than on every document it produces. It is
   // imported lazily for the same reason the scan port is: keeping the engine out of the OpenAPI-emit
@@ -982,12 +1174,7 @@ async function prepareStagedUpload(
   // Word fields must not cost a hundred lookups, the same batching rule the merge context follows.
   const resolveMergeFieldName = await fieldMappingResolverFor(firm.firmDatabase);
 
-  // The firm's own field catalogue, read ONCE and folded into the dictionary the placeholders are
-  // checked against, so a placeholder naming one of this firm's fields registers and one naming a
-  // field the firm does not have is refused by name.
-  const dictionary = dictionaryForFirm(
-    customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
-  );
+  const dictionary = firmDictionary;
 
   const preparation = await prepareTemplateVersion(
     uploadedBytes,
@@ -1113,6 +1300,96 @@ async function prepareStagedUpload(
     ok: true,
     prepared: {
       ...preparation.preparation,
+      formFields: [],
+      contentSha256: await sha256Hex(preparation.preparation.bytes),
+    },
+  };
+}
+
+// The fillable-PDF arm. Everything expensive still runs ONCE, at registration, with a human looking at
+// the result — reading the AcroForm field set, scrubbing the document, and deciding which box is bound
+// to what — and nothing on the assembly path repeats any of it.
+//
+// The one structural difference from the word-processing arm is worth stating: a Word template's
+// bindings arrive INSIDE the document, so registration reads them out of it. A form template's bindings
+// arrive in the REQUEST, because the document carries only the form's own field names, and those are the
+// firm's text. Nothing here turns a name into a merge field on its own.
+async function prepareStagedFormUpload(
+  c: TemplatesContext,
+  uploadedBytes: Uint8Array,
+  consent: RegistrationConsent,
+  dictionary: ReturnType<typeof dictionaryForFirm>,
+): Promise<PreparationOutcome> {
+  const firm = requireChokepointFirmContext(c);
+  const logger = createWorkersLogger(c.env.TELEMETRY);
+
+  // The firm's remembered mappings, read WHOLE once and handed in — a court form with two hundred boxes
+  // must not cost two hundred lookups, the same batching rule the merge context follows.
+  const libraryMappings = await readFieldMappingLibrary(firm.firmDatabase);
+
+  const preparation = await prepareFormTemplateVersion(
+    uploadedBytes,
+    readAcroFormFields,
+    scrubFormTemplate,
+    { dictionary, libraryMappings, confirmMappings: consent.fieldMappings },
+  );
+
+  if (!preparation.ok) {
+    logger.count(documentTemplateNormalization.metricName, {
+      outcome: "refused",
+      placeholderForm: "acroForm",
+    });
+    return {
+      ok: false,
+      response: problemJson(c, {
+        type:
+          preparation.reason === "binding-names-unknown-field"
+            ? "template-normalization-failed"
+            : "template-not-activatable",
+        title:
+          preparation.reason === "binding-names-unknown-field"
+            ? "A box on the form is filled from a field this firm does not have"
+            : "The document cannot be registered as a form template",
+        status: 422,
+        detail: preparation.detail,
+        // The whole field set rides the refusal: a registration turned away over one wrong binding still
+        // shows every box on the form, so the correction is one edit rather than another upload.
+        errors: preparation.formFields.map((field) => ({
+          path: field.page === null ? "the form" : `page ${field.page + 1}`,
+          code: field.unboundReason ?? "form-field",
+          detail:
+            field.mergeKey === ""
+              ? `"${field.fieldName}" is a ${field.kind} box that nothing fills in${field.proposedMergeKey === "" ? "" : `; it is named exactly like the merge field ${field.proposedMergeKey}`}.`
+              : `"${field.fieldName}" is filled from ${field.mergeKey}.`,
+        })),
+      }),
+    };
+  }
+
+  logger.count(documentTemplateNormalization.metricName, {
+    outcome: "accepted",
+    placeholderForm: "acroForm",
+  });
+
+  return {
+    ok: true,
+    prepared: {
+      kind: "pdfForm",
+      bytes: preparation.preparation.bytes,
+      manifest: preparation.preparation.manifest,
+      warnings: preparation.preparation.warnings,
+      // A form template has no normalization pass at all, so there is no transform version to record.
+      // Zero is what the column already holds for every version registered before normalization was
+      // versioned, and it says the same thing here: nothing rewrote this document's placeholders.
+      normalizerVersion: 0,
+      removedMacroParts: [],
+      macrosStripped: false,
+      mergeFieldDetections: [],
+      mergeFieldsConverted: false,
+      legacyFormFields: [],
+      unboundContentControls: [],
+      confirmedMergeFieldMappings: preparation.preparation.confirmedMergeFieldMappings,
+      formFields: preparation.preparation.formFields,
       contentSha256: await sha256Hex(preparation.preparation.bytes),
     },
   };
@@ -1191,13 +1468,14 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const kind: TemplateKind = c.req.valid("query").kind ?? "wordProcessing";
       // The staging key is server-minted from the SESSION firm id, never from client input.
       const uploadKey = `${TEMPLATE_STAGING_PREFIX}${firmId}/${newIdentifier("documentTemplateVersion")}`;
       // A template belongs to the firm, not to a matter — it is the thing matters are filled from.
       const presigned = await presignerForEnv(c.env).presignPut(
         bucketName,
         uploadKey,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        TEMPLATE_CONTENT_TYPES[kind],
         PRESIGN_TTL_SECONDS,
         firmScopedObjectDimensions("document-template"),
       );
@@ -1214,10 +1492,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
 
-      const outcome = await prepareStagedUpload(c, request.uploadKey, {
-        convertMergeFields: request.convertMergeFields === true,
-        stripMacros: request.stripMacros === true,
-      });
+      const outcome = await prepareStagedUpload(c, request.uploadKey, consentOf(request));
       if (!outcome.ok) return outcome.response;
 
       const now = (): string => new Date().toISOString();
@@ -1312,10 +1587,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
         });
       }
 
-      const outcome = await prepareStagedUpload(c, request.uploadKey, {
-        convertMergeFields: request.convertMergeFields === true,
-        stripMacros: request.stripMacros === true,
-      });
+      const outcome = await prepareStagedUpload(c, request.uploadKey, consentOf(request));
       if (!outcome.ok) return outcome.response;
 
       const now = (): string => new Date().toISOString();
@@ -1440,6 +1712,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           templateId,
           versionId,
           versionNumber: version.versionNumber,
+          kind: version.kind,
           normalizerVersion: version.normalizerVersion,
           fields: manifest.fields.map((field) => {
             const entry = lookupDictionaryEntry(field.key, dictionary);
@@ -1454,6 +1727,15 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
               absence: entry?.absence ?? null,
               sensitivity: entry?.sensitivity ?? null,
               description: entry?.description ?? null,
+              // Present only on a form template: which boxes this merge field fills, so the field
+              // inspector can point at a page rather than only naming a key.
+              formFields: (field.formFields ?? []).map((site) => ({
+                fieldName: site.fieldName,
+                kind: site.kind,
+                page: displayPage(site.page),
+                required: site.required,
+                options: [...site.options],
+              })),
             };
           }),
           unconvertedMergeFields: manifest.unconvertedMergeFields.map((field) => ({ ...field })),
@@ -1461,6 +1743,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           unboundContentControls: manifest.unboundContentControls.map((control) => ({
             ...control,
           })),
+          unboundFormFields: manifest.unboundFormFields.map(toUnboundFormFieldBody),
           warnings: warnings.map((warning) => ({
             code: warning.code,
             part: warning.part,
@@ -1619,6 +1902,9 @@ function parseManifestJson(json: string): FieldManifest {
       unboundContentControls: Array.isArray(parsed.unboundContentControls)
         ? parsed.unboundContentControls
         : [],
+      // Empty on every word-processing manifest, and absent altogether on one stored before form
+      // templates existed — which is a word-processing template by construction.
+      unboundFormFields: Array.isArray(parsed.unboundFormFields) ? parsed.unboundFormFields : [],
       // Likewise absent on a manifest stored before conditions, repeats, and calculations existed —
       // which is a template that carried none, since registration refused a block marker outright then.
       blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
@@ -1631,6 +1917,7 @@ function parseManifestJson(json: string): FieldManifest {
       unconvertedMergeFields: [],
       legacyFormFields: [],
       unboundContentControls: [],
+      unboundFormFields: [],
       blocks: [],
       computedFields: [],
     };

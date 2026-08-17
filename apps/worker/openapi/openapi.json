@@ -22876,6 +22876,14 @@
           "versionNumber": {
             "type": "number"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wordProcessing",
+              "pdfForm"
+            ],
+            "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing."
+          },
           "status": {
             "type": "string"
           },
@@ -22915,6 +22923,18 @@
               "$ref": "#/components/schemas/TemplateUnboundContentControl"
             }
           },
+          "formFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateFormField"
+            }
+          },
+          "unboundFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundFormField"
+            }
+          },
           "confirmedFieldMappings": {
             "type": "array",
             "items": {
@@ -22944,6 +22964,7 @@
           "templateId",
           "versionId",
           "versionNumber",
+          "kind",
           "status",
           "fieldCount",
           "macrosStripped",
@@ -22953,6 +22974,8 @@
           "unconvertedMergeFields",
           "legacyFormFields",
           "unboundContentControls",
+          "formFields",
+          "unboundFormFields",
           "confirmedFieldMappings",
           "warnings"
         ]
@@ -23101,6 +23124,96 @@
           "frozenText"
         ]
       },
+      "TemplateFormField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "page": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mergeKey": {
+            "type": "string"
+          },
+          "boundFromLibrary": {
+            "type": "boolean"
+          },
+          "proposedMergeKey": {
+            "type": "string"
+          },
+          "unboundReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fieldName",
+          "kind",
+          "page",
+          "required",
+          "options",
+          "mergeKey",
+          "boundFromLibrary",
+          "proposedMergeKey",
+          "unboundReason"
+        ]
+      },
+      "TemplateUnboundFormField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "page": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "proposedMergeKey": {
+            "type": "string"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "kind",
+          "page",
+          "required",
+          "reason",
+          "proposedMergeKey",
+          "frozenText"
+        ]
+      },
       "TemplateNormalizationWarning": {
         "type": "object",
         "properties": {
@@ -23151,6 +23264,14 @@
               "null"
             ]
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wordProcessing",
+              "pdfForm"
+            ],
+            "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing."
+          },
           "convertMergeFields": {
             "type": "boolean",
             "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
@@ -23158,6 +23279,28 @@
           "stripMacros": {
             "type": "boolean",
             "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
+          },
+          "fieldMappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mergeKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "fieldName",
+                "mergeKey"
+              ]
+            },
+            "maxItems": 2000,
+            "description": "For a fillable-PDF template: which merge field each box on the form is filled from, by the form's own field name. Nothing is guessed — a box you do not name here is left empty in every document assembled from the template, and the response lists every one of them along with the boxes whose names happen to match a merge field exactly, which you can confirm rather than choose. Each entry is remembered for this firm, so a second form using the same field names arrives already filled in. Ignored for a Word template, whose binding is the {{field}} an author typed."
           }
         },
         "required": [
@@ -23172,6 +23315,14 @@
             "type": "string",
             "minLength": 1
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wordProcessing",
+              "pdfForm"
+            ],
+            "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing."
+          },
           "convertMergeFields": {
             "type": "boolean",
             "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
@@ -23179,6 +23330,28 @@
           "stripMacros": {
             "type": "boolean",
             "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
+          },
+          "fieldMappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mergeKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "fieldName",
+                "mergeKey"
+              ]
+            },
+            "maxItems": 2000,
+            "description": "For a fillable-PDF template: which merge field each box on the form is filled from, by the form's own field name. Nothing is guessed — a box you do not name here is left empty in every document assembled from the template, and the response lists every one of them along with the boxes whose names happen to match a merge field exactly, which you can confirm rather than choose. Each entry is remembered for this firm, so a second form using the same field names arrives already filled in. Ignored for a Word template, whose binding is the {{field}} an author typed."
           }
         },
         "required": [
@@ -23273,6 +23446,14 @@
           "versionNumber": {
             "type": "number"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wordProcessing",
+              "pdfForm"
+            ],
+            "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing."
+          },
           "normalizerVersion": {
             "type": "number"
           },
@@ -23300,6 +23481,12 @@
               "$ref": "#/components/schemas/TemplateUnboundContentControl"
             }
           },
+          "unboundFormFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnboundFormField"
+            }
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -23311,11 +23498,13 @@
           "templateId",
           "versionId",
           "versionNumber",
+          "kind",
           "normalizerVersion",
           "fields",
           "unconvertedMergeFields",
           "legacyFormFields",
           "unboundContentControls",
+          "unboundFormFields",
           "warnings"
         ]
       },
@@ -23375,6 +23564,42 @@
               "string",
               "null"
             ]
+          },
+          "formFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "page": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "fieldName",
+                "kind",
+                "page",
+                "required",
+                "options"
+              ]
+            }
           }
         },
         "required": [
@@ -23387,7 +23612,8 @@
           "valueType",
           "absence",
           "sensitivity",
-          "description"
+          "description",
+          "formFields"
         ]
       },
       "ArchivedTemplate": {
@@ -70936,7 +71162,7 @@
     },
     "/api/v1/templates/upload": {
       "post": {
-        "description": "Mints a staging slot for a template document and returns a short-lived presigned PUT URL the client uploads the .docx to directly (bytes never transit the Worker). After uploading, register the template with POST /api/v1/templates, or add a version with POST /api/v1/templates/{templateId}/versions.",
+        "description": "Mints a staging slot for a template document and returns a short-lived presigned PUT URL the client uploads the file to directly (bytes never transit the Worker). Pass kind=pdfForm to upload a fillable PDF instead of a Word document; the returned URL's signature covers the content type, so the upload is refused if it sends the other one. After uploading, register the template with POST /api/v1/templates, or add a version with POST /api/v1/templates/{templateId}/versions.",
         "operationId": "templates.upload",
         "tags": [
           "templates"
@@ -70953,6 +71179,22 @@
           "templates"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "wordProcessing",
+                "pdfForm"
+              ],
+              "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing."
+            },
+            "required": false,
+            "description": "What kind of document this template is. wordProcessing is a Word document with {{field}} placeholders typed into it — the default, and what most templates are. pdfForm is a fillable PDF your firm already has, such as a court form: its boxes are filled in by this system once you confirm which merge field each one is filled from. Defaults to wordProcessing.",
+            "name": "kind",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The staging key and the presigned upload URL",
@@ -71834,7 +72076,7 @@
     },
     "/api/v1/matters/{matterId}/assemblies": {
       "post": {
-        "description": "Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done.",
+        "description": "Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one. Ask for outputFormat pdf to have the merged document converted before it is filed; the job fails rather than filing a word-processing document when the conversion cannot be done. A fillable-PDF template fills the firm's own form and always produces a PDF; asking it for a word-processing document is refused.",
         "operationId": "assemblies.submit",
         "tags": [
           "assemblies"

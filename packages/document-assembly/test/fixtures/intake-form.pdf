@@ -1,0 +1,83 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm 17 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [7 0 R 8 0 R 9 0 R 10 0 R 11 0 R] >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [12 0 R 13 0 R 14 0 R 15 0 R 16 0 R] >>
+endobj
+5 0 obj
+<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 12 12] /Length 28 >>
+stream
+q 1 0 0 RG 1 1 m 11 11 l S Q
+endstream
+endobj
+6 0 obj
+<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 12 12] /Length 3 >>
+stream
+q Q
+endstream
+endobj
+7 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (Client_Name) /Ff 0 /Rect [72 700 320 718] /DA (/Helv 10 Tf 0 g) /P 3 0 R >>
+endobj
+8 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (matter.number) /Ff 0 /Rect [72 670 320 688] /DA (/Helv 10 Tf 0 g) /P 3 0 R >>
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (Petitioner_Address) /Ff 2 /Rect [72 640 460 658] /DA (/Helv 10 Tf 0 g) /P 3 0 R >>
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (Previously_Entered) /Ff 0 /Rect [72 610 320 628] /DA (/Helv 10 Tf 0 g) /P 3 0 R /V (Rowan Ashcroft) >>
+endobj
+11 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Btn /T (Fee_Waiver_Requested) /Ff 0 /Rect [72 580 84 592] /AS /Off /AP << /N << /Yes 5 0 R /Off 6 0 R >> >> /P 3 0 R >>
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Ch /T (Filing_County) /Ff 0 /Rect [72 700 260 718] /Opt [(Clark) (Washoe) (Elko)] /DA (/Helv 10 Tf 0 g) /P 4 0 R >>
+endobj
+13 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Btn /T (Print_This_Form) /Ff 65536 /Rect [400 700 470 718] /P 4 0 R >>
+endobj
+14 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Sig /T (Attorney_Signature) /Rect [72 620 320 660] /P 4 0 R >>
+endobj
+15 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Zz /T (Unstated_Box) /Rect [72 580 320 598] /P 4 0 R >>
+endobj
+16 0 obj
+<< /Type /Annot /Subtype /Widget /FT /Tx /T (Client_Name_Verification) /Ff 0 /Rect [72 540 320 558] /DA (/Helv 10 Tf 0 g) /P 4 0 R >>
+endobj
+17 0 obj
+<< /Fields [7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R] /DA (/Helv 10 Tf 0 g) /DR << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >> >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000009 00000 n 
+0000000075 00000 n 
+0000000138 00000 n 
+0000000251 00000 n 
+0000000367 00000 n 
+0000000505 00000 n 
+0000000617 00000 n 
+0000000753 00000 n 
+0000000891 00000 n 
+0000001034 00000 n 
+0000001198 00000 n 
+0000001372 00000 n 
+0000001542 00000 n 
+0000001667 00000 n 
+0000001784 00000 n 
+0000001894 00000 n 
+0000002044 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R >>
+startxref
+2275
+%%EOF

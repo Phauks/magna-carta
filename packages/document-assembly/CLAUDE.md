@@ -17,6 +17,14 @@ sits between them. `src/field-mapping-statements.ts` is the firm's confirmed-map
 name resolver. `src/expression/` is the template expression language and `src/blocks.ts` is the
 block-marker vocabulary the normalizer validates and the assembly walk expands.
 
+**A template version has a KIND, and there are two.** `TemplateKind` (`src/types.ts`) is
+`wordProcessing | pdfForm`, stored on `document_template_version` and read by every consumer instead of
+assuming a `.docx`. The second kind has its own registration pass (`prepareFormTemplateVersion` in
+`src/pdf-form.ts`) and its own per-assembly path (`fillFormTemplate` in `src/fill-form.ts`), and shares
+everything else: the catalogue, the version ladder, the ingest gate, the manifest shape, the binding
+index, the dictionary, the formatters, the absence model, and the provenance row. See _Fillable-PDF form
+templates_ below.
+
 ## Local rules
 
 - **Every zip read goes through `src/ooxml/package.ts`.** Nothing calls fflate's `unzipSync` directly:
@@ -429,6 +437,54 @@ from that one sentence.
   and `custom_field_value` no ciphertext column; the `sensitivity` line in `src/custom-field-bindings.ts`
   is where the declaration is read once they exist.
 
+## Fillable-PDF form templates (`kind: "pdfForm"`)
+
+- **The manifest is DISCOVERED, not authored, and that is the whole difference.** A Word template's
+  binding is the key a person typed; a form's binding is a confirmed mapping from the form's OWN field
+  name onto a key. `src/pdf-form.ts` reads the AcroForm field set through an injected reader, classifies
+  each field, and produces a `FieldManifest` in the shape a Word registration produces — so the
+  field-binding index, the custom-field hard-delete guard, and the field-list surface read it without
+  knowing which kind they are looking at. A bound key's `formFields` sites carry the box names, kinds,
+  pages, required flags, and option sets; `parts` carries the pages, which is the same "where in the
+  document" answer an OPC part name gives.
+- **NO NAME GUESSING, and the exact match is refused too.** A field binds only through a mapping this
+  registration confirmed or the firm confirmed earlier — `document_template_field_mapping`, the same
+  library the Word `MERGEFIELD` conversion writes to. A field name that IS a merge key character for
+  character is reported as `proposedMergeKey` and stays unbound: a proposal is what a person confirms,
+  and the platform has no standing to make the firm's statement about the firm's own document. Nothing
+  resembling anything is ever proposed.
+- **Every box is accounted for; none is dropped and none is defaulted to a type.** A field is either a
+  site on a manifest field or an entry on `manifest.unboundFormFields` with one of three reasons:
+  `no-confirmed-mapping` (confirm one), `not-fillable` (a push button or a signature field — no repair
+  wanted), `unclassified` (the form does not state the field's type, and writing text into a widget
+  nobody classified prints as a completed answer). The fourth manifest list, on the same terms the third
+  and second are separate: the repairs differ. **A form that binds nothing warns `no-placeholders`** —
+  the failure that bit this platform twice, in `FORMTEXT` and in a placeholder-showing content control.
+- **The scrub clears the entries the upload arrived carrying**, along with metadata, attachments, and
+  the XFA dataset, and the manifest is built from the SCRUBBED bytes — the ones an assembly will fill.
+  A firm uploads the form it last filed; a template that carried the previous client's answers into
+  every document assembled from it is the worst thing this subsystem could produce.
+- **The absence model is unchanged, and where a form cannot hold a marker the absence is carried in
+  words.** `fail` fails the assembly naming the key, `blank` empties the box, and a text box otherwise
+  prints the same `[CLIENT ADDRESS]` marker a Word template would. A tick box and a set-answer box have
+  nowhere to print one, so they are left unanswered with a reason that says which box and why —
+  ticking one to mean "we do not know" would answer the form's question wrongly. A non-boolean value
+  bound to a tick box, and a value outside a drop-down's option set, are reported absences rather than
+  guesses: the engine would set a state with no appearance behind it, which looks unanswered and is not.
+- **`FormFillFinish` is an owner decision held open as a required parameter.** Whether a filed form is
+  `interactive` or `flattened` is not this package's call; `fillFormTemplate` takes it explicitly so no
+  default can be acquired by omission. The platform's one answer lives in
+  `apps/worker/src/assemblies/pdf-form-engine.ts`.
+- **The engine is injected, three ways** — `AcroFormReader`, `FormTemplateScrub`, `FormFiller` — on
+  exactly the terms the OOXML metadata scrub is. `src/` holds no WebAssembly and no PDF syntax
+  (`test/purity.test.ts` is the scan); `@magna-carta/pdf` is a DEVELOPMENT dependency so the package's
+  own tests can drive the real engine against the committed fixture.
+- **The fixture is built, not copied.** `test/fixtures/build-fillable-form.mjs` emits
+  `test/fixtures/intake-form.pdf` — an invented two-page intake form with one box of every kind the
+  engine distinguishes plus one of no stated type. A real client document cannot be committed and a
+  court's published form carries somebody else's asserted rights. `apps/worker` reads the same bytes
+  through the `documentAssemblyFormFixtures` plugin rather than committing a second copy.
+
 ## Named seams (not built here)
 
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
@@ -457,6 +513,14 @@ from that one sentence.
   template opens edit-restricted. It travels with legacy form fields — Word writes it when a form is protected — so
   the two arrive together. Not fixed here: clearing a firm's own protection setting is a rewrite of
   their document and wants the same opt-in reasoning the macro strip got.
+- **`crates/pdf-core`'s scrub does not remove document-level JavaScript or additional actions.**
+  `sanitizeDocument` takes out metadata, attachments, the XFA dataset, field values, the structure tree,
+  bookmarks, and optional content — it does not touch `/Names /JavaScript`, `/OpenAction`, or a field's
+  `/AA`. So a fillable PDF is NOT made inert the way the OOXML macro strip makes a `.docx` inert, and
+  there is no consent gate here matching the macro one. What stands between a hostile form and a firm
+  today is the same scan every uploaded byte crosses, run over the stored bytes at registration. Closing
+  it properly is a change to that crate's scrubber (which other consumers share), so it is named here
+  rather than half-answered with a byte scan in this package.
 - Output is byte-reproducible on purpose — `writePackage` pins the entry timestamp, so the same
   template version plus the same merge context yields the same bytes. Do not reach for `Date.now()`
   there.

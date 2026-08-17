@@ -51,6 +51,7 @@ function manifestOf(fields: readonly ManifestField[], extras: Partial<FieldManif
     unconvertedMergeFields: [],
     legacyFormFields: [],
     unboundContentControls: [],
+    unboundFormFields: [],
     blocks: [],
     computedFields: [],
     ...extras,

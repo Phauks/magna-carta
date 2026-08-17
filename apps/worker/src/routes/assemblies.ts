@@ -56,10 +56,13 @@ const SubmitAssemblyRequest = z
     templateVersionId: identifierField("documentTemplateVersion"),
     // The matter folder the produced document lands in; absent means the matter's root.
     folderId: identifierField("folder").nullable().optional(),
-    // What to file. The merge always produces a word-processing document; "pdf" carries that document
-    // across the same office-suite conversion the file converter uses before filing it, inside the same
-    // job. A PDF is what the platform seal accepts, so a document meant to be signed is assembled as
-    // one rather than converted afterwards. Defaults to "docx".
+    // What to file. A Word template's merge always produces a word-processing document; "pdf" carries
+    // that document across the same office-suite conversion the file converter uses before filing it,
+    // inside the same job. A PDF is what the platform seal accepts, so a document meant to be signed is
+    // assembled as one rather than converted afterwards. Defaults to "docx".
+    //
+    // A FILLABLE-PDF template produces a PDF and only a PDF: leave this out, or ask for "pdf". Asking
+    // for "docx" is refused rather than answered with a re-typeset copy of the firm's own form.
     outputFormat: OutputFormat.optional(),
   })
   .openapi("SubmitAssemblyRequest");
@@ -125,7 +128,8 @@ const submitRoute = defineOpenAPIRoute(submitMeta, {
     "document enters the matter through the same upload and scan path every other file does. The " +
     "output is always a NEW document, never a new version of an existing one. Ask for outputFormat " +
     "pdf to have the merged document converted before it is filed; the job fails rather than filing " +
-    "a word-processing document when the conversion cannot be done.",
+    "a word-processing document when the conversion cannot be done. A fillable-PDF template fills the " +
+    "firm's own form and always produces a PDF; asking it for a word-processing document is refused.",
   request: {
     params: matterParam,
     headers: idempotencyKeyHeader,
@@ -250,7 +254,21 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
 
       const now = (): string => new Date().toISOString();
       const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
-      const outputFormat = request.outputFormat ?? "docx";
+      // A FILLED FORM IS A PDF, and there is no route back. The merge engine emits a word-processing
+      // package that the office suite can render to PDF; the form engine emits the firm's own PDF with
+      // its boxes filled, and turning that into a `.docx` would be a re-typesetting of a court form —
+      // a different document wearing the same name. So a form template defaults to `pdf` and refuses
+      // `docx` HERE, where the caller can act on the answer, rather than becoming a failed job.
+      const outputFormat = version.kind === "pdfForm" ? "pdf" : (request.outputFormat ?? "docx");
+      if (version.kind === "pdfForm" && request.outputFormat === "docx") {
+        return problemJson(c, {
+          type: "validation",
+          title: "A filled form is a PDF",
+          status: 422,
+          detail:
+            "This template is a fillable PDF, so the document it produces is a PDF. Ask for outputFormat pdf, or leave it out.",
+        });
+      }
 
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,

@@ -1627,6 +1627,10 @@ export function normalizeTemplate(
       unconvertedMergeFields: unconverted.sort(byPartThenName),
       legacyFormFields,
       unboundContentControls,
+      // A word-processing package has no AcroForm, so this list is empty by construction rather than by
+      // omission — the discriminator on the version row is what tells the two kinds apart, never an
+      // empty list on one of them.
+      unboundFormFields: [],
       blocks,
       computedFields: manifestComputedFields,
     },

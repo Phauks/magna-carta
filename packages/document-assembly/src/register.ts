@@ -17,6 +17,7 @@ import type {
   LegacyFormField,
   MergeFieldDetection,
   NormalizationWarning,
+  TemplateKind,
   UnboundContentControl,
 } from "./types.ts";
 
@@ -61,6 +62,11 @@ export type TemplatePreparationFailureReason =
   | "package-integrity";
 
 export interface TemplatePreparation {
+  // WHAT KIND OF DOCUMENT THESE BYTES ARE. Stated by the pass that produced them and carried onto the
+  // version row, so no later reader has to infer it — a required property rather than a defaulted one,
+  // because a version registered without saying which engine fills it is a version that fails at
+  // assembly time instead of at registration.
+  readonly kind: TemplateKind;
   // The bytes to store as the template version. Normalized, macro-free, and scrubbed.
   readonly bytes: Uint8Array;
   readonly manifest: FieldManifest;
@@ -249,6 +255,10 @@ export async function prepareTemplateVersion(
   return {
     ok: true,
     preparation: {
+      // This pass produces a normalized OOXML package and nothing else. A fillable PDF takes a
+      // different pipeline entirely (`prepareFormTemplateVersion` in pdf-form.ts) — no normalization,
+      // no run splitting, no macro gate, and a manifest discovered rather than authored.
+      kind: "wordProcessing",
       bytes: scrubbedBytes,
       manifest: normalized.manifest,
       warnings: normalized.warnings,
