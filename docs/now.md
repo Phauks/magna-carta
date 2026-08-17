@@ -96,7 +96,7 @@ true and neither is the answer on its own.
 
 ## Where we have been
 
-**45 of 64 commits read, 2026-07-14 to 2026-08-16 — 33 days.** The ledger keeps no history of its
+**46 of 65 commits read, 2026-07-14 to 2026-08-17 — 34 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -104,12 +104,12 @@ that renders the counts above, and the result is kept in
 
 ### What has moved
 
-**+58 shipped since the ledger began** — 204 on 2026-07-14, 262 on 2026-08-16, across 33 days. The
+**+59 shipped since the ledger began** — 204 on 2026-07-14, 263 on 2026-08-17, across 34 days. The
 ledger itself grew by +88 nodes over the same period (663 to 751), so the share shipped went from
 31% to 35% against a denominator that was moving too.
 
-That is **12.3 capabilities shipped a week** across the whole series, and **32.2 a week** over the
-38 snapshots since the last gap (2026-08-11 to 2026-08-16, +23 shipped in 5 days).
+That is **12.1 capabilities shipped a week** across the whole series, and **28.0 a week** over the
+39 snapshots since the last gap (2026-08-11 to 2026-08-17, +24 shipped in 6 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -164,10 +164,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-08-16 | `31485623` | 262 | 203 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 745 | +5 | +3 | 0 |
 | 2026-08-16 | `e01afeea` | 262 | 203 | 15 | 38 | 19 | 6 | 159 | 41 | 2 | 745 | 0 | 0 | 0 |
 | 2026-08-16 | `d17b40fb` | 262 | 203 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | +6 | 0 | 0 |
+| 2026-08-17 | `39e1a9ec` | 263 | 202 | 15 | 44 | 19 | 6 | 159 | 41 | 2 | 751 | 0 | +1 | 0 |
 
 ### The gaps
 
-**19 of the 64 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 65 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -197,7 +198,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Custodian (Safe Custody) | 10 | 12 | 0 | 6 | +6 |
 | Design System, UI Consistency & Design Quality | 20 | 20 | 12 | 12 | 0 |
 | Discovery (e-discovery) | 20 | 26 | 3 | 6 | +3 |
-| Document Automation | 8 | 9 | 0 | 2 | +2 |
+| Document Automation | 8 | 9 | 0 | 3 | +3 |
 | Documents | 115 | 115 | 59 | 60 | +1 |
 | Exhibits and Exhibit Lists | — | 9 | — | 0 | 0 |
 | Financial Core | 55 | 66 | 8 | 19 | +11 |
