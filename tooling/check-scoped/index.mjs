@@ -107,6 +107,15 @@ console.log(`check:scoped: ${files.length} changed file(s) since ${base.slice(0,
 const steps = [];
 // Generated wasm must exist before tsc/vitest can resolve the imports in pdf/decryption/email. A no-op
 // when the artefacts are current, so it costs nothing on the common path.
+//
+// UNCONDITIONAL, and deliberately the one step here that is not scoped to the diff — it reads like a
+// missing condition, and adding one is wrong. Whether the artefacts are needed is a fact about the build
+// graph rather than the diff: the type-check step below is itself unconditional and `tsc -b` builds the
+// whole project-reference graph, so a cold worktree type-checks those three packages whatever changed.
+// Measured with a docs-only diff and the artefacts absent, `vp run typecheck` fails with twelve TS2307s
+// on the missing generated .d.ts files. Skipping this would not save the bootstrap; it would replace one
+// message that names its own repair with twelve that do not. Full reasoning:
+// docs/conventions/build-performance.md.
 steps.push({
   name: "wasm artefacts present",
   cmd: "node",
