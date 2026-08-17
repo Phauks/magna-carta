@@ -206,14 +206,21 @@ describe("recording that a bill went out, over HTTP", () => {
     );
     expect(denied.status).toBe(403);
 
-    // A vocabulary the design did not name is refused by the contract, before it can reach the table.
+    // A channel the design did not name is refused by the CONTRACT, naming the field — not by the
+    // table's CHECK, which is the backstop rather than the message a caller acts on.
     const unknownChannel = await post(`/api/v1/billing/invoices/${invoiceId}/deliveries`, {
       channel: "carrier_pigeon",
       recipientReference: "12 Court Street",
       deliveryDate: todayInUtc(),
       outcome: "delivered",
     });
-    expect(unknownChannel.status).toBe(400);
+    expect(unknownChannel.status).toBe(422);
+    const validation = (await unknownChannel.json()) as {
+      type: string;
+      errors?: { path: string }[];
+    };
+    expect(validation.type).toMatch(/\/validation$/);
+    expect(validation.errors?.map((issue) => issue.path)).toContain("channel");
 
     const failed = await post(`/api/v1/billing/invoices/${invoiceId}/deliveries`, {
       channel: "post",
