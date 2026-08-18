@@ -144,6 +144,12 @@ const activeContentScanService: Fetcher = {
     ),
 } as unknown as Fetcher;
 
+// A DEPLOYED engine that will not answer — the placeholder worker, or a Container that is not up.
+// The adapter turns a 5xx into ScanFaultError, which is a FAULT rather than a verdict.
+const unreachableScanService: Fetcher = {
+  fetch: () => Promise.resolve(new Response("placeholder", { status: 503 })),
+} as unknown as Fetcher;
+
 async function stageForm(sessionCookie: string): Promise<string> {
   const minted = await post("/api/v1/templates/upload?kind=pdfForm", {}, sessionCookie);
   expect(minted.status, await minted.clone().text()).toBe(200);
@@ -369,6 +375,30 @@ describe("registering a fillable PDF as a template", () => {
       [registered.versionId],
     );
     expect(row).toMatchObject({ scan_verdict: "clean", scan_detail: "active-content" });
+  });
+
+  it("refuses with a retryable 503 when the engine is deployed and will not answer", async () => {
+    // The scan runs inside the idempotent effect, whose callback owes a write and a response code
+    // rather than a Response — so the fault used to propagate as an Error ID, sending a member to
+    // support over a Container that is simply not up. `scan-diagnose` already answered the identical
+    // fault with a 503; this is the same answer on the registration path.
+    const response = await registerForm("Unreachable Engine Form", CONFIRMED_MAPPINGS, cookie, {
+      SCAN_SERVICE: unreachableScanService,
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const problem = await readJson<{ type: string; detail: string }>(response);
+    expect(problem.type).toContain("service-unavailable");
+    // Never a verdict: an engine that did not answer has not pronounced this template anything.
+    expect(problem.detail).toContain("not been scanned");
+
+    // Nothing was registered — the effect threw before its write.
+    const registered = await queryFirstRow<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM document_template WHERE name = ?1",
+      ["Unreachable Engine Form"],
+    );
+    expect(registered?.n).toBe(0);
   });
 });
 

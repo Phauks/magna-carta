@@ -25611,6 +25611,10 @@ export type TemplatesRegisterErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The scan engine is deployed but did not answer; nothing was registered
+     */
+    503: Problem;
 };
 
 export type TemplatesRegisterError = TemplatesRegisterErrors[keyof TemplatesRegisterErrors];
@@ -25661,6 +25665,10 @@ export type TemplatesAddVersionErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The scan engine is deployed but did not answer; nothing was registered
+     */
+    503: Problem;
 };
 
 export type TemplatesAddVersionError = TemplatesAddVersionErrors[keyof TemplatesAddVersionErrors];
