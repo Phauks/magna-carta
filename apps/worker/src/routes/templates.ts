@@ -1428,10 +1428,12 @@ async function scanAndGateStatements(
   const { resolveScanPort } = await import("../files/scan-port-binding.ts");
   const raw = await resolveScanPort(c.env).scan(new Response(bytes as unknown as BodyInit).body!, {
     sizeBytes: bytes.byteLength,
-    // The type the presigned PUT was signed for, which is the type these bytes had to arrive as. A
-    // single literal stood here and named a Word document for every template, so a fillable PDF
-    // reached the engine's prefilter classified as OOXML. The structural heuristics dispatch on
-    // magic bytes and were unaffected, but the class handed to the signature engine was wrong.
+    // The kind the preparation arm validated these bytes as — not the `?kind=` the presign used,
+    // which nothing forces the registration body to match. Each arm rejects bytes of the wrong
+    // format, so this is the type the engine is actually being handed. A single literal stood here
+    // and named a Word document for every template, so a fillable PDF reached the prefilter
+    // classified as OOXML; the structural heuristics dispatch on magic bytes and were unaffected,
+    // but the class handed to the signature engine was wrong.
     sniffedContentType: TEMPLATE_CONTENT_TYPES[kind],
   });
   // A deployed engine that will not answer raises ScanFaultError out of computeVerdict, and that is

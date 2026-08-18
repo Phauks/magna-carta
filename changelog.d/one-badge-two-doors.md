@@ -13,9 +13,11 @@ wrote `null` for every clean verdict, so the one signal the platform actually co
 executable content survived on uploaded files and was discarded on templates. A template is, by the
 route's own comment, untrusted content a firm will run against privileged data.
 
-The badge is now `scanDetailFor` in `@magna-carta/file-manager/verdict`, called by both paths. Fixing
-it in place would have left two copies free to diverge again; this is one home with its own unit
-tests, which is the shape that makes the next divergence impossible rather than unlikely.
+**There were three writers, not two.** The weekly re-scan sweep is the third, and it sets the column
+unconditionally with the flagged reason — null for a clean verdict — so a version already badged
+`active-content` had that badge erased the first time an engine-version bump re-scanned it. The badge
+is now `scanDetailFor` in `@magna-carta/file-manager/verdict`, called by all three. Fixing it in place
+would have left copies free to diverge again; this is one home with its own unit tests.
 
 **A second literal in the same function named the wrong file type.** The template scan hardcoded the
 OOXML wordprocessingml MIME as its `sniffedContentType` for every template, so a fillable PDF reached

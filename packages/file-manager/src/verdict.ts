@@ -26,9 +26,16 @@ export class ScanFaultError extends Error {}
 // every clean verdict, dropping the one signal the platform computes about executable content on the
 // path where it matters most. A caller that quarantines writes its own reason and never calls this.
 export function scanDetailFor(verdict: FileVerdict): string | null {
-  if (verdict.verdict === "clean") return verdict.activeContent ? "active-content" : null;
-  if (verdict.verdict === "unscanned") return verdict.reason;
-  return verdict.reason;
+  // Exhaustive on purpose rather than a fall-through: a fourth verdict kind should fail to compile
+  // here, not silently inherit whatever the last branch happened to return.
+  switch (verdict.verdict) {
+    case "clean":
+      return verdict.activeContent ? "active-content" : null;
+    case "unscanned":
+      return verdict.reason;
+    case "flagged":
+      return verdict.reason;
+  }
 }
 
 export function tierRank(tier: Tier): number {
