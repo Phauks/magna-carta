@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeVerdict, DEFAULT_SCAN_POLICY, ScanFaultError } from "../src/verdict.ts";
+import {
+  computeVerdict,
+  DEFAULT_SCAN_POLICY,
+  ScanFaultError,
+  scanDetailFor,
+} from "../src/verdict.ts";
 import type { RawScanResult } from "../src/scan-port.ts";
 
 const base: RawScanResult = {
@@ -142,5 +147,31 @@ describe("computeVerdict — precedence ordering (do not reorder)", () => {
         DEFAULT_SCAN_POLICY,
       ),
     ).toEqual({ verdict: "unscanned", reason: "encrypted" });
+  });
+});
+
+describe("scanDetailFor", () => {
+  // One home for what a committing verdict writes into `scan_detail`. It exists because there were
+  // two: the file path badged a clean-with-active-content version and the template path wrote null
+  // for every clean verdict, so the same bytes were recorded differently depending on which door
+  // they came through — and templates are the door that matters most, being what a firm runs against
+  // privileged data.
+  it("badges a clean verdict whose bytes still carry executable content", () => {
+    expect(scanDetailFor({ verdict: "clean", activeContent: true })).toBe("active-content");
+  });
+
+  it("writes nothing for a clean verdict with nothing to say about it", () => {
+    expect(scanDetailFor({ verdict: "clean", activeContent: false })).toBeNull();
+  });
+
+  it("carries the reason a version went uninspected", () => {
+    expect(scanDetailFor({ verdict: "unscanned", reason: "encrypted" })).toBe("encrypted");
+    expect(scanDetailFor({ verdict: "unscanned", reason: "no-engine" })).toBe("no-engine");
+  });
+
+  it("carries a flagged reason for the caller that records one anyway", () => {
+    expect(scanDetailFor({ verdict: "flagged", reason: "Eicar-Test-Signature" })).toBe(
+      "Eicar-Test-Signature",
+    );
   });
 });

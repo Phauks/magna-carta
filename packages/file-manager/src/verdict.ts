@@ -20,6 +20,17 @@ export type FileVerdict =
 // A deployed engine going dark is a transient fault, not a clean result.
 export class ScanFaultError extends Error {}
 
+// What goes in the `scan_detail` column for a verdict that commits: the badge or the reason a reader
+// is owed. One home, because it was two and they disagreed — the file path recorded `active-content`
+// over bytes that still hold PDF JavaScript or Office macros, and the template path recorded null for
+// every clean verdict, dropping the one signal the platform computes about executable content on the
+// path where it matters most. A caller that quarantines writes its own reason and never calls this.
+export function scanDetailFor(verdict: FileVerdict): string | null {
+  if (verdict.verdict === "clean") return verdict.activeContent ? "active-content" : null;
+  if (verdict.verdict === "unscanned") return verdict.reason;
+  return verdict.reason;
+}
+
 export function tierRank(tier: Tier): number {
   return tier === "core" ? 0 : tier === "extended" ? 1 : 2;
 }

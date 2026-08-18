@@ -57,7 +57,7 @@ import {
   type UnboundFormField,
 } from "@magna-carta/document-assembly/types";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
-import { computeVerdict } from "@magna-carta/file-manager/verdict";
+import { computeVerdict, scanDetailFor } from "@magna-carta/file-manager/verdict";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
@@ -1419,6 +1419,7 @@ async function scanAndGateStatements(
   c: TemplatesContext,
   versionId: DocumentTemplateVersionId,
   templateId: DocumentTemplateId,
+  kind: TemplateKind,
   bytes: Uint8Array,
   now: string,
 ): Promise<{ statements: unknown[]; activated: boolean }> {
@@ -1427,8 +1428,17 @@ async function scanAndGateStatements(
   const { resolveScanPort } = await import("../files/scan-port-binding.ts");
   const raw = await resolveScanPort(c.env).scan(new Response(bytes as unknown as BodyInit).body!, {
     sizeBytes: bytes.byteLength,
-    sniffedContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    // The type the presigned PUT was signed for, which is the type these bytes had to arrive as. A
+    // single literal stood here and named a Word document for every template, so a fillable PDF
+    // reached the engine's prefilter classified as OOXML. The structural heuristics dispatch on
+    // magic bytes and were unaffected, but the class handed to the signature engine was wrong.
+    sniffedContentType: TEMPLATE_CONTENT_TYPES[kind],
   });
+  // A deployed engine that will not answer raises ScanFaultError out of computeVerdict, and that is
+  // deliberately not caught here: this runs inside the idempotent effect, whose callback owes a
+  // write and a response code rather than a Response, so the 503 scan-diagnose gives for the same
+  // fault has to be built one level out. Throwing is still the safe direction — nothing commits and
+  // no version activates — it just reaches the caller as an Error ID instead of a retry-shortly.
   const verdict = computeVerdict(raw, await readFirmScanPolicy(database));
 
   if (verdict.verdict === "flagged") {
@@ -1451,7 +1461,9 @@ async function scanAndGateStatements(
         versionId,
         verdict.verdict,
         raw.engineVersion,
-        verdict.verdict === "unscanned" ? verdict.reason : null,
+        // The same badge a file version carries, from the same function, so the two paths cannot
+        // disagree again about what a clean verdict over executable bytes is worth recording.
+        scanDetailFor(verdict),
         now,
       ),
       setCurrentTemplateVersionStatement(database, templateId, versionId, now),
@@ -1526,6 +1538,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             c,
             registration.versionId,
             registration.templateId,
+            outcome.prepared.kind,
             outcome.prepared.bytes,
             now(),
           );
@@ -1619,6 +1632,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             c,
             registration.versionId,
             templateId,
+            outcome.prepared.kind,
             outcome.prepared.bytes,
             now(),
           );
