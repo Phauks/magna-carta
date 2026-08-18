@@ -436,6 +436,22 @@ export async function readTemplateVersionForAssembly(
   };
 }
 
+// Every R2 key any version row in this firm's catalogue names — the retention set a sweep collecting
+// unnamed template objects out of a bucket has to complement. It mirrors listCleanVersionR2Keys in
+// @magna-carta/file-manager, with one deliberate difference: NO status filter. That read feeds a
+// STORAGE METER, which counts clean commits only; this one feeds a DELETE, and every status names
+// bytes that are still the firm's. A pending version is a registration whose scan has not answered
+// yet, a quarantined one is a refusal the firm has to be able to explain, and an abandoned one is a
+// row somebody may still be reading. Only a key no row names at all is reclaimable.
+export function listTemplateVersionR2KeysStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(`SELECT r2_key FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE}`);
+}
+
+export async function listTemplateVersionR2Keys(database: SqlDatabase): Promise<readonly string[]> {
+  const { results } = await listTemplateVersionR2KeysStatement(database).all<{ r2_key: string }>();
+  return results.map((row) => row.r2_key);
+}
+
 export async function readNextTemplateVersionNumber(
   database: SqlDatabase,
   templateId: DocumentTemplateId,

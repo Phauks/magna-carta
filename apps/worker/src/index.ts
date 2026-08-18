@@ -3,6 +3,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
 import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
+import { runTemplateOrphanSweep } from "./assemblies/template-orphan-sweep.ts";
 import { conversionQueue } from "./conversions/conversion-consumer.ts";
 import type { ConversionMessage } from "./conversions/conversion-types.ts";
 import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
@@ -183,6 +184,12 @@ export default {
               // retires superseded split objects, so it runs where a firm's storage picture has already
               // been reconciled rather than against a stale one.
               await runSearchCompactionSweep(env);
+              // The other retirement pass, and the same shape: bytes are collected only once a grace
+              // period has passed, because the window it must not delete into is the registration
+              // window itself — a template's object is written before the row that names it commits.
+              // It has no ordering relationship with the reconciliation above, because nothing meters
+              // the templates/ prefix, so it sits with the collector it resembles.
+              await runTemplateOrphanSweep(env);
               // The comparison-driven notification pass, BEFORE retention rather than after: it
               // writes the rows retention then ages, and running it second would mean a firm's
               // freshly-raised overdue notice was swept on the same pass that raised it if the

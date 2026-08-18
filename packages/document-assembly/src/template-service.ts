@@ -29,6 +29,13 @@ import { manifestKeys } from "./types.ts";
 // meter under — so template bytes are visible in a firm's usage without a second metering mechanism.
 export const TEMPLATE_OBJECT_PREFIX = "templates/";
 
+// The staging prefix a raw upload lands under before registration reads it. It sits INSIDE the
+// template prefix so template bytes meter under one dimension whether or not registration succeeded,
+// and a staged object is deleted once its registration has read it. It lives here beside the prefix
+// it nests in because two readers need the same answer: the route that mints and validates a staging
+// key, and the sweep that must never mistake a staged upload for an object nothing named.
+export const TEMPLATE_STAGING_PREFIX = `${TEMPLATE_OBJECT_PREFIX}staging/`;
+
 export function templateVersionObjectKey(
   templateId: DocumentTemplateId,
   versionId: DocumentTemplateVersionId,

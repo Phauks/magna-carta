@@ -232,6 +232,18 @@ frozen-field list, the ingest chokepoint, the provenance row, the telemetry — 
   (and the versions route) take `kind` plus `fieldMappings`, the human confirmation of what each box on
   the form means. The mappings go to the firm's existing `document_template_field_mapping` library in the
   same commit as the version they bound.
+- **Registration writes the object BEFORE the rows, and what that leaves behind is collected on the
+  daily cron.** A committed row pointing at bytes that were never written is a template that fails on
+  a filing deadline; a written object with no row is only wasted storage — so the ordering stays and
+  the waste is swept. `assemblies/template-orphan-sweep.ts` runs beside the other storage passes and
+  deletes an object under `templates/` only when no version row **anywhere in the fleet** names its
+  key, it is not under `TEMPLATE_STAGING_PREFIX`, and it has been unnamed for longer than a 24-hour
+  grace period — the window in which a registration's row is still committing. The fleet-wide
+  retention set is not convenience: a template key carries no firm and every firm resolves to the
+  same bound bucket, so a per-firm complement would delete another firm's live template. A retention
+  read that fails DISARMS the whole pass rather than narrowing the set. Reaping abandoned staged
+  uploads is the other half and is deliberately not here — it wants an R2 lifecycle rule
+  ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
 
 ## The split-object host — how the search engine reads R2 without credentials
 

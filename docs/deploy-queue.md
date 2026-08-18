@@ -562,3 +562,24 @@ closes on its own; it just needs to be seen to close. Two things for the owner a
   sweep feeds are additive and nothing else depends on them.
 
 Nothing here blocks the deploy, and nothing needs doing before it.
+
+## An R2 lifecycle rule for the template staging prefix — the half the orphan sweep leaves
+
+`POST /api/v1/templates/upload` mints a staging key under `templates/staging/<firmId>/` and hands
+back a presigned PUT. Registration reads those bytes and deletes them; a caller who uploads and never
+comes back leaves them. That is deliberate — a member handed a `503` because the scan engine is down
+is expected to retry against the same staged bytes rather than upload the file again — so the staged
+object cannot be reaped by anything that runs on a scale of minutes.
+
+The daily sweep that collects template objects no row names
+(`apps/worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
+rule**, and abandoned staging is left to expire on its own. Nothing expires it yet: the bucket
+carries no lifecycle rule for that prefix.
+
+**The step.** Add an R2 lifecycle rule expiring `templates/staging/` — a generous window, days rather
+than hours, since it must comfortably outlive a member who was told to try again shortly. It is the
+same class of rule as the `bundles/` and `conversions/` expiries in the deploy runbook, and it is
+account-side: no code change accompanies it, and nothing in the repository can perform it.
+
+Nothing breaks without it. The cost is storage for uploads nobody registered, which is exactly the
+cost the orphan sweep was built to stop paying on the other half of the prefix.
