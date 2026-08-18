@@ -13,24 +13,47 @@ wrote `null` for every clean verdict, so the one signal the platform actually co
 executable content survived on uploaded files and was discarded on templates. A template is, by the
 route's own comment, untrusted content a firm will run against privileged data.
 
-**There were three writers, not two.** The weekly re-scan sweep is the third, and it sets the column
+**There were three writers, not two.** The in-place re-scan is the third, and it sets the column
 unconditionally with the flagged reason — null for a clean verdict — so a version already badged
-`active-content` had that badge erased the first time an engine-version bump re-scanned it. The badge
+`active-content` had that badge erased the first time an engine-version bump re-scanned it. That
+re-scan is triggered by ACCESS, not by a background sweep: downloading or previewing a version whose
+recorded engine is stale enqueues one, as does a member re-scanning a matter. So the erasure reached
+the files someone opened, which is the wrong half to lose it on, and left untouched the files nobody
+has looked at. The badge
 is now `scanDetailFor` in `@magna-carta/file-manager/verdict`, called by all three. Fixing it in place
 would have left copies free to diverge again; this is one home with its own unit tests.
 
 **A second literal in the same function named the wrong file type.** The template scan hardcoded the
-OOXML wordprocessingml MIME as its `sniffedContentType` for every template, so a fillable PDF reached
-the engine's prefilter classified as a Word document. It now passes the type for the kind the
-preparation arm actually validated these bytes as — deliberately not the `?kind=` the presigned PUT
-was signed for, which nothing forces the registration body to match. Structural heuristics dispatch on magic
-bytes and were unaffected; what was wrong is the class handed to the signature engine.
+OOXML wordprocessingml MIME as its `sniffedContentType` for every template, including a fillable PDF.
+It now passes the type for the kind the preparation arm actually validated the bytes as — deliberately
+not the `?kind=` the presigned PUT was signed for, which nothing forces the registration body to match.
+This changed no behaviour: the scan container hands the type only to heuristics that ignore it and
+dispatch on magic bytes, and the prefilter that would consult it is built but deliberately unwired. It
+is corrected because the value is a claim about the bytes and it was false, and because a truthful type
+is what makes wiring the prefilter a no-op instead of a misclassification arriving with it.
 
-**What this does not do yet.** On the template side the badge is now recorded and nothing reads it —
-`document_template_version.scan_detail` has no reader today, and there is no template re-scan sweep
-the way file versions re-scan on access, so versions registered before this keep their `null`
-permanently. The column being right is the precondition for a surface that shows it, not the surface.
-The file side is different: it had a reader all along, which is why the erasing re-scan mattered.
+**What this does not do yet, on either side.** No surface shows an `active-content` badge to anyone.
+`scan_detail` reaches a client in exactly two places, both inside the flagged-download branches of
+`routes/files.ts`, and the template column has no reader at all. So this fixes a STORED FACT ahead of
+the surface that will read it, on both paths — not a visible regression. Neither is backfilled: a file
+regains its badge the next time access re-scans it, and a template version registered before this keeps
+its `null` permanently, because nothing re-scans templates.
+
+Recording it right first is deliberate rather than incidental. A badge the platform never wrote is not
+something a later screen can recover, and the whole defect here is two writers quietly disagreeing about
+a value nobody was looking at.
+
+**One call site is pinned by a test and one is not.** The re-scan writer is pinned: reverting it to
+the old expression fails `ingest-consumer.test.ts`. The template writer is NOT, and this is the second
+attempt that failed to pin it, so the reason is recorded rather than left to be rediscovered. The old
+expression and `scanDetailFor` differ on exactly one verdict — clean WITH active content — because the
+old one already recorded the reason for `unscanned`. That verdict cannot be reached through the
+registration route under the test harness: the route scans `prepared.bytes`, which is the output of the
+form scrub, and the scrub re-serializes the document. A marker appended as a trailing comment does not
+survive it, and a marker written into a form field value does not either — the sanitizer clears field
+values, which was confirmed by running fill-then-scrub directly rather than inferred. Pinning it needs
+either a seam that injects a verdict into the registration path, or a scan stub keyed on something that
+survives the scrub.
 
 **Not changed, and worth stating.** A template version activating on an `unscanned` verdict is not a
 defect — `packages/file-manager/CLAUDE.md` records it as explicit launch policy for a firm with no

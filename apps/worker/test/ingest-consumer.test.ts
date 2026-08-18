@@ -952,9 +952,13 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
 
   it("a clean re-scan of a version holding PDF JavaScript KEEPS its active-content badge", async () => {
     // The re-scan sets scan_detail unconditionally. It once set it to the flagged signature, which is
-    // null for a clean verdict — so the first engine-version bump after ingest silently erased the badge
-    // on every file that carried one, and the download surface stopped saying the bytes hold executable
-    // content. The badge is the same fact the fresh-ingest path records; a re-scan re-derives it.
+    // null for a clean verdict — so the first engine-version bump erased the badge on any file the
+    // re-scan reached. That is files someone DOWNLOADED or previewed (access-rescan.ts enqueues on
+    // access) and files a member re-scanned from the matter, not the whole corpus: a file nobody opens
+    // is never re-scanned. The badge is the same fact the fresh-ingest path records; a re-scan
+    // re-derives it. Nothing renders an active-content badge to a member yet — scan_detail reaches a
+    // client only on the flagged download paths in routes/files.ts — so what this protects is the
+    // stored fact, ahead of the surface that will read it.
     const { versionId, r2Key } = await seedCommittedVersion("macro.pdf", uniqueBytes(9));
     await firmDatabase
       .prepare(

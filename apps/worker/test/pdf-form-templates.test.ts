@@ -322,26 +322,6 @@ describe("registering a fillable PDF as a template", () => {
     expect(clientName?.parts).toEqual(["page 1", "page 2"]);
     expect(body.unboundFormFields.length).toBeGreaterThan(0);
   });
-
-  it("records the verdict's own scan detail on the registered version, not null", async () => {
-    // The registration route once wrote null into `scan_detail` for every verdict that was not
-    // flagged, so the one signal the platform computes about a template — whether the firm's own
-    // court form carries executable content — was discarded on the path where it matters most. It
-    // now records what the verdict says, through the same function the file paths use.
-    //
-    // What this pins is that the column carries the VERDICT's answer rather than a hardcoded null.
-    // The test pool binds the engine-less scan stub, so the verdict here is `unscanned`/`no-engine`
-    // and that reason is what lands; only `scanDetailFor` produces it, and the expression this
-    // replaced produced null. The `active-content` case the same call now covers is pinned on the
-    // function itself in packages/file-manager/test/verdict.test.ts — driving it from here would
-    // need a fixture PDF that is simultaneously a valid AcroForm and carries the stub's marker.
-    const registered = await readJson<RegisteredFormBody>(await registerForm("Scan Detail Form"));
-    const row = await queryFirstRow<{ scan_verdict: string; scan_detail: string | null }>(
-      "SELECT scan_verdict, scan_detail FROM document_template_version WHERE id = ?1",
-      [registered.versionId],
-    );
-    expect(row).toMatchObject({ scan_verdict: "unscanned", scan_detail: "no-engine" });
-  });
 });
 
 describe("assembling a form template, end to end through the ingest chokepoint", () => {

@@ -1431,9 +1431,14 @@ async function scanAndGateStatements(
     // The kind the preparation arm validated these bytes as — not the `?kind=` the presign used,
     // which nothing forces the registration body to match. Each arm rejects bytes of the wrong
     // format, so this is the type the engine is actually being handed. A single literal stood here
-    // and named a Word document for every template, so a fillable PDF reached the prefilter
-    // classified as OOXML; the structural heuristics dispatch on magic bytes and were unaffected,
-    // but the class handed to the signature engine was wrong.
+    // and named a Word document for every template, including a fillable PDF.
+    //
+    // Nothing downstream reads it today, so this changed no behaviour: the container passes the type
+    // only to its heuristics, which ignore the parameter and dispatch on magic bytes, and the
+    // prefilter that would consult it is built but deliberately unwired (containers/scan/src/lib.rs).
+    // It is corrected because the value is a claim about the bytes and it was false, and because the
+    // prefilter is meant to be wired — a truthful type is what makes that a no-op rather than a
+    // misclassification arriving with it.
     sniffedContentType: TEMPLATE_CONTENT_TYPES[kind],
   });
   // A deployed engine that will not answer raises ScanFaultError out of computeVerdict, and that is

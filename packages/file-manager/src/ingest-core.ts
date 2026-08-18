@@ -282,7 +282,10 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       contentSha256,
       scanVerdict: "flagged",
       scanEngineVersion: raw.engineVersion,
-      scanDetail: fileVerdict.reason,
+      // Through the shared decision even though a flagged verdict's detail is its reason and nothing
+      // else: the two spellings agree today, and a spelled-out copy is what lets them stop agreeing
+      // the first time the shared one learns to prefix, truncate, or redact.
+      scanDetail: scanDetailFor(fileVerdict),
       rawScanResult: raw,
     };
   }
