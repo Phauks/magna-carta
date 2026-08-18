@@ -519,8 +519,11 @@ from that one sentence.
   `/AA`. So a fillable PDF is NOT made inert the way the OOXML macro strip makes a `.docx` inert, and
   there is no consent gate here matching the macro one. What stands between a hostile form and a firm
   today is the same scan every uploaded byte crosses, run over the stored bytes at registration. Closing
-  it properly is a change to that crate's scrubber (which other consumers share), so it is named here
-  rather than half-answered with a byte scan in this package.
+  it properly is a change to that crate's scrubber (which other consumers share), and the decision it
+  waits on — strip always, strip with an exception a firm marks at upload, or report without removing
+  — is recorded on the `documents.pdf.scrub` node of the feature ledger, which is where the register
+  and the decision desk read it from. What is named here is the consequence for assembly; what the
+  owner is being asked lives there, once — rather than half-answered here.
 - Output is byte-reproducible on purpose — `writePackage` pins the entry timestamp, so the same
   template version plus the same merge context yields the same bytes. Do not reach for `Date.now()`
   there.
