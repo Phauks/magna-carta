@@ -9,14 +9,17 @@ untouched, and the question of what to do about that now reaches the decision de
 `crates/pdf-core/src/scrub.rs` removes thirteen document-level surfaces — `Info`, `Metadata`,
 `StructTreeRoot`, `MarkInfo`, `Outlines`, named destinations, optional-content properties, field
 values and appearances, `XFA`, embedded files, `Collection`, file associations and file-attachment
-annotations — and then checks its own work: `verify_scrub_absence` walks the document model before it
+annotations — (one of them, the destinations name tree, only in its modern form — the legacy catalog `/Dests`
+dictionary is neither cleared nor checked) — and then checks its own work: `verify_scrub_absence` walks the document model before it
 is serialized, gating all seven option groups across thirteen checks, and refuses to emit anything at
 all if a surface is still reachable. (A model check, not an output-byte one — the weaker of the two
 forms the crate uses; `redact.rs` re-reads what it actually wrote.)
 
 What it never looks for is executable content. No document-level JavaScript name tree, no open
 action, no catalog actions on save, print or close, no page or field additional-actions, no
-annotation action. A document scrubbed before production to an opposing party can still carry code.
+annotation action. A document scrubbed before production to an opposing party can still carry code, and this is a live
+path rather than a hypothetical one: `prepareFormTemplateVersion` runs the scrub on every PDF form
+template a firm registers.
 
 The finding sharpens against the tree rather than against the design: the page-split path in
 `crates/pdf-core/src/generate.rs` removes some of the same entries, and does so for safety — but a
