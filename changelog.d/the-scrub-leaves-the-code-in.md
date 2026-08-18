@@ -19,17 +19,23 @@ action, no catalog actions on save, print or close, no page or field additional-
 annotation action. A document scrubbed before production to an opposing party can still carry code.
 
 The finding sharpens against the tree rather than against the design: the page-split path in
-`crates/pdf-core/src/generate.rs` removes some of the same entries, but never as a safety measure. It
-drops the catalog `OpenAction`, `AA` and `Names` because a page subset cannot carry cross-document
-references, and it strips an action from an annotation on a kept page only when that action points at
-a dropped one. An action that stays inside the kept range survives the split. A split is not a scrub,
-and neither path is a precedent for the other.
+`crates/pdf-core/src/generate.rs` removes some of the same entries, and does so for safety — but a
+different safety, that no byte of an excluded page survives into the output. It drops the catalog
+`OpenAction`, `AA` and `Names` because they reference pages across the whole document, and strips an
+action from an annotation on a kept page only when that action points at an excluded one, with a
+fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a
+scrub, and neither path settles what the other should do.
 
-**Surfaced, not built.** Stripping is not free, and the cost landed recently: the fillable court
-forms this platform now assembles use field actions for validation and formatting, so a scrub that
-removes them hands back a form that looks right and computes nothing. The node's `awaiting-owner`
-line states the three answers — strip always, strip with a named exception for platform-generated
-forms, or report without removing — and what each one costs. `documents.pdf.scrub` is `shipped`, so
+**Surfaced, not built.** What stands in the way today is the malware scan every uploaded byte
+crosses, which is a different guarantee — it catches what is known to be hostile, not what is merely
+executable. Stripping is not free either, and the cost falls on fillable forms a *firm* uploaded: a
+court form uses field actions for validation and formatting, so a scrub that removes them hands back
+a form that looks right and computes nothing. The node's `awaiting-owner` line states the three
+answers — strip always, strip with an exception a firm marks at upload, or report without removing —
+and says why a fourth that sounds obvious is empty: an exception keyed on templates the platform
+authored would exempt nothing, because every fillable template in the tree is a firm upload and
+whether the platform ever authors its own is itself an open question on
+`document-automation.filing-grade-generation`. `documents.pdf.scrub` is `shipped`, so
 the question sits under the questions that change something already running rather than under the
 ones holding a build.
 
