@@ -1468,7 +1468,9 @@ async function scanAndGateStatements(
         versionId,
         verdict.verdict,
         raw.engineVersion,
-        verdict.verdict === "unscanned" ? verdict.reason : null,
+        // The same badge a file version carries, from the same function, so the two paths cannot
+        // disagree again about what a clean verdict over executable bytes is worth recording.
+        scanDetailFor(verdict),
         now,
       ),
       setCurrentTemplateVersionStatement(database, templateId, versionId, now),
