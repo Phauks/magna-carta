@@ -245,6 +245,18 @@ export function unresolvedPath(node, _allNodes, exists) {
       node,
       detail: `\`spec\` names \`${node.spec}\`, which is not on the tree`,
     });
+  } else if (node.spec !== null && !node.spec.startsWith("docs/specs/")) {
+    // Existence alone does not make it a spec. One node cited the RESEARCH that motivated it
+    // (docs/research/...) while the design that specifies it sat in docs/specs/ uncited — the file
+    // was there, so the check above passed, and the node still answered "where is this specified"
+    // with a document that does not specify it. Research belongs in `evidence` or `notes`.
+    problems.push({
+      rule: "unresolved-path",
+      node,
+      detail:
+        `\`spec\` names \`${node.spec}\`, which exists but is not under \`docs/specs/\`` +
+        " — the key names the design that specifies this capability, not the research behind it",
+    });
   }
   return problems;
 }
@@ -401,6 +413,51 @@ export function unresolvedSlice(node, _allNodes, _exists, _decisions, sliceBuild
 // The three rules the per-node allowance can suppress: exactly the ones that reason about the tree.
 const SUPPRESSIBLE = new Set(["unaccounted-code", "absent-path-resolves", "unresolved-path"]);
 
+// ---------------------------------------------------------------------------------------------
+// Rule 9 — `in-build` with no stream anybody can find.
+// ---------------------------------------------------------------------------------------------
+//
+// `in-build` is the one status that claims something about RIGHT NOW: "active work on a branch or
+// worktree". Every other status describes an artifact, which stays true until somebody changes the
+// artifact. This one goes stale by the clock — the stream finishes, its worktree is retired, and the
+// node keeps announcing work that stopped.
+//
+// The registry rule in CLAUDE.md is what makes it checkable: a live stream has a note at
+// docs/active-work/<branch>.md, and retiring one deletes that note. So an `in-build` node has to
+// name its note, and the note has to exist. Naming the BRANCH is not enough and is the exact shape
+// this was built for: one node read "Branch claude/document-surface" for a stream whose note had
+// been deleted when it retired and whose code was already on main.
+//
+// Measured over the whole ledger: 5 nodes carry `in-build`, 4 fire, and all four are true — a landed
+// stream, two capabilities whose evidence says part is built and the rest is gated, and one waiting
+// on an owner decision. The fifth names its note and passes. A rule that fires on four fifths of a
+// status sounds noisy and is not: the population is five, and being wrong about all but one of them
+// is why the rule is worth having.
+const ACTIVE_WORK_PATH = /docs\/active-work\/[A-Za-z0-9._\-/]*[A-Za-z0-9_-]\.md/g;
+
+export function inBuildWithoutStream(node, _allNodes, exists) {
+  if (node.status !== "in-build") return [];
+  for (const field of PROSE_FIELDS) {
+    const text = node[field];
+    if (typeof text !== "string") continue;
+    ACTIVE_WORK_PATH.lastIndex = 0;
+    let match;
+    while ((match = ACTIVE_WORK_PATH.exec(text)) !== null) {
+      if (exists(match[0])) return [];
+    }
+  }
+  return [
+    {
+      rule: "in-build-without-stream",
+      node,
+      detail:
+        "is `in-build` — active work right now — and names no `docs/active-work/` note that exists." +
+        " Name the stream's note, or move the node to the status its artifacts actually support" +
+        " (`partial` when some of it is built, `planned` when none of it is)",
+    },
+  ];
+}
+
 const RULES = [
   unaccountedCode,
   absentPathThatResolves,
@@ -410,6 +467,7 @@ const RULES = [
   notStartedWithSpec,
   sliceAlreadyDelivered,
   unresolvedSlice,
+  inBuildWithoutStream,
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -555,6 +613,56 @@ export const SELF_TEST = [
     nodes: [fixture({ status: "designed", spec: "docs/specs/2026-01-01-gone.md" })],
     tree: [],
     expect: ["unresolved-path"],
+  },
+  {
+    name: "a spec path that exists but is not a spec — the research behind it, not the design of it",
+    nodes: [
+      fixture({ status: "shipped", spec: "docs/research/2026-08-07-what-the-statute-says.md" }),
+    ],
+    tree: ["docs/research/2026-08-07-what-the-statute-says.md"],
+    expect: ["unresolved-path"],
+  },
+  {
+    name: "a spec path under docs/specs/ that is on the tree",
+    nodes: [fixture({ status: "designed", spec: "docs/specs/2026-01-01-real.md" })],
+    tree: ["docs/specs/2026-01-01-real.md"],
+    expect: [],
+  },
+  {
+    name: "an in-build node naming a live stream's note",
+    nodes: [
+      fixture({
+        status: "in-build",
+        evidence: "apps/web/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md",
+      }),
+    ],
+    tree: ["apps/web/src/lib/view-shell", "docs/active-work/slice-0-7b-app-shell.md"],
+    expect: [],
+  },
+  {
+    name: "an in-build node naming a BRANCH whose note was deleted when the stream retired",
+    nodes: [
+      fixture({
+        status: "in-build",
+        evidence: "Branch claude/document-surface — apps/web/src/lib",
+      }),
+    ],
+    tree: ["apps/web/src/lib"],
+    expect: ["in-build-without-stream"],
+  },
+  {
+    name: "an in-build node naming no stream at all",
+    nodes: [
+      fixture({ status: "in-build", evidence: "packages/conversion/src/placement.ts on main" }),
+    ],
+    tree: ["packages/conversion/src/placement.ts"],
+    expect: ["in-build-without-stream"],
+  },
+  {
+    name: "a shipped node naming no stream — the rule reads in-build and nothing else",
+    nodes: [fixture({ status: "shipped", evidence: "packages/conversion/src/placement.ts" })],
+    tree: ["packages/conversion/src/placement.ts"],
+    expect: [],
   },
   {
     name: "a decision cited by its pending slug rather than its number",

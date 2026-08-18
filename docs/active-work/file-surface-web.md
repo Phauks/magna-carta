@@ -20,9 +20,15 @@ touches:
 > in `apps/web` today is a same-origin `fetch` behind a hand-written seam, and the WHOIS module says
 > in as many words that adopting the generated client is a scope decision the owner has not made.
 > Reviving would mean re-litigating that on a branch that also has to be re-based across a moved
-> contract and a regenerated client. Its **reasoning** was taken, though — see
-> `docs/active-work/claude/document-surface.md` and the two warnings at the end of this file, which
-> are still true and were designed around rather than rediscovered.
+> contract and a regenerated client. Its **reasoning** was taken, though: the document-surface stream
+> that carried it forward has since landed and retired, and what it built is on `main` —
+> `apps/web/src/lib/documents/` (the same-origin fetch seam, the pure presentation decisions) and
+> `apps/web/src/lib/matters/matter-record.ts` (a live matter and a sample matter distinguishable by
+> `source`). Its own note is gone with the stream, which is what retiring a note means; the code is
+> the record. The Overlaps section at the end of this file is half stale: `file-manager-contract` and
+> `file-manager-primitives` no longer exist on the remote, but `slice-0-7b-app-shell` is still a live
+> branch with a `building` note of its own, and `tooling/branch-landing` reports it as not landed — so
+> that one is a real coordination point, not history.
 >
 > Leave this note in place until the multi-view browser lands over the current surface; delete it and
 > the branch together at that point.
@@ -35,7 +41,7 @@ waiting for it to land on `main`.
 Design (converging into one home):
 
 - [`docs/specs/2026-07-09-matter-file-manager-design.md`](../specs/2026-07-09-matter-file-manager-design.md) — the approved matter surface (shared shell, modular views, streams).
-- [`docs/specs/2026-07-09-file-inspector-workbench-design.md`](../specs/2026-07-09-file-inspector-workbench-design.md) — the headerless-body / hosts / `FileSource` reframe. The inspector is the Tools host of the same surface; its capability pane is the shared detail panel.
+- `docs/specs/2026-07-09-file-inspector-workbench-design.md` — the headerless-body / hosts / `FileSource` reframe. The inspector is the Tools host of the same surface; its capability pane is the shared detail panel. **Not on `main`:** this spec was written on `origin/file-inspector-spec` and that branch never merged, so the file exists only there (`git show origin/file-inspector-spec:docs/specs/2026-07-09-file-inspector-workbench-design.md`). Read it from the branch or not at all — it is not a path in this checkout.
 
 ## Base & integration
 

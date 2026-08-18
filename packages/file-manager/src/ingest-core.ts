@@ -1,7 +1,13 @@
 import { fileTypeFromBuffer } from "file-type";
 import { contentTypesAgree } from "./content-type-equivalence.ts";
 import type { MalwareScanPort, RawScanResult } from "./scan-port.ts";
-import { computeVerdict, ScanFaultError, type FileVerdict, type ScanPolicy } from "./verdict.ts";
+import {
+  computeVerdict,
+  ScanFaultError,
+  scanDetailFor,
+  type FileVerdict,
+  type ScanPolicy,
+} from "./verdict.ts";
 import type { FlaggedTreatment } from "./scan-policy-settings.ts";
 import { checkUploadPolicy, type UploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
@@ -276,7 +282,10 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       contentSha256,
       scanVerdict: "flagged",
       scanEngineVersion: raw.engineVersion,
-      scanDetail: fileVerdict.reason,
+      // Through the shared decision even though a flagged verdict's detail is its reason and nothing
+      // else: the two spellings agree today, and a spelled-out copy is what lets them stop agreeing
+      // the first time the shared one learns to prefix, truncate, or redact.
+      scanDetail: scanDetailFor(fileVerdict),
       rawScanResult: raw,
     };
   }
@@ -290,12 +299,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     // source — the raw result's `engineVersion` — so a clean commit always repopulates the cache under
     // the exact engine version it stamps (the scan-once dedup the re-scan path reuses).
     scanEngineVersion: raw.engineVersion,
-    scanDetail:
-      fileVerdict.verdict === "clean"
-        ? fileVerdict.activeContent
-          ? "active-content"
-          : null
-        : fileVerdict.reason,
+    scanDetail: scanDetailFor(fileVerdict),
     rawScanResult: raw,
   };
 }

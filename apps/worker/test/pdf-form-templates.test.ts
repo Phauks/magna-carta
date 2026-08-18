@@ -39,7 +39,12 @@ let matterId: string;
 // confirmed nothing — the same reason every block of the word-processing suite gets its own firm.
 let unboundCookie: string;
 
-async function post(path: string, body: unknown, sessionCookie: string): Promise<Response> {
+async function post(
+  path: string,
+  body: unknown,
+  sessionCookie: string,
+  environmentOverride: Record<string, unknown> = {},
+): Promise<Response> {
   const { createApp } = await import("../src/app.ts");
   return createApp().request(
     path,
@@ -52,7 +57,7 @@ async function post(path: string, body: unknown, sessionCookie: string): Promise
       },
       body: JSON.stringify(body),
     },
-    env,
+    { ...env, ...environmentOverride },
   );
 }
 
@@ -119,6 +124,26 @@ const CONFIRMED_MAPPINGS = [
   { fieldName: "Petitioner_Address", mergeKey: "matter.number" },
 ];
 
+// A DEPLOYED engine that answers clean over bytes that still hold executable content. The pool binds
+// an engine-less stub by default (SCAN_SERVICE_STUB_SCRIPT in vitest.config.ts), whose honest
+// `unscanned`/`no-engine` cannot exercise the clean branch — and the clean branch is the only one the
+// active-content badge lives on. Overriding the binding in the request env is how this app drives an
+// engine it cannot run, the same way test/scan-unreachable-engine-seam.test.ts drives an unreachable
+// one; it also sidesteps the bytes entirely, which matters here because the registration route scans
+// the output of the form scrub and the scrub re-serializes the document.
+const activeContentScanService: Fetcher = {
+  fetch: () =>
+    Promise.resolve(
+      Response.json({
+        engineVersion: "test-engine/1",
+        clam: { state: "clean" },
+        heuristic: { kind: "active-content" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
+      }),
+    ),
+} as unknown as Fetcher;
+
 async function stageForm(sessionCookie: string): Promise<string> {
   const minted = await post("/api/v1/templates/upload?kind=pdfForm", {}, sessionCookie);
   expect(minted.status, await minted.clone().text()).toBe(200);
@@ -131,12 +156,14 @@ async function registerForm(
   name: string,
   fieldMappings: readonly { fieldName: string; mergeKey: string }[] = CONFIRMED_MAPPINGS,
   sessionCookie = cookie,
+  environmentOverride: Record<string, unknown> = {},
 ): Promise<Response> {
   const uploadKey = await stageForm(sessionCookie);
   return post(
     "/api/v1/templates",
     { uploadKey, name, kind: "pdfForm", fieldMappings },
     sessionCookie,
+    environmentOverride,
   );
 }
 
@@ -321,6 +348,27 @@ describe("registering a fillable PDF as a template", () => {
     ]);
     expect(clientName?.parts).toEqual(["page 1", "page 2"]);
     expect(body.unboundFormFields.length).toBeGreaterThan(0);
+  });
+
+  it("badges a registered form the engine reports as clean but carrying executable content", async () => {
+    // The route recorded the reason for an `unscanned` verdict and null for a `clean` one, so the
+    // only signal the platform computes about executable content was dropped on the firm's own court
+    // forms — the documents most likely to arrive from outside and be run against privileged data.
+    // Clean-with-active-content is the ONE verdict the old expression and `scanDetailFor` disagree
+    // on, which is why the engine has to be a deployed one answering clean; the pool's engine-less
+    // stub returns `unscanned`, and both implementations write `no-engine` for that.
+    const registered = await readJson<RegisteredFormBody>(
+      await registerForm("Active Content Form", CONFIRMED_MAPPINGS, cookie, {
+        SCAN_SERVICE: activeContentScanService,
+      }),
+    );
+    expect(registered.status).toBe("clean");
+
+    const row = await queryFirstRow<{ scan_verdict: string; scan_detail: string | null }>(
+      "SELECT scan_verdict, scan_detail FROM document_template_version WHERE id = ?1",
+      [registered.versionId],
+    );
+    expect(row).toMatchObject({ scan_verdict: "clean", scan_detail: "active-content" });
   });
 });
 

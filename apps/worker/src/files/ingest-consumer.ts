@@ -14,7 +14,7 @@ import {
 } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
+import { computeVerdict, ScanFaultError, scanDetailFor } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
@@ -499,7 +499,11 @@ async function rescanCommittedVersion(
           // deploy window, and self-heals on the next ingest that advances the setting. Do not "fix"
           // this to raw.engineVersion without making the staleness gate engine-monotonic first.
           scanEngineVersion: currentEngineVersion,
-          scanDetail: signature,
+          // The badge, not just the flagged reason. `signature` is null for a clean verdict, and
+          // this statement sets the column unconditionally — so a version already badged
+          // `active-content` had that badge erased the first time an engine-version bump re-scanned
+          // it. Same function the ingest and template paths use, which is what makes it one home.
+          scanDetail: scanDetailFor(fileVerdict),
           signature,
           contentSha256,
           now: now(),

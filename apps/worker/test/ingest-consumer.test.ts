@@ -950,6 +950,91 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
     expect(v).toMatchObject({ scan_verdict: "flagged", scan_engine_version: "clamav/old" });
   });
 
+  it("a clean re-scan of a version holding PDF JavaScript KEEPS its active-content badge", async () => {
+    // The re-scan sets scan_detail unconditionally. It once set it to the flagged signature, which is
+    // null for a clean verdict — so the first engine-version bump erased the badge on any file the
+    // re-scan reached. Three ways in, not one: access (access-rescan.ts enqueues on download or
+    // preview), a member re-scanning a matter, and the nightly storage passes, which re-put objects at
+    // the same key and so raise an ingest notification for versions nobody has opened. The badge is
+    // the same fact the fresh-ingest path records; a re-scan re-derives it. No surface shows a member
+    // an active-content badge today — every path that renders scan_detail is gated on flagged or
+    // quarantined, which the badge cannot be — so what this protects is the stored fact, ahead of the
+    // surface that will read it.
+    const { versionId, r2Key } = await seedCommittedVersion("macro.pdf", uniqueBytes(9));
+    await firmDatabase
+      .prepare(
+        "UPDATE file_version SET scan_verdict = 'clean', scan_engine_version = 'clamav/old', scan_detail = 'active-content' WHERE id = ?1",
+      )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/4.0");
+
+    // Nothing hostile, but the bytes still carry document JavaScript — clean WITH active content.
+    const activeContentPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/4.0",
+          clam: { state: "clean" },
+          heuristic: { kind: "active-content" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
+      },
+    };
+    await handleIngestMessage(
+      env,
+      event(BUCKET, r2Key, uniqueBytes(9).byteLength),
+      activeContentPort,
+    );
+
+    const v = await firmDatabase
+      .prepare(
+        "SELECT scan_verdict, scan_engine_version, scan_detail FROM file_version WHERE id = ?1",
+      )
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string; scan_detail: string | null }>();
+    expect(v).toMatchObject({
+      scan_verdict: "clean",
+      scan_engine_version: "clamav/4.0",
+      scan_detail: "active-content",
+    });
+  });
+
+  it("a clean re-scan of ordinary bytes clears a stale active-content badge", async () => {
+    // The other direction, and the reason the badge is re-derived rather than preserved: a version whose
+    // bytes were replaced, or whose earlier engine over-read them, must lose the badge when the current
+    // engine finds nothing executable. Recording the verdict's own answer does both.
+    const { versionId, r2Key } = await seedCommittedVersion("was-macro.pdf", uniqueBytes(10));
+    await firmDatabase
+      .prepare(
+        "UPDATE file_version SET scan_verdict = 'clean', scan_engine_version = 'clamav/old', scan_detail = 'active-content' WHERE id = ?1",
+      )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/4.0");
+
+    const quietPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/4.0",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(10).byteLength), quietPort);
+
+    const v = await firmDatabase
+      .prepare("SELECT scan_verdict, scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_detail: string | null }>();
+    expect(v).toMatchObject({ scan_verdict: "clean", scan_detail: null });
+  });
+
   it("maybeEnqueueRescanOnAccess enqueues only for a STALE version, with a current engine, bound queue", async () => {
     const { versionId, r2Key } = await seedCommittedVersion("access.pdf", uniqueBytes(4));
     const captured: Array<{ bucket: string; object: { key: string } }> = [];

@@ -41,12 +41,12 @@ not](#what-a-roll-up-is-not).
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 257 | 41% |
-| `partial` | 97 | 16% |
-| `in-build` | 5 | 1% |
+| `partial` | 101 | 16% |
+| `in-build` | 1 | 0% |
 | `designed` | 44 | 7% |
 | `planned` | 18 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 152 | 24% |
+| `not-started` | 152 | 25% |
 | `deferred` | 41 | 7% |
 | `cut` | 2 | 0% |
 | **All statuses** | **621** | **100%** |
@@ -63,14 +63,14 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 257 of 621 (41%). Shipped plus partial is 354 (57%).**
+**Shipped alone is 257 of 621 (41%). Shipped plus partial is 358 (58%).**
 
-The 97 units between those two numbers are work that is engineered and paid for and is not finished.
-Reading the larger number as how much of the product exists overstates it; reading the smaller one
-understates what has been built. Both are true and neither is the answer on its own. Which of the
-two a reader wants is usually really a question about reach — whether anybody can get to the thing —
-and that is [Built, and can anybody reach it](#built-and-can-anybody-reach-it) below, which reads a
-fact the status field does not hold.
+The 101 units between those two numbers are work that is engineered and paid for and is not
+finished. Reading the larger number as how much of the product exists overstates it; reading the
+smaller one understates what has been built. Both are true and neither is the answer on its own.
+Which of the two a reader wants is usually really a question about reach — whether anybody can get
+to the thing — and that is [Built, and can anybody reach it](#built-and-can-anybody-reach-it) below,
+which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
@@ -106,12 +106,12 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 5 | 8 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 20 | 25% |
 | Document Automation | 3 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 38% |
-| Documents | 60 | 6 | 3 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
+| Documents | 60 | 9 | 0 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
-| Maintenance Agents | 2 | 1 | 1 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
+| Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Notifications | 2 | 6 | 0 | 0 | 0 | 0 | 1 | 4 | 0 | 13 | 15% |
 | Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **257** | **97** | **5** | **44** | **18** | **5** | **152** | **41** | **2** | **621** | **41%** |
+| **All areas** | **257** | **101** | **1** | **44** | **18** | **5** | **152** | **41** | **2** | **621** | **41%** |
 
 ## Where we have been
 
@@ -336,10 +336,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-- `documents.file-manager.matter-files-ui` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it.
-- `documents.conversion.output-placement` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
-- `documents.decryption.gpu` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards.
-- `maintenance-agents.docs-maintenance.weekly-routine` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
 - `platform.web-spa.app-shell` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views.
 
 ## Next up
@@ -745,7 +741,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.folders` · `shipped` · **Folder navigation** — Folder model, CRUD, and listing over the firm-scoped data-access layer.
     - `documents.file-manager.document-types` · `shipped` · **Document types** — Per-firm document-type taxonomy attached to files.
     - `documents.file-manager.ui-primitives` · `shipped` · **File UI primitives** — FileIcon, Breadcrumb, ContextMenu, Tree, Dropzone design-system components for file surfaces. _Note: Container VRT baselines and NVDA pass still outstanding per the fragment._
-    - `documents.file-manager.matter-files-ui` · `in-build` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it. _Note: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions._
+    - `documents.file-manager.matter-files-ui` · `partial` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it. _Note: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions. The stream that built it (claude/document-surface) has retired; folders, rename and download are the remaining additions._
     - `documents.file-manager.file-inspector` · `not-started` · **File Inspector workbench** — Tools-host of the file surface for inspecting an ephemeral (non-matter) file through the same capability pane. _Note: Was in-build on the strength of that branch, which carries a single documentation commit and no code. The branch it would build on (file-surface-web) is recorded abandoned and superseded._
     - `documents.file-manager.content-hash` · `shipped` · **Content hashing at write** — SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
@@ -799,7 +795,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.conversion.email-to-pdf` · `not-started` · **Email MSG/EML to PDF** — Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
     - `documents.conversion.searchable-pdf` · `not-started` · **Scanned PDF to searchable PDF** — OCR text layer applied to scanned PDFs via the OCR pipeline.
     - `documents.conversion.background-jobs` · `partial` · **Background job orchestration** — Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions. _Note: Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone._
-    - `documents.conversion.output-placement` · `in-build` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
+    - `documents.conversion.output-placement` · `partial` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy. _Note: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now._
     - `documents.conversion.convert-ui` · `designed` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
   - `documents.pdf` · `partial` · **PDF services** — Unified PDF operation service — client-side WASM by default, server only for seal, no-client, server-only-engine, and batch cases. _Note: ADR-0045 marks the whole PDF/e-signature design provisional pending verification._
     - `documents.pdf.engine` · `shipped` · **Pure-Rust engine core** — crates/pdf-core compiled to WASM for client and Worker, superseding the composed pdf-lib/PDFium/qpdf roster with one memory-safe engine.
@@ -840,7 +836,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `documents.decryption` · `partial` · **File unlock & password recovery** — Unlock password-protected files with a known password; recover forgotten passwords by coordinated candidate search. _Note: Decision fragments decryption-file-unlock-recovery and decryption-recovery-orchestration pending assembly (unnumbered)._
     - `documents.decryption.unlock` · `shipped` · **Inspect & unlock** — PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
     - `documents.decryption.recovery` · `shipped` · **Password recovery orchestration** — Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
-    - `documents.decryption.gpu` · `in-build` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards.
+    - `documents.decryption.gpu` · `partial` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards. _Note: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it._
     - `documents.decryption.ui` · `not-started` · **Unlock/recovery UI** — End-user unlock and recovery surface.
   - `documents.metadata` · `partial` · **Metadata inspector & scrubber** — Inspect and scrub embedded metadata from files before sharing/production.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
@@ -1022,7 +1018,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `maintenance-agents.diagnostics` · `not-started` · **Diagnostics agent** — Triage incoming incident reports, correlate to traces, draft root-cause, propose draft-PR fixes, acknowledge the reporter.
   - `maintenance-agents.docs-maintenance` · `partial` · **Docs-maintenance system (docs-sync)** — Per-merge deterministic fragment assembly plus a weekly judgment-bearing propose-only routine: draft changelog fragments, flag coverage gaps, roll up ROADMAP, one PR per run. _Note: Was in-build against branch claude/docs-sync-routine-setup-c3hy7m, which now carries only a small residue over main._
     - `maintenance-agents.docs-maintenance.per-merge-assembly` · `shipped` · **Per-merge fragment assembly workflow** — CI workflow on every push to main folding changelog.d/, docs/decisions/pending/, and status.d/ into the rendered trackers. _Note: Was in-build against the branch it was written on; that branch's remaining diff over main is four files._
-    - `maintenance-agents.docs-maintenance.weekly-routine` · `in-build` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
+    - `maintenance-agents.docs-maintenance.weekly-routine` · `partial` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR. _Note: Partial rather than in-build: the skill and its trigger configuration exist and the Routine itself is not created, which is an owner decision rather than work in progress._
     - `maintenance-agents.docs-maintenance.run-reports` · `shipped` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state. _Note: Was in-build against the branch the registry was written on; the registry is on main and in use._
     - `maintenance-agents.docs-maintenance.ci-doc-hygiene` · `partial` · **Deterministic doc-hygiene CI rules** — CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
 

@@ -51,11 +51,11 @@
 - id: documents.file-manager.matter-files-ui
   name: Matter Files surface
   scope: The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it.
-  status: in-build
+  status: partial
   surface: screen
   spec: docs/specs/2026-07-09-matter-file-manager-design.md
-  evidence: Branch claude/document-surface — apps/web/src/lib/documents/ + the matters/[id]/files route, on same-origin /api/v1 calls; the matter chrome now resolves a live matter, so a firm's own matter is reachable at its own URL. Predecessor branch file-surface-web is unmerged and superseded for this node (its view shell and dev-seed/login e2e are already on main).
-  notes: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions.
+  evidence: apps/web/src/lib/documents/ (the same-origin fetch seam, the pure presentation decisions, the detail panel) + the matters/[id]/files route, on main; apps/web/src/lib/matters/matter-record.ts resolves a live matter from the API with the in-repo fixtures as a named fallback, so a firm's own matter is reachable at its own URL. Predecessor branch file-surface-web is unmerged and superseded for this node (its view shell and dev-seed/login e2e are already on main).
+  notes: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions. The stream that built it (claude/document-surface) has retired; folders, rename and download are the remaining additions.
 
 - id: documents.file-manager.file-inspector
   name: File Inspector workbench
@@ -470,9 +470,10 @@
 - id: documents.conversion.output-placement
   name: Output placement
   scope: Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy.
-  status: in-build
+  status: partial
   surface: awaiting-screen
   evidence: packages/conversion/src/placement.ts on main; slice 2-4 built in-progress, matter-save wiring gated on the execution substrate.
+  notes: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now.
 
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter tool UI
@@ -812,10 +813,11 @@
 - id: documents.decryption.gpu
   name: GPU recovery rungs
   scope: GPU-accelerated recovery tiers above the CPU shards.
-  status: in-build
+  status: partial
   surface: internal
   spec: docs/specs/2026-07-03-decryption-slice-3-gpu-recovery-design.md
   evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment.
+  notes: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it.
 
 - id: documents.decryption.ui
   name: Unlock/recovery UI

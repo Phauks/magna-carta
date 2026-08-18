@@ -266,6 +266,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
+  spec: docs/specs/2026-08-12-trust-bank-charges-and-unclaimed-funds.md
   evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/worker/src/routes/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
   notes: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
 
@@ -275,7 +276,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  spec: docs/research/2026-08-07-nevada-unclaimed-client-funds-escheat.md
+  spec: docs/specs/2026-08-12-trust-bank-charges-and-unclaimed-funds.md
   evidence: packages/trust/src/unclaimed-funds.ts holds readDormantTrustBalances (the only definition of dormancy anywhere - a comparison against a date the caller states, never a stored flag), the review, its contact attempts and its closure, plus the review read; five routes in apps/worker/src/routes/trust-unclaimed-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds per-firm migration; a trigger independently refuses a closure naming a payment out of another client's ledger
   notes: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced.
 
