@@ -245,6 +245,18 @@ export function unresolvedPath(node, _allNodes, exists) {
       node,
       detail: `\`spec\` names \`${node.spec}\`, which is not on the tree`,
     });
+  } else if (node.spec !== null && !node.spec.startsWith("docs/specs/")) {
+    // Existence alone does not make it a spec. One node cited the RESEARCH that motivated it
+    // (docs/research/...) while the design that specifies it sat in docs/specs/ uncited — the file
+    // was there, so the check above passed, and the node still answered "where is this specified"
+    // with a document that does not specify it. Research belongs in `evidence` or `notes`.
+    problems.push({
+      rule: "unresolved-path",
+      node,
+      detail:
+        `\`spec\` names \`${node.spec}\`, which exists but is not under \`docs/specs/\`` +
+        " — the key names the design that specifies this capability, not the research behind it",
+    });
   }
   return problems;
 }
@@ -555,6 +567,20 @@ export const SELF_TEST = [
     nodes: [fixture({ status: "designed", spec: "docs/specs/2026-01-01-gone.md" })],
     tree: [],
     expect: ["unresolved-path"],
+  },
+  {
+    name: "a spec path that exists but is not a spec — the research behind it, not the design of it",
+    nodes: [
+      fixture({ status: "shipped", spec: "docs/research/2026-08-07-what-the-statute-says.md" }),
+    ],
+    tree: ["docs/research/2026-08-07-what-the-statute-says.md"],
+    expect: ["unresolved-path"],
+  },
+  {
+    name: "a spec path under docs/specs/ that is on the tree",
+    nodes: [fixture({ status: "designed", spec: "docs/specs/2026-01-01-real.md" })],
+    tree: ["docs/specs/2026-01-01-real.md"],
+    expect: [],
   },
   {
     name: "a decision cited by its pending slug rather than its number",

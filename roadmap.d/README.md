@@ -37,7 +37,7 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
 | `status`         | yes       | See vocabulary below                                                                        |
 | `slices`         | no        | Comma-separated `status.d/` slugs this capability's build is tracked under                  |
 | `adrs`           | no        | Comma-separated `ADR-NNNN` (must exist in `docs/decisions/`)                                |
-| `spec`           | no        | One `docs/specs/` path                                                                      |
+| `spec`           | no        | One `docs/specs/` path; must exist. Research goes in `evidence` or `notes`, not here        |
 | `evidence`       | no        | One line naming the artifact that justifies the status (package, crate, route)              |
 | `surface`        | see below | `screen` · `awaiting-screen` · `internal` — whether a person can reach it                   |
 | `audience`       | no        | `public` publishes the node to the public roadmap; `internal` (the default) does not        |
