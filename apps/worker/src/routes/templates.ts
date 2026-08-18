@@ -1452,11 +1452,12 @@ async function scanAndGateStatements(
     // misclassification arriving with it.
     sniffedContentType: TEMPLATE_CONTENT_TYPES[kind],
   });
-  // A deployed engine that will not answer raises ScanFaultError out of computeVerdict, and that is
-  // deliberately not caught here: this runs inside the idempotent effect, whose callback owes a
-  // write and a response code rather than a Response, so the 503 scan-diagnose gives for the same
-  // fault has to be built one level out. Throwing is still the safe direction — nothing commits and
-  // no version activates — it just reaches the caller as an Error ID instead of a retry-shortly.
+  // A deployed engine that will not answer raises ScanFaultError — from the adapter on a 5xx, and
+  // from computeVerdict on an `unavailable` report — and it is deliberately NOT caught here. This
+  // runs inside the idempotent effect, whose callback owes a write and a response code rather than a
+  // Response, so the refusal is built one level out in the handler: see refuseOnScanFault, which
+  // answers it with the same retryable 503 scan-diagnose gives for the identical fault. Throwing is
+  // what carries it there, and it is also the safe direction — no row commits, no version activates.
   const verdict = computeVerdict(raw, await readFirmScanPolicy(database));
 
   if (verdict.verdict === "flagged") {
@@ -1496,11 +1497,19 @@ async function scanAndGateStatements(
 //
 // The answer is the one routes/scan-diagnose.ts already gives for the identical fault: a member
 // registering a template while the scan Container is down can only wait, and an Error ID would send
-// them to support over something nobody can act on. Nothing committed — the effect threw before its
-// write — so this is honest as well as retryable.
+// them to support over something nobody can act on.
 //
-// The staged upload is deliberately NOT deleted on this path. The caller retries with the same
-// uploadKey; deleting it would turn a transient engine outage into a re-upload of the whole file.
+// NO ROW COMMITS — the effect throws before its write — but bytes are a different question, and the
+// honest answer is that this path leaks them. The prepared template is written to R2 above, inside
+// the effect and ahead of the scan, and each execution mints a fresh versionId and key, so every
+// refused attempt leaves another full copy under `templates/` that no row points at. The storage
+// reconciliation sweep does not reach it: that pass lists `files/` and `bulk/` only, and corrects
+// the meter rather than deleting anything. The leak predates this refusal — the Error ID it replaced
+// left the same object — but a retryable answer invites the retries that multiply it.
+//
+// The staged upload is deliberately NOT deleted here, so a retry does not mean re-uploading the
+// file. Nothing reaps it if the caller never comes back: no sweep lists the staging prefix and the
+// bucket carries no lifecycle rule for it.
 function refuseOnScanFault(c: TemplatesContext, error: unknown): ProblemResponse<503> {
   if (!(error instanceof ScanFaultError)) throw error;
   return problemJson(c, {
@@ -1571,9 +1580,12 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
               },
               { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
             );
-            // The bytes are written before the rows commit: a written object with no row is a stray
-            // object the metering sweep reconciles, while a committed row pointing at bytes that were
-            // never written is a template that fails at 4:55pm on a filing deadline.
+            // The bytes are written before the rows commit, because the failure directions are not
+            // symmetric: a committed row pointing at bytes that were never written is a template that
+            // fails at 4:55pm on a filing deadline, and a written object with no row is only wasted
+            // storage. Wasted rather than reconciled — the storage sweep lists `files/` and `bulk/`,
+            // so nothing reaches an orphan under `templates/` to delete it or take it off the meter.
+            // The ordering stays as it is; the orphan wants a sweep of its own.
             await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer, {
               customMetadata: firmScopedObjectDimensions("document-template"),
             });

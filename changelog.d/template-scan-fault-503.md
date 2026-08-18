@@ -13,9 +13,17 @@ retryable `503`, on the reasoning that a member asking whether a file is safe mu
 support over a Container that is simply not up.
 
 Template registration raised the same fault as a `500`. `POST /api/v1/templates` and the versions
-route now answer it the way the diagnose route does. Nothing was ever committed on this path — the
-effect throws before its write — so the refusal is honest as well as retryable, and the staged upload
-is deliberately left in place so a retry does not mean re-uploading the file.
+route now answer it the way the diagnose route does, and the staged upload is deliberately left in
+place so a retry does not mean re-uploading the file.
+
+**No row commits, and bytes are a separate question.** The effect throws before its write, so nothing
+lands in the database. The prepared template is already in R2 by then — it is written inside the
+effect, ahead of the scan — and each execution mints a fresh version and key, so every refused
+attempt leaves another full copy under `templates/` that no row points at. The storage reconciliation
+sweep does not reach it: that pass lists `files/` and `bulk/` only, and corrects the meter rather than
+deleting anything. The leak predates this change — the Error ID it replaced left the same object
+behind — but a retryable answer invites the retries that multiply it, and it is filed rather than
+fixed here because reclaiming orphaned template bytes is a sweep, not a route.
 
 **Why it was wrong in the first place, and where the fix had to go.** The scan runs inside
 `runIdempotentEffect`, whose callback owes a write plus a response code rather than a `Response`. An
