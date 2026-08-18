@@ -21,9 +21,16 @@ would have left copies free to diverge again; this is one home with its own unit
 
 **A second literal in the same function named the wrong file type.** The template scan hardcoded the
 OOXML wordprocessingml MIME as its `sniffedContentType` for every template, so a fillable PDF reached
-the engine's prefilter classified as a Word document. It now passes the type the presigned PUT was
-signed for, from the table that already holds it per kind. Structural heuristics dispatch on magic
+the engine's prefilter classified as a Word document. It now passes the type for the kind the
+preparation arm actually validated these bytes as — deliberately not the `?kind=` the presigned PUT
+was signed for, which nothing forces the registration body to match. Structural heuristics dispatch on magic
 bytes and were unaffected; what was wrong is the class handed to the signature engine.
+
+**What this does not do yet.** On the template side the badge is now recorded and nothing reads it —
+`document_template_version.scan_detail` has no reader today, and there is no template re-scan sweep
+the way file versions re-scan on access, so versions registered before this keep their `null`
+permanently. The column being right is the precondition for a surface that shows it, not the surface.
+The file side is different: it had a reader all along, which is why the erasing re-scan mattered.
 
 **Not changed, and worth stating.** A template version activating on an `unscanned` verdict is not a
 defect — `packages/file-manager/CLAUDE.md` records it as explicit launch policy for a firm with no
