@@ -65,9 +65,10 @@
 - id: maintenance-agents.docs-maintenance.weekly-routine
   name: Weekly docs-sync routine
   scope: Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR.
-  status: in-build
+  status: partial
   surface: internal
   evidence: Skill + canonical trigger configuration in docs/maintenance/README.md; the Routine itself is not yet created (pending owner sign-off).
+  notes: Partial rather than in-build: the skill and its trigger configuration exist and the Routine itself is not created, which is an owner decision rather than work in progress.
 
 - id: maintenance-agents.docs-maintenance.run-reports
   name: Run-report registry
