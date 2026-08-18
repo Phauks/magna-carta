@@ -45,26 +45,43 @@ import { listReachableActiveFirms } from "../scheduled.ts";
 //
 // COMPLETENESS IS THE INVARIANT THAT MAKES THE COMPLEMENT SAFE. A complement is only as trustworthy
 // as the set it complements: if one firm's read fails, every key that firm would have contributed
-// looks exactly like an orphan. So a failed read DISARMS the entire pass — it deletes nothing and
-// says so. Skipping a night of collection costs storage, which is the harm this pass exists to
-// reduce; deleting a live template is a harm it must not be able to create.
+// looks exactly like an orphan. A failed read therefore disarms the whole pass.
+//
+// AND THAT INVARIANT CANNOT CURRENTLY BE VERIFIED, WHICH IS WHY THIS PASS DELETES NOTHING. A read
+// that FAILS can be caught. A read that SUCCEEDS AND RETURNS NOTHING cannot be told apart from a
+// firm that genuinely holds no templates — and the FirmDatabase object self-migrates inside
+// blockConcurrencyWhile on construction, so addressing a firm under the wrong name does not throw:
+// it materializes a fresh, fully-migrated, empty database and answers zero rows. The residency seam
+// documented in firm-database/firm-database-proxy.ts makes that reachable rather than theoretical —
+// the first jurisdiction-bound firm will be addressed with a jurisdiction its statements carry and
+// this pass does not, and the bare id will resolve to an empty database whose silence reads as "no
+// templates" instead of "wrong database".
+//
+// So the pass measures and reports; it does not collect. Every candidate is decided by the same
+// rules a collecting pass would use, and the count is what makes the leak visible and the rules
+// observable against real corpora. Arming the delete needs the invariant to become checkable —
+// most plausibly by stamping each object with the firm that wrote it, so an orphan is decided
+// against ONE firm's rows and the fleet union disappears along with its blast radius. That is a
+// design decision with a real trade, not a line to flip here.
 
 // How long an unnamed object is left alone before it can be collected. Generous on purpose: the
 // race being closed is milliseconds wide, the bytes cost storage and nothing else, and a template a
 // firm is mid-registration on is the one thing that must never be swept out from under it.
 const TEMPLATE_ORPHAN_GRACE_PERIOD_MILLISECONDS = 24 * 60 * 60 * 1000;
 
-// Deletions per firm per pass. A delete is a request against the firm's bucket, so one firm with a
-// pathological backlog — a scan engine that was down for a week under a retrying client — must not
-// be able to consume the whole cron budget and starve every other firm's pass. A firm over the cap
-// drains across nights, and the cap being hit is counted rather than swallowed: a truncated pass
-// that reported nothing would read as "there was nothing left".
-const TEMPLATE_ORPHAN_DELETE_PER_FIRM_CAP = 200;
+// Candidates examined per firm per pass, so one pathological backlog cannot consume the whole cron
+// budget. Read it as a budget per PASS OF a firm, not a budget for that firm's own objects: template
+// keys carry no firm segment and every firm resolves to the same bound bucket, so each pass walks
+// the whole fleet's `templates/` prefix and the fleet-wide ceiling is this number times the number of
+// active firms. The cap being hit is counted rather than swallowed — a truncated pass that reported
+// nothing would read as "there was nothing left".
+const TEMPLATE_ORPHAN_EXAMINE_PER_FIRM_CAP = 200;
 
 export interface TemplateOrphanSweepReport {
   readonly firmsSwept: number;
-  readonly orphansDeleted: number;
-  readonly bytesReclaimed: number;
+  // Objects this pass WOULD collect. Nothing is deleted; see the header.
+  readonly orphansFound: number;
+  readonly bytesRecoverable: number;
   // Firms whose pass stopped at the per-firm cap with candidates still unexamined.
   readonly firmsCapped: number;
   // True when the fleet retention set could not be completed, so this pass deleted nothing at all.
@@ -72,7 +89,7 @@ export interface TemplateOrphanSweepReport {
 }
 
 export interface TemplateOrphanSweepOptions {
-  readonly perFirmDeleteCap?: number;
+  readonly perFirmExamineCap?: number;
   readonly gracePeriodMilliseconds?: number;
   // The pass's clock. Injectable on the same terms the search compaction sweep takes its own: the
   // eligibility test compares an R2 object's upload time against a cutoff, and a test cannot make an
@@ -125,7 +142,7 @@ export async function runTemplateOrphanSweep(
   // keeps.
   const logger = createWorkersLogger(env.TELEMETRY);
   const correlationId = newCorrelationId();
-  const deleteCap = options.perFirmDeleteCap ?? TEMPLATE_ORPHAN_DELETE_PER_FIRM_CAP;
+  const examineCap = options.perFirmExamineCap ?? TEMPLATE_ORPHAN_EXAMINE_PER_FIRM_CAP;
   const gracePeriod = options.gracePeriodMilliseconds ?? TEMPLATE_ORPHAN_GRACE_PERIOD_MILLISECONDS;
   const nowMilliseconds = options.nowMilliseconds ?? Date.now();
   // An object written at or after this instant is inside the grace period and is not a candidate,
@@ -139,8 +156,8 @@ export async function runTemplateOrphanSweep(
     // pass could do with it.
     return {
       firmsSwept: 0,
-      orphansDeleted: 0,
-      bytesReclaimed: 0,
+      orphansFound: 0,
+      bytesRecoverable: 0,
       firmsCapped: 0,
       disarmed: true,
     };
@@ -148,8 +165,11 @@ export async function runTemplateOrphanSweep(
 
   const firms = await listReachableActiveFirms(env);
   let firmsSwept = 0;
-  let orphansDeleted = 0;
-  let bytesReclaimed = 0;
+  // Distinct keys, not per-firm hits. Template keys carry no firm segment and every firm resolves
+  // to the same bound bucket, so each firm's pass walks the SAME prefix and would otherwise report
+  // one orphan once per firm. The set is what makes the number mean 'objects', not 'sightings'.
+  const candidates = new Set<string>();
+  let bytesRecoverable = 0;
   let firmsCapped = 0;
 
   for (const firm of firms) {
@@ -157,7 +177,7 @@ export async function runTemplateOrphanSweep(
       // A firm still mid-provisioning has no bucket recorded and therefore no objects to collect;
       // resolving throws, which the per-firm catch below turns into a skip plus a logged failure.
       const { bucket } = resolveFirmBucket(env, firm.bucketName);
-      let remaining = deleteCap;
+      let remaining = examineCap;
       let capped = false;
       let cursor: string | undefined;
       for (;;) {
@@ -180,9 +200,13 @@ export async function runTemplateOrphanSweep(
             capped = true;
             break;
           }
-          await bucket.delete(object.key);
-          orphansDeleted++;
-          bytesReclaimed += object.size;
+          // Deliberately NOT deleted — see the header. The candidate is counted so the leak is
+          // measurable and these rules are observable against real corpora before anything is
+          // irreversible.
+          if (!candidates.has(object.key)) {
+            candidates.add(object.key);
+            bytesRecoverable += object.size;
+          }
           remaining--;
         }
         if (capped || !page.truncated) break;
@@ -202,10 +226,11 @@ export async function runTemplateOrphanSweep(
     }
   }
 
-  if (orphansDeleted > 0) {
+  const orphansFound = candidates.size;
+  if (orphansFound > 0) {
     // A count, never a key. The number is what an operator watches: a rate that stays non-zero is a
     // registration path failing repeatedly, not a sweep doing its job.
-    logger.count("storage.template_orphan.collected", {}, orphansDeleted);
+    logger.count("storage.template_orphan.found", {}, orphansFound);
   }
   if (firmsCapped > 0) {
     // A capped pass swept less than the bucket held, and a silent truncation reads as "there was
@@ -213,5 +238,5 @@ export async function runTemplateOrphanSweep(
     logger.count("storage.template_orphan.cap_reached", {}, firmsCapped);
   }
 
-  return { firmsSwept, orphansDeleted, bytesReclaimed, firmsCapped, disarmed: false };
+  return { firmsSwept, orphansFound, bytesRecoverable, firmsCapped, disarmed: false };
 }

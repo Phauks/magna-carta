@@ -11,7 +11,11 @@ import { firmDatabaseHandle } from "./support/firm-database-handle.ts";
 // before the rows naming them commit, so a registration that throws in between leaves a full copy
 // behind that nothing else in the platform can recognize as garbage.
 //
-// What is worth proving here is entirely about what it does NOT delete: a live template's object, a
+// This pass DELETES NOTHING today — it reports what a collecting pass would take. The rules are
+// still worth pinning exactly: they are what a future collector would arm, and a candidate rule that
+// over-reports quietly becomes a collector that over-deletes.
+//
+// What is worth proving is entirely about what it does NOT name as garbage: a live template's object, a
 // staged upload that is legitimately named by no version row, an object young enough to still be
 // mid-registration, and — the one that would be data loss rather than waste — another firm's live
 // template, whose key is absent from THIS firm's version set for exactly the same reason an orphan's
@@ -87,7 +91,7 @@ describe("runTemplateOrphanSweep", () => {
     const report = await runTemplateOrphanSweep(env);
 
     expect(report.disarmed).toBe(false);
-    expect(report.orphansDeleted).toBe(0);
+    expect(report.orphansFound).toBe(0);
     expect(await env.R2.head(fresh)).not.toBeNull();
     // The pool's bucket is shared across the tests in this file, and the next one moves the clock
     // two days on — where this object would be collected as an aged orphan and count against a
@@ -110,9 +114,10 @@ describe("runTemplateOrphanSweep", () => {
     });
 
     expect(report.disarmed).toBe(false);
-    expect(report.orphansDeleted).toBe(1);
-    expect(report.bytesReclaimed).toBe(bytes.byteLength);
-    expect(await env.R2.head(orphan)).toBeNull();
+    expect(report.orphansFound).toBe(1);
+    expect(report.bytesRecoverable).toBe(bytes.byteLength);
+    // Reported, never removed. This pass measures the leak; nothing here collects it.
+    expect(await env.R2.head(orphan)).not.toBeNull();
     expect(await env.R2.head(live)).not.toBeNull();
     expect(await env.R2.head(staged)).not.toBeNull();
     // The one that would be data loss: this key is in no version row of the firm whose pass listed
@@ -134,7 +139,7 @@ describe("runTemplateOrphanSweep", () => {
     );
 
     expect(report.disarmed).toBe(true);
-    expect(report.orphansDeleted).toBe(0);
+    expect(report.orphansFound).toBe(0);
     // The aged orphan is genuinely collectable and still survives — disarmed means disarmed, not
     // "collect the ones we are sure about".
     expect(await env.R2.head(aged)).not.toBeNull();
@@ -149,17 +154,22 @@ describe("runTemplateOrphanSweep", () => {
 
     const report = await runTemplateOrphanSweep(env, {
       nowMilliseconds: Date.now() + 2 * DAY_MILLISECONDS,
-      perFirmDeleteCap: 2,
+      perFirmExamineCap: 2,
     });
 
-    // Two firms are active and both resolve to the same bound bucket today, so the cap binds per
-    // firm exactly as it says: the second firm's pass collects the next two.
-    expect(report.orphansDeleted).toBe(4);
+    // Two firms are active and both resolve to the same bound bucket, so each pass walks the SAME
+    // prefix and the cap binds per pass rather than per firm's own objects. The report counts
+    // DISTINCT keys, so the two passes seeing the same two candidates report two — not four
+    // sightings. Reporting sightings would make the leak look twice its size and would scale the
+    // number with tenancy rather than with the problem.
+    expect(report.orphansFound).toBe(2);
     // The number the `storage.template_orphan.cap_reached` counter is emitted from. The counter
     // itself has no readable sink under the local pool (no Analytics Engine to read back), and the
     // metric's declaration is enforced by the repo-wide catalog scan in @magna-carta/telemetry.
     expect(report.firmsCapped).toBe(2);
+    // Every one of them is still there: a capped pass and an uncapped pass both collect nothing.
     const survivors = await Promise.all(orphans.map((key) => env.R2.head(key)));
-    expect(survivors.filter((object) => object !== null)).toHaveLength(1);
+    expect(survivors.filter((object) => object !== null)).toHaveLength(5);
+    for (const key of orphans) await env.R2.delete(key);
   });
 });

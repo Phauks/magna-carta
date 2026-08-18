@@ -86,7 +86,7 @@ export const storageDimensionStamped = defineMetric("storage.dimension.stamped",
 // after the write leaves a copy behind; this counts what was reclaimed. A rate that stays non-zero is
 // a registration path failing repeatedly, not a sweep doing its job.
 export const storageTemplateOrphanCollected = defineMetric(
-  "storage.template_orphan.collected",
+  "storage.template_orphan.found",
   [] as const,
 );
 // Firms whose collection stopped at the per-firm cap with candidates still listed. A truncated pass
