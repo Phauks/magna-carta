@@ -180,6 +180,10 @@ export async function runTemplateOrphanSweep(
       let remaining = examineCap;
       let capped = false;
       let cursor: string | undefined;
+      // A cursor that does not advance would re-list the same page forever, and the page is never
+      // empty — live templates and staged uploads are on it by design. This pass sits mid-chain in
+      // the daily cron, so a hang here takes the sweeps after it down with it. The guard compares
+      // the cursor handed back against the one just sent: equal means no progress.
       for (;;) {
         // The first page is requested without a cursor key at all — passing an explicit
         // `cursor: undefined` makes the local object store return an empty page.
@@ -210,6 +214,17 @@ export async function runTemplateOrphanSweep(
           remaining--;
         }
         if (capped || !page.truncated) break;
+        if (page.cursor === cursor) {
+          logOperationFailed(
+            logger,
+            `cron:template-orphan-sweep:${firm.firmId}`,
+            new Error(
+              "the object listing returned the same cursor twice; stopping this firm's walk",
+            ),
+            correlationId,
+          );
+          break;
+        }
         cursor = page.cursor;
       }
       if (capped) firmsCapped++;

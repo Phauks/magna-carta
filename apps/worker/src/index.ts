@@ -184,12 +184,26 @@ export default {
               // retires superseded split objects, so it runs where a firm's storage picture has already
               // been reconciled rather than against a stale one.
               await runSearchCompactionSweep(env);
-              // The other retirement pass, and the same shape: bytes are collected only once a grace
-              // period has passed, because the window it must not delete into is the registration
-              // window itself — a template's object is written before the row that names it commits.
-              // It has no ordering relationship with the reconciliation above, because nothing meters
-              // the templates/ prefix, so it sits with the collector it resembles.
-              await runTemplateOrphanSweep(env);
+              // The template-orphan MEASUREMENT, which despite sitting next to the collector above is
+              // the opposite shape and deletes nothing: the compaction retirement removes objects its
+              // own rows name as superseded, while this one reasons from the ABSENCE of a row over a
+              // keyspace that is not firm-scoped. That complement is only trustworthy if the live set
+              // is provably complete, and it is not — the pass says why in its own header. It has no
+              // ordering relationship with anything here, because nothing meters the templates/
+              // prefix and nothing acts on what it finds.
+              //
+              // Wrapped because its first two reads sit ahead of its per-firm guards: a control-plane
+              // hiccup there would otherwise throw out of the whole chain and skip every sweep below,
+              // and a pass that only counts must never be able to cost a pass that acts.
+              try {
+                await runTemplateOrphanSweep(env);
+              } catch (error) {
+                logOperationFailed(
+                  createWorkersLogger(env.TELEMETRY),
+                  "cron:template-orphan-sweep",
+                  error,
+                );
+              }
               // The comparison-driven notification pass, BEFORE retention rather than after: it
               // writes the rows retention then ages, and running it second would mean a firm's
               // freshly-raised overdue notice was swept on the same pass that raised it if the
