@@ -15,11 +15,14 @@ route's own comment, untrusted content a firm will run against privileged data.
 
 **There were three writers, not two.** The in-place re-scan is the third, and it sets the column
 unconditionally with the flagged reason — null for a clean verdict — so a version already badged
-`active-content` had that badge erased the first time an engine-version bump re-scanned it. That
-re-scan is triggered by ACCESS, not by a background sweep: downloading or previewing a version whose
-recorded engine is stale enqueues one, as does a member re-scanning a matter. So the erasure reached
-the files someone opened, which is the wrong half to lose it on, and left untouched the files nobody
-has looked at. The badge
+`active-content` had that badge erased the first time an engine-version bump re-scanned it. Not by a
+weekly sweep — that helper selects on `scan_verdict = 'unscanned'`, so it can never see a badged
+version, and no cron routes to it. The re-scan runs from the ingest consumer, reached three ways:
+downloading or previewing a version whose recorded engine is stale, a member re-scanning a matter,
+and — the one that makes this wider than it looks — the nightly storage passes. Both the editing
+tiering sweep and the object-dimension backfill re-put objects at the same key, and a `PutObject`
+under the `files/` prefix is an ingest notification like any other, so versions nobody has ever
+opened were re-scanned too. The badge
 is now `scanDetailFor` in `@magna-carta/file-manager/verdict`, called by all three. Fixing it in place
 would have left copies free to diverge again; this is one home with its own unit tests.
 
@@ -32,9 +35,13 @@ dispatch on magic bytes, and the prefilter that would consult it is built but de
 is corrected because the value is a claim about the bytes and it was false, and because a truthful type
 is what makes wiring the prefilter a no-op instead of a misclassification arriving with it.
 
-**What this does not do yet, on either side.** No surface shows an `active-content` badge to anyone.
-`scan_detail` reaches a client in exactly two places, both inside the flagged-download branches of
-`routes/files.ts`, and the template column has no reader at all. So this fixes a STORED FACT ahead of
+**What this does not do yet, on either side.** No surface shows an `active-content` badge to anyone —
+which is a narrower claim than "nothing reads the column", and the narrower one is what is true.
+`scan_detail` reaches a client on four file paths: two flagged-download refusals in `routes/files.ts`,
+and as `quarantineReason` on the file read and the upload poll, which `apps/web` renders. All four are
+gated on a verdict the badge cannot have — `flagged` or `quarantined` — and every quarantine writer
+records its own reason rather than a badge, so no reader can reach one. The template column has no
+reader at all. So this fixes a STORED FACT ahead of
 the surface that will read it, on both paths — not a visible regression. Neither is backfilled: a file
 regains its badge the next time access re-scans it, and a template version registered before this keeps
 its `null` permanently, because nothing re-scans templates.
@@ -43,17 +50,15 @@ Recording it right first is deliberate rather than incidental. A badge the platf
 something a later screen can recover, and the whole defect here is two writers quietly disagreeing about
 a value nobody was looking at.
 
-**One call site is pinned by a test and one is not.** The re-scan writer is pinned: reverting it to
-the old expression fails `ingest-consumer.test.ts`. The template writer is NOT, and this is the second
-attempt that failed to pin it, so the reason is recorded rather than left to be rediscovered. The old
-expression and `scanDetailFor` differ on exactly one verdict — clean WITH active content — because the
-old one already recorded the reason for `unscanned`. That verdict cannot be reached through the
-registration route under the test harness: the route scans `prepared.bytes`, which is the output of the
-form scrub, and the scrub re-serializes the document. A marker appended as a trailing comment does not
-survive it, and a marker written into a form field value does not either — the sanitizer clears field
-values, which was confirmed by running fill-then-scrub directly rather than inferred. Pinning it needs
-either a seam that injects a verdict into the registration path, or a scan stub keyed on something that
-survives the scrub.
+**Both call sites are pinned by tests that fail when the fix is reverted.** The re-scan writer fails
+`ingest-consumer.test.ts`; the template writer fails `pdf-form-templates.test.ts`. The template one
+needed a deployed engine answering clean-with-active-content, because that is the single verdict the
+replaced expression and `scanDetailFor` disagree on — the old one already recorded the reason for
+`unscanned`, which is all the pool's engine-less stub can produce. Two earlier attempts tried to
+smuggle a marker through the bytes and failed, because the route scans the output of the form scrub
+and the scrub re-serializes the document. The bytes were never the seam: `resolveScanPort` reads
+`SCAN_SERVICE` off the request env, so the test overrides that binding with a fake engine, exactly as
+`scan-unreachable-engine-seam.test.ts` drives an engine that will not answer.
 
 **Not changed, and worth stating.** A template version activating on an `unscanned` verdict is not a
 defect — `packages/file-manager/CLAUDE.md` records it as explicit launch policy for a firm with no
