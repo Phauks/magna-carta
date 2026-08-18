@@ -539,7 +539,8 @@
   surface: awaiting-screen
   adrs: ADR-0136
   spec: docs/specs/2026-06-22-pdf-document-scrub-design.md
-  evidence: crates/pdf-core/src/scrub.rs.
+  evidence: crates/pdf-core/src/scrub.rs removes twelve document-level surfaces — Info, Metadata, StructTreeRoot, MarkInfo, Outlines, named destinations, optional-content properties, field values and appearances, XFA, embedded files, Collection and file associations — and verifies two of them survived nothing.
+  awaiting-owner: Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — document-level JavaScript, the action that fires when the file is opened, and the actions attached to form fields and pages. A document produced to an opposing party can therefore still carry code, and the scrub is the step whose whole purpose is that it does not. Stripping is not free: the fillable court forms this platform now assembles use field actions for validation and formatting, so a scrub that removes them returns a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that a scrubbed fillable form stops calculating. Strip by default with a named exception for forms the platform generated itself, which needs a way to tell them apart that a recipient cannot forge. Or report the active content without removing it and let a person decide per document, which is honest and puts the judgment on whoever is producing. The page-split path in crates/pdf-core/src/generate.rs already drops these entries, but for a structural reason rather than a safety one, so it is not a precedent for what the scrub should do.
 
 - id: documents.pdf.surgery
   name: Structural surgery & repair
