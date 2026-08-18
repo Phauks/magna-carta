@@ -71749,6 +71749,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The scan engine is deployed but did not answer; nothing was registered",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       },
@@ -71976,6 +71986,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The scan engine is deployed but did not answer; nothing was registered",
             "content": {
               "application/problem+json": {
                 "schema": {

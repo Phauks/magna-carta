@@ -92,7 +92,9 @@ found:
   to you, and the result is re-checked from scratch to confirm nothing was left behind; if anything
   survives, the template is not registered at all. Without that, an upload containing macros is refused
   and tells you what was found. Uploading a macro-free copy of the file is the other way through.
-- **The file is scanned**, exactly as any file you upload is.
+- **The file is scanned**, exactly as any file you upload is. If the scanner is temporarily
+  unavailable, registering is refused and says so — nothing is half-registered, and the file you
+  uploaded is still waiting, so trying again shortly is all it takes.
 
 You can narrow a template to a matter type or an office, which limits which matters offer it. Every
 template is otherwise visible to everyone in the firm who can assemble documents.

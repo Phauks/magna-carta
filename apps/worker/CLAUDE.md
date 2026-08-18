@@ -50,8 +50,12 @@ routes requests through the chokepoint into those packages.
   **Three states, not two, and only the first two are verdicts.** No binding at all → the engine-less
   adapter's honest `unscanned`/`no-engine`. Bound and answering → a real verdict. Bound and answering
   5xx — a placeholder worker, a Container that is not up — → `ScanFaultError`, which the ingest
-  consumer retries on and `routes/scan-diagnose.ts` answers as a `503`, because a member asking whether
-  a file is safe must not be handed an Error ID for an engine that is simply not there. The test pool
+  consumer retries on, and which `routes/scan-diagnose.ts` and `routes/templates.ts` both answer as a
+  `503`, because a member asking whether a file is safe — or registering a template — must not be
+  handed an Error ID for an engine that is simply not there. On the template path the scan runs inside
+  `runIdempotentEffect`, whose callback owes a write and a response code rather than a `Response`, so
+  the refusal is built one level out in the handler; a third route that scans inside an effect has the
+  same shape to follow. The test pool
   **binds a stub** (`vitest.config.ts`), so `env.SCAN_SERVICE` is defined in tests and the container
   adapter — not the engine-less one — is what runs; drive the unreachable case by passing a failing
   binding in the request env, as `test/scan-unreachable-engine-seam.test.ts` does.
