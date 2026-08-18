@@ -29,12 +29,16 @@ action from an annotation on a kept page only when that action points at an excl
 fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a
 scrub, and neither path settles what the other should do.
 
-**Surfaced, not built.** What stands in the way today is the malware scan every uploaded byte
-crosses, which is a different guarantee — it catches what is known to be hostile, not what is merely
-executable. Stripping is not free either, and the cost falls on fillable forms a *firm* uploaded: a
+**Surfaced, not built.** Detection is not the missing half. `inspect_pdf` in `containers/scan`
+already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan
+fallback for a compressed catalog, and records the finding as `active-content` on the verdict.
+Nothing is done with it: it blocks no upload unless firm policy flags the file for some other reason,
+and `scanAndGateStatements` activates a template version even on an `unscanned` verdict, discarding
+`verdict.activeContent`. Stripping is not free either, and the cost falls on fillable forms a *firm* uploaded: a
 court form uses field actions for validation and formatting, so a scrub that removes them hands back
 a form that looks right and computes nothing. The node's `awaiting-owner` line states the three
-answers — strip always, strip with an exception a firm marks at upload, or report without removing —
+answers — strip always, strip with an exception a firm marks at upload, or surface without removing — the last of which is
+closer to wiring up an answer the platform already computes than to building one —
 and says why a fourth that sounds obvious is empty: an exception keyed on templates the platform
 authored would exempt nothing, because every fillable template in the tree is a firm upload and
 whether the platform ever authors its own is itself an open question on

@@ -2,7 +2,7 @@
 worktree: (none — this stream runs in the primary checkout)
 area: Passive development — whatever fix or slice is in front of it, plus the feature ledger and the documents rendered from it
 status: building
-touches: roadmap.d/, docs/now.md, docs/now.html, docs/decisions-open.html, changelog.d/, tooling/doc-fragments/
+touches: roadmap.d/, docs/now.md, docs/now.html, docs/decisions-open.html, changelog.d/, tooling/doc-fragments/, packages/document-assembly/CLAUDE.md
 ---
 
 Currently surfacing the PDF scrub's active-content question onto the decision desk: no code change,
