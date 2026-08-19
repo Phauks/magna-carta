@@ -12,7 +12,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
-  mirrorMemberWithOwnerRole,
   mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
@@ -33,8 +32,8 @@ const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
 let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
-let ownerUserId: UserId;
-let ownerCookie: string;
+let attorneyUserId: UserId;
+let attorneyCookie: string;
 let noPermCookie: string;
 
 // A file whose current is v2, with a v3 conflict_pending copy diverged from v1, and a reconciling
@@ -76,7 +75,7 @@ async function seedConflict(): Promise<{
         reconciliation,
         divergedFrom,
         reconciliation === "conflict_pending" ? checkoutId : null,
-        ownerUserId,
+        attorneyUserId,
         ISO,
       )
       .run();
@@ -86,7 +85,7 @@ async function seedConflict(): Promise<{
     .prepare(
       "INSERT INTO document_checkout (id, file_id, holder_member_id, lock_type, base_version_id, acquired_at, last_activity_at, status, idle_release_at) VALUES (?1, ?2, ?3, 'offline_working_copy', ?4, ?5, ?5, 'reconciling', NULL)",
     )
-    .bind(checkoutId, fileId, ownerUserId, v1, ISO)
+    .bind(checkoutId, fileId, attorneyUserId, v1, ISO)
     .run();
   await insertVersion(v3, 3, "conflict_pending", v1);
   await firmDb
@@ -111,10 +110,12 @@ beforeAll(async () => {
     .bind(firmId)
     .run();
 
-  const owner = await seedCredentialedUser("reconcile-owner@example.com", { firmId });
-  ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Reconcile Owner", firmId);
-  ownerCookie = await signInForSessionCookie("reconcile-owner@example.com");
+  // The acting member is an ATTORNEY, not an owner: documents:reconcile is seeded to Owner/Admin and
+  // Attorney, and the attorney is the seat the wider half of that pair rests on.
+  const attorney = await seedCredentialedUser("reconcile-attorney@example.com", { firmId });
+  attorneyUserId = attorney.userId;
+  await mirrorMemberWithRole(attorney.userId, "Reconcile Attorney", firmId, "Attorney");
+  attorneyCookie = await signInForSessionCookie("reconcile-attorney@example.com");
 
   const noPerm = await seedCredentialedUser("reconcile-noperm@example.com", { firmId });
   await mirrorMemberWithRole(noPerm.userId, "Reconcile NoPerm", firmId, "Paralegal");
@@ -125,7 +126,7 @@ beforeAll(async () => {
     .prepare(
       "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
     )
-    .bind(matterId, ownerUserId, ISO)
+    .bind(matterId, attorneyUserId, ISO)
     .run();
 });
 
@@ -159,7 +160,7 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     const response = await reconcile(
       fileId,
       { keep: "current", resolvedNote: "kept ours" },
-      ownerCookie,
+      attorneyCookie,
     );
     expect(response.status).toBe(200);
 
@@ -184,14 +185,14 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
       )
       .bind(fileId)
       .first<{ actor_user_id: string; metadata: string }>();
-    expect(audit?.actor_user_id).toBe(ownerUserId);
+    expect(audit?.actor_user_id).toBe(attorneyUserId);
     expect(audit?.metadata).toContain("current");
   });
 
   it("keep=incoming: promotes the offline copy FORWARD as a new current version (never regressing), flags it reconciled", async () => {
     const { fileId, currentVersionId, conflictVersionId } = await seedConflict();
 
-    expect((await reconcile(fileId, { keep: "incoming" }, ownerCookie)).status).toBe(200);
+    expect((await reconcile(fileId, { keep: "incoming" }, attorneyCookie)).status).toBe(200);
 
     // The conflicting copy is reconciled (retained), and current advanced to a NEW version (not the
     // conflict, not the old current) carrying the conflict's content — monotonic pointer preserved.
@@ -215,10 +216,10 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
       .prepare(
         "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 4, ?3, 10, 'hash-4', 'clean', 'conflict_pending', NULL, ?4, ?5, ?5)",
       )
-      .bind(secondConflict, fileId, `files/${fileId}/${secondConflict}`, ownerUserId, ISO)
+      .bind(secondConflict, fileId, `files/${fileId}/${secondConflict}`, attorneyUserId, ISO)
       .run();
 
-    expect((await reconcile(fileId, { keep: "current" }, ownerCookie)).status).toBe(200);
+    expect((await reconcile(fileId, { keep: "current" }, attorneyCookie)).status).toBe(200);
 
     // BOTH conflict copies are reconciled — neither is orphaned.
     expect((await versionRow(conflictVersionId))?.reconciliation_status).toBe("reconciled");
@@ -228,7 +229,7 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
   it("keep=both: retains both — current unchanged, the copy flagged reconciled", async () => {
     const { fileId, currentVersionId, conflictVersionId } = await seedConflict();
 
-    expect((await reconcile(fileId, { keep: "both" }, ownerCookie)).status).toBe(200);
+    expect((await reconcile(fileId, { keep: "both" }, attorneyCookie)).status).toBe(200);
 
     expect((await versionRow(conflictVersionId))?.reconciliation_status).toBe("reconciled");
     expect(await currentVersionOf(fileId)).toBe(currentVersionId);
@@ -242,7 +243,7 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
       )
       .bind(id, matterId, ISO)
       .run();
-    expect((await reconcile(id, { keep: "current" }, ownerCookie)).status).toBe(404);
+    expect((await reconcile(id, { keep: "current" }, attorneyCookie)).status).toBe(404);
   });
 
   it("denies a Paralegal — the seat that may take the copy out but not decide which copy wins", async () => {
