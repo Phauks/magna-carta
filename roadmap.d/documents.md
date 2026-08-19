@@ -218,7 +218,7 @@
   slices: 2-2-editing-versioning-storage-tiering
   adrs: ADR-0010, ADR-0125, ADR-0126
   spec: docs/specs/2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md
-  evidence: containers/collabora + apps/magna-carta-edit deployed + apps/worker/src/editing on main; editor UI pending.
+  evidence: containers/collabora + apps/magna-carta-edit deployed + apps/worker/src/editing on main; editor UI pending. Every route on this surface is now reachable by a member holding an ordinary seeded role — until 2026-08-19 none of the four documents:\* permissions was granted to any role, so the launch answered 403 firm-wide.
   audience: public
   public-name: Editing in the browser
   public-summary: Open and edit a document in the browser without downloading it, and keep the version history as you work.
@@ -245,7 +245,8 @@
   status: shipped
   surface: awaiting-screen
   adrs: ADR-0126
-  evidence: packages/file-manager/src/checkout-statements.ts + apps/worker/src/editing idle-checkout-sweep.ts.
+  evidence: packages/file-manager/src/checkout-statements.ts + apps/worker/src/editing idle-checkout-sweep.ts. The four permissions the chokepoint enforces across this surface are seeded as of packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql — until then documents:edit, documents:checkout, documents:reconcile and documents:forceReleaseLock were granted to no role and every route answered 403 to every member of every firm.
+  awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Owner/Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
 
 - id: documents.editing.editor-ui
   name: Editor UI

@@ -127,6 +127,15 @@
   surface: internal
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
   evidence: member-rbac migration, packages/access-control resolver, GET /v1/me
+  notes: The defaults are not editable yet, and the word in scope is aspirational rather than a claim about today - packages/data-access holds only SELECTs over role_permission and direct_grant, so the migration seeds are the whole supply and a permission no seed grants is a permanent refusal. Held from now on by lint:ungranted-permissions; the two write surfaces are auth.access-control.role-editor-ui and the unbuilt half of auth.access-control.access-requests.
+
+- id: auth.access-control.ungranted-permission-scan
+  name: Ungranted-permission scan
+  scope: Fitness function failing any permission that gates a chokepoint route or a Tools catalogue manifest and that no migration seed grants to any role.
+  status: shipped
+  surface: internal
+  evidence: tooling/lint-ungranted-permissions (rules.mjs, index.mjs, index.test.mjs), wired as lint:ungranted-permissions in package.json and discovered automatically by the gate's derived lint set. Reports one hit on today's tree, allowlisted with its reason; replayed against the tree of 2026-06-22 it names documents:edit on the commit that introduced the route.
+  notes: Does not catch a permission granted only to a role no member holds, nor a capability enforced somewhere other than the chokepoint or the Tools catalogue.
 
 - id: auth.access-control.role-editor-ui
   name: Role editor UI

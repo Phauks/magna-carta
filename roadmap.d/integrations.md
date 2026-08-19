@@ -187,6 +187,7 @@
   slices: tools-area
   spec: docs/specs/2026-07-08-tools-listing-page-design.md
   evidence: apps/web/src/routes/(app)/tools/+page.svelte over apps/web/src/lib/tools/ (tools-tiles-view, tools-list-view, tool-tile, tool-row, tool-presentation.ts, and the view preference), grouped by toolsByGroup from packages/tools/src/select.ts; unbuilt tools read "Soon".
+  notes: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql; all nineteen manifests are now reachable by some seat.
 
 - id: integrations.tools-area.contextual-entry
   name: Contextual entry points
