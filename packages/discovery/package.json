@@ -31,7 +31,9 @@
     "./dedup": "./src/dedup.ts",
     "./dedup-statements": "./src/dedup-statements.ts",
     "./manifest": "./src/manifest.ts",
-    "./manifest-statements": "./src/manifest-statements.ts"
+    "./manifest-statements": "./src/manifest-statements.ts",
+    "./index-statements": "./src/index-statements.ts",
+    "./review-reads": "./src/review-reads.ts"
   },
   "scripts": {
     "test": "vp test run"

@@ -1,11 +1,12 @@
 import { env, SELF } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { MatterId } from "@magna-carta/identifiers/types";
+import type { MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
 import { objectClassOf, matterOfObject } from "@magna-carta/object-dimensions/dimensions";
-import { corpusOfMatter } from "@magna-carta/search/corpus";
+import { corpusOfMatter, corpusOfReviewSet } from "@magna-carta/search/corpus";
 import { splitObjectKey } from "@magna-carta/search/split";
 import type { IndexSplitId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   SPLIT_OBJECT_HOST,
   SPLIT_OBJECT_PATH_PREFIX,
@@ -203,6 +204,79 @@ describe("publishing a split", () => {
     expect(new Uint8Array(await written!.arrayBuffer())).toEqual(payload);
     expect(objectClassOf(written!.customMetadata)).toBe("search-split");
     expect(matterOfObject(written!.customMetadata)).toBe(corpus.id);
+  });
+
+  it("files a REVIEW SET's split under its matter, not under the review set", async () => {
+    // The matter dimension is what the storage meter counts against and what a lifecycle rule and a
+    // legal hold are expressed over. For a matter corpus the corpus IS the matter and the two
+    // coincide; for a review-set corpus they do not, and stamping the review set's own handle here
+    // would file a firm's discovery bytes under a matter that does not exist — recoverable only by a
+    // metadata rewrite of the whole bucket.
+    const matterId = newIdentifier("matter") as MatterId;
+    const reviewSetId = newIdentifier("reviewSet") as ReviewSetId;
+    const memberId = newIdentifier("user");
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    await database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'S', 'active', ?2)",
+      )
+      .bind(memberId, CREATED_AT)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+      )
+      .bind(matterId, memberId, CREATED_AT)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO review_set (id, matter_id, name, state, document_ceiling, created_by, created_at, updated_at) " +
+          "VALUES (?1, ?2, 'Plaintiff production', 'open', 250000, ?3, ?4, ?4)",
+      )
+      .bind(reviewSetId, matterId, memberId, CREATED_AT)
+      .run();
+
+    const reviewSetCorpus = corpusOfReviewSet(reviewSetId);
+    const key = splitObjectKey(reviewSetCorpus, newIdentifier("indexSplit") as IndexSplitId);
+    const token = await mintSplitObjectToken(
+      {
+        firmId,
+        corpusKind: reviewSetCorpus.kind,
+        corpusId: reviewSetCorpus.id,
+        write: true,
+        exp: Date.now() + 60_000,
+      },
+      { AUTH_SECRET: env.AUTH_SECRET },
+    );
+    const response = await call(key, {
+      method: "PUT",
+      token,
+      body: new Uint8Array(256).map((_, index) => index % 251),
+    });
+    expect(response.status).toBe(200);
+
+    const written = await env.R2.get(key);
+    expect(written).not.toBeNull();
+    expect(matterOfObject(written!.customMetadata)).toBe(matterId);
+    expect(matterOfObject(written!.customMetadata)).not.toBe(reviewSetId);
+    // And the key is still under the review set's own prefix — the object is filed under the matter
+    // and lives in the corpus, which are two different questions.
+    expect(key.startsWith(`search/${reviewSetId}/`)).toBe(true);
+  });
+
+  it("refuses to publish for a review set the firm does not hold, rather than mis-filing it", async () => {
+    const missing = newIdentifier("reviewSet") as ReviewSetId;
+    const key = splitObjectKey(
+      corpusOfReviewSet(missing),
+      newIdentifier("indexSplit") as IndexSplitId,
+    );
+    const token = await mintSplitObjectToken(
+      { firmId, corpusKind: "reviewSet", corpusId: missing, write: true, exp: Date.now() + 60_000 },
+      { AUTH_SECRET: env.AUTH_SECRET },
+    );
+    const response = await call(key, { method: "PUT", token, body: new Uint8Array(16) });
+    expect(response.status).toBe(404);
+    expect(await env.R2.get(key)).toBeNull();
   });
 
   it("is readable through the ranged path it was written for", async () => {

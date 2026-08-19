@@ -3,8 +3,7 @@ import {
   retireSupersededSplitStatements,
 } from "@magna-carta/data-access/index-split-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { listMattersWithLiveSplits } from "@magna-carta/data-access/index-split-statements";
-import type { MatterId } from "@magna-carta/identifiers/types";
+import { listCorporaWithLiveSplits } from "@magna-carta/data-access/index-split-statements";
 import { readSearchCompactionPolicy } from "@magna-carta/search/settings";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -77,14 +76,22 @@ export async function runSearchCompactionSweep(
     try {
       const policy = await readSearchCompactionPolicy(firm.database);
 
-      // The backstop. Every matter holding live splits is a candidate; the threshold read decides.
-      const matters = await listMattersWithLiveSplits(firm.database, compactionCap);
-      for (const matterId of matters) {
-        if (!(await corpusNeedsCompaction(firm.database, matterId, policy))) continue;
+      // The backstop. Every CORPUS holding live splits is a candidate — a matter's own documents and a
+      // review set's, which are separate indexes and separate merges; the threshold read decides.
+      const corpora = await listCorporaWithLiveSplits(firm.database, compactionCap);
+      for (const corpus of corpora) {
+        if (!(await corpusNeedsCompaction(firm.database, corpus.corpusId, policy))) continue;
         const coordinator = env.SEARCH_COMPACTION_JOB.get(
-          env.SEARCH_COMPACTION_JOB.idFromName(searchCompactionJobName(firm.firmId, matterId)),
+          env.SEARCH_COMPACTION_JOB.idFromName(
+            searchCompactionJobName(firm.firmId, corpus.corpusId),
+          ),
         );
-        const outcome = await coordinator.start({ firmId: firm.firmId, matterId });
+        const outcome = await coordinator.start({
+          firmId: firm.firmId,
+          matterId: corpus.matterId,
+          corpusKind: corpus.corpusKind === "reviewSet" ? "reviewSet" : "matter",
+          corpusId: corpus.corpusId,
+        });
         // `started`, not merely "asked": a corpus already in flight cost one Durable Object call and must
         // not be reported as work this pass caused.
         if (outcome.started) compactionsEnqueued++;

@@ -1,10 +1,16 @@
 import { loadIndexableVersion } from "@magna-carta/file-manager/queries";
-import type { FileVersionId } from "@magna-carta/identifiers/types";
+import { readReviewDocument } from "@magna-carta/discovery/review-document-statements";
+import { readReviewSet } from "@magna-carta/discovery/review-set-statements";
+import type { FileVersionId, ReviewDocumentId } from "@magna-carta/identifiers/types";
 import { readSearchIndexingEnabled } from "@magna-carta/search/settings";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { searchEngineGeneration } from "./engine-generation.ts";
-import { searchIndexJobName, type SearchIndexMessage } from "./index-types.ts";
+import {
+  REVIEW_DOCUMENT_INDEX_VERSION,
+  searchIndexJobName,
+  type SearchIndexMessage,
+} from "./index-types.ts";
 
 // THE CEILING ON A DOCUMENT EXTRACTION WILL ATTEMPT AT ALL.
 //
@@ -89,6 +95,80 @@ export async function enqueueVersionForIndexing(
     return { message, started: false };
   }
 
+  const outcome = await coordinator.start(message);
+  return { message, started: outcome.started };
+}
+
+// The seam where a REVIEW DOCUMENT enters its review set's corpus: a document the discovery pipeline
+// has just finished reading.
+//
+// WHY HERE, and why it is a second entry point rather than the same one. A review document is not a
+// file version — it is a version-pinned pointer with its own already-extracted text, its own corpus,
+// and its own reason to exist — so the trigger is "the discovery pipeline finished reading this
+// document", not "a version committed". Processing completion is the first and only moment a review
+// document simultaneously (a) has text, (b) has been decided to be the primary of its duplicate group,
+// and (c) belongs to a corpus that will not change under it.
+//
+// IT INDEXES ONLY THE PRIMARY of a duplicate group, which is the whole economic argument for
+// deduplicating at all: the same document held by three custodians is one set of bytes, one
+// extraction, and one index entry. The duplicates keep their rows, their custodians and their
+// occurrences — nothing is hidden — they simply do not each buy a split.
+//
+// BEST-EFFORT, exactly like the version-keyed enqueue above. The document is already processed and
+// recorded; a failure to enqueue must never fail the processing that succeeded. What makes that safe
+// here is that the backlog is enumerable from the corpus itself — `index_state` on the row — so a
+// document nothing enqueued is a countable, replayable arrear rather than a silent absence.
+export async function enqueueReviewDocumentForIndexing(
+  env: Bindings,
+  firmId: string,
+  reviewDocumentId: ReviewDocumentId,
+  database: ProxyBatchDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId),
+): Promise<SearchIndexEnqueueOutcome | undefined> {
+  // The firm-level gate, read before any work, on the same rule as the version path: a firm that has
+  // not turned indexing on never produces a message, so its documents are never built into splits and
+  // nothing of theirs is written to R2.
+  if (!(await readSearchIndexingEnabled(database))) return undefined;
+
+  const document = await readReviewDocument(database, reviewDocumentId);
+  if (document === undefined) return undefined;
+  // Nothing to index yet, or nothing to index ever. A document that is not `processed` has no text
+  // object; one that is a duplicate is represented in the index by its primary; one with no text key
+  // is a container, whose entries are separate documents and are indexed as themselves. None of the
+  // three is an error, and none of them is a state a retry changes.
+  if (document.processing_state !== "processed") return undefined;
+  if (document.is_dedup_primary !== 1) return undefined;
+  if (document.text_r2_key === null || document.metadata_r2_key === null) return undefined;
+
+  const reviewSet = await readReviewSet(database, document.review_set_id);
+  if (reviewSet === undefined) return undefined;
+
+  const message: SearchIndexMessage = {
+    firmId,
+    // Provenance: which matter the work was done under, and the dimension the split object is stamped
+    // with. Never the corpus — that is the review set, immediately below.
+    matterId: reviewSet.matter_id,
+    corpusKind: "reviewSet",
+    corpusId: document.review_set_id,
+    documentId: reviewDocumentId,
+    version: REVIEW_DOCUMENT_INDEX_VERSION,
+    // The text the discovery engine already produced, not the original bytes. Handing the original
+    // bytes to a second parser would give the corpus two answers about what the document says, and
+    // the one a firm certified is this one.
+    sourceKey: document.text_r2_key,
+    contentType: null,
+    metadataKey: document.metadata_r2_key,
+    discoveryLoadId: document.discovery_load_id,
+    engineGeneration: searchEngineGeneration(env),
+  };
+
+  // Through the same coordinator as the version path, for the same reason: the Durable Object is what
+  // makes a duplicate enqueue a no-op rather than a second build, and it is where a deferred outcome
+  // is recorded so a deploy can drain what it was owed.
+  const coordinator = env.SEARCH_INDEX_JOB.get(
+    env.SEARCH_INDEX_JOB.idFromName(
+      searchIndexJobName(firmId, reviewDocumentId, REVIEW_DOCUMENT_INDEX_VERSION),
+    ),
+  );
   const outcome = await coordinator.start(message);
   return { message, started: outcome.started };
 }

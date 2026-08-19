@@ -5,7 +5,7 @@ import {
   deleteIndexSplitStatement,
   deleteSplitsForDocumentStatement,
   insertIndexSplitStatement,
-  listLiveSplitsForMatter,
+  listLiveSplitsForCorpus,
   listSplitsForDocument,
   markSplitSupersededStatement,
   replaceDocumentSplitStatements,
@@ -21,6 +21,8 @@ function split(id: string, matterId: MatterId, createdAt: string): InsertIndexSp
   return {
     id: id as IndexSplitId,
     matterId,
+    corpusKind: "matter",
+    corpusId: matterId,
     documentId: null,
     version: null,
     objectKey: `search/${matterId}/splits/${id}.split`,
@@ -63,7 +65,7 @@ describe("index_split catalog statements", () => {
       ),
     ]);
 
-    const live = await listLiveSplitsForMatter(db, MATTER);
+    const live = await listLiveSplitsForCorpus(db, MATTER);
     expect(live.map((row) => row.id)).toEqual([
       "indexSplit_test0000000000000000001",
       "indexSplit_test0000000000000000002",
@@ -79,12 +81,12 @@ describe("index_split catalog statements", () => {
     await db.batch([
       insertIndexSplitStatement(db, split(target, MATTER, "2026-07-17T01:00:00.000Z")),
     ]);
-    expect((await listLiveSplitsForMatter(db, MATTER)).length).toBe(1);
+    expect((await listLiveSplitsForCorpus(db, MATTER)).length).toBe(1);
 
     await db.batch([
       markSplitSupersededStatement(db, target as IndexSplitId, "2026-07-17T05:00:00.000Z"),
     ]);
-    expect(await listLiveSplitsForMatter(db, MATTER)).toEqual([]);
+    expect(await listLiveSplitsForCorpus(db, MATTER)).toEqual([]);
 
     // The row is retained (not deleted) so an in-flight query against the old split still resolves.
     const remaining = await db
@@ -120,7 +122,7 @@ describe("per-document split convergence", () => {
       replaceDocumentSplitStatements(db, { ...row, createdAt: "2026-08-04T02:00:00.000Z" }),
     );
 
-    const live = await listLiveSplitsForMatter(db, MATTER);
+    const live = await listLiveSplitsForCorpus(db, MATTER);
     expect(live.map((split) => split.id)).toEqual([derived]);
     expect(live[0]?.createdAt).toBe("2026-08-04T02:00:00.000Z");
   });
@@ -144,7 +146,7 @@ describe("per-document split convergence", () => {
 
     // Exactly one live split for the document: the superseded version's split does not linger and
     // make the old text keep answering queries.
-    const live = await listLiveSplitsForMatter(db, MATTER);
+    const live = await listLiveSplitsForCorpus(db, MATTER);
     expect(live.map((split) => split.id)).toEqual(["indexSplit_test0000000000000000002"]);
     expect(live[0]?.version).toBe(2);
   });
@@ -189,7 +191,7 @@ describe("per-document split convergence", () => {
     expect((await listSplitsForDocument(db, OTHER_DOCUMENT)).map((split) => split.id)).toEqual([
       "indexSplit_test0000000000000000002",
     ]);
-    expect((await listLiveSplitsForMatter(db, MATTER)).length).toBe(2);
+    expect((await listLiveSplitsForCorpus(db, MATTER)).length).toBe(2);
   });
 
   it("lists a document's splits so a re-index knows which R2 objects to delete", async () => {
@@ -257,7 +259,7 @@ describe("per-document split convergence", () => {
         split("indexSplit_test0000000000000000002", MATTER, "2026-08-04T02:00:00.000Z"),
       ),
     ]);
-    const live = await listLiveSplitsForMatter(db, MATTER);
+    const live = await listLiveSplitsForCorpus(db, MATTER);
     expect(live.length).toBe(2);
     expect(live.every((split) => split.documentId === null)).toBe(true);
   });

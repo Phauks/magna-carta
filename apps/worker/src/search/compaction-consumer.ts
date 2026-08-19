@@ -1,16 +1,17 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
-  countLiveSplitsForMatter,
-  countStaleMembersForMatter,
+  countLiveSplitsForCorpus,
+  countStaleMembersForCorpus,
   listCompactionInputSplits,
   listLiveMembersForSplit,
-  listStaleMembersForMatter,
+  listStaleMembersForCorpus,
   publishCompactedSplitStatements,
+  type IndexedDocumentId,
   type IndexSplitMemberRow,
   type IndexSplitRow,
 } from "@magna-carta/data-access/index-split-statements";
-import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
-import { corpusOfMatter } from "@magna-carta/search/corpus";
+import type { FirmId, IndexSplitId, MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter, corpusOfReviewSet, type CorpusScope } from "@magna-carta/search/corpus";
 import type { SearchIndexPort, SplitQueryTarget } from "@magna-carta/search/port";
 import {
   readSearchCompactionPolicy,
@@ -22,7 +23,11 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
-import { searchCompactionJobName, type SearchCompactionMessage } from "./compaction-types.ts";
+import {
+  compactionMessageCorpus,
+  searchCompactionJobName,
+  type SearchCompactionMessage,
+} from "./compaction-types.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 
 // The compaction pass: many of a corpus's small splits in, one merged split out, and a catalog that moves
@@ -50,22 +55,32 @@ const now = () => new Date().toISOString();
 
 function coordinatorFor(env: Bindings, message: SearchCompactionMessage) {
   return env.SEARCH_COMPACTION_JOB.get(
-    env.SEARCH_COMPACTION_JOB.idFromName(searchCompactionJobName(message.firmId, message.matterId)),
+    env.SEARCH_COMPACTION_JOB.idFromName(
+      searchCompactionJobName(message.firmId, compactionMessageCorpus(message).id),
+    ),
   );
+}
+
+// The message's corpus as the typed scope the port and the key derivation take.
+function corpusFor(message: SearchCompactionMessage): CorpusScope {
+  const scope = compactionMessageCorpus(message);
+  return scope.kind === "reviewSet"
+    ? corpusOfReviewSet(scope.id as ReviewSetId)
+    : corpusOfMatter(scope.id as MatterId);
 }
 
 // Whether a corpus is over either threshold. Read in one place so the write-path trigger, the daily
 // backstop, and the pass's own re-enqueue decision can never disagree about what "needs compacting" is.
 export async function corpusNeedsCompaction(
-  database: Parameters<typeof countLiveSplitsForMatter>[0],
-  matterId: MatterId,
+  database: Parameters<typeof countLiveSplitsForCorpus>[0],
+  corpusId: string,
   policy: SearchCompactionPolicy,
 ): Promise<boolean> {
-  const liveSplits = await countLiveSplitsForMatter(database, matterId);
+  const liveSplits = await countLiveSplitsForCorpus(database, corpusId);
   if (liveSplits >= policy.splitThreshold) return true;
   // A corpus can need compacting without gaining a split: a heavily-revised matter accumulates superseded
   // versions inside its merged splits, which cost storage and an exclusion clause on every query.
-  const staleMembers = await countStaleMembersForMatter(database, matterId);
+  const staleMembers = await countStaleMembersForCorpus(database, corpusId);
   return staleMembers >= policy.staleThreshold;
 }
 
@@ -73,9 +88,9 @@ export async function corpusNeedsCompaction(
 // own delete set. A map rather than a per-split query: one read for the whole corpus, and the pass is
 // about to touch every split in it anyway.
 function exclusionsBySplit(
-  stale: readonly { readonly splitId: IndexSplitId; readonly documentId: FileId }[],
-): Map<IndexSplitId, FileId[]> {
-  const grouped = new Map<IndexSplitId, FileId[]>();
+  stale: readonly { readonly splitId: IndexSplitId; readonly documentId: IndexedDocumentId }[],
+): Map<IndexSplitId, IndexedDocumentId[]> {
+  const grouped = new Map<IndexSplitId, IndexedDocumentId[]>();
   for (const member of stale) {
     const existing = grouped.get(member.splitId);
     if (existing === undefined) grouped.set(member.splitId, [member.documentId]);
@@ -92,10 +107,10 @@ function mergedMembership(
   mergedSplitId: IndexSplitId,
   sources: readonly IndexSplitRow[],
   sourceMembership: ReadonlyMap<IndexSplitId, readonly IndexSplitMemberRow[]>,
-  dropped: ReadonlySet<FileId>,
+  dropped: ReadonlySet<IndexedDocumentId>,
 ): IndexSplitMemberRow[] {
   const members = new Map<string, IndexSplitMemberRow>();
-  const add = (documentId: FileId, version: number) => {
+  const add = (documentId: IndexedDocumentId, version: number) => {
     if (dropped.has(documentId)) return;
     members.set(`${documentId}:${version}`, { splitId: mergedSplitId, documentId, version });
   };
@@ -121,13 +136,13 @@ export async function compactOne(
 
   const firmId = message.firmId as FirmId;
   const matterId = message.matterId as MatterId;
-  const corpus = corpusOfMatter(matterId);
+  const corpus = corpusFor(message);
   const database = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
   const policy = await readSearchCompactionPolicy(database);
 
   const sources = await listCompactionInputSplits(
     database,
-    matterId,
+    corpus.id,
     policy.maximumInputSplits,
     policy.maximumInputBytes,
   );
@@ -135,7 +150,7 @@ export async function compactOne(
   // merging one split that has nothing superseded is, and so is merging none. Skipping is a real outcome
   // and is recorded as one: a burst of ingests routinely enqueues several passes for a corpus that only
   // needs the first.
-  const stale = await listStaleMembersForMatter(database, matterId);
+  const stale = await listStaleMembersForCorpus(database, corpus.id);
   const grouped = exclusionsBySplit(stale);
   const hasWorkToDo = sources.length > 1 || (sources.length === 1 && grouped.size > 0);
   if (!hasWorkToDo) {
@@ -175,7 +190,7 @@ export async function compactOne(
     if (source.documentId !== null) continue;
     sourceMembership.set(source.id, await listLiveMembersForSplit(database, source.id));
   }
-  const dropped = new Set<FileId>(merged.published.excludedDocumentIds);
+  const dropped = new Set<IndexedDocumentId>(merged.published.excludedDocumentIds);
   const members = mergedMembership(mergedSplitId, sources, sourceMembership, dropped);
 
   const supersededAt = now();
@@ -186,6 +201,8 @@ export async function compactOne(
         split: {
           id: mergedSplitId,
           matterId,
+          corpusKind: corpus.kind,
+          corpusId: corpus.id,
           // A merged split covers many document versions, so it claims none on its own row — the
           // membership rows are its coverage, and leaving these null is what keeps it outside the
           // one-live-split-per-document-version unique index the write pipeline relies on.
@@ -211,7 +228,7 @@ export async function compactOne(
   // A bounded pass over an unbounded corpus converges by running again. Asking here rather than waiting
   // for the daily backstop is what stops a matter that ingested ten thousand documents from sitting at
   // ten thousand splits until tomorrow.
-  if (await corpusNeedsCompaction(database, matterId, policy)) {
+  if (await corpusNeedsCompaction(database, corpus.id, policy)) {
     await coordinator.start(message);
   }
 }

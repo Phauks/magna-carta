@@ -1,5 +1,5 @@
-import type { FileId, FirmId } from "@magna-carta/identifiers/types";
-import type { CorpusScope } from "./corpus.ts";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import type { CorpusScope, IndexedDocumentId } from "./corpus.ts";
 
 // SearchIndexPort is the single chokepoint every discovery-search feature reaches the index through,
 // named in our domain vocabulary — never a vendor's, never the engine's. It has three operations:
@@ -28,11 +28,13 @@ export interface IndexDocumentInput {
   // split's R2 key is derived from (corpus.ts, split.ts). The same document can belong to more than one
   // corpus, and is then indexed once per corpus into its own split.
   readonly corpus: CorpusScope;
-  // A "document" here is the File Manager file the corpus is made of (packages/file-manager); its
-  // committed versions are what actually get indexed, one split each.
-  readonly documentId: FileId;
-  // The file's version number; indexing is idempotent on documentId + version, so a retry or a
-  // re-index converges rather than duplicating.
+  // What the corpus is made of, which depends on the corpus: a matter corpus indexes the File Manager
+  // files of packages/file-manager, a review-set corpus indexes the review documents of
+  // packages/discovery. Either way it is one document at one set of bytes, and one split.
+  readonly documentId: IndexedDocumentId;
+  // The version being indexed; indexing is idempotent on documentId + version, so a retry or a
+  // re-index converges rather than duplicating. A review document is already a version pin, so its
+  // version is always 1 — the pin lives in the review document id itself.
   readonly version: number;
   // Where the engine writes the built split, derived by the caller (@magna-carta/search/split). The
   // caller names the key for the same reason it names the split keys a query reads: it is the side that
@@ -47,7 +49,7 @@ export interface RemoveDocumentInput {
   // Removal is per corpus, never global: a document that belongs to two corpora leaves one of them
   // without leaving the other.
   readonly corpus: CorpusScope;
-  readonly documentId: FileId;
+  readonly documentId: IndexedDocumentId;
 }
 
 // Which index halves a query runs. `keyword` is Tantivy/BM25 only; `semantic` is Vectorize only;
@@ -66,7 +68,7 @@ export type SearchMode = "keyword" | "semantic" | "hybrid";
 // split; excluding it across the whole query would hide the current text along with the stale text.
 export interface SplitQueryTarget {
   readonly objectKey: string;
-  readonly excludeDocumentIds: readonly FileId[];
+  readonly excludeDocumentIds: readonly IndexedDocumentId[];
 }
 
 export interface SearchQueryInput {
@@ -100,7 +102,7 @@ export interface CompactCorpusInput {
 // A ranked result. Carries only the pointers needed to hydrate the passage through the data-access
 // layer — never its text, which is re-read from R2.
 export interface SearchHit {
-  readonly documentId: FileId;
+  readonly documentId: IndexedDocumentId;
   readonly chunkId: string;
   readonly score: number;
 }
@@ -141,7 +143,7 @@ export type SearchQueryResult =
 // — a compaction and a re-index can legitimately race — but the difference is reported rather than
 // swallowed, so a pass that silently dropped nothing is visible.
 export interface CompactedSplit extends PublishedSplit {
-  readonly excludedDocumentIds: readonly FileId[];
+  readonly excludedDocumentIds: readonly IndexedDocumentId[];
 }
 
 export type CompactResult =

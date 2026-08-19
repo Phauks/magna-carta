@@ -177,30 +177,15 @@ export function advanceReviewSetDocumentCountStatement(
     .bind(id, delta, now);
 }
 
-// The matter's review sets, newest first. Bounded and indexed — every discovery read is "within this
-// matter" or "within this review set", and neither is ever a firm-wide scan.
-export function selectReviewSetsForMatterStatement(
-  database: SqlDatabase,
-  matterId: MatterId,
-  limit: number,
-): SqlStatement {
-  return database
-    .prepare(
-      `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} WHERE matter_id = ?1 ` +
-        `ORDER BY created_at DESC, id DESC LIMIT ?2`,
-    )
-    .bind(matterId, limit);
-}
-
-export async function readReviewSetsForMatter(
-  database: SqlDatabase,
-  matterId: MatterId,
-  limit: number,
-): Promise<ReviewSetRow[]> {
-  const { results } = await selectReviewSetsForMatterStatement(
-    database,
-    matterId,
-    limit,
-  ).all<ReviewSetRow>();
-  return results;
-}
+// THE MATTER'S REVIEW SETS ARE NOT READ FROM HERE. That list is `readVisibleReviewSetsForMatter` in
+// review-reads.ts, which composes the access predicate, and this module deliberately no longer offers
+// an unscoped counterpart to it.
+//
+// It used to. The list was the last place a walled review set's NAME was reachable by anybody holding
+// the matter's discovery permission — and a name is enough: "Plaintiff's production, Ridgeway
+// settlement" tells a reader that a production was received. An unscoped list sitting exported beside
+// the scoped one is the shape that mistake takes a second time, so there is only the one.
+//
+// The single-review-set read above stays unscoped because the pipeline uses it: a queue consumer has
+// no member to check, over a corpus the platform itself put there. Everything a MEMBER reaches goes
+// through review-reads.ts and its fitness pass.

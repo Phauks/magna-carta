@@ -291,7 +291,7 @@ about ordering, and breaking any of them is a correctness bug rather than a perf
   keys and then reads them, so that is the one ordering that can hand a live query a key to bytes that
   are gone. Retirement is `runSearchCompactionSweep` on the daily cron, after a grace period.
 - **The write path may count; it may never merge.** The compaction trigger in `index-consumer.ts` is one
-  indexed `countLiveSplitsForMatter` and a coordinator call. A merge is proportional to the corpus, so
+  indexed `countLiveSplitsForCorpus` and a coordinator call. A merge is proportional to the corpus, so
   merging per write would be quadratic in it.
 - **A re-index marks and publishes in the same batch.** `markMembersStaleForDocumentStatement` rides the
   batch that inserts the replacement split. Between the two writes a query would return the document
@@ -302,6 +302,35 @@ about ordering, and breaking any of them is a correctness bug rather than a perf
 The coordinator is keyed by **corpus**, not by pass: two concurrent passes over one corpus would each
 merge overlapping splits and leave every document in the overlap live in two merged splits at once.
 Thresholds and merge bounds are per-firm settings (`@magna-carta/search/settings`), never constants.
+
+## Two corpora, one pipeline — the review-set index lane
+
+`index_split` is keyed by **corpus** (`corpus_kind` + `corpus_id`), not by matter, and every scope read
+in `@magna-carta/data-access/index-split-statements` matches on it. That is what makes a matter query
+structurally unable to name a discovery review set's splits: a query resolves its keys from the catalog
+and from nowhere else. `matter_id` is still on the row and is PROVENANCE — which matter the work was
+done under, and the dimension the split object is stamped with — so nothing may go back to enumerating
+by it.
+
+A review document enters through `enqueueReviewDocumentForIndexing` (`search/enqueue-index.ts`), called
+by the discovery processing consumer once a document is `processed`. Local rules for that lane:
+
+- **It never re-extracts.** The consumer reads the review document's already-written text object and
+  its metadata sidecar, and turns them back into passages in `search/review-document-passages.ts`.
+  Handing an opposing party's bytes to a second parser would give the corpus two answers about what
+  the document says, and the one a firm certified in its manifest is the one on disk.
+- **Only the PRIMARY of a duplicate group is enqueued**, which is the whole economic argument for
+  deduplicating. The duplicates keep their rows, their Custodians of Record and their occurrences.
+- **A review set never feeds the natural-language corpus.** The feed write in `indexOne` is skipped
+  explicitly for a review-set corpus, not left to the feed's own allow-list: that surface's audience is
+  the matter team, and a review set's access list is narrower.
+- **A deferred or failed outcome is recorded on the review document's own ROW** (`index_state`), never
+  as a `review_document_exception` — the exception vocabulary is a court-facing closed list about what
+  could not be READ. The one exception it does file is `source-bytes-missing`, when the corpus's own
+  derived text is gone.
+- The message carries the corpus as two optional fields with `matter` as the ABSENT default
+  (`indexMessageCorpus`), so a message in flight across the deploy that introduced them still routes
+  where it was going. The same shape is on the compaction message.
 
 ## Human verification — built, wired, and dormant until a secret exists
 

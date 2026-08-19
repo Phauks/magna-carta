@@ -2272,25 +2272,45 @@ export const conflictsRecheckRequest = sqliteTable(
 );
 
 // Discovery search-index catalog: one row per immutable Tantivy split stored in the firm's R2. This is
-// the authority a query enumerates to know which splits are live for a matter — never an R2 bucket list,
-// which would be slower and would not carry firm scoping structurally. Firm data (the index is durable
-// per-firm data, unlike the transient scan/conversion artifacts), access-gated with the matter it
-// belongs to. A split is immutable: rows are inserted on publish and marked superseded by compaction,
-// never mutated in place. `superseded_at IS NULL` is the live set.
+// the authority a query enumerates to know which splits are live for a CORPUS — never an R2 bucket
+// list, which would be slower and would not carry firm scoping structurally. Firm data (the index is
+// durable per-firm data, unlike the transient scan/conversion artifacts), access-gated with the corpus
+// it belongs to. A split is immutable: rows are inserted on publish and marked superseded by
+// compaction, never mutated in place. `superseded_at IS NULL` is the live set.
 export const indexSplit = sqliteTable(
   "index_split",
   {
     id: text("id").primaryKey().$type<IndexSplitId>(),
+    // THE MATTER IS PROVENANCE, NOT SCOPE. It predates the widening of the index scope key from a
+    // matter to a corpus and is kept because the per-firm lineage is additive; a review-set split
+    // carries the matter its review set belongs to, so this column still says which file the index
+    // work was done under. NOTHING enumerates a corpus by it — a review set's splits are reachable
+    // only through corpus_id below, which is what makes a matter query structurally unable to name
+    // material an opposing party produced under a protective order.
     matterId: text("matter_id").notNull().$type<MatterId>(),
+    // Which corpus this split belongs to: the index's partition key, and the value the split's own R2
+    // key is derived from. `matter` for a matter's File Manager documents, `reviewSet` for a discovery
+    // review set's review documents. The kind is carried for readability and for a report that has to
+    // say what a split is; the ID alone is what every scope read matches on, because an identifier is
+    // a self-describing handle and two kinds can never collide on one.
+    corpusKind: text("corpus_kind").notNull().default("matter"),
+    // Nullable only because the column was added to a table that already existed. Every write binds
+    // it, every scope read names it, and a row without one is therefore in no corpus and reachable by
+    // no query — which is the safe direction for a column whose whole job is to keep two corpora apart.
+    corpusId: text("corpus_id"),
     // The one document version this split indexes, for a split the write pipeline publishes. The write
     // pipeline builds one split per document version so a re-index converges: the split id is derived
     // from these two columns, a retry rebuilds the same split, and the publish deletes the document's
     // prior rows and objects before inserting the new one instead of accumulating duplicates.
     // Both are NULL for a split that spans many documents — the shape a later compaction pass publishes
     // when it merges the small per-document splits — so the merged split is simply unconstrained here.
-    documentId: text("document_id").$type<FileId>(),
+    //
+    // WHAT A DOCUMENT IS depends on the corpus: a File Manager file in a matter corpus, a review
+    // document in a review-set corpus. A review document is already a version pin, so its version is
+    // always 1 and the pin lives in the identifier.
+    documentId: text("document_id").$type<FileId | ReviewDocumentId>(),
     version: integer("version"),
-    // The split object's key in the firm's R2 bucket (e.g. search/<matter>/splits/<id>.split).
+    // The split object's key in the firm's R2 bucket (e.g. search/<corpus>/splits/<id>.split).
     objectKey: text("object_key").notNull(),
     // How many passages the split indexes, and its size — the inputs a compaction decision reads
     // without opening the split.
@@ -2305,7 +2325,18 @@ export const indexSplit = sqliteTable(
     supersededAt: text("superseded_at"),
   },
   (table) => [
-    // The live-splits-for-a-matter read: WHERE matter_id = ? AND superseded_at IS NULL.
+    // The live-splits-for-a-corpus read: WHERE corpus_id = ? AND superseded_at IS NULL ORDER BY
+    // created_at. This is the index every query and every compaction decision walks, and the sort
+    // column is on the end so the enumeration comes back ordered from the index rather than through a
+    // temporary b-tree — the order is what makes a compaction pass select the same set twice and
+    // therefore derive the same merged split id.
+    index("index_split_corpus_superseded_index").on(
+      table.corpusId,
+      table.supersededAt,
+      table.createdAt,
+    ),
+    // Retained from before the widening. Nothing reads a corpus by matter any more; the index stays
+    // because dropping one is a table rebuild against a table firms have already provisioned.
     index("index_split_matter_superseded_index").on(table.matterId, table.supersededAt),
     // The document's own splits: the read the write pipeline makes before publishing, to find the rows
     // and R2 objects a re-index must delete.
@@ -2336,7 +2367,7 @@ export const indexSplitMember = sqliteTable(
   {
     // The merged split this membership belongs to (index_split.id).
     splitId: text("split_id").notNull().$type<IndexSplitId>(),
-    documentId: text("document_id").notNull().$type<FileId>(),
+    documentId: text("document_id").notNull().$type<FileId | ReviewDocumentId>(),
     version: integer("version").notNull(),
     // Null while this document version is still the current one inside the split. Set to the instant a
     // re-index or a removal superseded it, which both excludes it from queries against this split and
@@ -7388,6 +7419,18 @@ export const reviewDocument = sqliteTable(
     // backlog enumerable from the corpus instead of from a queue somebody has to know to look in.
     // Cleared on the next attempt, so it can never be stale.
     processingDeferredReason: text("processing_deferred_reason"),
+    // Where the document stands with the SEARCH INDEX, which is a different stage with a different
+    // engine and therefore a different answer: `indexed`, `deferred` (the index engine is not
+    // deployed), or `failed`. Null until the corpus first asks the index about it.
+    //
+    // NOT AN EXCEPTION, and deliberately not folded into the two above. The exception vocabulary is a
+    // closed list of sentences about what could not be READ, and every one of them is rendered into a
+    // report a firm hands to another party; "our own search index has not caught up" is not one of
+    // them, and putting it there would put a number in front of a court that a later deploy silently
+    // changes. Kept on the row for the same reason processingDeferredReason is: the backlog has to be
+    // enumerable from the corpus rather than only from a Durable Object somebody has to know to open.
+    indexState: text("index_state"),
+    indexDeferredReason: text("index_deferred_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7395,12 +7438,44 @@ export const reviewDocument = sqliteTable(
     // The read every future review surface sits on: one review set's documents, newest first, with
     // the filters the reviewer actually uses. review_set_id leads every one of these.
     index("review_document_review_set_sort_index").on(table.reviewSetId, table.sortDate, table.id),
+    // What this corpus is still owed by the index, as one indexed read over the review set rather
+    // than an anti-join against the split catalog.
+    index("review_document_index_state_index").on(table.reviewSetId, table.indexState),
     index("review_document_review_set_load_index").on(table.reviewSetId, table.discoveryLoadId),
     index("review_document_review_set_record_custodian_index").on(
       table.reviewSetId,
       table.recordCustodianId,
     ),
     index("review_document_review_set_state_index").on(table.reviewSetId, table.processingState),
+    // THE LIST PAGE, and its three filtered forms. The read is ordered newest-document-first and
+    // keyset-paged on (sort_date, id); an index that stopped at the filter column would satisfy the
+    // WHERE and leave the ORDER BY to a temporary b-tree over a quarter-million rows on every page.
+    // The four narrower indexes above are prefixes of these and now redundant; they stay because
+    // dropping one is a rebuild of a table firms have already provisioned.
+    index("review_document_review_set_page_index").on(
+      table.reviewSetId,
+      table.sortDate,
+      table.id,
+      table.processingState,
+    ),
+    index("review_document_custodian_page_index").on(
+      table.reviewSetId,
+      table.recordCustodianId,
+      table.sortDate,
+      table.id,
+    ),
+    index("review_document_load_page_index").on(
+      table.reviewSetId,
+      table.discoveryLoadId,
+      table.sortDate,
+      table.id,
+    ),
+    index("review_document_state_page_index").on(
+      table.reviewSetId,
+      table.processingState,
+      table.sortDate,
+      table.id,
+    ),
     // The dispatch walk: one load's still-unprocessed documents, keyset-paged by id. Leading with the
     // LOAD rather than the review set, which is the one discovery read whose scope is the load — at
     // the ceiling a load is the whole review set, so a review-set-led index narrows nothing and the
@@ -7504,6 +7579,14 @@ export const reviewDocumentException = sqliteTable(
     // The exception report's own walk: one load's exceptions in document order, so the report can be
     // merged against the manifest's document walk in one pass rather than read per document.
     index("review_document_exception_load_index").on(table.discoveryLoadId, table.reviewDocumentId),
+    // The whole review set's exceptions, keyset-paged on the (document, exception) PAIR. Several
+    // reasons on one document is normal, so a page boundary can fall inside one document and resuming
+    // from the document alone would drop the reasons after it.
+    index("review_document_exception_review_set_page_index").on(
+      table.reviewSetId,
+      table.reviewDocumentId,
+      table.id,
+    ),
     check(
       "review_document_exception_stage_check",
       sql`${table.stage} IN ('load', 'identify', 'extract', 'deduplicate', 'family', 'index')`,
@@ -7553,6 +7636,14 @@ export const reviewDocumentOccurrence = sqliteTable(
     index("review_document_occurrence_primary_index").on(
       table.reviewSetId,
       table.primaryReviewDocumentId,
+    ),
+    // The same read with the order it is served in on the end, so it comes back sorted from the index
+    // rather than through a temporary b-tree. The set is small — one document's copies — but the read
+    // is on the review surface's per-document panel, so it happens once per document opened.
+    index("review_document_occurrence_primary_page_index").on(
+      table.reviewSetId,
+      table.primaryReviewDocumentId,
+      table.duplicateReviewDocumentId,
     ),
     uniqueIndex("review_document_occurrence_duplicate_unique_index").on(
       table.duplicateReviewDocumentId,
