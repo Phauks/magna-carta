@@ -498,6 +498,13 @@
       "when": 1787142905769,
       "tag": "20260819T123505_index-automatic-email-links",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1787148000000,
+      "tag": "20260819T140000_seed-notification-policy-permission",
+      "breakpoints": true
     }
   ]
 }

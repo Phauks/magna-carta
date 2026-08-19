@@ -112,7 +112,7 @@
   name: Notification preferences category
   scope: Per-user type/category-by-channel routing matrix with locked mandatory categories.
   status: not-started
-  evidence: No notifications settings surface, and the page is the only thing missing. The notification type registry is shipped (packages/notifications/src/registry.ts), and so is everything this page would render — GET and PATCH /api/v1/notifications/preferences resolve the per-category matrix, report which in-app switches are locked and by whom, and hold the firm floor's two asymmetries: a firm may raise the in-app floor for a category and may never raise a member's email cadence.
+  evidence: No notifications settings surface, and the page is the only thing missing. The notification type registry is shipped (packages/notifications/src/registry.ts), and so is everything this page would render — GET and PATCH /api/v1/notifications/preferences resolve the per-category matrix, report which in-app switches are locked and by whom, and hold the firm floor's two asymmetries: a firm may raise the in-app floor for a category and may never raise a member's email cadence. The firm band of the same page is GET and PATCH /api/v1/firm/notifications/policy under firm:manageNotificationPolicy — the floor itself, plus the retention window and the digest hour.
 
 - id: settings.area-ui.documents-templates-category
   name: Documents & templates category

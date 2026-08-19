@@ -23581,6 +23581,405 @@
           "recipientUserIds"
         ]
       },
+      "FirmNotificationPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmNotificationCategoryPolicy"
+            }
+          },
+          "retentionDays": {
+            "type": "integer"
+          },
+          "digestLocalHour": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "categories",
+          "retentionDays",
+          "digestLocalHour"
+        ]
+      },
+      "FirmNotificationCategoryPolicy": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "deadlines",
+              "calendar",
+              "trust",
+              "billing",
+              "documents",
+              "custody",
+              "email",
+              "conflicts",
+              "jobs",
+              "security",
+              "system"
+            ]
+          },
+          "inApp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "on",
+              "off",
+              null
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "off",
+              "daily",
+              "weekly",
+              null
+            ]
+          }
+        },
+        "required": [
+          "category",
+          "inApp",
+          "email"
+        ]
+      },
+      "PatchFirmNotificationPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "object",
+            "properties": {
+              "deadlines": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "calendar": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "trust": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "billing": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "documents": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "custody": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "conflicts": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "jobs": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "security": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              },
+              "system": {
+                "type": "object",
+                "properties": {
+                  "inApp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "on",
+                      "off",
+                      null
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "off",
+                      "daily",
+                      "weekly",
+                      null
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "retentionDays": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 365
+          },
+          "digestLocalHour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23
+          }
+        }
+      },
       "ConversionUploadResponse": {
         "type": "object",
         "properties": {
@@ -73197,6 +73596,201 @@
         }
       }
     },
+    "/api/v1/firm/notifications/policy": {
+      "get": {
+        "description": "Reads the firm's notification policy: what the firm has set per category (null on a channel means the firm has set nothing there and the platform's recommendation applies), how long notifications are kept, and the local hour the firm's summary email is sent. In app the firm's setting is a floor a member cannot lower; by email it is only a default a member's own choice overrides. This is the firm's tier only — it is not what any particular member sees.",
+        "operationId": "firmNotificationPolicy.get",
+        "tags": [
+          "firmNotificationPolicy"
+        ],
+        "x-mc-operationId": "firmNotificationPolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageNotificationPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "firmNotificationPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's notification policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmNotificationPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageNotificationPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates one or more of the firm's notification policy settings. Sparse: an absent field is left alone, and a category channel set to null clears the firm's choice so the platform's recommendation applies again. Setting a category on in app raises the firm's floor, which no member can lower; setting an email cadence sets a default that any member can override, because a firm cannot make somebody's mailbox carry more. A retention window or digest hour outside the permitted range is refused, never quietly adjusted. Returns the firm's full policy after the write.",
+        "operationId": "firmNotificationPolicy.update",
+        "tags": [
+          "firmNotificationPolicy"
+        ],
+        "x-mc-operationId": "firmNotificationPolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageNotificationPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "firmNotificationPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmNotificationPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's notification policy after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmNotificationPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageNotificationPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -76275,6 +76869,9 @@
     },
     {
       "name": "firm"
+    },
+    {
+      "name": "firmNotificationPolicy"
     },
     {
       "name": "firmUsage"

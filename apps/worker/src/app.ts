@@ -35,6 +35,7 @@ import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
 import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
+import { registerFirmNotificationPolicyRoutes } from "./routes/firm-notification-policy.ts";
 import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
@@ -758,6 +759,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // What that feed is allowed to carry: the member's own per-category matrix under the firm's
   // in-app floor, and the firm's trust-compliance designation.
   registerNotificationPreferencesRoutes(app, chokepoint);
+  // The FIRM's tier of the same policy — the in-app floor no member may lower, the retention window,
+  // and the local hour the summary email lands. A firm-administration act, so it carries its own
+  // permission rather than the member key beside it.
+  registerFirmNotificationPolicyRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

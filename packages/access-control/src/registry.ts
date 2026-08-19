@@ -14,6 +14,14 @@ export const PERMISSIONS = [
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
   "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
+  // The firm's notification POLICY, which is a different act from a member's own preferences. The
+  // in-app floor decides what every member of the firm must go on hearing whatever they switch off;
+  // the retention window decides how long every member's pointers live; the digest hour decides when
+  // the firm's mail lands. None of those is a personal setting, so none of them may ride
+  // notifications:read — that key is seeded to EVERY default role including Read-only precisely
+  // because reading one's own feed is not a privilege, and reusing it here would let any member lower
+  // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
+  "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.

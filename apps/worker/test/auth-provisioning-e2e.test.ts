@@ -301,6 +301,10 @@ describe("end-to-end", () => {
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        // The firm's notification policy — the in-app floor, retention window and digest hour —
+        // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
+        // including Read-only carries (20260819T140000_seed-notification-policy-permission).
+        "firm:manageNotificationPolicy",
         "firm:manageReleaseChannel",
         "firm:manageScanPolicy",
         "firm:manageSecrets",

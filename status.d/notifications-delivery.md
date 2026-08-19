@@ -123,3 +123,17 @@ its own truncation learns that it truncated and can never learn by how much.
 counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it
 changes how much of a firm's overdue work gets reported — a firm-observable change and a load question,
 recorded on the `notifications.scheduling` ledger node.
+
+**Slice 3 gap closed — the firm's half of the settings had no writer.** A mechanical scan for exported
+write-shaped functions with no production caller found three of them in this package, all in one
+subsystem: the FIRM tier of the preference matrix (the in-app floor a member may not lower), the
+retention window, and the digest local hour. Every one is read at evaluation time — the floor by the
+shared recipient resolver on every fan-out, the window by the nightly sweep, the hour by the hourly
+digest pass — and no route wrote any of them, so the floor could not be raised, the window could not
+be changed and the summary landed at 07:00 for every firm on earth. The member API shipped; the firm
+API did not, and the tests that covered the floor inserted the row themselves, which is why nothing
+failed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new
+`firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key
+`notifications:read`, which every default role including Read-only carries. Still not written by
+anything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a
+separate gap rather than an omission here.

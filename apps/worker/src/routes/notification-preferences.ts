@@ -4,6 +4,7 @@ import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statemen
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
+  mergeNotificationPreferences,
   readMemberNotificationPreferences,
   readTrustComplianceRecipients,
   resolveCategoryPreference,
@@ -11,8 +12,6 @@ import {
   writeMemberNotificationPreferencesStatement,
   writeTrustComplianceRecipientsStatement,
   MAX_TRUST_COMPLIANCE_RECIPIENTS,
-  type NotificationCategoryChoice,
-  type NotificationPreferences,
 } from "@magna-carta/notifications/preferences";
 import { readNotificationRetentionDays } from "@magna-carta/notifications/settings";
 import {
@@ -323,33 +322,6 @@ type PreferencesApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables 
 
 type PreferencesBody = z.infer<typeof PreferencesResponse>;
 
-// Applies a sparse patch to what the member has stored. A null clears that channel's choice; an
-// absent field leaves it; a category left with no choices at all is dropped rather than stored as an
-// empty object, so "the member has expressed nothing here" has ONE representation in the row.
-function mergeMemberPreferences(
-  stored: NotificationPreferences,
-  patch: Partial<Record<NotificationCategory, { inApp?: string | null; email?: string | null }>>,
-): NotificationPreferences {
-  const merged: Record<string, NotificationCategoryChoice> = {
-    ...(stored as Record<string, NotificationCategoryChoice>),
-  };
-  for (const [category, change] of Object.entries(patch)) {
-    if (change === undefined) continue;
-    const current = merged[category] ?? {};
-    const next: NotificationCategoryChoice = {};
-    // Three states per channel, and the middle one is why a plain spread will not do: absent means
-    // leave what is there, null means clear it, a value means set it.
-    const inApp = change.inApp === undefined ? current.inApp : (change.inApp ?? undefined);
-    if (inApp !== undefined) next.inApp = inApp as NotificationCategoryChoice["inApp"];
-    const email = change.email === undefined ? current.email : (change.email ?? undefined);
-    if (email !== undefined) next.email = email as NotificationCategoryChoice["email"];
-
-    if (next.inApp === undefined && next.email === undefined) delete merged[category];
-    else merged[category] = next;
-  }
-  return merged as NotificationPreferences;
-}
-
 async function readPreferencesBody(
   database: Parameters<typeof readNotificationRetentionDays>[0],
   sessionUserId: string,
@@ -428,7 +400,9 @@ export function registerNotificationPreferencesRoutes(
         readMemberNotificationPreferences(firm.firmDatabase, sessionUserId),
         resolveNotificationPreferencesForMember(firm.firmDatabase, sessionUserId),
       ]);
-      const merged = mergeMemberPreferences(stored, body.categories);
+      // The same merge the firm's own policy patch uses (`firm-notification-policy.ts`) — one notion
+      // of what clearing a channel means, for both tiers.
+      const merged = mergeNotificationPreferences(stored, body.categories);
 
       // What each touched category will actually resolve to once the write lands — computed rather
       // than echoed, because the firm's tier and the mandatory floor both have a say and an audit
