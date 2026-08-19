@@ -169,8 +169,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
     <div class="k "><span>Open questions</span><b>61</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>33</b><em>Nothing is written behind these.</em></div>
-    <div class="k y"><span>Not holding a build</span><b>28</b><em>Mostly built already; some are parked.</em></div>
+    <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
+    <div class="k y"><span>Not holding a build</span><b>29</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:66ch">Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in <code>docs/deploy-queue.md</code>, which is their one home.</p>
@@ -185,7 +185,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">33</span></h2>
+  <h2>Nothing is built behind these <span class="ac">32</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -216,17 +216,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="custodian.retention-destruction" data-name="Retention and destruction dates" data-area="custodian.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>custodian.retention-destruction</code></div>
-      <h3>Retention and destruction dates</h3>
-      <p class="q">Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -555,7 +544,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="changing">
-  <h2>These are not holding a build still <span class="ac">28</span></h2>
+  <h2>These are not holding a build still <span class="ac">29</span></h2>
   <p class="lede">Nobody is waiting on these to start writing something. Most have code behind them already, so an answer changes what is built rather than deciding it; the parked ones are set aside by an earlier decision and an answer is what would bring them back.</p>
   <div class="cards">
     <article class="card" data-node="ai.inference.embedding-pin-window" data-name="Embedding pin held open until the first index" data-area="ai.md">
@@ -619,6 +608,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.</p>
       <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
       <p class="scope">Unnumbered lightweight matters kept out of the main list, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="custodian.retention-destruction" data-name="Retention and destruction dates" data-area="custodian.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip part">Built · no screen yet</span><code>custodian.retention-destruction</code></div>
+      <h3>Retention and destruction dates</h3>
+      <p class="q">Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.</p>
+      <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
+      <p class="scope">Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
