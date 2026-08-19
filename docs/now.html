@@ -433,7 +433,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Rate limiting</span>
 <code>auth.hardening.rate-limiting</code>
 <p>Rate limiting on the API surface via the chokepoint's declared limits.</p>
-<p class="note">Seam built into the chokepoint; a production limiter backend is not verified in the tree.</p>
+<p class="note">Partial because of WHERE the state lives, not because nothing enforces: the limiter is per Workers isolate, so it resets on eviction or redeploy and the effective global ceiling is the bucket limit times the number of live isolates. That is an abuse backstop rather than a limit. A distributed adapter over Durable Objects or KV swaps in behind the same interface with no route or contract change, which is why the signature is sync-or-promise.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Human verification on anonymous endpoints</span>
@@ -466,7 +466,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Access requests and direct grants</span>
 <code>auth.access-control.access-requests</code>
 <p>Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.</p>
-<p class="note">Denial surface shipped; the request-to-grant flow is an explicit seam. The separate support-access framework (support_grant) covers platform staff, not member grants.</p>
+<p class="note">What is missing is the middle: nothing writes a direct_grant row. The table already carries the time box (expires_at, null meaning none) and who granted it, and the resolver already honours expiry in code rather than in SQL, so what a build has to add is the request record and the approver route rather than the model. The separate support-access framework (support_grant) covers platform staff, not member grants.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">404-not-403 boundary</span>
