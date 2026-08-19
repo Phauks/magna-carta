@@ -1,0 +1,14 @@
+-- Seed firm:manageNotificationPolicy onto the default roles. Owner/Admin ONLY, mirroring
+-- firm:manageScanPolicy's own admin-only seed.
+--
+-- The contrast that matters is with notifications:read, seeded in 20260807T020000_notifications-delivery
+-- to every default role INCLUDING Read-only. That key is deliberately universal because reading one's
+-- own feed grants sight of nothing a member could not already reach. The firm's policy is the opposite
+-- shape: the in-app floor decides what every member must go on hearing whatever they switch off, the
+-- retention window decides how long every member's pointers live, and the digest hour decides when the
+-- firm's mail lands. Seeding those onto the member key would let a Read-only seat lower the floor and
+-- shorten retention for the whole firm.
+--
+-- The rolePermission_ handle is minted once and committed as a literal; the role_id is the Owner/Admin
+-- role from the baseline's member-rbac seed.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_notifyPolicyOwnAdmin0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageNotificationPolicy');

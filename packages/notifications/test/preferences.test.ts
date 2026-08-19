@@ -3,6 +3,8 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { UserId } from "@magna-carta/identifiers/types";
 import {
   createNotificationPolicyReader,
+  mergeNotificationPreferences,
+  readFirmNotificationPreferences,
   readMemberNotificationPreferences,
   readTrustComplianceRecipients,
   resolveCategoryPreference,
@@ -13,6 +15,7 @@ import {
   MAX_TRUST_COMPLIANCE_RECIPIENTS,
   NOTIFICATION_PREFERENCES_KEY,
   notificationPreferencesDefinition,
+  type NotificationPreferences,
 } from "../src/preferences.ts";
 import {
   defaultEmailCadenceFor,
@@ -166,6 +169,69 @@ describe("the firm policy floor", () => {
 
   it("lets a firm's cadence stand where the member has expressed none", () => {
     expect(resolveCategoryPreference("jobs", null, { email: "weekly" }).email).toBe("weekly");
+  });
+
+  it("reads back what the firm stored, and only the firm's tier", async () => {
+    // The value the firm's own administration surface merges into. A member's row must never leak
+    // into it, or a firm would be shown one colleague's choices as its policy.
+    const firmDatabase = database();
+    await writeMemberNotificationPreferencesStatement(
+      firmDatabase,
+      MEMBER,
+      { billing: { inApp: "off" } },
+      NOW,
+    ).run();
+    expect(await readFirmNotificationPreferences(firmDatabase)).toEqual({});
+
+    await writeFirmNotificationPreferencesStatement(
+      firmDatabase,
+      { documents: { inApp: "on" } },
+      NOW,
+    ).run();
+    expect(await readFirmNotificationPreferences(firmDatabase)).toEqual({
+      documents: { inApp: "on" },
+    });
+    // And the member's own row is still their own.
+    expect(await readMemberNotificationPreferences(firmDatabase, MEMBER)).toEqual({
+      billing: { inApp: "off" },
+    });
+  });
+});
+
+describe("the sparse merge both tiers patch through", () => {
+  // One merge for the member's PATCH and the firm's, because "clear this channel" must mean the
+  // same thing in both. Three states per channel is the whole content: absent leaves, null clears,
+  // a value sets.
+
+  it("leaves a category the patch does not name", () => {
+    expect(
+      mergeNotificationPreferences(
+        { billing: { inApp: "off" }, documents: { email: "weekly" } },
+        { billing: { email: "daily" } },
+      ),
+    ).toEqual({ billing: { inApp: "off", email: "daily" }, documents: { email: "weekly" } });
+  });
+
+  it("CLEARS a channel set to null, and drops a category left with nothing", () => {
+    expect(
+      mergeNotificationPreferences(
+        { billing: { inApp: "off", email: "daily" } },
+        {
+          billing: { inApp: null },
+        },
+      ),
+    ).toEqual({ billing: { email: "daily" } });
+    // A category with no choices left is absent, not an empty object: "nothing has been expressed
+    // here" has one representation in the row.
+    expect(
+      mergeNotificationPreferences({ billing: { inApp: "off" } }, { billing: { inApp: null } }),
+    ).toEqual({});
+  });
+
+  it("never mutates what it was given", () => {
+    const stored: NotificationPreferences = { billing: { inApp: "off" } };
+    mergeNotificationPreferences(stored, { billing: { inApp: "on" } });
+    expect(stored).toEqual({ billing: { inApp: "off" } });
   });
 });
 

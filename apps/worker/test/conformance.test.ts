@@ -993,6 +993,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.update",
       "files.versions",
       "firm.setReleaseChannel",
+      "firmNotificationPolicy.get",
+      "firmNotificationPolicy.update",
       "firmUsage.get",
       "firms.provision",
       "folders.create",

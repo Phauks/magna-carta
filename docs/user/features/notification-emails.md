@@ -57,13 +57,42 @@ your list inside the app — that is its call, and the list is inside the softwa
 rules apply. It cannot make mail arrive in your inbox, because your inbox may be personal, may be
 somewhere your firm does not administer, and is past the point where the firm's controls reach.
 
-Your firm **can** set a ceiling on how much detail a notification email may carry, and you may always
-choose something more private than that ceiling — never less.
+Your firm may set a **default** cadence for a category, which applies until you choose your own. It
+can only ever be a starting point: whatever you choose stands, including off.
+
+## What your firm controls
+
+Three settings belong to the whole firm rather than to any one person. Only Owner/Admin seats can
+change them, and every change is written to your firm's audit log.
+
+**Which categories everyone hears in app.** Your firm can turn a category on for everybody, and then
+nobody can switch it off for themselves — the switch shows as locked, and says the firm locked it.
+This works one way only. Your firm can insist that something reaches people; it cannot stop somebody
+hearing about their own work, so a category your firm has left off is a starting point you can raise
+rather than a limit you cannot.
+
+Two categories — **security** and **trust** — are always on in the app whatever anybody sets, firm
+included. They are the ones the software treats the way it treats the audit log.
+
+**How long notifications are kept.** Anywhere from thirty days to a year; ninety days unless your
+firm changes it. Shortening the window is not losing the record: the matter timeline and the audit
+log keep their own history and are untouched by this. What it decides is how far back somebody
+returning from leave can scroll — which is why the software will not accept anything under thirty
+days, and will not accept five years either. A request outside the range is refused rather than
+quietly adjusted, so you always know what you got.
+
+If items were cleared away while you had not read them, your unread count tells you so rather than
+showing a zero — "there is nothing you missed" is not a claim the software is in a position to make
+about somebody who was away.
+
+**What time the summaries go out** — see below.
 
 ## When it arrives
 
-In your firm's own morning, not at some hour set by a clock on the other side of the world. The time
-is set once for the whole firm and defaults to 7am, read from your firm's main office.
+In your firm's own morning, not at some hour set by a clock on the other side of the world. The hour
+is set once for the whole firm and starts at 7am; an Owner/Admin can move it to any hour of the day.
+The time zone is your firm's main office, so it follows the office rather than needing to be kept in
+step with it by hand.
 
 A weekly summary arrives on Monday morning.
 

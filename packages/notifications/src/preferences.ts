@@ -120,6 +120,40 @@ export function writeFirmNotificationPreferencesStatement(
   );
 }
 
+// One tier's stored patch, applied to another sparse patch of the same shape. Three states per
+// channel, and the middle one is why a plain spread will not do: absent means leave what is there,
+// null means CLEAR the choice at this tier so the next one down applies, a value means set it. A
+// category left with no choices at all is dropped rather than stored as an empty object, so "this
+// tier has expressed nothing here" has one representation in the row.
+//
+// Shared by both tiers on purpose. The member's PATCH and the firm's PATCH merge identically — what
+// differs is only which scope row the result is written to, and which direction the two tiers then
+// compose in at resolution (`resolveCategoryPreference`). Two copies of this would be two subtly
+// different notions of what clearing a preference means.
+export function mergeNotificationPreferences(
+  stored: NotificationPreferences,
+  patch: Partial<
+    Record<NotificationCategory, { inApp?: string | null; email?: string | null } | undefined>
+  >,
+): NotificationPreferences {
+  const merged: Record<string, NotificationCategoryChoice> = {
+    ...(stored as Record<string, NotificationCategoryChoice>),
+  };
+  for (const [category, change] of Object.entries(patch)) {
+    if (change === undefined) continue;
+    const current = merged[category] ?? {};
+    const next: NotificationCategoryChoice = {};
+    const inApp = change.inApp === undefined ? current.inApp : (change.inApp ?? undefined);
+    if (inApp !== undefined) next.inApp = inApp as NotificationCategoryChoice["inApp"];
+    const email = change.email === undefined ? current.email : (change.email ?? undefined);
+    if (email !== undefined) next.email = email as NotificationCategoryChoice["email"];
+
+    if (next.inApp === undefined && next.email === undefined) delete merged[category];
+    else merged[category] = next;
+  }
+  return merged as NotificationPreferences;
+}
+
 // What actually applies to one member for one category, and — just as important — WHY. A surface
 // that could only report the effective value would have to render a switch that silently refuses to
 // move; `inAppLockedBy` is what lets it render a locked switch that says who locked it.
@@ -315,6 +349,17 @@ export async function readMemberNotificationPreferences(
 ): Promise<NotificationPreferences> {
   const rows = await readPreferenceRows(database, [userId]);
   return rows.byUser.get(userId) ?? {};
+}
+
+// What the FIRM stored, unresolved — the value the firm's own PATCH merges into, and the only tier
+// an administration surface may show as "what this firm has decided". Read separately from any
+// member's resolution for the same reason the member read is: a patch must not persist another
+// tier's value, or the platform's recommendation, as though the firm had chosen it.
+export async function readFirmNotificationPreferences(
+  database: SqlDatabase,
+): Promise<NotificationPreferences> {
+  const rows = await readPreferenceRows(database, []);
+  return rows.firm ?? {};
 }
 
 export async function readTrustComplianceRecipients(

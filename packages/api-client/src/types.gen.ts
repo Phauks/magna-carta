@@ -5391,6 +5391,69 @@ export type PutTrustComplianceRecipientsRequest = {
     recipientUserIds: Array<string>;
 };
 
+export type FirmNotificationPolicyResponse = {
+    categories: Array<FirmNotificationCategoryPolicy>;
+    retentionDays: number;
+    digestLocalHour: number;
+};
+
+export type FirmNotificationCategoryPolicy = {
+    category: 'deadlines' | 'calendar' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
+    inApp: 'on' | 'off' | null;
+    email: 'off' | 'daily' | 'weekly' | null;
+};
+
+export type PatchFirmNotificationPolicyRequest = {
+    categories?: {
+        deadlines?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        calendar?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        trust?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        billing?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        documents?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        custody?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        email?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        conflicts?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        jobs?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        security?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+        system?: {
+            inApp?: 'on' | 'off' | null;
+            email?: 'off' | 'daily' | 'weekly' | null;
+        };
+    };
+    retentionDays?: number;
+    digestLocalHour?: number;
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -26012,6 +26075,95 @@ export type NotificationPreferencesSetTrustComplianceRecipientsResponses = {
 };
 
 export type NotificationPreferencesSetTrustComplianceRecipientsResponse = NotificationPreferencesSetTrustComplianceRecipientsResponses[keyof NotificationPreferencesSetTrustComplianceRecipientsResponses];
+
+export type FirmNotificationPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/notifications/policy';
+};
+
+export type FirmNotificationPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageNotificationPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmNotificationPolicyGetError = FirmNotificationPolicyGetErrors[keyof FirmNotificationPolicyGetErrors];
+
+export type FirmNotificationPolicyGetResponses = {
+    /**
+     * The firm's notification policy
+     */
+    200: FirmNotificationPolicyResponse;
+};
+
+export type FirmNotificationPolicyGetResponse = FirmNotificationPolicyGetResponses[keyof FirmNotificationPolicyGetResponses];
+
+export type FirmNotificationPolicyUpdateData = {
+    body: PatchFirmNotificationPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/notifications/policy';
+};
+
+export type FirmNotificationPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageNotificationPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmNotificationPolicyUpdateError = FirmNotificationPolicyUpdateErrors[keyof FirmNotificationPolicyUpdateErrors];
+
+export type FirmNotificationPolicyUpdateResponses = {
+    /**
+     * The firm's notification policy after the write
+     */
+    200: FirmNotificationPolicyResponse;
+};
+
+export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

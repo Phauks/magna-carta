@@ -57,8 +57,8 @@ that is the fastest route to two subtly different notions of what a notification
 - `src/settings.ts` — the firm retention window, and the email detail level as a member's choice
   under a firm's ceiling
 - `src/preferences.ts` — **who hears what**: the per-category matrix, the two tiers composing in
-  opposite directions, the firm's trust-compliance designation, and the per-pass policy reader every
-  fan-out constructs once
+  opposite directions, the sparse merge BOTH tiers patch through, the firm's trust-compliance
+  designation, and the per-pass policy reader every fan-out constructs once
 - `src/suppression-statements.ts` — the tally that makes a silenced notification a counted fact
   rather than an absence
 - `src/emission-points.ts` — the emission points with no producing-package constant, and the written
@@ -277,6 +277,20 @@ is not enforced.
 - **`matter-number` is a declared and unbuilt email detail level.** It is in the vocabulary so a
   firm's stored ceiling is not silently rewritten when the level ships; the renderer treats it as
   `counts-only`.
+- **THE EMAIL DETAIL LEVEL HAS A RESOLVER AND NO WRITER, IN EITHER TIER.** `resolveEmailDetailLevel`
+  composes a firm ceiling with a member's choice and the digest pass calls it every run, but nothing
+  in this package writes `notifications.emailDetailLevel` at either scope and no route reaches it — so
+  every firm resolves the `counts-only` default forever. That is the same shape the firm's in-app
+  floor was in until `apps/worker/src/routes/firm-notification-policy.ts` shipped, and it is invisible
+  to `pnpm run lint:unwired-writes` for the reason that gate states out loud: there is no write
+  function to find a caller for. **Build both tiers together or neither.** A firm ceiling alone lets a
+  firm raise what its members' mail carries with no member lever to lower it, which inverts the one
+  asymmetry this subsystem is built on — by email the member's choice wins.
+- **A setting that binds anybody but the actor does not go on the member route.** The two preference
+  surfaces split on that line: `notifications:read` (every default role, including Read-only) for a
+  member's own switches, `firm:manageNotificationPolicy` (Owner/Admin) for the floor, the retention
+  window and the digest hour. Adding a firm-tier setting to the member route would hand every seat in
+  every firm a lever over its colleagues.
 - **Outbound mail is an UNPROVISIONED SEAM, and the digest resolves its own port rather than reusing
   the worker's shared `emailAdapterForEnv`.** That resolver falls back to the dev logging adapter
   when the Email Service binding is absent — right for a password reset, catastrophic here: a

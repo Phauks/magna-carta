@@ -566,7 +566,21 @@ its own truncation learns that it truncated and can never learn by how much.
 **Left to the owner, not shipped:** whether 200 findings per kind per pass is the right ceiling. It is
 counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it
 changes how much of a firm's overdue work gets reported — a firm-observable change and a load question,
-recorded on the `notifications.scheduling` ledger node. |
+recorded on the `notifications.scheduling` ledger node.
+
+**Slice 3 gap closed — the firm's half of the settings had no writer.** A mechanical scan for exported
+write-shaped functions with no production caller found three of them in this package, all in one
+subsystem: the FIRM tier of the preference matrix (the in-app floor a member may not lower), the
+retention window, and the digest local hour. Every one is read at evaluation time — the floor by the
+shared recipient resolver on every fan-out, the window by the nightly sweep, the hour by the hourly
+digest pass — and no route wrote any of them, so the floor could not be raised, the window could not
+be changed and the summary landed at 07:00 for every firm on earth. The member API shipped; the firm
+API did not, and the tests that covered the floor inserted the row themselves, which is why nothing
+failed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new
+`firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key
+`notifications:read`, which every default role including Read-only carries. Still not written by
+anything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a
+separate gap rather than an omission here. |
 | Directory pronouns | [-] | [-] | [-] | [x] Opus 5\* | [ ] | [-] | [ ] | Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred. |
 | Matter document surface | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [ ] | The matter's Files page on real rows: list, add from a file, build from a template, save a new version, read the version history. The editing-session launch is real; the Collabora editor itself needs the deployed `magna-carta-edit` container. |
 | Community 1 — public changelog | [-] | [x] Opus 4.8 | [-] | [x] Opus 5\* | [ ] | [-] | [x] Opus 5\* | The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen. |
