@@ -2,11 +2,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACCESS_SCOPED_BUILDERS } from "../src/coding-statements.ts";
+import { ACCESS_SCOPED_REVIEW_READS } from "../src/review-reads.ts";
 import {
   REVIEW_SET_ACCESS_MARKER,
   reviewSetAccessPredicate,
 } from "../src/review-set-visibility.ts";
 import { migratedDatabase, REVIEWER } from "./support.ts";
+
+// The two registries the sweep covers, and the source file each is kept honest against. Coding writes
+// and the member-facing reads are separate modules with separate registries — one sweep over both, so
+// a read added to either is held to the same wall.
+const REGISTERED = [
+  { source: "coding-statements.ts", builders: ACCESS_SCOPED_BUILDERS },
+  { source: "review-reads.ts", builders: ACCESS_SCOPED_REVIEW_READS },
+] as const;
 
 // THE STRUCTURAL PROOF that the review-set access list is a wall rather than a hint.
 //
@@ -20,12 +29,22 @@ interface InspectableStatement {
   readonly bindings: readonly unknown[];
 }
 
-function statementFor(builder: (typeof ACCESS_SCOPED_BUILDERS)[number]): InspectableStatement {
+interface RegisteredBuilder {
+  readonly key: string;
+  readonly pages: boolean;
+  readonly build: (
+    database: Parameters<(typeof ACCESS_SCOPED_BUILDERS)[number]["build"]>[0],
+    access: ReturnType<typeof reviewSetAccessPredicate>,
+  ) => unknown;
+}
+
+const ALL_BUILDERS: readonly RegisteredBuilder[] = REGISTERED.flatMap(
+  (registry) => registry.builders as readonly RegisteredBuilder[],
+);
+
+function statementFor(builder: RegisteredBuilder): InspectableStatement {
   const { database } = migratedDatabase();
-  return builder.build(
-    database,
-    reviewSetAccessPredicate(REVIEWER),
-  ) as unknown as InspectableStatement;
+  return builder.build(database, reviewSetAccessPredicate(REVIEWER)) as InspectableStatement;
 }
 
 describe("every access-scoped builder composes the predicate in SQL", () => {
@@ -33,11 +52,12 @@ describe("every access-scoped builder composes the predicate in SQL", () => {
     // Without this, an empty registry would make every assertion below pass trivially — which is
     // precisely the failure mode of a wall nobody is standing behind.
     expect(ACCESS_SCOPED_BUILDERS.length).toBeGreaterThan(15);
-    const keys = ACCESS_SCOPED_BUILDERS.map((builder) => builder.key);
+    expect(ACCESS_SCOPED_REVIEW_READS.length).toBeGreaterThan(5);
+    const keys = ALL_BUILDERS.map((builder) => builder.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  for (const builder of ACCESS_SCOPED_BUILDERS) {
+  for (const builder of ALL_BUILDERS) {
     it(`${builder.key} carries the predicate marker`, () => {
       const statement = statementFor(builder);
       // Composed at all: a builder that skips it reads another firm's corpus for anyone holding the
@@ -111,27 +131,27 @@ describe("the predicate excludes a corpus the member is not on the list for", ()
 // the source for exported statement builders that take the predicate and asserts each one is
 // registered — without it, the sweep above proves things about whatever happens to be on the list.
 describe("the registry names every access-taking builder in the source", () => {
-  it("every exported statement builder that takes the predicate is registered", () => {
-    const source = readFileSync(
-      join(import.meta.dirname, "..", "src", "coding-statements.ts"),
-      "utf8",
-    );
-    // Function declarations whose parameter list mentions the predicate type.
-    const declared = new Set<string>();
-    const pattern = /export function (\w*Statement)\(([\s\S]*?)\n\)/g;
-    for (const match of source.matchAll(pattern)) {
-      const [, name, parameters] = match;
-      if (name !== undefined && parameters?.includes("ReviewSetAccessPredicate") === true) {
-        declared.add(name);
+  for (const registry of REGISTERED) {
+    it(`every exported statement builder in ${registry.source} is registered`, () => {
+      const source = readFileSync(join(import.meta.dirname, "..", "src", registry.source), "utf8");
+      // Function declarations whose parameter list mentions the predicate type.
+      const declared = new Set<string>();
+      const pattern = /export function (\w*Statement)\(([\s\S]*?)\n\)/g;
+      for (const match of source.matchAll(pattern)) {
+        const [, name, parameters] = match;
+        if (name !== undefined && parameters?.includes("ReviewSetAccessPredicate") === true) {
+          declared.add(name);
+        }
       }
-    }
-    expect(declared.size, "found no access-taking builders to check").toBeGreaterThan(15);
+      expect(declared.size, "found no access-taking builders to check").toBeGreaterThan(4);
 
-    const registered = new Set(ACCESS_SCOPED_BUILDERS.map((builder) => `${builder.key}Statement`));
-    for (const name of declared) {
-      expect(registered.has(name), `${name} takes the access predicate but is not registered`).toBe(
-        true,
-      );
-    }
-  });
+      const registered = new Set(registry.builders.map((builder) => `${builder.key}Statement`));
+      for (const name of declared) {
+        expect(
+          registered.has(name),
+          `${name} takes the access predicate but is not registered`,
+        ).toBe(true);
+      }
+    });
+  }
 });

@@ -10,12 +10,7 @@ import {
   type IndexSplitMemberRow,
   type IndexSplitRow,
 } from "@magna-carta/data-access/index-split-statements";
-import type {
-  FirmId,
-  IndexSplitId,
-  MatterId,
-  ReviewSetId,
-} from "@magna-carta/identifiers/types";
+import type { FirmId, IndexSplitId, MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter, corpusOfReviewSet, type CorpusScope } from "@magna-carta/search/corpus";
 import type { SearchIndexPort, SplitQueryTarget } from "@magna-carta/search/port";
 import {

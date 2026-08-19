@@ -41,3 +41,24 @@ ALTER TABLE `review_document` ADD `index_deferred_reason` text;--> statement-bre
 -- "What is this corpus still owed by the index" as one indexed read over the review set, rather than an
 -- anti-join between a quarter-million review documents and the split catalog.
 CREATE INDEX `review_document_index_state_index` ON `review_document` (`review_set_id`,`index_state`);
+--> statement-breakpoint
+-- The review-document LIST page, which is the read the whole review surface pages through.
+--
+-- It is ordered newest-document-first and keyset-paged on (sort_date, id), and every filter a reviewer
+-- actually uses narrows it. An index that stops at the filter column would satisfy the WHERE and leave
+-- the ORDER BY to a temporary b-tree over a quarter-million rows on every page — which is the shape
+-- that looks fast on a demo corpus and falls over on a real production. So each filtered form of the
+-- read gets the sort columns on the end of its own index.
+--
+-- The narrower (review_set_id, record_custodian_id) and (review_set_id, processing_state) indexes stay:
+-- they are prefixes of these and now redundant, and dropping one is a rebuild of a table firms have
+-- already provisioned.
+CREATE INDEX `review_document_review_set_page_index` ON `review_document` (`review_set_id`,`sort_date`,`id`,`processing_state`);--> statement-breakpoint
+CREATE INDEX `review_document_custodian_page_index` ON `review_document` (`review_set_id`,`record_custodian_id`,`sort_date`,`id`);--> statement-breakpoint
+CREATE INDEX `review_document_load_page_index` ON `review_document` (`review_set_id`,`discovery_load_id`,`sort_date`,`id`);--> statement-breakpoint
+CREATE INDEX `review_document_state_page_index` ON `review_document` (`review_set_id`,`processing_state`,`sort_date`,`id`);--> statement-breakpoint
+-- The exception REPORT read: one review set's exceptions, keyset-paged on the (document, exception)
+-- pair. The shipped (review_set_id, code) index serves the counts-by-code group-by; this serves the
+-- walk, which the report and the live read both make and which pages by the pair because several
+-- reasons on one document is normal.
+CREATE INDEX `review_document_exception_review_set_page_index` ON `review_document_exception` (`review_set_id`,`review_document_id`,`id`);

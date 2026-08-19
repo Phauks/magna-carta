@@ -379,11 +379,7 @@ export async function indexOne(
       database,
       {
         statements: [
-          markReviewDocumentIndexedStatement(
-            database,
-            documentId as ReviewDocumentId,
-            publishedAt,
-          ),
+          markReviewDocumentIndexedStatement(database, documentId as ReviewDocumentId, publishedAt),
         ],
         outboxMessages: [],
       },

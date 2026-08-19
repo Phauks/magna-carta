@@ -1,4 +1,9 @@
-import type { FileId, MatterId, ReviewDocumentId, ReviewSetId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  MatterId,
+  ReviewDocumentId,
+  ReviewSetId,
+} from "@magna-carta/identifiers/types";
 
 // The CORPUS is what a search index is partitioned by: the bounded set of documents one query runs
 // over, one split belongs to, and one wholesale deletion can remove. Every scope-bearing operation in

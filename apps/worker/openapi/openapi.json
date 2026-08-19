@@ -14443,6 +14443,374 @@
           "splitFamilyIds"
         ]
       },
+      "ReviewDocumentPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDocument"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ReviewDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "recordCustodianId": {
+            "type": "string"
+          },
+          "discoveryLoadId": {
+            "type": "string"
+          },
+          "familyId": {
+            "type": "string"
+          },
+          "familyRole": {
+            "type": "string",
+            "enum": [
+              "standalone",
+              "parent",
+              "attachment",
+              "container-child"
+            ]
+          },
+          "familySequence": {
+            "type": "number"
+          },
+          "sourceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourcePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "formatIdentified": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortDateSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processingState": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "processed",
+              "excepted"
+            ]
+          },
+          "processingDeferredReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexState": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "indexed",
+              "deferred",
+              "failed",
+              null
+            ]
+          },
+          "isDedupPrimary": {
+            "type": "boolean"
+          },
+          "extractionRoute": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pagesRecognized": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "recordCustodianId",
+          "discoveryLoadId",
+          "familyId",
+          "familyRole",
+          "familySequence",
+          "sourceName",
+          "sourcePath",
+          "sizeBytes",
+          "pageCount",
+          "formatIdentified",
+          "sortDate",
+          "sortDateSource",
+          "processingState",
+          "processingDeferredReason",
+          "indexState",
+          "isDedupPrimary",
+          "extractionRoute",
+          "pagesRecognized",
+          "createdAt"
+        ]
+      },
+      "ReviewSetExceptionPage": {
+        "type": "object",
+        "properties": {
+          "countsByCode": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "unsupported-format",
+                    "corrupt",
+                    "encrypted",
+                    "password-protected",
+                    "encrypted-container-entry",
+                    "container-not-expanded",
+                    "container-guard-tripped",
+                    "oversize",
+                    "extraction-timeout",
+                    "no-text-extracted",
+                    "malware-flagged",
+                    "conversion-failed",
+                    "recognition-failed",
+                    "load-file-metadata-mismatch",
+                    "source-bytes-missing"
+                  ]
+                },
+                "documentCount": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "code",
+                "documentCount"
+              ]
+            }
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDocumentException"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "countsByCode",
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ReviewDocumentException": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewDocumentId": {
+            "type": "string"
+          },
+          "discoveryLoadId": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "load",
+              "identify",
+              "extract",
+              "deduplicate",
+              "family",
+              "index"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "unsupported-format",
+              "corrupt",
+              "encrypted",
+              "password-protected",
+              "encrypted-container-entry",
+              "container-not-expanded",
+              "container-guard-tripped",
+              "oversize",
+              "extraction-timeout",
+              "no-text-extracted",
+              "malware-flagged",
+              "conversion-failed",
+              "recognition-failed",
+              "load-file-metadata-mismatch",
+              "source-bytes-missing"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordCustodianId": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processingState": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "processed",
+              "excepted"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reviewDocumentId",
+          "discoveryLoadId",
+          "stage",
+          "code",
+          "detail",
+          "recordCustodianId",
+          "sourceName",
+          "processingState",
+          "createdAt"
+        ]
+      },
+      "ReviewDocumentOccurrenceList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDocumentOccurrence"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ReviewDocumentOccurrence": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "primaryReviewDocumentId": {
+            "type": "string"
+          },
+          "duplicateReviewDocumentId": {
+            "type": "string"
+          },
+          "recordCustodianId": {
+            "type": "string"
+          },
+          "discoveryLoadId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "primaryReviewDocumentId",
+          "duplicateReviewDocumentId",
+          "recordCustodianId",
+          "discoveryLoadId",
+          "createdAt"
+        ]
+      },
+      "ReviewSetIndexStatus": {
+        "type": "object",
+        "properties": {
+          "indexed": {
+            "type": "number"
+          },
+          "deferred": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number"
+          },
+          "unattempted": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "indexed",
+          "deferred",
+          "failed",
+          "unattempted"
+        ]
+      },
       "ReviewSetList": {
         "type": "object",
         "properties": {
@@ -53699,6 +54067,497 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/documents": {
+      "get": {
+        "description": "One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, and by the reason it did not get further. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.",
+        "operationId": "discovery.listReviewDocuments",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listReviewDocuments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "How many documents to return, at most 200."
+            },
+            "required": false,
+            "description": "How many documents to return, at most 200.",
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^recordCustodian_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "recordCustodianId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^discoveryLoad_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "discoveryLoadId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "familyId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "processed",
+                "excepted"
+              ]
+            },
+            "required": false,
+            "name": "processingState",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unsupported-format",
+                "corrupt",
+                "encrypted",
+                "password-protected",
+                "encrypted-container-entry",
+                "container-not-expanded",
+                "container-guard-tripped",
+                "oversize",
+                "extraction-timeout",
+                "no-text-extracted",
+                "malware-flagged",
+                "conversion-failed",
+                "recognition-failed",
+                "load-file-metadata-mismatch",
+                "source-bytes-missing"
+              ]
+            },
+            "required": false,
+            "name": "exceptionCode",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the review set's documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDocumentPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/exceptions": {
+      "get": {
+        "description": "Every document in this review set that could not be read, with the reason for each and the Custodian of Record it came from — the live view of what a production's exception report will say. The counts by reason come first because that is the shape of the answer: how many documents are encrypted, how many are damaged, how many yielded no text at all. One document may carry several reasons and is counted once in each, and the page walks the document-and-reason pair so a reason is never dropped at a page boundary.",
+        "operationId": "discovery.listReviewSetExceptions",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listReviewSetExceptions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "How many documents to return, at most 200."
+            },
+            "required": false,
+            "description": "How many documents to return, at most 200.",
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reasons, counted and then listed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSetExceptionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/occurrences": {
+      "get": {
+        "description": "Every other copy of this document that the review set holds, each with the Custodian of Record who held it and the load it arrived on. Deduplication decides which copy a reviewer opens; it never decides who held one, so a suppressed copy keeps its own row and stays reachable from here. This is the read behind 'which custodians held this document', which is a question asked under oath.",
+        "operationId": "discovery.listReviewDocumentOccurrences",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listReviewDocumentOccurrences",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewDocumentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document's other copies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDocumentOccurrenceList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/index-status": {
+      "get": {
+        "description": "How much of this review set is searchable. A document that has been read but not yet indexed is not an exception and never appears on a production's exception report — it is work the platform still owes, and it is counted here so the firm can see it rather than having to infer it. Only documents that were successfully read can be indexed at all, so the four counts are over those.",
+        "operationId": "discovery.getReviewSetIndexStatus",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getReviewSetIndexStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the review set owes the index",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSetIndexStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
             "content": {
               "application/problem+json": {
                 "schema": {

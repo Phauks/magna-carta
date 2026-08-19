@@ -7440,6 +7440,35 @@ export const reviewDocument = sqliteTable(
       table.recordCustodianId,
     ),
     index("review_document_review_set_state_index").on(table.reviewSetId, table.processingState),
+    // THE LIST PAGE, and its three filtered forms. The read is ordered newest-document-first and
+    // keyset-paged on (sort_date, id); an index that stopped at the filter column would satisfy the
+    // WHERE and leave the ORDER BY to a temporary b-tree over a quarter-million rows on every page.
+    // The four narrower indexes above are prefixes of these and now redundant; they stay because
+    // dropping one is a rebuild of a table firms have already provisioned.
+    index("review_document_review_set_page_index").on(
+      table.reviewSetId,
+      table.sortDate,
+      table.id,
+      table.processingState,
+    ),
+    index("review_document_custodian_page_index").on(
+      table.reviewSetId,
+      table.recordCustodianId,
+      table.sortDate,
+      table.id,
+    ),
+    index("review_document_load_page_index").on(
+      table.reviewSetId,
+      table.discoveryLoadId,
+      table.sortDate,
+      table.id,
+    ),
+    index("review_document_state_page_index").on(
+      table.reviewSetId,
+      table.processingState,
+      table.sortDate,
+      table.id,
+    ),
     // The dispatch walk: one load's still-unprocessed documents, keyset-paged by id. Leading with the
     // LOAD rather than the review set, which is the one discovery read whose scope is the load — at
     // the ceiling a load is the whole review set, so a review-set-led index narrows nothing and the
@@ -7543,6 +7572,14 @@ export const reviewDocumentException = sqliteTable(
     // The exception report's own walk: one load's exceptions in document order, so the report can be
     // merged against the manifest's document walk in one pass rather than read per document.
     index("review_document_exception_load_index").on(table.discoveryLoadId, table.reviewDocumentId),
+    // The whole review set's exceptions, keyset-paged on the (document, exception) PAIR. Several
+    // reasons on one document is normal, so a page boundary can fall inside one document and resuming
+    // from the document alone would drop the reasons after it.
+    index("review_document_exception_review_set_page_index").on(
+      table.reviewSetId,
+      table.reviewDocumentId,
+      table.id,
+    ),
     check(
       "review_document_exception_stage_check",
       sql`${table.stage} IN ('load', 'identify', 'extract', 'deduplicate', 'family', 'index')`,
