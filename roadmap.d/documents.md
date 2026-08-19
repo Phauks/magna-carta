@@ -389,7 +389,7 @@
   slices: 2-4-in-app-conversion
   adrs: ADR-0030, ADR-0116
   spec: docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md
-  evidence: packages/conversion + apps/convert-worker (with the per-engine dispatch seam) + apps/worker/src/conversions + containers/raster on main; the office, AV, and email engine bodies are still unbuilt and production stays dormant until the deploy activation.
+  evidence: packages/conversion + apps/convert-worker (with the per-engine dispatch seam) + apps/worker/src/conversions on main, over two built engine bodies — containers/raster and containers/libreoffice, the latter a warm pool of office-suite child processes with no outbound network, dispatched through LibreOfficeEngineContainer. Of the six engine ids in packages/conversion/src/format.ts, two are reachable — libvips through registerEngine in its own adapter, libreoffice through the worker's container dispatch — while the registry's email, ffmpeg and image-pdf edges have no body behind them at all and ocr's routes through the separate recognition lane. Production stays dormant until the deploy activation.
 
 - id: documents.conversion.registry
   name: Format registry & pathfinding
@@ -437,8 +437,8 @@
   status: planned
   adrs: ADR-0204
   spec: docs/specs/2026-08-04-libreoffice-conversion-engine-design.md
-  evidence: ADR-0204 settles the engine design (network-isolated Container, supervisor over a pool of long-lived single-threaded LibreOfficeKit workers, pure-Rust libreofficekit binding); no office-conversion container in containers/ yet.
-  notes: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite; the build phase is next.
+  evidence: The build phase this node said was next has happened and the status has not caught up. containers/libreoffice is on main — a Rust HTTP service with a supervisor over a pool of long-lived office-suite child processes (pool.rs, resident.rs, service.rs, dispatch.rs, package.rs), a Dockerfile, and an honest readiness probe that answers 503 until a worker has finished suite initialisation. apps/convert-worker/src/libreoffice-engine-container.ts binds it with no outbound network and a fifteen-minute sleep, longer than the raster engine's five because the suite spends twenty to thirty seconds initialising. The registered office edges are docx and odt to PDF, docx and wpd to OpenDocument, and doc to docx.
+  notes: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only.
 
 - id: documents.conversion.av-transcode
   name: Audio/video transcodes
@@ -465,7 +465,7 @@
   surface: internal
   adrs: ADR-0116
   evidence: apps/worker/src/conversions/conversion-coordinator.ts is the per-job ConversionJob Durable Object (start, markRunning, markDone, markFailed, status, alarm) fed by the CONVERSION queue consumer; apps/convert-worker dispatches the hop per engine id.
-  notes: Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone.
+  notes: Single-file jobs only — per-item batch progress and completion notification are not built. Container spin-up and sleep now cover both engine containers rather than raster alone: raster sleeps after five minutes on a roughly one-second boot, and the office container after fifteen, because its suite spends twenty to thirty seconds initialising and scaling to zero too eagerly turns a cheap idle into a user-visible stall.
 
 - id: documents.conversion.output-placement
   name: Output placement

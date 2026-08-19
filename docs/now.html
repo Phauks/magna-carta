@@ -1981,7 +1981,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Office document conversion</span>
 <code>documents.conversion.office</code>
 <p>Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).</p>
-<p class="note">The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite; the build phase is next.</p>
+<p class="note">The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only.</p>
 </li><li class="n d2" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Audio/video transcodes</span>
@@ -2002,7 +2002,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Background job orchestration</span>
 <code>documents.conversion.background-jobs</code>
 <p>Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions.</p>
-<p class="note">Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone.</p>
+<p class="note">Single-file jobs only — per-item batch progress and completion notification are not built. Container spin-up and sleep now cover both engine containers rather than raster alone: raster sleeps after five minutes on a roughly one-second boot, and the office container after fifteen, because its suite spends twenty to thirty seconds initialising and scaling to zero too eagerly turns a cheap idle into a user-visible stall.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Output placement</span>
