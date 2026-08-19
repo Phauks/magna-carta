@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-16 (the notification digest is built and dormant — three values in a fixed order, and an hourly Cron trigger that rides the deploy; the CI outage remains the entry immediately below and still gates every merge, not only every deploy)._
+_Last updated: 2026-08-19 (the template staging lifecycle rule is now the ONLY thing that would reclaim anything under `templates/` — the daily sweep beside it measures the leak and deliberately deletes nothing, pending an owner decision on the ledger's `document-automation.template-storage-reclamation` node. The notification digest is still built and dormant: three values in a fixed order and an hourly Cron trigger that rides the deploy. The CI outage remains the entry immediately below and still gates every merge, not only every deploy)._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
