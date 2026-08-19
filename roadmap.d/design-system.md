@@ -60,7 +60,7 @@
   scope: In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose.
   status: shipped
   adrs: ADR-0076
-  evidence: packages/design-system/src/lib/components (~40 components across four tiers plus DataTable, Sidebar, Resizable, brand components)
+  evidence: packages/design-system/src/lib/components holds fifty-two component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
   notes: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.
 
 - id: design-system.components.storybook-catalog
@@ -76,7 +76,7 @@
   scope: Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   status: shipped
   surface: internal
-  evidence: @lucide/svelte dependency; no-emoji fitness gate (fifth off-token scanner)
+  evidence: the @lucide/svelte dependency, plus the emoji scanner — rule 5 of the five in packages/design-system/test/fitness/off-token.test.ts, over the emoji supplementary planes and Miscellaneous Symbols, marked repo-wide so it sweeps every app's and package's UI source rather than this package's
 
 - id: design-system.enforcement
   name: Machine enforcement
@@ -88,7 +88,7 @@
   scope: Fitness gates rejecting arbitrary values, raw colors, raw z/duration numerals, bits-ui boundary violations, non-token CSS.
   status: shipped
   surface: internal
-  evidence: packages/design-system fitness gates (mutation-verified, zero allowances)
+  evidence: packages/design-system/test/fitness/ — off-token.test.ts (five scanners over arbitrary values, raw colors, raw z and duration numerals, non-token CSS, and emojis, each with a crafted-violation self-check and a vacuity guard on the file set) and boundaries.test.ts for the bits-ui import boundary. Mutation-verified, zero allowances.
 
 - id: design-system.enforcement.visual-regression
   name: Visual regression testing
@@ -134,8 +134,8 @@
   scope: Keyboard-first and WCAG; axe checks enforced in stories; screen-reader passes per tier.
   status: partial
   surface: internal
-  evidence: Storybook axe failures enforced
-  notes: Per-tier NVDA passes pending per STATUS close-out list.
+  evidence: packages/design-system/vitest.storybook.config.ts runs every story as a component test in headless Chromium with addon-a11y axe checks failing the run, so an accessibility regression is a test failure rather than a review note.
+  notes: Per-tier NVDA passes pending per STATUS close-out list. The high-contrast axis is a working preference that only the checkbox and the switch answer, and its token context is deliberately unpopulated — see settings.area-ui.personal-preferences.
 
 - id: design-system.fixtures-density
   name: Real-density UI data
@@ -151,4 +151,4 @@
   name: Domain-grounded microcopy
   scope: Microcopy drawn from a canonical legal-domain glossary shared with user documentation.
   status: not-started
-  evidence: no glossary artifact under docs/user/
+  evidence: A shared glossary does exist, in the "Canonical terminology" table of docs/conventions/documentation-style.md — twelve use/avoid pairs binding all docs. It is not what this node describes: it governs prose rather than interface strings, nothing checks a component's copy against it, and the user documentation and the UI share no vocabulary source.

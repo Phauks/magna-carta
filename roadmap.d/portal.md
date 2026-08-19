@@ -59,7 +59,7 @@
   name: Secure messaging
   scope: Comment/message capability threaded on the matter record.
   status: not-started
-  evidence: Matter detail skeleton reserves a portal-messages section (apps/web/src/lib/matters/sections.ts); no messaging code.
+  evidence: The matter section registry reserves a "messaging" slug at stage soon, described as portal messages kept on the matter record (apps/web/src/lib/matters/sections.ts); no messaging code and no route behind it.
 
 - id: portal.capabilities.esign
   name: Portal e-signature

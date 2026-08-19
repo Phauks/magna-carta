@@ -95,8 +95,8 @@
   status: partial
   surface: internal
   slices: 0-5a-api-contract-foundation
-  evidence: async-capable rate-limiter seam in apps/worker/src/contracts
-  notes: Seam built into the chokepoint; a production limiter backend is not verified in the tree.
+  evidence: apps/worker/src/chokepoint/rate-limiter.ts holds four named buckets as data (default, auth, expensive, incident-report) and an in-memory sliding-window log behind an async-capable RateLimiter interface; every route declares its bucket as meta.rateLimit in apps/worker/src/contracts/route-meta.ts and the chokepoint checks it before the handler, publishing limit and remaining on every verdict so a client can warn before it is refused.
+  notes: Partial because of WHERE the state lives, not because nothing enforces: the limiter is per Workers isolate, so it resets on eviction or redeploy and the effective global ceiling is the bucket limit times the number of live isolates. That is an abuse backstop rather than a limit. A distributed adapter over Durable Objects or KV swaps in behind the same interface with no route or contract change, which is why the signature is sync-or-promise.
 
 - id: auth.hardening.human-verification
   name: Human verification on anonymous endpoints
@@ -139,8 +139,8 @@
   scope: Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.
   status: partial
   surface: awaiting-screen
-  evidence: apps/worker/src/chokepoint/chokepoint.ts (403 + requestAccess flag)
-  notes: Denial surface shipped; the request-to-grant flow is an explicit seam. The separate support-access framework (support_grant) covers platform staff, not member grants.
+  evidence: The denial half and the grant READ are both built — apps/worker/src/chokepoint/chokepoint.ts answers a within-firm denial with 403 plus the requestAccess flag on the problem body, and packages/access-control/src/resolver.ts already unions direct grants into a member's effective permissions off the direct_grant table.
+  notes: What is missing is the middle: nothing writes a direct_grant row. The table already carries the time box (expires_at, null meaning none) and who granted it, and the resolver already honours expiry in code rather than in SQL, so what a build has to add is the request record and the approver route rather than the model. The separate support-access framework (support_grant) covers platform staff, not member grants.
 
 - id: auth.access-control.cross-firm-404
   name: 404-not-403 boundary

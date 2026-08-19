@@ -60,7 +60,7 @@
   scope: Web Workers for CPU-bound work, virtualization for large lists, per-route code-splitting, no client-data caching.
   status: partial
   surface: internal
-  evidence: Per-route code-splitting inherent to the SvelteKit SPA; no Web Worker offload or list virtualization exercised yet in apps/web.
+  evidence: Per-route code-splitting inherent to the SvelteKit SPA. List virtualization is built as a design-system primitive — packages/design-system/src/lib/internal/virtual-list.svelte over virtua's Virtualizer, keeping a bounded DOM past roughly 200 rows — and reaches apps/web through the combobox in recipient-picker.svelte; no other large list uses it yet. No Web Worker offload exists anywhere in apps/web.
 
 - id: performance.compute-placement.desktop
   name: Desktop local accelerations

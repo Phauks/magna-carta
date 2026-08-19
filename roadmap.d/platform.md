@@ -17,7 +17,7 @@
   status: partial
   slices: 0-1-walking-skeleton, 0-5a-api-contract-foundation, 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0001, ADR-0022, ADR-0069
-  evidence: apps/worker/src/app.ts, apps/worker/src/routes/
+  evidence: apps/worker/src/app.ts over eighty-two route modules in apps/worker/src/routes/, emitting 446 operations into the committed contract at apps/worker/openapi/openapi.json.
   notes: First-party same-origin /api surface live; the public token-auth host is reserved, not built.
 
 - id: platform.workers-api.code-as-contract
@@ -146,8 +146,8 @@
   status: partial
   surface: internal
   adrs: ADR-0024, ADR-0128, ADR-0129
-  evidence: crates/{pdf-core,email-core,ocr-core,decryption-core,recovery-core,engine-host}
-  notes: PDF/email/OCR/decryption/recovery cores and the engine-host seam built; Tantivy search and the document-generation merge engine not started (Discovery and Documents areas).
+  evidence: ten crates — pdf-core, email-core, ocr-core, decryption-core, recovery-core, discovery-core, search-core, engine-host, and the pdf-eval and search-eval harnesses beside them.
+  notes: The Tantivy search core this said was not started is built (crates/search-core over tantivy 0.26 — schema, query, merge, split and directory), and so is the discovery core. The document-generation merge engine is deliberately NOT Rust: it shipped in TypeScript over fflate and fast-xml-parser (document-automation.generation-engine), so it is not a gap here.
 
 - id: platform.scan-capture
   name: Inbound capture (scan-to-matter)
@@ -289,7 +289,7 @@
   status: partial
   surface: internal
   adrs: ADR-0070
-  evidence: tooling/lint-process-references.mjs, apps/worker conformance suite, design-system fitness gates
+  evidence: apps/worker/test/conformance.test.ts over the route registries and the emitted contract, packages/design-system/test/fitness/ (off-token and import-boundary gates), and fourteen lint:* scripts in package.json that the gate's Governance step derives rather than lists, so a new one runs on the pull request that adds it.
   notes: Deterministic tiers shipped piecemeal per area; the propose-only LLM-as-fitness-function tier is not built (docs-sync agent exists for docs, not architecture).
 
 - id: platform.architectural-integrity.capability-indexes
@@ -436,8 +436,8 @@
   status: shipped
   surface: internal
   adrs: ADR-0122, ADR-0138
-  evidence: containers/{collabora,scan,ocr,raster,bundle,recovery,file-repair}
-  notes: LibreOffice headless from the original mapping superseded by the in-house-only conversion decision (ADR-0116); Tantivy container not started (Discovery phase).
+  evidence: ten containers — collabora, scan, ocr, raster, bundle, recovery, file-repair, and the three built since this list was written: libreoffice, search and discovery.
+  notes: The Tantivy container this said was not started is built (containers/search over crates/search-core), and so is the discovery lane. LibreOffice headless returned as an in-house engine rather than an adopted service — containers/libreoffice is a Rust supervisor over a pool of office-suite child processes with no egress, which is what the in-house-only conversion decision (ADR-0116) asked for rather than what it ruled out.
 
 - id: platform.primitives.vectorize
   name: Vectorize semantic search

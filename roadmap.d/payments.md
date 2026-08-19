@@ -83,10 +83,10 @@
   name: PCI scope minimization
   scope: Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
   status: designed
-  adrs: ADR-0032
+  adrs: ADR-0032, ADR-0181
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: Accepted decision fragment docs/decisions/pending/pci-saq-a-hosted-payment-modal.md (2026-07-02) refining ADR-0032, including planned fitness functions; no code.
-  notes: The white paper's Payments area still describes in-DOM hosted-fields tokenization, which the accepted decision rejected by name as SAQ A-EP; correct it when that area is next edited.
+  evidence: ADR-0181 (Accepted, 2026-07-02) refines ADR-0032 onto the hosted modal, including planned fitness functions; no code. The pending fragment it was assembled from is gone, as fragments are.
+  notes: The white paper's Payments area has been corrected to match — it now names HelcimPay.js as the only capture path and rejects the in-DOM Helcim.js tokenizer by name as SAQ A-EP.
 
 - id: payments.alternate-adapters
   name: Alternate adapter seams

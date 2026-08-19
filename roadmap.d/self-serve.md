@@ -24,7 +24,7 @@
   adrs: ADR-0280
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
   evidence: apps/worker/src/routes/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
-  notes: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.
+  notes: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/worker/src/routes/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.
 
 - id: self-serve.firm-lifecycle
   name: Firm lifecycle states

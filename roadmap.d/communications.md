@@ -9,13 +9,13 @@
   scope: Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   status: partial
   adrs: ADR-0047
-  evidence: Email parse engine, the transactional email adapter, and forward/CC email capture are shipped; messaging and voice ports, templates, and the trigger engine do not exist.
+  evidence: The email channel is the only one with code — parse engine, transactional adapter, forward/CC capture, auto-file rules, and the add-in's server routes. Messaging and voice have no port, no adapter and no table, and there is no template or trigger engine of any kind.
 
 - id: communications.email
   name: Email
   scope: Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
   status: partial
-  evidence: Transactional adapter, parse core, and the forward/CC capture path are shipped; the firm-mailbox (Gmail/Outlook plugin) integration is still design-only.
+  evidence: Transactional adapter, parse core and the forward/CC capture path are shipped, and so is the server half of the mail-client add-in (apps/worker/src/routes/email-add-in.ts). What is not built is the add-in itself — no manifest, no pane, no client — and no OAuth connection to a firm's Gmail or Outlook mailbox.
   audience: public
   public-name: Email filed to the matter
   public-summary: Send and receive client email from the firm's address and have each message filed against the right matter.
@@ -36,8 +36,8 @@
   slices: email-filing
   adrs: ADR-0200, ADR-0202
   spec: docs/specs/2026-06-16-email-filing-design.md
-  evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token) + apps/worker/src/routes/capture-addresses.ts + emails.ts on main; capture-address mint, rotate, and revoke are built and the six email tables are classified in the PII registry.
-  notes: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route; the firm-mailbox Gmail/Outlook plugin path is not built.
+  evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token, plus dkim.ts and matter-suggestion.ts) + apps/worker/src/routes/capture-addresses.ts and emails.ts on main; capture-address mint, rotate and revoke are built, and all eight email tables are classified in packages/data-access/src/pii-registry.ts — four carrying personal data (email_message, email_participant, email_matter_link, email_auto_file_rule) and four registered as carrying none.
+  notes: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route. The add-in's server surface has landed since — three routes in apps/worker/src/routes/email-add-in.ts answering the questions a Save-and-File pane asks that the matter-rooted routes do not (where should this go, what happened to what I filed, what do I show this member), with the suggestion ranking narrowed to matters the member may see before it is hydrated, so a walled matter contributes no suggestion, no reason and no count. The add-in client and the mailbox OAuth connection are still unbuilt.
 
 - id: communications.email.filing.capture-addresses
   name: Capture-address management
@@ -58,7 +58,7 @@
   slices: email-filing
   spec: docs/specs/2026-08-05-auto-file-rules-design.md
   evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, and the emails:manageAutoFileRules capability with its role seed.
-  notes: The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose. Still missing: the management routes and the review read. No screens.
+  notes: The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose; they are read and written at GET/PUT /api/v1/firm/email-auto-file-policy (apps/worker/src/routes/auto-file-policy.ts), which is the only auto-file route that exists. Still missing: the rule management routes and the decision-ledger review read. No screens.
 
 - id: communications.email.parse-engine
   name: Email parse core
@@ -67,7 +67,7 @@
   surface: awaiting-screen
   slices: email-core-parse-engine
   spec: docs/specs/2026-07-09-email-core-parse-engine-design.md
-  evidence: crates/email-core + packages/email on main, tested (status.d fragment); LZFu compressed-RTF decoder added (docs/specs/2026-07-10-lzfu-compressed-rtf-decoder-design.md, changelog.d/lzfu-compressed-rtf.md).
+  evidence: crates/email-core (eml.rs, msg.rs, mbox.rs behind the wasm.rs edge) with packages/email as the wrapper, on main and tested per its status fragment; the LZFu decoder for a .msg's compressed RTF body is crates/email-core/src/lzfu.rs (docs/specs/2026-07-10-lzfu-compressed-rtf-decoder-design.md).
   notes: Parse-only; the communications capture subsystem builds on this record model later.
 
 - id: communications.messaging

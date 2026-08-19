@@ -13,21 +13,21 @@
   name: Declarative settings registry
   scope: Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
   status: partial
-  evidence: FirmSettingDefinition entries across packages (timekeeping, matters, locations, inference, file-manager) + packages/data-access/src/setting-statements.ts; audited/effective-dated flags not uniform.
+  evidence: FirmSettingDefinition entries across eighteen modules in fourteen packages — ai-detection, billing, billing-core, conflicts, costs, discovery, file-manager (three of them), inference, locations, magnus, matters, notifications, search (two) and timekeeping — over packages/data-access/src/setting-statements.ts; audited/effective-dated flags not uniform, and a definition sits beside its own subject rather than in one settings module per package.
 
 - id: settings.registry.backend-definitions
   name: Backend firm-setting definitions
   scope: Per-package setting definitions with validated write paths and total reads (safe defaults).
   status: shipped
   surface: internal
-  evidence: packages/{timekeeping,matters,locations,inference}/src/settings.ts + data-access setting statements/tests.
+  evidence: packages/{timekeeping,matters,locations,inference,magnus,notifications,search,ai-detection}/src/settings.ts and the same shape under a subject-named module elsewhere (packages/file-manager/src/scan-policy-settings.ts, packages/conflicts/src/recheck-settings.ts, packages/costs/src/recovery-policy.ts), over data-access setting statements and their tests.
 
 - id: settings.registry.generated-ui
   name: Registry-generated settings pages
   scope: One renderer generating pages from the registry — a standard page is a registry entry plus definitions.
   status: partial
   surface: screen
-  evidence: Registry-driven settings-page composition + per-setting frontend definitions registry (changelog.d/settings-v2-draft-ledger-permissions.md); bespoke seam pages remain (e.g. beta-access).
+  evidence: apps/web/src/lib/settings/ — settings-sections.ts as the page registry, settings-definitions.ts as the per-setting frontend definitions, and components/settings-page.svelte composing a page out of plates and rows. Bespoke seam pages remain outside the renderer (settings/beta-access).
 
 - id: settings.scope-resolution
   name: Scope chain resolution
@@ -42,7 +42,7 @@
   scope: Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
   status: partial
   surface: internal
-  evidence: Permission-gated write paths exist; the settings UI carries a mock permission seam and Request-a-Change on read-only firm rows (changelog.d/settings-v2-draft-ledger-permissions.md).
+  evidence: Server-side, permission-gated write paths exist through the data-access layer. Client-side the check is still a stated mock — apps/web/src/lib/settings/settings-permissions.ts says so in its own header and returns true only for the billing area, against a fixed cast of members, so Billing demonstrates the editable draft flow and Firm profile demonstrates read-only with the Request-a-Change dialog. The call sites are the ones the real check will keep.
 
 - id: settings.storage-placement
   name: Storage placement (no duplication)
@@ -64,7 +64,7 @@
   name: The Settings area
   scope: Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
   status: partial
-  evidence: apps/web/src/routes/(app)/settings/ (theme, accessibility, text, firm-profile, users, matter-numbering, billing, file-safety, beta-access, versions, developer) per changelog.d/settings-foundation-and-profile-menu.md and settings-v2-draft-ledger-permissions.md.
+  evidence: apps/web/src/routes/(app)/settings/ holds eleven pages — theme, accessibility, text, firm-profile, users, matter-numbering, billing, file-safety, beta-access, versions, developer — banded by apps/web/src/lib/settings/settings-sections.ts, with the draft staging and change history in settings-draft.svelte.ts and settings-ledger-store.svelte.ts.
 
 - id: settings.area-ui.my-account
   name: My Account (identity & security)
@@ -72,14 +72,15 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-07-10-account-settings-surface-design.md
-  evidence: Surface, rail, and flow live; every control an honest seam activating when authentication UI ships (changelog.d/account-settings-surface.md).
+  evidence: apps/web/src/routes/account/ — its own layout outside the app chrome, with profile and security pages behind it. Surface, rail and flow are live; every control is an honest seam activating when the authentication UI ships.
 
 - id: settings.area-ui.personal-preferences
   name: Personal preferences (Theme, Accessibility, Text)
   scope: Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis.
   status: shipped
   surface: screen
-  evidence: settings/theme, /accessibility, /text pages; storage-event sync per changelog.d/settings-foundation-and-profile-menu.md.
+  evidence: The settings/theme, /accessibility and /text pages over apps/web/src/lib/preferences/persisted-preference.svelte.ts, which syncs across tabs on the storage event, and apps/web/src/lib/settings/appearance-axes.svelte.ts, whose values are the same storage the no-flash boot script reads.
+  notes: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.
 
 - id: settings.area-ui.firm-band
   name: Firm settings band
@@ -111,7 +112,7 @@
   name: Notification preferences category
   scope: Per-user type/category-by-channel routing matrix with locked mandatory categories.
   status: not-started
-  evidence: No notifications settings surface. The notification type registry it would render is shipped (packages/notifications/src/registry.ts); what this page still waits on is the per-category preference matrix and the firm policy floor, which are a later notifications sub-slice.
+  evidence: No notifications settings surface, and the page is the only thing missing. The notification type registry is shipped (packages/notifications/src/registry.ts), and so is everything this page would render — GET and PATCH /api/v1/notifications/preferences resolve the per-category matrix, report which in-app switches are locked and by whom, and hold the firm floor's two asymmetries: a firm may raise the in-app floor for a category and may never raise a member's email cadence.
 
 - id: settings.area-ui.documents-templates-category
   name: Documents & templates category

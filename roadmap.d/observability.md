@@ -42,7 +42,7 @@
   name: In-house client capture
   scope: Svelte error boundary + global handlers, Error ID display, breadcrumb ring buffer, no third-party SDK.
   status: partial
-  evidence: Error pages carry build identity + copyable trace (changelog.d/developer-console-and-error-tracing.md); breadcrumb library and crash-surface send not built.
+  evidence: Error pages carry build identity and a copyable trace block (apps/web/src/routes/+error.svelte over apps/web/src/lib/components/error-details.svelte); the breadcrumb library and the crash-surface send are not built, and no client module anywhere posts to the incidents ingest endpoint.
   audience: public
   public-name: Reporting a problem
   public-summary: Report a problem from inside the app and get a reference you can quote to us, without sending us the contents of your file.
@@ -52,7 +52,7 @@
   scope: Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block.
   status: shipped
   surface: screen
-  evidence: apps/web/src/routes/+error.svelte + changelog.d/developer-console-and-error-tracing.md.
+  evidence: apps/web/src/routes/+error.svelte rendering apps/web/src/lib/components/error-details.svelte, every line a key-value pair so one paste carries the whole trace.
 
 - id: observability.client-reporter.breadcrumbs
   name: Client breadcrumb ring buffer
@@ -65,7 +65,7 @@
   scope: Always-available help-menu reporting usable without a crash.
   status: partial
   surface: screen
-  evidence: Profile-menu "Report a bug" dialog assembles a paste-ready trace-grade report (changelog.d/settings-foundation-and-profile-menu.md); in-app submission to the ingest endpoint not wired.
+  evidence: apps/web/src/lib/components/bug-report-dialog.svelte assembles a paste-ready trace-grade report — build identity, time, path and browser, and deliberately no error id, since this is a report without a crash — reachable from the profile menu and from the command palette. In-app submission is not wired: the dialog produces text for a person to paste, and no client module calls the incidents route.
 
 - id: observability.client-reporter.send-to-developer
   name: Send-to-developer on crash
@@ -97,7 +97,7 @@
   name: Reporter acknowledgement loop
   scope: Receipt and resolution status posted back to the reporter in-app/portal.
   status: not-started
-  evidence: No acknowledgement path. The notifications backend it would raise through is shipped, but every delivery channel is still unbuilt and the in-app centre has no surface, so there is nothing to post a receipt back on.
+  evidence: No acknowledgement path, and the reason is the direction of the one notification that exists rather than the absence of a channel. incident.created is a registered notification type, but its audience is firm:manageMembers holders — whoever administers the firm, not the person who filed it — and it carries only an error-identifier count, since the description is sealed under the firm key. The email digest ships as a delivery channel; the in-app centre still has no surface. A receipt to the REPORTER, and a resolution status behind it, are unbuilt on both channels.
 
 - id: observability.diagnostics-agent-pipeline
   name: Diagnostics agent pipeline
@@ -169,7 +169,7 @@
   slices: service-status
   adrs: ADR-0048
   spec: docs/specs/2026-07-02-service-status-design.md
-  evidence: apps/status-worker + packages/status; changelog.d/status-page.md, status-page-history-and-upstream-advisory.md, status-worker-edge-cache.md.
+  evidence: apps/status-worker (index.ts, render-status-page.ts, page-styles.ts — zero-JS server-rendered HTML with its assets inlined) over packages/status, whose modules are the shape of the page: history.ts for the 90-day per-component uptime, provider-registry.ts and statuspage-adapter.ts for upstream advisories, component-registry.ts, derive.ts and merge.ts for the live snapshot.
   audience: public
   public-name: Service status page
   public-summary: A page anyone can open to see whether Magna Carta is running normally.

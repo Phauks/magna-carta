@@ -7,19 +7,19 @@
   scope: Scheduled propose-only Claude agents plus CI tooling (open PRs/reports, never auto-merge; trust/ledger/conflicts paths always human-reviewed).
   status: partial
   adrs: ADR-0016, ADR-0058
-  evidence: Docs-maintenance system built on this branch; the other six agents have no artifacts.
+  evidence: The docs-maintenance system is on main (.claude/skills/docs-sync/, .github/workflows/assemble-docs.yml, docs/maintenance/) and has produced dated run branches since 2026-07-20. Of the other six, only the security agent has any artifact at all — a vendored on-demand skill and the CI dependency-audit step, neither of them a proposing agent; the remaining five have none.
 
 - id: maintenance-agents.security
   name: Security agent
   scope: pnpm/cargo audit, CVE triage, secret scanning on a schedule.
   status: not-started
-  evidence: No agent skill, workflow, or routine; dependency security batches land as manual branches.
+  evidence: No scheduled agent or routine. What exists is CI-side and on-demand rather than a proposing agent — the gate.yml "Dependency audit (high+)" step runs a pinned osv-scanner over both supply chains on every pull request and push, with the accepted-advisory register at osv-scanner.toml, and .claude/skills/security-audit/ is a vendored on-demand audit skill rather than a scheduled one. Dependency security batches still land as manual branches.
 
 - id: maintenance-agents.dependency-upgrade
   name: Dependency & framework upgrade agent
   scope: Svelte/Rust/Tauri/Workers upgrade proposals.
   status: not-started
-  evidence: No agent artifact; upgrades are manual (e.g. branch deps/coupled-major-bumps, @types/node bump PR #15).
+  evidence: No agent artifact. renovate.json configures a propose-only, pinning, weekly-scheduled bot with osvVulnerabilityAlerts on and a drizzle-below-1.0 package rule, so the configuration half is committed; whether the GitHub App is installed on the repository is not readable from the tree, and no bot-authored commit appears in main's history. Framework upgrades land as manual branches (e.g. deps/coupled-major-bumps).
 
 - id: maintenance-agents.platform-watch
   name: Cloudflare platform-watch agent
@@ -75,7 +75,7 @@
   scope: One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state.
   status: shipped
   surface: internal
-  evidence: docs/maintenance/reports/ on main holds the pinned baseline plus a report per run since, each carrying the window-start/window-end frontmatter the next run reads its window from.
+  evidence: docs/maintenance/reports/ on main holds the pinned baseline plus a report per run whose pull request merged (2026-08-04 and 2026-08-12), each carrying the window-start/window-end frontmatter the next run reads its window from. Runs whose pull request was closed unmerged leave a docs-sync/YYYY-MM-DD branch and no report, which is why the 2026-08-12 window spans 141 merges rather than one week.
   notes: Was in-build against the branch the registry was written on; the registry is on main and in use.
 
 - id: maintenance-agents.docs-maintenance.ci-doc-hygiene
@@ -83,4 +83,4 @@
   scope: CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
   status: partial
   surface: internal
-  evidence: lint:process-refs in CI and status-fragment lint joined the gate governance job (commit 6452603); dead-link and empty-Unreleased gates not yet found in gate.yml.
+  evidence: The gate's Governance step no longer lists its lints — it derives them from every lint:* script in package.json (tooling/check-scoped/run-repo-wide-lints.mjs --all), so lint:process-refs, lint:status, lint:roadmap, lint:ledger-staleness, lint:decisions and lint:changelog-fragments all run on every pull request without being named. Fragment validity is covered on both directories; no dead-link lint and no empty-Unreleased lint exists as a script, which is what is still missing rather than a wiring gap.

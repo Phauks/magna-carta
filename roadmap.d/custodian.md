@@ -11,11 +11,11 @@
   slices: 4-2-custodian
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: packages/custodian + twenty-five routes in apps/worker/src/routes/custody.ts, over eleven per-firm tables. Matter detail skeleton reserves a Custodian section (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
+  evidence: packages/custodian + thirty-eight routes in apps/worker/src/routes/custody.ts, over thirteen per-firm tables. The matter section registry reserves a "custodian" slug (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
   audience: public
   public-name: Safe custody register
   public-summary: Record every original will, deed and physical item the firm holds, where it is kept, and who has it now.
-  notes: Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.
+  notes: Backend only — no UI. Stocktake and the destruction workflow ARE built (slice 4·2·4), and the will-deposit duty catalog with them; what is not built is receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will catalog computes against — no packet column records a death today. The per-node statuses below have not been reconciled with those landings.
 
 - id: custodian.register
   name: Item register
@@ -55,7 +55,7 @@
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian/src/label-service.ts + src/labels/ (in-house Code 128 encoder, A4 24-up SVG sheet); GET /api/v1/custody/labels. Backend only — the print screen is authored when the register surface ships.
-  notes: Linear Code 128 only; QR waits for stocktake, which is the first capability that would use it.
+  notes: Linear Code 128 only. QR was expected to arrive with stocktake as its first consumer; stocktake shipped without it, taking packet identifiers rather than scanned codes, so no QR encoder exists and scan-to-locate is the capability still waiting on one.
 
 - id: custodian.review-reminders
   name: Review dates and the reminder feed
@@ -91,16 +91,16 @@
   scope: Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
   status: designed
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: custody_destruction_request exists as a schema seam with no service, no route, and no code path that writes it (packages/database/src/per-firm-schema.ts).
+  evidence: The two halves of this node have come apart. DESTRUCTION is built — packages/custodian/src/destruction-service.ts and destruction-statements.ts over custody_destruction_request, five routes under /api/v1/custody/destruction-requests (raise, list, approve, refuse, execute), the requester and approver forced to differ by database trigger as well as by the service, execution appending its destroyed entry through the one movement write path, and two refusals with no override anywhere — a hold in force stops both the request and the execution, and an irreplaceable original is never destructible at the database itself rather than only in the workflow. RETENTION is not: there is no retention_until column, no default, no derived date and no sweep, which is the half this node's owner question is about.
   awaiting-owner: Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
-  notes: Owner-gated and deliberately unbuilt. The platform ships NO retention period, default, derived date, or sweep — there is no retention_until column at all, and a review date is not a retention clock.
+  notes: The retention half is owner-gated and deliberately unbuilt — the platform ships NO retention period, default, derived date, or sweep, there is no retention_until column at all, and a review date is not a retention clock. The destruction half shipped with slice 4·2·4 once the owner ratified its shape flags, so the status on this node has not caught up with what is on the tree.
 
 - id: custodian.will-reminders
   name: Will release-on-death reminders
   scope: Per-state will-deposit deadline engine (jurisdiction-keyed catalog) driving release reminders.
   status: deferred
   spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: The design explicitly defers the will-on-death engine and per-state statute catalog out of the MVP.
+  evidence: The jurisdiction-keyed catalog half is built — packages/custodian/src/will-deposit-catalog.ts carries the will-deposit duties verbatim with their citations, refuses an unencoded jurisdiction rather than falling back to a baseline (and refuses an unencoded county even under an encoded parent), computes a delivery due date only from a date a person recorded, and is served at GET /api/v1/custody/will-deposit-duties. Three keys are encoded — Nevada and two of its counties — so the per-state catalog is a pattern with one state in it. The REMINDER half is unbuilt and structurally blocked: the register records no date of death, so nothing can compute a trigger, which is why the catalog takes the date as a caller-supplied seam.
 
 - id: custodian.checkout-workflow
   name: Gated release and signed receipts
@@ -117,4 +117,4 @@
   scope: Barcode scan-to-locate and stocktake reconciliation over the container tree.
   status: deferred
   spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: MVP explicitly ships container data with no stocktake workflow; later slice.
+  evidence: Stocktake is built and this node's status has not caught up. Slice 4·2·4 shipped packages/custodian/src/{stocktake-service,stocktake-statements,stocktake-reconciliation}.ts over custody_stocktake and custody_stocktake_sighting, with seven routes under /api/v1/custody/stocktakes — open a count over the whole register or one branch of the container tree, record observations in batches, read a reconciliation of missing, misplaced, unexpected and unregistered, and close it, which freezes the findings. A stocktake observes and reports only: nothing on the path writes the movement ledger, a packet or an item, and a source-scan fitness function holds that boundary. Sighting rows are append-only at the database, with a fourth trigger refusing an observation against a closed count. What is genuinely absent is scan-to-locate — the labels are linear Code 128 and no QR encoder exists.

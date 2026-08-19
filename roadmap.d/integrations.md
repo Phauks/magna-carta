@@ -10,7 +10,7 @@
   status: partial
   slices: integration-port-system, integration-platform-foundation
   adrs: ADR-0015, ADR-0091, ADR-0096
-  evidence: packages/integrations, packages/tools, and eight built tool/adapter packages on main; most vendor ports remain unbuilt.
+  evidence: packages/integrations and packages/tools, with ten built tool/adapter packages on main (ai-detection, conversion, file-integrity, file-type, government-links, metadata, property-links, safe-browse, shipping, whois). Seventeen of the nineteen catalog manifests are backed by an in-repository library and only two by an integration, which is the shape of the area: the tool set is built, the vendor ports are not.
   notes: First-party only today; C seam to a marketplace documented, not built.
 
 - id: integrations.port-framework
@@ -153,7 +153,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0156
-  evidence: Recoverable-charge seam decision + shipment.purchased seam named in status.d/shipping-postage-backend.md.
+  evidence: handleShipmentPurchased in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to shipment.purchased on the transactional outbox and posts the charge through packages/costs/src/recoverable-charge.ts against the firm's recovery policy — a built consumer rather than a named seam.
 
 - id: integrations.shipping.ui
   name: Shipping UI
@@ -186,14 +186,14 @@
   surface: screen
   slices: tools-area
   spec: docs/specs/2026-07-08-tools-listing-page-design.md
-  evidence: changelog.d/tools-listing-page.md; unbuilt tools read "Soon".
+  evidence: apps/web/src/routes/(app)/tools/+page.svelte over apps/web/src/lib/tools/ (tools-tiles-view, tools-list-view, tool-tile, tool-row, tool-presentation.ts, and the view preference), grouped by toolsByGroup from packages/tools/src/select.ts; unbuilt tools read "Soon".
 
 - id: integrations.tools-area.contextual-entry
   name: Contextual entry points
   scope: Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
   status: partial
   surface: screen
-  evidence: changelog.d/command-palette-individual-tools.md + tools-file-context-tags.md merged; entity-context entries not built.
+  evidence: The command palette half is built and derived rather than hand-listed — apps/web/src/lib/navigation/tool-destinations.ts turns the catalog plus the presentation layer into searchable entries, so adding a tool to the catalog is what puts it in the palette. The context half is data and a selector with no consumer: every manifest declares contextTags, and toolsFor in packages/tools/src/select.ts filters the catalog by tag and permission, but only its own tests call it. No Location, Directory or file surface offers tools in context.
 
 - id: integrations.tools-area.diagnostics-group
   name: Diagnostics group (firm usage)
@@ -211,7 +211,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-07-09-network-speed-test-design.md
-  evidence: changelog.d/network-speed-test.md; stage alpha on the listing page.
+  evidence: A route directory named after its catalog id under the app's tools section, over apps/web/src/lib/tools/speed-test/ — the measurement engine, the per-direction charts, the quality scores and the authenticated connection probe; stage alpha on the listing page.
 
 - id: integrations.tools
   name: First-party tool set
@@ -247,7 +247,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0120, ADR-0121
-  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts + changelog.d/whois-lookup-tool-page.md.
+  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts, with its own page in the app's tools section over apps/web/src/lib/tools/whois/.
   notes: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.safe-browse
