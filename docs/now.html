@@ -1635,7 +1635,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Document Automation</span>
 <code>document-automation</code>
 <p>Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling.</p>
-<p class="note">A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.</p>
+<p class="note">A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. One browser surface exists and no node below claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job. The submit route is not the gap — it exists; what the surface lacks is a matter to submit against and a catalog read from the server.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Conditional document assembly</span>
@@ -3599,7 +3599,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Rust shared core</span>
 <code>platform.rust-core</code>
 <p>Rust used surgically — server engines in Containers, scoped shared cores compiled to WASM for web/Workers and native for desktop.</p>
-<p class="note">PDF/email/OCR/decryption/recovery cores and the engine-host seam built; Tantivy search and the document-generation merge engine not started (Discovery and Documents areas).</p>
+<p class="note">The Tantivy search core this said was not started is built (crates/search-core over tantivy 0.26 — schema, query, merge, split and directory), and so is the discovery core. The document-generation merge engine is deliberately NOT Rust: it shipped in TypeScript over fflate and fast-xml-parser (document-automation.generation-engine), so it is not a gap here.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Inbound capture (scan-to-matter)</span>
@@ -3818,7 +3818,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Containers</span>
 <code>platform.primitives.containers</code>
 <p>Heavy services in Containers: Collabora editing, malware scan, OCR, raster conversion, bundling, recovery, file repair.</p>
-<p class="note">LibreOffice headless from the original mapping superseded by the in-house-only conversion decision (ADR-0116); Tantivy container not started (Discovery phase).</p>
+<p class="note">The Tantivy container this said was not started is built (containers/search over crates/search-core), and so is the discovery lane. LibreOffice headless returned as an in-house engine rather than an adopted service — containers/libreoffice is a Rust supervisor over a pool of office-suite child processes with no egress, which is what the in-house-only conversion decision (ADR-0116) asked for rather than what it ruled out.</p>
 </li><li class="n d2" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Vectorize semantic search</span>

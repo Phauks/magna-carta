@@ -14,7 +14,7 @@
   audience: public
   public-name: Documents built from your templates
   public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
-  notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.
+  notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. One browser surface exists and no node below claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job. The submit route is not the gap — it exists; what the surface lacks is a matter to submit against and a catalog read from the server.
 
 - id: document-automation.conditional-assembly
   name: Conditional document assembly
