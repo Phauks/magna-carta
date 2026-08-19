@@ -16,6 +16,9 @@ import type {
   ReviewSetId,
 } from "@magna-carta/identifiers/types";
 import { corpusOfReviewSet } from "@magna-carta/search/corpus";
+import { NATURAL_LANGUAGE_FEED_PREFIX } from "@magna-carta/search/natural-language-feed";
+import { readNaturalLanguageSearchEnabled } from "@magna-carta/search/natural-language-settings";
+import { enumerateFeedObjects } from "@magna-carta/search/natural-language-statements";
 import {
   indexed,
   searchEngineNotImplemented,
@@ -400,5 +403,53 @@ describe("the extraction engine is never asked about a review document", () => {
       index: publishingIndexPort(),
     });
     expect((await stubFor(message).status()).status).toBe("indexed");
+  });
+});
+
+describe("the natural-language corpus never learns a review set exists", () => {
+  it("writes no feed object and no feed row for an indexed review document, with the firm gate OPEN", async () => {
+    // The wall this pins is the one whose failure cannot be taken back. The natural-language feed is
+    // the corpus an AI surface answers from, and its audience is the matter team; a review set is
+    // material another party produced, often under a protective order that names a narrower list of
+    // people than the matter does. A review document that reached the feed would be reachable by
+    // asking a question, and — the feed being how the retrieval corpus is built — would have left the
+    // platform on its way there.
+    //
+    // The consumer gates the feed on `corpus.kind === "matter"`, which is the safe direction: a third
+    // corpus kind added later does not feed by default, it has to be added on purpose. Nothing
+    // asserted it, so the whole wall rested on one comparison nobody would notice being widened to a
+    // negation.
+    const at = now();
+    await database
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) " +
+          "ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at",
+      )
+      .bind("search.naturalLanguageEnabled", at)
+      .run();
+
+    // WITHOUT THIS ASSERTION THE TEST IS VACUOUS. A firm that has not opted in writes no feed object
+    // for any corpus, so an empty feed would prove nothing about review sets — it would prove the
+    // firm gate works, which another suite already pins. The gate is open; what follows is the wall.
+    expect(await readNaturalLanguageSearchEnabled(database)).toBe(true);
+
+    const reviewDocumentId = await seedProcessedDocument({ pages: ["privileged strategy memo"] });
+    const message = await enqueueWithoutSending(reviewDocumentId);
+    if (message === undefined) throw new Error("the document was not enqueued");
+
+    // Indexed for real, not deferred — a parked document writes nothing anywhere, which would be a
+    // second way for this to pass without the wall existing.
+    await searchIndexQueue(makeBatch(message).batch, env, ports(publishingIndexPort()));
+    expect((await stubFor(message).status()).status).toBe("indexed");
+
+    // No catalog row in the feed, and no object under its prefix.
+    expect(await enumerateFeedObjects(database, { kind: "firm" }, 100)).toEqual([]);
+    const listed = await env.R2.list({ prefix: NATURAL_LANGUAGE_FEED_PREFIX });
+    expect(listed.objects.map((object) => object.key)).toEqual([]);
+
+    await database
+      .prepare("UPDATE setting SET value = 'false' WHERE key = ?1")
+      .bind("search.naturalLanguageEnabled")
+      .run();
   });
 });
