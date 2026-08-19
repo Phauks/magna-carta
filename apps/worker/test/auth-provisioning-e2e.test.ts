@@ -287,6 +287,15 @@ describe("end-to-end", () => {
         "discovery:read",
         "discovery:review",
         "documents:assemble",
+        // The four co-editing keys. documents:edit and documents:checkout reach the three
+        // content-writing seats — the set files:upload and documents:assemble already reach.
+        // documents:reconcile stops at Owner/Admin + Attorney (choosing the firm's text of record
+        // is the files:delete bracket) and documents:forceReleaseLock at Owner/Admin alone
+        // (20260819T220000_seed-document-editing-and-tools-permissions).
+        "documents:checkout",
+        "documents:edit",
+        "documents:forceReleaseLock",
+        "documents:reconcile",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
         // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
@@ -359,6 +368,11 @@ describe("end-to-end", () => {
         "time:track",
         "time:viewFirm",
         "tools:aiTextDetection",
+        // The four public-record link libraries reach every default role, the reach every other
+        // credential-less lookup already has; the shipping tile below is Owner/Admin alone, matching
+        // shipping:manage (20260819T220000_seed-document-editing-and-tools-permissions).
+        "tools:attorneyLicense",
+        "tools:businessLookup",
         "tools:decryption",
         "tools:emailInspector",
         "tools:fileConverter",
@@ -368,7 +382,10 @@ describe("end-to-end", () => {
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:ocr",
+        "tools:propertyListings",
+        "tools:propertyRecords",
         "tools:safeBrowse",
+        "tools:shipping",
         "tools:speedTest",
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves

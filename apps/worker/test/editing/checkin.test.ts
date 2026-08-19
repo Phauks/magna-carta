@@ -13,6 +13,7 @@ import { applyControlPlaneMigrations } from "../support/apply-control-plane-migr
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -72,19 +73,14 @@ beforeAll(async () => {
     .bind(firmId)
     .run();
 
+  // Both halves of the offline cycle ride the seeded documents:checkout — no direct grant here.
   const owner = await seedCredentialedUser("checkin-owner@example.com", { firmId });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Checkin Owner", firmId);
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:checkout', NULL, ?2, ?3)",
-    )
-    .bind(newIdentifier("grant"), owner.userId, ISO)
-    .run();
   ownerCookie = await signInForSessionCookie("checkin-owner@example.com");
 
   const noPerm = await seedCredentialedUser("checkin-noperm@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "Checkin NoPerm", firmId);
+  await mirrorMemberWithRole(noPerm.userId, "Checkin NoPerm", firmId, "Read-only");
   noPermCookie = await signInForSessionCookie("checkin-noperm@example.com");
 
   matterId = newIdentifier("matter");
@@ -162,7 +158,7 @@ describe("POST /api/v1/documents/{fileId}/checkin", () => {
     expect(versions?.n).toBe(1);
   });
 
-  it("denies a member without documents:checkout", async () => {
+  it("denies a Read-only member, whose seat the documents:checkout seed does not reach", async () => {
     const { fileId, checkoutId } = await seedCheckedOutFile();
     expect((await checkin(fileId, checkoutId, noPermCookie)).status).toBe(403);
   });

@@ -13,6 +13,7 @@ import { applyControlPlaneMigrations } from "../support/apply-control-plane-migr
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -21,8 +22,12 @@ import {
 // Human reconciliation of a divergent check-in over the real chokepoint. A document carries a
 // conflict_pending conflicting copy (the offline edit) alongside its advanced current version; the
 // holder of documents:reconcile chooses which copy is authoritative. The conflicting copy is retained
-// forever regardless of the choice. documents:reconcile is granted directly to the owner; a second
-// member without it exercises the RBAC denial.
+// forever regardless of the choice.
+//
+// Both members hold nothing but a seeded role, and the denied one is a PARALEGAL rather than a
+// Read-only seat on purpose: the paralegal is the member who could have taken the copy out and
+// diverged it, and the seed deliberately stops short of letting them decide which copy becomes the
+// firm's text of record. That is the whole split, so it is the one the denial asserts.
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
@@ -109,16 +114,10 @@ beforeAll(async () => {
   const owner = await seedCredentialedUser("reconcile-owner@example.com", { firmId });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Reconcile Owner", firmId);
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:reconcile', NULL, ?2, ?3)",
-    )
-    .bind(newIdentifier("grant"), owner.userId, ISO)
-    .run();
   ownerCookie = await signInForSessionCookie("reconcile-owner@example.com");
 
   const noPerm = await seedCredentialedUser("reconcile-noperm@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "Reconcile NoPerm", firmId);
+  await mirrorMemberWithRole(noPerm.userId, "Reconcile NoPerm", firmId, "Paralegal");
   noPermCookie = await signInForSessionCookie("reconcile-noperm@example.com");
 
   matterId = newIdentifier("matter");
@@ -246,7 +245,7 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     expect((await reconcile(id, { keep: "current" }, ownerCookie)).status).toBe(404);
   });
 
-  it("denies a member without documents:reconcile", async () => {
+  it("denies a Paralegal — the seat that may take the copy out but not decide which copy wins", async () => {
     const { fileId } = await seedConflict();
     expect((await reconcile(fileId, { keep: "current" }, noPermCookie)).status).toBe(403);
   });

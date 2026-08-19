@@ -7,14 +7,16 @@ import { applyControlPlaneMigrations } from "../support/apply-control-plane-migr
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "../support/test-auth.ts";
 
-// Co-editing join + the read-only viewer over the real chokepoint. The editor (documents:edit granted)
-// and a viewer (matter/file access but NOT documents:edit) drive the two launch routes; the join is
-// asserted by decoding both tokens and comparing their session ids.
+// Co-editing join + the read-only viewer over the real chokepoint. Both members hold nothing but a
+// seeded role: an Owner/Admin editor (documents:edit reaches the content-writing seats) and a
+// Read-only viewer with matter and file access but no edit capability drive the two launch routes;
+// the join is asserted by decoding both tokens and comparing their session ids.
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
@@ -60,17 +62,11 @@ beforeAll(async () => {
   const owner = await seedCredentialedUser("coedit-owner@example.com", { firmId });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Co-editing Owner", firmId);
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:edit', NULL, ?2, ?3)",
-    )
-    .bind(newIdentifier("grant"), owner.userId, ISO)
-    .run();
   editorCookie = await signInForSessionCookie("coedit-owner@example.com");
 
-  // A second member with file access but NO documents:edit grant — the read-only viewer.
+  // A second member with file access and no seat that carries documents:edit — the read-only viewer.
   const viewer = await seedCredentialedUser("coedit-viewer@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(viewer.userId, "Co-editing Viewer", firmId);
+  await mirrorMemberWithRole(viewer.userId, "Co-editing Viewer", firmId, "Read-only");
   viewerCookie = await signInForSessionCookie("coedit-viewer@example.com");
 
   matterId = newIdentifier("matter");
@@ -128,7 +124,7 @@ describe("co-editing join and the read-only viewer", () => {
     expect(viewClaims.sessionId).toBe(editClaims.sessionId);
   });
 
-  it("refuses an edit launch from a member without documents:edit", async () => {
+  it("refuses an edit launch from a Read-only member, whose seat carries no documents:edit", async () => {
     const response = await launchEdit(viewerCookie);
     expect(response.status).toBe(403);
   });

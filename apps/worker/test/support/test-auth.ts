@@ -206,22 +206,34 @@ export async function signInForSessionCookie(email: string): Promise<string> {
   return sessionCookie?.pair ?? "";
 }
 
-// Mirrors the user into a firm database's member table and assigns the seeded Owner/Admin role
-// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name). The firm's
-// per-firm FirmDatabase Durable Object is addressed by firmId and self-migrates the per-firm lineage
-// on first access, so the seeded role row already exists.
-export async function mirrorMemberWithOwnerRole(
+// The five roles the per-firm baseline seeds into every firm. Named rather than handle-typed so a
+// test reads as the seat it means; the rol_ handles are committed literals in the baseline
+// migration and are looked up by name here.
+export type SeededRoleName = "Owner/Admin" | "Attorney" | "Paralegal" | "Billing" | "Read-only";
+
+// Mirrors the user into a firm database's member table and assigns one of the five seeded default
+// roles. The firm's per-firm FirmDatabase Durable Object is addressed by firmId and self-migrates
+// the per-firm lineage on first access, so the seeded role rows and their permission grants already
+// exist.
+//
+// Reach for this rather than a direct_grant when a test needs a member who must NOT hold a
+// capability: the permission seeds decide what each seat carries, so a denial asserted against a
+// member of the wrong seat stops meaning anything the moment that seat is granted the key. A
+// direct_grant still says "this one member, additionally" and is the right tool for that.
+export async function mirrorMemberWithRole(
   userId: UserId,
   displayName: string,
   firmId: FirmId,
+  roleName: SeededRoleName,
 ): Promise<void> {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
-  const ownerRoleResult = await firmDatabase
-    .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
+    .bind(roleName)
     .all<{ id: string }>();
-  const ownerRole = ownerRoleResult.results[0];
-  if (ownerRole === undefined) {
-    throw new Error("seeded Owner/Admin role missing from the firm database");
+  const role = roleResult.results[0];
+  if (role === undefined) {
+    throw new Error(`seeded ${roleName} role missing from the firm database`);
   }
   await insertMemberStatement(firmDatabase, {
     userId,
@@ -231,6 +243,15 @@ export async function mirrorMemberWithOwnerRole(
   await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
-    roleId: assertIdentifier(ownerRole.id, "role"),
+    roleId: assertIdentifier(role.id, "role"),
   }).run();
+}
+
+// The Owner/Admin case, which is what most suites want for their acting member.
+export async function mirrorMemberWithOwnerRole(
+  userId: UserId,
+  displayName: string,
+  firmId: FirmId,
+): Promise<void> {
+  await mirrorMemberWithRole(userId, displayName, firmId, "Owner/Admin");
 }

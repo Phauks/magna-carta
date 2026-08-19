@@ -505,6 +505,13 @@
       "when": 1787148000000,
       "tag": "20260819T140000_seed-notification-policy-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1787176800000,
+      "tag": "20260819T220000_seed-document-editing-and-tools-permissions",
+      "breakpoints": true
     }
   ]
 }

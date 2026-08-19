@@ -120,6 +120,18 @@ describe("GET /api/v1/me", () => {
         "discovery:read",
         "discovery:review",
         "documents:assemble",
+        // The four co-editing keys. documents:edit and documents:checkout reach the three
+        // content-writing seats (Owner/Admin, Attorney, Paralegal) — the same set files:upload and
+        // documents:assemble already reach, because typing a new version and uploading one are the
+        // same act through two doors. documents:reconcile stops at Owner/Admin + Attorney: choosing
+        // which of two divergent copies is the firm's text of record is the files:delete bracket.
+        // documents:forceReleaseLock stops at Owner/Admin alone, because an override every editor
+        // also holds is not an override
+        // (20260819T220000_seed-document-editing-and-tools-permissions).
+        "documents:checkout",
+        "documents:edit",
+        "documents:forceReleaseLock",
+        "documents:reconcile",
         "emails:file",
         // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
         // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
@@ -194,6 +206,12 @@ describe("GET /api/v1/me", () => {
         "time:track",
         "time:viewFirm",
         "tools:aiTextDetection",
+        // The four public-record link libraries reach every default role, the reach every other
+        // credential-less lookup already has: they open a government or listing website in a new
+        // tab, read nothing of the firm's, hold no credential and store nothing
+        // (20260819T220000_seed-document-editing-and-tools-permissions).
+        "tools:attorneyLicense",
+        "tools:businessLookup",
         "tools:decryption",
         "tools:emailInspector",
         "tools:fileConverter",
@@ -203,7 +221,13 @@ describe("GET /api/v1/me", () => {
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:ocr",
+        "tools:propertyListings",
+        "tools:propertyRecords",
         "tools:safeBrowse",
+        // The Tools tile for shipping is Owner/Admin alone, matching shipping:manage above: every
+        // operation behind the tile is gated on that key, so a wider tile would be a tool whose
+        // every button the holder's role refuses.
+        "tools:shipping",
         "tools:speedTest",
         "tools:whois",
         // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
