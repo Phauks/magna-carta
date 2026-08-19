@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 264 | 42% |
-| Part-built | partial, in-build | 111 | 18% |
+| Done | shipped | 265 | 42% |
+| Part-built | partial, in-build | 110 | 18% |
 | Ahead | designed, planned, researching, not-started | 209 | 34% |
 | Parked | deferred, cut | 40 | 6% |
 | **All units of work** | | **624** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 264 | 42% |
-| `partial` | 110 | 18% |
+| `shipped` | 265 | 42% |
+| `partial` | 109 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 43 | 7% |
 | `planned` | 17 | 3% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 264 of 624 (42%). Shipped plus partial is 374 (60%).**
+**Shipped alone is 265 of 624 (42%). Shipped plus partial is 374 (60%).**
 
-The 110 units between those two numbers are work that is engineered and paid for and is not
+The 109 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -98,7 +98,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 12 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 25 | 48% |
 | Calendar and Rules-Based Docketing | 5 | 0 | 0 | 0 | 0 | 1 | 5 | 0 | 0 | 11 | 45% |
-| Communications Layer | 3 | 1 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 19% |
+| Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
 | Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 58 | 55% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **264** | **110** | **1** | **43** | **17** | **5** | **144** | **38** | **2** | **624** | **42%** |
+| **All areas** | **265** | **109** | **1** | **43** | **17** | **5** | **144** | **38** | **2** | **624** | **42%** |
 
 ## Where we have been
 
@@ -309,10 +309,11 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**29 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**30 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
+- **Auto-file rules** (`communications.email.filing.auto-file-rules`) — **Built; no screen yet.** Whether a correspondent rule may ask to FILE outright when it was authored from a typed address rather than learned from a filing. The design wants a rule to inherit an authorizing act a person actually performed, and a directly-authored rule has none — its audit terminates in a configuration screen. Built permissive because the design also names the abstract editor, and the exposure is narrow (an unattended firing still needs the firm ceiling raised, the member's own matter access re-checked at every fire, and an intact-original capture with a passing signature on a matching domain, so a correspondent rule can never fire on the forward or catch-all path at all). The question is whether promotion `file` should additionally require created_from_email_message_id.
 - **Conflicts Check** (`conflicts`) — **A group of capabilities.** Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).
 - **Pronouns on a person** (`directory.pronouns`) — **Built; no screen yet.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
@@ -519,14 +520,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Communications Layer
 
-[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 16 units of work, 19% shipped. 3 done, 1 part-built, 11 ahead, 1 parked.
+[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 16 units of work, 25% shipped. 4 done, 0 part-built, 11 ahead, 1 parked.
 
 - `communications` · `partial` · **Communications layer** — Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   - `communications.email` · `partial` · **Email** — Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
     - `communications.email.transactional` · `shipped` · **Transactional email adapter** — Billing/system mail through a transactional provider adapter.
     - `communications.email.filing` · `partial` · **Firm-mailbox email filing** — Matter correspondence through the firm's own Gmail/Outlook mailbox via the email plugin, threaded in the mailbox and logged to the matter. _Note: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route. The add-in's server surface has landed since — three routes in apps/worker/src/routes/email-add-in.ts answering the questions a Save-and-File pane asks that the matter-rooted routes do not (where should this go, what happened to what I filed, what do I show this member), with the suggestion ranking narrowed to matters the member may see before it is hydrated, so a walled matter contributes no suggestion, no reason and no count. The add-in client and the mailbox OAuth connection are still unbuilt._
       - `communications.email.filing.capture-addresses` · `shipped` · **Capture-address management** — Minting, rotating, and revoking the forward/CC capture address a matter files mail through, plus the firm's single catch-all address. _Note: Backend and user guide only — no screens yet; a minted address becomes routable on the next per-firm outbox sweep, and the capture-subdomain DNS onboarding is still a deploy step._
-      - `communications.email.filing.auto-file-rules` · `partial` · **Auto-file rules** — Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture. _Note: The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose; they are read and written at GET/PUT /api/v1/firm/email-auto-file-policy (apps/worker/src/routes/auto-file-policy.ts), which is the only auto-file route that exists. Still missing: the rule management routes and the decision-ledger review read. No screens._
+      - `communications.email.filing.auto-file-rules` · `shipped` · **Auto-file rules** — Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture. _Note: Complete end to end with no screens. Until the management routes landed nothing in the product created a rule — the create statement's only caller was a test — so the engine evaluated an empty candidate set on every unrouted capture; a rule can now be created from a filing, re-postured, suspended, resumed and revoked, and the firm can read one message's decision history and a thirty-day per-rule review. Refusals are at creation rather than at fire time: a rule asking to file under a lowered firm ceiling is rejected outright, and a thread rule is rejected unless its conversation is already filed to the named matter. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away. Measured: ten thousand rules cost no more per capture than ten; the breaker's read stays at its cap after two hundred firings; the thread read grows with the conversation (0.06 ms at eight messages, 1.9 ms at two thousand), which is narrower than the design's flat-cost sentence and is recorded in packages/fixtures/src/load-profile/auto-file-measurements.test.ts. The matterNumberInSubject firm toggle is deliberately not built._
     - `communications.email.parse-engine` · `shipped` · **Email parse core** — Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route. _Note: Parse-only; the communications capture subsystem builds on this record model later._
   - `communications.messaging` · `not-started` · **Messaging (SMS/MMS/RCS)** — CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting.
     - `communications.messaging.port` · `not-started` · **Messaging port** — Swappable CPaaS adapter with per-firm scoped secrets.

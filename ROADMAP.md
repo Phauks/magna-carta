@@ -78,7 +78,7 @@ Ethics-critical intake screening, physical-original custody, and the per-matter 
 A cross-phase entry rather than a phase slice, **pinned here so Discovery's email-as-evidence builds on its record model.** The email parse core and slice 1 of filing and capture are built (see _Recently shipped_). What remains:
 
 - The native mail-client add-in (Outlook and Gmail "Save & File" over the client API that is already built) — a UI surface, owner-built.
-- The auto-file rule management routes (create from a filing, promote, suspend, resume, revoke), the review read, and the four load-profile numbers.
+- The auto-file rule management routes, the review read and the load-profile numbers are built — until they landed nothing in the product created a rule, so the engine had been evaluating an empty set on every capture. What remains for auto-filing is the screens, and the `matterNumberInSubject` firm toggle, which stays unbuilt until the engine gains that rule kind (an inert switch is worse than an absent one).
 - The matter correspondence timeline UI, which is where a capture's DKIM verdict becomes visible.
 - _Gate: full mailbox sync and send-as are deferred to Phase 7 Integrations, on the same Google CASA / Microsoft verification review as every other credentialed adapter._
 

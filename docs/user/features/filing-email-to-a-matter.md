@@ -36,7 +36,7 @@ proposed, never named in a reason, and never hinted at by a count.
 
 ## Auto-file rules
 
-_Rules now act on mail as it is captured, and the firm-wide switch below is live. The screens for creating and pruning rules are still being built, so this describes what a rule is and how it behaves, so you know what you are turning on._
+_Rules act on mail as it is captured, and both the firm-wide switch and the controls for creating, pausing and retiring a rule are live. The screens are still being built, so today a rule is set up through the API rather than from a page; what a rule does once it exists is exactly what this section describes._
 
 A suggestion waits for somebody to open a message and choose. An **auto-file rule** does not wait: it
 puts a message on the right matter as it arrives, with its reasons attached. That is the difference
@@ -44,8 +44,13 @@ that matters on the firm-wide catch-all address, where mail lands today with no 
 somebody has to go and find one.
 
 A rule is something you set up **after** filing a message by hand — "keep filing replies to this
-conversation here", "always file mail from this sender here". There are only two kinds, and there is
-deliberately no way to write a rule out of keywords or patterns:
+conversation here", "always file mail from this sender here". That order is not a convention: a rule
+that follows a conversation can only be created once your firm has actually filed a message from that
+conversation to that matter, because the rule's whole claim is that somebody already decided where the
+conversation belongs. Ask for one before that and it is refused, with the reason.
+
+There are only two kinds, and there is deliberately no way to write a rule out of keywords or
+patterns:
 
 - **Replies to a conversation you have already filed.** The strongest signal there is: your firm
   already decided where that conversation belongs.
@@ -95,6 +100,40 @@ Rules are cautious on purpose, and when they are unsure they do nothing rather t
 
 A rule that stops itself is **suspended, not deleted** — it stays in the list with the reason it
 stopped, so you can see what had been happening and decide whether to put it back in service.
+
+### Pausing and retiring a rule yourself
+
+You do not have to wait for a rule to stop itself.
+
+- **Pause it.** The rule stops acting immediately and stays in the matter's list, marked as paused by
+  a person. Messages it already placed are left exactly where they are.
+- **Resume it.** It goes back to work on mail that arrives afterwards. Resuming never reaches back
+  over the messages that came in while it was paused — those stay where they were.
+- **Retire it.** A retired rule never comes back, and creating a fresh one is the way to start again.
+  Retiring is still not a deletion: the rule's record survives so that every message it filed can
+  still tell you which rule filed it, years later.
+
+Setting a rule up, pausing it, resuming it and retiring it are a **separate permission** from filing
+mail. Somebody who may file email to a matter does not automatically get to configure the machine to
+file email — your firm can grant one without the other, and by default paralegals have the first and
+not the second.
+
+### Seeing what your rules have been doing
+
+Two questions have answers built for them.
+
+- **"Why is this message here?"** Every automatic filing keeps the reasons it was made for, in plain
+  sentences, attached to the message. You can ask weeks later without anybody reconstructing it, and
+  the answer never contains the message itself — only which rule acted and what it and the guardrails
+  concluded.
+- **"What have my rules been doing?"** A thirty-day summary, per rule: how many messages it filed, how
+  many it placed for someone to confirm, how many of those have since been removed, and whether it has
+  stopped itself. This is the read to look at **before** deciding whether to allow filing without
+  confirmation — your firm gets to watch what the rules have been proposing before granting them the
+  power to act on it.
+
+Both of these only ever show you matters you can already open. A rule on a matter you have no access
+to contributes nothing — not an entry, not a count, not a mention.
 
 ### Undoing an automatic filing
 
