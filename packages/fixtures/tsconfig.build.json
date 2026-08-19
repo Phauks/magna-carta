@@ -42,6 +42,9 @@
       "path": "../directory/tsconfig.build.json"
     },
     {
+      "path": "../discovery/tsconfig.build.json"
+    },
+    {
       "path": "../document-assembly/tsconfig.build.json"
     },
     {

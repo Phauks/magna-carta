@@ -14,10 +14,14 @@ import { z } from "zod";
 // per statement when the rows are written as separate statements in one batch, and inside the
 // per-invocation query ceiling with room for the load's own bookkeeping writes.
 //
-// THIS IS A PLACEHOLDER FOR A MEASURED NUMBER. It is deliberately conservative rather than tuned:
-// the load-profile harness that measures the real one lands with the discovery profile, and the
-// number moves when that measurement exists rather than when somebody has an opinion. Anything that
-// reads it reads it from here, so there is one place to change.
+// IT IS NOW MEASURED, and the measurement is why it stays at 100 rather than growing. One batch of
+// this size commits in 0.62 ms median / 0.73 ms p95 against a 25,000-document review set, on the
+// machine-relative scale the load profile prints
+// (`discovery-load.allocation-batch`, packages/fixtures/src/load-profile/discovery-measurements.ts).
+// That is well inside a Worker's budget with room for the load's bookkeeping writes beside it, and
+// the parameter and query walls above are what cap it rather than its cost — so a larger batch would
+// buy a fraction of a millisecond per chunk and spend the headroom that keeps a schema change from
+// pushing the statement past its parameter ceiling. Anything that reads this reads it from here.
 export const REVIEW_DOCUMENT_INSERT_BATCH_SIZE = 100;
 
 // How many review documents one coordinator turn allocates before checkpointing its cursor. Larger
@@ -77,11 +81,16 @@ export const CODING_CRITERIA_MAX_LENGTH = 2000;
 // above rather than degraded, and it is re-derived against the measured per-firm database size rather
 // than defended by argument.
 //
-// The default is the point at which the arithmetic leaves the firm database comfortably inside D1's
-// 10 GB with the rest of the firm's data (the review document row is a few hundred bytes plus its
-// indexes, so the table is a few hundred megabytes at this size — the largest object in the database
-// by an order of magnitude, and still not close to the wall), and at which the semantic half sits at
-// about a quarter of one Vectorize index.
+// THE DEFAULT IS DERIVED FROM A MEASUREMENT AT THIS EXACT SIZE, not extrapolated from a tenth of it.
+// A per-firm database holding one review set of 250,000 documents — with the File Manager rows they
+// point at, their exceptions, their occurrences, and every index the review surface reads through —
+// measures 633 MiB, against 66 MiB at 25,000. So a firm can hold roughly a dozen review sets at the
+// ceiling before D1's 10 GB is the binding constraint rather than this number, which is the margin
+// the ceiling exists to preserve: the failure it prevents is a firm discovering at 400,000 documents
+// that its database is full, which is an outage with no good exit. Re-derive it by running the
+// harness at its large volume rather than by reasoning about row sizes:
+//   MAGNA_CARTA_DISCOVERY_VOLUME=large pnpm test packages/fixtures/src/load-profile/discovery-measurements.test.ts
+// The semantic half sits at about a quarter of one Vectorize index at this size, unchanged.
 export const DEFAULT_DOCUMENT_CEILING = 250_000;
 
 export const discoveryDocumentCeilingDefinition: FirmSettingDefinition<number> = {

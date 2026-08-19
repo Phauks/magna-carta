@@ -2325,9 +2325,16 @@ export const indexSplit = sqliteTable(
     supersededAt: text("superseded_at"),
   },
   (table) => [
-    // The live-splits-for-a-corpus read: WHERE corpus_id = ? AND superseded_at IS NULL. This is the
-    // index every query and every compaction decision walks.
-    index("index_split_corpus_superseded_index").on(table.corpusId, table.supersededAt),
+    // The live-splits-for-a-corpus read: WHERE corpus_id = ? AND superseded_at IS NULL ORDER BY
+    // created_at. This is the index every query and every compaction decision walks, and the sort
+    // column is on the end so the enumeration comes back ordered from the index rather than through a
+    // temporary b-tree — the order is what makes a compaction pass select the same set twice and
+    // therefore derive the same merged split id.
+    index("index_split_corpus_superseded_index").on(
+      table.corpusId,
+      table.supersededAt,
+      table.createdAt,
+    ),
     // Retained from before the widening. Nothing reads a corpus by matter any more; the index stays
     // because dropping one is a table rebuild against a table firms have already provisioned.
     index("index_split_matter_superseded_index").on(table.matterId, table.supersededAt),
@@ -7629,6 +7636,14 @@ export const reviewDocumentOccurrence = sqliteTable(
     index("review_document_occurrence_primary_index").on(
       table.reviewSetId,
       table.primaryReviewDocumentId,
+    ),
+    // The same read with the order it is served in on the end, so it comes back sorted from the index
+    // rather than through a temporary b-tree. The set is small — one document's copies — but the read
+    // is on the review surface's per-document panel, so it happens once per document opened.
+    index("review_document_occurrence_primary_page_index").on(
+      table.reviewSetId,
+      table.primaryReviewDocumentId,
+      table.duplicateReviewDocumentId,
     ),
     uniqueIndex("review_document_occurrence_duplicate_unique_index").on(
       table.duplicateReviewDocumentId,

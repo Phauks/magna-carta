@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9a3b0a3f-2b5a-4ac1-bf5f-cf1d2e578dea",
+  "id": "8f1c156a-4ece-4ba8-b2de-ec4642405ee6",
   "prevId": "2dc76c7a-6a07-4056-9918-cc4777f57cd2",
   "tables": {
     "account_balance": {
@@ -8425,7 +8425,7 @@
       "indexes": {
         "index_split_corpus_superseded_index": {
           "name": "index_split_corpus_superseded_index",
-          "columns": ["corpus_id", "superseded_at"],
+          "columns": ["corpus_id", "superseded_at", "created_at"],
           "isUnique": false
         },
         "index_split_matter_superseded_index": {
@@ -15755,6 +15755,15 @@
         "review_document_occurrence_primary_index": {
           "name": "review_document_occurrence_primary_index",
           "columns": ["review_set_id", "primary_review_document_id"],
+          "isUnique": false
+        },
+        "review_document_occurrence_primary_page_index": {
+          "name": "review_document_occurrence_primary_page_index",
+          "columns": [
+            "review_set_id",
+            "primary_review_document_id",
+            "duplicate_review_document_id"
+          ],
           "isUnique": false
         },
         "review_document_occurrence_duplicate_unique_index": {

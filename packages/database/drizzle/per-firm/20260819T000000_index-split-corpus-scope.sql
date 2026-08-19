@@ -23,7 +23,7 @@ ALTER TABLE `index_split` ADD `corpus_id` text;--> statement-breakpoint
 -- here because a migration that only works on an empty table is one that fails the first time it does
 -- not run on one.)
 UPDATE `index_split` SET `corpus_id` = `matter_id` WHERE `corpus_id` IS NULL;--> statement-breakpoint
-CREATE INDEX `index_split_corpus_superseded_index` ON `index_split` (`corpus_id`,`superseded_at`);
+CREATE INDEX `index_split_corpus_superseded_index` ON `index_split` (`corpus_id`,`superseded_at`,`created_at`);
 --> statement-breakpoint
 -- And what a review document's own row says about its place in the index.
 --
@@ -62,3 +62,7 @@ CREATE INDEX `review_document_state_page_index` ON `review_document` (`review_se
 -- walk, which the report and the live read both make and which pages by the pair because several
 -- reasons on one document is normal.
 CREATE INDEX `review_document_exception_review_set_page_index` ON `review_document_exception` (`review_set_id`,`review_document_id`,`id`);
+--> statement-breakpoint
+-- The occurrence panel's read with the order it is served in on the end, so one document's copies come
+-- back sorted from the index rather than through a temporary b-tree.
+CREATE INDEX `review_document_occurrence_primary_page_index` ON `review_document_occurrence` (`review_set_id`,`primary_review_document_id`,`duplicate_review_document_id`);

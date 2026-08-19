@@ -310,12 +310,14 @@ function reviewDocumentPageStatement(
 
   if (cursor !== undefined) {
     if (segment === "dated" && cursor.sortDate !== null) {
-      clauses.push(
-        `(${REVIEW_DOCUMENT_TABLE}.sort_date < ? ` +
-          `OR (${REVIEW_DOCUMENT_TABLE}.sort_date = ? ` +
-          `AND ${REVIEW_DOCUMENT_TABLE}.id < ?))`,
-      );
-      bindings.push(cursor.sortDate, cursor.sortDate, cursor.id);
+      // A ROW VALUE, not the equivalent `a < ? OR (a = ? AND b < ?)`. The two mean the same thing and
+      // cost differently by an order of magnitude: SQLite turns a row-value comparison into a seek on
+      // the matching index and turns the OR form into a scan from the end of the index down to the
+      // cursor. At a quarter-million documents that is the difference between a page and a walk of
+      // half the corpus — measured, in packages/fixtures/src/load-profile/discovery-measurements.ts.
+      // Both columns are non-null in this segment, which is what makes the row value well-defined.
+      clauses.push(`(${REVIEW_DOCUMENT_TABLE}.sort_date, ${REVIEW_DOCUMENT_TABLE}.id) < (?, ?)`);
+      bindings.push(cursor.sortDate, cursor.id);
     } else if (segment === "undated" && cursor.sortDate === null) {
       clauses.push(`${REVIEW_DOCUMENT_TABLE}.id < ?`);
       bindings.push(cursor.id);
