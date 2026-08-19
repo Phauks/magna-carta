@@ -35,6 +35,14 @@ const ALLOWLIST = new Set([
   // measurement harnesses nobody has written yet. If a third of these appears, that is the signal to
   // make the exemption a rule on purpose.
   join("packages", "fixtures", "src", "load-profile", "discovery-measurements.test.ts"),
+  // The auto-file measurement harness — the third of that class, which is the count the entry above
+  // named as the signal to consider a directory rule. Still listed as a file, deliberately: the reason
+  // a directory rule was refused is that it would cover harnesses nobody has written yet, and that is
+  // as true at three as it was at two. What has changed is only that the list is now long enough to
+  // read as a category, which is what these comments are for. It prints the per-capture cost of the
+  // auto-file engine at two rule populations, two conversation lengths, and after a rule has run away
+  // — numbers that exist to be compared across commits on one machine, never asserted against.
+  join("packages", "fixtures", "src", "load-profile", "auto-file-measurements.test.ts"),
   // The GPU benchmark harness — same class: a developer CLI/runner whose console output IS its
   // product (benchmark results), not application logging.
   join("packages", "gpu-benchmark", "src", "cli.ts"),
