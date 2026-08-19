@@ -484,6 +484,13 @@
       "when": 1786924800000,
       "tag": "20260817T000000_billing-invoice-delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1787097600000,
+      "tag": "20260819T000000_index-split-corpus-scope",
+      "breakpoints": true
     }
   ]
 }

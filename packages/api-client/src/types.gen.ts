@@ -3322,6 +3322,76 @@ export type CodingProgress = {
     splitFamilyIds: Array<string>;
 };
 
+export type ReviewDocumentPage = {
+    data: Array<ReviewDocument>;
+    nextCursor: string | null;
+};
+
+export type ReviewDocument = {
+    id: string;
+    recordCustodianId: string;
+    discoveryLoadId: string;
+    familyId: string;
+    familyRole: 'standalone' | 'parent' | 'attachment' | 'container-child';
+    familySequence: number;
+    sourceName: string | null;
+    sourcePath: string | null;
+    sizeBytes: number | null;
+    pageCount: number | null;
+    formatIdentified: string | null;
+    sortDate: string | null;
+    sortDateSource: string | null;
+    processingState: 'pending' | 'processing' | 'processed' | 'excepted';
+    processingDeferredReason: string | null;
+    indexState: 'indexed' | 'deferred' | 'failed' | null;
+    isDedupPrimary: boolean;
+    extractionRoute: string | null;
+    pagesRecognized: number | null;
+    createdAt: string;
+};
+
+export type ReviewSetExceptionPage = {
+    countsByCode: Array<{
+        code: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+        documentCount: number;
+    }>;
+    data: Array<ReviewDocumentException>;
+    nextCursor: string | null;
+};
+
+export type ReviewDocumentException = {
+    id: string;
+    reviewDocumentId: string;
+    discoveryLoadId: string;
+    stage: 'load' | 'identify' | 'extract' | 'deduplicate' | 'family' | 'index';
+    code: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+    detail: string | null;
+    recordCustodianId: string;
+    sourceName: string | null;
+    processingState: 'pending' | 'processing' | 'processed' | 'excepted';
+    createdAt: string;
+};
+
+export type ReviewDocumentOccurrenceList = {
+    data: Array<ReviewDocumentOccurrence>;
+};
+
+export type ReviewDocumentOccurrence = {
+    id: string;
+    primaryReviewDocumentId: string;
+    duplicateReviewDocumentId: string;
+    recordCustodianId: string;
+    discoveryLoadId: string;
+    createdAt: string;
+};
+
+export type ReviewSetIndexStatus = {
+    indexed: number;
+    deferred: number;
+    failed: number;
+    unattempted: number;
+};
+
 export type ReviewSetList = {
     data: Array<ReviewSet>;
 };
@@ -17874,6 +17944,196 @@ export type DiscoveryGetCodingProgressResponses = {
 };
 
 export type DiscoveryGetCodingProgressResponse = DiscoveryGetCodingProgressResponses[keyof DiscoveryGetCodingProgressResponses];
+
+export type DiscoveryListReviewDocumentsData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: {
+        cursor?: string;
+        /**
+         * How many documents to return, at most 200.
+         */
+        pageSize?: number;
+        recordCustodianId?: string;
+        discoveryLoadId?: string;
+        familyId?: string;
+        processingState?: 'pending' | 'processing' | 'processed' | 'excepted';
+        exceptionCode?: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+    };
+    url: '/api/v1/review-sets/{reviewSetId}/documents';
+};
+
+export type DiscoveryListReviewDocumentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListReviewDocumentsError = DiscoveryListReviewDocumentsErrors[keyof DiscoveryListReviewDocumentsErrors];
+
+export type DiscoveryListReviewDocumentsResponses = {
+    /**
+     * A page of the review set's documents
+     */
+    200: ReviewDocumentPage;
+};
+
+export type DiscoveryListReviewDocumentsResponse = DiscoveryListReviewDocumentsResponses[keyof DiscoveryListReviewDocumentsResponses];
+
+export type DiscoveryListReviewSetExceptionsData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: {
+        cursor?: string;
+        /**
+         * How many documents to return, at most 200.
+         */
+        pageSize?: number;
+    };
+    url: '/api/v1/review-sets/{reviewSetId}/exceptions';
+};
+
+export type DiscoveryListReviewSetExceptionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListReviewSetExceptionsError = DiscoveryListReviewSetExceptionsErrors[keyof DiscoveryListReviewSetExceptionsErrors];
+
+export type DiscoveryListReviewSetExceptionsResponses = {
+    /**
+     * The reasons, counted and then listed
+     */
+    200: ReviewSetExceptionPage;
+};
+
+export type DiscoveryListReviewSetExceptionsResponse = DiscoveryListReviewSetExceptionsResponses[keyof DiscoveryListReviewSetExceptionsResponses];
+
+export type DiscoveryListReviewDocumentOccurrencesData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/occurrences';
+};
+
+export type DiscoveryListReviewDocumentOccurrencesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListReviewDocumentOccurrencesError = DiscoveryListReviewDocumentOccurrencesErrors[keyof DiscoveryListReviewDocumentOccurrencesErrors];
+
+export type DiscoveryListReviewDocumentOccurrencesResponses = {
+    /**
+     * The document's other copies
+     */
+    200: ReviewDocumentOccurrenceList;
+};
+
+export type DiscoveryListReviewDocumentOccurrencesResponse = DiscoveryListReviewDocumentOccurrencesResponses[keyof DiscoveryListReviewDocumentOccurrencesResponses];
+
+export type DiscoveryGetReviewSetIndexStatusData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/index-status';
+};
+
+export type DiscoveryGetReviewSetIndexStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewSetIndexStatusError = DiscoveryGetReviewSetIndexStatusErrors[keyof DiscoveryGetReviewSetIndexStatusErrors];
+
+export type DiscoveryGetReviewSetIndexStatusResponses = {
+    /**
+     * What the review set owes the index
+     */
+    200: ReviewSetIndexStatus;
+};
+
+export type DiscoveryGetReviewSetIndexStatusResponse = DiscoveryGetReviewSetIndexStatusResponses[keyof DiscoveryGetReviewSetIndexStatusResponses];
 
 export type DiscoveryListReviewSetsData = {
     body?: never;

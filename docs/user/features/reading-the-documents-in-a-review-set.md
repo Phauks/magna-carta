@@ -1,9 +1,10 @@
 # Reading the documents in a review set
 
-_Reading a review set is built, along with the API behind it. The engines that do the reading are
-switched on at deployment; until they are, documents wait rather than being marked unreadable, and
-the set says so. The screens — the progress view and the exception report a person prints — are
-authored when those surfaces ship._
+_Reading a review set is built, along with the API behind it, and so is the step that makes a read
+document searchable. The engines that do the reading and the searching are switched on at deployment;
+until they are, documents wait rather than being marked unreadable, and the set says so. The screens —
+the document list, the progress view and the exception report a person prints — are authored when those
+surfaces ship._
 
 ## What it does
 
@@ -92,18 +93,45 @@ anything** — no reading, no recognition, no conversion. It is not deleted. Del
 it is unpleasant is not something this system does, and a file the other side produced that turned
 out to carry malware is itself a fact somebody may want.
 
+## Being searchable is a separate step, with a separate answer
+
+Reading a document is what makes it possible to search; it is not the same as having searched it. Once
+a document has been read, the set queues it to go into that review set's own search index, and each
+document says where it got to: **in the index**, **waiting**, or **could not be indexed**.
+
+Three things worth knowing about it.
+
+**Waiting is not a problem with your document.** Exactly as with reading, a document waiting to be
+indexed is a fact about the system rather than about the file, and it clears itself when the search
+engine is switched on. Because of that, **it never appears in an exception report**. The report is a
+list of documents you could not read and hand over; whether your own search has caught up with a
+document you read perfectly well is nobody else's business and would be a misleading line to put in
+front of the other side. You can see the counts whenever you want; they are just not in that document.
+
+**The index of a review set is its own.** Material another party produced is searched from the review
+set and from nowhere else — it does not turn up in an ordinary search of the matter's own files, and
+it is never fed to the assistant. If a production is clawed back, the set and everything derived from
+it go together.
+
+**Duplicates are indexed once.** The copy a reviewer opens is the one in the index; the other copies
+are still in the set, still attributed to the people who held them, and still findable through the copy
+that stands for them. See [the manifest and exception report](discovery-exception-report.md).
+
 ## What this does not do yet
 
-- **Grouping duplicates.** The same document produced by three people is currently three documents.
-  Grouping them, while keeping a record of whose files each copy came from, is the next piece of work.
-- **Opening up zip files.** An archive is recorded as itself, with the reason above.
-- **The printed manifest and exception report.** The counts and the reasons are all recorded per
-  document; the two documents a firm hands to opposing counsel are assembled in the next piece of
-  work.
-- **Searching.** Reading a set is what makes searching possible; the search itself is separate.
+- **The screens.** Everything above is recorded per document and reachable through the API; the
+  progress view, the document list and the exception report a person prints are the next piece of work.
+- **Searching itself.** The pipeline that makes a set searchable is built and the engine that answers
+  the queries is switched on at deployment.
+- **Searching by meaning.** Keyword search across a review set is what is built. Searching by meaning
+  rather than by word is a separate, deliberately unmade decision — it is expensive to run on a
+  quarter-million documents and nobody has yet shown that it finds responsive documents a keyword
+  search misses.
 
 ## Related features
 
 - [Review sets and loading](review-sets-and-loading.md) — building the set in the first place.
 - [Coding documents in review](coding-documents-in-review.md) — deciding what each document is.
 - [File hash and integrity](file-hash-integrity.md) — the fingerprints recorded for each document.
+- [The load manifest and the exception report](discovery-exception-report.md) — the two records a
+  load produces, and what every named reason means.

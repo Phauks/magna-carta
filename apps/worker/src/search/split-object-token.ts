@@ -125,7 +125,11 @@ export async function verifySplitObjectToken(
   if (!(await constantTimeStringEquals(await computeMac(body, key), presentedMac))) return null;
 
   // The signature holds; the claims may now be trusted. Validate the shape before anything reads them.
-  if (claims.corpusKind !== "matter") return null;
+  // The closed kind vocabulary, checked rather than trusted: the signature says the claims are ours,
+  // and this says they are a shape we understand. A kind we do not recognise would derive a prefix
+  // from `corpusSplitPrefix` anyway — the prefix needs only the id — so an unchecked kind would
+  // authorize a key without anybody having decided what corpus it belongs to.
+  if (claims.corpusKind !== "matter" && claims.corpusKind !== "reviewSet") return null;
   if (typeof claims.corpusId !== "string" || claims.corpusId === "") return null;
   if (typeof claims.write !== "boolean") return null;
   if (typeof claims.exp !== "number" || nowMilliseconds > claims.exp) return null;

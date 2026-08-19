@@ -10,7 +10,14 @@ import {
 import { seedCodingPanel } from "@magna-carta/discovery/coding-panel-service";
 import { declareLoad, reconcileLoad, transitionLoad } from "@magna-carta/discovery/load-service";
 import { seedReviewSetAccess } from "@magna-carta/discovery/review-set-access-service";
-import { readDiscoveryLoad, readDiscoveryLoads } from "@magna-carta/discovery/load-statements";
+import { readDiscoveryLoad } from "@magna-carta/discovery/load-statements";
+import {
+  readVisibleDiscoveryLoad,
+  readVisibleDiscoveryLoads,
+  readVisibleReviewSet,
+  readVisibleReviewSetsForMatter,
+} from "@magna-carta/discovery/review-reads";
+import { reviewSetAccessPredicate } from "@magna-carta/discovery/review-set-visibility";
 import { TRANSCRIPT_SCOPES } from "@magna-carta/discovery/load-source";
 import {
   createRecordCustodian,
@@ -27,11 +34,7 @@ import {
   renameReviewSet,
   setReviewSetSemanticIndexing,
 } from "@magna-carta/discovery/review-set-service";
-import {
-  readReviewSet,
-  readReviewSetsForMatter,
-  type ReviewSetRow,
-} from "@magna-carta/discovery/review-set-statements";
+import { readReviewSet, type ReviewSetRow } from "@magna-carta/discovery/review-set-statements";
 import {
   DISCOVERY_LOAD_LANES,
   RECORD_CUSTODIAN_KINDS,
@@ -70,6 +73,7 @@ import { runInternalLoadTurn } from "../discovery/run-internal-load.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { registerDiscoveryCodingRoutes } from "./discovery-coding.ts";
+import { registerDiscoveryReviewReadRoutes } from "./discovery-review-reads.ts";
 
 // The discovery surface: create a corpus, name whose records are in it, declare what is coming, and
 // put the firm's own material in. The review surfaces themselves — the document list, the filters,
@@ -721,6 +725,37 @@ function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables
   };
 }
 
+// The session member's own view of which corpora exist. Every member-facing READ here composes it;
+// the pipeline reads beside them do not, because a queue consumer has no member to check.
+function accessFor(c: Context<{ Bindings: Bindings; Variables: AppVariables }>) {
+  return reviewSetAccessPredicate(requireChokepointUserId(c));
+}
+
+// The gate every route that NAMES a review set passes first, writes included.
+//
+// A read that leaks a corpus and a write that reaches into one are the same failure from two sides:
+// closing a review set releases its derived artifacts, and declaring a load into one puts material in
+// it. Holding the matter's discovery permission is not the same as being cleared for what an opposing
+// party produced under a protective order, so the list decides both.
+//
+// Returns the 404 to return, or undefined to carry on. Absent rather than refused, for the same
+// reason the reads are.
+async function refuseUnlessOnTheList(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  database: Parameters<typeof readVisibleReviewSet>[0],
+  reviewSetId: ReviewSetId,
+): Promise<ProblemResponse<404> | undefined> {
+  const visible = await readVisibleReviewSet(database, reviewSetId, accessFor(c));
+  return visible === undefined
+    ? problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: "No such review set in this firm.",
+      })
+    : undefined;
+}
+
 function reviewSetPayload(row: ReviewSetRow) {
   return {
     id: row.id,
@@ -742,15 +777,23 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
   // The review half — the access list, the coding panel, and coding itself — registered from here
   // rather than from the app so that everything under the discovery namespace arrives together.
   registerDiscoveryCodingRoutes(app, chokepoint);
+  // The reads the review surface pages through — the document list, the exception surface, the
+  // occurrences, and what the index still owes.
+  registerDiscoveryReviewReadRoutes(app, chokepoint);
 
   app.openapi(
     { ...listReviewSetsRoute, middleware: chokepointMiddleware(chokepoint, listReviewSetsRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
-      const rows = await readReviewSetsForMatter(
+      // ACCESS-SCOPED, and it is the list that most needed to be. A review set's NAME is enough to
+      // disclose it — "Plaintiff's production, Ridgeway settlement" tells a reader what exists — and
+      // holding the matter's discovery permission is not the same thing as being cleared for material
+      // an opposing party produced under a protective order.
+      const rows = await readVisibleReviewSetsForMatter(
         firm.firmDatabase,
         matterId as MatterId,
+        accessFor(c),
         DEFAULT_PAGE_SIZE,
       );
       return c.json({ data: rows.map(reviewSetPayload) }, 200);
@@ -834,7 +877,13 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
-      const row = await readReviewSet(firm.firmDatabase, reviewSetId as ReviewSetId);
+      // ABSENT, not refused: a member off the list gets the same answer as for a review set that does
+      // not exist, because the difference between the two is itself information about a corpus.
+      const row = await readVisibleReviewSet(
+        firm.firmDatabase,
+        reviewSetId as ReviewSetId,
+        accessFor(c),
+      );
       if (row === undefined) {
         return problemJson(c, {
           type: "not-found",
@@ -852,6 +901,8 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
       const body = c.req.valid("json");
       const options = serviceOptions(c);
       try {
@@ -898,6 +949,8 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
       const { state } = c.req.valid("json");
       const options = serviceOptions(c);
       try {
@@ -931,6 +984,8 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
       const rows = await readRecordCustodians(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
@@ -961,6 +1016,8 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
       const body = c.req.valid("json");
       const idempotency = requireChokepointIdempotency(c);
       const now = () => new Date().toISOString();
@@ -1007,6 +1064,22 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { recordCustodianId } = c.req.valid("param");
+      // The custodian names its review set, and the review set decides. Read BEFORE the update, not
+      // after: the point of the gate is that the write does not happen.
+      const existing = await readRecordCustodian(
+        firm.firmDatabase,
+        recordCustodianId as RecordCustodianId,
+      );
+      if (existing === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such Custodian of Record in this firm.",
+        });
+      }
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, existing.review_set_id);
+      if (refusal !== undefined) return refusal;
       const body = c.req.valid("json");
       const options = serviceOptions(c);
       try {
@@ -1057,9 +1130,12 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
-      const rows = await readDiscoveryLoads(
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
+      const rows = await readVisibleDiscoveryLoads(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
+        accessFor(c),
         DEFAULT_PAGE_SIZE,
       );
       return c.json({ data: rows.map(loadPayload) }, 200);
@@ -1071,6 +1147,8 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { reviewSetId } = c.req.valid("param");
+      const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
+      if (refusal !== undefined) return refusal;
       const body = c.req.valid("json");
       const idempotency = requireChokepointIdempotency(c);
       const now = () => new Date().toISOString();
@@ -1117,7 +1195,11 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { loadId } = c.req.valid("param");
-      const row = await readDiscoveryLoad(firm.firmDatabase, loadId as DiscoveryLoadId);
+      const row = await readVisibleDiscoveryLoad(
+        firm.firmDatabase,
+        loadId as DiscoveryLoadId,
+        accessFor(c),
+      );
       if (row === undefined) {
         return problemJson(c, {
           type: "not-found",
@@ -1147,7 +1229,13 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
             detail: "No such load in this firm.",
           });
         }
-        const reviewSet = await readReviewSet(firm.firmDatabase, load.review_set_id);
+        // Access-scoped, so this doubles as the wall: a member off the review set's list reaches the
+        // load through its own identifier and gets the same answer as for a load that does not exist.
+        const reviewSet = await readVisibleReviewSet(
+          firm.firmDatabase,
+          load.review_set_id,
+          accessFor(c),
+        );
         if (reviewSet === undefined) {
           return problemJson(c, {
             type: "not-found",

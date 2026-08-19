@@ -1,4 +1,9 @@
-import type { FileId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  IndexSplitId,
+  MatterId,
+  ReviewDocumentId,
+} from "@magna-carta/identifiers/types";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 
 // Table name tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
@@ -6,12 +11,31 @@ import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 // table exists only in the per-firm database — the caller supplies that handle.
 export const INDEX_SPLIT_TABLE = "index_split";
 
-export interface InsertIndexSplitRow {
+// What a split indexes, which depends on which corpus it belongs to: a File Manager file in a matter
+// corpus, a review document in a discovery review-set corpus. Kept as a union of the two branded
+// handles rather than widened to `string`, so a caller cannot hand one corpus the other's documents.
+export type IndexedDocumentId = FileId | ReviewDocumentId;
+
+// THE SCOPE KEY, and the only one. Every read below that answers "what is in this corpus" matches on
+// `corpus_id` alone.
+//
+// The kind is stored and never matched on, for the same reason the split's R2 key needs only the id:
+// an identifier is a self-describing handle (`matter_…`, `reviewSet_…`), so two kinds cannot collide
+// on one id, and a scope read that had to match a pair would be a scope read somebody could get half
+// right. The kind is what lets a report say what a split is without resolving it.
+export interface IndexSplitCorpusColumns {
+  readonly corpusKind: string;
+  readonly corpusId: string;
+}
+
+export interface InsertIndexSplitRow extends IndexSplitCorpusColumns {
   readonly id: IndexSplitId;
+  // Provenance, not scope: which matter the index work was done under. A review-set split carries the
+  // review set's matter. Nothing enumerates a corpus by it — see the schema comment beside the column.
   readonly matterId: MatterId;
   // The one document version this split indexes — null for a split that spans many documents, the shape
   // a later compaction pass publishes when it merges the per-document splits.
-  readonly documentId: FileId | null;
+  readonly documentId: IndexedDocumentId | null;
   readonly version: number | null;
   readonly objectKey: string;
   readonly documentCount: number;
@@ -28,11 +52,13 @@ export function insertIndexSplitStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${INDEX_SPLIT_TABLE} (id, matter_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at, superseded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL)`,
+      `INSERT INTO ${INDEX_SPLIT_TABLE} (id, matter_id, corpus_kind, corpus_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at, superseded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, NULL)`,
     )
     .bind(
       row.id,
       row.matterId,
+      row.corpusKind,
+      row.corpusId,
       row.documentId,
       row.version,
       row.objectKey,
@@ -43,10 +69,10 @@ export function insertIndexSplitStatement(
     );
 }
 
-export interface IndexSplitRow {
+export interface IndexSplitRow extends IndexSplitCorpusColumns {
   readonly id: IndexSplitId;
   readonly matterId: MatterId;
-  readonly documentId: FileId | null;
+  readonly documentId: IndexedDocumentId | null;
   readonly version: number | null;
   readonly objectKey: string;
   readonly documentCount: number;
@@ -61,11 +87,13 @@ export interface IndexSplitRow {
 
 // One home for the projection and its row mapping, so every read of this table returns the same shape
 // and a new column cannot be added to one query and forgotten in another.
-const SELECT_SPLIT_COLUMNS = `SELECT id, matter_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at, superseded_at FROM ${INDEX_SPLIT_TABLE}`;
+const SELECT_SPLIT_COLUMNS = `SELECT id, matter_id, corpus_kind, corpus_id, document_id, version, object_key, document_count, size_bytes, schema_generation, created_at, superseded_at FROM ${INDEX_SPLIT_TABLE}`;
 
 interface IndexSplitColumns {
   id: string;
   matter_id: string;
+  corpus_kind: string;
+  corpus_id: string | null;
   document_id: string | null;
   version: number | null;
   object_key: string;
@@ -80,7 +108,13 @@ function toIndexSplitRow(row: IndexSplitColumns): IndexSplitRow {
   return {
     id: row.id as IndexSplitId,
     matterId: row.matter_id as MatterId,
-    documentId: row.document_id as FileId | null,
+    corpusKind: row.corpus_kind,
+    // A row written before the widening has no corpus, and the backfill in the migration gave every
+    // one of them their matter. Falling back to the matter here would re-implement that backfill in
+    // the reader and hide a row the migration missed; an empty corpus id matches no scope read, which
+    // is how such a row makes itself visible instead.
+    corpusId: row.corpus_id ?? "",
+    documentId: row.document_id as IndexedDocumentId | null,
     version: row.version,
     objectKey: row.object_key,
     documentCount: row.document_count,
@@ -91,18 +125,22 @@ function toIndexSplitRow(row: IndexSplitColumns): IndexSplitRow {
   };
 }
 
-// The live splits for a matter — the set a query enumerates and range-reads. Excludes splits a
+// The live splits for a CORPUS — the set a query enumerates and range-reads. Excludes splits a
 // compaction has superseded, so a query never double-counts a document that a merged split also carries.
 // Ordered oldest-first for a stable, deterministic scan.
-export async function listLiveSplitsForMatter(
+//
+// This is the read that makes one corpus structurally unable to name another's splits: a query resolves
+// its keys from here and nowhere else, so a review set's splits cannot enter a matter's result set
+// however the query is worded.
+export async function listLiveSplitsForCorpus(
   database: SqlDatabase,
-  matterId: MatterId,
+  corpusId: string,
 ): Promise<IndexSplitRow[]> {
   const { results } = await database
     .prepare(
-      `${SELECT_SPLIT_COLUMNS} WHERE matter_id = ?1 AND superseded_at IS NULL ORDER BY created_at`,
+      `${SELECT_SPLIT_COLUMNS} WHERE corpus_id = ?1 AND superseded_at IS NULL ORDER BY created_at`,
     )
-    .bind(matterId)
+    .bind(corpusId)
     .all<IndexSplitColumns>();
   return results.map(toIndexSplitRow);
 }
@@ -113,7 +151,7 @@ export async function listLiveSplitsForMatter(
 // keeps a retry from leaking orphaned bytes into the firm's bucket.
 export async function listSplitsForDocument(
   database: SqlDatabase,
-  documentId: FileId,
+  documentId: IndexedDocumentId,
 ): Promise<IndexSplitRow[]> {
   const { results } = await database
     .prepare(`${SELECT_SPLIT_COLUMNS} WHERE document_id = ?1 ORDER BY created_at`)
@@ -136,7 +174,7 @@ export async function listSplitsForDocument(
 // `superseded_at IS NULL`, so a superseded row of the same version is simply outside it.
 export function deleteSplitsForDocumentStatement(
   database: SqlDatabase,
-  documentId: FileId,
+  documentId: IndexedDocumentId,
 ): SqlStatement {
   return database
     .prepare(`DELETE FROM ${INDEX_SPLIT_TABLE} WHERE document_id = ?1 AND superseded_at IS NULL`)
@@ -149,7 +187,7 @@ export function deleteSplitsForDocumentStatement(
 // drop the pipeline must never produce.
 export function replaceDocumentSplitStatements(
   database: SqlDatabase,
-  row: InsertIndexSplitRow & { readonly documentId: FileId },
+  row: InsertIndexSplitRow & { readonly documentId: IndexedDocumentId },
 ): SqlStatement[] {
   return [
     deleteSplitsForDocumentStatement(database, row.documentId),
@@ -194,35 +232,47 @@ export const INDEX_SPLIT_MEMBER_TABLE = "index_split_member";
 // How many splits a corpus currently holds live. The count the write path makes after publishing, to
 // notice that a corpus has crossed the compaction threshold — one indexed count against a table it is
 // already writing, never a scan and never a merge.
-export async function countLiveSplitsForMatter(
+export async function countLiveSplitsForCorpus(
   database: SqlDatabase,
-  matterId: MatterId,
+  corpusId: string,
 ): Promise<number> {
   const row = await database
     .prepare(
-      `SELECT COUNT(*) AS live FROM ${INDEX_SPLIT_TABLE} WHERE matter_id = ?1 AND superseded_at IS NULL`,
+      `SELECT COUNT(*) AS live FROM ${INDEX_SPLIT_TABLE} WHERE corpus_id = ?1 AND superseded_at IS NULL`,
     )
-    .bind(matterId)
+    .bind(corpusId)
     .first<{ live: number }>();
   return row?.live ?? 0;
 }
 
-// Every matter holding at least one live split — the candidate set the daily compaction backstop walks.
+// Every corpus holding at least one live split — the candidate set the daily compaction backstop walks.
 //
-// Distinct matters rather than splits, because the question is "which corpora might need compacting",
-// and a matter with four thousand splits should cost one row here rather than four thousand. The
+// Distinct corpora rather than splits, because the question is "which corpora might need compacting",
+// and a corpus with four thousand splits should cost one row here rather than four thousand. The
 // threshold read that follows is what decides; this only bounds who is asked.
-export async function listMattersWithLiveSplits(
+//
+// The kind comes back with the id because the sweep has to rebuild a corpus scope to act on it, and
+// deriving the kind from the id's prefix would be a second, weaker copy of what the column already says.
+export async function listCorporaWithLiveSplits(
   database: SqlDatabase,
   limit: number,
-): Promise<MatterId[]> {
+): Promise<(IndexSplitCorpusColumns & { readonly matterId: MatterId })[]> {
   const { results } = await database
     .prepare(
-      `SELECT matter_id FROM ${INDEX_SPLIT_TABLE} WHERE superseded_at IS NULL GROUP BY matter_id ORDER BY COUNT(*) DESC LIMIT ?1`,
+      // MIN over the matter rather than a group key: every split in one corpus was published under the
+      // same matter (a corpus belongs to one matter, whether it is the matter itself or a review set
+      // on it), so aggregating it keeps the grouping on the scope alone. Grouping by the matter as
+      // well would silently split one corpus into two candidates the day that stopped being true,
+      // which is the failure this read must not have.
+      `SELECT corpus_kind, corpus_id, MIN(matter_id) AS matter_id FROM ${INDEX_SPLIT_TABLE} WHERE superseded_at IS NULL AND corpus_id IS NOT NULL GROUP BY corpus_kind, corpus_id ORDER BY COUNT(*) DESC LIMIT ?1`,
     )
     .bind(limit)
-    .all<{ matter_id: string }>();
-  return results.map((row) => row.matter_id as MatterId);
+    .all<{ corpus_kind: string; corpus_id: string; matter_id: string }>();
+  return results.map((row) => ({
+    corpusKind: row.corpus_kind,
+    corpusId: row.corpus_id,
+    matterId: row.matter_id as MatterId,
+  }));
 }
 
 // The splits one compaction pass will merge: the corpus's live splits, oldest first, cut off at whichever
@@ -239,15 +289,15 @@ export async function listMattersWithLiveSplits(
 // pass selects the same set and derives the same merged split id.
 export async function listCompactionInputSplits(
   database: SqlDatabase,
-  matterId: MatterId,
+  corpusId: string,
   maximumSplits: number,
   maximumTotalBytes: number,
 ): Promise<IndexSplitRow[]> {
   const { results } = await database
     .prepare(
-      `${SELECT_SPLIT_COLUMNS} WHERE matter_id = ?1 AND superseded_at IS NULL ORDER BY created_at, id LIMIT ?2`,
+      `${SELECT_SPLIT_COLUMNS} WHERE corpus_id = ?1 AND superseded_at IS NULL ORDER BY created_at, id LIMIT ?2`,
     )
-    .bind(matterId, maximumSplits)
+    .bind(corpusId, maximumSplits)
     .all<IndexSplitColumns>();
 
   const selected: IndexSplitRow[] = [];
@@ -266,7 +316,7 @@ export async function listCompactionInputSplits(
 
 export interface IndexSplitMemberRow {
   readonly splitId: IndexSplitId;
-  readonly documentId: FileId;
+  readonly documentId: IndexedDocumentId;
   readonly version: number;
 }
 
@@ -295,7 +345,7 @@ export function insertIndexSplitMemberStatement(
 // does not otherwise make.
 export function markMembersStaleForDocumentStatement(
   database: SqlDatabase,
-  documentId: FileId,
+  documentId: IndexedDocumentId,
   supersededAt: string,
 ): SqlStatement {
   return database
@@ -307,7 +357,7 @@ export function markMembersStaleForDocumentStatement(
 
 export interface StaleSplitMember {
   readonly splitId: IndexSplitId;
-  readonly documentId: FileId;
+  readonly documentId: IndexedDocumentId;
 }
 
 // The per-split exclusion lists for a corpus, in one read.
@@ -317,25 +367,25 @@ export interface StaleSplitMember {
 // engine is told, per split, which document ids may not contribute a hit. Per split rather than per
 // query, because the same document is legitimately live at a newer version in a different split —
 // excluding it globally would hide the current text along with the stale text.
-export async function listStaleMembersForMatter(
+export async function listStaleMembersForCorpus(
   database: SqlDatabase,
-  matterId: MatterId,
+  corpusId: string,
 ): Promise<StaleSplitMember[]> {
   const { results } = await database
     .prepare(
       `SELECT member.split_id AS split_id, member.document_id AS document_id
          FROM ${INDEX_SPLIT_MEMBER_TABLE} AS member
          JOIN ${INDEX_SPLIT_TABLE} AS split ON split.id = member.split_id
-        WHERE split.matter_id = ?1
+        WHERE split.corpus_id = ?1
           AND split.superseded_at IS NULL
           AND member.superseded_at IS NOT NULL
         ORDER BY member.split_id, member.document_id`,
     )
-    .bind(matterId)
+    .bind(corpusId)
     .all<{ split_id: string; document_id: string }>();
   return results.map((row) => ({
     splitId: row.split_id as IndexSplitId,
-    documentId: row.document_id as FileId,
+    documentId: row.document_id as IndexedDocumentId,
   }));
 }
 
@@ -356,7 +406,7 @@ export async function listLiveMembersForSplit(
     .all<{ split_id: string; document_id: string; version: number }>();
   return results.map((row) => ({
     splitId: row.split_id as IndexSplitId,
-    documentId: row.document_id as FileId,
+    documentId: row.document_id as IndexedDocumentId,
     version: row.version,
   }));
 }
@@ -365,20 +415,20 @@ export async function listLiveMembersForSplit(
 // gaining a single split: a re-indexed document leaves its old passages inside a merged split, costing
 // bytes to store and an exclusion clause on every query until a merge repacks them out. The compaction
 // trigger reads this beside the live-split count so churn is a reason to compact, not only growth.
-export async function countStaleMembersForMatter(
+export async function countStaleMembersForCorpus(
   database: SqlDatabase,
-  matterId: MatterId,
+  corpusId: string,
 ): Promise<number> {
   const row = await database
     .prepare(
       `SELECT COUNT(*) AS stale
          FROM ${INDEX_SPLIT_MEMBER_TABLE} AS member
          JOIN ${INDEX_SPLIT_TABLE} AS split ON split.id = member.split_id
-        WHERE split.matter_id = ?1
+        WHERE split.corpus_id = ?1
           AND split.superseded_at IS NULL
           AND member.superseded_at IS NOT NULL`,
     )
-    .bind(matterId)
+    .bind(corpusId)
     .first<{ stale: number }>();
   return row?.stale ?? 0;
 }

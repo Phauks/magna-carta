@@ -22,6 +22,35 @@ export function parseExtractionRoute(stored: string | null): readonly string[] {
   return stored === null || stored === "" ? [] : stored.split(EXTRACTION_ROUTE_SEPARATOR);
 }
 
+// THE PAGE BOUNDARY IN THE EXTRACTED-TEXT OBJECT, and why it is a form feed.
+//
+// The text object holds one document's text, page by page, and it has two readers with opposite
+// needs. A person opening it wants a plain text file; the index wants the pages back as the separate
+// passages they were, because a passage is what a hit points at and a hit that cannot name its page
+// is a hit a reviewer cannot use. Re-extracting the document at index time would answer the second
+// need and break the first rule the corpus is built on — the text a firm certified and the text the
+// index searched would be two parses of the same untrusted bytes with nothing comparing them.
+//
+// A form feed is the answer both readers already accept: it is what a page break in a plain text file
+// has been since line printers, every text viewer honours it, and it CANNOT occur inside a passage —
+// normalization drops every control character before anything derived is derived, so no extracted
+// text can contain one. A blank line could not make that promise: a document's own text is full of
+// them.
+export const REVIEW_DOCUMENT_TEXT_PAGE_SEPARATOR = "\f";
+
+// One document's pages joined into the object that is written to R2.
+export function joinReviewDocumentText(pageTexts: readonly string[]): string {
+  return pageTexts.join(REVIEW_DOCUMENT_TEXT_PAGE_SEPARATOR);
+}
+
+// And back: the pages, in the order they were written. The inverse of the join above and nothing
+// cleverer — no trimming, no dropping of empties — because the caller pairs the result positionally
+// with the sidecar's own page list, and a reader that silently dropped a block would shift every page
+// number after it.
+export function splitReviewDocumentText(text: string): readonly string[] {
+  return text.split(REVIEW_DOCUMENT_TEXT_PAGE_SEPARATOR);
+}
+
 // The per-document metadata sidecar. It goes to R2 rather than to a column or an
 // entity-attribute-value table: a production's per-document metadata is open-ended, and at the
 // ceiling a quarter-million documents times forty attributes is ten million rows bought to provide
@@ -63,4 +92,18 @@ export interface ReviewDocumentPageFact {
 // each means a different thing.
 export function countRecognizedPages(pages: readonly ReviewDocumentPageFact[]): number {
   return pages.filter((page) => page.provenance === "ocr").length;
+}
+
+// The pages that produced text, in order — the sidecar's own account of what is inside the text
+// object, and the list a reader of that object pairs its blocks with to recover each block's page.
+//
+// The pairing is positional and it is exact by construction: the extractor writes one block per page
+// that produced text and records `hasText` for every page it saw, so filtering to the pages with text
+// gives back exactly the blocks, in exactly their order. A count mismatch means the two objects were
+// written by different runs, which is a corpus that cannot say what page a word is on — not something
+// to paper over with a positional guess.
+export function pagesWithTextIn(
+  pages: readonly ReviewDocumentPageFact[],
+): readonly ReviewDocumentPageFact[] {
+  return pages.filter((page) => page.hasText);
 }

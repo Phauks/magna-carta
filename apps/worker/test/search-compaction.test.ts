@@ -2,8 +2,8 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   insertIndexSplitStatement,
-  listLiveSplitsForMatter,
-  listStaleMembersForMatter,
+  listLiveSplitsForCorpus,
+  listStaleMembersForCorpus,
   markMembersStaleForDocumentStatement,
 } from "@magna-carta/data-access/index-split-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -13,6 +13,7 @@ import {
   compacted,
   searchEngineNotImplemented,
   type SearchIndexPort,
+  type SplitQueryTarget,
 } from "@magna-carta/search/port";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { searchCompactionQueue } from "../src/search/compaction-consumer.ts";
@@ -65,6 +66,8 @@ async function seedPerDocumentSplits(
       insertIndexSplitStatement(database, {
         id: splitId,
         matterId,
+        corpusKind: "matter",
+        corpusId: matterId,
         documentId,
         version: 1,
         objectKey,
@@ -157,7 +160,7 @@ describe("the compaction pass", () => {
     expect(acks).toEqual(["compaction-1"]);
     expect(retries).toEqual([]);
 
-    const live = await listLiveSplitsForMatter(databaseFor(), matterId);
+    const live = await listLiveSplitsForCorpus(databaseFor(), matterId);
     // Exactly one live split, and it is the merged one: a merged split claims no document of its own,
     // which is what keeps it outside the one-live-split-per-document-version unique index.
     expect(live).toHaveLength(1);
@@ -229,7 +232,7 @@ describe("the compaction pass", () => {
     expect((await stub.status()).status).toBe("deferred");
 
     // The corpus is untouched — a pass that could not merge must not have superseded anything.
-    expect(await listLiveSplitsForMatter(databaseFor(), matterId)).toHaveLength(3);
+    expect(await listLiveSplitsForCorpus(databaseFor(), matterId)).toHaveLength(3);
   });
 
   it("does nothing to a corpus with one live split and nothing superseded inside it", async () => {
@@ -240,7 +243,7 @@ describe("the compaction pass", () => {
 
     await searchCompactionQueue(makeBatch(message).batch, env, mergingPort());
     expect((await stub.status()).status).toBe("skipped");
-    expect(await listLiveSplitsForMatter(databaseFor(), matterId)).toHaveLength(1);
+    expect(await listLiveSplitsForCorpus(databaseFor(), matterId)).toHaveLength(1);
   });
 });
 
@@ -260,7 +263,7 @@ describe("the exclusion window a re-index opens", () => {
 
     // Before the re-index the merged split carries no exclusions at all — the ordinary case, and the one
     // a query must not pay for.
-    expect(await listStaleMembersForMatter(database, matterId)).toEqual([]);
+    expect(await listStaleMembersForCorpus(database, matterId)).toEqual([]);
 
     // The re-index: the write pipeline marks the document's membership stale in the same batch that
     // publishes the replacement split.
@@ -276,6 +279,8 @@ describe("the exclusion window a re-index opens", () => {
       insertIndexSplitStatement(database, {
         id: replacementSplitId,
         matterId,
+        corpusKind: "matter",
+        corpusId: matterId,
         documentId: reindexed.documentId,
         version: 2,
         objectKey: replacementKey,
@@ -286,8 +291,7 @@ describe("the exclusion window a re-index opens", () => {
       }),
     ]);
 
-    let capturedSplits: readonly { objectKey: string; excludeDocumentIds: readonly FileId[] }[] =
-      [];
+    let capturedSplits: readonly SplitQueryTarget[] = [];
     const capturingPort: SearchIndexPort = {
       ...mergingPort(),
       query: (input) => {
@@ -332,6 +336,8 @@ describe("the exclusion window a re-index opens", () => {
       insertIndexSplitStatement(database, {
         id: replacementSplitId,
         matterId,
+        corpusKind: "matter",
+        corpusId: matterId,
         documentId: reindexed.documentId,
         version: 2,
         objectKey: replacementKey,
@@ -370,8 +376,8 @@ describe("the exclusion window a re-index opens", () => {
     expect(sawExclusion).toBe(true);
     // Nothing is stale any more: the merge dropped the old version, so the new merged split's membership
     // carries only what survived.
-    expect(await listStaleMembersForMatter(database, matterId)).toEqual([]);
-    const live = await listLiveSplitsForMatter(database, matterId);
+    expect(await listStaleMembersForCorpus(database, matterId)).toEqual([]);
+    const live = await listLiveSplitsForCorpus(database, matterId);
     expect(live).toHaveLength(1);
     expect(live[0]?.documentCount).toBe(6);
   });

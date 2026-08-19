@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
-import { corpusOfMatter } from "../src/corpus.ts";
+import { corpusOfMatter, type IndexedDocumentId } from "../src/corpus.ts";
 import {
   compacted,
   found,
@@ -28,7 +28,10 @@ const CORPUS = corpusOfMatter(MATTER);
 // a real adapter fills. It ignores the split targets and just matches on substring — enough to
 // exercise the port.
 class InMemorySearchIndex implements SearchIndexPort {
-  private readonly texts = new Map<string, { documentId: FileId; chunkId: string; text: string }>();
+  private readonly texts = new Map<
+    string,
+    { documentId: IndexedDocumentId; chunkId: string; text: string }
+  >();
 
   async index(input: IndexDocumentInput): Promise<IndexResult> {
     for (const passage of input.passages) {

@@ -1,6 +1,7 @@
 import {
-  listLiveSplitsForMatter,
-  listStaleMembersForMatter,
+  listLiveSplitsForCorpus,
+  listStaleMembersForCorpus,
+  type IndexedDocumentId,
 } from "@magna-carta/data-access/index-split-statements";
 import type { FileId, FirmId, IndexSplitId } from "@magna-carta/identifiers/types";
 import type { CorpusScope } from "@magna-carta/search/corpus";
@@ -32,12 +33,13 @@ export async function runKeywordSearch(
   port: SearchIndexPort = resolveSearchIndexPort(env),
 ): Promise<SearchQueryResult> {
   const database = firmDatabaseFor(env.FIRM_DATABASE, input.firmId);
-  // The catalog is still keyed by matter, and a corpus identifier is a matter identifier today, so the
-  // enumeration is exact. When a second corpus kind arrives, this call stops type-checking — which is
-  // the point: the compiler names the one place the catalog has to widen with it, rather than letting a
-  // review-set query silently enumerate a matter's splits.
+  // THE ISOLATION, and it is one clause rather than a rule anybody has to follow: the catalog is
+  // enumerated by CORPUS, so a query is handed the keys of the corpus it was asked about and there is
+  // no wording of it that reaches another's. A matter search cannot name a review set's splits, which
+  // is what makes material an opposing party produced under a protective order unreachable from the
+  // ordinary matter surface rather than merely absent from it.
   const [liveSplits, staleMembers] = await Promise.all([
-    listLiveSplitsForMatter(database, input.corpus.id),
+    listLiveSplitsForCorpus(database, input.corpus.id),
     // The second catalog read, and it is what keeps a re-indexed document from matching its own stale
     // passages. A compacted split is immutable while the corpus is not: it still holds the passages of
     // every version it was merged from, so when one of those documents is re-indexed both the new
@@ -45,10 +47,10 @@ export async function runKeywordSearch(
     // repacks it. Naming the superseded ids per split is what makes the old text stop matching in the
     // meantime — and it has to be per split, because the same document is legitimately live at a newer
     // version in a different one.
-    listStaleMembersForMatter(database, input.corpus.id),
+    listStaleMembersForCorpus(database, input.corpus.id),
   ]);
 
-  const exclusions = new Map<IndexSplitId, FileId[]>();
+  const exclusions = new Map<IndexSplitId, IndexedDocumentId[]>();
   for (const member of staleMembers) {
     const existing = exclusions.get(member.splitId);
     if (existing === undefined) exclusions.set(member.splitId, [member.documentId]);

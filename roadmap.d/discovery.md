@@ -9,7 +9,7 @@
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
   adrs: ADR-0012, ADR-0060, ADR-0167
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the keyword search index is built and dormant behind an unbound service, its semantic half designed and unbuilt; review and production workflows do not exist.
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing). Ingest and processing are complete end to end and a review set is now its own search corpus; the keyword index and the discovery engine are both built and dormant behind unbound services. Tagging and coding, the fail-closed per-review-set access list, and the reads the review surface pages through are built API-side with no screens. The semantic half is deferred on an open owner flag, and production — Bates, rendering, load files, the privilege log — does not exist.
   audience: public
   public-summary: Load what the other side produced, process it, and work through it at the volumes litigation actually produces.
   notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
@@ -17,10 +17,10 @@
 - id: discovery.pipeline
   name: Extraction pipeline
   scope: Ingest to R2, queue-driven extraction/OCR in Containers, then index.
-  status: partial
+  status: shipped
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine, the corpus, and the lane between them — the DISCOVERY_PROCESS queue with its own dead-letter queue, the keyset-paged dispatch walk off the load coordinator's durable cursor (apps/worker/src/discovery/dispatch-processing.ts), and the consumer that ends every document in exactly one terminal state (apps/worker/src/discovery/process-consumer.ts). Deduplication with occurrence rows, container families over the guarded expansion, and the load manifest and exception report are now built too (packages/discovery/src/{dedup,dedup-statements,manifest,manifest-statements}.ts, apps/worker/src/discovery/{deduplication,archive-expansion,load-artifacts}.ts). Only the wiring into the shipped index pipeline is not built.
+  evidence: The engine, the corpus, and the lane between them — the DISCOVERY_PROCESS queue with its own dead-letter queue, the keyset-paged dispatch walk off the load coordinator's durable cursor (apps/worker/src/discovery/dispatch-processing.ts), and the consumer that ends every document in exactly one terminal state (apps/worker/src/discovery/process-consumer.ts). Deduplication with occurrence rows, container families over the guarded expansion, and the load manifest and exception report are built (packages/discovery/src/{dedup,dedup-statements,manifest,manifest-statements}.ts, apps/worker/src/discovery/{deduplication,archive-expansion,load-artifacts}.ts), and a processed document now enters its review set's own search corpus through the shipped index pipeline (apps/worker/src/search/enqueue-index.ts). The pipeline is complete end to end; what it produces is dormant only because no engine is deployed.
   notes: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages.
 
 - id: discovery.pipeline.engine
@@ -41,17 +41,17 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: apps/worker/src/search/text-extraction.ts routes through DISCOVERY_SERVICE, falls back to the in-Worker PDF reader plus recognition when it is unbound, and converts a legacy binary through the consented office container before reading the conversion with the memory-safe engine; the route and the recognized-page count land on review_document (20260815T000000_discovery-processing-route) and the per-page provenance in the R2 sidecar.
-  notes: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands.
+  notes: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. An archive is no longer refused wholesale: the processing lane expands it into a family (see discovery.archive-handling.contents-indexing), and container-not-expanded is now raised only for entries the engine described rather than opened — one exception per kind, carrying a count and never a path.
 
 - id: discovery.pipeline.processing-lane
   name: Processing queue lane
   scope: The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state.
-  status: partial
+  status: shipped
   surface: internal
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: The DISCOVERY_PROCESS queue and its dead-letter queue, the keyset-paged dispatch walk in apps/worker/src/discovery/dispatch-processing.ts resuming from the coordinator's durable cursor, and apps/worker/src/discovery/process-consumer.ts writing extracted text and the metadata sidecar to R2, the derived scalars to the row, and a named exception code for every non-success. The remainder is built: deduplication before a byte is read with occurrence rows (apps/worker/src/discovery/deduplication.ts, held by the partial unique index in 20260816T090000_discovery-dedup-and-report), container families over the engine's guarded expansion (apps/worker/src/discovery/archive-expansion.ts), and the manifest and exception report streamed to R2 at load completion (apps/worker/src/discovery/load-artifacts.ts over the pure builders in packages/discovery/src/manifest.ts). Twenty-one cases in apps/worker/test/discovery-process-consumer.test.ts and twenty in packages/discovery/test/{dedup,manifest}.test.ts.
-  notes: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. Enqueuing review documents into the review-set corpus is 5-1-4.
+  notes: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. A processed document is handed to the index enqueue at the end of its turn, best-effort, because the row and both derived objects are already committed by then.
 
 - id: discovery.pipeline.load-record
   name: Load manifest and exception report
@@ -72,7 +72,7 @@
   surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
+  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, thirty routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
   notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403.
 
 - id: discovery.pipeline.load-lanes
@@ -133,13 +133,25 @@
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
   evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, generation gating, the range-reading directory (a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks — an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail), a SplitSearcher that holds a split open across queries (2 warm reads against 40 cold at the smoke tier), a ranged multi-split query, and the COMPACTION merge — a segment-level merge over ranged readers that applies a delete set and repacks, measured by crates/search-eval at 9x fewer ranged reads over 10 splits for the identical hits. The RangeReader's R2 adapter now exists end to end: containers/search wraps the crate in an axum service whose HttpRangeReader issues one HEAD plus exactly one closed-Range GET per engine read, apps/search-worker owns that Container with enableInternet false and intercepts its object calls (outboundByHost) into the app Worker, and apps/worker/src/search/split-object-host.ts verifies a per-operation corpus-scoped HMAC capability token, resolves the firm's bucket through the one home for that decision, refuses an unranged GET outright, and stamps a published split object_class search-split. All unit-tested, including the adapter over a real socket against a recording object host. Still dormant end to end — resolveSearchIndexPort returns the deferred port until SEARCH_SERVICE is bound, so activation is the deploy step in docs/deploy-queue.md. Deferred within the design: the container's warm split cache (a cached searcher would answer from bytes authorized on an earlier call, and its sizing needs a resident corpus) and the footer pruning digest, both within the same format. The app-Worker half of compaction — the threshold trigger, the per-corpus coordinator, the queue consumer, the atomic catalog swap, and the retirement sweep — is built and wired-but-dormant behind the same port.
 
+- id: discovery.search.corpus-index
+  name: Review-set corpus indexing
+  scope: A review set as its own search corpus — its own split prefix, its own catalog rows, its own wholesale deletion — and the enqueue that puts a processed review document into it.
+  status: shipped
+  surface: internal
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  adrs: ADR-0247
+  evidence: The index scope key is a corpus everywhere including the catalog — index_split gains corpus_kind and corpus_id (20260819T000000_index-split-corpus-scope) and every scope read in packages/data-access/src/index-split-statements.ts matches on the corpus, so a matter query is structurally unable to name a review set's splits (packages/data-access/test/index-split-corpus-scope.test.ts). enqueueReviewDocumentForIndexing in apps/worker/src/search/enqueue-index.ts runs through the same coordinator and the same consumer as the version-keyed enqueue, indexing only the primary of a duplicate group and reading the text the discovery engine already extracted rather than re-parsing an opposing party's bytes. Where a document stands with the index is on its own row (review_document.index_state), so an unindexed document is countable from the corpus rather than only from a Durable Object.
+  notes: Dormant like the rest of the index — with no SEARCH_SERVICE binding every document parks deferred and a later replay drains it into the same derived split, which is what apps/worker/test/discovery-corpus-index.test.ts exercises. A review set never feeds the natural-language corpus: that surface's audience is the matter team, and a review set's access list is narrower.
+
 - id: discovery.search.semantic
   name: Semantic search
   scope: Vectorize-backed semantic search alongside keyword search.
   status: designed
   slices: ai-inference-foundation
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: Designed as a per-firm Vectorize namespace (1024-dim bge-large-en-v1.5 via the shipped InferencePort.embed), fused with BM25 by reciprocal rank fusion; ~5M-dim/index ceiling designed against. No discovery embedding/upsert code yet.
+  evidence: Designed as a per-firm Vectorize namespace (1024-dim bge-large-en-v1.5 via the shipped InferencePort.embed), fused with BM25 by reciprocal rank fusion; ~5M-dim/index ceiling designed against. No discovery embedding/upsert code yet, and review_set.semantic_index_enabled is a flag nothing reads.
+  awaiting-owner: Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.
 
 - id: discovery.review
   name: Review workflow
@@ -152,12 +164,25 @@
   audience: public
   public-name: Review and coding
   public-summary: Tag documents for responsiveness and privilege, with each reviewer seeing only the set they have been given.
+  awaiting-owner: Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
+
+- id: discovery.review.document-list
+  name: Review-document list read
+  scope: The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index.
+  status: shipped
+  surface: awaiting-screen
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: packages/discovery/src/review-reads.ts and four routes in apps/worker/src/routes/discovery-review-reads.ts, filtered by Custodian of Record, load, family, processing state and exception code. Keyset-paged over (sort_date, id) in two segments so the documents a production gave no date for are last and still reachable, with a row-value comparison rather than the equivalent OR — measured at 0.26 ms per page against 10.3 ms for the OR form at the 250,000-document ceiling (packages/fixtures/src/load-profile/discovery-measurements.ts). Every builder composes the review-set access predicate in SQL ahead of the LIMIT, proved for all nine from the same table-driven pass the coding reads use.
+  notes: Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on.
 
 - id: discovery.review.filters
   name: Review filters
   scope: Filtering the corpus by date, custodian, party, and keyword.
-  status: not-started
-  evidence: No review UI or query surface exists.
+  status: partial
+  surface: awaiting-screen
+  slices: 5-1-discovery-ingest-and-processing
+  evidence: Five filters are built into the list read (Custodian of Record, load, family, processing state, exception code) and each has its own sort-bearing index so the page never falls to a temporary b-tree. Date and keyword are not: date is the read's ORDER BY rather than a filter, and keyword narrowing waits on the search engine being deployed. No review UI exists.
 
 - id: discovery.review.tagging
   name: Tagging and coding
@@ -185,13 +210,16 @@
   scope: Thread email documents during review.
   status: not-started
   slices: email-core-parse-engine
-  evidence: No threading code; the shipped email parse core (crates/email-core) is the substrate it will build on.
+  evidence: No threading code and no surface. Two shipped substrates it builds on: the email parse core (crates/email-core) and the email_thread table the filing lane already populates.
 
 - id: discovery.review.near-duplicates
   name: Near-duplicate detection
   scope: Detect near-duplicate documents in the review set.
-  status: not-started
-  evidence: No similarity/duplicate-detection code for documents.
+  status: designed
+  slices: 5-2-discovery-review-workflow
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: No clustering, no threshold, and no surface. The SUBSTRATE is shipped and populated: the engine computes a SimHash-over-shingles fingerprint (crates/discovery-core/src/fingerprint.rs) and the processing lane stores it on every processed document as review_document.text_fingerprint, so what is missing is the comparison over it rather than the signal.
+  notes: The fingerprint is never what deduplication groups on — that is the content hash — because a near-duplicate signal collides by design and suppressing a document from review on a heuristic is the failure this separation exists to prevent. Clustering shows documents; it never hides one.
 
 - id: discovery.production
   name: Production workflow

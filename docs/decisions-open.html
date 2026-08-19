@@ -159,7 +159,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; decisions</p>
-  <h1>52 questions the build is waiting on you to answer</h1>
+  <h1>54 questions the build is waiting on you to answer</h1>
   <p class="lede">Every one of these was recorded where the work stopped, by whoever stopped. They
   are gathered here with the answer boxes, sorted by what leaving them open actually costs. Write
   as much or as little as you want; a sentence is usually enough, and &ldquo;not yet&rdquo; is an
@@ -168,9 +168,9 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   Nothing leaves this page on its own &mdash; when you are done, <strong>Copy the answers</strong>
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
-    <div class="k "><span>Open questions</span><b>52</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>27</b><em>Nothing is written behind these.</em></div>
-    <div class="k y"><span>Not holding a build</span><b>25</b><em>Mostly built already; some are parked.</em></div>
+    <div class="k "><span>Open questions</span><b>54</b><em>Every one is on this page.</em></div>
+    <div class="k n"><span>Holding a build</span><b>28</b><em>Nothing is written behind these.</em></div>
+    <div class="k y"><span>Not holding a build</span><b>26</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:66ch">Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in <code>docs/deploy-queue.md</code>, which is their one home.</p>
@@ -178,14 +178,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 
 <section class="controls" aria-label="Filters">
   <label class="field"><span>Area</span>
-    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (4)</option><option value="discovery.md">Discovery (e-discovery) (1)</option><option value="document-automation.md">Document Automation (2)</option><option value="documents.md">Documents (1)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (7)</option><option value="intake.md">Client Intake / CRM (5)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
+    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (4)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (2)</option><option value="documents.md">Documents (1)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (7)</option><option value="intake.md">Client Intake / CRM (5)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
   <label class="toggle"><input type="checkbox" data-filter-unanswered="">
     <span>Only what I have not answered</span></label>
   <p class="count" data-visible-count="" role="status"></p>
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">27</span></h2>
+  <h2>Nothing is built behind these <span class="ac">28</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -216,6 +216,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="discovery.search.semantic" data-name="Semantic search" data-area="discovery.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>discovery.search.semantic</code></div>
+      <h3>Semantic search</h3>
+      <p class="q">Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">Vectorize-backed semantic search alongside keyword search.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -489,7 +500,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="changing">
-  <h2>These are not holding a build still <span class="ac">25</span></h2>
+  <h2>These are not holding a build still <span class="ac">26</span></h2>
   <p class="lede">Nobody is waiting on these to start writing something. Most have code behind them already, so an answer changes what is built rather than deciding it; the parked ones are set aside by an earlier decision and an answer is what would bring them back.</p>
   <div class="cards">
     <article class="card" data-node="ai.inference.embedding-pin-window" data-name="Embedding pin held open until the first index" data-area="ai.md">
@@ -564,6 +575,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.</p>
       <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Full-text and semantic search over the discovery corpus.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="discovery.review" data-name="Review workflow" data-area="discovery.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>discovery.review</code></div>
+      <h3>Review workflow</h3>
+      <p class="q">Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.</p>
+      <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
+      <p class="scope">Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>

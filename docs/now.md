@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 754 nodes of the feature ledger in
+is the complete register rather than a digest: all 756 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**754 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**756 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below. 133 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **621 that are units of work**, for the reason set out under [What a roll-up is
+count the **623 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 257 | 41% |
-| Part-built | partial, in-build | 102 | 17% |
-| Ahead | designed, planned, researching, not-started | 219 | 35% |
+| Done | shipped | 260 | 42% |
+| Part-built | partial, in-build | 102 | 16% |
+| Ahead | designed, planned, researching, not-started | 218 | 35% |
 | Parked | deferred, cut | 43 | 7% |
-| **All units of work** | | **621** | **100%** |
+| **All units of work** | | **623** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 257 | 41% |
+| `shipped` | 260 | 42% |
 | `partial` | 101 | 16% |
 | `in-build` | 1 | 0% |
-| `designed` | 44 | 7% |
+| `designed` | 45 | 7% |
 | `planned` | 18 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 152 | 25% |
+| `not-started` | 150 | 24% |
 | `deferred` | 41 | 7% |
 | `cut` | 2 | 0% |
-| **All statuses** | **621** | **100%** |
+| **All statuses** | **623** | **100%** |
 
 ### What a roll-up is not
 
-**133 of the 754 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**133 of the 756 nodes are parents, and 106 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 257 of 621 (41%). Shipped plus partial is 358 (58%).**
+**Shipped alone is 260 of 623 (42%). Shipped plus partial is 361 (58%).**
 
 The 101 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**359 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**362 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -82,10 +82,10 @@ ledger records it separately, in `surface:`.
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 20 | 5% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 48% |
-| No user surface by nature (`internal`) | 168 | 47% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 173 | 48% |
+| No user surface by nature (`internal`) | 169 | 47% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **359** | **100%** |
+| **Everything with something built** | **362** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -104,7 +104,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Core Domain — Directory, Matters & Locations | 31 | 19 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 58 | 53% |
 | Custodian (Safe Custody) | 6 | 2 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
-| Discovery (e-discovery) | 5 | 8 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 20 | 25% |
+| Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 38% |
 | Documents | 60 | 9 | 0 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **257** | **101** | **1** | **44** | **18** | **5** | **152** | **41** | **2** | **621** | **41%** |
+| **All areas** | **260** | **101** | **1** | **45** | **18** | **5** | **150** | **41** | **2** | **623** | **42%** |
 
 ## Where we have been
 
@@ -274,11 +274,12 @@ shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
-**27 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**28 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 - **A supplied asset-schedule template** (`matter-assets.schedule-template`) — **Not built.** Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
+- **Semantic search** (`discovery.search.semantic`) — **Not built.** Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.
 - **Numbering schemes** (`exhibits.numbering`) — **Not built.** Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 - **In-text exhibit references** (`exhibits.references`) — **Not built.** Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
 - **Issued-set freeze** (`exhibits.issue`) — **Not built.** Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
@@ -304,7 +305,7 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**25 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**26 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -313,6 +314,7 @@ shows up in the nodes columns and not in this one.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
+- **Review workflow** (`discovery.review`) — **A group of capabilities.** Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
 - **Dedicated PDF form filling** (`document-automation.pdf-form-filling`) — **Built; no screen yet.** Does a filled form file flattened, interactive, or is it a per-template setting? A flattened form is what a signature wants and cannot be corrected; an interactive one is what a firm wants when the recipient still has to complete a box. Today it is interactive, which is the non-destructive answer to sit behind the question — changing it is one constant, or one column read. Document automation tail remainder plan, flag B5.
 - **Filing-grade generation** (`document-automation.filing-grade-generation`) — **Built; no screen yet.** The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.
 - **PDF document scrub** (`documents.pdf.scrub`) — **Built; no screen yet.** Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/worker/src/routes/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.
@@ -355,6 +357,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `custodian.retention-destruction` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
+- `discovery.review.near-duplicates` · **Near-duplicate detection** — Detect near-duplicate documents in the review set.
 - `documents.editing.editor-ui` · **Editor UI** — In-app surface that opens a document in the Collabora frame.
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
 - `documents.conversion.office` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
@@ -689,13 +692,13 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 20 units of work, 25% shipped. 5 done, 8 part-built, 5 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 22 units of work, 36% shipped. 8 done, 8 part-built, 4 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
-  - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
+  - `discovery.pipeline` · `shipped` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
     - `discovery.pipeline.engine` · `shipped` · **Discovery engine core** — Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion. _Note: Backend only, no user surface. The composite extraction port now routes to it — see discovery.pipeline.extraction-port._
-    - `discovery.pipeline.extraction-port` · `partial` · **Composite extraction port** — Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran. _Note: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands._
-    - `discovery.pipeline.processing-lane` · `partial` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. Enqueuing review documents into the review-set corpus is 5-1-4._
+    - `discovery.pipeline.extraction-port` · `partial` · **Composite extraction port** — Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran. _Note: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. An archive is no longer refused wholesale: the processing lane expands it into a family (see discovery.archive-handling.contents-indexing), and container-not-expanded is now raised only for entries the engine described rather than opened — one exception per kind, carrying a count and never a path._
+    - `discovery.pipeline.processing-lane` · `shipped` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. A processed document is handed to the index enqueue at the end of its turn, best-effort, because the row and both derived objects are already committed by then._
     - `discovery.pipeline.load-record` · `shipped` · **Load manifest and exception report** — The two records a load produces — what arrived, and every document that could not be read with the named reason for each — written once to R2 in a machine-readable and a printable form. _Note: Three deviations from the design are recorded rather than silently taken — three digests rather than five (the shipped row has three columns and no load-file specification asks for the other two), the extraction routes the corpus observed in place of engine version pins (no engine reports a version over its binding yet), and an exception row that may sit on a document whose state is `processed`, which is what a container with encrypted entries actually is._
     - `discovery.pipeline.review-set` · `partial` · **Review-set model** — The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest. _Note: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403._
     - `discovery.pipeline.load-lanes` · `partial` · **Load source lanes** — Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system. _Note: direct-collection is declared and refused BY NAME so its absence is visible rather than mysterious — it needs a collection tool, not an ingest path. Assistant transcripts are likewise refused by name until their lane lands with the review surface._
@@ -704,13 +707,15 @@ to change a line here, edit the node in its area file and re-run the build.
     - `discovery.archive-handling.contents-indexing` · `shipped` · **Archive contents in review** — Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload. _Note: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all. The narrow exception is scoped to this lane and nowhere else._
   - `discovery.search` · `partial` · **Search** — Full-text and semantic search over the discovery corpus.
     - `discovery.search.keyword` · `partial` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
+    - `discovery.search.corpus-index` · `shipped` · **Review-set corpus indexing** — A review set as its own search corpus — its own split prefix, its own catalog rows, its own wholesale deletion — and the enqueue that puts a processed review document into it. _Note: Dormant like the rest of the index — with no SEARCH_SERVICE binding every document parks deferred and a later replay drains it into the same derived split, which is what apps/worker/test/discovery-corpus-index.test.ts exercises. A review set never feeds the natural-language corpus: that surface's audience is the matter team, and a review set's access list is narrower._
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
   - `discovery.review` · `partial` · **Review workflow** — Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
-    - `discovery.review.filters` · `not-started` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
+    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on._
+    - `discovery.review.filters` · `partial` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
     - `discovery.review.tagging` · `partial` · **Tagging and coding** — Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage. _Note: Backend only — the coding panel, tag chips and viewer pane are deferred to the owner. Criteria-driven bulk at corpus scale waits on the corpus index read._
     - `discovery.review.redaction` · `partial` · **Redaction** — Applied redactions on documents under review.
     - `discovery.review.email-threading` · `not-started` · **Email threading** — Thread email documents during review.
-    - `discovery.review.near-duplicates` · `not-started` · **Near-duplicate detection** — Detect near-duplicate documents in the review set.
+    - `discovery.review.near-duplicates` · `designed` · **Near-duplicate detection** — Detect near-duplicate documents in the review set. _Note: The fingerprint is never what deduplication groups on — that is the content hash — because a near-duplicate signal collides by design and suppressing a document from review on a heuristic is the failure this separation exists to prevent. Clustering shows documents; it never hides one._
   - `discovery.production` · `partial` · **Production workflow** — Bates numbering, applied redactions, and privilege log with defensibility built in.
     - `discovery.production.bates` · `shipped` · **Bates numbering engine** — Bates stamping of produced documents. _Note: Engine only; production-set workflow integration pending._
     - `discovery.production.privilege-log` · `not-started` · **Privilege log** — Privilege log generated from tagged documents in a production.
