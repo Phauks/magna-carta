@@ -1097,7 +1097,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `payments.trust-separation` · `designed` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
   - `payments.surcharge` · `not-started` · **Operating-only surcharge** — Optional card surcharge/convenience fee on operating (never trust) payments, gated by jurisdiction config; debit never surcharged.
   - `payments.helcim` · `not-started` · **Helcim launch adapter** — Launch adapter covering both rails — interchange-plus cards and capped-fee ACH.
-  - `payments.pci-scope` · `designed` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A. _Note: The white paper's Payments area still describes in-DOM hosted-fields tokenization, which the accepted decision rejected by name as SAQ A-EP; correct it when that area is next edited._
+  - `payments.pci-scope` · `designed` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A. _Note: The white paper's Payments area has been corrected to match — it now names HelcimPay.js as the only capture path and rejects the in-DOM Helcim.js tokenizer by name as SAQ A-EP._
   - `payments.alternate-adapters` · `not-started` · **Alternate adapter seams** — Stripe/Dwolla for cheaper ACH at scale, Adyen for high card volume, Confido/Gravity Legal as trust-compliance fallback.
 
 ### Performance & Concurrency

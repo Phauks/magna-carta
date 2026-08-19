@@ -9,7 +9,7 @@
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   status: partial
   adrs: ADR-0018, ADR-0055
-  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources), and thirty-two routes are built (packages/calendar, apps/worker/src/routes/calendar.ts); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
+  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources in TIMELINE_SOURCES), and thirty-three routes are built (packages/calendar, apps/worker/src/routes/calendar.ts registers thirty-three handlers); no user interface yet and no docketing computation (which is a deliberate position, not a gap).
   audience: public
   public-name: Calendar and deadlines
   public-summary: Hearings, deadlines, firm events and room bookings in one calendar, with every date on a matter visible as that matter's own timeline.
@@ -61,7 +61,7 @@
   name: Calendar surface
   scope: Calendar of matters, deadlines, and appointments.
   status: not-started
-  evidence: The two reads a month grid, a week view, an agenda list, and a matter timeline all consume are built and contract-emitted; no Svelte surface exists yet.
+  evidence: The two reads a month grid, a week view, an agenda list, and a matter timeline all consume are built and contract-emitted. The only Svelte route that exists is the matter's calendar section at apps/web/src/routes/(app)/matters/[id]/calendar, which renders a SectionStub and calls no endpoint; there is no firm calendar route at all.
 
 - id: calendar.sync
   name: Two-way Google/Outlook sync
