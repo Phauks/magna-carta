@@ -1287,7 +1287,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Custodian</span>
 <code>custodian</code>
 <p>Register of physical client originals held in safekeeping — what the firm holds, where it is, whose it is — with custody log, labels, scans, and reminders.</p>
-<p class="note">Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.</p>
+<p class="note">Backend only — no UI. Stocktake and the destruction workflow ARE built (slice 4·2·4), and the will-deposit duty catalog with them; what is not built is receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will catalog computes against — no packet column records a death today. The per-node statuses below have not been reconciled with those landings.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Item register</span>
@@ -1311,7 +1311,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Labels and barcodes</span>
 <code>custodian.labels</code>
 <p>Printable barcode/QR labels on items and containers.</p>
-<p class="note">Linear Code 128 only; QR waits for stocktake, which is the first capability that would use it.</p>
+<p class="note">Linear Code 128 only. QR was expected to arrive with stocktake as its first consumer; stocktake shipped without it, taking packet identifiers rather than scanned codes, so no QR encoder exists and scan-to-locate is the capability still waiting on one.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Review dates and the reminder feed</span>
@@ -1334,7 +1334,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Retention and destruction dates</span>
 <code>custodian.retention-destruction</code>
 <p>Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.</p>
-<p class="note">Owner-gated and deliberately unbuilt. The platform ships NO retention period, default, derived date, or sweep — there is no retention_until column at all, and a review date is not a retention clock.</p>
+<p class="note">The retention half is owner-gated and deliberately unbuilt — the platform ships NO retention period, default, derived date, or sweep, there is no retention_until column at all, and a review date is not a retention clock. The destruction half shipped with slice 4·2·4 once the owner ratified its shape flags, so the status on this node has not caught up with what is on the tree.</p>
 <p class="ask"><strong>Waiting on you.</strong> Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.</p>
 </li><li class="n d1" data-s="deferred">
 <span class="chip park">Deferred</span>
