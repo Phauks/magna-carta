@@ -89,7 +89,7 @@
   status: partial
   surface: internal
   adrs: ADR-0251
-  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; thirteen topics are registered, the newest three being the calendar's own matter-event write paths, which commit an outbox row in the batch they were already composing (packages/calendar/src/notifications.ts, packages/calendar/src/event-service.ts, packages/calendar/src/continuance-service.ts). The comparison-shaped points are raised by packages/notifications/src/sweep.ts, and a job coordinator's terminal state by packages/notifications/src/job-completion.ts.
+  evidence: A second non-exclusive pass in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to the shipped transactional outbox; fourteen topics are subscribed to in OUTBOX_SUBSCRIBED_DECLARATIONS, one per registered type, the newest three being the calendar's own matter-event write paths, which commit an outbox row in the batch they were already composing (packages/calendar/src/notifications.ts, packages/calendar/src/event-service.ts, packages/calendar/src/continuance-service.ts). The comparison-shaped points are raised by packages/notifications/src/sweep.ts, and a job coordinator's terminal state by packages/notifications/src/job-completion.ts.
   notes: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. One of the five job coordinators (DocumentAssemblyJob) is wired; RecoveryJobCoordinator's type is registered and unwired, and the other three record no requester, which apps/worker/src/jobs/job-completion-notification.ts and the pending decision fragment explain per coordinator.
 
 - id: notifications.scheduling
@@ -105,7 +105,7 @@
   name: Digest rollup
   scope: Cadence-based rollup of multiple items into one summary notification.
   status: deferred
-  evidence: Carried in the type model as a declared v1 seam.
+  evidence: The email rollup shipped and this node's status has not caught up — it is the same digest notifications.channels.email describes, composed per member per cadence in packages/notifications/src/digest.ts and run hourly per firm by runNotificationDigestPass. Email is digest-ONLY by construction: the cadences in packages/notifications/src/types.ts are periods (off, daily, weekly) with no immediate value, and the only bypass is a registry-declared escalation reserved to the trust-compliance and security categories. What stays deferred is an IN-APP rollup — a feed row that stands for several others — which is a different thing from the email summary and is not built.
 
 - id: notifications.freshness
   name: Freshness & delivery mechanics
@@ -127,4 +127,4 @@
   surface: internal
   adrs: ADR-0059, ADR-0251
   evidence: The closed fact grammar (packages/notifications/src/facts-grammar.ts) refuses a text-valued declaration; every read composes the visible-matter predicate in SQL before the LIMIT, proved for all of them by packages/notifications/test/wall-fitness.test.ts. A preference change writes an audit_log row carrying the categories touched and nothing else, held by apps/worker/test/notification-preferences-routes.test.ts.
-  notes: The external-channel half lands with the email digest. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.
+  notes: The external-channel half landed with the email digest — every rendering is counts-only and held there by packages/notifications/test/digest-render.test.ts, including the declared matter-number detail level, which renders exactly as counts-only until it ships rather than degrading to a matter number nobody approved. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.

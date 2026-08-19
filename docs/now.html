@@ -3235,7 +3235,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Confidentiality &amp; read-time enforcement</span>
 <code>notifications.confidentiality</code>
 <p>External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories.</p>
-<p class="note">The external-channel half lands with the email digest. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.</p>
+<p class="note">The external-channel half landed with the email digest — every rendering is counts-only and held there by packages/notifications/test/digest-render.test.ts, including the declared matter-number detail level, which renders exactly as counts-only until it ships rather than degrading to a matter number nobody approved. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes.</p>
 </li></ol>
 </section>
 <section class="area" id="area-observability.md">

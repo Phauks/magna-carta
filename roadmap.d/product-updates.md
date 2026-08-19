@@ -60,7 +60,7 @@
   scope: lastSeenProductUpdate identity-level preference in the Settings framework driving a client-side unread badge.
   status: not-started
   adrs: ADR-0040, ADR-0048
-  evidence: Settings foundation shipped (changelog.d/settings-foundation-and-profile-menu.md); no marker or badge exists.
+  evidence: The settings foundation it would live in is shipped (apps/web/src/lib/settings/ and apps/web/src/lib/preferences/persisted-preference.svelte.ts); no lastSeenProductUpdate preference and no badge exists.
 
 - id: product-updates.audience-seam
   name: Roadmap audience field
