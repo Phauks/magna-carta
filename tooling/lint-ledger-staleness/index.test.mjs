@@ -34,7 +34,6 @@ describe("the fixtures the gate self-tests against", () => {
         treeOf(scenario.tree),
         new Set(scenario.decisions ?? []),
         new Map(Object.entries(scenario.slices ?? {})),
-        new Map(Object.entries(scenario.specFlags ?? {})),
       );
       expect(found.map((problem) => problem.rule).toSorted()).toEqual(
         [...scenario.expect].toSorted(),

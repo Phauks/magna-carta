@@ -35,7 +35,6 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: design + implementation plan only; no operating-books code on main and none on a branch
-  awaiting-owner: Sixteen flags gate this slice and three of them decide whether it starts at all. Do these books ship ahead of payments' manual receipt, knowing the operating bank line stays sparse until cash can arrive — the chart is what billing already needs to stop refusing unmapped roles, so every sub-slice is useful without it, but the user documentation has to say what the books cannot yet show. Whether the account-role map moves out of the shipped billing package into a shared leaf, since without it either billing depends on the general ledger or the ledger depends on billing and both edges are wrong. And whether the temporal contract moves out of the shipped reporting package into the shared periods leaf, the alternative being a second validator of a bitemporal triple. The remaining flags are recorded on the sub-slices they decide. General ledger design, flags G15, G10 and G11.
   notes: The design supersedes the stale one on the dormant slice-3-5-operating-general-ledger branch, which predates billing's shipped account-role map. Five sub-slices, each shippable alone; sixteen owner flags gate what is built.
 
 - id: financial.ledger.operating-gl.chart-of-accounts
@@ -45,7 +44,6 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: designed as four additive columns on ledger_account; fixtures/demo-chart-of-accounts.ts on main is explicitly not the product chart, and firm_account_role on main is the resolver rather than a second semantic-key map
-  awaiting-owner: Does a starter chart of accounts ship? A seeded chart makes a firm usable on day one and also makes the platform's opinion most firms' chart by inertia; the alternative is that a firm cannot bill until its accountant authors one. The recommendation is yes for the accounts and no for the mapping — a small chart of system accounts plus common law-firm expense accounts, marked as a starting point, with no role mapping the firm did not confirm, because the mapping is where the money goes. General ledger design, flag G1.
   notes: A chart may classify a trust-registered account for statement presentation and may never map, re-section, or re-type one.
 
 - id: financial.ledger.operating-gl.general-journal
@@ -64,7 +62,6 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: designed; no accounting_lock table on main
-  awaiting-owner: Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.
   notes: A scope addition to the slice rather than in its slice-map scope, and flagged for the owner as a clean cut — nothing else in the slice reads the lock.
 
 - id: financial.ledger.operating-gl.accounts-payable
@@ -74,7 +71,6 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: designed; no vendor-bill tables on main
-  awaiting-owner: May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
   notes: Closes the negative Client Costs Advanced position billing documents as open. Payment execution at a bank stays with the Phase 6 rails.
 
 - id: financial.ledger.operating-gl.financial-statements
@@ -84,7 +80,6 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: designed, bitemporal in the shape packages/reporting already shipped; no statement assembly on main
-  awaiting-owner: Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
   notes: This slice owns the figures and the reporting surface renders them. Each statement refuses rather than printing a figure it cannot stand behind.
 
 - id: financial.ledger.operating-gl.quickbooks-sync

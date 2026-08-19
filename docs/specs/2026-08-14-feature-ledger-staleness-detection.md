@@ -186,47 +186,6 @@ to the ledger.
 
 Measured: **267** slice tags across 235 nodes naming 55 distinct fragments, all 267 resolving.
 
-### 9. An `in-build` node whose build stream has no active-work note
-
-> A node claiming `in-build` must have a `docs/active-work/<branch>.md` note behind it.
-
-`in-build` is the one status that asserts something about **right now** rather than about the tree,
-and the thing it asserts is that somebody is working. A stream that finished, or was abandoned, leaves
-the node saying so forever, and the register repeats it — one node had been `in-build` for eleven days
-over a branch that merged on day two. The active-work registry is where a live stream declares itself,
-so it is the only committed document that can contradict the claim.
-
-### 10. A merged design whose owner flags reach no decision desk
-
-> A spec carrying an owner-flag register, cited only by nodes with nothing built behind them, must have
-> an `awaiting-owner:` line on at least one of them.
-
-A design lands with a numbered flag register, its capability nodes go in as `designed`, and nobody
-writes the `awaiting-owner:` line. The register renders, `docs/decisions-open.html` renders, and the
-questions deciding what gets built appear on neither — so the slice sits blocked and the one person
-who can unblock it is never shown the block. That is exactly what happened to the general ledger:
-sixteen flags, six nodes, and a `notes:` line reading "sixteen owner flags gate what is built" —
-true, unactionable, and invisible to the document written to collect such questions. It is also the
-second occurrence: an earlier sweep moved seventy flags onto nodes by hand, which fixed the ledger of
-the day and installed no detector, so the next merged design reopened the hole.
-
-The signal is the spec's own register — a table row whose first cell is a bolded token (`| **G1** |`)
-or the inline `Flagged (**G12**)` form, two or more of them so a stray bolded cell cannot invent one.
-
-**The narrowing is the whole rule: fire only when EVERY node citing the spec is pre-code.** A flag
-register is a point-in-time list, and flags are answered by being built. Custodian's eleven and
-discovery's ten are mostly settled, and the shipped code beside them is what settled them; nothing in
-the spec distinguishes an answered flag from an open one, so the rule refuses to guess. A subtree with
-any code in it has had some of these decided. A design where nothing at all is built has had none,
-because deciding them is what starts the build.
-
-Reported **once per spec**, on the lowest id citing it. Six identical lines about one design is the
-shape people stop reading.
-
-Measured: **1** hit on the whole ledger — the general ledger — and no false positives. Widening to
-"any node citing the spec is pre-code" was measured too: 6 spec groups, five of them designs whose
-flags the code beside them had long since answered.
-
 ## What is deliberately not checked
 
 Five candidates were measured and **rejected**. Each is recorded because the measurement is the

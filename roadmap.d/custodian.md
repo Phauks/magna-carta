@@ -92,7 +92,6 @@
   status: designed
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_destruction_request exists as a schema seam with no service, no route, and no code path that writes it (packages/database/src/per-firm-schema.ts).
-  awaiting-owner: Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
   notes: Owner-gated and deliberately unbuilt. The platform ships NO retention period, default, derived date, or sweep — there is no retention_until column at all, and a review date is not a retention clock.
 
 - id: custodian.will-reminders
