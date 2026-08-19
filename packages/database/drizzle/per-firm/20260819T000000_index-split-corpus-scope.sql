@@ -1,0 +1,43 @@
+-- The search-index catalog's scope key widens from a matter to a CORPUS.
+--
+-- Every other part of the widening already shipped: the corpus type, the derived split object key, and
+-- the port's three operations all take a corpus. The catalog did not, and it is the half that decides
+-- disclosure — a query enumerates its splits from these rows, so while the only scope column is
+-- `matter_id`, a discovery review set indexed under its matter would put material an opposing party
+-- produced into the result set of an ordinary matter search. Under a protective order that is not a
+-- cache miss.
+--
+-- Hand-written rather than drizzle-kit-generated because of the backfill in the middle: drizzle-kit
+-- emits the column adds and the index, and cannot emit the UPDATE that gives the rows already in the
+-- table their corpus. Column comments live beside the Drizzle definitions in
+-- packages/database/src/per-firm-schema.ts.
+--
+-- ADDITIVE, and `matter_id` stays. It is provenance from here on — which matter the index work was done
+-- under — and nothing enumerates a corpus by it. Dropping it would be a rebuild of a table firms have
+-- already provisioned, to reclaim one column on a catalog of a derived cache.
+ALTER TABLE `index_split` ADD `corpus_kind` text DEFAULT 'matter' NOT NULL;--> statement-breakpoint
+ALTER TABLE `index_split` ADD `corpus_id` text;--> statement-breakpoint
+-- Every row that exists today was published under the identity mapping from a matter to its own corpus,
+-- so its corpus IS its matter and the backfill is exact rather than a guess. (At the time of writing no
+-- firm has published a split at all — the index engine is not deployed — so this updates nothing; it is
+-- here because a migration that only works on an empty table is one that fails the first time it does
+-- not run on one.)
+UPDATE `index_split` SET `corpus_id` = `matter_id` WHERE `corpus_id` IS NULL;--> statement-breakpoint
+CREATE INDEX `index_split_corpus_superseded_index` ON `index_split` (`corpus_id`,`superseded_at`);
+--> statement-breakpoint
+-- And what a review document's own row says about its place in the index.
+--
+-- A document the index engine has not reached is not an exception: the exception vocabulary is a closed
+-- list of sentences about what could not be READ, every one of them rendered into a report a firm hands
+-- to another party, and "our search index has not caught up" is not one of them. It is the same
+-- distinction `processing_deferred_reason` already draws one stage earlier, kept in a separate pair of
+-- columns because the two stages fail for different reasons and a reader must not have to guess which
+-- stage a reason came from.
+--
+-- Nullable and unconstrained: SQLite cannot add a CHECK after the fact, so the closed vocabulary is held
+-- by the one statement that writes these columns and by the test beside it.
+ALTER TABLE `review_document` ADD `index_state` text;--> statement-breakpoint
+ALTER TABLE `review_document` ADD `index_deferred_reason` text;--> statement-breakpoint
+-- "What is this corpus still owed by the index" as one indexed read over the review set, rather than an
+-- anti-join between a quarter-million review documents and the split catalog.
+CREATE INDEX `review_document_index_state_index` ON `review_document` (`review_set_id`,`index_state`);

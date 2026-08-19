@@ -8,6 +8,7 @@ import {
 import {
   countRecognizedPages,
   formatExtractionRoute,
+  joinReviewDocumentText,
   type ReviewDocumentSidecar,
 } from "@magna-carta/discovery/processing";
 import {
@@ -62,6 +63,7 @@ import {
   type ReviewDocumentExceptionFact,
 } from "./extraction-exceptions.ts";
 import { writeLoadRecordArtifacts } from "./load-artifacts.ts";
+import { enqueueReviewDocumentForIndexing } from "../search/enqueue-index.ts";
 import {
   isLoadCompletionMessage,
   type DiscoveryLaneMessage,
@@ -252,6 +254,17 @@ export async function processOne(
   }
 
   await writeProcessed(env, database, message, extraction);
+
+  // The document has text and a corpus, which is the first moment it can be indexed at all — and the
+  // only moment at which "this is the primary of its duplicate group" is already settled, so the
+  // group buys one split rather than one per custodian.
+  //
+  // BEST-EFFORT, after the write that matters. The row and both derived objects are already
+  // committed; failing the processing that succeeded because a queue call did not would re-read and
+  // re-extract an opposing party's document to fix a bookkeeping miss. What makes that safe is that
+  // the row's own index state is the backlog: a document nothing enqueued is countable and replayable
+  // rather than silently absent.
+  await enqueueReviewDocumentForIndexing(env, message.firmId, reviewDocumentId, database);
 }
 
 // A SUPPRESSED COPY STILL HAS AN ENDING, and it is its primary's. The row survives, its custodian
@@ -708,11 +721,14 @@ async function enqueueLoadCompletionIfReconciled(
   } satisfies DiscoveryLoadCompletionMessage);
 }
 
-// The text object: one page per line group, pages in order, exactly the passages the index will read.
-// Written as text rather than as JSON because a firm's own reviewer, and eventually opposing counsel,
-// opens this without tooling.
+// The text object: one block per page that produced text, pages in order, separated by the form feed
+// that is a page break in a plain text file. Written as text rather than as JSON because a firm's own
+// reviewer, and eventually opposing counsel, opens this without tooling — and separated rather than
+// run together because the index reads this object back and a hit has to be able to name its page.
+// The separator's own contract, and why it cannot appear inside a page, is in
+// packages/discovery/src/processing.ts.
 function passageText(extraction: Extract<TextExtractionResult, { ok: true }>): string {
-  return extraction.passages.map((passage) => passage.text).join("\n\n");
+  return joinReviewDocumentText(extraction.passages.map((passage) => passage.text));
 }
 
 async function recordException(

@@ -146,6 +146,42 @@ export const REVIEW_DOCUMENT_EXCEPTION_STAGES = [
 ] as const;
 export type ReviewDocumentExceptionStage = (typeof REVIEW_DOCUMENT_EXCEPTION_STAGES)[number];
 
+// The stages whose reasons belong in the record artifact a firm hands to another party.
+//
+// `index` is the one that does not, and the omission is the point. The exception report is the
+// document that turns "we produced everything we could read" from an assertion into a record, so
+// every line in it is a statement about a document the firm could not READ. Whether that document is
+// in the firm's own keyword index is a fact about the platform's housekeeping, invisible and
+// irrelevant to the receiving party, and a report that carried it would put a number in front of a
+// court that a later deploy silently changes. It stays fully visible in the live exception read,
+// where the people who can act on it are looking.
+export const PRODUCED_EXCEPTION_STAGES: readonly ReviewDocumentExceptionStage[] = [
+  "load",
+  "identify",
+  "extract",
+  "deduplicate",
+  "family",
+];
+
+// Where a review document stands with the SEARCH INDEX. A different stage from processing, run by a
+// different engine, so it gets its own answer rather than being folded into the processing state:
+// a document can be perfectly readable, produced, and reviewed while the index engine that would make
+// it searchable is not deployed at all.
+//
+// NOT A TERMINAL-STATE VOCABULARY, and not an exception vocabulary either. `deferred` here means the
+// platform has not got to it, which the exception codes above deliberately have no word for. Null on
+// the row means the corpus has never asked the index about this document.
+export const REVIEW_DOCUMENT_INDEX_STATES = ["indexed", "deferred", "failed"] as const;
+export type ReviewDocumentIndexState = (typeof REVIEW_DOCUMENT_INDEX_STATES)[number];
+
+// What a review set is still owed by the index: everything that is not `indexed`, including the
+// documents nothing has asked about yet.
+export const UNINDEXED_INDEX_STATES: readonly (ReviewDocumentIndexState | null)[] = [
+  null,
+  "deferred",
+  "failed",
+];
+
 // ---------------------------------------------------------------------------------------------
 // Coding — the vocabularies a reviewer's decision is made of.
 

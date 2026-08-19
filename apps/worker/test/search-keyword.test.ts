@@ -27,6 +27,8 @@ describe("runKeywordSearch", () => {
       insertIndexSplitStatement(database, {
         id: "indexSplit_test0000000000000000001" as IndexSplitId,
         matterId: MATTER,
+        corpusKind: "matter",
+        corpusId: MATTER,
         documentId: null,
         version: null,
         objectKey: "search/matter/splits/a.split",
@@ -38,6 +40,8 @@ describe("runKeywordSearch", () => {
       insertIndexSplitStatement(database, {
         id: "indexSplit_test0000000000000000002" as IndexSplitId,
         matterId: MATTER,
+        corpusKind: "matter",
+        corpusId: MATTER,
         documentId: null,
         version: null,
         objectKey: "search/matter/splits/b.split",

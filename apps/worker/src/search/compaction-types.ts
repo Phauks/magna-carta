@@ -27,9 +27,22 @@ export interface SearchCompactionState {
 
 export interface SearchCompactionMessage {
   readonly firmId: string;
-  // The corpus to compact. Carried as the matter it is derived from rather than as a resolved corpus, for
-  // the same reason the index message is: a message enqueued before a deploy stays readable after one.
+  // The matter the corpus belongs to: provenance, and the dimension the merged split object is stamped
+  // with. A review-set corpus carries its review set's matter.
   readonly matterId: string;
+  // The corpus to compact. ABSENT means the matter's own corpus, which is what every message enqueued
+  // before review sets took an index scope of their own means — so a message in flight across a deploy
+  // still compacts what it was sent to compact.
+  readonly corpusKind?: "matter" | "reviewSet";
+  readonly corpusId?: string;
+}
+
+// The corpus a message names, with the pre-widening default in ONE place.
+export function compactionMessageCorpus(message: SearchCompactionMessage): {
+  readonly kind: "matter" | "reviewSet";
+  readonly id: string;
+} {
+  return { kind: message.corpusKind ?? "matter", id: message.corpusId ?? message.matterId };
 }
 
 export interface SearchCompactionStartOutcome {

@@ -1,5 +1,5 @@
 import { deriveIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileId, IndexSplitId } from "@magna-carta/identifiers/types";
+import type { FileId, IndexSplitId, ReviewDocumentId } from "@magna-carta/identifiers/types";
 import type { CorpusScope } from "./corpus.ts";
 
 // Where a split lives and what it is called. Both answers are DERIVED, never minted, and that is the
@@ -35,6 +35,23 @@ export function splitIdentifierForDocumentVersion(
   version: number,
 ): Promise<IndexSplitId> {
   return deriveIdentifier("indexSplit", `${documentId}:${version}`);
+}
+
+// The split id for one REVIEW DOCUMENT, which needs no version because it already is one.
+//
+// A review document pins the file version it points at, at the moment it was loaded — that pin is the
+// whole reason a corpus a firm certified does not change when somebody uploads a newer draft. So the
+// review document id names exactly one set of bytes forever, and hashing a version beside it would be
+// hashing a constant. Re-processing the SAME review document (a newly deployed engine draining a
+// parked backlog) therefore derives the same split id, overwrites its own object, and replaces its own
+// catalog row, which is the same convergence the version-keyed derivation buys a matter's files.
+//
+// The domain word is in the hash so the two derivations can never collide even if an identifier scheme
+// ever produced the same token for a file and a review document.
+export function splitIdentifierForReviewDocument(
+  reviewDocumentId: ReviewDocumentId,
+): Promise<IndexSplitId> {
+  return deriveIdentifier("indexSplit", `reviewDocument:${reviewDocumentId}`);
 }
 
 // The split id for a COMPACTED split, derived from the corpus and the exact set of splits merged into it.
