@@ -14,6 +14,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | Decisions + status (ADR register & standard)                   | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
 | How to work here + golden rules + this map                     | **this file**                                                                         |
 | Code standards (style, UI, testing, security, API, docs)       | [`docs/conventions/`](docs/conventions/)                                              |
+| The owner's standing design rulings (corrections already issued) | [`docs/conventions/design-corrections.md`](docs/conventions/design-corrections.md)     |
 | Subsystem design (spec → plan → build)                         | [`docs/specs/`](docs/specs/)                                                          |
 | Local rules & gotchas for a code area                          | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
 | End-user & admin guides (per feature)                          | [`docs/user/`](docs/user/)                                                            |
