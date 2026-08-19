@@ -458,6 +458,61 @@ export function inBuildWithoutStream(node, _allNodes, exists) {
   ];
 }
 
+// ---------------------------------------------------------------------------------------------
+// Rule 10 — a merged design whose owner flags reach nobody. Reads the spec, not the tree.
+// ---------------------------------------------------------------------------------------------
+//
+// A design lands carrying a register of numbered owner flags, its capability nodes go in as pre-code,
+// and nobody writes an `awaiting-owner:` line. The register renders, the decision desk renders, and
+// the questions that decide what gets built appear on neither — so the slice sits blocked and the
+// only person who can unblock it is never shown the block. That is what happened to the general
+// ledger: sixteen flags, six nodes, and a `notes:` line saying "sixteen owner flags gate what is
+// built" — true, unactionable, and invisible to the one document written to collect such questions.
+//
+// The signal is the spec's own FLAG REGISTER: a markdown table whose first cell is a bolded token
+// like `**G1**`, or the inline `Flagged (**G12**)` form. Two or more, so a stray bolded token in an
+// ordinary table cannot make a register out of nothing. The runner extracts them; this file stays
+// pure over the map it is handed.
+//
+// THE NARROWING, AND IT IS THE WHOLE RULE. Fire only when EVERY node citing that spec is pre-code.
+// A flag register is a point-in-time list and flags get answered by being built — the custodian
+// design's eleven and the discovery design's ten are mostly settled, and their subtrees hold shipped
+// code that says so. There is no way to tell an answered flag from an open one by reading the spec,
+// so the rule refuses to guess: a subtree with any code in it has had SOME of these questions
+// decided, and demanding a line there would be noise on every mature design in the ledger. A design
+// where nothing at all is built has had none of them decided, because deciding them is what starts
+// the build.
+//
+// Reported ONCE per spec, on the lowest id citing it, rather than once per node — six identical
+// lines about one design is the shape people stop reading.
+//
+// Measured against the whole ledger: 1 hit, the general ledger, no false positives. Widening to
+// "any node citing the spec is pre-code" was measured too and takes it to 6 spec groups, five of
+// them designs whose open flags were long since answered by the code beside them.
+export function unsurfacedDesignFlags(node, allNodes, _exists, _decisions, _slices, specFlags) {
+  if (node.spec === null) return [];
+  const flags = specFlags?.get(node.spec);
+  if (flags === undefined || flags.length < 2) return [];
+
+  const citing = allNodes.filter((other) => other.spec === node.spec);
+  if (citing.some((other) => other.awaitingOwner !== null)) return [];
+  if (!citing.every((other) => PRE_CODE_STATUSES.includes(other.status))) return [];
+  // One report per spec, on the lowest id, so the group speaks once.
+  if (citing.some((other) => other.id < node.id)) return [];
+
+  return [
+    {
+      rule: "unsurfaced-design-flags",
+      node,
+      detail:
+        `cites \`${node.spec}\`, which carries an owner-flag register (${flags.join(", ")}), and` +
+        ` nothing built stands behind any of the ${citing.length} node(s) citing it — yet not one of` +
+        " them carries an `awaiting-owner:` line, so the decision desk shows none of these" +
+        " questions. Record the ones that actually gate the build, on the nodes they decide",
+    },
+  ];
+}
+
 const RULES = [
   unaccountedCode,
   absentPathThatResolves,
@@ -468,6 +523,7 @@ const RULES = [
   sliceAlreadyDelivered,
   unresolvedSlice,
   inBuildWithoutStream,
+  unsurfacedDesignFlags,
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -512,6 +568,67 @@ function fixture(fields) {
 }
 
 export const SELF_TEST = [
+  {
+    name: "rule 10 bites: a merged design's flags reach neither the register nor the desk",
+    nodes: [
+      fixture({
+        id: "financial.ledger.operating-gl",
+        status: "designed",
+        spec: "docs/specs/general-ledger-design.md",
+      }),
+      fixture({
+        id: "financial.ledger.operating-gl.period-close",
+        status: "designed",
+        spec: "docs/specs/general-ledger-design.md",
+      }),
+    ],
+    tree: ["docs/specs/general-ledger-design.md"],
+    specFlags: { "docs/specs/general-ledger-design.md": ["G1", "G3", "G12"] },
+    expect: ["unsurfaced-design-flags"],
+  },
+  {
+    name: "rule 10 speaks once per spec, not once per node",
+    nodes: [
+      fixture({ id: "a.one", status: "designed", spec: "docs/specs/d.md" }),
+      fixture({ id: "a.two", status: "designed", spec: "docs/specs/d.md" }),
+      fixture({ id: "a.three", status: "planned", spec: "docs/specs/d.md" }),
+    ],
+    tree: ["docs/specs/d.md"],
+    specFlags: { "docs/specs/d.md": ["X1", "X2"] },
+    expect: ["unsurfaced-design-flags"],
+  },
+  {
+    name: "the permitted form: one node in the family already carries the question",
+    nodes: [
+      fixture({
+        id: "a.one",
+        status: "designed",
+        spec: "docs/specs/d.md",
+        awaitingOwner: "Whether a schedule may finalize. Design, flag M1.",
+      }),
+      fixture({ id: "a.two", status: "designed", spec: "docs/specs/d.md" }),
+    ],
+    tree: ["docs/specs/d.md"],
+    specFlags: { "docs/specs/d.md": ["M1", "M2"] },
+    expect: [],
+  },
+  {
+    name: "the permitted form: a design with code beside it has answered flags by building them",
+    nodes: [
+      fixture({ id: "a.one", status: "designed", spec: "docs/specs/d.md" }),
+      fixture({ id: "a.two", status: "shipped", spec: "docs/specs/d.md" }),
+    ],
+    tree: ["docs/specs/d.md"],
+    specFlags: { "docs/specs/d.md": ["C1", "C7", "C11"] },
+    expect: [],
+  },
+  {
+    name: "the permitted form: a spec with one bolded token is not a flag register",
+    nodes: [fixture({ id: "a.one", status: "designed", spec: "docs/specs/d.md" })],
+    tree: ["docs/specs/d.md"],
+    specFlags: { "docs/specs/d.md": ["Q1"] },
+    expect: [],
+  },
   {
     name: "instance 1: a `designed` node pointing at four directories nobody accounts for",
     nodes: [
@@ -827,6 +944,7 @@ export function findStaleness(
   exists,
   decisionNumbers = new Set(),
   sliceBuildStates = new Map(),
+  specFlagRegisters = new Map(),
 ) {
   const problems = [];
   for (const node of nodes) {
@@ -841,7 +959,14 @@ export function findStaleness(
       });
     }
     for (const rule of RULES) {
-      for (const problem of rule(node, nodes, exists, decisionNumbers, sliceBuildStates)) {
+      for (const problem of rule(
+        node,
+        nodes,
+        exists,
+        decisionNumbers,
+        sliceBuildStates,
+        specFlagRegisters,
+      )) {
         if (allowed !== null && allowed.reason !== "" && SUPPRESSIBLE.has(problem.rule)) continue;
         problems.push(problem);
       }

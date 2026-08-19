@@ -232,6 +232,24 @@ frozen-field list, the ingest chokepoint, the provenance row, the telemetry — 
   (and the versions route) take `kind` plus `fieldMappings`, the human confirmation of what each box on
   the form means. The mappings go to the firm's existing `document_template_field_mapping` library in the
   same commit as the version they bound.
+- **Registration writes the object BEFORE the rows, and what that leaves behind is COUNTED on the
+  daily cron — not deleted.** A committed row pointing at bytes that were never written is a template
+  that fails on a filing deadline; a written object with no row is only wasted storage — so the
+  ordering stays. `assemblies/template-orphan-sweep.ts` runs beside the other storage passes and
+  reports an object under `templates/` as an orphan when no version row **anywhere in the fleet**
+  names its key, it is not under `TEMPLATE_STAGING_PREFIX`, and it has been unnamed for longer than a
+  24-hour grace period — the window in which a registration's row is still committing. **It deletes
+  nothing, and adding the delete is not a line to uncomment.** The fleet-wide retention set is not
+  convenience: a template key carries no firm and every firm resolves to the same bound bucket, so a
+  per-firm complement would delete another firm's live template. And the fleet set cannot be shown
+  complete — a `FirmDatabase` addressed under a name it does not answer to self-migrates and returns
+  zero rows, which is indistinguishable from a firm that holds no templates, and the residency seam in
+  `firm-database-proxy.ts` makes that reachable. So a retention read that FAILS disarms the whole pass,
+  and a read that merely returns nothing cannot be caught at all. Arming the delete wants each object
+  stamped with the firm that wrote it, so the complement is taken against one firm's rows; that is an
+  open owner question on the ledger's `document-automation.template-storage-reclamation` node. Reaping
+  abandoned staged uploads is a separate half and is deliberately not here — it wants an R2 lifecycle
+  rule ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
 
 ## The split-object host — how the search engine reads R2 without credentials
 

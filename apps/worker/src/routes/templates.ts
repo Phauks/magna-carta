@@ -38,7 +38,7 @@ import {
   composeTemplateArchive,
   composeTemplateRegistration,
   composeTemplateVersionRegistration,
-  TEMPLATE_OBJECT_PREFIX,
+  TEMPLATE_STAGING_PREFIX,
 } from "@magna-carta/document-assembly/template-service";
 import {
   listDocumentTemplates,
@@ -125,11 +125,6 @@ const TemplateKindSchema = z.enum(TEMPLATE_KINDS as [TemplateKind, ...TemplateKi
     "PDF your firm already has, such as a court form: its boxes are filled in by this system once you " +
     "confirm which merge field each one is filled from. Defaults to wordProcessing.",
 });
-
-// The staging prefix a raw upload lands under before registration reads it. It sits inside the
-// `templates/` prefix so template bytes meter under one dimension whether or not registration
-// succeeded, and a staged object is deleted once its registration has read it.
-const TEMPLATE_STAGING_PREFIX = `${TEMPLATE_OBJECT_PREFIX}staging/`;
 
 const templateParam = z.object({
   templateId: identifierPathParam("documentTemplate", "templateId"),
@@ -1499,17 +1494,17 @@ async function scanAndGateStatements(
 // registering a template while the scan Container is down can only wait, and an Error ID would send
 // them to support over something nobody can act on.
 //
-// NO ROW COMMITS — the effect throws before its write — but bytes are a different question, and the
-// honest answer is that this path leaks them. The prepared template is written to R2 above, inside
-// the effect and ahead of the scan, and each execution mints a fresh versionId and key, so every
-// refused attempt leaves another full copy under `templates/` that no row points at. The storage
-// reconciliation sweep does not reach it: that pass lists `files/` and `bulk/` only, and corrects
-// the meter rather than deleting anything. The leak predates this refusal — the Error ID it replaced
-// left the same object — but a retryable answer invites the retries that multiply it.
+// NO ROW COMMITS — the effect throws before its write — but bytes are a different question. The
+// prepared template is written to R2 above, inside the effect and ahead of the scan, and each
+// execution mints a fresh versionId and key, so every refused attempt leaves another full copy under
+// `templates/` that no row points at. Those copies are collected a day later by
+// `assemblies/template-orphan-sweep.ts` on the daily cron, which is where the ordering argument for
+// writing bytes first and the argument for a generous grace period both live.
 //
 // The staged upload is deliberately NOT deleted here, so a retry does not mean re-uploading the
-// file. Nothing reaps it if the caller never comes back: no sweep lists the staging prefix and the
-// bucket carries no lifecycle rule for it.
+// file. Nothing reaps it if the caller never comes back — the orphan sweep skips the staging prefix
+// precisely because a staged object is not garbage, and the bucket carries no lifecycle rule for it
+// yet (docs/deploy-queue.md carries the step).
 function refuseOnScanFault(c: TemplatesContext, error: unknown): ProblemResponse<503> {
   if (!(error instanceof ScanFaultError)) throw error;
   return problemJson(c, {
@@ -1583,9 +1578,9 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             // The bytes are written before the rows commit, because the failure directions are not
             // symmetric: a committed row pointing at bytes that were never written is a template that
             // fails at 4:55pm on a filing deadline, and a written object with no row is only wasted
-            // storage. Wasted rather than reconciled — the storage sweep lists `files/` and `bulk/`,
-            // so nothing reaches an orphan under `templates/` to delete it or take it off the meter.
-            // The ordering stays as it is; the orphan wants a sweep of its own.
+            // storage. The ordering stays as it is, and the wasted storage is collected out of band
+            // by `assemblies/template-orphan-sweep.ts` — a day later, so that this window, in which
+            // the object is real and its row is not, can never look like garbage to it.
             await bucket.put(registration.r2Key, outcome.prepared.bytes as unknown as ArrayBuffer, {
               customMetadata: firmScopedObjectDimensions("document-template"),
             });

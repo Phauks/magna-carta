@@ -88,15 +88,47 @@ export function readDecisionNumbers(root) {
 // survived. So the rules are proven to BITE on known-stale fixtures and to stay quiet on the
 // permitted forms on every run, and a pattern that silently stopped matching fails loudly instead of
 // reading as permanently green. Idiom borrowed from tooling/lint-conflicts-vocabulary/.
+// The owner-flag register a document under docs/specs/ carries, for rule 10. Two shapes, both
+// already idiomatic there: a table row whose first cell is a bolded token (`| **G1** | ...`), and the inline
+// `Flagged (**G12**)` a section body uses when the register lives further down. Only specs a node
+// actually cites are read, so this is a handful of files rather than the whole directory.
+function readSpecFlagRegisters(root, nodes) {
+  const registers = new Map();
+  for (const specPath of new Set(nodes.map((node) => node.spec).filter((spec) => spec !== null))) {
+    const absolute = join(root, specPath);
+    if (!existsSync(absolute)) continue;
+    const text = readFileSync(absolute, "utf8");
+    const flags = new Set();
+    for (const match of text.matchAll(/^\|\s*\*\*([A-Z]{1,3}-?[A-Z]?\d{1,2})\*\*\s*\|/gm)) {
+      flags.add(match[1]);
+    }
+    for (const match of text.matchAll(/[Ff]lagged\s*\(\*\*([A-Z]{1,3}-?[A-Z]?\d{1,2})\*\*/g)) {
+      flags.add(match[1]);
+    }
+    // Sorted by letter prefix then NUMBER, so a sixteen-flag register reads G1..G16 rather than
+    // G1, G10, G11, G2 — the lexical order makes a complete register look like a ransacked one.
+    const ordered = [...flags].toSorted((left, right) => {
+      const [, leftLetters, leftDigits] = /^([A-Z-]+)(\d+)$/.exec(left) ?? [null, left, "0"];
+      const [, rightLetters, rightDigits] = /^([A-Z-]+)(\d+)$/.exec(right) ?? [null, right, "0"];
+      return leftLetters === rightLetters
+        ? Number(leftDigits) - Number(rightDigits)
+        : leftLetters.localeCompare(rightLetters);
+    });
+    if (ordered.length > 0) registers.set(specPath, ordered);
+  }
+  return registers;
+}
+
 function runSelfTest() {
   const failures = [];
-  for (const { name, nodes, tree, decisions, slices, expect } of SELF_TEST) {
+  for (const { name, nodes, tree, decisions, slices, specFlags, expect } of SELF_TEST) {
     const exists = (path) => tree.includes(path);
     const found = findStaleness(
       nodes,
       exists,
       new Set(decisions ?? []),
       new Map(Object.entries(slices ?? {})),
+      new Map(Object.entries(specFlags ?? {})),
     )
       .map((problem) => problem.rule)
       .toSorted();
@@ -138,6 +170,7 @@ function main() {
     (path) => existsSync(join(ROOT, path)),
     readDecisionNumbers(ROOT),
     sliceBuildStates,
+    readSpecFlagRegisters(ROOT, nodes),
   );
 
   if (found.length > 0) {
@@ -159,8 +192,9 @@ function main() {
   console.log(
     `Feature ledger matches the tree (${nodes.length} node(s) across ${areas.length} area(s),` +
       ` ${sliceBuildStates.size} slice fragment(s)): every path named resolves, every decision cited` +
-      " exists, no node claiming there is no code points at any, and no node sits `not-started` in a" +
-      " subtree its own build stream has already delivered into.",
+      " exists, no node claiming there is no code points at any, no node sits `not-started` in a" +
+      " subtree its own build stream has already delivered into, and no design whose flags are all" +
+      " still open is missing from the decision desk.",
   );
 }
 
