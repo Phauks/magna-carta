@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 754 nodes of the feature ledger in
+is the complete register rather than a digest: all 755 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**754 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**755 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below. 133 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **621 that are units of work**, for the reason set out under [What a roll-up is
+count the **622 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 257 | 41% |
-| Part-built | partial, in-build | 102 | 17% |
+| Part-built | partial, in-build | 103 | 17% |
 | Ahead | designed, planned, researching, not-started | 219 | 35% |
 | Parked | deferred, cut | 43 | 7% |
-| **All units of work** | | **621** | **100%** |
+| **All units of work** | | **622** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 257 | 41% |
-| `partial` | 101 | 16% |
+| `partial` | 102 | 16% |
 | `in-build` | 1 | 0% |
 | `designed` | 44 | 7% |
 | `planned` | 18 | 3% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 152 | 25% |
 | `deferred` | 41 | 7% |
 | `cut` | 2 | 0% |
-| **All statuses** | **621** | **100%** |
+| **All statuses** | **622** | **100%** |
 
 ### What a roll-up is not
 
-**133 of the 754 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**133 of the 755 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 257 of 621 (41%). Shipped plus partial is 358 (58%).**
+**Shipped alone is 257 of 622 (41%). Shipped plus partial is 359 (58%).**
 
-The 101 units between those two numbers are work that is engineered and paid for and is not
+The 102 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**359 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**360 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 20 | 5% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 48% |
-| No user surface by nature (`internal`) | 168 | 47% |
+| A person can open it today (`screen`) | 20 | 6% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 47% |
+| No user surface by nature (`internal`) | 169 | 47% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **359** | **100%** |
+| **Everything with something built** | **360** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -105,7 +105,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Custodian (Safe Custody) | 6 | 2 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 5 | 8 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 20 | 25% |
-| Document Automation | 3 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 38% |
+| Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 60 | 9 | 0 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **257** | **101** | **1** | **44** | **18** | **5** | **152** | **41** | **2** | **621** | **41%** |
+| **All areas** | **257** | **102** | **1** | **44** | **18** | **5** | **152** | **41** | **2** | **622** | **41%** |
 
 ## Where we have been
 
@@ -304,7 +304,7 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**25 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**26 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -315,6 +315,7 @@ shows up in the nodes columns and not in this one.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 - **Dedicated PDF form filling** (`document-automation.pdf-form-filling`) — **Built; no screen yet.** Does a filled form file flattened, interactive, or is it a per-template setting? A flattened form is what a signature wants and cannot be corrected; an interactive one is what a firm wants when the recipient still has to complete a box. Today it is interactive, which is the non-destructive answer to sit behind the question — changing it is one constant, or one column read. Document automation tail remainder plan, flag B5.
 - **Filing-grade generation** (`document-automation.filing-grade-generation`) — **Built; no screen yet.** The curated Nevada starter library is designed and its plan does not start until five calls land. Whether the platform authors its own templates from the text a statute prescribes, or redistributes the courts' published documents — authoring narrows the copyright question to prescribed text and produces templates the engine can actually render, redistribution takes on somebody else's asserted rights in every file. What the starter set contains, which is the deliverable rather than a detail. Whether one named Nevada attorney's review is enough, or each firm must acknowledge an entry before first use. Whether fillable-PDF templates get built at all, without which no family-law form — the forms most Nevada firms actually file — can ever be in the library. And whether to write to the Supreme Court of Nevada and the Legal Aid Center of Southern Nevada asking permission, since both assert copyright expressly and until a written permission exists no court-published form is shippable. Nevada court form library design, flags N1 through N5.
+- **Template storage reclamation** (`document-automation.template-storage-reclamation`) — **Built; no screen by nature.** Should the sweep be armed to delete, and at the cost of what change? Deleting the complement of the live set is only as safe as that set is complete, and completeness is currently unverifiable: a template key carries no firm segment and every firm resolves to the same bound bucket, so the retention set has to be the whole fleet's — and a per-firm database addressed under a name it does not answer to does not throw, it self-migrates and returns zero rows, which reads identically to a firm that holds no templates. The residency seam makes that reachable rather than theoretical. Arming it safely wants each object stamped with the firm that wrote it, so an orphan is decided against one firm's rows and the fleet-wide union disappears along with its blast radius — a schema and write-path change, not a line to flip.
 - **PDF document scrub** (`documents.pdf.scrub`) — **Built; no screen yet.** Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/worker/src/routes/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.
 - **Trial admission tracking** (`exhibits.admission-tracking`) — **Parked.** Whether recording admission at trial is in scope as a later capability at all. The design assumes it stays out: it has a different audience and its own evidentiary weight, and a half-kept record of what a court admitted is worse than none. A yes makes it a capability with its own model rather than three columns bolted to an exhibit set. Exhibits design flag E7.
 - **Trust accounting** (`financial.trust`) — **A group of capabilities.** Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
@@ -720,7 +721,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 8 units of work, 38% shipped. 3 done, 5 part-built, 0 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 units of work, 33% shipped. 3 done, 6 part-built, 0 ahead, 0 parked.
 
 - `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
@@ -731,6 +732,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `document-automation.pdf-form-filling` · `shipped` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Whether a filled form files flattened or interactive is an open owner decision, held as a required typed FormFillFinish parameter at the fill seam and answered today by one constant set to interactive, because flattening is irreversible. The registration and field-list surfaces are backend only; the browser screens are slice 2-6-4._
   - `document-automation.field-mapping-library` · `shipped` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established. _Note: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in._
   - `document-automation.filing-grade-generation` · `partial` · **Filing-grade generation** — Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
+  - `document-automation.template-storage-reclamation` · `partial` · **Template storage reclamation** — Reclaiming the R2 objects a refused template registration leaves behind, which no version row names. _Note: Deletion is deliberately not armed — see the owner question. The other half of the prefix, abandoned staged uploads, is an R2 lifecycle rule in docs/deploy-queue.md rather than code._
 
 ### Documents
 

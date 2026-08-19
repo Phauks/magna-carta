@@ -563,7 +563,7 @@ closes on its own; it just needs to be seen to close. Two things for the owner a
 
 Nothing here blocks the deploy, and nothing needs doing before it.
 
-## An R2 lifecycle rule for the template staging prefix — the half the orphan sweep leaves
+## An R2 lifecycle rule for the template staging prefix — the half the orphan sweep does not reach
 
 `POST /api/v1/templates/upload` mints a staging key under `templates/staging/<firmId>/` and hands
 back a presigned PUT. Registration reads those bytes and deletes them; a caller who uploads and never
@@ -571,15 +571,22 @@ comes back leaves them. That is deliberate — a member handed a `503` because t
 is expected to retry against the same staged bytes rather than upload the file again — so the staged
 object cannot be reaped by anything that runs on a scale of minutes.
 
-The daily sweep that collects template objects no row names
+The daily sweep over template objects no row names
 (`apps/worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
 rule**, and abandoned staging is left to expire on its own. Nothing expires it yet: the bucket
 carries no lifecycle rule for that prefix.
+
+That sweep **measures and does not delete** — a template key carries no firm segment and every firm
+resolves to the same bound bucket, so deciding an orphan takes the whole fleet's version rows, and a
+per-firm database addressed under a name it does not answer to returns zero rows rather than
+throwing. Arming it is an open owner question on the
+`document-automation.template-storage-reclamation` node. So this rule is not the smaller half of a
+solved problem: today it is the only thing that would reclaim anything under `templates/` at all.
 
 **The step.** Add an R2 lifecycle rule expiring `templates/staging/` — a generous window, days rather
 than hours, since it must comfortably outlive a member who was told to try again shortly. It is the
 same class of rule as the `bundles/` and `conversions/` expiries in the deploy runbook, and it is
 account-side: no code change accompanies it, and nothing in the repository can perform it.
 
-Nothing breaks without it. The cost is storage for uploads nobody registered, which is exactly the
-cost the orphan sweep was built to stop paying on the other half of the prefix.
+Nothing breaks without it. The cost is storage for uploads nobody registered — the same cost the
+sweep counts on the other half of the prefix and, for now, only counts.

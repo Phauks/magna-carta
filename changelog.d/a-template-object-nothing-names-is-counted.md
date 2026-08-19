@@ -28,6 +28,12 @@ with the firm that wrote it, so an orphan is decided against ONE firm's rows and
 disappears along with its blast radius. That is a design decision with a real trade, and it is filed
 for the owner rather than taken here.
 
+**The retention read is paged.** It crossed the per-firm database boundary in a single response, and
+a failed retention read disarms the whole fleet's pass — so a firm large enough to overflow one
+response would not have slowed the measurement down, it would have switched it off, every night,
+silently. It is a keyset walk over the object key now; the key carries the version identifier, so the
+ordering is total and no row can be skipped or repeated across pages.
+
 **Two smaller things the review corrected.** The candidate count is DISTINCT KEYS, not sightings:
 template keys carry no firm segment and every firm resolves to the same bound bucket, so each firm's
 pass walks the same prefix and a per-sighting count would scale with tenancy rather than with the
