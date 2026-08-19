@@ -187,7 +187,7 @@
   audience: public
   public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
-  notes: Backend shipped; matter UI in flight (matter-detail skeleton design, file-surface-web stream) but not landed as a usable surface.
+  notes: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, nine render a SectionStub, Time and Costs render fixture data as presentation only, and Overview and Files are the two reading a firm's own record. The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed.
 
 - id: matters.parties
   name: Matter parties
@@ -228,8 +228,8 @@
   name: Per-type templates and workflows
   scope: Matter types carrying document templates and workflows.
   status: not-started
-  evidence: document automation (status.d/2-6) is "Not started"; no workflow engine in tree
-  notes: Depends on document automation.
+  evidence: Document automation is built through slice 2-6-5 (status.d/2-6-document-automation.md reports built done), so the templates half now has an engine to hang on — what is missing is any link from a matter TYPE to a template, and there is still no workflow engine of any kind in the tree.
+  notes: The document-automation dependency is met; the matter-type binding and the workflow engine are not.
 
 - id: matters.home-location
   name: Optional home Location
@@ -266,8 +266,8 @@
   status: shipped
   surface: internal
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/matters/src/close-preconditions.ts (registry empty by design at this layer)
-  notes: The zero-balance rule registration belongs to the trust slice and is not yet registered.
+  evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/worker/src/routes/matters.ts, where the subsystems meet.
+  notes: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
 
 - id: matters.lifecycle.stale-consultations
   name: Stale-consultation policy and bulk close
@@ -284,8 +284,8 @@
   status: partial
   slices: 1-1-matters-locations-file-manager
   spec: docs/specs/2026-07-09-matter-file-manager-design.md
-  evidence: packages/file-manager; routes folders.ts, files.ts, document-types.ts; file-surface-web merge landed primitives + contract
-  notes: Backend and file-manager primitives on main; the Files UI is queued behind the app shell (status.d/1-1 next).
+  evidence: packages/file-manager; routes folders.ts, files.ts, document-types.ts; and the Files section of the matter host, which runs the whole loop — list, create, open, save the next version, read the version history — through the same-origin seam in apps/web/src/lib/documents/.
+  notes: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built.
 
 - id: matters.file-manager.content-hash
   name: Content hash on every stored object
@@ -383,8 +383,8 @@
   scope: Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits.
   status: partial
   surface: internal
-  evidence: access-triggered rescan built (rescan handling in apps/scan-worker; docs/specs/2026-06-22-access-triggered-rescan-design.md + implementation plan)
-  notes: Access-triggered rescan exists; the signature-update cron sweep was not verified in tree.
+  evidence: access-triggered rescan built — rescanCommittedVersion in apps/worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
+  notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
 
 - id: locations
   name: Locations (offices)
@@ -444,14 +444,14 @@
   scope: Physical-location hierarchy rooted at a Location (Location, safe, box, position).
   status: designed
   spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: safe-custody design salvaged to main; safe-custody-design branch exists; no custody code in tree
+  evidence: Custody shipped after this was written — packages/custodian/src/location-service.ts holds the recursive container tree over the custody_location table, and a root optionally binds a firm Location while an offsite or bank root binds none, so a vault never becomes an office row. The Locations side of that binding is what this node covers and it is in place; see custodian.location-hierarchy for the tree itself.
 
 - id: locations.usage.documents-billing
   name: Location identity on generated output
   scope: Location fields feed the data dictionary so generated documents and invoices carry correct office identity.
   status: not-started
-  evidence: document automation (status.d/2-6) not started; billing/invoicing slice not started
-  notes: The source data (remit-to, addresses) is shipped; no consumer exists.
+  evidence: Both consumers exist now. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity), and the invoice snapshots the letterhead and remit-to at finalize rather than reading them live (the invoice's letterhead_address_block, letterhead_footer and remit_to columns).
+  notes: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed.
 
 - id: locations.access-model
   name: Location as filter, not gate

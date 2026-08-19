@@ -963,7 +963,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Matters</span>
 <code>matters</code>
 <p>Matter as the top-level access unit and cost center, opened directly with the client as a Directory link.</p>
-<p class="note">Backend shipped; matter UI in flight (matter-detail skeleton design, file-surface-web stream) but not landed as a usable surface.</p>
+<p class="note">Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, nine render a SectionStub, Time and Costs render fixture data as presentation only, and Overview and Files are the two reading a firm's own record. The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed.</p>
 <p class="ask"><strong>Waiting on you.</strong> The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
@@ -993,7 +993,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Per-type templates and workflows</span>
 <code>matters.types.templates-workflows</code>
 <p>Matter types carrying document templates and workflows.</p>
-<p class="note">Depends on document automation.</p>
+<p class="note">The document-automation dependency is met; the matter-type binding and the workflow engine are not.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Optional home Location</span>
@@ -1018,7 +1018,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Close-precondition hook</span>
 <code>matters.lifecycle.close-preconditions</code>
 <p>Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance".</p>
-<p class="note">The zero-balance rule registration belongs to the trust slice and is not yet registered.</p>
+<p class="note">Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Stale-consultation policy and bulk close</span>
@@ -1030,7 +1030,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">File Manager</span>
 <code>matters.file-manager</code>
 <p>Navigation over the matter's versioned R2 files — folders, document types, drag/drop.</p>
-<p class="note">Backend and file-manager primitives on main; the Files UI is queued behind the app shell (status.d/1-1 next).</p>
+<p class="note">The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Content hash on every stored object</span>
@@ -1094,7 +1094,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Continuous re-scan</span>
 <code>matters.file-manager.untrusted-pipeline.rescan</code>
 <p>Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits.</p>
-<p class="note">Access-triggered rescan exists; the signature-update cron sweep was not verified in tree.</p>
+<p class="note">Access-triggered rescan exists. The signature-update cron sweep does not: apps/worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.</p>
 </li><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Locations (offices)</span>
@@ -1138,7 +1138,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Location identity on generated output</span>
 <code>locations.usage.documents-billing</code>
 <p>Location fields feed the data dictionary so generated documents and invoices carry correct office identity.</p>
-<p class="note">The source data (remit-to, addresses) is shipped; no consumer exists.</p>
+<p class="note">What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Location as filter, not gate</span>
