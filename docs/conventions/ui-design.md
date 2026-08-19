@@ -117,4 +117,6 @@ See [`testing.md`](testing.md) for the test-layer detail.
 
 Screenshots of every story×theme×mode over the static catalog, compared against committed baselines (`packages/design-system/visual-regression/`). **Baselines are authoritative only from the pinned Playwright container** (`mcr.microsoft.com/playwright:v<version>-noble`) — OS font rendering differs, so a Windows/macOS baseline poisons the suite. Regenerate via `update-baselines.cmd`/`.sh` (Docker) or the CI container job; the harness skips explicitly until baselines exist. Never commit a non-container baseline.
 
+**Current reality: there are no baselines and no job that makes them.** There is no `visual-regression/baselines/` directory, no committed image, and no workflow that runs the suite; the harness README points at a CI container job that was never written. The suite therefore announces its named skip on every run. Until a baseline set is generated from the pinned container and committed, treat this gate as absent rather than as passing — the browser loop above is what covers UI review in the meantime, and it answers a different question.
+
 > The "tokens + components only" and "Lucide only / no emojis" invariants are summarized in the root [`CLAUDE.md`](../../CLAUDE.md) (golden rule 2).
