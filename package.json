@@ -20,6 +20,7 @@
     "lint:status": "node tooling/lint-status.mjs",
     "lint:roadmap": "node tooling/lint-roadmap.mjs",
     "lint:ledger-staleness": "node tooling/lint-ledger-staleness/index.mjs",
+    "lint:ungranted-permissions": "node tooling/lint-ungranted-permissions/index.mjs",
     "lint:unwired-writes": "node tooling/lint-unwired-writes/index.mjs",
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",

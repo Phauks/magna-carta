@@ -136,6 +136,7 @@ export default defineConfig({
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",
+      "tooling/lint-ungranted-permissions/vitest.config.ts",
       "tooling/lint-unwired-writes/vitest.config.ts",
       "tooling/lint-test-collection/vitest.config.ts",
       "tooling/migration-integrity/vitest.config.ts",
