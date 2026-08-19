@@ -14,7 +14,11 @@ import {
   readActiveAutoFileRulesByMatchValues,
   readAutoFileDecisionsForMessage,
   readAutoFileRuleActivity,
+  readAutoFileRuleById,
+  readAutoFileRulesByIds,
   readAutoFileRulesForMatter,
+  readRecentAutomaticEmailLinks,
+  findAutoFileRuleByMatch,
   resumeEmailAutoFileRule,
   revokeEmailAutoFileRule,
   suspendEmailAutoFileRule,
@@ -437,5 +441,184 @@ describe("the per-rule activity derivation", () => {
     expect(details.some((detail) => detail.startsWith("SCAN") && !detail.includes(" USING "))).toBe(
       false,
     );
+  });
+});
+
+describe("the reads the management surface is built on", () => {
+  it("reads one rule by handle, INCLUDING a revoked one", async () => {
+    const matterId = seedMatter("four1000000000000000");
+    await createRule(matterId);
+    await run(revokeEmailAutoFileRule(database, { id: RULE }, auditOptions).statements);
+    // The matter list omits it — a member pruning rules should not see retired ones — but the
+    // by-handle read must still answer, or a link a revoked rule made becomes unexplainable and
+    // every transition route would 404 instead of saying the rule is already revoked.
+    expect(await readAutoFileRulesForMatter(database, matterId, 10)).toEqual([]);
+    expect((await readAutoFileRuleById(database, RULE))?.state).toBe("revoked");
+  });
+
+  it("answers null for a handle no rule carries", async () => {
+    expect(
+      await readAutoFileRuleById(database, "emailAutoFileRule_zzz" as EmailAutoFileRuleId),
+    ).toBeNull();
+  });
+
+  it("finds an existing rule by its exact condition, so a duplicate is reported rather than thrown", async () => {
+    const matterId = seedMatter("four2000000000000000");
+    await createRule(matterId);
+    expect(
+      (
+        await findAutoFileRuleByMatch(database, {
+          kind: "correspondentMatter",
+          matchValue: "counsel@opposing.example",
+          matterId,
+        })
+      )?.id,
+    ).toBe(RULE);
+    // The same address on a different matter is a DIFFERENT rule — the unique index is on all three
+    // columns, and a client legitimately corresponds about more than one matter.
+    const otherMatter = seedMatter("four3000000000000000");
+    expect(
+      await findAutoFileRuleByMatch(database, {
+        kind: "correspondentMatter",
+        matchValue: "counsel@opposing.example",
+        matterId: otherMatter,
+      }),
+    ).toBeNull();
+  });
+
+  it("hydrates a bounded set of rules by handle and nothing else", async () => {
+    const matterId = seedMatter("four4000000000000000");
+    await createRule(matterId);
+    const second = "emailAutoFileRule_bbb" as EmailAutoFileRuleId;
+    await createRule(matterId, { id: second, matchValue: "clerk@court.example" });
+    expect((await readAutoFileRulesByIds(database, [RULE])).map((rule) => rule.id)).toEqual([RULE]);
+    expect(await readAutoFileRulesByIds(database, [])).toEqual([]);
+    expect((await readAutoFileRulesByIds(database, [RULE, second])).map((rule) => rule.id)).toEqual(
+      [RULE, second].sort((left, right) => left.localeCompare(right)),
+    );
+  });
+});
+
+describe("the review read's walk over automatic links", () => {
+  function seedLink(input: {
+    index: number;
+    matterId: MatterId;
+    state: "staged" | "filed" | "unlinked";
+    automatic: boolean;
+    createdAt: string;
+  }): void {
+    const messageId = seedMessage(`emailMessage_link_${input.index}`);
+    raw
+      .prepare(
+        `INSERT INTO email_matter_link
+           (id, email_message_id, matter_id, state, captured_via, auto_file_rule_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'forward', ?, ?, ?)`,
+      )
+      .run(
+        `emailMatterLink_${input.index}` as EmailMatterLinkId,
+        messageId,
+        input.matterId,
+        input.state,
+        input.automatic ? RULE : null,
+        input.createdAt,
+        input.createdAt,
+      );
+  }
+
+  // A person's link is not review material, and including it would misreport how much of a matter's
+  // correspondence arrived unattended — which is the one number this read exists to give a firm.
+  it("returns only the links a rule made", async () => {
+    const matterId = seedMatter("five1000000000000000");
+    await createRule(matterId);
+    seedLink({ index: 1, matterId, state: "staged", automatic: true, createdAt: NOW });
+    seedLink({ index: 2, matterId, state: "filed", automatic: false, createdAt: NOW });
+
+    const links = await readRecentAutomaticEmailLinks(database, {
+      since: "2026-08-05T21:00:00.000Z",
+      limit: 50,
+    });
+    expect(links.map((link) => link.autoFileRuleId)).toEqual([RULE]);
+    expect(links[0]?.state).toBe("staged");
+  });
+
+  it("stays inside its window and under its limit", async () => {
+    const matterId = seedMatter("five2000000000000000");
+    await createRule(matterId);
+    seedLink({
+      index: 3,
+      matterId,
+      state: "filed",
+      automatic: true,
+      createdAt: "2026-07-01T00:00:00.000Z",
+    });
+    seedLink({ index: 4, matterId, state: "filed", automatic: true, createdAt: NOW });
+    seedLink({
+      index: 5,
+      matterId,
+      state: "filed",
+      automatic: true,
+      createdAt: "2026-08-05T22:30:00.000Z",
+    });
+
+    const windowed = await readRecentAutomaticEmailLinks(database, {
+      since: "2026-08-05T21:00:00.000Z",
+      limit: 50,
+    });
+    expect(windowed).toHaveLength(2);
+    // Newest first, so a caller taking the head of the list is taking the most recent activity.
+    expect(windowed.map((link) => link.createdAt)).toEqual(["2026-08-05T22:30:00.000Z", NOW]);
+    expect(
+      await readRecentAutomaticEmailLinks(database, {
+        since: "2026-08-05T21:00:00.000Z",
+        limit: 1,
+      }),
+    ).toHaveLength(1);
+  });
+
+  // Without the partial index this is a scan of every link the firm holds — and the same column is
+  // subqueried on the capture path by the undo derivation, so the scan lands on the hot path.
+  it("walks the partial automatic-link index rather than scanning every link", () => {
+    const plan = raw
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT email_message_id, matter_id, auto_file_rule_id, state, created_at
+         FROM email_matter_link
+         WHERE auto_file_rule_id IS NOT NULL AND created_at >= ?
+         ORDER BY created_at DESC, id DESC LIMIT ?`,
+      )
+      .all(NOW, 50) as { detail: string }[];
+    const details = plan.map((row) => row.detail);
+    expect(
+      details.some((detail) => detail.includes("email_matter_link_auto_file_rule_created_index")),
+    ).toBe(true);
+    expect(details.some((detail) => detail.startsWith("SCAN") && !detail.includes(" USING "))).toBe(
+      false,
+    );
+  });
+
+  it("serves the undo derivation's subquery from that same index", () => {
+    const plan = raw
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT email_message_id FROM email_matter_link
+         WHERE auto_file_rule_id = ? AND state = 'unlinked'`,
+      )
+      .all(RULE) as { detail: string }[];
+    const details = plan.map((row) => row.detail);
+    expect(
+      details.some((detail) => detail.includes("email_matter_link_auto_file_rule_created_index")),
+    ).toBe(true);
+    expect(details.some((detail) => detail.startsWith("SCAN") && !detail.includes(" USING "))).toBe(
+      false,
+    );
+  });
+
+  // The index is deliberately PARTIAL: a firm with no rules must pay nothing for it, and it must
+  // never grow with the links people make by hand.
+  it("indexes only the automatic links", () => {
+    const definition = raw
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE name = 'email_matter_link_auto_file_rule_created_index'",
+      )
+      .get() as { sql: string };
+    expect(definition.sql).toContain("IS NOT NULL");
   });
 });
