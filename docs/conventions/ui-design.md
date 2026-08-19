@@ -1,6 +1,6 @@
 # UI & design conventions
 
-**Scope (single home for):** how UI is built so it stays consistent — design-token usage, theming, icon usage, component composition, the catalog/testing definition-of-done, and the rules that keep CSS from drifting. This is the **practitioner's how-to**; the rationale and the decision live in the [white paper](../Magna-Carta-White-Paper.md) (_Design system, UI consistency & design quality_) and **ADR-0076**. The two packages it governs each carry a local `CLAUDE.md` with the accumulated gotchas — read those when working in-area: [`packages/design-tokens/CLAUDE.md`](../../packages/design-tokens/CLAUDE.md), [`packages/design-system/CLAUDE.md`](../../packages/design-system/CLAUDE.md).
+**Scope (single home for):** how UI is built so it stays consistent — design-token usage, theming, icon usage, component composition, the catalog/testing definition-of-done, and the rules that keep CSS from drifting. This is the **practitioner's how-to**; the rationale and the decision live in the [white paper](../Magna-Carta-White-Paper.md) (_Design system, UI consistency & design quality_) and **ADR-0076**. The owner's standing design rulings — corrections already issued, which every new surface inherits — live in [`design-corrections.md`](design-corrections.md); read that before composing a screen. The two packages it governs each carry a local `CLAUDE.md` with the accumulated gotchas — read those when working in-area: [`packages/design-tokens/CLAUDE.md`](../../packages/design-tokens/CLAUDE.md), [`packages/design-system/CLAUDE.md`](../../packages/design-system/CLAUDE.md).
 
 The whole system enforces **golden rule 2** — _all UI through the design system_ — and most of it is **machine-checked**, so "follow the convention" mostly means "make the gates pass."
 
@@ -9,6 +9,7 @@ The whole system enforces **golden rule 2** — _all UI through the design syste
 **All UI design and implementation work is delegated to subagents; the main Claude instance in a UI stream stays an orchestrator** (owner-directed, 2026-07-02). The coordinator's context is spent on the things only a coordinator can do — sequencing the work, empirical browser verification of what agents built, design review against the owner's corrections, running the gates, and committing — never on writing component code inline. The working rules that make this safe:
 
 - **Strict per-agent file ownership.** Each subagent receives an explicit list of files it owns for the task; two agents never touch the same file in the same round. The coordinator resolves any file that genuinely needs two hands by sequencing, not sharing.
+- **The two agent definitions carry the constraints.** `.claude/agents/ui-builder.md` and `.claude/agents/design-reviewer.md` hold the binding rules and the reading order, so a delegation prompt names the task rather than restating the standard. Extend the agent when a rule changes; do not fork the rules into a prompt.
 - **One browser.** Browser verification runs in one place — the coordinator's session (or one designated agent) — so screenshots, computed styles, and interaction tests never race each other.
 - **The coordinator verifies empirically before committing.** An agent's "done" is a claim; the coordinator confirms it in the running app (screenshots, computed styles, interaction round-trips) before the round's gates and commit.
 - **Agents get the constraints, not just the task.** Every delegation prompt carries the binding rules for the files in play (token purity, no emojis, full names, the relevant recipes and gotchas from the area `CLAUDE.md`s) so the gates pass on the first round, not after rework.
@@ -79,6 +80,27 @@ These are owner/reviewer discipline, not lint:
 
 Two `<html>` attributes — `data-theme="<theme>"` + a `dark` class — applied before first paint by the inline boot script (mirrored from `internal/theme-preference.ts`). Themes are pure data; a new theme is a new resolver input. The firm theme and user mode are a **localStorage seam** today; they move to the ADR-0040 settings registry in slice 0·7b — `theme-preference.ts` is the only touch point.
 
+## Browser verification — the loop that gives review eyes
+
+Every other gate here reads source text. None of them looks at a rendered pixel, so "the classes are
+right" and "the screen is right" are different claims and only the first one is machine-checked. The
+browser closes that gap.
+
+**The tool** is the Chrome DevTools MCP server, declared in the repo's [`.mcp.json`](../../.mcp.json)
+and approved per machine on first use. It supplies exactly what the working model above asks a
+coordinator for: screenshots, computed styles, the console, network, and interaction round-trips
+against the running app.
+
+- **Point it at something real.** `vp run worker-dev` for a full app screen (the SPA alone cannot
+  answer an API question); `pnpm --filter @magna-carta/design-system run storybook` for a component
+  in isolation across theme x mode.
+- **A screenshot is evidence; a claim is not.** An agent reporting "the spacing is correct" without
+  a rendered view is reporting an intention. Verify before the commit, not after the review.
+- **Check both modes and at least two themes.** Most contrast and identity-placement defects only
+  exist in one of them.
+- **This does not replace visual regression.** The browser answers "is this right"; the baselines
+  answer "did this change". See _Visual regression_ below for why the second one is still dark.
+
 ## Definition of done (appearance _and_ behaviour)
 
 A component is not done until it has all of:
@@ -94,5 +116,7 @@ See [`testing.md`](testing.md) for the test-layer detail.
 ## Visual regression
 
 Screenshots of every story×theme×mode over the static catalog, compared against committed baselines (`packages/design-system/visual-regression/`). **Baselines are authoritative only from the pinned Playwright container** (`mcr.microsoft.com/playwright:v<version>-noble`) — OS font rendering differs, so a Windows/macOS baseline poisons the suite. Regenerate via `update-baselines.cmd`/`.sh` (Docker) or the CI container job; the harness skips explicitly until baselines exist. Never commit a non-container baseline.
+
+**Current reality: there are no baselines and no job that makes them.** There is no `visual-regression/baselines/` directory, no committed image, and no workflow that runs the suite; the harness README points at a CI container job that was never written. The suite therefore announces its named skip on every run. Until a baseline set is generated from the pinned container and committed, treat this gate as absent rather than as passing — the browser loop above is what covers UI review in the meantime, and it answers a different question.
 
 > The "tokens + components only" and "Lucide only / no emojis" invariants are summarized in the root [`CLAUDE.md`](../../CLAUDE.md) (golden rule 2).
