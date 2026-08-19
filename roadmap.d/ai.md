@@ -128,7 +128,7 @@
   scope: Platform-managed adapter (one platform key, credential none), per-firm consent setting enforced at the chokepoint, paste-text endpoint, per-firm usage metering.
   status: shipped
   surface: awaiting-screen
-  evidence: POST /api/v1/ai-detection/detect (apps/worker/src/routes/ai-detection.ts), ai_detection_usage metering; changelog.d/ai-detection-pangram.md + pangram-endpoint.md.
+  evidence: POST /api/v1/ai-detection/detect (apps/worker/src/routes/ai-detection.ts) over packages/ai-detection/src/adapters, with the manifest, the per-firm consent setting (consent.ts, settings.ts) and the ai_detection_usage metering table.
 
 - id: ai.text-detection.ui
   name: Detection UI
