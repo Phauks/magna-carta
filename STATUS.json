@@ -2803,7 +2803,7 @@
         }
       },
       "branch": "claude/discovery-5-1-4",
-      "activeWork": "docs/active-work/claude/discovery-5-1-4.md",
+      "activeWork": null,
       "next": "5·2·1 — tagging and coding's surface, which begins on the review-document list read this slice built. Owner flag D4 (whether the semantic half is built for review sets at all, and on what trigger) is the one part of 5·1 deliberately left unbuilt",
       "links": {
         "spec": "docs/specs/2026-08-05-discovery-5-1-design.md",
