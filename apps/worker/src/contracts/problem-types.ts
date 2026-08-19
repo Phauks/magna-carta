@@ -262,6 +262,25 @@ export const PROBLEM_TYPES = {
   // job-progress endpoints push transitions over a socket; the polling endpoint beside each one is
   // the answer for a client that cannot or does not want to upgrade, and the detail names it.
   "websocket-upgrade-required": "websocket-upgrade-required",
+  // An auto-file rule the platform will not create as asked (HTTP 422): a matter that is closed or
+  // platform-owned, a thread-continuation rule named on a conversation nobody has filed to that
+  // matter, a correspondent rule with no sender to match. DISTINCT from `validation` (request-shape)
+  // — the request is well-formed, and what it asks for is a delegation the guardrails could never
+  // act on, so accepting it would create a rule that silently never fires.
+  "auto-file-rule-not-creatable": "auto-file-rule-not-creatable",
+  // A rule asking to file without a person while the firm's ceiling is down (HTTP 422). Refused
+  // outright rather than stored: a posture that cannot take effect reads to the member who set it as
+  // a firm that has opted into unattended filing, which is exactly the thing no member may do alone.
+  "auto-file-direct-filing-not-permitted": "auto-file-direct-filing-not-permitted",
+  // The same rule already exists on this matter (HTTP 409) — same kind, same match value. Reported
+  // rather than left to the unique index, and it names the existing rule so a caller that wanted it
+  // resumed or re-promoted can act on the one already there.
+  "auto-file-rule-duplicate": "auto-file-rule-duplicate",
+  // A rule that is not in the state the requested transition takes (HTTP 409): resuming one that was
+  // never suspended, suspending one already out of service, re-promoting a revoked one. Every
+  // mutation statement is guarded on state and would otherwise change nothing while answering
+  // success, which is the shape that leaves a firm believing it stopped a rule that is still filing.
+  "auto-file-rule-not-actionable": "auto-file-rule-not-actionable",
   // A trust movement larger than the client ledger's AVAILABLE balance (HTTP 409). Available is the
   // stored balance minus the active disputed-funds holds, so this fires on a ledger that still shows
   // a positive balance — a disputed portion under hold is not money the firm may pay out. DISTINCT

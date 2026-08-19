@@ -38,6 +38,7 @@ export type {
 export {
   resolveAutoFileDecision,
   activityWindowLimitFor,
+  describeAutoFileDecisionRecord,
   AUTO_FILE_CIRCUIT_BREAKER_BOUNDS,
   DEFAULT_AUTO_FILE_CIRCUIT_BREAKER,
   isWellFormedCircuitBreaker,
@@ -47,6 +48,7 @@ export type {
   AutoFileCandidateRule,
   AutoFileCircuitBreakerThresholds,
   AutoFileDecision,
+  AutoFileDecisionRecord,
   AutoFileDemotionReason,
   AutoFileEvidence,
   AutoFileExistingLink,

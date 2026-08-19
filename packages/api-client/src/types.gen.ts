@@ -233,6 +233,68 @@ export type EmailCaptureStatus = {
     deduplicated: boolean;
 };
 
+export type AutoFileRule = {
+    emailAutoFileRuleId: string;
+    kind: 'threadContinuation' | 'correspondentMatter';
+    matterId: string;
+    matchValue: string;
+    promotion: 'stage' | 'file';
+    effectivePromotion: 'stage' | 'file';
+    state: 'active' | 'suspended' | 'revoked';
+    suspendedReason: 'creatorAccessWithdrawn' | 'matterClosed' | 'blastBound' | 'undoRate' | 'member' | null;
+    createdBy: string | null;
+    createdFromEmailMessageId: string | null;
+    createdAt: string;
+};
+
+export type CreateAutoFileRuleRequest = {
+    kind: 'threadContinuation' | 'correspondentMatter';
+    createdFromEmailMessageId?: string;
+    correspondentAddress?: string;
+    promotion?: 'stage' | 'file';
+};
+
+export type AutoFileRuleList = {
+    data: Array<AutoFileRule>;
+};
+
+export type UpdateAutoFileRuleRequest = {
+    promotion: 'stage' | 'file';
+};
+
+export type AutoFileDecisionList = {
+    data: Array<AutoFileDecisionEntry>;
+};
+
+export type AutoFileDecisionEntry = {
+    emailAutoFileDecisionId: string;
+    emailAutoFileRuleId: string | null;
+    matterId: string | null;
+    outcome: 'filed' | 'staged' | 'suppressed';
+    suppressionReason: string | null;
+    demotionReason: string | null;
+    reasons: Array<string>;
+    createdAt: string;
+};
+
+export type AutoFileReview = {
+    windowStart: string;
+    data: Array<AutoFileReviewEntry>;
+};
+
+export type AutoFileReviewEntry = {
+    emailAutoFileRuleId: string;
+    kind: 'threadContinuation' | 'correspondentMatter';
+    matterId: string;
+    promotion: 'stage' | 'file';
+    state: 'active' | 'suspended' | 'revoked';
+    suspendedReason: 'creatorAccessWithdrawn' | 'matterClosed' | 'blastBound' | 'undoRate' | 'member' | null;
+    filedCount: number;
+    stagedCount: number;
+    undoneCount: number;
+    lastActedAt: string;
+};
+
 export type EmailCaptureAck = {
     jobId: string;
     status: 'accepted';
@@ -6592,6 +6654,363 @@ export type EmailsCaptureStatusResponses = {
 };
 
 export type EmailsCaptureStatusResponse = EmailsCaptureStatusResponses[keyof EmailsCaptureStatusResponses];
+
+export type EmailsListAutoFileRulesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules';
+};
+
+export type EmailsListAutoFileRulesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:read
+     */
+    403: Problem;
+    /**
+     * No such matter, or one the caller cannot access
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsListAutoFileRulesError = EmailsListAutoFileRulesErrors[keyof EmailsListAutoFileRulesErrors];
+
+export type EmailsListAutoFileRulesResponses = {
+    /**
+     * The matter's rules
+     */
+    200: AutoFileRuleList;
+};
+
+export type EmailsListAutoFileRulesResponse = EmailsListAutoFileRulesResponses[keyof EmailsListAutoFileRulesResponses];
+
+export type EmailsCreateAutoFileRuleData = {
+    body: CreateAutoFileRuleRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules';
+};
+
+export type EmailsCreateAutoFileRuleErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageAutoFileRules
+     */
+    403: Problem;
+    /**
+     * No such matter, or one the caller cannot access
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or this exact rule already exists
+     */
+    409: Problem;
+    /**
+     * The rule could not be created as asked, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsCreateAutoFileRuleError = EmailsCreateAutoFileRuleErrors[keyof EmailsCreateAutoFileRuleErrors];
+
+export type EmailsCreateAutoFileRuleResponses = {
+    /**
+     * The rule was created
+     */
+    201: AutoFileRule;
+};
+
+export type EmailsCreateAutoFileRuleResponse = EmailsCreateAutoFileRuleResponses[keyof EmailsCreateAutoFileRuleResponses];
+
+export type EmailsRevokeAutoFileRuleData = {
+    body?: never;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        matterId: string;
+        emailAutoFileRuleId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}';
+};
+
+export type EmailsRevokeAutoFileRuleErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageAutoFileRules
+     */
+    403: Problem;
+    /**
+     * No such rule on this matter, or a matter the caller cannot access
+     */
+    404: Problem;
+    /**
+     * The rule is already revoked
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsRevokeAutoFileRuleError = EmailsRevokeAutoFileRuleErrors[keyof EmailsRevokeAutoFileRuleErrors];
+
+export type EmailsRevokeAutoFileRuleResponses = {
+    /**
+     * The revoked rule
+     */
+    200: AutoFileRule;
+};
+
+export type EmailsRevokeAutoFileRuleResponse = EmailsRevokeAutoFileRuleResponses[keyof EmailsRevokeAutoFileRuleResponses];
+
+export type EmailsUpdateAutoFileRuleData = {
+    body: UpdateAutoFileRuleRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        matterId: string;
+        emailAutoFileRuleId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}';
+};
+
+export type EmailsUpdateAutoFileRuleErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageAutoFileRules
+     */
+    403: Problem;
+    /**
+     * No such rule on this matter, or a matter the caller cannot access
+     */
+    404: Problem;
+    /**
+     * The rule is not active, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The firm has not permitted unattended filing, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsUpdateAutoFileRuleError = EmailsUpdateAutoFileRuleErrors[keyof EmailsUpdateAutoFileRuleErrors];
+
+export type EmailsUpdateAutoFileRuleResponses = {
+    /**
+     * The updated rule
+     */
+    200: AutoFileRule;
+};
+
+export type EmailsUpdateAutoFileRuleResponse = EmailsUpdateAutoFileRuleResponses[keyof EmailsUpdateAutoFileRuleResponses];
+
+export type EmailsSuspendAutoFileRuleData = {
+    body?: never;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        matterId: string;
+        emailAutoFileRuleId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}/suspend';
+};
+
+export type EmailsSuspendAutoFileRuleErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageAutoFileRules
+     */
+    403: Problem;
+    /**
+     * No such rule on this matter, or a matter the caller cannot access
+     */
+    404: Problem;
+    /**
+     * The rule is not active, so there is nothing to suspend
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsSuspendAutoFileRuleError = EmailsSuspendAutoFileRuleErrors[keyof EmailsSuspendAutoFileRuleErrors];
+
+export type EmailsSuspendAutoFileRuleResponses = {
+    /**
+     * The suspended rule
+     */
+    200: AutoFileRule;
+};
+
+export type EmailsSuspendAutoFileRuleResponse = EmailsSuspendAutoFileRuleResponses[keyof EmailsSuspendAutoFileRuleResponses];
+
+export type EmailsResumeAutoFileRuleData = {
+    body?: never;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        matterId: string;
+        emailAutoFileRuleId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}/resume';
+};
+
+export type EmailsResumeAutoFileRuleErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:manageAutoFileRules
+     */
+    403: Problem;
+    /**
+     * No such rule on this matter, or a matter the caller cannot access
+     */
+    404: Problem;
+    /**
+     * The rule is not suspended, so there is nothing to resume
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsResumeAutoFileRuleError = EmailsResumeAutoFileRuleErrors[keyof EmailsResumeAutoFileRuleErrors];
+
+export type EmailsResumeAutoFileRuleResponses = {
+    /**
+     * The resumed rule
+     */
+    200: AutoFileRule;
+};
+
+export type EmailsResumeAutoFileRuleResponse = EmailsResumeAutoFileRuleResponses[keyof EmailsResumeAutoFileRuleResponses];
+
+export type EmailsAutoFileDecisionsData = {
+    body?: never;
+    path: {
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/emails/{emailMessageId}/auto-file-decisions';
+};
+
+export type EmailsAutoFileDecisionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:read
+     */
+    403: Problem;
+    /**
+     * Unknown message, or one the caller cannot access
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAutoFileDecisionsError = EmailsAutoFileDecisionsErrors[keyof EmailsAutoFileDecisionsErrors];
+
+export type EmailsAutoFileDecisionsResponses = {
+    /**
+     * The message's automatic-filing decisions
+     */
+    200: AutoFileDecisionList;
+};
+
+export type EmailsAutoFileDecisionsResponse = EmailsAutoFileDecisionsResponses[keyof EmailsAutoFileDecisionsResponses];
+
+export type EmailsAutoFileReviewData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/emails/auto-file-review';
+};
+
+export type EmailsAutoFileReviewErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks emails:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAutoFileReviewError = EmailsAutoFileReviewErrors[keyof EmailsAutoFileReviewErrors];
+
+export type EmailsAutoFileReviewResponses = {
+    /**
+     * Recent automatic filing activity, per rule
+     */
+    200: AutoFileReview;
+};
+
+export type EmailsAutoFileReviewResponse = EmailsAutoFileReviewResponses[keyof EmailsAutoFileReviewResponses];
 
 export type EmailsListData = {
     body?: never;

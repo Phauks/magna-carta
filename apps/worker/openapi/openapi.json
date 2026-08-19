@@ -966,6 +966,313 @@
           "deduplicated"
         ]
       },
+      "AutoFileRule": {
+        "type": "object",
+        "properties": {
+          "emailAutoFileRuleId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "threadContinuation",
+              "correspondentMatter"
+            ]
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "matchValue": {
+            "type": "string"
+          },
+          "promotion": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "file"
+            ]
+          },
+          "effectivePromotion": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "file"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "revoked"
+            ]
+          },
+          "suspendedReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "creatorAccessWithdrawn",
+              "matterClosed",
+              "blastBound",
+              "undoRate",
+              "member",
+              null
+            ]
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdFromEmailMessageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailAutoFileRuleId",
+          "kind",
+          "matterId",
+          "matchValue",
+          "promotion",
+          "effectivePromotion",
+          "state",
+          "suspendedReason",
+          "createdBy",
+          "createdFromEmailMessageId",
+          "createdAt"
+        ]
+      },
+      "CreateAutoFileRuleRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "threadContinuation",
+              "correspondentMatter"
+            ]
+          },
+          "createdFromEmailMessageId": {
+            "type": "string",
+            "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+          },
+          "correspondentAddress": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email"
+          },
+          "promotion": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "file"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "AutoFileRuleList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoFileRule"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpdateAutoFileRuleRequest": {
+        "type": "object",
+        "properties": {
+          "promotion": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "file"
+            ]
+          }
+        },
+        "required": [
+          "promotion"
+        ]
+      },
+      "AutoFileDecisionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoFileDecisionEntry"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AutoFileDecisionEntry": {
+        "type": "object",
+        "properties": {
+          "emailAutoFileDecisionId": {
+            "type": "string"
+          },
+          "emailAutoFileRuleId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "filed",
+              "staged",
+              "suppressed"
+            ]
+          },
+          "suppressionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "demotionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailAutoFileDecisionId",
+          "emailAutoFileRuleId",
+          "matterId",
+          "outcome",
+          "suppressionReason",
+          "demotionReason",
+          "reasons",
+          "createdAt"
+        ]
+      },
+      "AutoFileReview": {
+        "type": "object",
+        "properties": {
+          "windowStart": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoFileReviewEntry"
+            }
+          }
+        },
+        "required": [
+          "windowStart",
+          "data"
+        ]
+      },
+      "AutoFileReviewEntry": {
+        "type": "object",
+        "properties": {
+          "emailAutoFileRuleId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "threadContinuation",
+              "correspondentMatter"
+            ]
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "promotion": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "file"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "revoked"
+            ]
+          },
+          "suspendedReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "creatorAccessWithdrawn",
+              "matterClosed",
+              "blastBound",
+              "undoRate",
+              "member",
+              null
+            ]
+          },
+          "filedCount": {
+            "type": "integer"
+          },
+          "stagedCount": {
+            "type": "integer"
+          },
+          "undoneCount": {
+            "type": "integer"
+          },
+          "lastActedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailAutoFileRuleId",
+          "kind",
+          "matterId",
+          "promotion",
+          "state",
+          "suspendedReason",
+          "filedCount",
+          "stagedCount",
+          "undoneCount",
+          "lastActedAt"
+        ]
+      },
       "EmailCaptureAck": {
         "type": "object",
         "properties": {
@@ -27053,6 +27360,834 @@
           },
           "404": {
             "description": "No such capture job, or its result is on a matter the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/auto-file-rules": {
+      "post": {
+        "description": "Create an auto-file rule on this matter: a typed, revocable instruction to put a narrow class of future messages on it without waiting for somebody to choose. A thread rule follows the conversation of a message already filed here and must name that message; a correspondent rule matches one sender's address exactly, taken either from a filed message or given directly. Creating a rule never touches mail the firm already holds — it applies only to what arrives afterwards. A rule may ask to file outright rather than stage, but only where an administrator has already permitted unattended filing for the firm; asking for it while that is off is refused rather than stored.",
+        "operationId": "emails.createAutoFileRule",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.createAutoFileRule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageAutoFileRules",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAutoFileRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The rule was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:manageAutoFileRules",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such matter, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or this exact rule already exists",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The rule could not be created as asked, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The auto-file rules on this matter, newest first, with what each one asks for and what it would actually do under the firm's current posture. Revoked rules are omitted; a suspended one is listed with the reason it stopped, because a suspended rule with its history explains what had been filing and a hidden one does not.",
+        "operationId": "emails.listAutoFileRules",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.listAutoFileRules",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRuleList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such matter, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}": {
+      "patch": {
+        "description": "Change whether this rule files the message outright or places it on the matter for somebody to confirm. Asking it to file while the firm has not permitted unattended filing is refused, so a stored posture always means what it says. Only an active rule can be re-postured: a suspended or revoked rule is not quietly re-armed by a promotion edit.",
+        "operationId": "emails.updateAutoFileRule",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.updateAutoFileRule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageAutoFileRules",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailAutoFileRule_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailAutoFileRuleId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAutoFileRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:manageAutoFileRules",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such rule on this matter, or a matter the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The rule is not active, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has not permitted unattended filing, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Retire this rule for good. Still not a delete: the rule row survives so that every message it placed can still say which rule placed it, and the messages themselves are untouched. A revoked rule cannot be resumed — create a new one instead.",
+        "operationId": "emails.revokeAutoFileRule",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.revokeAutoFileRule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageAutoFileRules",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailAutoFileRule_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailAutoFileRuleId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The revoked rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:manageAutoFileRules",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such rule on this matter, or a matter the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The rule is already revoked",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}/suspend": {
+      "post": {
+        "description": "Take this rule out of service. It stops acting immediately and stays in the matter's list with the reason it stopped. Suspending is never deleting: messages the rule already placed are left exactly where they are, and the record of what it had been doing survives.",
+        "operationId": "emails.suspendAutoFileRule",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.suspendAutoFileRule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageAutoFileRules",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailAutoFileRule_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailAutoFileRuleId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The suspended rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:manageAutoFileRules",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such rule on this matter, or a matter the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The rule is not active, so there is nothing to suspend",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}/resume": {
+      "post": {
+        "description": "Put a suspended rule back in service. It resumes with the posture it had, and it applies only to mail that arrives afterwards — resuming a rule never reaches back over the messages that arrived while it was stopped. A revoked rule is never resurrected this way.",
+        "operationId": "emails.resumeAutoFileRule",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.resumeAutoFileRule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageAutoFileRules",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailAutoFileRule_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailAutoFileRuleId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resumed rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileRule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:manageAutoFileRules",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such rule on this matter, or a matter the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The rule is not suspended, so there is nothing to resume",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/{emailMessageId}/auto-file-decisions": {
+      "get": {
+        "description": "Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped.",
+        "operationId": "emails.autoFileDecisions",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.autoFileDecisions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message's automatic-filing decisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileDecisionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown message, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/auto-file-review": {
+      "get": {
+        "description": "What the firm's auto-file rules have actually been doing over the last thirty days: per rule, how many messages it filed, how many it placed for confirmation, how many of those somebody has since removed, and whether it has stopped itself. Rules on matters the caller cannot access contribute nothing — no entry and no count. This is the read a firm looks at before deciding whether to permit filing without confirmation.",
+        "operationId": "emails.autoFileReview",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.autoFileReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Recent automatic filing activity, per rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFileReview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks emails:read",
             "content": {
               "application/problem+json": {
                 "schema": {
