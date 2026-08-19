@@ -73,5 +73,5 @@
   name: Channel frontend (Plan 2)
   scope: Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
   status: planned
-  evidence: Deferred past 0.7 per status.d/release-channels-backend-rails.md; settings/beta-access page ships as an honest seam awaiting this slice.
-  notes: Maturity-stage badges already render on the Tools listing page; the channel-driven marker system is not built.
+  evidence: Deferred past 0.7 per status.d/release-channels-backend-rails.md; apps/web/src/routes/(app)/settings/beta-access ships as an honest seam awaiting this slice.
+  notes: Maturity-stage badges and dots already render across the navigation rail (apps/web/src/lib/components/app-shell.svelte) and the matter section nav, driven by the per-destination stage in apps/web/src/lib/navigation/destinations.ts rather than by a firm's release channel; the channel-driven marker system is not built.

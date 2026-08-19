@@ -25,8 +25,8 @@
   name: Public intake forms
   scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
   status: not-started
-  evidence: No form builder or public intake route exists.
-  awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And Turnstile, which the operations runbook still lists as an unchecked standing item: a public form should not ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
+  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned.
+  awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 
 - id: intake.call-intake
   name: Receptionist call intake
@@ -39,14 +39,14 @@
   scope: Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
   status: not-started
   adrs: ADR-0013
-  evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts, and its trigger catalog already carries the preliminary and comprehensive names nothing yet calls; what is missing is the intake flow that would fire them.
+  evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts, and the preliminary and comprehensive triggers in packages/conflicts/src/recheck-cause.ts are live rather than reserved — matter-service publishes matter.created and matter.opened to the outbox and the worker's consumer dispatch spreads RECHECK_CAUSE_TOPICS over them. What is missing is a prospect that can be checked before a matter exists, and the intake flow in front of it.
   awaiting-owner: A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 
 - id: intake.crm
   name: CRM fields and activities
   scope: CRM-style fields and activity tracking on prospects.
   status: not-started
-  evidence: The fields half needs no engine — packages/custom-fields targets matter and entity, which is exactly what a promoted lead is made of. The activity half has no substrate at all: the platform carries no note, comment or timeline entity on any record.
+  evidence: The fields half needs no engine — the targets in packages/custom-fields/src/types.ts are matter, entity and matterAsset, and the first two are exactly what a promoted lead is made of. The activity half has no substrate at all: the platform carries no note, comment or timeline entity on any record.
 
 - id: intake.conversion
   name: Lead-to-matter conversion
