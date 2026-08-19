@@ -136,6 +136,17 @@ compaction sweep's job, on a grace period.
 **Nothing here needs a bucket step.** Splits are written into the firm's existing bucket
 under the prefix the write pipeline already uses, stamped `object_class: search-split`.
 
+**The same binding activates discovery review sets, and that widens what step 4 turns
+on.** A review set is its own corpus now: its splits live under its own prefix in the
+same bucket, its catalog rows are the same table keyed by corpus, and its documents park
+`deferred` exactly as a matter's do. So the one `SEARCH_SERVICE` binding drains two
+backlogs, and on a firm that has loaded a production the discovery one is by far the
+larger — a review set at the ceiling is a quarter of a million documents, against a
+matter's few thousand files. Turn the warm cron on with that in mind, and expect the
+first drain after activation to be a bulk pass rather than a trickle. What a review set
+still owes the index is visible before you start:
+`GET /api/v1/review-sets/{reviewSetId}/index-status`.
+
 ## Split compaction — one queue pair to create before the app worker deploys
 
 Search split compaction landed with a new queue, its deadletter, and a new Durable

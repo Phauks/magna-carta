@@ -1,10 +1,12 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import type { MatterId } from "@magna-carta/identifiers/types";
+import { readReviewSet } from "@magna-carta/discovery/review-set-statements";
+import type { MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import {
   authorizedSplitPrefix,
   verifySplitObjectToken,
@@ -111,6 +113,31 @@ async function firmBucketFor(
   return resolveFirmBucket(c.env, firm.bucket_name).bucket;
 }
 
+// THE MATTER A SPLIT'S OBJECT IS FILED UNDER, which is not the corpus once there are two kinds of one.
+//
+// Every object in a firm's bucket carries its matter as a dimension: it is what the storage meter
+// counts against, what a lifecycle rule and a legal hold are expressed over, and what a reader of the
+// bucket places an object by. For a matter corpus the corpus identifier IS the matter and the two
+// coincide. For a REVIEW-SET corpus they do not, and stamping the review set's handle into the matter
+// dimension would file a firm's discovery bytes under a matter that does not exist.
+//
+// Resolved from the firm's own database rather than carried on the token, and that is the safer of the
+// two: a claim is something a mint site can get wrong once and every object thereafter is mis-filed,
+// where a read of the review set's own row cannot disagree with the review set. It costs one indexed
+// read on the WRITE path only — a split is published once per document, and no query pays it.
+async function matterDimensionFor(
+  c: SplitObjectContext,
+  claims: SplitObjectTokenClaims,
+): Promise<MatterId | null> {
+  if (claims.corpusKind !== "reviewSet") return claims.corpusId as MatterId;
+  const database = firmDatabaseFor(c.env.FIRM_DATABASE, claims.firmId);
+  const reviewSet = await readReviewSet(database, claims.corpusId as ReviewSetId);
+  // A review set that is not there is not a review set whose bytes we file somewhere plausible: an
+  // unstamped or wrongly-stamped object is one nothing can place, and the repair is a metadata rewrite
+  // of the whole bucket. Refusing the write is recoverable; a mis-filed object is not.
+  return reviewSet?.matter_id ?? null;
+}
+
 export function registerSplitObjectHostRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
 ): void {
@@ -183,12 +210,15 @@ export function registerSplitObjectHostRoutes(
 
     const bucket = await firmBucketFor(c, claims);
     if (bucket === null) return refuse();
-    // A corpus is a matter today, so the split's matter dimension is the corpus identifier. The value
-    // comes from the verified token — a request cannot name the matter its bytes get filed under.
+    // The matter the object is filed under, resolved from the token's own corpus and never from
+    // anything the request said about itself — see matterDimensionFor for why a review-set corpus
+    // cannot simply stamp its own identifier here.
+    const matterId = await matterDimensionFor(c, claims);
+    if (matterId === null) return refuse();
     const written = await bucket.put(key, body, {
       customMetadata: matterScopedObjectDimensions({
         objectClass: "search-split",
-        matterId: claims.corpusId as MatterId,
+        matterId,
       }),
     });
     if (written === null) return refuse();
