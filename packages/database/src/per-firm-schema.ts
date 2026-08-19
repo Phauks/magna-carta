@@ -2526,6 +2526,15 @@ export const emailMatterLink = sqliteTable(
       table.createdAt,
       table.id,
     ),
+    // The links a rule made — the undo half of the circuit-breaker feedback, and the review read of
+    // what has been filing itself lately. PARTIAL, over the automatic links only, which is both the
+    // only set either reader wants and the small one: a firm with no rules carries an empty index and
+    // pays nothing for it on the capture path, and the index grows with rule activity rather than with
+    // the firm's mail. Without it the undo derivation's `WHERE auto_file_rule_id = ?` subquery is a
+    // scan of every link the firm holds, issued on the capture path the moment a rule matches.
+    index("email_matter_link_auto_file_rule_created_index")
+      .on(table.autoFileRuleId, table.createdAt, table.id)
+      .where(sql`${table.autoFileRuleId} IS NOT NULL`),
     check("email_matter_link_state_check", sql`${table.state} IN ('staged', 'filed', 'unlinked')`),
     check(
       "email_matter_link_captured_via_check",

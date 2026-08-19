@@ -1,0 +1,1 @@
+CREATE INDEX `email_matter_link_auto_file_rule_created_index` ON `email_matter_link` (`auto_file_rule_id`,`created_at`,`id`) WHERE "email_matter_link"."auto_file_rule_id" IS NOT NULL;

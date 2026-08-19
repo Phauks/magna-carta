@@ -70,6 +70,7 @@ import directoryMatchKeysSql from "@magna-carta/database/drizzle/per-firm/202608
 import documentTemplateKindSql from "@magna-carta/database/drizzle/per-firm/20260816T170000_document-template-kind.sql";
 import billingInvoiceDeliverySql from "@magna-carta/database/drizzle/per-firm/20260817T000000_billing-invoice-delivery.sql";
 import indexSplitCorpusScopeSql from "@magna-carta/database/drizzle/per-firm/20260819T000000_index-split-corpus-scope.sql";
+import indexAutomaticEmailLinksSql from "@magna-carta/database/drizzle/per-firm/20260819T123505_index-automatic-email-links.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -150,6 +151,7 @@ export function perFirmMigrations(): Migration[] {
     "20260816T170000_document-template-kind": documentTemplateKindSql,
     "20260817T000000_billing-invoice-delivery": billingInvoiceDeliverySql,
     "20260819T000000_index-split-corpus-scope": indexSplitCorpusScopeSql,
+    "20260819T123505_index-automatic-email-links": indexAutomaticEmailLinksSql,
   });
 }
 

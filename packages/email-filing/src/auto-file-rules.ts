@@ -277,6 +277,46 @@ const FIRED_PHRASING: Record<AutoFileRuleKind, string> = {
   correspondentMatter: "A rule files mail from this sender to this matter.",
 };
 
+// One recorded evaluation, as a reader hands it back from the ledger. The enums are the whole record —
+// the ledger holds no message content by construction — so this is everything a rendering can work
+// from, and it is deliberately the same three tables the live decision renders through.
+export interface AutoFileDecisionRecord {
+  readonly outcome: "filed" | "staged" | "suppressed";
+  readonly suppressionReason: string | null;
+  readonly demotionReason: string | null;
+  // The kind of the rule that acted, where one did. Null for a suppression attributable to the
+  // evidence rather than to any single rule.
+  readonly ruleKind: string | null;
+}
+
+// "Why is this message here", answered weeks later from the ledger rather than by re-deriving it —
+// which is the point of recording the decision at all, since by then the message has been superseded
+// and the correspondent's party role has changed.
+//
+// AN ENUM THIS BUILD DOES NOT RECOGNIZE RENDERS NOTHING. A ledger row written by a build that knew a
+// reason this one does not is a real possibility on a rolling deploy, and the failure modes are not
+// symmetrical: omitting a sentence loses detail, while inventing one — or throwing, and losing the
+// whole answer — misinforms the person who has to explain the filing. So an unknown value is skipped
+// silently and the recognized reasons still render.
+export function describeAutoFileDecisionRecord(record: AutoFileDecisionRecord): readonly string[] {
+  return [
+    phrasingFor(FIRED_PHRASING, record.ruleKind),
+    phrasingFor(SUPPRESSION_PHRASING, record.suppressionReason),
+    phrasingFor(DEMOTION_PHRASING, record.demotionReason),
+  ].filter((sentence): sentence is string => sentence !== undefined);
+}
+
+// One phrasing, or nothing. The `typeof` check is not ceremony: the key arrives from a stored row, and
+// indexing a plain object with a value like `constructor` yields something that is not a sentence.
+function phrasingFor<Key extends string>(
+  table: Readonly<Record<Key, string>>,
+  key: string | null,
+): string | undefined {
+  if (key === null) return undefined;
+  const phrasing = (table as Readonly<Record<string, string | undefined>>)[key];
+  return typeof phrasing === "string" ? phrasing : undefined;
+}
+
 // The evidence the caller owes this function. Listed rather than inferred so that adding a field to
 // the input without gathering it fails closed instead of silently defaulting to permission.
 const REQUIRED_EVIDENCE_FIELDS: readonly (keyof AutoFileEvidence)[] = [

@@ -300,6 +300,101 @@ export async function readAutoFileRulesForMatter(
   return results.map(toRuleRow);
 }
 
+// One rule by handle, INCLUDING a revoked one. Every mutation route reads this first, because the
+// matter the rule names is what the caller's access is checked against, and because a rule that is
+// already revoked must be answered as such rather than silently re-mutated: the mutation statements
+// are all guarded on state, so without this read a revoke of a revoked rule would return success over
+// a write that changed nothing.
+export async function readAutoFileRuleById(
+  database: SqlDatabase,
+  id: EmailAutoFileRuleId,
+): Promise<EmailAutoFileRuleRow | null> {
+  const { results } = await database
+    .prepare(`${SELECT_RULE_COLUMNS} WHERE id = ?1`)
+    .bind(id)
+    .all<RuleResultRow>();
+  const row = results[0];
+  return row === undefined ? null : toRuleRow(row);
+}
+
+// The rules behind a bounded set of handles — the hydration half of the review read, which resolves
+// its rules from the links it already found rather than listing the firm's rules and joining back.
+// Revoked rules are included on purpose: a link a revoked rule made still has to be able to say which
+// rule made it.
+export async function readAutoFileRulesByIds(
+  database: SqlDatabase,
+  ids: readonly EmailAutoFileRuleId[],
+): Promise<EmailAutoFileRuleRow[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(`${SELECT_RULE_COLUMNS} WHERE id IN (${placeholders}) ORDER BY id ASC`)
+    .bind(...ids)
+    .all<RuleResultRow>();
+  return results.map(toRuleRow);
+}
+
+// Is this exact rule already on the books? The unique index refuses a duplicate at write time, but a
+// caller deserves the reason rather than a constraint violation — and a rule that was revoked and is
+// being created again is a different answer from one that is live, so the row itself is returned.
+export async function findAutoFileRuleByMatch(
+  database: SqlDatabase,
+  input: { kind: AutoFileRuleKind; matchValue: string; matterId: MatterId },
+): Promise<EmailAutoFileRuleRow | null> {
+  const { results } = await database
+    .prepare(`${SELECT_RULE_COLUMNS} WHERE kind = ?1 AND match_value = ?2 AND matter_id = ?3`)
+    .bind(input.kind, input.matchValue, input.matterId)
+    .all<RuleResultRow>();
+  const row = results[0];
+  return row === undefined ? null : toRuleRow(row);
+}
+
+// A link a rule made — the unit of the review read: what has been filing itself lately, on which
+// matter, under which rule, and whether somebody has since taken it off.
+export interface AutomaticEmailLink {
+  readonly emailMessageId: EmailMessageId;
+  readonly matterId: MatterId;
+  readonly autoFileRuleId: EmailAutoFileRuleId;
+  readonly state: "staged" | "filed" | "unlinked";
+  readonly createdAt: string;
+}
+
+// The firm's recent automatic links, newest first. Two bounds, and both are load-bearing: `since`
+// keeps the walk inside a window rather than over the whole history, and `limit` caps what comes back.
+//
+// Served by the PARTIAL index over the automatic links — the walk is proportional to how much the
+// firm's rules have been doing, never to how much mail it holds, and a firm with no rules walks an
+// empty index. A full index on the column would instead grow with every link ever written, the vast
+// majority of which are a person's.
+export async function readRecentAutomaticEmailLinks(
+  database: SqlDatabase,
+  input: { since: string; limit: number },
+): Promise<AutomaticEmailLink[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT email_message_id, matter_id, auto_file_rule_id, state, created_at
+       FROM email_matter_link
+       WHERE auto_file_rule_id IS NOT NULL AND created_at >= ?1
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?2`,
+    )
+    .bind(input.since, input.limit)
+    .all<{
+      email_message_id: string;
+      matter_id: string;
+      auto_file_rule_id: string;
+      state: string;
+      created_at: string;
+    }>();
+  return results.map((row) => ({
+    emailMessageId: row.email_message_id as EmailMessageId,
+    matterId: row.matter_id as MatterId,
+    autoFileRuleId: row.auto_file_rule_id as EmailAutoFileRuleId,
+    state: row.state as "staged" | "filed" | "unlinked",
+    createdAt: row.created_at,
+  }));
+}
+
 export interface EmailAutoFileDecisionInsert {
   readonly id: EmailAutoFileDecisionId;
   readonly emailMessageId: EmailMessageId;

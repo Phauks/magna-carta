@@ -83,6 +83,7 @@ import { registerEmailAddInRoutes } from "./routes/email-add-in.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
 import { registerAutoFilePolicyRoutes } from "./routes/auto-file-policy.ts";
+import { registerAutoFileRuleRoutes } from "./routes/auto-file-rules.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -612,6 +613,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // Registered BEFORE registerEmailsRoutes deliberately: that bundle owns /api/v1/emails/{id}, and a
   // parameterized route registered first swallows the static siblings on its prefix.
   registerEmailAddInRoutes(app, chokepoint);
+  // The auto-file rule management surface. Registered here for the same reason the add-in bundle is:
+  // it owns the static /api/v1/emails/auto-file-review, which a parameterized /api/v1/emails/{id}
+  // registered first would swallow.
+  registerAutoFileRuleRoutes(app, chokepoint);
   registerEmailsRoutes(app, chokepoint);
   // The writer for the forward/CC token index: minting an address is what makes a capture token
   // resolve to a firm and a matter. Registered beside the emails surface it feeds.

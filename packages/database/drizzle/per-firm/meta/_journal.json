@@ -491,6 +491,13 @@
       "when": 1787097600000,
       "tag": "20260819T000000_index-split-corpus-scope",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1787142905769,
+      "tag": "20260819T123505_index-automatic-email-links",
+      "breakpoints": true
     }
   ]
 }
