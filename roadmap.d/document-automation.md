@@ -10,7 +10,7 @@
   status: partial
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
-  evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. The widened dictionary sources, PDF output, and the authoring surfaces are unbuilt.
+  evidence: Build slices 2-6-1, 2-6-2, 2-6-5 and the first half of 2-6-3 shipped — packages/document-assembly, five per-firm tables (document_template, document_template_version, document_template_field_binding, document_template_field_mapping, document_assembly), the templates/assemblies routes, the DocumentAssemblyJob queue consumer, the template expression language behind conditionals, repeats and computed fields, the generated merge-field catalogue and its contract, and the PDF output arm. The authoring surfaces (2-6-4) and the signing ceremony are what remain unbuilt.
   audience: public
   public-name: Documents built from your templates
   public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
@@ -32,7 +32,7 @@
   status: partial
   surface: awaiting-screen
   adrs: ADR-0211
-  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the seven catalogue routes. Authoring in the browser is slice 2-6-4; BINDING a content control is still a named seam, though an unfilled one is now detected and reported.
+  evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the nine catalogue routes in apps/worker/src/routes/templates.ts (upload, register, add a version, list, field list, archive, the merge-field dictionary, and the mapping library's list and delete) beside the two assembly routes. Authoring in the browser is slice 2-6-4; BINDING a content control is still a named seam, though an unfilled one is now detected and reported.
   notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences.
 
 - id: document-automation.data-dictionary
@@ -40,7 +40,7 @@
   scope: Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   status: partial
   surface: awaiting-screen
-  evidence: A declarative dictionary over matter, client party, location, firm, system, and custom-field sources with per-type formatters and a declared absence behaviour per entry (packages/document-assembly/src/dictionary.ts), exposed at GET /api/v1/merge-fields. matter.parties is the first list-valued source, read once for the whole collection. A firm's own fields enter per firm at read time as custom.\<customField\_ handle\> entries — bound by handle and never by name, archived means absent and reported, values read at the scale the field declared through the custom-fields engine's own effectiveNumberScale, one statement covering every handle. Directory role links and protected values are the remaining widening.
+  evidence: The dictionary is generated from a subject catalogue rather than hand-listed — packages/document-assembly/src/catalog/subjects.ts declares 29 subjects across eleven sources (matter, party, location, firm, customField, protectedIdentifier, system, asset, staffing, court, estate), crossed with the per-kind facets in catalog/facets.ts by catalog/generate.ts, with per-type formatters and an availability and absence note derived per entry rather than declared 300 times (catalog/entry.ts); exposed at GET /api/v1/merge-fields. The widenings this node once listed as remaining are built: Directory role links resolve through directory-role-bindings.ts (opposing party, opposing counsel, guardian, witness, keyed by the punctuation-stripped role token), and sealed identifiers through protected-bindings.ts, which holds the keys and routes every read through the protected-field chokepoint's permission gate and decrypt-audit row rather than opening a second door to it. matter.parties is the first list-valued source, read once for the whole collection. A firm's own fields enter per firm at read time as custom.\<customField\_ handle\> entries — bound by handle and never by name, archived means absent and reported, values read at the scale the field declared through the custom-fields engine's own effectiveNumberScale, one statement covering every handle.
 
 - id: document-automation.location-identity
   name: Location-resolved office identity
@@ -55,7 +55,7 @@
   status: partial
   surface: internal
   adrs: ADR-0210
-  evidence: The merge engine is built as a pure package over fflate + fast-xml-parser and runs in the document-assembly queue consumer behind a DocumentAssemblyJob Durable Object; assembly output is filed through initiateUpload/completeUploadSession. The DOCX-to-PDF arm waits on the LibreOffice engine (see documents.conversion.office).
+  evidence: The merge engine is built as a pure package over fflate + fast-xml-parser and runs in the document-assembly queue consumer behind a DocumentAssemblyJob Durable Object; assembly output is filed through initiateUpload/completeUploadSession. The DOCX-to-PDF arm is built rather than waiting: an assembly takes an outputFormat, document_assembly.output_format records it, and apps/worker/src/assemblies/assembly-consumer.ts hands the merged package to the conversion registry's own docx-to-pdf edge through the same runConversion the file-converter tool uses, contributing no engine of its own. A conversion that cannot be done fails the assembly with conversion-failed and files nothing. What the arm depends on is the LibreOffice engine being deployed (see documents.conversion.office), which is why the Documents surface records it as deployed-only.
 
 - id: document-automation.pdf-form-filling
   name: Dedicated PDF form filling

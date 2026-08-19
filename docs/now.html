@@ -4237,7 +4237,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Self-serve firm registration</span>
 <code>self-serve.registration</code>
 <p>The platform's one anonymous write — a visitor declares which of three doors they came through, and founding a firm writes one control-plane row and sends one email, with the firm built after the emailed link is followed.</p>
-<p class="note">Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. Human verification ahead of the mail remains an unchecked operations item, so the address-keyed limit is what stands between the endpoint and a script.</p>
+<p class="note">Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/worker/src/routes/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.</p>
 </li><li class="n d1" data-s="designed">
 <span class="chip plan">Designed</span>
 <span class="nm">Firm lifecycle states</span>
