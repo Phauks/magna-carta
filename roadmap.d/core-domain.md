@@ -442,15 +442,17 @@
 - id: locations.usage.custodian
   name: Location as Custodian root
   scope: Physical-location hierarchy rooted at a Location (Location, safe, box, position).
-  status: designed
+  status: shipped
+  surface: awaiting-screen
   spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: Custody shipped after this was written — packages/custodian/src/location-service.ts holds the recursive container tree over the custody_location table, and a root optionally binds a firm Location while an offsite or bank root binds none, so a vault never becomes an office row. The Locations side of that binding is what this node covers and it is in place; see custodian.location-hierarchy for the tree itself.
+  evidence: Shipped with custody, after this node was last written — packages/custodian/src/location-service.ts holds the recursive container tree over the custody_location table, and a root optionally binds a firm Location while an offsite or bank root binds none, so a vault never becomes an office row. The Locations side of that binding is what this node covers and it is in place; see custodian.location-hierarchy for the tree itself.
 
 - id: locations.usage.documents-billing
   name: Location identity on generated output
   scope: Location fields feed the data dictionary so generated documents and invoices carry correct office identity.
-  status: not-started
-  evidence: The documents half is built and the invoice half is half-built. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity). The invoice carries letterhead_address_block, letterhead_footer and remit_to, snapshotted at finalize rather than read live — but nothing derives them from the matter's home Location, so the caller supplies them and they default to null (financial.billing.location-letterhead).
+  status: partial
+  surface: awaiting-screen
+  evidence: Partial because the documents half is built and the invoice half is half-built. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity). The invoice carries letterhead_address_block, letterhead_footer and remit_to, snapshotted at finalize rather than read live — but nothing derives them from the matter's home Location, so the caller supplies them and they default to null (financial.billing.location-letterhead).
   notes: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed.
 
 - id: locations.access-model

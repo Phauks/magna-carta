@@ -434,10 +434,11 @@
 - id: documents.conversion.office
   name: Office document conversion
   scope: Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
-  status: planned
+  status: shipped
+  surface: awaiting-screen
   adrs: ADR-0204
   spec: docs/specs/2026-08-04-libreoffice-conversion-engine-design.md
-  evidence: The build phase this node said was next has happened and the status has not caught up. containers/libreoffice is on main — a Rust HTTP service with a supervisor over a pool of long-lived office-suite child processes (pool.rs, resident.rs, service.rs, dispatch.rs, package.rs), a Dockerfile, and an honest readiness probe that answers 503 until a worker has finished suite initialisation. apps/convert-worker/src/libreoffice-engine-container.ts binds it with no outbound network and a fifteen-minute sleep, longer than the raster engine's five because the suite spends twenty to thirty seconds initialising. The registered office edges are docx and odt to PDF, docx and wpd to OpenDocument, and doc to docx.
+  evidence: containers/libreoffice is on main — a Rust HTTP service with a supervisor over a pool of long-lived office-suite child processes (pool.rs, resident.rs, service.rs, dispatch.rs, package.rs), a Dockerfile, and an honest readiness probe that answers 503 until a worker has finished suite initialisation. apps/convert-worker/src/libreoffice-engine-container.ts binds it with no outbound network and a fifteen-minute sleep, longer than the raster engine's five because the suite spends twenty to thirty seconds initialising. The registered office edges are docx and odt to PDF, docx and wpd to OpenDocument, and doc to docx.
   notes: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only.
 
 - id: documents.conversion.av-transcode
@@ -455,8 +456,10 @@
 - id: documents.conversion.searchable-pdf
   name: Scanned PDF to searchable PDF
   scope: OCR text layer applied to scanned PDFs via the OCR pipeline.
-  status: not-started
-  evidence: OCR engine shipped, but pdf-render-engine fragment lists OCR integration as remaining work after surgery completion; no text-layer writer in crates/pdf-core.
+  status: shipped
+  surface: awaiting-screen
+  evidence: The hop is built end to end and this node's status had not caught up. crates/pdf-core/src/searchable.rs writes the invisible layer — render mode 3, counter-rotated on a rotated page, strictly additive on the same non-destructive append rule as Bates stamping, with a ToUnicode CMap doing the extracting so the font need not be embedded. containers/ocr adapts recognized page facts into its text runs and serves the whole hop at POST /ocr/searchable, apps/ocr-worker forwards to it, and packages/conversion/src/registry.ts carries the pdf-to-searchable-pdf edge on the ocr engine. A page that already has text is left untouched.
+  notes: searchable-pdf is deliberately a distinct target format rather than pdf-to-pdf, because pathfinding treats a self-edge as no path and "make this searchable" is a real request. Like every container engine here the hop needs its image deployed before a firm can run it, which is the same posture documents.conversion.raster ships under.
 
 - id: documents.conversion.background-jobs
   name: Background job orchestration
@@ -608,8 +611,10 @@
 - id: documents.pdf.manipulation
   name: Merge / split / rotate / flatten
   scope: Page-level manipulation operations promised for the PDF service.
-  status: not-started
-  evidence: No merge/split/rotate/flatten module in crates/pdf-core/src; roadmap of remaining engine work at docs/specs/pdf-engine-next-steps.md.
+  status: shipped
+  surface: awaiting-screen
+  evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
+  notes: Backend only, no screen — the tool surfaces are documents.pdf.tool-uis. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate.
 
 - id: documents.pdf.tool-uis
   name: PDF tool UIs

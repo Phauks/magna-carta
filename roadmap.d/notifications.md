@@ -74,7 +74,8 @@
   name: Web push channel
   scope: Push API subscriptions + VAPID via the app-shell service worker.
   status: deferred
-  evidence: Named a seam with subscription infrastructure deliberately deferred; no service-worker push code.
+  adrs: ADR-0059
+  evidence: Deferred in ADR-0059 and left there by the notifications delivery design, which records the subscription infrastructure as deferred with no sub-second need to force it; the channel value is already in the notification_delivery CHECK, so adopting it moves no schema. No service-worker push code exists.
 
 - id: notifications.channels.desktop
   name: Desktop-native notifications
@@ -104,8 +105,10 @@
 - id: notifications.digest
   name: Digest rollup
   scope: Cadence-based rollup of multiple items into one summary notification.
-  status: deferred
-  evidence: The email rollup shipped and this node's status has not caught up — it is the same digest notifications.channels.email describes, composed per member per cadence in packages/notifications/src/digest.ts and run hourly per firm by runNotificationDigestPass. Email is digest-ONLY by construction: the cadences in packages/notifications/src/types.ts are periods (off, daily, weekly) with no immediate value, and the only bypass is a registry-declared escalation reserved to the trust-compliance and security categories. What stays deferred is an IN-APP rollup — a feed row that stands for several others — which is a different thing from the email summary and is not built.
+  status: partial
+  surface: awaiting-screen
+  slices: notifications-delivery
+  evidence: Partial because the email rollup shipped and the in-app one did not. The email digest is the same one notifications.channels.email describes, composed per member per cadence in packages/notifications/src/digest.ts and run hourly per firm by runNotificationDigestPass. Email is digest-ONLY by construction: the cadences in packages/notifications/src/types.ts are periods (off, daily, weekly) with no immediate value, and the only bypass is a registry-declared escalation reserved to the trust-compliance and security categories. What stays deferred is an IN-APP rollup — a feed row that stands for several others — which is a different thing from the email summary and is not built.
 
 - id: notifications.freshness
   name: Freshness & delivery mechanics
@@ -118,7 +121,8 @@
   name: Per-user Durable Object push channel
   scope: Real-time push per user extending the DO-per-job primitive, adoptable behind existing call sites.
   status: deferred
-  evidence: Documented seam only.
+  adrs: ADR-0059
+  evidence: ADR-0059's documented seam and nothing more — it extends the Durable-Object-per-job primitive behind the same call sites, so adopting it changes no caller. Nothing is built.
 
 - id: notifications.confidentiality
   name: Confidentiality & read-time enforcement

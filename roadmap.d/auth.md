@@ -161,7 +161,7 @@
   name: Ethical walls
   scope: Content-screening overlay (header visible, contents screened) for the rare conflict.
   status: deferred
-  notes: Explicitly deferred until a concrete use case exists; kept as a seam.
+  notes: Parked by the white paper's Authentication, access control and encryption topic, which names it as the future content-screening layer and says it is not designed until a concrete use case exists; kept as a seam. The 404-not-403 boundary that would carry it is already shipped.
 
 - id: auth.encryption
   name: Encryption and key management
@@ -214,7 +214,7 @@
   name: Key rotation machinery
   scope: Root rotation (rewrap firm keys) and per-firm rotation (re-encrypt the small sensitive set).
   status: deferred
-  notes: Explicitly deferred until needed; the versioned-envelope seam is built.
+  notes: Parked by the white paper's Encryption and key management topic — the wrapped structure permits both rotations without re-encrypting everything, so the machinery waits until needed and only the seam is built now. That seam is the versioned envelope in packages/encryption/src/envelope.ts.
 
 - id: auth.encryption.post-quantum
   name: Post-quantum posture
@@ -237,4 +237,4 @@
   name: External KMS-rooted KEK
   scope: AWS-KMS-anchored root key as a hardening upgrade (Cloudflare offers no application-data HSM).
   status: deferred
-  notes: Explicit backlog hardening item; PQC-wrapped-key support named as a selection criterion.
+  notes: Parked by the white paper's Encryption and key management topic, under Honest limits — root-KEK compromise is total compromise, the only stronger anchor is an external KMS or HSM, and Cloudflare offers none for application data, so this is a backlog hardening item rather than Phase 0. PQC-wrapped-key support becomes a selection criterion when it is picked up.

@@ -30,24 +30,24 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 260 | 42% |
-| Part-built | partial, in-build | 103 | 16% |
-| Ahead | designed, planned, researching, not-started | 218 | 35% |
-| Parked | deferred, cut | 43 | 7% |
+| Done | shipped | 264 | 42% |
+| Part-built | partial, in-build | 111 | 18% |
+| Ahead | designed, planned, researching, not-started | 209 | 34% |
+| Parked | deferred, cut | 40 | 6% |
 | **All units of work** | | **624** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 260 | 42% |
-| `partial` | 102 | 16% |
+| `shipped` | 264 | 42% |
+| `partial` | 110 | 18% |
 | `in-build` | 1 | 0% |
-| `designed` | 45 | 7% |
-| `planned` | 18 | 3% |
+| `designed` | 43 | 7% |
+| `planned` | 17 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 150 | 24% |
-| `deferred` | 41 | 7% |
+| `not-started` | 144 | 23% |
+| `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **624** | **100%** |
 
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 260 of 624 (42%). Shipped plus partial is 362 (58%).**
+**Shipped alone is 264 of 624 (42%). Shipped plus partial is 374 (60%).**
 
-The 102 units between those two numbers are work that is engineered and paid for and is not
+The 110 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**363 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**375 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -82,10 +82,10 @@ ledger records it separately, in `surface:`.
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 20 | 5% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 173 | 48% |
-| No user surface by nature (`internal`) | 170 | 47% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 184 | 49% |
+| No user surface by nature (`internal`) | 171 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **363** | **100%** |
+| **Everything with something built** | **375** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -101,31 +101,31 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 3 | 1 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 19% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
-| Core Domain — Directory, Matters & Locations | 31 | 19 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 58 | 53% |
-| Custodian (Safe Custody) | 6 | 2 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 11 | 55% |
+| Core Domain — Directory, Matters & Locations | 32 | 20 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 58 | 55% |
+| Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 60 | 9 | 0 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
+| Documents | 63 | 9 | 0 | 2 | 1 | 0 | 18 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
 | Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
-| Notifications | 2 | 6 | 0 | 0 | 0 | 0 | 1 | 4 | 0 | 13 | 15% |
+| Notifications | 2 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 13 | 15% |
 | Observability & Diagnostics | 11 | 1 | 0 | 0 | 0 | 0 | 6 | 2 | 0 | 20 | 55% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 5 | 1 | 1 | 0 | 0 | 21 | 6 | 1 | 66 | 47% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
-| Product Updates & User-Facing Documentation | 2 | 2 | 0 | 0 | 0 | 0 | 10 | 0 | 0 | 14 | 14% |
+| Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 1 | 0 | 0 | 6 | 0 | 0 | 2 | 0 | 10 | 10% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **260** | **102** | **1** | **45** | **18** | **5** | **150** | **41** | **2** | **624** | **42%** |
+| **All areas** | **264** | **110** | **1** | **43** | **17** | **5** | **144** | **38** | **2** | **624** | **42%** |
 
 ## Where we have been
 
@@ -274,12 +274,11 @@ shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
-**33 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 - **A supplied asset-schedule template** (`matter-assets.schedule-template`) — **Not built.** Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
-- **Retention and destruction dates** (`custodian.retention-destruction`) — **Not built.** Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
 - **Semantic search** (`discovery.search.semantic`) — **Not built.** Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.
 - **Numbering schemes** (`exhibits.numbering`) — **Not built.** Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 - **In-text exhibit references** (`exhibits.references`) — **Not built.** Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
@@ -310,7 +309,7 @@ shows up in the nodes columns and not in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**28 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**29 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -318,6 +317,7 @@ shows up in the nodes columns and not in this one.
 - **Pronouns on a person** (`directory.pronouns`) — **Built; no screen yet.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
+- **Retention and destruction dates** (`custodian.retention-destruction`) — **Built; no screen yet.** Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
 - **Review workflow** (`discovery.review`) — **A group of capabilities.** Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
 - **Dedicated PDF form filling** (`document-automation.pdf-form-filling`) — **Built; no screen yet.** Does a filled form file flattened, interactive, or is it a per-template setting? A flattened form is what a signature wants and cannot be corrected; an interactive one is what a firm wants when the recipient still has to complete a box. Today it is interactive, which is the non-destructive answer to sit behind the question — changing it is one constant, or one column read. Document automation tail remainder plan, flag B5.
@@ -359,15 +359,12 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `community.moderation` · **Moderation and abuse handling** — Permanent moderation, spam/abuse, and security operation of a public board, owned in-house.
-- `locations.usage.custodian` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
 - `matter-assets.schedule-template` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
-- `custodian.retention-destruction` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
 - `discovery.review.near-duplicates` · **Near-duplicate detection** — Detect near-duplicate documents in the review set.
 - `documents.editing.editor-ui` · **Editor UI** — In-app surface that opens a document in the Collabora frame.
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
-- `documents.conversion.office` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
 - `exhibits` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
 - `exhibits.register` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own.
@@ -490,17 +487,17 @@ to change a line here, edit the node in its area file and re-run the build.
     - `auth.access-control.access-requests` · `partial` · **Access requests and direct grants** — Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant. _Note: What is missing is the middle: nothing writes a direct_grant row. The table already carries the time box (expires_at, null meaning none) and who granted it, and the resolver already honours expiry in code rather than in SQL, so what a build has to add is the request record and the approver route rather than the model. The separate support-access framework (support_grant) covers platform staff, not member grants._
     - `auth.access-control.cross-firm-404` · `shipped` · **404-not-403 boundary** — Cross-firm and unauthorized-but-existing resources return 404 so responses are never an existence oracle; 403 reserved for within-firm denial.
     - `auth.access-control.location-filter` · `not-started` · **Location as view filter** — Office as a list/search/report filter, never an access gate; hard per-location separation a reserved seam. _Note: Locations entity shipped; the filter surfaces are UI-gated._
-    - `auth.access-control.ethical-walls` · `deferred` · **Ethical walls** — Content-screening overlay (header visible, contents screened) for the rare conflict. _Note: Explicitly deferred until a concrete use case exists; kept as a seam._
+    - `auth.access-control.ethical-walls` · `deferred` · **Ethical walls** — Content-screening overlay (header visible, contents screened) for the rare conflict. _Note: Parked by the white paper's Authentication, access control and encryption topic, which names it as the future content-screening layer and says it is not designed until a concrete use case exists; kept as a seam. The 404-not-403 boundary that would carry it is already shipped._
   - `auth.encryption` · `partial` · **Encryption and key management** — App-level encryption scoped to crown-jewel secrets only, giving an audited role-gated read chokepoint; everything else on platform at-rest encryption.
     - `auth.encryption.envelope-keys` · `shipped` · **Envelope key hierarchy** — Root KEK as Worker secret wrapping a per-firm key; HKDF-derived purpose keys (pii, secrets, index); AES-KW/AES-GCM/HKDF/HMAC via Web Crypto.
     - `auth.encryption.protected-fields` · `shipped` · **protected() field chokepoint** — Declarative field type encrypting on write, role-gated audited decrypt on read, inside the data-access layer — no separate crypto service.
     - `auth.encryption.blind-index` · `shipped` · **HMAC blind index** — Blind index so conflicts matching works over encrypted identifiers without decrypting.
     - `auth.encryption.firm-secrets` · `shipped` · **Per-firm plugin credentials** — getSecret/putSecret for per-firm plugin credentials; ciphertext in the firm database, plugin Workers never see key material.
     - `auth.encryption.crypto-shred` · `shipped` · **Per-firm crypto-shred** — Destroying a firm's wrapped key renders its encrypted corpus permanently unreadable — instant per-firm offboard. _Note: Function only; the offboarding flow that invokes it is its own future design._
-    - `auth.encryption.key-rotation` · `deferred` · **Key rotation machinery** — Root rotation (rewrap firm keys) and per-firm rotation (re-encrypt the small sensitive set). _Note: Explicitly deferred until needed; the versioned-envelope seam is built._
+    - `auth.encryption.key-rotation` · `deferred` · **Key rotation machinery** — Root rotation (rewrap firm keys) and per-firm rotation (re-encrypt the small sensitive set). _Note: Parked by the white paper's Encryption and key management topic — the wrapped structure permits both rotations without re-encrypting everything, so the machinery waits until needed and only the seam is built now. That seam is the versioned envelope in packages/encryption/src/envelope.ts._
     - `auth.encryption.post-quantum` · `partial` · **Post-quantum posture** — Symmetric corpus already quantum-resistant; crypto-agility via per-ciphertext algorithm/key version identifiers; PQ signatures seamed on upstream standards. _Note: Agility seam shipped; PQC-TLS gap logging for third-party endpoints and signature migration not built._
     - `auth.encryption.totp-seed-exception` · `shipped` · **TOTP seed placement** — TOTP seeds stay in Better Auth's tables under its at-rest encryption (user-owned, pre-firm-context), verified against the pinned version.
-    - `auth.encryption.kms-rooted-kek` · `deferred` · **External KMS-rooted KEK** — AWS-KMS-anchored root key as a hardening upgrade (Cloudflare offers no application-data HSM). _Note: Explicit backlog hardening item; PQC-wrapped-key support named as a selection criterion._
+    - `auth.encryption.kms-rooted-kek` · `deferred` · **External KMS-rooted KEK** — AWS-KMS-anchored root key as a hardening upgrade (Cloudflare offers no application-data HSM). _Note: Parked by the white paper's Encryption and key management topic, under Honest limits — root-KEK compromise is total compromise, the only stronger anchor is an external KMS or HSM, and Cloudflare offers none for application data, so this is a backlog hardening item rather than Phase 0. PQC-wrapped-key support becomes a selection criterion when it is picked up._
 
 ### Calendar and Rules-Based Docketing
 
@@ -578,7 +575,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 58 units of work, 53% shipped. 31 done, 19 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 58 units of work, 55% shipped. 32 done, 20 part-built, 5 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete on main; UI deferred until the design-system app shell lands._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md)._
@@ -628,8 +625,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `locations.usage` · `partial` · **Location consumers** — The surfaces a Location feeds — matters, trust accounts, Custodian roots, generated output
     - `locations.usage.matters` · `shipped` · **Location on matters** — Optional home-Location reference supplying number prefix and firm-default fallback.
     - `locations.usage.trust-accounts` · `partial` · **Location on trust accounts** — Each trust account associated with a Location; jurisdiction trust-rule profile binds per account. _Note: The per-account binding ships; the rule profile it binds to is not yet resolved anywhere - packages/trust/src/jurisdiction.ts still refuses every requirement until a reviewed corpus is bound._
-    - `locations.usage.custodian` · `designed` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
-    - `locations.usage.documents-billing` · `not-started` · **Location identity on generated output** — Location fields feed the data dictionary so generated documents and invoices carry correct office identity. _Note: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed._
+    - `locations.usage.custodian` · `shipped` · **Location as Custodian root** — Physical-location hierarchy rooted at a Location (Location, safe, box, position).
+    - `locations.usage.documents-billing` · `partial` · **Location identity on generated output** — Location fields feed the data dictionary so generated documents and invoices carry correct office identity. _Note: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed._
   - `locations.access-model` · `shipped` · **Location as filter, not gate** — Location is a view/reporting filter; data stays firm-wide open by default; hard per-location separation is a reserved seam.
   - `locations.soft-delete` · `shipped` · **Location soft-delete** — A Location referenced by a matter, trust account, or custody record is closed/archived, never hard-deleted.
 - `custom-fields` · `partial` · **Custom-fields engine** — Shared typed custom-fields engine serving matter types, Directory categories, and matter-asset classes. _Note: Backend shipped; definition/entry UI deferred until the app shell._
@@ -657,9 +654,9 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Custodian (Safe Custody)
 
-[`roadmap.d/custodian.md`](../roadmap.d/custodian.md) — 11 units of work, 55% shipped. 6 done, 2 part-built, 1 ahead, 2 parked.
+[`roadmap.d/custodian.md`](../roadmap.d/custodian.md) — 11 units of work, 55% shipped. 6 done, 5 part-built, 0 ahead, 0 parked.
 
-- `custodian` · `partial` · **Custodian** — Register of physical client originals held in safekeeping — what the firm holds, where it is, whose it is — with custody log, labels, scans, and reminders. _Note: Backend only — no UI. Stocktake and the destruction workflow ARE built (slice 4·2·4), and the will-deposit duty catalog with them; what is not built is receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will catalog computes against — no packet column records a death today. The per-node statuses below have not been reconciled with those landings._
+- `custodian` · `partial` · **Custodian** — Register of physical client originals held in safekeeping — what the firm holds, where it is, whose it is — with custody log, labels, scans, and reminders. _Note: Backend only — no UI. Stocktake and the destruction workflow ARE built (slice 4·2·4), and the will-deposit duty catalog with them; what is not built is receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the succession/transfer manifest, and the death-date seam the will catalog computes against — no packet column records a death today._
   - `custodian.register` · `shipped` · **Item register** — Item model with type, description, intrinsic-value flag, mandatory Directory owner link(s), co-ownership form, depositor, optional matter link, status. _Note: The design splits packet (unit of custody) from item (unit of description); co-ownership is a firm-configurable role label rather than a platform enum of tenancy forms._
   - `custodian.location-hierarchy` · `shipped` · **Physical location hierarchy** — Recursive container tree rooted at a Location (office), default safe > box > position, arbitrary depth. _Note: A root optionally binds a firm Location; an offsite or bank root binds none, so a vault never becomes an office row._
   - `custodian.custody-ledger` · `shipped` · **Check-in/out custody log** — Append-only ledger of custody events (logged, moved, checked out, returned, released, destroyed) with actor and timestamp. _Note: Recording, not gating, with one deliberate exception — a check-out captures the borrower and a due-back date but blocks nothing, while a release is gated (see custodian.checkout-workflow) because it is the only movement that cannot be undone._
@@ -667,10 +664,10 @@ to change a line here, edit the node in its area file and re-run the build.
   - `custodian.review-reminders` · `partial` · **Review dates and the reminder feed** — Firm-set review dates on packets and items with an anniversary-anchored cycle, and one collection point serving both due reviews and overdue check-outs. _Note: Partial because delivery is not built — the emission point is a query the reports read; Notifications subscribes to it rather than defining what is due a second time._
   - `custodian.reports` · `shipped` · **Register reports** — Holdings per owner, occupancy per location including subtree counts, holds in force, and overdue check-outs.
   - `custodian.scans` · `shipped` · **Attached digital scans** — R2 digital scans attached to each custody item. _Note: A matterless packet files its scans onto a per-firm system holding matter, so file.matter_id stays NOT NULL. A scan satisfies no gate the original would not._
-  - `custodian.retention-destruction` · `designed` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals. _Note: The retention half is owner-gated and deliberately unbuilt — the platform ships NO retention period, default, derived date, or sweep, there is no retention_until column at all, and a review date is not a retention clock. The destruction half shipped with slice 4·2·4 once the owner ratified its shape flags, so the status on this node has not caught up with what is on the tree._
-  - `custodian.will-reminders` · `deferred` · **Will release-on-death reminders** — Per-state will-deposit deadline engine (jurisdiction-keyed catalog) driving release reminders.
+  - `custodian.retention-destruction` · `partial` · **Retention and destruction dates** — Retention/destruction dating with the intrinsic-value flag blocking routine destruction of irreplaceable originals. _Note: The retention half is owner-gated and deliberately unbuilt — the platform ships NO retention period, default, derived date, or sweep, there is no retention_until column at all, and a review date is not a retention clock. The destruction half shipped with slice 4·2·4 once the owner ratified its shape flags. Backend only, no screen._
+  - `custodian.will-reminders` · `partial` · **Will release-on-death reminders** — Per-state will-deposit deadline engine (jurisdiction-keyed catalog) driving release reminders.
   - `custodian.checkout-workflow` · `partial` · **Gated release and signed receipts** — Named-borrower check-out/return, gated release with identity and authority captured before an original leaves, and signed deposit/release receipts. _Note: Partial because receipts are not built. The authority is free text a firm writes and no platform vocabulary — what document suffices to release an original is jurisdiction-specific and remains an owner decision. Two-signatory release is a per-firm policy, off by default. Receipt GENERATION waits on an assembly path that is matter-routed and matter-permissioned; receipt BINDING already ships, since a signed receipt links to its packet as a custody_scan of kind receipt._
-  - `custodian.stocktake` · `deferred` · **Scan-to-locate and stocktake** — Barcode scan-to-locate and stocktake reconciliation over the container tree.
+  - `custodian.stocktake` · `partial` · **Scan-to-locate and stocktake** — Barcode scan-to-locate and stocktake reconciliation over the container tree.
 
 ### Design System, UI Consistency & Design Quality
 
@@ -747,7 +744,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 62% shipped. 60 done, 9 part-built, 24 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 9 part-built, 21 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -803,10 +800,10 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.conversion.api` · `shipped` · **Conversion API** — Upload-and-submit conversion endpoints in the OpenAPI contract. _Note: Execution currently limited to the built engine edges (raster, image-to-PDF)._
     - `documents.conversion.raster` · `shipped` · **Raster image engine** — Pure-Rust image conversion engine in a dedicated container behind the convert worker (memory-safe replacement for native libvips).
     - `documents.conversion.image-to-pdf` · `shipped` · **Image to PDF** — Image-to-PDF conversion edge on the registry.
-    - `documents.conversion.office` · `planned` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound). _Note: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only._
+    - `documents.conversion.office` · `shipped` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound). _Note: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only._
     - `documents.conversion.av-transcode` · `not-started` · **Audio/video transcodes** — Self-hosted FFmpeg transcode edges (shared with the preview transcoding path).
     - `documents.conversion.email-to-pdf` · `not-started` · **Email MSG/EML to PDF** — Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
-    - `documents.conversion.searchable-pdf` · `not-started` · **Scanned PDF to searchable PDF** — OCR text layer applied to scanned PDFs via the OCR pipeline.
+    - `documents.conversion.searchable-pdf` · `shipped` · **Scanned PDF to searchable PDF** — OCR text layer applied to scanned PDFs via the OCR pipeline. _Note: searchable-pdf is deliberately a distinct target format rather than pdf-to-pdf, because pathfinding treats a self-edge as no path and "make this searchable" is a real request. Like every container engine here the hop needs its image deployed before a firm can run it, which is the same posture documents.conversion.raster ships under._
     - `documents.conversion.background-jobs` · `partial` · **Background job orchestration** — Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions. _Note: Single-file jobs only — per-item batch progress and completion notification are not built. Container spin-up and sleep now cover both engine containers rather than raster alone: raster sleeps after five minutes on a roughly one-second boot, and the office container after fifteen, because its suite spends twenty to thirty seconds initialising and scaling to zero too eagerly turns a cheap idle into a user-visible stall._
     - `documents.conversion.output-placement` · `partial` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy. _Note: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now._
     - `documents.conversion.convert-ui` · `designed` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
@@ -823,7 +820,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.pdf.secure` · `shipped` · **Secure / encrypt** — PDF encryption, passwords, and permissions (plus decrypt support).
     - `documents.pdf.generate` · `shipped` · **Generate primitives** — Programmatic PDF generation (text, standard fonts, drawing primitives) for invoices/reports/certificates.
     - `documents.pdf.decompression-guard` · `shipped` · **Decompression-bomb guard** — Raw-bytes pre-flight guard against decompression bombs before engine work. _Note: Decision fragment pdf-decompression-guard still pending assembly (unnumbered)._
-    - `documents.pdf.manipulation` · `not-started` · **Merge / split / rotate / flatten** — Page-level manipulation operations promised for the PDF service.
+    - `documents.pdf.manipulation` · `shipped` · **Merge / split / rotate / flatten** — Page-level manipulation operations promised for the PDF service. _Note: Backend only, no screen — the tool surfaces are documents.pdf.tool-uis. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate._
     - `documents.pdf.tool-uis` · `not-started` · **PDF tool UIs** — User-facing PDF tools (redact, Bates, forms, secure, etc.) in the Tools area.
   - `documents.esignature` · `partial` · **E-signature** — First-party e-signature on the PDF engine — sender field placement, signing UI, PAdES platform seal, audit trail, certificate of completion, attribution tiers. _Note: ADR-0045 records the whole area as provisional — every license/legal specific to be re-verified before build._
     - `documents.esignature.pades-seal` · `shipped` · **PAdES platform seal** — Server-applied tamper-evidence seal with the firm certificate on completed documents. _Note: ADR-0206 resolves the Worker-crypto vs Container question in favour of pkijs over WebCrypto in the Worker. Baseline B-B only — timestamp/LTV levels (B-T/B-LT/B-LTA, needs a TSA) and independent-validator conformance remain._
@@ -1037,7 +1034,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Notifications
 
-[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 13 units of work, 15% shipped. 2 done, 6 part-built, 1 ahead, 4 parked.
+[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 13 units of work, 15% shipped. 2 done, 7 part-built, 1 ahead, 3 parked.
 
 - `notifications` · `partial` · **Notifications subsystem** — One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   - `notifications.registry` · `shipped` · **Notification type registry** — Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable. _Note: Twenty types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why. Each path also declares how long its dedupe key must hold (CONVERGENCE_HORIZON_BY_RAISER in packages/notifications/src/materialize.ts) — the uniqueness lives on a row the retention sweep deletes, so a fourth path is a compile error until it states a horizon shorter than the retention floor, and a condition needing once-per-subject-forever convergence carries it in the owning subsystem's own tables instead._
@@ -1051,7 +1048,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `notifications.channels.desktop` · `deferred` · **Desktop-native notifications** — Native tray/notification presenter over the same rows, riding Tauri with the web center as fallback.
   - `notifications.raise-port` · `partial` · **notify() raise port & co-located raises** — Single raise port with high-value raises co-located on unbypassable paths (audit-log write for money/trust, task write path, conflicts/portal/deadline/job seams); fan-out off the hot path via Queues. _Note: There is deliberately no raise port for topics already on the outbox — the outbox row IS the emission, and a second row beside it would be a weaker copy of a guarantee that already holds. One of the five job coordinators (DocumentAssemblyJob) is wired; RecoveryJobCoordinator's type is registered and unwired, and the other three record no requester, which apps/worker/src/jobs/job-completion-notification.ts and the pending decision fragment explain per coordinator._
   - `notifications.scheduling` · `partial` · **Scheduled reminders** — Cron-triggered Workflow sweeping due reminders per firm; deadline dates computed in the court's zone. _Note: Due and overdue deadlines and both custody reasons are swept. calendar.deadline.horizon is declared and raises nothing — it needs a firm-configured lead window that no setting defines, and a fitness test asserts the emission point resolves to no type so the gap cannot be mistaken for an oversight. Every way this pass can stop finding things now announces itself: the per-kind findings clamp on notifications.comparison_clamped, and the zone-discovery truncation that produces no findings at all for a whole jurisdiction on notifications.comparison_zone_discovery_truncated._
-  - `notifications.digest` · `deferred` · **Digest rollup** — Cadence-based rollup of multiple items into one summary notification.
+  - `notifications.digest` · `partial` · **Digest rollup** — Cadence-based rollup of multiple items into one summary notification.
   - `notifications.freshness` · `partial` · **Freshness & delivery mechanics** — Durable rows plus refetch-on-focus, cross-tab BroadcastChannel invalidation, cheap unread-count poll; job-completion rides the per-job Durable Object channel. _Note: The poll also reports what the retention sweep took while unread, so a member returning from leave is told there is a gap rather than shown a zero. Four of the five job coordinators still write no durable row — three record no requester and the bundle builder is single-flight across several of them._
     - `notifications.freshness.per-user-do-push` · `deferred` · **Per-user Durable Object push channel** — Real-time push per user extending the DO-per-job primitive, adoptable behind existing call sites.
   - `notifications.confidentiality` · `partial` · **Confidentiality & read-time enforcement** — External channels carry no privileged content (allowlist bodies, deep links); in-app visibility re-checks access at read time (stale rows filtered, never an existence oracle); rows firm- and recipient-scoped; audited dispatch for audited categories. _Note: The external-channel half landed with the email digest — every rendering is counts-only and held there by packages/notifications/test/digest-render.test.ts, including the declared matter-number detail level, which renders exactly as counts-only until it ships rather than degrading to a matter number nobody approved. Audited DISPATCH - an audit row per delivered notification of an audited category - is still unbuilt; what ships is the audited preference and designation writes._
@@ -1120,7 +1117,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 66 units of work, 47% shipped. 31 done, 6 part-built, 22 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 66 units of work, 47% shipped. 31 done, 7 part-built, 21 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1146,7 +1143,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.scan-capture.inbound-email` · `designed` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
     - `platform.scan-capture.matter-routing` · `not-started` · **Inbound matter routing** — Routing model for inbound captures: firm-wide intake queue, barcode/QR cover-sheet auto-filing, per-matter intake aliases.
     - `platform.scan-capture.desktop-lan-bridge` · `deferred` · **Desktop LAN scanner bridge** — Desktop-attached scanner (TWAIN/eSCL) and on-LAN MFP bridge protocol set (eSCL/WSD/SMB/WebDAV terminating on desktop). _Note: Explicitly deferred to the build in the white paper, alongside the large-scan fallback._
-    - `platform.scan-capture.vendor-panel-apps` · `deferred` · **Per-vendor MFP panel apps** — Apps on vendor firmware platforms (MEAP, EIP, ESA, OXP, OSA, eSF, HyPAS). _Note: Rejected up front as core (unbounded per-vendor integration tax); optional single-dominant-device app deferred._
+    - `platform.scan-capture.vendor-panel-apps` · `deferred` · **Per-vendor MFP panel apps** — Apps on vendor firmware platforms (MEAP, EIP, ESA, OXP, OSA, eSF, HyPAS). _Note: Parked by the white paper's Inbound capture topic, which rejects building on vendor firmware up front as an unbounded per-vendor integration tax and frames the area as receiving-plus-routing instead. A single-dominant-device panel app stays available as one adapter behind the capture port, which is what makes the rejection cheap to revisit._
   - `platform.url-navigation` · `partial` · **URL and navigation architecture** — Real deep-linkable permalink per view; matter-number canonical URLs over immutable opaque handles; path=addressable state, query=refinement.
     - `platform.url-navigation.matter-number-urls` · `partial` · **Matter-number URL scheme** — Canonical human-facing matter-number URL, firm-configurable (opaque option), sealed matters force-opaque, firm-bound resolution. _Note: Backend numbering shipped; configurable scheme/forced-opaque URL behavior awaits the web matter surface._
     - `platform.url-navigation.alias-redirects` · `not-started` · **Renumbering alias redirects** — Prior matter numbers kept as aliases that 301-redirect to the current canonical URL; opaque handle always resolves.
@@ -1156,8 +1153,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `platform.client-state` · `partial` · **Client data and state architecture** — Three-way state split with one owner each: URL state in the router, server state in TanStack Query v6, local/UI state in Svelte 5 runes.
     - `platform.client-state.server-state-query` · `partial` · **Server-state caching layer** — TanStack Query caching, dedup, refetch-on-focus, optimistic mutations with rollback surfacing the Error ID, keys derived from the contract client. _Note: Factories shipped; app-wide adoption rides the 0-7b shell build._
     - `platform.client-state.live-job-channels` · `shipped` · **Per-feature live channels** — Durable-Object-backed channels only where needed: long-running job progress and the cross-device live timer.
-    - `platform.client-state.global-server-push` · `deferred` · **Global server-push layer** — Per-matter/per-firm push channel extending the DO-channel primitive. _Note: Explicitly rejected for v1, kept as a seam._
-    - `platform.client-state.local-first-sync` · `cut` · **Local-first sync engine** — Full client sync engine (TanStack DB / Zero / Triplit class). _Note: Rejected as the default (fights the server-authoritative ledger and per-firm isolation); kept only as a seam._
+    - `platform.client-state.global-server-push` · `deferred` · **Global server-push layer** — Per-matter/per-firm push channel extending the DO-channel primitive. _Note: Rejected for v1 by ADR-0054 and kept as a seam — freshness is refetch-on-focus plus the cross-tab broadcast, with per-feature live channels on the Durable-Object-per-job primitive only where genuinely needed. Extending that same primitive to a per-matter or per-firm channel is the reopening move if a real need appears._
+    - `platform.client-state.local-first-sync` · `cut` · **Local-first sync engine** — Full client sync engine (TanStack DB / Zero / Triplit class). _Note: Cut as the default by ADR-0054 — it fights the server-authoritative ledger and the per-firm-D1 model — and kept only as a seam. Offline follows the delivery-model parity table instead: the web cache is in-memory and cleared on logout, and the desktop shell adds a persister plus an outbound mutation queue behind the same call sites._
   - `platform.architectural-integrity` · `partial` · **Architectural integrity and coherence** — Coherence engineered as a property of the codebase: prevent structurally, fail loudly in CI, make the right thing discoverable.
     - `platform.architectural-integrity.chokepoint-seams` · `shipped` · **Chokepoint seams** — Cross-cutting concerns as properties of a mandatory path: firm-scoped data access, protected() fields, audit-on-write, outbox-on-effect.
     - `platform.architectural-integrity.registry-first` · `shipped` · **Registry-first pattern** — Growing categories as declarative registries: permissions, identifier prefixes, protected fields, settings, conversion formats, tools catalog, flags.
@@ -1187,7 +1184,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.primitives.worker-secrets` · `shipped` · **Worker secrets anchors** — Root KEK, session-signing, transactional-email and admin keys as Worker secrets with a required-secrets deploy gate.
     - `platform.primitives.telemetry` · `shipped` · **Telemetry pipeline** — Workers Logs / Analytics Engine telemetry with structural redaction, correlation ids, and Error IDs.
   - `platform.time-model` · `partial` · **Time, dates and timezones** — Time modeled by kind — UTC instants, civil dates plus jurisdiction zone, wall-clock recurrences, durations — on the Temporal API. _Note: Convention decided and applied in schemas; no Temporal-based formatting layer or storage fitness function in the tree yet._
-    - `platform.time-model.zone-context` · `not-started` · **Zone context homes** — IANA zone on each Location supplying default matter jurisdiction; per-user display-zone preference.
+    - `platform.time-model.zone-context` · `partial` · **Zone context homes** — IANA zone on each Location supplying default matter jurisdiction; per-user display-zone preference.
     - `platform.time-model.rendering-enforcement` · `not-started` · **Zone rendering enforcement** — Single UI formatting layer rendering in an explicit zone plus a fitness function forbidding naive local datetimes in storage.
   - `platform.durability-on-close` · `partial` · **Durability on close** — No graceful close ever trusted: acknowledged writes durable, replay safe, close/logout guards flush-first, autosaved server-side drafts.
     - `platform.durability-on-close.server-durability` · `shipped` · **Server-side durability** — Idempotent replay, outbox, DO durable storage for timer/job state, at-least-once queues with idempotent consumers.
@@ -1228,11 +1225,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Product Updates & User-Facing Documentation
 
-[`roadmap.d/product-updates.md`](../roadmap.d/product-updates.md) — 14 units of work, 14% shipped. 2 done, 2 part-built, 10 ahead, 0 parked.
+[`roadmap.d/product-updates.md`](../roadmap.d/product-updates.md) — 14 units of work, 14% shipped. 2 done, 4 part-built, 8 ahead, 0 parked.
 
 - `product-updates` · `partial` · **Product updates** — In-app and public changelog, release notes, roadmap, and live known-issues/status — versioned content bundled with the build, live content in control-plane KV.
   - `product-updates.sources` · `shipped` · **Authoring homes and fragment assembly** — CHANGELOG.md and ROADMAP.md as the single authoring homes, fed by fragment directories assembled on main; propose-only docs-maintenance agent drafts entries.
-  - `product-updates.artifact` · `not-started` · **Structured product-updates artifact** — Build step deriving product-updates.json (semver entries, categories, release-note highlights, roadmap items) from the markdown homes; malformed input fails CI; published to KV at deploy.
+  - `product-updates.artifact` · `partial` · **Structured product-updates artifact** — Build step deriving product-updates.json (semver entries, categories, release-note highlights, roadmap items) from the markdown homes; malformed input fails CI; published to KV at deploy.
   - `product-updates.release-notes` · `not-started` · **Curated release notes** — Curated highlights maintained with the changelog and surfaced in What's New.
   - `product-updates.updates-route` · `not-started` · **In-app /updates surface** — Authenticated deep-linkable route with What's New, Changelog, and Roadmap tabs plus a help-menu entry carrying the unread badge.
   - `product-updates.public-pages` · `not-started` · **Public changelog/roadmap/status pages** — Logged-out Workers static pages rendered from the published artifact and KV status, presentation identical to in-app.
@@ -1243,7 +1240,7 @@ to change a line here, edit the node in its area file and re-run the build.
 - `user-docs` · `partial` · **User-facing documentation** — Public help center, in-app contextual help, and separate admin docs, maintained in the same commit as the feature.
   - `user-docs.help-center` · `not-started` · **Public help center** — SEO-friendly help center served as Workers static assets.
   - `user-docs.in-app-help` · `not-started` · **In-app contextual help** — Contextual help surfaced inside the application.
-  - `user-docs.admin-docs` · `not-started` · **Admin documentation** — Separate administration docs for the firm owner.
+  - `user-docs.admin-docs` · `partial` · **Admin documentation** — Separate administration docs for the firm owner.
   - `user-docs.feature-guides` · `partial` · **Per-feature user guides** — End-user guides per shipped feature under docs/user/features/.
   - `user-docs.same-commit-rule` · `shipped` · **Docs-with-code maintenance rule** — User docs change in the same commit as the feature, audited by the docs-sync routine.
 

@@ -20,9 +20,10 @@
 - id: product-updates.artifact
   name: Structured product-updates artifact
   scope: Build step deriving product-updates.json (semver entries, categories, release-note highlights, roadmap items) from the markdown homes; malformed input fails CI; published to KV at deploy.
-  status: not-started
+  status: partial
+  surface: internal
   adrs: ADR-0048
-  evidence: The schema and the generators exist — packages/product-updates holds a versioned zod artifact schema plus buildPublicChangelogArtifact and buildPublicRoadmapArtifact, both strict enough that a malformed heading fails rather than silently dropping an entry. Nothing calls either outside their own tests: no build step runs them, no product-updates.json is written, and nothing publishes to KV at deploy.
+  evidence: Partial because the artifact exists as a package and as nothing else. The schema and the generators exist — packages/product-updates holds a versioned zod artifact schema plus buildPublicChangelogArtifact and buildPublicRoadmapArtifact, both strict enough that a malformed heading fails rather than silently dropping an entry. Nothing calls either outside their own tests: no build step runs them, no product-updates.json is written, and nothing publishes to KV at deploy.
 
 - id: product-updates.release-notes
   name: Curated release notes
@@ -100,9 +101,10 @@
 - id: user-docs.admin-docs
   name: Admin documentation
   scope: Separate administration docs for the firm owner.
-  status: not-started
+  status: partial
+  surface: awaiting-screen
   adrs: ADR-0019
-  evidence: docs/user/admin/ is no longer only a README — it holds two guides, natural-language-document-search.md and trust-disbursement-approvals.md, both written beside the features that needed them. What does not exist is admin documentation as a body of work: nothing covers firm setup, members and roles, permissions, locations, rate cards, numbering, or any of the other settings a firm owner administers.
+  evidence: Partial because two guides exist and the body of work does not. docs/user/admin/ is no longer only a README — it holds two guides, natural-language-document-search.md and trust-disbursement-approvals.md, both written beside the features that needed them. What does not exist is admin documentation as a body of work: nothing covers firm setup, members and roles, permissions, locations, rate cards, numbering, or any of the other settings a firm owner administers.
 
 - id: user-docs.feature-guides
   name: Per-feature user guides

@@ -186,7 +186,7 @@
   name: Per-vendor MFP panel apps
   scope: Apps on vendor firmware platforms (MEAP, EIP, ESA, OXP, OSA, eSF, HyPAS).
   status: deferred
-  notes: Rejected up front as core (unbounded per-vendor integration tax); optional single-dominant-device app deferred.
+  notes: Parked by the white paper's Inbound capture topic, which rejects building on vendor firmware up front as an unbounded per-vendor integration tax and frames the area as receiving-plus-routing instead. A single-dominant-device panel app stays available as one adapter behind the capture port, which is what makes the rejection cheap to revisit.
 
 - id: platform.url-navigation
   name: URL and navigation architecture
@@ -254,13 +254,15 @@
   name: Global server-push layer
   scope: Per-matter/per-firm push channel extending the DO-channel primitive.
   status: deferred
-  notes: Explicitly rejected for v1, kept as a seam.
+  adrs: ADR-0054
+  notes: Rejected for v1 by ADR-0054 and kept as a seam — freshness is refetch-on-focus plus the cross-tab broadcast, with per-feature live channels on the Durable-Object-per-job primitive only where genuinely needed. Extending that same primitive to a per-matter or per-firm channel is the reopening move if a real need appears.
 
 - id: platform.client-state.local-first-sync
   name: Local-first sync engine
   scope: Full client sync engine (TanStack DB / Zero / Triplit class).
   status: cut
-  notes: Rejected as the default (fights the server-authoritative ledger and per-firm isolation); kept only as a seam.
+  adrs: ADR-0054
+  notes: Cut as the default by ADR-0054 — it fights the server-authoritative ledger and the per-firm-D1 model — and kept only as a seam. Offline follows the delivery-model parity table instead: the web cache is in-memory and cleared on logout, and the desktop shell adds a persister plus an outbound mutation queue behind the same call sites.
 
 - id: platform.architectural-integrity
   name: Architectural integrity and coherence
@@ -480,8 +482,9 @@
 - id: platform.time-model.zone-context
   name: Zone context homes
   scope: IANA zone on each Location supplying default matter jurisdiction; per-user display-zone preference.
-  status: not-started
-  evidence: no zone column in packages/locations/src
+  status: partial
+  surface: awaiting-screen
+  evidence: Partial because the Location half is built and the per-user half is not. location.time_zone holds an IANA zone and never a fixed offset, because an offset breaks across daylight saving; packages/locations/src/location-service.ts refuses on write anything Intl cannot resolve, and an offset-shaped string by name. timeZoneForLocation in packages/document-assembly/src/resolve.ts is the ONE place it enters the platform, so an office recorded before the column existed falls back to the normalized zone in one spot rather than in every formatter. There is no per-user display-zone preference anywhere, and nothing derives a matter's jurisdiction from its office — location.jurisdiction is a separate column read by trust off the account's office, not by matters.
 
 - id: platform.time-model.rendering-enforcement
   name: Zone rendering enforcement
