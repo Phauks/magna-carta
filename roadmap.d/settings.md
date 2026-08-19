@@ -13,14 +13,14 @@
   name: Declarative settings registry
   scope: Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
   status: partial
-  evidence: FirmSettingDefinition entries across packages (timekeeping, matters, locations, inference, file-manager) + packages/data-access/src/setting-statements.ts; audited/effective-dated flags not uniform.
+  evidence: FirmSettingDefinition entries across eighteen modules in fourteen packages — ai-detection, billing, billing-core, conflicts, costs, discovery, file-manager (three of them), inference, locations, magnus, matters, notifications, search (two) and timekeeping — over packages/data-access/src/setting-statements.ts; audited/effective-dated flags not uniform, and a definition sits beside its own subject rather than in one settings module per package.
 
 - id: settings.registry.backend-definitions
   name: Backend firm-setting definitions
   scope: Per-package setting definitions with validated write paths and total reads (safe defaults).
   status: shipped
   surface: internal
-  evidence: packages/{timekeeping,matters,locations,inference}/src/settings.ts + data-access setting statements/tests.
+  evidence: packages/{timekeeping,matters,locations,inference,magnus,notifications,search,ai-detection}/src/settings.ts and the same shape under a subject-named module elsewhere (packages/file-manager/src/scan-policy-settings.ts, packages/conflicts/src/recheck-settings.ts, packages/costs/src/recovery-policy.ts), over data-access setting statements and their tests.
 
 - id: settings.registry.generated-ui
   name: Registry-generated settings pages
@@ -111,7 +111,7 @@
   name: Notification preferences category
   scope: Per-user type/category-by-channel routing matrix with locked mandatory categories.
   status: not-started
-  evidence: No notifications settings surface. The notification type registry it would render is shipped (packages/notifications/src/registry.ts); what this page still waits on is the per-category preference matrix and the firm policy floor, which are a later notifications sub-slice.
+  evidence: No notifications settings surface, and the page is the only thing missing. The notification type registry is shipped (packages/notifications/src/registry.ts), and so is everything this page would render — GET and PATCH /api/v1/notifications/preferences resolve the per-category matrix, report which in-app switches are locked and by whom, and hold the firm floor's two asymmetries: a firm may raise the in-app floor for a category and may never raise a member's email cadence.
 
 - id: settings.area-ui.documents-templates-category
   name: Documents & templates category

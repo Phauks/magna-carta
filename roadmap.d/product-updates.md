@@ -7,7 +7,7 @@
   scope: In-app and public changelog, release notes, roadmap, and live known-issues/status — versioned content bundled with the build, live content in control-plane KV.
   status: partial
   adrs: ADR-0048
-  evidence: Authoring homes and fragment assembly are shipped and the live-status KV machinery exists; the structured artifact, /updates route, and public update pages are unbuilt.
+  evidence: Authoring homes and fragment assembly are shipped, the live-status KV machinery exists, and the artifact's schema and parsers are a real package (packages/product-updates). What is unbuilt is everything that would move an artifact anywhere: no build step calls the builders, nothing writes product-updates.json, nothing publishes to KV, and there is no /updates route and no public update page.
 
 - id: product-updates.sources
   name: Authoring homes and fragment assembly
@@ -22,7 +22,7 @@
   scope: Build step deriving product-updates.json (semver entries, categories, release-note highlights, roadmap items) from the markdown homes; malformed input fails CI; published to KV at deploy.
   status: not-started
   adrs: ADR-0048
-  evidence: No generator, schema, or artifact in the build; decided in ADR-0048 only.
+  evidence: The schema and the generators exist — packages/product-updates holds a versioned zod artifact schema plus buildPublicChangelogArtifact and buildPublicRoadmapArtifact, both strict enough that a malformed heading fails rather than silently dropping an entry. Nothing calls either outside their own tests: no build step runs them, no product-updates.json is written, and nothing publishes to KV at deploy.
 
 - id: product-updates.release-notes
   name: Curated release notes
@@ -43,7 +43,7 @@
   status: not-started
   adrs: ADR-0048
   evidence: No public updates pages; the shipped public status page (apps/status-worker) is the observability surface, not this one.
-  awaiting-owner: Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. Both documents are written and rendered; only the page is missing.
+  awaiting-owner: Whether the public changelog and roadmap get a page on the marketing site, and whether that page is indexed by search engines. The public changelog is rendered to docs/public-changelog.md; the public roadmap's renderer is written and linted but deliberately writes nothing to disk, because there are no users yet and a document nobody reads is a document nobody keeps honest.
 
 - id: product-updates.known-issues
   name: Live known issues / status
@@ -81,7 +81,7 @@
   scope: Public help center, in-app contextual help, and separate admin docs, maintained in the same commit as the feature.
   status: partial
   adrs: ADR-0019
-  evidence: docs/user/ exists with seven feature guides; no help-center delivery, in-app help, or real admin docs.
+  evidence: docs/user/ holds thirty-one feature guides and two admin guides; no help-center delivery and no in-app help.
 
 - id: user-docs.help-center
   name: Public help center
@@ -102,14 +102,14 @@
   scope: Separate administration docs for the firm owner.
   status: not-started
   adrs: ADR-0019
-  evidence: docs/user/admin/ contains only a README stub.
+  evidence: docs/user/admin/ is no longer only a README — it holds two guides, natural-language-document-search.md and trust-disbursement-approvals.md, both written beside the features that needed them. What does not exist is admin documentation as a body of work: nothing covers firm setup, members and roles, permissions, locations, rate cards, numbering, or any of the other settings a firm owner administers.
 
 - id: user-docs.feature-guides
   name: Per-feature user guides
   scope: End-user guides per shipped feature under docs/user/features/.
   status: partial
   surface: awaiting-screen
-  evidence: Guides exist for file-hash-integrity, file-unlock-password-recovery, metadata-inspector-scrubber, safe-website-viewer, shipping, whois-lookup, and network-speed-test; coverage tracks only a subset of shipped surfaces.
+  evidence: Thirty-one guides under docs/user/features/ (plus network-speed-test.md, which sits at docs/user/ rather than in the directory), spanning the tools, matters and documents, discovery review sets and coding, billing and trust, the calendar, safe custody, the asset register, conflicts, email filing, and signing in. Coverage still tracks only a subset of shipped surfaces, and the guides run ahead of the screens in several areas — a guide exists for capabilities whose only interface is the API.
 
 - id: user-docs.same-commit-rule
   name: Docs-with-code maintenance rule
