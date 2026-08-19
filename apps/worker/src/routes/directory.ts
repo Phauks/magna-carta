@@ -28,7 +28,11 @@ import {
   MergeSameEntityError,
   MergeUnknownFieldError,
 } from "@magna-carta/directory/merge";
-import { linkMatterParty } from "@magna-carta/directory/party";
+import {
+  linkMatterParty,
+  readMatterParties,
+  unlinkMatterParty,
+} from "@magna-carta/directory/party";
 import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
 import {
   EDGE_TYPES,
@@ -43,7 +47,11 @@ import {
 } from "@magna-carta/directory/run-directory-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { identifierField, idempotencyKeyHeader } from "../contracts/common.ts";
-import type { DirectoryOrganizationId, DirectoryPersonId } from "@magna-carta/identifiers/types";
+import type {
+  DirectoryOrganizationId,
+  DirectoryPersonId,
+  MatterPartyId,
+} from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -351,6 +359,44 @@ const LinkMatterPartyRequest = z
   .openapi("LinkMatterPartyRequest");
 
 const MatterPartyResponse = z.object({ id: z.string() }).openapi("MatterPartyResponse");
+
+const MatterPartyEntry = z
+  .object({
+    id: z.string(),
+    matterId: z.string(),
+    entityId: z.string(),
+    role: z.string(),
+    capacity: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The capacity recorded on this link, or null where the firm recorded none. A null is an " +
+          "honest absence and never a default — nothing infers a capacity from the role.",
+      }),
+    entityKind: z.enum(["person", "organization", "unknown"]).openapi({
+      description:
+        "Which side of the directory the entity resolves to. 'unknown' means the link points at " +
+        "an entity that is no longer there, which is a fact worth showing rather than hiding.",
+    }),
+    displayName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "What to call this party, or null when the directory holds no name for the entity. A " +
+          "caller shows the identifier itself rather than inventing a placeholder.",
+      }),
+  })
+  .openapi("MatterPartyEntry");
+
+const MatterPartyListResponse = z
+  .object({ parties: z.array(MatterPartyEntry) })
+  .openapi("MatterPartyListResponse");
+
+const UnlinkMatterPartyResponse = z
+  .object({ unlinked: z.boolean() })
+  .openapi("UnlinkMatterPartyResponse");
 
 // ---- shared error responses ----
 
@@ -839,6 +885,59 @@ const linkMatterPartyRoute = defineOpenAPIRoute(mutationMeta("linkMatterParty", 
   },
 });
 
+const listMatterPartiesRoute = defineOpenAPIRoute(readMeta("listMatterParties", null), {
+  method: "get",
+  path: "/api/v1/directory/matter-parties",
+  description:
+    "Returns the live parties on one matter — the link id, the directory entity, the role, and the " +
+    "capacity recorded on the link. One entity appears once per role it wears. Severed links are " +
+    "excluded.",
+  request: { query: z.object({ matterId: identifierField("matter") }) },
+  responses: {
+    200: {
+      description:
+        "The matter's parties. A matter that holds none answers with an empty list rather than a " +
+        "404 — the read is already scoped to the session firm's own database, so an empty answer " +
+        "is the truthful one and distinguishing 'no parties' from 'no such matter' would cost a " +
+        "second query to tell a caller something it cannot act on differently.",
+      content: { "application/json": { schema: MatterPartyListResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const unlinkMatterPartyRoute = defineOpenAPIRoute(
+  mutationMeta("unlinkMatterParty", WRITE_PERMISSION),
+  {
+    method: "delete",
+    path: "/api/v1/directory/matter-parties/{id}",
+    description:
+      "Severs one party link. The row is retained and marked severed, never removed, so a conflicts " +
+      "report that named this party stays reproducible. Severing a link that is already severed " +
+      "reports 404.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: z.object({ id: identifierField("matterParty") }),
+    },
+    responses: {
+      200: {
+        description: "The link was severed",
+        content: { "application/json": { schema: UnlinkMatterPartyResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
 type DirectoryApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoint): void {
@@ -1198,6 +1297,55 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
           writeOptions(userId, idempotency),
         );
         return c.json({ id } as z.infer<typeof MatterPartyResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // GET /api/v1/directory/matter-parties
+  app.openapi(
+    {
+      ...listMatterPartiesRoute,
+      middleware: chokepointMiddleware(chokepoint, listMatterPartiesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("query");
+      const parties = await readMatterParties(firm.firmDatabase, matterId);
+      return c.json({ parties } as z.infer<typeof MatterPartyListResponse>, 200);
+    },
+  );
+
+  // DELETE /api/v1/directory/matter-parties/{id}
+  app.openapi(
+    {
+      ...unlinkMatterPartyRoute,
+      middleware: chokepointMiddleware(chokepoint, unlinkMatterPartyRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const unlinked = await unlinkMatterParty(
+          firm.firmDatabase,
+          id as MatterPartyId,
+          writeOptions(userId, idempotency),
+        );
+        // A link that was already severed, or never existed, is indistinguishable from here and
+        // both are "there is no live link at this id" — one 404 for both, rather than inventing a
+        // distinction the caller cannot act on differently.
+        if (!unlinked) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Not found",
+            status: 404,
+            detail: "No live party link carries this id.",
+          });
+        }
+        return c.json({ unlinked } as z.infer<typeof UnlinkMatterPartyResponse>, 200);
       } catch (caught) {
         return directoryErrorResponse(c, caught);
       }

@@ -11,6 +11,7 @@ import {
   listPartyRoles,
   readMatterParties,
   readMatterPartiesForEmailAddresses,
+  unlinkMatterParty,
 } from "../src/party.ts";
 
 const clock = { now: () => "2026-06-17T00:00:00.000Z" };
@@ -164,4 +165,85 @@ test("linkMatterParty rejects a non-existent entity with UnknownEntityError", as
       { clock, actorUserId: ACTOR, randomSource: seededRandomSource("t14-ghost") },
     ),
   ).rejects.toThrow("entity not found or soft-deleted");
+});
+
+test("the capacity a link was written with is the capacity read back", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_capacity");
+  const personId = await createPerson(
+    database,
+    { given: "Ida", family: "Fell" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("cap-person") },
+  );
+
+  await linkMatterParty(
+    database,
+    { matterId: "mat_capacity", entityId: personId, role: "executor", capacity: "Administrator" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("cap-with") },
+  );
+  await linkMatterParty(
+    database,
+    { matterId: "mat_capacity", entityId: personId, role: "beneficiary" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("cap-without") },
+  );
+
+  const parties = await readMatterParties(database, "mat_capacity");
+  const byRole = new Map(parties.map((party) => [party.role, party.capacity]));
+  expect(byRole.get("executor")).toBe("Administrator");
+  // An unrecorded capacity reads as an honest null, never as an inferred value or an empty string.
+  expect(byRole.get("beneficiary")).toBeNull();
+});
+
+test("unlinkMatterParty severs one link and leaves the entity's other roles standing", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_sever");
+  const personId = await createPerson(
+    database,
+    { given: "Cyril", family: "Mott" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("sever-person") },
+  );
+
+  const clientLink = await linkMatterParty(
+    database,
+    { matterId: "mat_sever", entityId: personId, role: "client" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("sever-1") },
+  );
+  await linkMatterParty(
+    database,
+    { matterId: "mat_sever", entityId: personId, role: "guardian" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("sever-2") },
+  );
+
+  expect(await unlinkMatterParty(database, clientLink, { clock, actorUserId: ACTOR })).toBe(true);
+
+  const parties = await readMatterParties(database, "mat_sever");
+  expect(parties.map((party) => party.role)).toEqual(["guardian"]);
+});
+
+test("a severed link is retained as evidence, and severing it again reports no live link", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_evidence");
+  const personId = await createPerson(
+    database,
+    { given: "Nell", family: "Praed" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("ev-person") },
+  );
+  const link = await linkMatterParty(
+    database,
+    { matterId: "mat_evidence", entityId: personId, role: "client" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("ev-link") },
+  );
+
+  expect(await unlinkMatterParty(database, link, { clock, actorUserId: ACTOR })).toBe(true);
+  // The row survives the sever — a conflicts report that named this party stays reproducible.
+  const { results } = await database
+    .prepare("SELECT deleted_at FROM matter_party WHERE id = ?1")
+    .bind(link)
+    .all<{ deleted_at: string | null }>();
+  expect(results).toHaveLength(1);
+  expect(results[0]?.deleted_at).toBe(clock.now());
+
+  // Guarded, so a retry cannot rewrite the instant the link was severed.
+  expect(await unlinkMatterParty(database, link, { clock, actorUserId: ACTOR })).toBe(false);
+  expect(await readMatterParties(database, "mat_evidence")).toEqual([]);
 });

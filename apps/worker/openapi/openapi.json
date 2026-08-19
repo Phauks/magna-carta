@@ -6447,6 +6447,80 @@
           "role"
         ]
       },
+      "MatterPartyListResponse": {
+        "type": "object",
+        "properties": {
+          "parties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterPartyEntry"
+            }
+          }
+        },
+        "required": [
+          "parties"
+        ]
+      },
+      "MatterPartyEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "capacity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The capacity recorded on this link, or null where the firm recorded none. A null is an honest absence and never a default — nothing infers a capacity from the role."
+          },
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "unknown"
+            ],
+            "description": "Which side of the directory the entity resolves to. 'unknown' means the link points at an entity that is no longer there, which is a fact worth showing rather than hiding."
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call this party, or null when the directory holds no name for the entity. A caller shows the identifier itself rather than inventing a placeholder."
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "entityId",
+          "role",
+          "capacity",
+          "entityKind",
+          "displayName"
+        ]
+      },
+      "UnlinkMatterPartyResponse": {
+        "type": "object",
+        "properties": {
+          "unlinked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "unlinked"
+        ]
+      },
       "CreatedConflictsCheckResponse": {
         "type": "object",
         "properties": {
@@ -41536,6 +41610,211 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MatterPartyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Returns the live parties on one matter — the link id, the directory entity, the role, and the capacity recorded on the link. One entity appears once per role it wears. Severed links are excluded.",
+        "operationId": "directory.listMatterParties",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listMatterParties",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's parties. A matter that holds none answers with an empty list rather than a 404 — the read is already scoped to the session firm's own database, so an empty answer is the truthful one and distinguishing 'no parties' from 'no such matter' would cost a second query to tell a caller something it cannot act on differently.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPartyListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/matter-parties/{id}": {
+      "delete": {
+        "description": "Severs one party link. The row is retained and marked severed, never removed, so a conflicts report that named this party stays reproducible. Severing a link that is already severed reports 404.",
+        "operationId": "directory.unlinkMatterParty",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.unlinkMatterParty",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterParty_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was severed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnlinkMatterPartyResponse"
                 }
               }
             }
