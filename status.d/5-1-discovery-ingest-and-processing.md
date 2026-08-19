@@ -10,7 +10,7 @@ ui: n/a
 load-profile: done by="Opus 5"
 tested: done by="Opus 5"
 branch: claude/discovery-5-1-4
-active-work: docs/active-work/claude/discovery-5-1-4.md
+active-work:
 next: 5·2·1 — tagging and coding's surface, which begins on the review-document list read this slice built. Owner flag D4 (whether the semantic half is built for review sets at all, and on what trigger) is the one part of 5·1 deliberately left unbuilt
 link-spec: docs/specs/2026-08-05-discovery-5-1-design.md
 link-plan: docs/specs/2026-08-05-discovery-5-1-implementation-plan.md
