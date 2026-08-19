@@ -636,7 +636,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Firm-mailbox email filing</span>
 <code>communications.email.filing</code>
 <p>Matter correspondence through the firm's own Gmail/Outlook mailbox via the email plugin, threaded in the mailbox and logged to the matter.</p>
-<p class="note">Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route; the firm-mailbox Gmail/Outlook plugin path is not built.</p>
+<p class="note">Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route. The add-in's server surface has landed since — three routes in apps/worker/src/routes/email-add-in.ts answering the questions a Save-and-File pane asks that the matter-rooted routes do not (where should this go, what happened to what I filed, what do I show this member), with the suggestion ranking narrowed to matters the member may see before it is hydrated, so a walled matter contributes no suggestion, no reason and no count. The add-in client and the mailbox OAuth connection are still unbuilt.</p>
 </li><li class="n d3" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Capture-address management</span>
@@ -648,7 +648,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Auto-file rules</span>
 <code>communications.email.filing.auto-file-rules</code>
 <p>Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture.</p>
-<p class="note">The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose. Still missing: the management routes and the review read. No screens.</p>
+<p class="note">The rule model, the capability, the pure guardrail decision, and the evaluation that runs during a capture — the port on the capture core and the evidence gatherer in the consumer are both built, so a rule now fires on real mail. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away, and an out-of-range threshold stages the message as unevaluable rather than being clamped to something nobody chose; they are read and written at GET/PUT /api/v1/firm/email-auto-file-policy (apps/worker/src/routes/auto-file-policy.ts), which is the only auto-file route that exists. Still missing: the rule management routes and the decision-ledger review read. No screens.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Email parse core</span>
