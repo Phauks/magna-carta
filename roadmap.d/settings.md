@@ -80,6 +80,7 @@
   status: shipped
   surface: screen
   evidence: The settings/theme, /accessibility and /text pages over apps/web/src/lib/preferences/persisted-preference.svelte.ts, which syncs across tabs on the storage event, and apps/web/src/lib/settings/appearance-axes.svelte.ts, whose values are the same storage the no-flash boot script reads.
+  notes: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.
 
 - id: settings.area-ui.firm-band
   name: Firm settings band

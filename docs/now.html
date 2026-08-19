@@ -1453,7 +1453,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Keyboard-first accessibility</span>
 <code>design-system.ui-pipeline.accessibility</code>
 <p>Keyboard-first and WCAG; axe checks enforced in stories; screen-reader passes per tier.</p>
-<p class="note">Per-tier NVDA passes pending per STATUS close-out list.</p>
+<p class="note">Per-tier NVDA passes pending per STATUS close-out list. The high-contrast axis is a working preference that only the checkbox and the switch answer, and its token context is deliberately unpopulated — see settings.area-ui.personal-preferences.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Real-density UI data</span>
@@ -4343,6 +4343,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Personal preferences (Theme, Accessibility, Text)</span>
 <code>settings.area-ui.personal-preferences</code>
 <p>Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis.</p>
+<p class="note">The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Firm settings band</span>
