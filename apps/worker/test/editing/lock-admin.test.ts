@@ -12,6 +12,7 @@ import { applyControlPlaneMigrations } from "../support/apply-control-plane-migr
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
@@ -20,6 +21,10 @@ import {
 // The exclusive-lock + administration surface: an opt-in exclusive checkout makes a second member's
 // edit launch read-only (others still read), and a holder of documents:forceReleaseLock can release
 // another member's lock — auditing both the actor and the displaced holder, and freeing the document.
+//
+// Every member here holds nothing but a seeded role, and the two seats are exactly the split the
+// force-release seed draws: an Owner/Admin may displace a colleague's hold, and a Paralegal — who
+// may edit, may take the copy offline, and may hold the exclusive lock — may not.
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
@@ -28,19 +33,10 @@ let matterId: MatterId;
 let ownerUserId: UserId;
 let holderUserId: UserId;
 let revokedUserId: UserId;
-let ownerCookie: string; // documents:edit + checkout + forceReleaseLock
-let holderCookie: string; // documents:edit + checkout
-let editorBCookie: string; // documents:edit only
-let revokedCookie: string; // documents:checkout (then deactivated)
-
-async function grant(userId: UserId, permission: string): Promise<void> {
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, ?3, NULL, ?2, ?4)",
-    )
-    .bind(newIdentifier("grant"), userId, permission, ISO)
-    .run();
-}
+let ownerCookie: string; // Owner/Admin: edit + checkout + forceReleaseLock
+let holderCookie: string; // Paralegal: edit + checkout, no force-release
+let editorBCookie: string; // Paralegal: edit + checkout, no force-release
+let revokedCookie: string; // Paralegal: checkout (then deactivated)
 
 async function seedCleanFile(): Promise<{ fileId: FileId; versionId: FileVersionId }> {
   const fileId = newIdentifier("file");
@@ -97,27 +93,20 @@ beforeAll(async () => {
   const owner = await seedCredentialedUser("lock-owner@example.com", { firmId });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Lock Owner", firmId);
-  await grant(owner.userId, "documents:edit");
-  await grant(owner.userId, "documents:checkout");
-  await grant(owner.userId, "documents:forceReleaseLock");
   ownerCookie = await signInForSessionCookie("lock-owner@example.com");
 
   const holder = await seedCredentialedUser("lock-holder@example.com", { firmId });
   holderUserId = holder.userId;
-  await mirrorMemberWithOwnerRole(holder.userId, "Lock Holder", firmId);
-  await grant(holder.userId, "documents:edit");
-  await grant(holder.userId, "documents:checkout");
+  await mirrorMemberWithRole(holder.userId, "Lock Holder", firmId, "Paralegal");
   holderCookie = await signInForSessionCookie("lock-holder@example.com");
 
   const editorB = await seedCredentialedUser("lock-editorb@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(editorB.userId, "Lock EditorB", firmId);
-  await grant(editorB.userId, "documents:edit");
+  await mirrorMemberWithRole(editorB.userId, "Lock EditorB", firmId, "Paralegal");
   editorBCookie = await signInForSessionCookie("lock-editorb@example.com");
 
   const revoked = await seedCredentialedUser("lock-revoked@example.com", { firmId });
   revokedUserId = revoked.userId;
-  await mirrorMemberWithOwnerRole(revoked.userId, "Lock Revoked", firmId);
-  await grant(revoked.userId, "documents:checkout");
+  await mirrorMemberWithRole(revoked.userId, "Lock Revoked", firmId, "Paralegal");
   revokedCookie = await signInForSessionCookie("lock-revoked@example.com");
 
   matterId = newIdentifier("matter");
@@ -225,7 +214,7 @@ describe("force-release", () => {
     expect(editState?.edit_state).toBe("coediting");
   });
 
-  it("denies a member without documents:forceReleaseLock", async () => {
+  it("denies a Paralegal — an editor's seat carries no authority to displace another member's hold", async () => {
     const { fileId } = await seedCleanFile();
     expect((await checkout(fileId, holderCookie, { lockType: "exclusive" })).status).toBe(200);
     expect((await forceRelease(fileId, editorBCookie)).status).toBe(403);

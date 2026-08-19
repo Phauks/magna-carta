@@ -12,21 +12,24 @@ import { verifyEditToken } from "../../src/editing/wopi-token.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
-  mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "../support/test-auth.ts";
 
-// The editor-launch route over the real chokepoint + Miniflare bindings. documents:edit is granted
-// directly to one owner (not its role), so a second Owner/Admin member without the grant exercises
-// the firm-level RBAC denial. The launch mints a real WOPI token, asserted by verifying it back.
+// The editor-launch route over the real chokepoint + Miniflare bindings. Both members here hold
+// nothing but a SEEDED ROLE — no direct grant anywhere in this file — because the question this
+// suite has to answer is whether an ordinary member of an ordinary firm can open the editor at all.
+// A Paralegal can (documents:edit is seeded to the three content-writing seats) and a Read-only
+// seat cannot, which is the denial. The launch mints a real WOPI token, asserted by verifying it
+// back.
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
 let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
-let ownerUserId: UserId;
+let editorUserId: UserId;
 let editorCookie: string;
 let noPermCookie: string;
 let fileId: FileId;
@@ -46,7 +49,7 @@ async function seedCleanFile(): Promise<{ fileId: FileId; versionId: FileVersion
       "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
         "VALUES (?1, ?2, 1, ?3, 10, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'seed-hash', 'clean', ?4, ?5, ?5)",
     )
-    .bind(versionId, id, r2Key, ownerUserId, ISO)
+    .bind(versionId, id, r2Key, editorUserId, ISO)
     .run();
   await firmDb
     .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
@@ -64,26 +67,23 @@ beforeAll(async () => {
     .bind(firmId)
     .run();
 
-  const owner = await seedCredentialedUser("edit-owner@example.com", {
-    userName: "Edit Owner",
+  // A Paralegal, holding documents:edit through the seeded role and nothing else. If the seed ever
+  // stops reaching this seat the launch stops working here, which is the failure the firm would see.
+  const editor = await seedCredentialedUser("edit-paralegal@example.com", {
+    userName: "Edit Paralegal",
     firmId,
   });
-  ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Edit Owner", firmId);
-  // Grant documents:edit directly to this member (the role-seeding migration lands at integration).
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:edit', NULL, ?2, ?3)",
-    )
-    .bind(newIdentifier("grant"), owner.userId, ISO)
-    .run();
-  editorCookie = await signInForSessionCookie("edit-owner@example.com");
+  editorUserId = editor.userId;
+  await mirrorMemberWithRole(editor.userId, "Edit Paralegal", firmId, "Paralegal");
+  editorCookie = await signInForSessionCookie("edit-paralegal@example.com");
 
+  // A Read-only seat: a full member of the same firm, with sight of the matter and no grant that
+  // lets them open the document for writing.
   const noPerm = await seedCredentialedUser("edit-noperm@example.com", {
     userName: "No Permission",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "No Permission", firmId);
+  await mirrorMemberWithRole(noPerm.userId, "No Permission", firmId, "Read-only");
   noPermCookie = await signInForSessionCookie("edit-noperm@example.com");
 
   matterId = newIdentifier("matter");
@@ -91,7 +91,7 @@ beforeAll(async () => {
     .prepare(
       "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Editing Matter', 'open', ?2, ?3, ?3)",
     )
-    .bind(matterId, ownerUserId, ISO)
+    .bind(matterId, editorUserId, ISO)
     .run();
   ({ fileId } = await seedCleanFile());
 });
@@ -104,7 +104,7 @@ function launch(path: string, cookie: string): Promise<Response> {
 }
 
 describe("POST /api/v1/documents/{fileId}/edit-session", () => {
-  it("returns the editor URL and a verifiable edit token for a permitted member", async () => {
+  it("returns the editor URL and a verifiable edit token for a member holding documents:edit by role alone", async () => {
     const response = await launch(`/api/v1/documents/${fileId}/edit-session`, editorCookie);
 
     expect(response.status).toBe(200);
@@ -126,7 +126,7 @@ describe("POST /api/v1/documents/{fileId}/edit-session", () => {
     expect(claims.firmId).toBe(firmId);
   });
 
-  it("denies a member without documents:edit", async () => {
+  it("denies a Read-only member, whose seat the documents:edit seed deliberately does not reach", async () => {
     const response = await launch(`/api/v1/documents/${fileId}/edit-session`, noPermCookie);
     expect(response.status).toBe(403);
   });

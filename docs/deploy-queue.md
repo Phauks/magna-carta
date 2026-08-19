@@ -359,6 +359,40 @@ review-load-record` — deliberately a different class from the
   (`20260816T090000_discovery-dedup-and-report`) runs itself on the Durable
   Object's next wake.
 
+- **Nine permissions that no role could hold get their seeds, and members gain
+  capabilities on the push.** The additive per-firm migration
+  (`20260819T220000_seed-document-editing-and-tools-permissions`, thirty
+  `INSERT`s into `role_permission`, no schema statement) runs itself on the
+  Durable Object's next wake, and permissions are resolved per request, so a
+  member sees the change on their next request with no re-login. No new binding,
+  no new secret, no new queue, and **no dashboard step at all** — but it is a
+  visible behaviour change and worth knowing before the push rather than after.
+
+  **Four are the co-editing surface** — `documents:edit`,
+  `documents:checkout`, `documents:forceReleaseLock`, `documents:reconcile` —
+  which have been enforced at the chokepoint since June and granted to nobody,
+  so the editor launch, the offline checkout, the check-in, the reconcile and
+  the force-release have been answering 403 to every member of every firm.
+  Nothing is taken away: this is the first time any of it is reachable. The
+  editor frame itself still needs `magna-carta-edit` deployed (its own entry
+  above), so a firm that pushes this without that worker gets a launch that
+  succeeds and a panel that stays blank, which the screen already explains.
+
+  **Five are Tools tiles** — property listings, county property records,
+  business-entity lookup, attorney-licence lookup, and shipping. `toolsByGroup`
+  renders only the tools a member's permission set covers, so four whole subject
+  groups have never appeared on `/tools` for any seat. After the push they
+  appear; four of the five still read "Soon" until their own page is built,
+  which is the same state eleven already-seeded tools are in.
+
+  **Who gets what**: edit and checkout reach Owner/Admin, Attorney and Paralegal
+  (where `files:upload` already sits); reconcile reaches Owner/Admin and
+  Attorney; force-release reaches Owner/Admin alone; the four link tiles reach
+  every default role including Read-only; the shipping tile reaches Owner/Admin,
+  matching `shipping:manage`. Widening any of these later is one more additive
+  migration — there is still no surface by which a firm can grant a permission
+  itself, which is the standing gap behind all of this.
+
 ## Position
 
 - Production is `release` @ `0988844` (2026-07-04). `main` is several hundred

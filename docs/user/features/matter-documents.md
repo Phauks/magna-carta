@@ -89,6 +89,22 @@ mystery.
 Until the editor is available everywhere, the reliable way to change a document is to work on it in
 the application you normally use and then save it back with **Save a new version** above.
 
+### Who can edit, and who decides between two copies
+
+- **Opening the editor, and taking a copy away to work on offline**, is available to the same people
+  who can add a document in the first place: owners and administrators, attorneys, and paralegals.
+  Typing a change and uploading a changed file are the same act, so they are the same permission.
+- **Deciding between two copies that have both changed** is narrower — owners, administrators and
+  attorneys. If you and a colleague both worked on the same document, somebody has to say which
+  version the firm stands behind, and the one that is set aside is kept either way, so nothing is
+  ever lost by that decision.
+- **Releasing a lock somebody else is holding** sits with owners and administrators alone. You should
+  rarely need it: a lock nobody is using is released on its own overnight, so a colleague on holiday
+  does not leave a document stuck.
+
+Everyone at the firm can still **read** a document, and watch it being edited, whatever their role —
+reading is never blocked by somebody else having it open.
+
 ## Sample matters
 
 Three matters exist purely so the matter screens can be looked at without any firm data behind them.

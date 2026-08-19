@@ -12,13 +12,15 @@ import { applyControlPlaneMigrations } from "../support/apply-control-plane-migr
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
+  mirrorMemberWithRole,
   seedCredentialedUser,
   seedFirm,
   signInForSessionCookie,
 } from "../support/test-auth.ts";
 
-// The offline checkout route over the real chokepoint. documents:checkout is granted directly to the
-// owner; a second member without it exercises the RBAC denial. The presigned URL is the dev presigner's
+// The offline checkout route over the real chokepoint. Both members hold nothing but a seeded role:
+// documents:checkout reaches the three content-writing seats, so an Owner/Admin has it and a
+// Read-only seat does not, which is the RBAC denial. The presigned URL is the dev presigner's
 // deterministic output (no R2 S3 creds off-production).
 
 const ISO = "2026-06-20T00:00:00.000Z";
@@ -59,19 +61,16 @@ beforeAll(async () => {
     .bind(firmId)
     .run();
 
+  // documents:checkout rides the seeded role — no direct grant here, so the suite exercises what an
+  // ordinary firm actually has.
   const owner = await seedCredentialedUser("checkout-owner@example.com", { firmId });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Checkout Owner", firmId);
-  await firmDb
-    .prepare(
-      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:checkout', NULL, ?2, ?3)",
-    )
-    .bind(newIdentifier("grant"), owner.userId, ISO)
-    .run();
   ownerCookie = await signInForSessionCookie("checkout-owner@example.com");
 
+  // A Read-only seat: the one the checkout seed deliberately does not reach.
   const noPerm = await seedCredentialedUser("checkout-noperm@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "Checkout NoPerm", firmId);
+  await mirrorMemberWithRole(noPerm.userId, "Checkout NoPerm", firmId, "Read-only");
   noPermCookie = await signInForSessionCookie("checkout-noperm@example.com");
 
   matterId = newIdentifier("matter");
@@ -133,7 +132,7 @@ describe("POST /api/v1/documents/{fileId}/checkout", () => {
     expect((await checkout(id, ownerCookie)).status).toBe(404);
   });
 
-  it("denies a member without documents:checkout", async () => {
+  it("denies a Read-only member, whose seat the documents:checkout seed does not reach", async () => {
     const { fileId } = await seedCleanFile();
     expect((await checkout(fileId, noPermCookie)).status).toBe(403);
   });

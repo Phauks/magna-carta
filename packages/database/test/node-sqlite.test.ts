@@ -178,6 +178,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "discovery:read",
         "discovery:review",
         "documents:assemble",
+        // Editing a document in the browser and taking it away to edit offline reach the same three
+        // content-writing seats files:upload and documents:assemble do — typing a new version and
+        // uploading one are the same act through two doors. What this seat does NOT get is
+        // documents:reconcile (choosing which of two divergent copies is the firm's text of record)
+        // or documents:forceReleaseLock (displacing a colleague's hold), so both are absent here.
+        "documents:checkout",
+        "documents:edit",
         "emails:file",
         "emails:manageLinks",
         "emails:read",
@@ -212,6 +219,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // trust:manage, which they deliberately do not have.
         "trust:read",
         "tools:whois",
+        // The four public-record link libraries reach every default role: they open a government
+        // or listing website in a new tab, read nothing of the firm's, hold no credential and
+        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // shipping:manage key that gates every operation behind the tile.
+        "tools:attorneyLicense",
+        "tools:businessLookup",
+        "tools:propertyListings",
+        "tools:propertyRecords",
       ].sort(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
@@ -251,6 +266,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:safeBrowse",
         "tools:speedTest",
         "tools:whois",
+        // The four public-record link libraries reach every default role: they open a government
+        // or listing website in a new tab, read nothing of the firm's, hold no credential and
+        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // shipping:manage key that gates every operation behind the tile.
+        "tools:attorneyLicense",
+        "tools:businessLookup",
+        "tools:propertyListings",
+        "tools:propertyRecords",
       ].sort(),
     );
     expect(grantsFor("Read-only").sort()).toEqual(
@@ -282,6 +305,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:safeBrowse",
         "tools:speedTest",
         "tools:whois",
+        // The four public-record link libraries reach every default role: they open a government
+        // or listing website in a new tab, read nothing of the firm's, hold no credential and
+        // store nothing. tools:shipping is the contrast and is Owner/Admin alone, matching the
+        // shipping:manage key that gates every operation behind the tile.
+        "tools:attorneyLicense",
+        "tools:businessLookup",
+        "tools:propertyListings",
+        "tools:propertyRecords",
       ].sort(),
     );
   });
