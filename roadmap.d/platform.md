@@ -291,7 +291,7 @@
   status: partial
   surface: internal
   adrs: ADR-0070
-  evidence: apps/worker/test/conformance.test.ts over the route registries and the emitted contract, packages/design-system/test/fitness/ (off-token and import-boundary gates), and fourteen lint:* scripts in package.json that the gate's Governance step derives rather than lists, so a new one runs on the pull request that adds it.
+  evidence: apps/worker/test/conformance.test.ts over the route registries and the emitted contract, packages/design-system/test/fitness/ (off-token and import-boundary gates), and fifteen lint:\* scripts in package.json that the gate's Governance step derives rather than lists, so a new one runs on the pull request that adds it. The newest is tooling/lint-unwired-writes, which fails any exported write-shaped function in apps/ or packages/ that nothing outside a test calls - the shape two subsystems shipped in and that no suite could catch, because in both cases the tests wrote the rows themselves.
   notes: Deterministic tiers shipped piecemeal per area; the propose-only LLM-as-fitness-function tier is not built (docs-sync agent exists for docs, not architecture).
 
 - id: platform.architectural-integrity.capability-indexes
