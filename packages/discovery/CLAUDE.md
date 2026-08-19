@@ -47,6 +47,12 @@ ADR-0039.)
 - `src/manifest.ts` — the two record artifacts as PURE text, and the three rules that make them
   reproducible
 - `src/manifest-statements.ts` — the keyset-ordered walks both artifacts are built from
+- `src/review-reads.ts` — **the member-facing reads**, all nine access-scoped: the review-set list,
+  the review set and its loads, the review-document list page and its undated tail, the exception
+  surface, and the occurrences. Its own `ACCESS_SCOPED_REVIEW_READS` registry, swept by the same
+  fitness pass as the coding builders
+- `src/index-statements.ts` — where a review document stands with the SEARCH index, and the backlog
+  reads over it
 
 ## Invariants that apply here
 
@@ -61,6 +67,15 @@ ADR-0039.)
   as a problem `detail`, a field label, and [`docs/user/`](../../docs/user/). Neither is ever
   shortened to the bare word. `tooling/lint-custodian-vocabulary.mjs` enforces all of it
   mechanically — both permitted forms, and no `custody*` identifier anywhere in this package.
+- **The list page is keyset-paged in TWO segments, and the second one is not an optimization.** A
+  production routinely arrives with documents nothing can date, and a descending sort puts those
+  after every dated one. A single keyset predicate over a nullable column either drops the whole
+  undated tail (any comparison with NULL is NULL) or is written as an OR the planner cannot turn into
+  a range. The dated segment and the undated tail are separate statements over the same index, and
+  the cursor distinguishes "no cursor" from "a cursor on an undated document" — collapsing those two
+  restarts the walk at the top every time it reaches the tail. The dated segment's predicate is a
+  ROW VALUE, `(sort_date, id) < (?, ?)`, not the equivalent OR: SQLite seeks on the first and scans
+  from the end of the index on the second, measured at 0.26 ms against 10.3 ms at the ceiling.
 - **A review document is a POINTER and never a copy.** It holds no bytes, and it holds no bulk text:
   the extracted text and the metadata sidecar are R2 objects it names by key. A 50,000-document
   review set averaging 30 KB of text is 1.5 GB, and this is the one table in the platform whose size
@@ -91,6 +106,21 @@ ADR-0039.)
   session, over a corpus the platform itself put there. There is nobody to check, and composing a
   predicate with nobody bound would be a clause matching whatever the previous binding happened to
   be. Anything a member reaches goes through `ACCESS_SCOPED_BUILDERS` and its fitness pass.
+- **The INDEX is a different stage with a different answer, and it is not an exception.** A document
+  that has been read but not yet indexed is recorded in `index_state` / `index_deferred_reason` on
+  its own row — the same shape `processing_deferred_reason` gives the stage before. It is deliberately
+  not a `review_document_exception`: that vocabulary is a CHECK-enforced closed list in which every
+  code is a sentence about what could not be READ, and every one is rendered into a report a firm
+  hands to another party, so "our own search index has not caught up" is not one of them and a later
+  deploy would silently change the number. The one index-stage failure that IS about the document —
+  its derived text gone from the bucket — files the existing `source-bytes-missing`.
+- **The extracted-text object separates pages with a FORM FEED, and that is a compatibility
+  contract.** It has two readers with opposite needs: a person opening a plain text file, and the
+  index, which needs the pages back as the passages they were so a hit can name its page. A form feed
+  is what a page break in a text file has been since line printers and cannot occur inside a passage,
+  because normalization drops every control character before anything derived is derived. A blank
+  line could not make that promise. Where the block count and the sidecar's page list disagree, the
+  reader REFUSES rather than pairing positionally.
 - **A load completes only when `loaded = processed + excepted`.** Enforced as a row CHECK on
   `discovery_load` as well as by the service, so a write path nobody has built yet cannot get past
   it. The exception report is what converts "we produced everything we could read" from an assertion

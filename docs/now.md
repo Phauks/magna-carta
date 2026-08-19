@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 754 nodes of the feature ledger in
+is the complete register rather than a digest: all 756 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**754 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
+**756 capabilities across 30 areas.** Every one of them is listed in [the register](#the-register)
 below. 133 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **621 that are units of work**, for the reason set out under [What a roll-up is
+count the **623 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 257 | 41% |
-| Part-built | partial, in-build | 102 | 17% |
-| Ahead | designed, planned, researching, not-started | 219 | 35% |
+| Done | shipped | 260 | 42% |
+| Part-built | partial, in-build | 102 | 16% |
+| Ahead | designed, planned, researching, not-started | 218 | 35% |
 | Parked | deferred, cut | 43 | 7% |
-| **All units of work** | | **621** | **100%** |
+| **All units of work** | | **623** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 257 | 41% |
+| `shipped` | 260 | 42% |
 | `partial` | 101 | 16% |
 | `in-build` | 1 | 0% |
 | `designed` | 44 | 7% |
 | `planned` | 18 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 152 | 25% |
+| `not-started` | 151 | 24% |
 | `deferred` | 41 | 7% |
 | `cut` | 2 | 0% |
-| **All statuses** | **621** | **100%** |
+| **All statuses** | **623** | **100%** |
 
 ### What a roll-up is not
 
-**133 of the 754 nodes are parents, and 107 of those parents are `partial`.** A parent's status is a
+**133 of the 756 nodes are parents, and 106 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 257 of 621 (41%). Shipped plus partial is 358 (58%).**
+**Shipped alone is 260 of 623 (42%). Shipped plus partial is 361 (58%).**
 
 The 101 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**359 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**362 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -82,10 +82,10 @@ ledger records it separately, in `surface:`.
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 20 | 5% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 48% |
-| No user surface by nature (`internal`) | 168 | 47% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 173 | 48% |
+| No user surface by nature (`internal`) | 169 | 47% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **359** | **100%** |
+| **Everything with something built** | **362** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -104,7 +104,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Core Domain — Directory, Matters & Locations | 31 | 19 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 58 | 53% |
 | Custodian (Safe Custody) | 6 | 2 | 0 | 1 | 0 | 0 | 0 | 2 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 15 | 73% |
-| Discovery (e-discovery) | 5 | 8 | 0 | 1 | 0 | 0 | 4 | 2 | 0 | 20 | 25% |
+| Discovery (e-discovery) | 8 | 8 | 0 | 1 | 0 | 0 | 3 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 38% |
 | Documents | 60 | 9 | 0 | 2 | 2 | 0 | 20 | 3 | 1 | 97 | 62% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **257** | **101** | **1** | **44** | **18** | **5** | **152** | **41** | **2** | **621** | **41%** |
+| **All areas** | **260** | **101** | **1** | **44** | **18** | **5** | **151** | **41** | **2** | **623** | **42%** |
 
 ## Where we have been
 
@@ -274,11 +274,12 @@ shows up in the nodes columns and not in this one.
 
 ## Waiting on you
 
-**27 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**28 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
 - **A supplied asset-schedule template** (`matter-assets.schedule-template`) — **Not built.** Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
+- **Semantic search** (`discovery.search.semantic`) — **Not built.** Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.
 - **Numbering schemes** (`exhibits.numbering`) — **Not built.** Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 - **In-text exhibit references** (`exhibits.references`) — **Not built.** Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
 - **Issued-set freeze** (`exhibits.issue`) — **Not built.** Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
@@ -689,13 +690,13 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Discovery (e-discovery)
 
-[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 20 units of work, 25% shipped. 5 done, 8 part-built, 5 ahead, 2 parked.
+[`roadmap.d/discovery.md`](../roadmap.d/discovery.md) — 22 units of work, 36% shipped. 8 done, 8 part-built, 4 ahead, 2 parked.
 
 - `discovery` · `partial` · **Discovery** — E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production. _Note: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem._
-  - `discovery.pipeline` · `partial` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
+  - `discovery.pipeline` · `shipped` · **Extraction pipeline** — Ingest to R2, queue-driven extraction/OCR in Containers, then index. _Note: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages._
     - `discovery.pipeline.engine` · `shipped` · **Discovery engine core** — Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion. _Note: Backend only, no user surface. The composite extraction port now routes to it — see discovery.pipeline.extraction-port._
     - `discovery.pipeline.extraction-port` · `partial` · **Composite extraction port** — Choosing an extraction engine per document from the bytes — the pure-Rust engine natively, recognition only for pages that are pixels, the office container for a legacy binary — and recording which one ran. _Note: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands._
-    - `discovery.pipeline.processing-lane` · `partial` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. Enqueuing review documents into the review-set corpus is 5-1-4._
+    - `discovery.pipeline.processing-lane` · `shipped` · **Processing queue lane** — The dedicated queue that carries one review document at a time off every hot path, and the consumer that ends each one in exactly one terminal state. _Note: The lane's own message is a two-kind union — a document, or one load asking for its record artifacts once its last document ends — so a completion never rides inside a document's turn. A processed document is handed to the index enqueue at the end of its turn, best-effort, because the row and both derived objects are already committed by then._
     - `discovery.pipeline.load-record` · `shipped` · **Load manifest and exception report** — The two records a load produces — what arrived, and every document that could not be read with the named reason for each — written once to R2 in a machine-readable and a printable form. _Note: Three deviations from the design are recorded rather than silently taken — three digests rather than five (the shipped row has three columns and no load-file specification asks for the other two), the extraction routes the corpus observed in place of engine version pins (no engine reports a version over its binding yet), and an exception row that may sit on a document whose state is `processed`, which is what a container with encrypted entries actually is._
     - `discovery.pipeline.review-set` · `partial` · **Review-set model** — The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest. _Note: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403._
     - `discovery.pipeline.load-lanes` · `partial` · **Load source lanes** — Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system. _Note: direct-collection is declared and refused BY NAME so its absence is visible rather than mysterious — it needs a collection tool, not an ingest path. Assistant transcripts are likewise refused by name until their lane lands with the review surface._
@@ -704,9 +705,11 @@ to change a line here, edit the node in its area file and re-run the build.
     - `discovery.archive-handling.contents-indexing` · `shipped` · **Archive contents in review** — Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload. _Note: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all. The narrow exception is scoped to this lane and nowhere else._
   - `discovery.search` · `partial` · **Search** — Full-text and semantic search over the discovery corpus.
     - `discovery.search.keyword` · `partial` · **Tantivy keyword search** — Tantivy (Rust) behind a swappable index interface.
+    - `discovery.search.corpus-index` · `shipped` · **Review-set corpus indexing** — A review set as its own search corpus — its own split prefix, its own catalog rows, its own wholesale deletion — and the enqueue that puts a processed review document into it. _Note: Dormant like the rest of the index — with no SEARCH_SERVICE binding every document parks deferred and a later replay drains it into the same derived split, which is what apps/worker/test/discovery-corpus-index.test.ts exercises. A review set never feeds the natural-language corpus: that surface's audience is the matter team, and a review set's access list is narrower._
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
   - `discovery.review` · `partial` · **Review workflow** — Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
-    - `discovery.review.filters` · `not-started` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
+    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on._
+    - `discovery.review.filters` · `partial` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
     - `discovery.review.tagging` · `partial` · **Tagging and coding** — Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage. _Note: Backend only — the coding panel, tag chips and viewer pane are deferred to the owner. Criteria-driven bulk at corpus scale waits on the corpus index read._
     - `discovery.review.redaction` · `partial` · **Redaction** — Applied redactions on documents under review.
     - `discovery.review.email-threading` · `not-started` · **Email threading** — Thread email documents during review.
