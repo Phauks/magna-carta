@@ -123,6 +123,35 @@ describe("runTemplateOrphanSweep", () => {
     // The one that would be data loss: this key is in no version row of the firm whose pass listed
     // it, and it is a live template all the same.
     expect(await env.R2.head(neighbourLive)).not.toBeNull();
+
+    // The pass leaves everything where it found it, so a test that plants an orphan now has to
+    // remove its own. The store is not rolled back between tests in this file, and a survivor would
+    // be counted again by the next pass.
+    await env.R2.delete(orphan);
+    await env.R2.delete(staged);
+  });
+
+  it("keeps every live template when the retention set spans more than one page", async () => {
+    // The retention read is paged, and the paging is load-bearing: an unpaged read that overflowed
+    // one response would throw, which disarms the pass for the WHOLE fleet, every night, silently.
+    // A walk that dropped or repeated rows would be worse — a dropped key is a live template that
+    // reads as garbage. Driven with a page size of 2 over 5 versions so the boundary is crossed
+    // three times, including a final short page.
+    const bytes = new TextEncoder().encode("paged");
+    const live: string[] = [];
+    for (let index = 0; index < 5; index++) live.push(await seedTemplateVersion(firmDb, bytes));
+    const orphan = await putUnnamedObject(bytes);
+
+    const report = await runTemplateOrphanSweep(env, {
+      nowMilliseconds: Date.now() + 2 * DAY_MILLISECONDS,
+      retentionPageSize: 2,
+    });
+
+    expect(report.disarmed).toBe(false);
+    // Exactly the one key no row names — every paged-in live key was retained.
+    expect(report.orphansFound).toBe(1);
+    for (const key of live) await env.R2.delete(key);
+    await env.R2.delete(orphan);
   });
 
   it("deletes nothing at all when a firm's retention read fails", async () => {

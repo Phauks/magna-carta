@@ -95,6 +95,9 @@ export interface TemplateOrphanSweepOptions {
   // eligibility test compares an R2 object's upload time against a cutoff, and a test cannot make an
   // object old, so it moves the cutoff instead.
   readonly nowMilliseconds?: number;
+  // Rows per page of the fleet retention read. Injectable so a test can cross the page boundary
+  // without seeding a thousand versions; the walk is a safety property and must be exercised.
+  readonly retentionPageSize?: number;
 }
 
 interface FleetRetentionSet {
@@ -111,6 +114,7 @@ async function readFleetTemplateKeys(
   env: Bindings,
   logger: Logger,
   correlationId: string,
+  pageSize: number | undefined,
 ): Promise<FleetRetentionSet> {
   const { results } = await env.DB_CONTROL.prepare(
     "SELECT id FROM firm WHERE bucket_name IS NOT NULL",
@@ -120,7 +124,7 @@ async function readFleetTemplateKeys(
   for (const firm of results) {
     try {
       const database = firmDatabaseFor(env.FIRM_DATABASE, firm.id);
-      for (const key of await listTemplateVersionR2Keys(database)) keys.add(key);
+      for (const key of await listTemplateVersionR2Keys(database, pageSize)) keys.add(key);
     } catch (caught) {
       complete = false;
       logOperationFailed(
@@ -149,7 +153,12 @@ export async function runTemplateOrphanSweep(
   // however certain the rest of the test looks.
   const writtenBefore = nowMilliseconds - gracePeriod;
 
-  const retention = await readFleetTemplateKeys(env, logger, correlationId);
+  const retention = await readFleetTemplateKeys(
+    env,
+    logger,
+    correlationId,
+    options.retentionPageSize,
+  );
   if (!retention.complete) {
     // Disarmed: an incomplete retention set cannot distinguish an orphan from a live template
     // belonging to the firm whose read failed. The listing is skipped too — there is nothing this

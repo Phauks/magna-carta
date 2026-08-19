@@ -443,13 +443,53 @@ export async function readTemplateVersionForAssembly(
 // bytes that are still the firm's. A pending version is a registration whose scan has not answered
 // yet, a quarantined one is a refusal the firm has to be able to explain, and an abandoned one is a
 // row somebody may still be reading. Only a key no row names at all is reclaimable.
-export function listTemplateVersionR2KeysStatement(database: SqlDatabase): SqlStatement {
-  return database.prepare(`SELECT r2_key FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE}`);
+//
+// PAGED, and the paging is a safety property rather than an optimization. This whole set crosses one
+// remote-procedure boundary in a single response, and the caller that reads it treats a FAILED read
+// as "the retention set is incomplete, do nothing" — so a firm large enough to overflow one response
+// would not merely slow the pass down, it would silently switch the pass off, every night, for the
+// whole fleet. A keyset walk over `r2_key` bounds each response instead. The key is unique per
+// version (the version identifier is in it), so ordering by it is total and no row can be skipped or
+// repeated across pages.
+export const TEMPLATE_VERSION_KEY_PAGE_SIZE = 1000;
+
+export function listTemplateVersionR2KeysStatement(
+  database: SqlDatabase,
+  afterKey: string | null,
+  limit: number,
+): SqlStatement {
+  return afterKey === null
+    ? database
+        .prepare(`SELECT r2_key FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} ORDER BY r2_key LIMIT ?1`)
+        .bind(limit)
+    : database
+        .prepare(
+          `SELECT r2_key FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} WHERE r2_key > ?1 ORDER BY r2_key LIMIT ?2`,
+        )
+        .bind(afterKey, limit);
 }
 
-export async function listTemplateVersionR2Keys(database: SqlDatabase): Promise<readonly string[]> {
-  const { results } = await listTemplateVersionR2KeysStatement(database).all<{ r2_key: string }>();
-  return results.map((row) => row.r2_key);
+export async function listTemplateVersionR2Keys(
+  database: SqlDatabase,
+  pageSize: number = TEMPLATE_VERSION_KEY_PAGE_SIZE,
+): Promise<readonly string[]> {
+  const keys: string[] = [];
+  let afterKey: string | null = null;
+  for (;;) {
+    const page: { results: { r2_key: string }[] } = await listTemplateVersionR2KeysStatement(
+      database,
+      afterKey,
+      pageSize,
+    ).all<{ r2_key: string }>();
+    const results = page.results;
+    for (const row of results) keys.push(row.r2_key);
+    if (results.length < pageSize) return keys;
+    afterKey = results[results.length - 1]?.r2_key ?? null;
+    // A full page whose last key is unreadable would otherwise restart the walk from the beginning
+    // and never terminate. There is no such row — r2_key is NOT NULL — so this is the assertion that
+    // it stays that way rather than a case to handle.
+    if (afterKey === null) return keys;
+  }
 }
 
 export async function readNextTemplateVersionNumber(
