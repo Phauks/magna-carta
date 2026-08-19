@@ -438,7 +438,7 @@
   name: Location letterhead and remit-to on invoices
   scope: Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
   status: not-started
-  evidence: locations carry remit-to data on main; no invoice renderer consumes it
+  evidence: The snapshot half is built and the RESOLUTION half is not. The invoice carries letterhead_address_block, letterhead_footer and remit_to, finalizeInvoice writes all three, and the finalize route accepts them — so the values are frozen at finalize and never read live afterwards, which is the property this node exists for. What nothing does is derive them from the matter's home Location: the caller supplies them, defaulting to null, so a location-assigned matter gets whatever the caller passed. And no renderer consumes them, so the snapshot is currently written and read by nobody.
 
 - id: financial.billing.wip-to-ar
   name: WIP to A/R posting at finalize

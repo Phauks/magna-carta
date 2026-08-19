@@ -450,7 +450,7 @@
   name: Location identity on generated output
   scope: Location fields feed the data dictionary so generated documents and invoices carry correct office identity.
   status: not-started
-  evidence: Both consumers exist now. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity), and the invoice snapshots the letterhead and remit-to at finalize rather than reading them live (the invoice's letterhead_address_block, letterhead_footer and remit_to columns).
+  evidence: The documents half is built and the invoice half is half-built. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity). The invoice carries letterhead_address_block, letterhead_footer and remit_to, snapshotted at finalize rather than read live — but nothing derives them from the matter's home Location, so the caller supplies them and they default to null (financial.billing.location-letterhead).
   notes: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed.
 
 - id: locations.access-model
