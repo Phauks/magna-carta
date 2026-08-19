@@ -17,7 +17,10 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { corpusOfReviewSet } from "@magna-carta/search/corpus";
 import { NATURAL_LANGUAGE_FEED_PREFIX } from "@magna-carta/search/natural-language-feed";
-import { readNaturalLanguageSearchEnabled } from "@magna-carta/search/natural-language-settings";
+import {
+  naturalLanguageSearchEnabledDefinition,
+  readNaturalLanguageSearchEnabled,
+} from "@magna-carta/search/natural-language-settings";
 import { enumerateFeedObjects } from "@magna-carta/search/natural-language-statements";
 import {
   indexed,
@@ -419,14 +422,15 @@ describe("the natural-language corpus never learns a review set exists", () => {
     // corpus kind added later does not feed by default, it has to be added on purpose. Nothing
     // asserted it, so the whole wall rested on one comparison nobody would notice being widened to a
     // negation.
+    // Through the setting's own definition rather than raw SQL against the table. The two are
+    // equivalent today, and equivalent-today is exactly how a test quietly stops testing: the
+    // definition is the one home for this key's name and its JSON encoding, so a test that spells
+    // either out by hand goes on passing after the encoding moves while the gate it thinks it opened
+    // is shut.
     const at = now();
-    await database
-      .prepare(
-        "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) " +
-          "ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at",
-      )
-      .bind("search.naturalLanguageEnabled", at)
-      .run();
+    await database.batch([
+      writeFirmSettingStatement(database, naturalLanguageSearchEnabledDefinition, true, at),
+    ]);
 
     // WITHOUT THIS ASSERTION THE TEST IS VACUOUS. A firm that has not opted in writes no feed object
     // for any corpus, so an empty feed would prove nothing about review sets — it would prove the
@@ -447,9 +451,10 @@ describe("the natural-language corpus never learns a review set exists", () => {
     const listed = await env.R2.list({ prefix: NATURAL_LANGUAGE_FEED_PREFIX });
     expect(listed.objects.map((object) => object.key)).toEqual([]);
 
-    await database
-      .prepare("UPDATE setting SET value = 'false' WHERE key = ?1")
-      .bind("search.naturalLanguageEnabled")
-      .run();
+    // Shut again, through the same definition: the gate is firm-wide and this file's other cases run
+    // against the same database.
+    await database.batch([
+      writeFirmSettingStatement(database, naturalLanguageSearchEnabledDefinition, false, now()),
+    ]);
   });
 });

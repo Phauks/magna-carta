@@ -9,7 +9,7 @@
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
   adrs: ADR-0012, ADR-0060, ADR-0167
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the keyword search index is built and dormant behind an unbound service, its semantic half designed and unbuilt; review and production workflows do not exist.
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing). Ingest and processing are complete end to end and a review set is now its own search corpus; the keyword index and the discovery engine are both built and dormant behind unbound services. Tagging and coding, the fail-closed per-review-set access list, and the reads the review surface pages through are built API-side with no screens. The semantic half is deferred on an open owner flag, and production — Bates, rendering, load files, the privilege log — does not exist.
   audience: public
   public-summary: Load what the other side produced, process it, and work through it at the volumes litigation actually produces.
   notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
@@ -41,7 +41,7 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: apps/worker/src/search/text-extraction.ts routes through DISCOVERY_SERVICE, falls back to the in-Worker PDF reader plus recognition when it is unbound, and converts a legacy binary through the consented office container before reading the conversion with the memory-safe engine; the route and the recognized-page count land on review_document (20260815T000000_discovery-processing-route) and the per-page provenance in the R2 sidecar.
-  notes: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. Archive expansion is reported as container-not-expanded until the family sub-slice lands.
+  notes: Both engine services are deploy-time bindings, so today every non-PDF document parks with its reason on the row rather than being recorded unreadable. An archive is no longer refused wholesale: the processing lane expands it into a family (see discovery.archive-handling.contents-indexing), and container-not-expanded is now raised only for entries the engine described rather than opened — one exception per kind, carrying a count and never a path.
 
 - id: discovery.pipeline.processing-lane
   name: Processing queue lane
@@ -72,7 +72,7 @@
   surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
+  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:\* permission namespace, thirty routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables are now filled by the processing lane, and the manifest and exception report are written from them at load completion.
   notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list is now built and fail-closed (ADR-0270) — no row means no access, the predicate composes into SQL before the LIMIT, and a member not on a list gets 404 rather than 403.
 
 - id: discovery.pipeline.load-lanes
@@ -164,6 +164,7 @@
   audience: public
   public-name: Review and coding
   public-summary: Tag documents for responsiveness and privilege, with each reviewer seeing only the set they have been given.
+  awaiting-owner: Three, and the first two gate the next sub-slice outright. P1 — does privilege coding require its own permission tier, separate from ordinary coding? P3 — what is the default when a privilege designation splits a document family, produce the rest or withhold the family? Both decide what reaches opposing counsel and where waiver risk sits, and 5·2·2 privilege review cannot start until they are answered. (P2 and P4 are production-side and gate 5·2·3, not this slice.) Third, and separate: the per-review-set access list can be emptied and there is NO WAY BACK. The grant route is itself behind the wall (apps/worker/src/routes/discovery-coding.ts checks memberHasReviewSetAccess before grantReviewSetAccess) and the list is seeded once at creation with the creating member alone, so if the last listed member leaves the firm or is revoked the review set is permanently unreachable — nobody can read it, nobody can close it, nobody can grant access back, and there is no Owner bypass and no operator override. On a corpus under a protective order that is material a firm may be obliged to produce and cannot open. It is deliberately an owner question rather than a fix, because every escape hatch weakens the exact property the design chose — that no role sees through the wall. The narrowest option is probably refusing to revoke the LAST member on a list, which keeps the wall intact and only forbids emptying it; it is not built.
 
 - id: discovery.review.document-list
   name: Review-document list read
@@ -209,13 +210,16 @@
   scope: Thread email documents during review.
   status: not-started
   slices: email-core-parse-engine
-  evidence: No threading code; the shipped email parse core (crates/email-core) is the substrate it will build on.
+  evidence: No threading code and no surface. Two shipped substrates it builds on: the email parse core (crates/email-core) and the email_thread table the filing lane already populates.
 
 - id: discovery.review.near-duplicates
   name: Near-duplicate detection
   scope: Detect near-duplicate documents in the review set.
-  status: not-started
-  evidence: No similarity/duplicate-detection code for documents.
+  status: designed
+  slices: 5-2-discovery-review-workflow
+  spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
+  evidence: No clustering, no threshold, and no surface. The SUBSTRATE is shipped and populated: the engine computes a SimHash-over-shingles fingerprint (crates/discovery-core/src/fingerprint.rs) and the processing lane stores it on every processed document as review_document.text_fingerprint, so what is missing is the comparison over it rather than the signal.
+  notes: The fingerprint is never what deduplication groups on — that is the content hash — because a near-duplicate signal collides by design and suppressing a document from review on a heuristic is the failure this separation exists to prevent. Clustering shows documents; it never hides one.
 
 - id: discovery.production
   name: Production workflow
