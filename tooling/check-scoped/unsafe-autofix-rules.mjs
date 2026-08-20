@@ -37,6 +37,16 @@ export const UNSAFE_AUTOFIX_RULES = [
       "`false` from a missing or undefined flag at a glance, and quietly collapsing it to a negation " +
       "changes what a reviewer of a security guard reads.",
   },
+  {
+    rule: "typescript/no-unnecessary-type-assertion",
+    reason:
+      "strips the shape assertion off `await response.json()` in the worker's route tests, and the " +
+      "code then does not compile. The rule reads `.json()` as returning `any`, against which any " +
+      "assertion looks like a no-op; the type-check of record resolves it to `unknown`, against " +
+      "which the assertion is the only thing making the property access legal. The two disagree " +
+      "about the same call, the fixer trusts its own answer, and TS2571 lands on a file that " +
+      "type-checked a moment earlier.",
+  },
 ];
 
 /**
