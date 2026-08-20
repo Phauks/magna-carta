@@ -3244,6 +3244,42 @@
               "string",
               "null"
             ]
+          },
+          "eBilling": {
+            "type": "boolean"
+          },
+          "openedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "matterTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locationName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "responsibleMemberName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -3256,7 +3292,14 @@
           "responsibleMemberId",
           "clientDisplayName",
           "clientCode",
-          "matterNumber"
+          "matterNumber",
+          "eBilling",
+          "openedAt",
+          "closedAt",
+          "createdAt",
+          "matterTypeName",
+          "locationName",
+          "responsibleMemberName"
         ]
       },
       "MatterActionAck": {

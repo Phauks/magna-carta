@@ -64,6 +64,17 @@ interface MatterReadPayload {
   matterNumber: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
+  // Optional on the wire, not in the contract. The contract requires all seven; a Worker deployed
+  // before they landed answers without them, and this app is served from the same origin as one
+  // specific Worker but is cached independently of it. Reading them as optional and defaulting to
+  // null is what keeps a version skew rendering an honest gap instead of the string "undefined".
+  eBilling?: boolean;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  createdAt?: string | null;
+  matterTypeName?: string | null;
+  locationName?: string | null;
+  responsibleMemberName?: string | null;
 }
 
 export function matterRecordFromFixture(fixture: MatterFixture): MatterRecord {
@@ -77,15 +88,19 @@ export function matterRecordFromRead(payload: MatterReadPayload): MatterRecord {
     description: payload.description,
     status: payload.status,
     matterNumber: payload.matterNumber,
-    matterTypeName: null,
-    locationName: null,
-    responsibleAttorneyName: null,
+    matterTypeName: payload.matterTypeName ?? null,
+    locationName: payload.locationName ?? null,
+    responsibleAttorneyName: payload.responsibleMemberName ?? null,
     clientDisplayName: payload.clientDisplayName,
     clientCode: payload.clientCode,
-    eBilling: null,
-    openedAt: null,
-    closedAt: null,
-    createdAt: null,
+    eBilling: payload.eBilling ?? null,
+    openedAt: payload.openedAt ?? null,
+    closedAt: payload.closedAt ?? null,
+    createdAt: payload.createdAt ?? null,
+    // The three collections are NOT part of the matter read and never were. Each has its own list
+    // endpoint on its own screen, so filling them here would mean three calls the Overview does not
+    // need and a record that goes stale the moment one of those screens writes. They stay empty
+    // until each section reads its own, the way Files and Parties already do.
     files: [],
     timeEntries: [],
     costs: [],

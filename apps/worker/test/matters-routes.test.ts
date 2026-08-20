@@ -113,7 +113,7 @@ describe("numbering-scheme routes", () => {
 
     const getResponse = await get("/api/v1/numbering-scheme");
     expect(getResponse.status).toBe(200);
-    expect(((await getResponse.json()) as { segments: unknown }).segments).toEqual(YEAR_COUNTER);
+    expect((await getResponse.json()).segments).toEqual(YEAR_COUNTER);
 
     // Preview renders an example but must never touch matter_number_counter.
     const previewResponse = await post("/api/v1/numbering-scheme/preview", {
@@ -146,7 +146,7 @@ describe("matter type and location routes", () => {
     });
     expect(typeResponse.status).toBe(201);
     const typeList = await get("/api/v1/matter-types");
-    expect(((await typeList.json()) as { data: unknown[] }).data.length).toBeGreaterThanOrEqual(1);
+    expect((await typeList.json()).data.length).toBeGreaterThanOrEqual(1);
 
     const locationResponse = await post("/api/v1/locations", { name: "Reno", numberCode: "RENO" });
     expect(locationResponse.status).toBe(201);
@@ -192,9 +192,7 @@ describe("matter lifecycle routes", () => {
     // Open the consultation → draws the next number; close the open matter (empty preconditions).
     const opened = await post(`/api/v1/matters/${consultationBody.matterId}/open`, {});
     expect(opened.status).toBe(200);
-    expect(((await opened.json()) as { matterNumber: string }).matterNumber).toMatch(
-      /^\d{4}-\d{4}$/,
-    );
+    expect((await opened.json()).matterNumber).toMatch(/^\d{4}-\d{4}$/);
 
     const closed = await post(`/api/v1/matters/${openBody.matterId}/close`, {});
     expect(closed.status).toBe(200);
@@ -240,7 +238,7 @@ describe("matter lifecycle routes", () => {
       body: JSON.stringify(body),
     });
     expect(first.status).toBe(201);
-    const firstId = ((await first.json()) as { matterId: string }).matterId;
+    const firstId = (await first.json()).matterId;
     const replay = await SELF.fetch("https://example.com/api/v1/matters", {
       method: "POST",
       headers,
@@ -248,7 +246,7 @@ describe("matter lifecycle routes", () => {
     });
     expect(replay.status).toBe(201);
     expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
-    expect(((await replay.json()) as { matterId: string }).matterId).toBe(firstId);
+    expect((await replay.json()).matterId).toBe(firstId);
   });
 });
 
@@ -276,7 +274,7 @@ describe("manual renumber conflict", () => {
       responsibleMemberId: ownerUserId,
     });
     expect(first.status).toBe(201);
-    const firstId = ((await first.json()) as { matterId: string }).matterId;
+    const firstId = (await first.json()).matterId;
 
     const second = await post("/api/v1/matters", {
       title: "Renumber Target",
@@ -284,13 +282,76 @@ describe("manual renumber conflict", () => {
       responsibleMemberId: ownerUserId,
     });
     expect(second.status).toBe(201);
-    const secondNumber = ((await second.json()) as { matterNumber: string }).matterNumber;
+    const secondNumber = (await second.json()).matterNumber;
 
     // Renumber the first matter onto the second's number → the matter_number UNIQUE index aborts.
     const conflict = await post(`/api/v1/matters/${firstId}/renumber`, {
       matterNumber: secondNumber,
     });
     expect(conflict.status).toBe(409);
-    expect(((await conflict.json()) as { type: string }).type).toContain("conflict");
+    expect((await conflict.json()).type).toContain("conflict");
+  });
+});
+
+describe("the matter detail read", () => {
+  it("answers with the type, Location and responsible member by NAME, not by identifier", async () => {
+    const type = await post("/api/v1/matter-types", { name: "Estate Planning", code: "EP" });
+    expect(type.status).toBe(201);
+    const typeId = (await type.json()).id;
+
+    const location = await post("/api/v1/locations", { name: "Las Vegas", numberCode: "LV" });
+    expect(location.status).toBe(201);
+    const locationId = (await location.json()).id;
+
+    const created = await post("/api/v1/matters", {
+      title: "Estate of Hollis",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      matterTypeId: typeId,
+      locationId,
+    });
+    expect(created.status).toBe(201);
+    const matterId = (await created.json()).matterId;
+
+    const detail = await get(`/api/v1/matters/${matterId}`);
+    expect(detail.status).toBe(200);
+    const body = (await detail.json()) as {
+      matterTypeName: string | null;
+      locationName: string | null;
+      responsibleMemberName: string | null;
+      openedAt: string | null;
+      createdAt: string;
+      eBilling: boolean;
+    };
+
+    // The screen cannot print a matterType_ handle at a person, so the read resolves the names.
+    expect(body.matterTypeName).toBe("Estate Planning");
+    expect(body.locationName).toBe("Las Vegas");
+    expect(body.responsibleMemberName).not.toBeNull();
+    // An open matter carries the instant it opened, and every matter its creation instant.
+    expect(body.openedAt).not.toBeNull();
+    expect(body.createdAt).not.toBe("");
+    expect(typeof body.eBilling).toBe("boolean");
+  });
+
+  it("reports an unset type and Location as absent rather than inventing one", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Bare Matter",
+      status: "prospective",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    const matterId = (await created.json()).matterId;
+
+    const detail = await get(`/api/v1/matters/${matterId}`);
+    const body = (await detail.json()) as {
+      matterTypeName: string | null;
+      locationName: string | null;
+      openedAt: string | null;
+    };
+    expect(body.matterTypeName).toBeNull();
+    expect(body.locationName).toBeNull();
+    // A prospective matter has not opened, and says so.
+    expect(body.openedAt).toBeNull();
   });
 });

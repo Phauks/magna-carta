@@ -21,7 +21,10 @@ import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
-import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
+import {
+  selectMatterDetailStatement,
+  selectMatterStatement,
+} from "@magna-carta/matters/matter-statements";
 import { matterClientCreditClosePrecondition } from "@magna-carta/billing/close-precondition";
 import { matterTrustClosePrecondition } from "@magna-carta/trust/close-precondition";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
@@ -109,6 +112,17 @@ const MatterDetail = z
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
     matterNumber: z.string().nullable(),
+    eBilling: z.boolean(),
+    openedAt: z.string().nullable(),
+    closedAt: z.string().nullable(),
+    createdAt: z.string(),
+    // The three names beside their ids, resolved in the same read. A screen cannot print a
+    // matterType_ handle at a person, and asking for each name separately would be three more round
+    // trips per matter view. Null where the matter carries no type or Location, or where the
+    // responsible member's row is gone: an honest gap, never the identifier as a stand-in.
+    matterTypeName: z.string().nullable(),
+    locationName: z.string().nullable(),
+    responsibleMemberName: z.string().nullable(),
   })
   .openapi("MatterDetail");
 
@@ -745,7 +759,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
-      const { results } = await selectMatterStatement(firm.firmDatabase, id).all<{
+      const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
         id: MatterId;
         title: string;
         description: string | null;
@@ -756,6 +770,13 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         client_display_name: string | null;
         client_code: string | null;
         matter_number: string | null;
+        e_billing: number;
+        opened_at: string | null;
+        closed_at: string | null;
+        created_at: string;
+        matter_type_name: string | null;
+        location_name: string | null;
+        responsible_member_name: string | null;
       }>();
       const row = results[0];
       if (row === undefined) {
@@ -778,6 +799,13 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
           matterNumber: row.matter_number,
+          eBilling: row.e_billing !== 0,
+          openedAt: row.opened_at,
+          closedAt: row.closed_at,
+          createdAt: row.created_at,
+          matterTypeName: row.matter_type_name,
+          locationName: row.location_name,
+          responsibleMemberName: row.responsible_member_name,
         } as z.infer<typeof MatterDetail>,
         200,
       );
