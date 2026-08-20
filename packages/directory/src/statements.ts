@@ -88,6 +88,25 @@ export function insertMatterPartyStatement(
     .bind(row.id, row.matterId, row.entityId, row.role, row.capacity, row.createdAt);
 }
 
+// Soft-deletes one party link. The twin of the INSERT above, and the only writer of
+// matter_party.deleted_at — five readers filter on that column (the conflicts check and its
+// re-check cause, the assembly merge read, the client-role predicate in packages/matters, and the
+// load profile) and until this statement existed none of them could ever observe a non-null value.
+//
+// Guarded on deleted_at IS NULL so a repeated unlink reports zero rows changed rather than moving
+// the timestamp: the instant a link was severed is a fact about the first severing, and a caller
+// retrying must not be able to rewrite it.
+export function softDeleteMatterPartyStatement(
+  database: SqlDatabase,
+  row: { readonly id: MatterPartyId; readonly deletedAt: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_PARTY_TABLE} SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1 AND deleted_at IS NULL`,
+    )
+    .bind(row.id, row.deletedAt);
+}
+
 // An email address attached to an entity. `address` is stored as entered (trimmed); `normalized`
 // is the lowercased match key the reverse address -> entity lookup queries. valid_from/valid_to are
 // NULL at creation. The one home for the directory_email INSERT so the column list never drifts.

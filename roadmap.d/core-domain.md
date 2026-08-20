@@ -193,10 +193,10 @@
   name: Matter parties
   scope: Parties attached via Directory role-links; multiple roles per entity on one matter.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
-  evidence: packages/directory/src/party.ts wired to matters
-  notes: Backend shipped; UI not built.
+  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte reads and severs.
+  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party from the screen still waits on the directory picker, so the section renders that action disabled and says so; the link route itself has always worked.
 
 - id: matters.numbering
   name: Configurable matter numbering
@@ -452,7 +452,7 @@
   scope: Location fields feed the data dictionary so generated documents and invoices carry correct office identity.
   status: partial
   surface: awaiting-screen
-  evidence: Partial because the documents half is built and the invoice half is half-built. Document automation resolves location.* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity). The invoice carries letterhead_address_block, letterhead_footer and remit_to, snapshotted at finalize rather than read live — but nothing derives them from the matter's home Location, so the caller supplies them and they default to null (financial.billing.location-letterhead).
+  evidence: Partial because the documents half is built and the invoice half is half-built. Document automation resolves location.\* keys from the MATTER'S home location through one batched read, including the letterhead logo as a real OOXML picture (document-automation.location-identity). The invoice carries letterhead_address_block, letterhead_footer and remit_to, snapshotted at finalize rather than read live — but nothing derives them from the matter's home Location, so the caller supplies them and they default to null (financial.billing.location-letterhead).
   notes: What remains unbuilt on this node is the office-settings interface a firm would set those fields through. The office time zone has landed on both sides since — location.time_zone is an IANA zone validated on write by packages/locations/src/location-service.ts, and timeZoneForLocation is the one place it enters the platform, falling back to the normalized zone only for an office recorded before the column existed.
 
 - id: locations.access-model

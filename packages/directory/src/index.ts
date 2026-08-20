@@ -123,7 +123,13 @@ export type {
   DirectoryEmailRow,
   DirectoryEmailMatch,
 } from "./contact-email.ts";
-export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.ts";
+export {
+  linkMatterParty,
+  unlinkMatterParty,
+  readMatterParties,
+  createPartyRole,
+  listPartyRoles,
+} from "./party.ts";
 export type {
   LinkMatterPartyInput,
   MatterPartyRow,

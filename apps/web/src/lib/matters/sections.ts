@@ -66,7 +66,7 @@ export const matterSections: readonly MatterSection[] = [
     slug: "parties",
     label: "Parties",
     core: true,
-    stage: "soon",
+    stage: "alpha",
     description:
       "Every person and organization connected to this matter — clients, opposing parties, " +
       "counsel, courts — linked from the firm Directory with conflict-aware roles.",
