@@ -30,6 +30,7 @@ import {
   insertMatterEventParticipantStatement,
   insertMatterEventStatement,
   selectMatterEventParticipantsStatement,
+  selectMatterEventDetailStatement,
   selectMatterEventStatement,
   selectMatterEventsStatement,
   updateMatterEventStatement,
@@ -204,10 +205,22 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
           visibility,
         }),
       ),
+      sqlOf(selectMatterEventDetailStatement(stub, EVENT_ID, visibility)),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       sql,
-      new Set([MATTER_EVENT_TABLE, ...columnsOf(matterEvent), ...VISIBILITY_IDENTIFIERS]),
+      new Set([
+        MATTER_EVENT_TABLE,
+        ...columnsOf(matterEvent),
+        ...VISIBILITY_IDENTIFIERS,
+        // The display reads join the type catalog for its name, so that table and its columns are
+        // part of the vocabulary those statements legitimately name.
+        MATTER_EVENT_TYPE_TABLE,
+        ...columnsOf(matterEventType),
+        // The projection alias the joined name arrives under. Not a column anywhere, which is the
+        // point: it exists only on the wire.
+        "event_type_name",
+      ]),
       "event",
     );
   });

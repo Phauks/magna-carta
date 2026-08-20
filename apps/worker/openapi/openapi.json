@@ -7512,6 +7512,12 @@
               "null"
             ]
           },
+          "eventTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
@@ -7597,6 +7603,7 @@
           "id",
           "matterId",
           "eventTypeId",
+          "eventTypeName",
           "title",
           "description",
           "status",

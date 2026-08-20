@@ -20,10 +20,10 @@ import {
   updateMatterEvent,
 } from "@magna-carta/calendar/event-service";
 import {
-  readMatterEvent,
+  readMatterEventDetail,
   readMatterEventParticipants,
   selectMatterEventsStatement,
-  type MatterEventRow,
+  type MatterEventDisplayRow,
 } from "@magna-carta/calendar/event-statements";
 import {
   createFirmResourceBooking,
@@ -166,6 +166,9 @@ const EventDetail = z
     id: z.string(),
     matterId: z.string(),
     eventTypeId: z.string().nullable(),
+    // The type's name beside its identifier, resolved by the read. Null when the event is
+    // classified under nothing, or under a type row that has since gone.
+    eventTypeName: z.string().nullable(),
     title: z.string(),
     description: z.string().nullable(),
     status: z.enum(MATTER_EVENT_STATUSES),
@@ -1736,13 +1739,14 @@ async function continuanceNeighborsFor(
 }
 
 function eventDetail(
-  row: MatterEventRow,
+  row: MatterEventDisplayRow,
   neighbors: ContinuanceNeighbors = NO_NEIGHBORS,
 ): z.infer<typeof EventDetail> {
   return {
     id: row.id,
     matterId: row.matter_id,
     eventTypeId: row.event_type_id,
+    eventTypeName: row.event_type_name,
     title: row.title,
     description: row.description,
     status: row.status,
@@ -1987,7 +1991,7 @@ async function readEventsPage(
     cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
     limit: DEFAULT_PAGE + 1,
     visibility: visibleMatterPredicate(),
-  }).all<MatterEventRow>();
+  }).all<MatterEventDisplayRow>();
   const hasMore = results.length > DEFAULT_PAGE;
   const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
   const last = rows.at(-1);
@@ -2060,7 +2064,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       // Through the visible-matter predicate, like every other read of this table: an event on an
       // invisible matter is a 404 here and not a title, a description, a court reference, and a
       // participant list.
-      const event = await readMatterEvent(
+      const event = await readMatterEventDetail(
         firm.firmDatabase,
         eventId as MatterEventId,
         visibleMatterPredicate(),

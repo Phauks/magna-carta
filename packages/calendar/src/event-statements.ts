@@ -6,6 +6,7 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { MATTER_EVENT_TYPE_TABLE } from "./event-type-statements.ts";
 import type { MatterEventParticipantKind, MatterEventStatus } from "./types.ts";
 import type { VisibleMatterPredicate } from "./visibility.ts";
 
@@ -50,6 +51,31 @@ export interface MatterEventParticipantRow {
 const EVENT_COLUMNS =
   "id, matter_id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
   "ends_at_time, time_zone, location_text, court_reference, recorded_at, recorded_by, created_at, updated_at";
+
+/**
+ * The same row with the event type's NAME beside its identifier. A display read answers "what kind
+ * of setting is this" with a word a person recognizes; the identifier alone is a fact only the
+ * database can use, and a screen handed one has nothing to render. Null covers both an event
+ * classified under nothing and a type row that has since gone.
+ */
+export interface MatterEventDisplayRow extends MatterEventRow {
+  readonly event_type_name: string | null;
+}
+
+// Every column qualified, because the display projection joins a table that also has `id`,
+// `created_at`, and `updated_at`.
+const EVENT_DISPLAY_COLUMNS =
+  `${MATTER_EVENT_TABLE}.id, ${MATTER_EVENT_TABLE}.matter_id, ${MATTER_EVENT_TABLE}.event_type_id, ` +
+  `${MATTER_EVENT_TABLE}.title, ${MATTER_EVENT_TABLE}.description, ${MATTER_EVENT_TABLE}.status, ` +
+  `${MATTER_EVENT_TABLE}.status_reason, ${MATTER_EVENT_TABLE}.starts_on, ${MATTER_EVENT_TABLE}.starts_at_time, ` +
+  `${MATTER_EVENT_TABLE}.ends_on, ${MATTER_EVENT_TABLE}.ends_at_time, ${MATTER_EVENT_TABLE}.time_zone, ` +
+  `${MATTER_EVENT_TABLE}.location_text, ${MATTER_EVENT_TABLE}.court_reference, ${MATTER_EVENT_TABLE}.recorded_at, ` +
+  `${MATTER_EVENT_TABLE}.recorded_by, ${MATTER_EVENT_TABLE}.created_at, ${MATTER_EVENT_TABLE}.updated_at, ` +
+  `${MATTER_EVENT_TYPE_TABLE}.name AS event_type_name`;
+
+// LEFT, never INNER: an event classified under nothing, or under a type row that has gone, is still
+// an event on the matter and must not fall out of the list.
+const EVENT_TYPE_JOIN = `LEFT JOIN ${MATTER_EVENT_TYPE_TABLE} ON ${MATTER_EVENT_TYPE_TABLE}.id = ${MATTER_EVENT_TABLE}.event_type_id`;
 
 export interface InsertMatterEventInput {
   readonly id: MatterEventId;
@@ -208,10 +234,12 @@ export function selectMatterEventsStatement(
     readonly visibility: VisibleMatterPredicate;
   },
 ): SqlStatement {
-  const conditions = ["matter_id = ?"];
+  const conditions = [`${MATTER_EVENT_TABLE}.matter_id = ?`];
   const bindings: unknown[] = [matterId];
   if (options.cursor !== undefined) {
-    conditions.push("(starts_on < ? OR (starts_on = ? AND id < ?))");
+    conditions.push(
+      `(${MATTER_EVENT_TABLE}.starts_on < ? OR (${MATTER_EVENT_TABLE}.starts_on = ? AND ${MATTER_EVENT_TABLE}.id < ?))`,
+    );
     bindings.push(options.cursor.sortKey, options.cursor.sortKey, options.cursor.id);
   }
   conditions.push(options.visibility.fragmentFor(`${MATTER_EVENT_TABLE}.matter_id`));
@@ -219,10 +247,42 @@ export function selectMatterEventsStatement(
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT ${EVENT_COLUMNS} FROM ${MATTER_EVENT_TABLE} WHERE ${conditions.join(" AND ")} ` +
-        `ORDER BY starts_on DESC, id DESC LIMIT ?`,
+      `SELECT ${EVENT_DISPLAY_COLUMNS} FROM ${MATTER_EVENT_TABLE} ${EVENT_TYPE_JOIN} ` +
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY ${MATTER_EVENT_TABLE}.starts_on DESC, ${MATTER_EVENT_TABLE}.id DESC LIMIT ?`,
     )
     .bind(...bindings);
+}
+
+// The single-event DISPLAY read, beside the lean one above rather than replacing it. The lifecycle
+// services resolve an event to decide whether a change is allowed, and the type's name is not part
+// of that decision; carrying a join through every one of those paths would widen six reads to serve
+// one. This is the read a screen makes.
+export function selectMatterEventDetailStatement(
+  database: SqlDatabase,
+  id: MatterEventId,
+  visibility: VisibleMatterPredicate,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${EVENT_DISPLAY_COLUMNS} FROM ${MATTER_EVENT_TABLE} ${EVENT_TYPE_JOIN} ` +
+        `WHERE ${MATTER_EVENT_TABLE}.id = ? AND ` +
+        visibility.fragmentFor(`${MATTER_EVENT_TABLE}.matter_id`),
+    )
+    .bind(id, ...visibility.bindings);
+}
+
+export async function readMatterEventDetail(
+  database: SqlDatabase,
+  id: MatterEventId,
+  visibility: VisibleMatterPredicate,
+): Promise<MatterEventDisplayRow | undefined> {
+  const { results } = await selectMatterEventDetailStatement(
+    database,
+    id,
+    visibility,
+  ).all<MatterEventDisplayRow>();
+  return results[0];
 }
 
 // The chain read's bulk resolve: the settings of one continuance chain by their identifiers, under

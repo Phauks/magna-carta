@@ -115,10 +115,10 @@ export const matterSections: readonly MatterSection[] = [
     slug: "calendar",
     label: "Calendar",
     core: false,
-    stage: "soon",
+    stage: "alpha",
     description:
-      "Hearings, appointments, and rules-based docketing deadlines computed for this matter's " +
-      "jurisdiction.",
+      "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
+      "person, read in its own time zone, and reports when it has passed.",
   },
   {
     slug: "other",

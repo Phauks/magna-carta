@@ -188,6 +188,49 @@ describe("recording what happens in a case", () => {
     expect(eventsBody.data.map((row) => row.id)).toContain(eventId);
   });
 
+  it("names the event's type, and keeps an unclassified one in the list", async () => {
+    // A screen cannot render an identifier. The listing resolves the type's NAME beside it, and the
+    // join is LEFT so an event classified under nothing is still an event on the matter.
+    const catalog = await get("/api/v1/calendar/event-types");
+    const catalogBody = (await catalog.json()) as {
+      data: { id: string; name: string; code: string | null }[];
+    };
+    const hearingType = catalogBody.data.find((row) => row.code === "HEARING");
+    expect(hearingType).toBeDefined();
+
+    const typedMatterId = await createMatter("Doe conservatorship");
+    const classified = await post(`/api/v1/matters/${typedMatterId}/events`, {
+      eventTypeId: hearingType?.id,
+      title: "Petition heard",
+      startsOn: "2027-03-11",
+      timeZone: "America/Los_Angeles",
+    });
+    expect(classified.status).toBe(201);
+    const { id: classifiedId } = (await classified.json()) as { id: string };
+
+    const unclassified = await post(`/api/v1/matters/${typedMatterId}/events`, {
+      title: "Client called about the hearing",
+      startsOn: "2027-03-10",
+      timeZone: "America/Los_Angeles",
+    });
+    expect(unclassified.status).toBe(201);
+
+    const listed = await get(`/api/v1/matters/${typedMatterId}/events`);
+    expect(listed.status).toBe(200);
+    const listedBody = (await listed.json()) as {
+      data: { title: string; eventTypeId: string | null; eventTypeName: string | null }[];
+    };
+    const byTitle = new Map(listedBody.data.map((row) => [row.title, row]));
+    expect(byTitle.get("Petition heard")?.eventTypeName).toBe(hearingType?.name);
+    expect(byTitle.get("Client called about the hearing")?.eventTypeId).toBeNull();
+    expect(byTitle.get("Client called about the hearing")?.eventTypeName).toBeNull();
+
+    // The single-event read carries the same resolved name, so the two do not disagree.
+    const detail = await get(`/api/v1/events/${classifiedId}`);
+    const detailBody = (await detail.json()) as { event: { eventTypeName: string | null } };
+    expect(detailBody.event.eventTypeName).toBe(hearingType?.name);
+  });
+
   it("moves a continued hearing on the one row rather than adding a second", async () => {
     const created = await post(`/api/v1/matters/${matterId}/events`, {
       title: "Status conference",
