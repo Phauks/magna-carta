@@ -27,14 +27,8 @@
 // Usage: pnpm check:scoped [--base <ref>]
 
 import { spawnSync } from "node:child_process";
-import {
-  collectChangedFiles,
-  LINT_ONLY_PATTERN,
-  parseBaseFlag,
-  resolveBase,
-  ROOT,
-  SCRIPT_PATTERN,
-} from "./changed-files.mjs";
+import { collectChangedFiles, parseBaseFlag, resolveBase, ROOT } from "./changed-files.mjs";
+import { formatAndLintSteps } from "./format-lint-steps.mjs";
 import { DEPENDENCY_MANIFEST_PATTERN, FITNESS_SCOPES_ENV } from "./repo-wide.mjs";
 import { mentionsMissingWorkspaceModule } from "./stale-workspace-link.mjs";
 import { reachesTypeGraph, reachingPaths } from "./typecheck-scope.mjs";
@@ -80,7 +74,6 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const lintable = files.filter((f) => SCRIPT_PATTERN.test(f) || LINT_ONLY_PATTERN.test(f));
 const touchedRust = files.some((f) => f.startsWith("crates/") || f.endsWith(".rs"));
 // The whole schema package, not just the two schema entry points. drizzle-kit diffs the schema module
 // GRAPH against meta/, so a change to anything the entry point pulls in at runtime can move the
@@ -156,13 +149,7 @@ steps.push({
     ...(touchedDependencies ? ["--dependencies"] : []),
   ],
 });
-if (lintable.length > 0) {
-  steps.push({
-    name: `fmt + lint (${lintable.length} file(s))`,
-    cmd: "vp",
-    args: ["check", ...lintable],
-  });
-}
+steps.push(...formatAndLintSteps(files));
 // The repo-wide fitness sweep — the Vitest checks whose jurisdiction is the whole repository. Runs
 // under its own config (tooling/check-scoped/vitest.repo-wide-fitness.config.ts) rather than the root
 // workspace: 3.1 s instead of 8.5 s for the same files, because the root config resolves ~70 project
