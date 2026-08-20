@@ -57,6 +57,15 @@
   // read errored still needs to see its hearings.
   $effect(() => {
     const matterId = matter.id;
+    // Every read of the previous matter is discarded before the next one is asked for. A failure
+    // left standing would be attributed to the matter now on screen, and a list left standing would
+    // be read as that matter's own.
+    deadlines = null;
+    events = null;
+    deadlinesTruncated = false;
+    eventsTruncated = false;
+    deadlineFailure = null;
+    eventFailure = null;
     if (isSample) {
       deadlines = [];
       events = [];
