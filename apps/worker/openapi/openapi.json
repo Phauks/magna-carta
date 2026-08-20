@@ -16409,6 +16409,12 @@
               "void"
             ]
           },
+          "vendorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -60524,9 +60530,11 @@
                 "approved",
                 "billed",
                 "void"
-              ]
+              ],
+              "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is."
             },
             "required": false,
+            "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.",
             "name": "status",
             "in": "query"
           }
