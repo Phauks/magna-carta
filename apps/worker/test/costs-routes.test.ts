@@ -754,3 +754,57 @@ describe("cost entry receipt attach/detach", () => {
     expect(response.status).toBe(409);
   });
 });
+
+describe("the matter cost listing", () => {
+  it("answers with EVERY status when the listing names none, not the drafts alone", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-27",
+      amountMinor: 12_500,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Expert retainer, already invoiced",
+    });
+    expect(created.status).toBe(201);
+    const billedId = ((await created.json()) as { costEntryId: string }).costEntryId;
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+      .bind(billedId)
+      .run();
+
+    const narrowed = await get(`/api/v1/costs?matterId=${matterId}&status=draft`);
+    const narrowedBody = (await narrowed.json()) as { data: { id: string }[] };
+    expect(narrowedBody.data.some((cost) => cost.id === billedId)).toBe(false);
+
+    // A matter's cost record is all of the cost advanced for it. Omitting the status used to answer
+    // with the drafts alone, so an invoiced disbursement vanished from the matter it was for.
+    const whole = await get(`/api/v1/costs?matterId=${matterId}`);
+    expect(whole.status).toBe(200);
+    const wholeBody = (await whole.json()) as { data: { id: string; status: string }[] };
+    expect(wholeBody.data.some((cost) => cost.id === billedId)).toBe(true);
+    expect(wholeBody.data.length).toBeGreaterThan(narrowedBody.data.length);
+    expect(wholeBody.data.find((cost) => cost.id === billedId)?.status).toBe("billed");
+  });
+
+  it("reports a cost with no vendor as unrecorded rather than inventing a name", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-28",
+      amountMinor: 900,
+      currency: "USD",
+      disbursementClass: "soft",
+      billable: false,
+      description: "Copying, absorbed",
+    });
+    const id = ((await created.json()) as { costEntryId: string }).costEntryId;
+
+    const listed = await get(`/api/v1/costs?matterId=${matterId}`);
+    const body = (await listed.json()) as {
+      data: { id: string; vendorId: string | null; vendorName?: string | null }[];
+    };
+    const entry = body.data.find((cost) => cost.id === id);
+    expect(entry?.vendorId).toBeNull();
+    expect(entry?.vendorName ?? null).toBeNull();
+  });
+});

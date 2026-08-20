@@ -85,6 +85,10 @@ const CostSummary = z
     utbmsExpenseCodeId: z.string().nullable(),
     description: z.string(),
     status: z.enum(["draft", "submitted", "approved", "billed", "void"]),
+    // The vendor's name, resolved by the listing. Null both when no vendor was recorded and when
+    // the directory entry behind one is gone -- vendorId tells those two apart, and a screen that
+    // needs to can say which. Never the identifier standing in for a name.
+    vendorName: z.string().nullable().optional(),
     source: z.enum(["manual", "grid", "recovery"]),
     recoveryCategory: z.string().nullable(),
   })
@@ -110,7 +114,14 @@ const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const listQuery = z.object({
   matterId: identifierField("matter").optional(),
-  status: z.enum(["draft", "submitted", "approved", "billed", "void"]).optional(),
+  status: z
+    .enum(["draft", "submitted", "approved", "billed", "void"])
+    .optional()
+    .openapi({
+      description:
+        "Narrows the listing to one status. Omitted, it answers with every status the matter " +
+        "carries, which is what a matter's cost record is.",
+    }),
 });
 
 const authErrors = {
@@ -677,14 +688,49 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const query = c.req.valid("query");
 
       if (query.matterId !== undefined) {
-        const statusFilter = query.status ?? "draft";
-        const { results } = await firm.firmDatabase
-          .prepare(
-            "SELECT id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, status, source, recovery_category FROM cost_entry WHERE matter_id = ?1 AND status = ?2 ORDER BY incurred_date DESC, created_at DESC",
-          )
-          .bind(query.matterId, statusFilter)
-          .all<CostEntryRow>();
-        return c.json({ data: results.map(rowToSummary) }, 200);
+        // An absent status means EVERY status. A matter's cost record is all of the cost on it;
+        // this defaulted to "draft" and answered a narrower question than it was asked, silently,
+        // so an approved or invoiced disbursement simply did not appear on the matter it was
+        // advanced for and nothing in the contract said it would not.
+        //
+        // The vendor's name is resolved in the same statement rather than a read per row: a matter
+        // with fifty disbursements would otherwise be fifty lookups to print one column. Two outer
+        // joins because a vendor is optional on a cost and may be either side of the directory.
+        const columns = `cost_entry.id, cost_entry.matter_id, cost_entry.vendor_id,
+             cost_entry.incurred_date, cost_entry.amount_minor, cost_entry.currency,
+             cost_entry.disbursement_class, cost_entry.billable, cost_entry.utbms_expense_code_id,
+             cost_entry.description, cost_entry.status, cost_entry.source,
+             cost_entry.recovery_category,
+             COALESCE(directory_person.display_name, directory_organization.display_name,
+                      directory_organization.legal_name) AS vendor_name`;
+        const from = `FROM cost_entry
+             LEFT JOIN directory_person
+                    ON directory_person.id = cost_entry.vendor_id AND directory_person.deleted_at IS NULL
+             LEFT JOIN directory_organization
+                    ON directory_organization.id = cost_entry.vendor_id AND directory_organization.deleted_at IS NULL`;
+        const order = "ORDER BY cost_entry.incurred_date DESC, cost_entry.created_at DESC";
+
+        const statement =
+          query.status === undefined
+            ? firm.firmDatabase
+                .prepare(`SELECT ${columns} ${from} WHERE cost_entry.matter_id = ?1 ${order}`)
+                .bind(query.matterId)
+            : firm.firmDatabase
+                .prepare(
+                  `SELECT ${columns} ${from} WHERE cost_entry.matter_id = ?1 AND cost_entry.status = ?2 ${order}`,
+                )
+                .bind(query.matterId, query.status);
+
+        const { results } = await statement.all<CostEntryRow & { vendor_name: string | null }>();
+        return c.json(
+          {
+            data: results.map((row) => ({
+              ...rowToSummary(row),
+              vendorName: row.vendor_name,
+            })),
+          },
+          200,
+        );
       }
 
       // No matterId — return an empty list rather than a full-table scan.
