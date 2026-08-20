@@ -193,21 +193,56 @@ export async function listUnbilledByMatter(
 
 export interface ListTimeEntriesByMatterParams {
   readonly matterId: MatterId;
-  readonly status: TimeEntryStatus;
+  // Omitted means EVERY status. A matter's time tab asks "what time is on this matter", and the
+  // answer includes the approved, the billed and the voided — narrowing to one status is the
+  // work-in-progress question, which is a different question with a different caller.
+  readonly status?: TimeEntryStatus;
 }
 
-// Per-matter individual entry list: one matter, filtered by status, newest-first. Distinct from
-// listUnbilledByMatter (which aggregates into a single WIP summary row); this returns the full
-// individual-entry shape for the matter WIP detail view, driven by the (matter_id, status) index.
+// One entry on a matter, with the timekeeper's name resolved. The name is joined here rather than
+// looked up per row by the caller: a matter with forty entries would otherwise be forty reads to
+// print a column, and the join is on member's primary key. An outer join, because a member row can
+// be archived while the time they recorded stays on the matter forever — that reads as a null name
+// and the screen says so, rather than showing a user_ handle where a person's name belongs.
+export interface MatterTimeEntry extends TimeEntryListItem {
+  readonly timekeeperName: string | null;
+}
+
+// Per-matter individual entry list, newest-first, every status unless one is named. Distinct from
+// listUnbilledByMatter, which aggregates into a single work-in-progress summary row; this returns
+// individual entries. With a status it rides the (matter_id, status) index; without one it walks
+// matter_id, which is the same index prefix.
 export async function listTimeEntriesByMatter(
   database: SqlDatabase,
   params: ListTimeEntriesByMatterParams,
-): Promise<TimeEntryListItem[]> {
-  const { results } = await database
-    .prepare(
-      `SELECT ${TIME_ENTRY_LIST_COLUMNS} FROM ${TIME_ENTRY_TABLE} WHERE matter_id = ?1 AND status = ?2 ORDER BY work_date DESC, id DESC`,
-    )
-    .bind(params.matterId, params.status)
-    .all<TimeEntryRowRaw>();
-  return results.map(toTimeEntryListItem);
+): Promise<MatterTimeEntry[]> {
+  const columns = TIME_ENTRY_LIST_COLUMNS.split(", ")
+    .map((column) => `time_entry.${column}`)
+    .join(", ");
+  const statement =
+    params.status === undefined
+      ? database
+          .prepare(
+            `SELECT ${columns}, member.display_name AS timekeeper_name
+               FROM ${TIME_ENTRY_TABLE} AS time_entry
+               LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
+              WHERE time_entry.matter_id = ?1
+              ORDER BY time_entry.work_date DESC, time_entry.id DESC`,
+          )
+          .bind(params.matterId)
+      : database
+          .prepare(
+            `SELECT ${columns}, member.display_name AS timekeeper_name
+               FROM ${TIME_ENTRY_TABLE} AS time_entry
+               LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
+              WHERE time_entry.matter_id = ?1 AND time_entry.status = ?2
+              ORDER BY time_entry.work_date DESC, time_entry.id DESC`,
+          )
+          .bind(params.matterId, params.status);
+
+  const { results } = await statement.all<TimeEntryRowRaw & { timekeeper_name: string | null }>();
+  return results.map((row) => ({
+    ...toTimeEntryListItem(row),
+    timekeeperName: row.timekeeper_name,
+  }));
 }

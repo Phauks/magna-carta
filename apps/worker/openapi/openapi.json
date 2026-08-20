@@ -22318,6 +22318,12 @@
               "billed",
               "void"
             ]
+          },
+          "timekeeperName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -69756,9 +69762,11 @@
                 "approved",
                 "billed",
                 "void"
-              ]
+              ],
+              "description": "Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is."
             },
             "required": false,
+            "description": "Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.",
             "name": "status",
             "in": "query"
           }

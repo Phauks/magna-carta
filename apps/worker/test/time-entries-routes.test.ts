@@ -300,6 +300,42 @@ describe("time-entry reads", () => {
     const body = (await response.json()) as { data: { id: string; matterId: string }[] };
     expect(body.data.every((entry) => entry.matterId === matterId)).toBe(true);
   });
+
+  it("answers with EVERY status when the listing names none, not the drafts alone", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-06-24",
+      rawDurationMinutes: 30,
+      narrative: "Already invoiced",
+      billable: true,
+      source: "manual",
+    });
+    const billedId = ((await created.json()) as { timeEntryId: string }).timeEntryId;
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
+      .bind(billedId)
+      .run();
+
+    const narrowed = await get(`/api/v1/time-entries?matterId=${matterId}&status=draft`);
+    const narrowedBody = (await narrowed.json()) as { data: { id: string }[] };
+    expect(narrowedBody.data.some((entry) => entry.id === billedId)).toBe(false);
+
+    // The matter's time record is all of the time on it. Omitting the status used to answer with
+    // the drafts alone, so an invoiced entry vanished from the matter it was worked on.
+    const whole = await get(`/api/v1/time-entries?matterId=${matterId}`);
+    expect(whole.status).toBe(200);
+    const wholeBody = (await whole.json()) as {
+      data: { id: string; status: string; timekeeperName?: string | null }[];
+    };
+    expect(wholeBody.data.some((entry) => entry.id === billedId)).toBe(true);
+    expect(wholeBody.data.length).toBeGreaterThan(narrowedBody.data.length);
+
+    // The timekeeper is a column on this screen, so the listing resolves the name beside the id.
+    const billed = wholeBody.data.find((entry) => entry.id === billedId);
+    expect(billed?.status).toBe("billed");
+    expect(billed?.timekeeperName).not.toBeNull();
+  });
 });
 
 describe("draft-only freeze and the review path", () => {
