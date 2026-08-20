@@ -110,6 +110,10 @@ const TimeEntrySummary = z
     amountMinor: z.number().int().nullable(),
     currency: z.string(),
     status: z.enum(["draft", "submitted", "approved", "billed", "void"]),
+    // Present on the per-matter listing, where the timekeeper is a column and an identifier is not
+    // a name. Null where the member row is gone: an honest gap rather than a user_ handle standing
+    // in for a person. Absent on the My-Day listing, whose rows are all the caller's own.
+    timekeeperName: z.string().nullable().optional(),
   })
   .openapi("TimeEntrySummary");
 const TimeEntryListResponse = z
@@ -137,7 +141,14 @@ const listQuery = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  status: z.enum(["draft", "submitted", "approved", "billed", "void"]).optional(),
+  status: z
+    .enum(["draft", "submitted", "approved", "billed", "void"])
+    .optional()
+    .openapi({
+      description:
+        "Narrows a per-matter listing to one status. Omitted, the listing answers with every " +
+        "status the matter carries, which is what a matter's time record is.",
+    }),
 });
 
 const authErrors = {
@@ -692,11 +703,14 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       }
 
       if (query.matterId !== undefined) {
-        // Per-matter WIP view: individual entries for a matter, filtered by status.
-        const statusFilter = query.status ?? "draft";
+        // Per-matter listing. An absent status means EVERY status: a matter's time record is all
+        // of the time on it, and a caller that wanted only the work in progress says so. This
+        // defaulted to "draft" and answered a narrower question than it was asked, silently -- the
+        // approved, billed and voided entries on the matter simply did not appear, and nothing in
+        // the contract said they would not.
         const items = await listTimeEntriesByMatter(firm.firmDatabase, {
           matterId: query.matterId,
-          status: statusFilter,
+          ...(query.status === undefined ? {} : { status: query.status }),
         });
         return c.json(
           {
@@ -712,6 +726,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
               amountMinor: item.amountMinor,
               currency: item.currency,
               status: item.status,
+              timekeeperName: item.timekeeperName,
             })),
           },
           200,
