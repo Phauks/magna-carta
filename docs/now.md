@@ -31,8 +31,8 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 267 | 43% |
-| Part-built | partial, in-build | 110 | 18% |
-| Ahead | designed, planned, researching, not-started | 209 | 33% |
+| Part-built | partial, in-build | 111 | 18% |
+| Ahead | designed, planned, researching, not-started | 208 | 33% |
 | Parked | deferred, cut | 40 | 6% |
 | **All units of work** | | **626** | **100%** |
 
@@ -41,12 +41,12 @@ not](#what-a-roll-up-is-not).
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 267 | 43% |
-| `partial` | 109 | 17% |
+| `partial` | 110 | 17% |
 | `in-build` | 1 | 0% |
 | `designed` | 43 | 7% |
 | `planned` | 17 | 3% |
 | `researching` | 5 | 1% |
-| `not-started` | 144 | 23% |
+| `not-started` | 143 | 23% |
 | `deferred` | 38 | 6% |
 | `cut` | 2 | 0% |
 | **All statuses** | **626** | **100%** |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 267 of 626 (43%). Shipped plus partial is 376 (60%).**
+**Shipped alone is 267 of 626 (43%). Shipped plus partial is 377 (60%).**
 
-The 109 units between those two numbers are work that is engineered and paid for and is not
+The 110 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**377 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**378 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 21 | 5% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 184 | 49% |
+| A person can open it today (`screen`) | 23 | 6% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 183 | 48% |
 | No user surface by nature (`internal`) | 172 | 46% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **377** | **100%** |
+| **Everything with something built** | **378** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 5 | 0 | 0 | 0 | 0 | 1 | 5 | 0 | 0 | 11 | 45% |
+| Calendar and Rules-Based Docketing | 5 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 11 | 45% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 4 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 | 57% |
@@ -125,7 +125,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 3 | 0% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **267** | **109** | **1** | **43** | **17** | **5** | **144** | **38** | **2** | **626** | **43%** |
+| **All areas** | **267** | **110** | **1** | **43** | **17** | **5** | **143** | **38** | **2** | **626** | **43%** |
 
 ## Where we have been
 
@@ -504,15 +504,15 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 11 units of work, 45% shipped. 5 done, 0 part-built, 6 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 11 units of work, 45% shipped. 5 done, 1 part-built, 5 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
-  - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Backend only — the calendar screens are their own slice._
+  - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice._
   - `calendar.timeline` · `shipped` · **Matter timeline (federated)** — One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract. _Note: Backend only — the calendar screens are their own slice._
   - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: Backend only — the calendar screens are their own slice._
   - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
   - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Backend only. Continuance binds matter events; a moved staff meeting stays an edit._
-  - `calendar.surface` · `not-started` · **Calendar surface** — Calendar of matters, deadlines, and appointments.
+  - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One screen of several. A month grid, a week view, an agenda list, and the firm-wide calendar are all still unbuilt, as is any way to record a date from a screen._
   - `calendar.sync` · `not-started` · **Two-way Google/Outlook sync** — Two-way calendar synchronization via the email/calendar plugin.
   - `calendar.docketing` · `researching` · **Rules-based docketing** — Compute court dates and deadlines from jurisdiction/court rule sets, defaulting from the matter's jurisdiction or home Location.
     - `calendar.docketing.rule-sets` · `researching` · **Court rule sets** — Sourcing, encoding, and maintaining per-jurisdiction/court rule sets.
@@ -599,7 +599,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `directory.archival` · `shipped` · **Soft-delete and archival** — Entities referenced by a matter or the conflicts log are archived, never hard-deleted.
   - `directory.temporal-audit` · `shipped` · **Temporal history and audit** — Key fields (names, addresses, affiliations, roles) time-bounded (valid-from/valid-to) to answer "what was true then"; every change audited (who/what/when).
   - `directory.legacy-id` · `not-started` · **Legacy source-system ID** — A legacy source-system identifier on every entity for LEAP migration traceability. _Note: LEAP migration itself is deferred (ADR-0021); this lands with that slice._
-- `matters` · `partial` · **Matters** — Matter as the top-level access unit and cost center, opened directly with the client as a Directory link. _Note: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, nine render a SectionStub, Time and Costs render fixture data as presentation only, and Overview and Files are the two reading a firm's own record. The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed._
+- `matters` · `partial` · **Matters** — Matter as the top-level access unit and cost center, opened directly with the client as a Directory link. _Note: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed._
   - `matters.parties` · `partial` · **Matter parties** — Parties attached via Directory role-links; multiple roles per entity on one matter. _Note: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party from the screen still waits on the directory picker, so the section renders that action disabled and says so; the link route itself has always worked._
   - `matters.numbering` · `partial` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open. _Note: Backend shipped; scheme configuration UI not built._
     - `matters.numbering.location-segment` · `shipped` · **Location segment in numbering** — Optional location segment/prefix in the numbering scheme.

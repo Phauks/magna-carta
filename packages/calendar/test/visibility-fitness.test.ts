@@ -11,6 +11,7 @@ import {
 import {
   MATTER_EVENT_TABLE,
   selectMatterEventChainNodesStatement,
+  selectMatterEventDetailStatement,
   selectMatterEventStatement,
   selectMatterEventsStatement,
 } from "../src/event-statements.ts";
@@ -42,6 +43,17 @@ const directReads: { readonly name: string; readonly statement: InspectableState
   {
     name: "selectMatterEventStatement",
     statement: selectMatterEventStatement(database, EVENT_ID, visibility) as InspectableStatement,
+  },
+  {
+    // The single-event DISPLAY read, beside the lean one: it joins the type catalog for a name, and
+    // an id-addressed read that skipped the predicate would leak an event's title, description, and
+    // court reference across a barrier whether or not it also carried a type name.
+    name: "selectMatterEventDetailStatement",
+    statement: selectMatterEventDetailStatement(
+      database,
+      EVENT_ID,
+      visibility,
+    ) as InspectableStatement,
   },
   {
     name: "selectMatterEventsStatement",
