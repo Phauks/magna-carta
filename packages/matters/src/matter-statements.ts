@@ -67,6 +67,45 @@ export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlS
     .bind(id);
 }
 
+// The DISPLAY read, separate from selectMatterStatement above on purpose. That one serves the
+// lifecycle service, which decides open/close preconditions and has no business paying for three
+// joins to learn a name it will not print. This one serves the matter screens, which cannot render
+// "matter type" as a matterType_ handle.
+//
+// The names are resolved HERE rather than by the caller, because the alternative is three more
+// round trips per matter view and the joins are on primary keys. All three are LEFT joins: a matter
+// carries no type or Location until the firm sets one, and a member row can be archived while the
+// matters they were responsible for stay open. A missing name reads as null and the screen says so,
+// which is the honest answer — an id rendered as a name would be worse than a gap.
+export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId): SqlStatement {
+  return database
+    .prepare(
+      `SELECT matter.id AS id,
+              matter.title AS title,
+              matter.description AS description,
+              matter.status AS status,
+              matter.matter_type_id AS matter_type_id,
+              matter.location_id AS location_id,
+              matter.responsible_member_id AS responsible_member_id,
+              matter.client_display_name AS client_display_name,
+              matter.client_code AS client_code,
+              matter.matter_number AS matter_number,
+              matter.e_billing AS e_billing,
+              matter.opened_at AS opened_at,
+              matter.closed_at AS closed_at,
+              matter.created_at AS created_at,
+              matter_type.name AS matter_type_name,
+              location.name AS location_name,
+              member.display_name AS responsible_member_name
+         FROM ${MATTER_TABLE} AS matter
+         LEFT JOIN matter_type ON matter_type.id = matter.matter_type_id
+         LEFT JOIN location ON location.id = matter.location_id
+         LEFT JOIN member ON member.user_id = matter.responsible_member_id
+        WHERE matter.id = ?1`,
+    )
+    .bind(id);
+}
+
 // The number draw on an existing prospective: prospective -> open, carrying the rendered number and
 // its draw/open instants. The matter_number UNIQUE index aborts the batch on a colliding draw.
 //

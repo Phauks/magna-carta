@@ -8,6 +8,7 @@ describe("the fix-pass exclusions", () => {
     // deliberate spelling in the worker's access-control route metadata.
     expect(rules).toContain("unicorn/no-array-sort");
     expect(rules).toContain("typescript/no-unnecessary-boolean-literal-compare");
+    expect(rules).toContain("typescript/no-unnecessary-type-assertion");
   });
 
   it("names every rule plugin-qualified, the form the linter's --allow accepts", () => {

@@ -294,3 +294,66 @@ describe("manual renumber conflict", () => {
     expect(((await conflict.json()) as { type: string }).type).toContain("conflict");
   });
 });
+
+describe("the matter detail read", () => {
+  it("answers with the type, Location and responsible member by NAME, not by identifier", async () => {
+    const type = await post("/api/v1/matter-types", { name: "Estate Planning", code: "EP" });
+    expect(type.status).toBe(201);
+    const typeId = ((await type.json()) as { id: string }).id;
+
+    const location = await post("/api/v1/locations", { name: "Las Vegas", numberCode: "LV" });
+    expect(location.status).toBe(201);
+    const locationId = ((await location.json()) as { id: string }).id;
+
+    const created = await post("/api/v1/matters", {
+      title: "Estate of Hollis",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      matterTypeId: typeId,
+      locationId,
+    });
+    expect(created.status).toBe(201);
+    const matterId = ((await created.json()) as { matterId: string }).matterId;
+
+    const detail = await get(`/api/v1/matters/${matterId}`);
+    expect(detail.status).toBe(200);
+    const body = (await detail.json()) as {
+      matterTypeName: string | null;
+      locationName: string | null;
+      responsibleMemberName: string | null;
+      openedAt: string | null;
+      createdAt: string;
+      eBilling: boolean;
+    };
+
+    // The screen cannot print a matterType_ handle at a person, so the read resolves the names.
+    expect(body.matterTypeName).toBe("Estate Planning");
+    expect(body.locationName).toBe("Las Vegas");
+    expect(body.responsibleMemberName).not.toBeNull();
+    // An open matter carries the instant it opened, and every matter its creation instant.
+    expect(body.openedAt).not.toBeNull();
+    expect(body.createdAt).not.toBe("");
+    expect(typeof body.eBilling).toBe("boolean");
+  });
+
+  it("reports an unset type and Location as absent rather than inventing one", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Bare Matter",
+      status: "prospective",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    const matterId = ((await created.json()) as { matterId: string }).matterId;
+
+    const detail = await get(`/api/v1/matters/${matterId}`);
+    const body = (await detail.json()) as {
+      matterTypeName: string | null;
+      locationName: string | null;
+      openedAt: string | null;
+    };
+    expect(body.matterTypeName).toBeNull();
+    expect(body.locationName).toBeNull();
+    // A prospective matter has not opened, and says so.
+    expect(body.openedAt).toBeNull();
+  });
+});
