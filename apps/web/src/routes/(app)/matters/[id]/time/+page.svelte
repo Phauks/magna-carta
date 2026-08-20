@@ -37,6 +37,10 @@
 
   $effect(() => {
     const matterId = matter.id;
+    // The previous matter's answer is discarded before the next one is asked for. Left standing, a
+    // failure is attributed to the matter now on screen and a table is read as that matter's own.
+    entries = null;
+    loadFailure = null;
     if (isSample) {
       entries = [];
       return;

@@ -42,9 +42,19 @@
   // Bumped to force a re-read after a link is severed.
   let reloadToken = $state(0);
 
+  // Which matter the list on screen belongs to. Only a change of MATTER discards it: a reload after
+  // a sever is the same matter's list being read again, and blanking it would flash a skeleton over
+  // a table the reader is still looking at.
+  let shownMatterId: string | null = null;
+
   $effect(() => {
     const matterId = matter.id;
     const token = reloadToken;
+    if (matterId !== shownMatterId) {
+      shownMatterId = matterId;
+      parties = null;
+      loadFailure = null;
+    }
     if (isSample) {
       parties = [];
       return;
