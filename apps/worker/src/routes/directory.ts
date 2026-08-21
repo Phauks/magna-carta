@@ -304,7 +304,15 @@ const SearchHit = z
   })
   .openapi("DirectorySearchHit");
 
-const SearchResponse = z.object({ data: z.array(SearchHit) }).openapi("DirectorySearchResponse");
+const SearchResponse = z
+  .object({
+    data: z.array(SearchHit),
+    // True when the firm holds more matches than were returned. A relevance-ranked search answers
+    // with its best matches rather than all of them, and a caller must be able to tell a short
+    // answer from a complete one — otherwise "no more results" and "we stopped counting" look alike.
+    capped: z.boolean(),
+  })
+  .openapi("DirectorySearchResponse");
 
 const DuplicateCandidatesRequest = z
   .object({
@@ -791,7 +799,9 @@ const searchRoute = defineOpenAPIRoute(readMeta("search", null), {
   path: "/api/v1/directory/search",
   description:
     "Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by " +
-    "relevance. Merged-away entities are excluded.",
+    "relevance. Merged-away entities are excluded. CAPPED at the most relevant matches, and " +
+    "`capped` says when the firm holds more than were returned — this read had no bound at all, so " +
+    "a broad query against a large directory returned every match in one response.",
   request: { query: z.object({ q: z.string() }) },
   responses: {
     200: {
@@ -1227,8 +1237,8 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { q } = c.req.valid("query");
-      const data = await searchNames(firm.firmDatabase, q);
-      return c.json({ data } as unknown as z.infer<typeof SearchResponse>, 200);
+      const { hits, capped } = await searchNames(firm.firmDatabase, q);
+      return c.json({ data: hits, capped } as unknown as z.infer<typeof SearchResponse>, 200);
     },
   );
 

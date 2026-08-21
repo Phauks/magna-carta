@@ -1,3 +1,10 @@
+import {
+  appendCursorPredicateOnColumn,
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { CustomFieldId } from "@magna-carta/identifiers/types";
 import type { CustomFieldTarget } from "./types.ts";
@@ -127,16 +134,49 @@ export async function readCustomFieldValuesForScope(
   return results;
 }
 
+/**
+ * One field's whole recorded history on one record, oldest first, a page at a time.
+ *
+ * PAGED because this table is append-only: every edit to a custom field leaves a row behind, and a
+ * value a firm changes weekly for five years is hundreds of them. The read carried no bound at all.
+ *
+ * Ascending, and the cursor with it — a history is read forwards from the beginning, so a page of
+ * the FIRST rows is the answer and a page of the last ones is not. The tiebreak is the identifier,
+ * because two values can share a valid_from and a keyset needs a total order.
+ */
 export async function readValueHistory(
   database: SqlDatabase,
   fieldId: CustomFieldId | string,
   targetRowId: string,
-): Promise<CustomFieldValueRow[]> {
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<CustomFieldValueRow>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const conditions = ["field_id = ?", "target_row_id = ?"];
+  const bindings: unknown[] = [fieldId, targetRowId];
+  appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(options.cursor), {
+    sortColumn: "valid_from",
+    idColumn: "id",
+    ascending: true,
+  });
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+
   const { results } = await database
     .prepare(
-      `SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, value_date AS valueDate, value_option_id AS valueOptionId, value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo FROM custom_field_value WHERE field_id = ?1 AND target_row_id = ?2 ORDER BY valid_from`,
+      `SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, ` +
+        `value_date AS valueDate, value_option_id AS valueOptionId, ` +
+        `value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo ` +
+        `FROM custom_field_value WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY valid_from ASC, id ASC LIMIT ?`,
     )
-    .bind(fieldId, targetRowId)
+    .bind(...bindings)
     .all<CustomFieldValueRow>();
-  return results;
+
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.validFrom, last.id) : null,
+    data: rows,
+  };
 }

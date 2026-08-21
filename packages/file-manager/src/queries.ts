@@ -2,6 +2,7 @@ import {
   assemblePage,
   DEFAULT_PAGE_SIZE,
   decodeCursor,
+  encodeCursor,
   type Page,
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
@@ -583,13 +584,37 @@ export async function getCurrentCleanVersionForPreview(
   };
 }
 
-// A file's committed version history (clean only) — newest first.
-export function listCleanVersionsStatement(database: SqlDatabase, fileId: FileId): SqlStatement {
+// A file's committed version history (clean only) — newest first, one page at a time.
+//
+// PAGED because a version history only grows: a document under daily revision for five years is
+// close to two thousand versions, and this read carried no bound at all. The sort key is
+// version_number, which is already unique per file and already the order a person reads a history
+// in, so it is a total order on its own; the identifier rides along in the cursor for the shape the
+// encoding takes, not because it is needed to break a tie.
+export function listCleanVersionsStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+  options: { readonly cursor?: SortCursor; readonly limit: number } = { limit: DEFAULT_PAGE_SIZE },
+): SqlStatement {
+  const conditions = ["file_id = ?", "status = 'clean'"];
+  const bindings: unknown[] = [fileId];
+  if (options.cursor !== undefined) {
+    // Written out rather than composed with appendCursorPredicateOnColumn, because that helper binds
+    // the sort value as the TEXT the cursor carries and version_number is an INTEGER. SQLite orders
+    // across storage classes before it compares within one, so every integer is less than every
+    // string: `version_number < '9'` would be true for every row in the table and the page would not
+    // advance. The comparison has to be numeric, so the binding is a number.
+    conditions.push("(version_number < ? OR (version_number = ? AND id < ?))");
+    const sortValue = Number(options.cursor.createdAt);
+    bindings.push(sortValue, sortValue, options.cursor.id);
+  }
+  bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`,
+      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable ` +
+        `FROM ${FILE_VERSION_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY version_number DESC, id DESC LIMIT ?`,
     )
-    .bind(fileId);
+    .bind(...bindings);
 }
 
 export interface CleanVersionListItem {
@@ -605,8 +630,14 @@ export interface CleanVersionListItem {
 export async function listCleanVersions(
   database: SqlDatabase,
   fileId: FileId,
-): Promise<readonly CleanVersionListItem[]> {
-  const { results } = await listCleanVersionsStatement(database, fileId).all<{
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<CleanVersionListItem>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const { results } = await listCleanVersionsStatement(database, fileId, {
+    ...(decodeCursor(options.cursor) === undefined ? {} : { cursor: decodeCursor(options.cursor) }),
+    // One more than the page, as the has-more probe.
+    limit: pageSize + 1,
+  }).all<{
     id: FileVersionId;
     version_number: number;
     size_bytes: number | null;
@@ -615,15 +646,22 @@ export async function listCleanVersions(
     committed_at: string | null;
     inline_playable: "playable" | "download-only" | "indeterminate" | null;
   }>();
-  return results.map((row) => ({
-    id: row.id,
-    versionNumber: row.version_number,
-    sizeBytes: row.size_bytes,
-    sniffedContentType: row.sniffed_content_type,
-    contentSha256: row.content_sha256,
-    committedAt: row.committed_at,
-    inlinePlayable: row.inline_playable,
-  }));
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor:
+      hasMore && last !== undefined ? encodeCursor(String(last.version_number), last.id) : null,
+    data: rows.map((row) => ({
+      id: row.id,
+      versionNumber: row.version_number,
+      sizeBytes: row.size_bytes,
+      sniffedContentType: row.sniffed_content_type,
+      contentSha256: row.content_sha256,
+      committedAt: row.committed_at,
+      inlinePlayable: row.inline_playable,
+    })),
+  };
 }
 
 // Every clean committed version's R2 key, size, and storage class in this firm — the authoritative

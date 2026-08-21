@@ -69,7 +69,7 @@ it("readValueHistory returns all rows for a field+record ordered oldest-first by
     oV2,
   );
   // readValueHistory returns both rows (no is_current filter) oldest-first.
-  const history = await readValueHistory(db, customFieldId, "matter_1");
+  const history = (await readValueHistory(db, customFieldId, "matter_1")).data;
   expect(history.length).toBe(2);
   expect(history[0]?.valueText).toBe("v1");
   expect(history[1]?.valueText).toBe("v2");
