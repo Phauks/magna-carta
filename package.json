@@ -24,6 +24,7 @@
     "lint:unwired-writes": "node tooling/lint-unwired-writes/index.mjs",
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",
+    "lint:list-pagination": "node tooling/lint-list-pagination/index.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "lint:test-collection": "node tooling/lint-test-collection/index.mjs",
     "lint:affected-scope": "node tooling/affected-lint/scope-fitness.mjs",

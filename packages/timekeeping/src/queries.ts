@@ -1,8 +1,10 @@
 import {
   appendCursorPredicate,
+  appendCursorPredicateOnColumn,
   assemblePage,
   DEFAULT_PAGE_SIZE,
   decodeCursor,
+  encodeCursor,
   type Page,
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
@@ -197,6 +199,8 @@ export interface ListTimeEntriesByMatterParams {
   // answer includes the approved, the billed and the voided — narrowing to one status is the
   // work-in-progress question, which is a different question with a different caller.
   readonly status?: TimeEntryStatus;
+  readonly cursor?: string;
+  readonly pageSize?: number;
 }
 
 // One entry on a matter, with the timekeeper's name resolved. The name is joined here rather than
@@ -212,37 +216,58 @@ export interface MatterTimeEntry extends TimeEntryListItem {
 // listUnbilledByMatter, which aggregates into a single work-in-progress summary row; this returns
 // individual entries. With a status it rides the (matter_id, status) index; without one it walks
 // matter_id, which is the same index prefix.
+//
+// PAGED, over the platform's own cursor. This read carried no LIMIT at all: a matter that had been
+// billing for years answered with every entry on it in one response, and the size of that answer was
+// bounded by nothing but the firm's own history. The sort key is (work_date, id) rather than
+// (created_at, id) because work_date is the order a person reads time in, and the identifier is the
+// tiebreak because a keyset cursor needs a TOTAL order — two entries can share a work date, and
+// created_at is not unique either.
 export async function listTimeEntriesByMatter(
   database: SqlDatabase,
   params: ListTimeEntriesByMatterParams,
-): Promise<MatterTimeEntry[]> {
+): Promise<Page<MatterTimeEntry>> {
   const columns = TIME_ENTRY_LIST_COLUMNS.split(", ")
     .map((column) => `time_entry.${column}`)
     .join(", ");
-  const statement =
-    params.status === undefined
-      ? database
-          .prepare(
-            `SELECT ${columns}, member.display_name AS timekeeper_name
-               FROM ${TIME_ENTRY_TABLE} AS time_entry
-               LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
-              WHERE time_entry.matter_id = ?1
-              ORDER BY time_entry.work_date DESC, time_entry.id DESC`,
-          )
-          .bind(params.matterId)
-      : database
-          .prepare(
-            `SELECT ${columns}, member.display_name AS timekeeper_name
-               FROM ${TIME_ENTRY_TABLE} AS time_entry
-               LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
-              WHERE time_entry.matter_id = ?1 AND time_entry.status = ?2
-              ORDER BY time_entry.work_date DESC, time_entry.id DESC`,
-          )
-          .bind(params.matterId, params.status);
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
 
-  const { results } = await statement.all<TimeEntryRowRaw & { timekeeper_name: string | null }>();
-  return results.map((row) => ({
-    ...toTimeEntryListItem(row),
-    timekeeperName: row.timekeeper_name,
-  }));
+  const conditions = ["time_entry.matter_id = ?"];
+  const bindings: unknown[] = [params.matterId];
+  if (params.status !== undefined) {
+    conditions.push("time_entry.status = ?");
+    bindings.push(params.status);
+  }
+  appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(params.cursor), {
+    sortColumn: "time_entry.work_date",
+    idColumn: "time_entry.id",
+    ascending: false,
+  });
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT ${columns}, member.display_name AS timekeeper_name
+         FROM ${TIME_ENTRY_TABLE} AS time_entry
+         LEFT JOIN member ON member.user_id = time_entry.timekeeper_user_id
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY time_entry.work_date DESC, time_entry.id DESC
+        LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<TimeEntryRowRaw & { timekeeper_name: string | null }>();
+
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    // The cursor is minted over the SORT key, not created_at — assemblePage mints over created_at,
+    // which is the right key only for a read ordered by it.
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.work_date, last.id) : null,
+    data: rows.map((row) => ({
+      ...toTimeEntryListItem(row),
+      timekeeperName: row.timekeeper_name,
+    })),
+  };
 }

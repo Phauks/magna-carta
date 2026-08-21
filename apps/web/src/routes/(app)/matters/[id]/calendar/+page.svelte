@@ -38,6 +38,7 @@
     type CalendarDeadline,
     type CalendarEvent,
   } from "$lib/matters/calendar-api.ts";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -45,67 +46,39 @@
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
 
-  let deadlines = $state<readonly CalendarDeadline[] | null>(null);
-  let deadlinesTruncated = $state(false);
-  let deadlineFailure = $state<string | null>(null);
+  // Two independent lists, so one failing does not blank the other: a firm whose deadline read
+  // errored still needs to see its hearings.
+  const deadlineList = new PagedList<CalendarDeadline>(
+    "The deadlines on this matter could not be read.",
+  );
+  const eventList = new PagedList<CalendarEvent>("The events on this matter could not be read.");
 
-  let events = $state<readonly CalendarEvent[] | null>(null);
-  let eventsTruncated = $state(false);
-  let eventFailure = $state<string | null>(null);
+  const deadlines = $derived(deadlineList.items);
+  const deadlineFailure = $derived(deadlineList.failure);
+  const events = $derived(eventList.items);
+  const eventFailure = $derived(eventList.failure);
 
-  // The two reads are independent, and one failing must not blank the other: a firm whose deadline
-  // read errored still needs to see its hearings.
   $effect(() => {
     const matterId = matter.id;
-    // Every read of the previous matter is discarded before the next one is asked for. A failure
-    // left standing would be attributed to the matter now on screen, and a list left standing would
-    // be read as that matter's own.
-    deadlines = null;
-    events = null;
-    deadlinesTruncated = false;
-    eventsTruncated = false;
-    deadlineFailure = null;
-    eventFailure = null;
+    if (deadlineList.showing(matterId)) return;
+    deadlineList.reset(matterId);
+    eventList.reset(matterId);
     if (isSample) {
-      deadlines = [];
-      events = [];
+      deadlineList.settleEmpty();
+      eventList.settleEmpty();
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const result = await listMatterDeadlines(fetch, matterId);
-      if (cancelled) return;
-      if (result.kind === "ok") {
-        deadlines = result.value.data;
-        deadlinesTruncated = result.value.nextCursor !== null;
-        deadlineFailure = null;
-      } else {
-        deadlines = [];
-        deadlineFailure =
-          result.kind === "transport"
-            ? "Nothing answered. The deadlines on this matter could not be read."
-            : (result.problem.detail ?? "The deadlines on this matter could not be read.");
-      }
-    })();
-    void (async () => {
-      const result = await listMatterEvents(fetch, matterId);
-      if (cancelled) return;
-      if (result.kind === "ok") {
-        events = result.value.data;
-        eventsTruncated = result.value.nextCursor !== null;
-        eventFailure = null;
-      } else {
-        events = [];
-        eventFailure =
-          result.kind === "transport"
-            ? "Nothing answered. The events on this matter could not be read."
-            : (result.problem.detail ?? "The events on this matter could not be read.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void deadlineList.load((cursor) => listMatterDeadlines(fetch, matterId, cursor));
+    void eventList.load((cursor) => listMatterEvents(fetch, matterId, cursor));
   });
+
+  function loadMoreDeadlines(): void {
+    void deadlineList.loadMore((cursor) => listMatterDeadlines(fetch, matter.id, cursor));
+  }
+
+  function loadMoreEvents(): void {
+    void eventList.loadMore((cursor) => listMatterEvents(fetch, matter.id, cursor));
+  }
 
   const overdue = $derived(overdueCount(deadlines ?? []));
 
@@ -218,11 +191,16 @@
         </DataTable.Body>
       </DataTable.Root>
 
-      {#if deadlinesTruncated}
-        <p class="text-xs text-text-muted">
-          The soonest {deadlines.length} deadlines are shown. This matter has more recorded than fit
-          on one page, and reaching the rest waits on paging this screen.
-        </p>
+      {#if deadlineList.nextCursor !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Button variant="secondary" onclick={loadMoreDeadlines} disabled={deadlineList.loadingMore}>
+            {deadlineList.loadingMore ? "Loading" : "Load more deadlines"}
+          </Button>
+          <p class="text-xs text-text-muted">
+            Showing the {deadlines.length} soonest. The past-due count above covers only what is on
+            screen.
+          </p>
+        </div>
       {/if}
     {/if}
   </div>
@@ -304,11 +282,15 @@
         </DataTable.Body>
       </DataTable.Root>
 
-      {#if eventsTruncated}
-        <p class="text-xs text-text-muted">
-          The {events.length} events furthest ahead are shown. This matter has more recorded than fit
-          on one page, and reaching the rest waits on paging this screen.
-        </p>
+      {#if eventList.nextCursor !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Button variant="secondary" onclick={loadMoreEvents} disabled={eventList.loadingMore}>
+            {eventList.loadingMore ? "Loading" : "Load more events"}
+          </Button>
+          <p class="text-xs text-text-muted">
+            Showing the {events.length} furthest ahead.
+          </p>
+        </div>
       {/if}
     {/if}
   </div>

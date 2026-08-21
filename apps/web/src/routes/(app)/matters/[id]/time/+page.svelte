@@ -25,6 +25,7 @@
     statusTone,
     type TimeEntrySummary,
   } from "$lib/matters/time-api.ts";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -32,38 +33,24 @@
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
 
-  let entries = $state<readonly TimeEntrySummary[] | null>(null);
-  let loadFailure = $state<string | null>(null);
+  const list = new PagedList<TimeEntrySummary>("The time on this matter could not be read.");
+  const entries = $derived(list.items);
+  const loadFailure = $derived(list.failure);
 
   $effect(() => {
     const matterId = matter.id;
-    // The previous matter's answer is discarded before the next one is asked for. Left standing, a
-    // failure is attributed to the matter now on screen and a table is read as that matter's own.
-    entries = null;
-    loadFailure = null;
+    if (list.showing(matterId)) return;
+    list.reset(matterId);
     if (isSample) {
-      entries = [];
+      list.settleEmpty();
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const result = await listMatterTimeEntries(fetch, matterId);
-      if (cancelled) return;
-      if (result.kind === "ok") {
-        entries = result.value.data;
-        loadFailure = null;
-      } else if (result.kind === "transport") {
-        entries = [];
-        loadFailure = "Nothing answered. The time on this matter could not be read.";
-      } else {
-        entries = [];
-        loadFailure = result.problem.detail ?? "The time on this matter could not be read.";
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void list.load((cursor) => listMatterTimeEntries(fetch, matterId, cursor));
   });
+
+  function loadMore(): void {
+    void list.loadMore((cursor) => listMatterTimeEntries(fetch, matter.id, cursor));
+  }
 
   const totals = $derived(billableTotals(entries ?? []));
 
@@ -156,6 +143,18 @@
         {/each}
       </DataTable.Body>
     </DataTable.Root>
+
+    {#if list.nextCursor !== null}
+      <div class="flex flex-col items-start gap-8">
+        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+          {list.loadingMore ? "Loading" : "Load more time"}
+        </Button>
+        <p class="text-xs text-text-muted">
+          Showing the {entries.length} most recent. The total below covers only what is on screen, so
+          it is not the matter's whole time record until every page is loaded.
+        </p>
+      </div>
+    {/if}
 
     <p class="text-xs text-text-muted">
       Billable time on this matter: {hoursFromMinutes(totals.minutes)} hours{#if totals.currency !== null},

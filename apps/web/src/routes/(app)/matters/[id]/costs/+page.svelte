@@ -25,6 +25,7 @@
     statusTone,
     type CostSummary,
   } from "$lib/matters/cost-api.ts";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -32,38 +33,24 @@
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
 
-  let costs = $state<readonly CostSummary[] | null>(null);
-  let loadFailure = $state<string | null>(null);
+  const list = new PagedList<CostSummary>("The costs on this matter could not be read.");
+  const costs = $derived(list.items);
+  const loadFailure = $derived(list.failure);
 
   $effect(() => {
     const matterId = matter.id;
-    // The previous matter's answer is discarded before the next one is asked for. Left standing, a
-    // failure is attributed to the matter now on screen and a table is read as that matter's own.
-    costs = null;
-    loadFailure = null;
+    if (list.showing(matterId)) return;
+    list.reset(matterId);
     if (isSample) {
-      costs = [];
+      list.settleEmpty();
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const result = await listMatterCosts(fetch, matterId);
-      if (cancelled) return;
-      if (result.kind === "ok") {
-        costs = result.value.data;
-        loadFailure = null;
-      } else if (result.kind === "transport") {
-        costs = [];
-        loadFailure = "Nothing answered. The costs on this matter could not be read.";
-      } else {
-        costs = [];
-        loadFailure = result.problem.detail ?? "The costs on this matter could not be read.";
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void list.load((cursor) => listMatterCosts(fetch, matterId, cursor));
   });
+
+  function loadMore(): void {
+    void list.loadMore((cursor) => listMatterCosts(fetch, matter.id, cursor));
+  }
 
   const totals = $derived(costTotals(costs ?? []));
 
@@ -160,6 +147,18 @@
         {/each}
       </DataTable.Body>
     </DataTable.Root>
+
+    {#if list.nextCursor !== null}
+      <div class="flex flex-col items-start gap-8">
+        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+          {list.loadingMore ? "Loading" : "Load more costs"}
+        </Button>
+        <p class="text-xs text-text-muted">
+          Showing the {costs.length} most recently incurred. The totals below cover only what is on
+          screen, so they are not the matter's whole cost record until every page is loaded.
+        </p>
+      </div>
+    {/if}
 
     <p class="text-xs text-text-muted">
       Advanced for this matter: {DataTable.formatMoney(totals.advancedMinor / 100)}, of which

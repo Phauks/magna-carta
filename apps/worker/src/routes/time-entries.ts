@@ -14,6 +14,7 @@ import {
   voidTimeEntry,
 } from "@magna-carta/timekeeping/time-entry-service";
 import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
@@ -116,9 +117,7 @@ const TimeEntrySummary = z
     timekeeperName: z.string().nullable().optional(),
   })
   .openapi("TimeEntrySummary");
-const TimeEntryListResponse = z
-  .object({ data: z.array(TimeEntrySummary) })
-  .openapi("TimeEntryListResponse");
+const TimeEntryListResponse = paginated(TimeEntrySummary).openapi("TimeEntryListResponse");
 
 const QuickAddPreviewResponse = z
   .object({
@@ -149,6 +148,7 @@ const listQuery = z.object({
         "Narrows a per-matter listing to one status. Omitted, the listing answers with every " +
         "status the matter carries, which is what a matter's time record is.",
     }),
+  ...cursorQuery.shape,
 });
 
 const authErrors = {
@@ -280,7 +280,11 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/time-entries",
   description:
-    "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).",
+    "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and " +
+    "status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date " +
+    "first: a matter that has been billing for years is not a single response, and this read " +
+    "carried no bound at all until it was. The daily view is complete in one page by construction " +
+    "— one timekeeper, one date — so its cursor is always null.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -699,7 +703,9 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           currency: item.currency,
           status: item.status,
         }));
-        return c.json({ data }, 200);
+        // One timekeeper on one date is a complete answer by construction, so the page is the whole
+        // record and the cursor is null rather than absent — the envelope is uniform.
+        return c.json({ data, nextCursor: null }, 200);
       }
 
       if (query.matterId !== undefined) {
@@ -708,13 +714,15 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         // defaulted to "draft" and answered a narrower question than it was asked, silently -- the
         // approved, billed and voided entries on the matter simply did not appear, and nothing in
         // the contract said they would not.
-        const items = await listTimeEntriesByMatter(firm.firmDatabase, {
+        const page = await listTimeEntriesByMatter(firm.firmDatabase, {
           matterId: query.matterId,
           ...(query.status === undefined ? {} : { status: query.status }),
+          ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
         });
         return c.json(
           {
-            data: items.map((item) => ({
+            nextCursor: page.nextCursor,
+            data: page.data.map((item) => ({
               id: item.id,
               matterId: item.matterId,
               timekeeperUserId: item.timekeeperUserId,
@@ -734,7 +742,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       }
 
       // No recognized filter — return an empty list rather than a full-table scan.
-      return c.json({ data: [] as z.infer<typeof TimeEntrySummary>[] }, 200);
+      return c.json({ data: [] as z.infer<typeof TimeEntrySummary>[], nextCursor: null }, 200);
     },
   );
 

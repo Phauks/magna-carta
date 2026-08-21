@@ -2,7 +2,7 @@
  * The matter Costs section's response shapes and calls. Mirrors the cost operations in
  * apps/worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 export type CostStatus = "draft" | "submitted" | "approved" | "billed" | "void";
 
@@ -38,8 +38,9 @@ export interface CostSummary {
 export function listMatterCosts(
   fetchImpl: typeof fetch,
   matterId: string,
-): Promise<ApiOutcome<{ data: CostSummary[] }>> {
-  const query = new URLSearchParams({ matterId });
+  cursor?: string,
+): Promise<ApiOutcome<Page<CostSummary>>> {
+  const query = new URLSearchParams({ matterId, ...(cursor === undefined ? {} : { cursor }) });
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 

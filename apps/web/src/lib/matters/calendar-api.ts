@@ -7,7 +7,7 @@
  * date something must happen by; nothing here computes one, every date is one a person recorded,
  * and whether it has been missed is worked out when the page is read rather than stored.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 export type EventStatus = "scheduled" | "occurred" | "cancelled";
 export type DeadlineState = "open" | "satisfied" | "vacated" | "superseded";
@@ -58,12 +58,6 @@ export interface CalendarDeadline {
   overdue: boolean;
 }
 
-/** One page, and whether the record continues past it. */
-export interface Page<T> {
-  data: T[];
-  nextCursor: string | null;
-}
-
 /**
  * The matter's own events, without the federated timeline — the read an editing surface makes.
  * Ordered by the date they are set for, furthest ahead first, so what is still coming leads.
@@ -71,8 +65,11 @@ export interface Page<T> {
 export function listMatterEvents(
   fetchImpl: typeof fetch,
   matterId: string,
+  cursor?: string,
 ): Promise<ApiOutcome<Page<CalendarEvent>>> {
-  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/events`);
+  const query = new URLSearchParams(cursor === undefined ? {} : { cursor });
+  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/events${suffix}`);
 }
 
 /**
@@ -83,8 +80,9 @@ export function listMatterEvents(
 export function listMatterDeadlines(
   fetchImpl: typeof fetch,
   matterId: string,
+  cursor?: string,
 ): Promise<ApiOutcome<Page<CalendarDeadline>>> {
-  const query = new URLSearchParams({ matterId });
+  const query = new URLSearchParams({ matterId, ...(cursor === undefined ? {} : { cursor }) });
   return requestJson(fetchImpl, `/api/v1/calendar/deadlines?${query.toString()}`);
 }
 

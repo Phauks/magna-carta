@@ -972,3 +972,75 @@ describe("gridBatch", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("the matter time listing", () => {
+  it("pages a matter whose time record does not fit one response, losing and repeating nothing", async () => {
+    // The listing carried no LIMIT at all: a matter that had been billing for years answered with
+    // every entry on it in one response. All entries here share a work date on purpose, so the
+    // cursor is proved over the identifier tiebreak rather than over a date that happens to differ.
+    //
+    // Seeded through the database rather than the capture route: fifty-five writes through the API
+    // exhaust this firm's request budget and starve whatever runs next. The read is what is under
+    // test; the capture path is exercised by its own cases above.
+    const created = await post("/api/v1/matters", {
+      title: "Time Paging Matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    const paged = ((await created.json()) as { matterId: string }).matterId;
+
+    const database = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const expected: string[] = [];
+    for (let index = 0; index < 55; index += 1) {
+      const id = newIdentifier("timeEntry");
+      expected.push(id);
+      await database
+        .prepare(
+          `INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes,
+             raw_duration_minutes, narrative, billable, currency, rate_e4, amount_minor, status,
+             source, created_at, updated_at)
+           VALUES (?1, ?2, ?3, '2026-07-02', 60, 60, ?4, 1, 'USD', 0, 0, 'draft', 'manual', ?5, ?5)`,
+        )
+        .bind(
+          id,
+          paged,
+          ownerUserId,
+          `Drafting session ${String(index)}`,
+          "2026-07-02T00:00:00.000Z",
+        )
+        .run();
+    }
+
+    const first = await get(`/api/v1/time-entries?matterId=${paged}`);
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as { data: { id: string }[]; nextCursor: string | null };
+    expect(firstBody.data).toHaveLength(50);
+    expect(firstBody.nextCursor).not.toBeNull();
+
+    const second = await get(
+      `/api/v1/time-entries?matterId=${paged}&cursor=${encodeURIComponent(firstBody.nextCursor ?? "")}`,
+    );
+    const secondBody = (await second.json()) as {
+      data: { id: string }[];
+      nextCursor: string | null;
+    };
+    expect(secondBody.data).toHaveLength(5);
+    expect(secondBody.nextCursor).toBeNull();
+
+    const seen = [...firstBody.data, ...secondBody.data].map((entry) => entry.id);
+    expect(new Set(seen).size).toBe(55);
+    expect([...seen].sort()).toEqual([...expected].sort());
+  });
+
+  it("answers the daily view as a complete page rather than an open cursor", async () => {
+    // One timekeeper on one date is a complete answer by construction. The envelope is uniform, so
+    // the cursor is explicitly null rather than absent.
+    const listed = await get(
+      `/api/v1/time-entries?timekeeperUserId=${ownerUserId}&workDate=2026-07-02`,
+    );
+    expect(listed.status).toBe(200);
+    const body = (await listed.json()) as { data: unknown[]; nextCursor: string | null };
+    expect(body.nextCursor).toBeNull();
+  });
+});
