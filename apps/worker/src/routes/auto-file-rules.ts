@@ -9,12 +9,12 @@ import {
   readAutoFileRuleById,
   readAutoFileRulesByIds,
   readAutoFileRulesForMatter,
-  readRecentAutomaticEmailLinks,
+  readAutoFileRuleMatterIds,
+  readAutomaticRuleTallies,
   resumeEmailAutoFileRule,
   revokeEmailAutoFileRule,
   suspendEmailAutoFileRule,
   updateEmailAutoFileRulePromotion,
-  type AutomaticEmailLink,
   type EmailAutoFileRuleRow,
 } from "@magna-carta/data-access/email-auto-file-statements";
 import {
@@ -152,8 +152,9 @@ const AutoFileReviewEntry = z
     promotion: RulePromotion,
     state: RuleState,
     suspendedReason: RuleSuspendedReason.nullable(),
-    // What this rule did inside the window, counted from the links themselves. `undoneCount` is the
-    // feedback signal: a link the rule made that somebody has since taken off.
+    // What this rule did inside the window, counted in the database over every link it made on a
+    // matter the caller can see — exact, not sampled. `undoneCount` is the feedback signal: a link
+    // the rule made that somebody has since taken off.
     filedCount: z.number().int(),
     stagedCount: z.number().int(),
     undoneCount: z.number().int(),
@@ -164,6 +165,10 @@ const AutoFileReviewEntry = z
 const AutoFileReview = z
   .object({
     windowStart: z.string(),
+    // True when the firm holds rules on more matters than one answer considers. The per-rule counts
+    // below are exact for the rules that DID appear; this says some rules may be missing from the
+    // list entirely. It is not a page marker — see the ceiling's comment below.
+    matterScopeCapped: z.boolean(),
     data: z.array(AutoFileReviewEntry),
   })
   .openapi("AutoFileReview");
@@ -171,12 +176,16 @@ const AutoFileReview = z
 const MANAGE = "emails:manageAutoFileRules" as const;
 const READ = "emails:read" as const;
 
-// How far back the review read looks, and how many automatic links it will walk. Both are fixed
-// rather than caller-supplied, and the second is why: the read narrows its matter set through the wall
-// filter and then hydrates only what survived, which is only sound over an UNPAGED window. A cursor
-// over a set a wall can shrink hands out short pages and calls it the end of the list.
+// How far back the review read looks, and how many MATTERS it will consider. Both are fixed rather
+// than caller-supplied, and the second is why: the read narrows its matter set through the wall filter
+// and then counts only what survived, which is only sound over an UNPAGED window. A cursor over a set
+// a wall can shrink hands out short pages and calls it the end of the list.
+//
+// The ceiling is on the matters the firm has set RULES on, not on links. Links grow with every message
+// a rule files and a cap there made every count understate; matters carrying a rule is the firm's own
+// configuration, and when the ceiling is reached the answer says so rather than quietly narrowing.
 const REVIEW_WINDOW_DAYS = 30;
-const REVIEW_LINK_LIMIT = 500;
+const REVIEW_MATTER_LIMIT = 500;
 // A matter cannot hold an unbounded number of rules in practice — one per correspondent, one per
 // live conversation — but the read still carries a ceiling rather than trusting that.
 const MATTER_RULE_LIMIT = 200;
@@ -508,9 +517,12 @@ const reviewRoute = defineOpenAPIRoute(reviewMeta, {
   description:
     "What the firm's auto-file rules have actually been doing over the last thirty days: per rule, " +
     "how many messages it filed, how many it placed for confirmation, how many of those somebody " +
-    "has since removed, and whether it has stopped itself. Rules on matters the caller cannot " +
-    "access contribute nothing — no entry and no count. This is the read a firm looks at before " +
-    "deciding whether to permit filing without confirmation.",
+    "has since removed, and whether it has stopped itself. Every count is exact over the window — " +
+    "this is the read a firm looks at before deciding whether to permit filing without " +
+    "confirmation, and a count that understated would make a rule look less consequential than it " +
+    "is. Rules on matters the caller cannot access contribute nothing: no entry and no count. " +
+    "`matterScopeCapped` is true in the rare case that the firm holds rules on more matters than " +
+    "one answer considers, which means a rule may be missing from the list rather than mis-counted.",
   responses: {
     200: {
       description: "Recent automatic filing activity, per rule",
@@ -1039,27 +1051,31 @@ export function registerAutoFileRuleRoutes(
       const windowStart = new Date(
         Date.now() - REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000,
       ).toISOString();
-      const links = await readRecentAutomaticEmailLinks(firm.firmDatabase, {
-        since: windowStart,
-        limit: REVIEW_LINK_LIMIT,
-      });
-      // NARROW FIRST, HYDRATE SECOND. The matter set goes through the one wall filter before a single
-      // rule is read, so a rule on a matter the caller cannot open contributes no entry, no count, and
+      // NARROW FIRST, COUNT SECOND. The matter set goes through the one wall filter before anything
+      // else is read, so a rule on a matter the caller cannot open contributes no entry, no count and
       // no suspension line — it is not filtered out of a rendered answer, it never enters one.
-      const visible = new Set(
-        await filterAccessibleMatters(firm, userId, [...new Set(links.map((l) => l.matterId))]),
-      );
-      const permitted = links.filter((link) => visible.has(link.matterId));
+      const touched = await readAutoFileRuleMatterIds(firm.firmDatabase, {
+        limit: REVIEW_MATTER_LIMIT,
+      });
+      const visible = await filterAccessibleMatters(firm, userId, touched.matterIds);
+      // Counted in SQL over the matters that survived the wall, so the numbers are exact however much
+      // the rules have been doing. They used to be tallied from a capped page of links, which both
+      // understated every count and dropped a matter whose links all fell past the cut.
+      const tallies = await readAutomaticRuleTallies(firm.firmDatabase, {
+        since: windowStart,
+        matterIds: visible,
+      });
 
       const rules = new Map(
         (
-          await readAutoFileRulesByIds(firm.firmDatabase, [
-            ...new Set(permitted.map((link) => link.autoFileRuleId)),
-          ])
+          await readAutoFileRulesByIds(
+            firm.firmDatabase,
+            tallies.map((tally) => tally.autoFileRuleId),
+          )
         ).map((rule) => [rule.id, rule]),
       );
 
-      const data = [...tallyByRule(permitted).values()]
+      const data = tallies
         .flatMap((tally) => {
           const rule = rules.get(tally.autoFileRuleId);
           // A link naming a rule row that is not there cannot be explained, so it is not reported.
@@ -1081,40 +1097,9 @@ export function registerAutoFileRuleRoutes(
           ];
         })
         .sort((left, right) => right.lastActedAt.localeCompare(left.lastActedAt));
-      return c.json({ windowStart, data }, 200);
+      return c.json({ windowStart, matterScopeCapped: touched.capped, data }, 200);
     },
   );
-}
-
-interface RuleTally {
-  autoFileRuleId: EmailAutoFileRuleId;
-  filedCount: number;
-  stagedCount: number;
-  undoneCount: number;
-  lastActedAt: string;
-}
-
-// Count what each rule did from the links themselves rather than from the decision ledger. The link
-// carries the CURRENT truth — a filing somebody has since taken off reads as `unlinked` — which is
-// exactly what a reviewer is looking at, and it is the same signal the circuit breaker's undo input
-// is derived from, so the two cannot tell a firm different stories about the same rule.
-function tallyByRule(links: readonly AutomaticEmailLink[]): Map<string, RuleTally> {
-  const tallies = new Map<string, RuleTally>();
-  for (const link of links) {
-    const tally = tallies.get(link.autoFileRuleId) ?? {
-      autoFileRuleId: link.autoFileRuleId,
-      filedCount: 0,
-      stagedCount: 0,
-      undoneCount: 0,
-      lastActedAt: link.createdAt,
-    };
-    if (link.state === "filed") tally.filedCount += 1;
-    else if (link.state === "staged") tally.stagedCount += 1;
-    else tally.undoneCount += 1;
-    if (link.createdAt > tally.lastActedAt) tally.lastActedAt = link.createdAt;
-    tallies.set(link.autoFileRuleId, tally);
-  }
-  return tallies;
 }
 
 // The stored evidence blob, read defensively. It holds identifiers and enums by construction, but it

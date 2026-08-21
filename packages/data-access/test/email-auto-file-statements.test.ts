@@ -17,7 +17,8 @@ import {
   readAutoFileRuleById,
   readAutoFileRulesByIds,
   readAutoFileRulesForMatter,
-  readRecentAutomaticEmailLinks,
+  readAutoFileRuleMatterIds,
+  readAutomaticRuleTallies,
   findAutoFileRuleByMatch,
   resumeEmailAutoFileRule,
   revokeEmailAutoFileRule,
@@ -525,23 +526,30 @@ describe("the review read's walk over automatic links", () => {
       );
   }
 
-  // A person's link is not review material, and including it would misreport how much of a matter's
+  const WINDOW = "2026-08-05T21:00:00.000Z";
+
+  // A person's link is not review material, and counting it would misreport how much of a matter's
   // correspondence arrived unattended — which is the one number this read exists to give a firm.
-  it("returns only the links a rule made", async () => {
+  it("counts only the links a rule made", async () => {
     const matterId = seedMatter("five1000000000000000");
     await createRule(matterId);
     seedLink({ index: 1, matterId, state: "staged", automatic: true, createdAt: NOW });
     seedLink({ index: 2, matterId, state: "filed", automatic: false, createdAt: NOW });
 
-    const links = await readRecentAutomaticEmailLinks(database, {
-      since: "2026-08-05T21:00:00.000Z",
-      limit: 50,
+    const touched = await readAutoFileRuleMatterIds(database, { limit: 50 });
+    expect(touched.matterIds).toEqual([matterId]);
+    expect(touched.capped).toBe(false);
+
+    const tallies = await readAutomaticRuleTallies(database, {
+      since: WINDOW,
+      matterIds: touched.matterIds,
     });
-    expect(links.map((link) => link.autoFileRuleId)).toEqual([RULE]);
-    expect(links[0]?.state).toBe("staged");
+    expect(tallies).toHaveLength(1);
+    // The person's `filed` link is absent from the count, not merely absent from a list.
+    expect(tallies[0]).toMatchObject({ autoFileRuleId: RULE, stagedCount: 1, filedCount: 0 });
   });
 
-  it("stays inside its window and under its limit", async () => {
+  it("stays inside its window, and counts every link in it however many there are", async () => {
     const matterId = seedMatter("five2000000000000000");
     await createRule(matterId);
     seedLink({
@@ -555,41 +563,89 @@ describe("the review read's walk over automatic links", () => {
     seedLink({
       index: 5,
       matterId,
-      state: "filed",
+      state: "unlinked",
       automatic: true,
       createdAt: "2026-08-05T22:30:00.000Z",
     });
 
-    const windowed = await readRecentAutomaticEmailLinks(database, {
-      since: "2026-08-05T21:00:00.000Z",
-      limit: 50,
+    const tallies = await readAutomaticRuleTallies(database, {
+      since: WINDOW,
+      matterIds: [matterId],
     });
-    expect(windowed).toHaveLength(2);
-    // Newest first, so a caller taking the head of the list is taking the most recent activity.
-    expect(windowed.map((link) => link.createdAt)).toEqual(["2026-08-05T22:30:00.000Z", NOW]);
-    expect(
-      await readRecentAutomaticEmailLinks(database, {
-        since: "2026-08-05T21:00:00.000Z",
-        limit: 1,
-      }),
-    ).toHaveLength(1);
+    // The July link is outside the window and is not counted; the two inside it are, by state.
+    expect(tallies[0]).toMatchObject({ filedCount: 1, undoneCount: 1, stagedCount: 0 });
+    // The latest act in the window, so a caller sorting by it sorts by most-recent activity.
+    expect(tallies[0]?.lastActedAt).toBe("2026-08-05T22:30:00.000Z");
   });
 
-  // Without the partial index this is a scan of every link the firm holds — and the same column is
-  // subqueried on the capture path by the undo derivation, so the scan lands on the hot path.
-  it("walks the partial automatic-link index rather than scanning every link", () => {
+  // The ceiling is on the matters the firm has set RULES on, and the reason it says so is the defect
+  // this read was rebuilt to remove: a cap that quietly narrows the answer is one a firm cannot tell
+  // from a quiet month.
+  it("reports the matter ceiling rather than narrowing in silence", async () => {
+    const first = seedMatter("five3000000000000000");
+    const second = seedMatter("five4000000000000000");
+    await createRule(first);
+    await createRule(second, { id: "emailAutoFileRule_second00000000000" as EmailAutoFileRuleId });
+
+    const cut = await readAutoFileRuleMatterIds(database, { limit: 1 });
+    expect(cut.matterIds).toHaveLength(1);
+    expect(cut.capped).toBe(true);
+    expect((await readAutoFileRuleMatterIds(database, { limit: 2 })).capped).toBe(false);
+  });
+
+  // A count is a sum and a sum merges, which is what makes chunking the matter list at D1's
+  // bound-parameter cap safe: two chunks' tallies for one rule add up to what one query would give.
+  it("merges tallies across chunked matter lists", async () => {
+    const first = seedMatter("five5000000000000000");
+    const second = seedMatter("five6000000000000000");
+    await createRule(first);
+    seedLink({ index: 8, matterId: first, state: "filed", automatic: true, createdAt: NOW });
+    seedLink({
+      index: 9,
+      matterId: second,
+      state: "filed",
+      automatic: true,
+      createdAt: "2026-08-05T22:45:00.000Z",
+    });
+
+    const together = await readAutomaticRuleTallies(database, {
+      since: WINDOW,
+      matterIds: [first, second],
+    });
+    expect(together[0]).toMatchObject({ filedCount: 2 });
+    expect(together[0]?.lastActedAt).toBe("2026-08-05T22:45:00.000Z");
+  });
+
+  // Taking the matter set from the RULES rather than from the links is what keeps this read off the
+  // link table entirely — the rule catalog is the firm's own configuration, and reading all of it is
+  // the same cost class as reading any settings list.
+  it("takes its matter set from the rule catalog, never from the links", () => {
     const plan = raw
       .prepare(
-        `EXPLAIN QUERY PLAN SELECT email_message_id, matter_id, auto_file_rule_id, state, created_at
-         FROM email_matter_link
-         WHERE auto_file_rule_id IS NOT NULL AND created_at >= ?
-         ORDER BY created_at DESC, id DESC LIMIT ?`,
+        `EXPLAIN QUERY PLAN SELECT DISTINCT matter_id FROM email_auto_file_rule
+         ORDER BY matter_id ASC LIMIT ?`,
       )
-      .all(NOW, 50) as { detail: string }[];
-    const details = plan.map((row) => row.detail);
+      .all(50) as { detail: string }[];
     expect(
-      details.some((detail) => detail.includes("email_matter_link_auto_file_rule_created_index")),
-    ).toBe(true);
+      plan.map((row) => row.detail).some((detail) => detail.includes("email_matter_link")),
+    ).toBe(false);
+  });
+
+  // The count is the only part that touches the links, and it must seek per matter inside the window
+  // rather than walk the firm's mail — this is a read a person loads a screen with.
+  it("counts one rule's window from the matter-scoped index, never a scan", () => {
+    const plan = raw
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT auto_file_rule_id,
+                SUM(CASE WHEN state = 'filed' THEN 1 ELSE 0 END) AS filed_count,
+                MAX(created_at) AS last_acted_at
+           FROM email_matter_link
+          WHERE auto_file_rule_id IS NOT NULL AND created_at >= ? AND matter_id IN (?, ?)
+          GROUP BY auto_file_rule_id`,
+      )
+      .all(NOW, "a", "b") as { detail: string }[];
+    const details = plan.map((row) => row.detail);
+    expect(details.some((detail) => detail.startsWith("SEARCH"))).toBe(true);
     expect(details.some((detail) => detail.startsWith("SCAN") && !detail.includes(" USING "))).toBe(
       false,
     );

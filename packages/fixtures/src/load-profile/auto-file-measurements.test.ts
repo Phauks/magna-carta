@@ -3,7 +3,8 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import {
   readActiveAutoFileRulesByMatchValues,
   readAutoFileRuleActivity,
-  readRecentAutomaticEmailLinks,
+  readAutoFileRuleMatterIds,
+  readAutomaticRuleTallies,
 } from "@magna-carta/data-access/email-auto-file-statements";
 import {
   readEmailMatterLinksForMessage,
@@ -449,11 +450,15 @@ describe("auto-file rules at volume (load profile)", () => {
             },
           },
           {
+            // Both halves of the review read, in the order the route runs them — the matter set from
+            // the rule catalog, then the counts over it. Measuring only one half would measure the
+            // cheap one: the counting is what touches the link table.
             name: "reviewRead@30days",
             operation: async () => {
-              await readRecentAutomaticEmailLinks(burst.database, {
+              const matters = await readAutoFileRuleMatterIds(burst.database, { limit: 500 });
+              await readAutomaticRuleTallies(burst.database, {
                 since: WINDOW_START,
-                limit: 500,
+                matterIds: matters.matterIds,
               });
             },
           },
