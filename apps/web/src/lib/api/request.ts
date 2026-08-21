@@ -23,6 +23,16 @@ export interface ApiProblem {
   errorId?: string;
 }
 
+/**
+ * One page of a cursor-paged listing. `nextCursor` is a string when the record continues past this
+ * page and null when it does not — never absent, so "there is no more" and "nobody said" cannot be
+ * confused. The value is opaque: pass it back, never parse it.
+ */
+export interface Page<T> {
+  data: T[];
+  nextCursor: string | null;
+}
+
 export type ApiOutcome<T> =
   | { kind: "ok"; value: T }
   | { kind: "problem"; problem: ApiProblem }

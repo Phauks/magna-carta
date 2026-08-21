@@ -27,7 +27,14 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import {
+  appendCursorPredicateOnColumn,
+  decodeCursor,
+  DEFAULT_PAGE_SIZE,
+  encodeCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -94,7 +101,7 @@ const CostSummary = z
   })
   .openapi("CostSummary");
 
-const CostListResponse = z.object({ data: z.array(CostSummary) }).openapi("CostListResponse");
+const CostListResponse = paginated(CostSummary).openapi("CostListResponse");
 
 const CostAck = z.object({ costEntryId: z.string() }).openapi("CostAck");
 
@@ -113,6 +120,7 @@ const AttachReceiptRequest = z
 const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const listQuery = z.object({
+  ...cursorQuery.shape,
   matterId: identifierField("matter").optional(),
   status: z
     .enum(["draft", "submitted", "approved", "billed", "void"])
@@ -248,7 +256,10 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/costs",
   description:
-    "Lists cost entries for a matter, filtered by status. Returns an empty list when no matterId is supplied.",
+    "Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most " +
+    "recently incurred first: a matter's cost record grows for as long as the matter runs, and " +
+    "this read carried no bound at all until it was. Returns an empty list when no matterId is " +
+    "supplied.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -708,23 +719,42 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
                     ON directory_person.id = cost_entry.vendor_id AND directory_person.deleted_at IS NULL
              LEFT JOIN directory_organization
                     ON directory_organization.id = cost_entry.vendor_id AND directory_organization.deleted_at IS NULL`;
-        const order = "ORDER BY cost_entry.incurred_date DESC, cost_entry.created_at DESC";
+        // The tiebreak is the identifier, not created_at. A keyset cursor needs a TOTAL order and
+        // created_at is not one — two costs entered in the same batch share it — so paging over it
+        // would skip or repeat rows at a page boundary. The visible consequence is that costs
+        // sharing an incurred date now appear in a stable arbitrary order rather than an unstable
+        // one; there was no order among them before, only the appearance of one.
+        const order = "ORDER BY cost_entry.incurred_date DESC, cost_entry.id DESC";
 
-        const statement =
-          query.status === undefined
-            ? firm.firmDatabase
-                .prepare(`SELECT ${columns} ${from} WHERE cost_entry.matter_id = ?1 ${order}`)
-                .bind(query.matterId)
-            : firm.firmDatabase
-                .prepare(
-                  `SELECT ${columns} ${from} WHERE cost_entry.matter_id = ?1 AND cost_entry.status = ?2 ${order}`,
-                )
-                .bind(query.matterId, query.status);
+        const conditions = ["cost_entry.matter_id = ?"];
+        const bindings: unknown[] = [query.matterId];
+        if (query.status !== undefined) {
+          conditions.push("cost_entry.status = ?");
+          bindings.push(query.status);
+        }
+        appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(query.cursor), {
+          sortColumn: "cost_entry.incurred_date",
+          idColumn: "cost_entry.id",
+          ascending: false,
+        });
+        // One more than the page, as the has-more probe.
+        bindings.push(DEFAULT_PAGE_SIZE + 1);
 
-        const { results } = await statement.all<CostEntryRow & { vendor_name: string | null }>();
+        const { results } = await firm.firmDatabase
+          .prepare(`SELECT ${columns} ${from} WHERE ${conditions.join(" AND ")} ${order} LIMIT ?`)
+          .bind(...bindings)
+          .all<CostEntryRow & { vendor_name: string | null }>();
+
+        const hasMore = results.length > DEFAULT_PAGE_SIZE;
+        const rows = hasMore ? results.slice(0, DEFAULT_PAGE_SIZE) : results;
+        const last = rows.at(-1);
         return c.json(
           {
-            data: results.map((row) => ({
+            // Minted over the SORT key. assemblePage mints over created_at, which is the right key
+            // only for a read ordered by it.
+            nextCursor:
+              hasMore && last !== undefined ? encodeCursor(last.incurred_date, last.id) : null,
+            data: rows.map((row) => ({
               ...rowToSummary(row),
               vendorName: row.vendor_name,
             })),
@@ -734,7 +764,7 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       }
 
       // No matterId — return an empty list rather than a full-table scan.
-      return c.json({ data: [] as z.infer<typeof CostSummary>[] }, 200);
+      return c.json({ data: [] as z.infer<typeof CostSummary>[], nextCursor: null }, 200);
     },
   );
 

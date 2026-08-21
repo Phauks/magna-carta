@@ -16357,10 +16357,17 @@
             "items": {
               "$ref": "#/components/schemas/CostSummary"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "CostSummary": {
@@ -22280,10 +22287,17 @@
             "items": {
               "$ref": "#/components/schemas/TimeEntrySummary"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "TimeEntrySummary": {
@@ -60501,7 +60515,7 @@
         }
       },
       "get": {
-        "description": "Lists cost entries for a matter, filtered by status. Returns an empty list when no matterId is supplied.",
+        "description": "Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most recently incurred first: a matter's cost record grows for as long as the matter runs, and this read carried no bound at all until it was. Returns an empty list when no matterId is supplied.",
         "operationId": "costs.list",
         "tags": [
           "costs"
@@ -60519,6 +60533,14 @@
         ],
         "x-mc-deprecated": false,
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
           {
             "schema": {
               "type": "string",
@@ -69723,7 +69745,7 @@
         }
       },
       "get": {
-        "description": "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).",
+        "description": "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.",
         "operationId": "timeEntries.list",
         "tags": [
           "timeEntries"
@@ -69783,6 +69805,14 @@
             "required": false,
             "description": "Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
             "in": "query"
           }
         ],

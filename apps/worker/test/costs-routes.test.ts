@@ -787,6 +787,59 @@ describe("the matter cost listing", () => {
     expect(wholeBody.data.find((cost) => cost.id === billedId)?.status).toBe("billed");
   });
 
+  it("pages a matter whose cost record does not fit one response, losing and repeating nothing", async () => {
+    // The listing carried no LIMIT at all: a matter that had been running for years answered with
+    // its whole record in one response. All costs here share an incurred date on purpose, so the
+    // cursor is proved over the identifier tiebreak rather than over a date that happens to differ.
+    const matterResponse = await post("/api/v1/matters", {
+      title: "Paging Test Matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(matterResponse.status).toBe(201);
+    const paged = ((await matterResponse.json()) as { matterId: string }).matterId;
+
+    // Seeded through the database rather than the capture route. Fifty-five writes through the API
+    // exhaust this firm's request budget and the NEXT test in the file gets a 429 — the read is what
+    // is under test here, and the capture path is exercised by its own cases above.
+    const database = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const expected: string[] = [];
+    for (let index = 0; index < 55; index += 1) {
+      const id = newIdentifier("costEntry");
+      expected.push(id);
+      await database
+        .prepare(
+          `INSERT INTO cost_entry (id, matter_id, vendor_id, incurred_date, amount_minor, currency,
+             disbursement_class, billable, utbms_expense_code_id, description, status, source,
+             created_at, updated_at)
+           VALUES (?1, ?2, NULL, '2026-07-01', ?3, 'USD', 'soft', 1, NULL, ?4, 'draft', 'manual',
+                   ?5, ?5)`,
+        )
+        .bind(id, paged, 100 + index, `Copying batch ${String(index)}`, "2026-07-01T00:00:00.000Z")
+        .run();
+    }
+
+    const first = await get(`/api/v1/costs?matterId=${paged}`);
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as { data: { id: string }[]; nextCursor: string | null };
+    expect(firstBody.data).toHaveLength(50);
+    expect(firstBody.nextCursor).not.toBeNull();
+
+    const second = await get(
+      `/api/v1/costs?matterId=${paged}&cursor=${encodeURIComponent(firstBody.nextCursor ?? "")}`,
+    );
+    const secondBody = (await second.json()) as {
+      data: { id: string }[];
+      nextCursor: string | null;
+    };
+    expect(secondBody.data).toHaveLength(5);
+    expect(secondBody.nextCursor).toBeNull();
+
+    const seen = [...firstBody.data, ...secondBody.data].map((cost) => cost.id);
+    expect(new Set(seen).size).toBe(55);
+    expect([...seen].sort()).toEqual([...expected].sort());
+  });
+
   it("reports a cost with no vendor as unrecorded rather than inventing a name", async () => {
     const created = await post("/api/v1/costs", {
       matterId,
@@ -800,6 +853,7 @@ describe("the matter cost listing", () => {
     const id = ((await created.json()) as { costEntryId: string }).costEntryId;
 
     const listed = await get(`/api/v1/costs?matterId=${matterId}`);
+    expect(listed.status).toBe(200);
     const body = (await listed.json()) as {
       data: { id: string; vendorId: string | null; vendorName?: string | null }[];
     };
