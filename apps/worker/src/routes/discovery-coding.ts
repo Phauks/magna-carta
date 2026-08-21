@@ -74,6 +74,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
@@ -728,14 +729,12 @@ const getCodingHistoryRoute = defineOpenAPIRoute(meta("getCodingHistory", READ, 
     "The coding history of this review set, newest first: who coded what, when, one document at a " +
     "time or in bulk, under what criteria, and who reversed it. This is the record a challenge to a " +
     "production is answered from.",
-  request: { params: reviewSetIdParam },
+  request: { params: reviewSetIdParam, query: cursorQuery },
   responses: {
     200: {
-      description: "The coding history",
+      description: "One page of the coding history",
       content: {
-        "application/json": {
-          schema: z.object({ data: z.array(TagEventSummary) }).openapi("CodingHistory"),
-        },
+        "application/json": { schema: paginated(TagEventSummary).openapi("CodingHistory") },
       },
     },
     ...authErrors,
@@ -1276,13 +1275,15 @@ export function registerDiscoveryCodingRoutes(app: DiscoveryApp, chokepoint: Cho
       ) {
         return notOnTheList(c);
       }
-      const rows = await readTagEventPage(
+      const { cursor } = c.req.valid("query");
+      const page = await readTagEventPage(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
         access,
         DEFAULT_PAGE_SIZE,
+        cursor,
       );
-      return c.json({ data: rows.map(tagEventPayload) }, 200);
+      return c.json({ data: page.data.map(tagEventPayload), nextCursor: page.nextCursor }, 200);
     },
   );
 

@@ -1,3 +1,10 @@
+import {
+  assemblePage,
+  decodeCursor,
+  keysetClause,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   ReviewDocumentId,
@@ -521,30 +528,49 @@ export function selectTagEventPageStatement(
   reviewSetId: ReviewSetId,
   access: ReviewSetAccessPredicate,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  // The keyset clause sits between the access fragment and the ORDER BY, so the predicate still
+  // precedes the LIMIT — which is the property the visibility fitness test asserts on this builder.
+  const bindings: unknown[] = [reviewSetId, ...access.bindings];
+  const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
+  bindings.push(limit);
   return database
     .prepare(
       `SELECT ${TAG_EVENT_COLUMNS} FROM ${REVIEW_TAG_EVENT_TABLE} ` +
         `WHERE ${REVIEW_TAG_EVENT_TABLE}.review_set_id = ? ` +
         `AND ${access.fragmentFor(`${REVIEW_TAG_EVENT_TABLE}.review_set_id`)} ` +
+        cursorClause +
         `ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
-    .bind(reviewSetId, ...access.bindings, limit);
+    .bind(...bindings);
 }
 
+/**
+ * The journal, newest first, a page at a time.
+ *
+ * It carried a LIMIT and no cursor, which on THIS read is the worst place for it: a corpus with more
+ * coding acts than fit a page answered with the most recent fifty and nothing saying the rest
+ * existed. The whole value of the journal is that it is complete — a meet-and-confer stands on it,
+ * and an answer silently truncated to the last fifty acts is an answer that omits exactly the
+ * history a challenge is about.
+ */
 export async function readTagEventPage(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
   access: ReviewSetAccessPredicate,
-  limit: number,
-): Promise<ReviewTagEventRow[]> {
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<ReviewTagEventRow>> {
   const { results } = await selectTagEventPageStatement(
     database,
     reviewSetId,
     access,
-    limit,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(cursor),
   ).all<ReviewTagEventRow>();
-  return results;
+  return assemblePage(results, pageSize, (row) => row);
 }
 
 // ---------------------------------------------------------------------------------------------

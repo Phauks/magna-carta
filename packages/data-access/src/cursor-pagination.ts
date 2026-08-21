@@ -79,6 +79,31 @@ export function appendCursorPredicateOnColumn(
   bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
 }
 
+// The same keyset predicate as a CLAUSE rather than an entry in a conditions array, for a statement
+// assembled by string concatenation instead of by joining conditions with AND. Discovery's reads are
+// the case that forced it: each composes an access predicate into a hand-written WHERE, and the
+// keyset has to land between that predicate and the ORDER BY so the visibility fitness pass still
+// sees the predicate ahead of the LIMIT. Returns "" with no cursor, and pushes its three bindings in
+// the order the clause reads them.
+//
+// Both column names are CODE-supplied literals — never request input — because they are interpolated
+// into the SQL text.
+export function keysetClause(
+  bindings: unknown[],
+  cursor: SortCursor | undefined,
+  sortColumn: string,
+  idColumn: string,
+  ascending: boolean,
+): string {
+  if (cursor === undefined) return "";
+  const comparison = ascending ? ">" : "<";
+  bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  return (
+    `AND (${sortColumn} ${comparison} ? ` +
+    `OR (${sortColumn} = ? AND ${idColumn} ${comparison} ?)) `
+  );
+}
+
 // A row carrying the raw sort-key columns a query selects, so the assembly can mint the next cursor.
 interface SortKeyRow {
   readonly created_at: string;

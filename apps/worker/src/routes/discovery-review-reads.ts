@@ -34,7 +34,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField, identifierPathParam } from "../contracts/common.ts";
-import { cursorQuery } from "../contracts/pagination.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
@@ -250,15 +250,13 @@ const listOccurrencesRoute = defineOpenAPIRoute(readMeta("listReviewDocumentOccu
     "opens; it never decides who held one, so a suppressed copy keeps its own row and stays " +
     "reachable from here. This is the read behind 'which custodians held this document', which is " +
     "a question asked under oath.",
-  request: { params: reviewDocumentParams },
+  request: { params: reviewDocumentParams, query: cursorQuery },
   responses: {
     200: {
-      description: "The document's other copies",
+      description: "One page of the document's other copies",
       content: {
         "application/json": {
-          schema: z
-            .object({ data: z.array(OccurrenceItem) })
-            .openapi("ReviewDocumentOccurrenceList"),
+          schema: paginated(OccurrenceItem).openapi("ReviewDocumentOccurrenceList"),
         },
       },
     },
@@ -479,16 +477,19 @@ export function registerDiscoveryReviewReadRoutes(app: DiscoveryApp, chokepoint:
       ) {
         return notOnTheList(c);
       }
-      const rows = await readVisibleOccurrences(
+      const { cursor } = c.req.valid("query");
+      const page = await readVisibleOccurrences(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
         reviewDocumentId as ReviewDocumentId,
         access,
         MAXIMUM_PAGE_SIZE,
+        cursor,
       );
       return c.json(
         {
-          data: rows.map((row) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((row) => ({
             id: row.id,
             primaryReviewDocumentId: row.primary_review_document_id,
             duplicateReviewDocumentId: row.duplicate_review_document_id,
