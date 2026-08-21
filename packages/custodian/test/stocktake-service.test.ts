@@ -83,7 +83,21 @@ describe("opening a stocktake", () => {
     expect((await readCustodyStocktake(database, scoped))?.scope_location_id).toBe(safe);
     // Both open at once: a two-office firm counting two safes on the same Saturday is the ordinary
     // case, and every observation names the count it belongs to.
-    expect(await readCustodyStocktakes(database, "open", 10)).toHaveLength(2);
+    const page = await readCustodyStocktakes(database, "open", 10);
+    expect(page.rows).toHaveLength(2);
+    expect(page.capped).toBe(false);
+  });
+
+  it("says so when the firm has counted more than the list returns", async () => {
+    const { database, safe } = await scaffold();
+    await openCount(database);
+    await openCount(database, safe);
+
+    const cut = await readCustodyStocktakes(database, "open", 1);
+    expect(cut.rows).toHaveLength(1);
+    // The list is capped rather than paged, so the flag is the only thing separating a short answer
+    // from a complete one.
+    expect(cut.capped).toBe(true);
   });
 
   it("refuses a count scoped to a location the register does not have", async () => {

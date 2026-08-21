@@ -37,7 +37,10 @@ import {
   readCustodyOwners,
   readCustodyPacket,
 } from "@magna-carta/custodian/packet-statements";
-import { listCustodyPackets, readOverdueCustodyCheckouts } from "@magna-carta/custodian/queries";
+import {
+  listCustodyPackets,
+  readOverdueCustodyCheckoutsPage,
+} from "@magna-carta/custodian/queries";
 import { collectCustodyReminders } from "@magna-carta/custodian/reminders";
 import {
   readCustodyHoldingsByOwner,
@@ -96,7 +99,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField, identifierPathParam, idempotencyKeyHeader } from "../contracts/common.ts";
-import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { capped, cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
@@ -1540,13 +1543,11 @@ const listOverdueRoute = defineOpenAPIRoute(readMeta("listOverdue"), {
   description:
     "Lists packets that are still checked out past their due-back date, most overdue first — the " +
     "day-to-day signal the register exists to produce.",
-  request: { query: z.object({ asOf: z.string().max(40).optional() }) },
+  request: { query: z.object({ asOf: z.string().max(40).optional() }).merge(cursorQuery) },
   responses: {
     200: {
-      description: "Overdue check-outs",
-      content: {
-        "application/json": { schema: z.object({ data: z.array(OverdueCustodyCheckout) }) },
-      },
+      description: "One page of overdue check-outs",
+      content: { "application/json": { schema: paginated(OverdueCustodyCheckout) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -1612,14 +1613,14 @@ const holdingsByOwnerRoute = defineOpenAPIRoute(readMeta("reportHoldingsByOwner"
   description:
     "What the firm currently holds for each person or organization: packets in the safe, packets " +
     "out, items described, and packets under hold. Owners are returned as directory handles, not " +
-    "names — the caller resolves them through the directory it already reads.",
+    "names — the caller resolves them through the directory it already reads. Biggest holders " +
+    "first, capped at `limit` rather than paged; `capped` is true when the firm holds for more " +
+    "owners than the answer names.",
   request: { query: z.object({ limit: z.coerce.number().int().min(1).max(500).optional() }) },
   responses: {
     200: {
-      description: "Holdings per owner",
-      content: {
-        "application/json": { schema: z.object({ data: z.array(CustodyHoldingsByOwner) }) },
-      },
+      description: "Holdings for the biggest holders, and whether the firm has more",
+      content: { "application/json": { schema: capped(CustodyHoldingsByOwner) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -1655,13 +1656,11 @@ const holdsReportRoute = defineOpenAPIRoute(readMeta("reportHolds"), {
   description:
     "Every hold in force across the register, oldest first. A hold nobody can see is a hold nobody " +
     "will remember to release.",
-  request: { query: z.object({ limit: z.coerce.number().int().min(1).max(500).optional() }) },
+  request: { query: cursorQuery },
   responses: {
     200: {
-      description: "Packets under hold",
-      content: {
-        "application/json": { schema: z.object({ data: z.array(CustodyPacketUnderHold) }) },
-      },
+      description: "One page of packets under hold",
+      content: { "application/json": { schema: paginated(CustodyPacketUnderHold) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -1701,7 +1700,9 @@ const listStocktakesRoute = defineOpenAPIRoute(readMeta("listStocktakes"), {
   method: "get",
   path: "/api/v1/custody/stocktakes",
   description:
-    "Lists physical counts, most recently opened first, with the findings frozen on each closed one.",
+    "Lists physical counts, most recently opened first, with the findings frozen on each closed one. " +
+    "Capped at `limit` rather than paged; `capped` is true when the firm has counted more than the " +
+    "answer carries.",
   request: {
     query: z.object({
       status: z.enum(CUSTODY_STOCKTAKE_STATUSES).optional(),
@@ -1711,7 +1712,7 @@ const listStocktakesRoute = defineOpenAPIRoute(readMeta("listStocktakes"), {
   responses: {
     200: {
       description: "Stocktakes",
-      content: { "application/json": { schema: z.object({ data: z.array(CustodyStocktake) }) } },
+      content: { "application/json": { schema: capped(CustodyStocktake) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -2574,12 +2575,13 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     { ...listOverdueRoute, middleware: chokepointMiddleware(chokepoint, listOverdueRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { asOf } = c.req.valid("query");
-      const rows = await readOverdueCustodyCheckouts(
+      const { asOf, cursor } = c.req.valid("query");
+      const page = await readOverdueCustodyCheckoutsPage(
         firm.firmDatabase,
         asOf ?? new Date().toISOString().slice(0, 10),
+        cursor === undefined ? {} : { cursor },
       );
-      return c.json({ data: rows } as never, 200);
+      return c.json(page as never, 200);
     },
   );
 
@@ -2626,8 +2628,8 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { limit } = c.req.valid("query");
-      const rows = await readCustodyHoldingsByOwner(firm.firmDatabase, limit);
-      return c.json({ data: rows } as never, 200);
+      const { rows, capped: more } = await readCustodyHoldingsByOwner(firm.firmDatabase, limit);
+      return c.json({ data: rows, capped: more } as never, 200);
     },
   );
 
@@ -2647,9 +2649,12 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     { ...holdsReportRoute, middleware: chokepointMiddleware(chokepoint, holdsReportRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { limit } = c.req.valid("query");
-      const rows = await readCustodyPacketsUnderHold(firm.firmDatabase, limit);
-      return c.json({ data: rows } as never, 200);
+      const { cursor } = c.req.valid("query");
+      const page = await readCustodyPacketsUnderHold(
+        firm.firmDatabase,
+        cursor === undefined ? {} : { cursor },
+      );
+      return c.json(page as never, 200);
     },
   );
 
@@ -2677,8 +2682,8 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { status, limit } = c.req.valid("query");
-      const rows = await readCustodyStocktakes(firm.firmDatabase, status, limit ?? 50);
-      return c.json({ data: rows.map(stocktakeView) } as never, 200);
+      const page = await readCustodyStocktakes(firm.firmDatabase, status, limit ?? 50);
+      return c.json({ data: page.rows.map(stocktakeView), capped: page.capped } as never, 200);
     },
   );
 

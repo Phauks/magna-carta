@@ -7,7 +7,7 @@ import { recordCustodyMovement } from "../src/movement-service.ts";
 import { readCustodyMovements } from "../src/movement-statements.ts";
 import { createCustodyPacket } from "../src/packet-service.ts";
 import { readCustodyItem, readCustodyPacket } from "../src/packet-statements.ts";
-import { readOverdueCustodyCheckouts } from "../src/queries.ts";
+import { readOverdueCustodyCheckouts, readOverdueCustodyCheckoutsPage } from "../src/queries.ts";
 import type { CustodyMovementKind, CustodyPacketStatus } from "../src/types.ts";
 import {
   ACTOR,
@@ -304,5 +304,43 @@ describe("the overdue check-out read", () => {
       options,
     );
     expect(await readOverdueCustodyCheckouts(database, "2026-08-11")).toEqual([]);
+  });
+
+  it("pages the sweep most-overdue first, and the walk reaches every one of them", async () => {
+    const { database, safe } = await scaffold();
+    const due = ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"];
+    for (const dueBackOn of due) {
+      const created = await createCustodyPacket(
+        database,
+        { name: `Out since ${dueBackOn}`, owners: [{ entityId: SMITH }], currentLocationId: safe },
+        { ...options, responsibleMemberId: ACTOR },
+      );
+      await recordCustodyMovement(
+        database,
+        created.packetId,
+        {
+          kind: "checked_out",
+          borrower: { kind: "member", userId: ACTOR },
+          dueBackOn,
+          occurredAt: "2026-07-28T09:00:00.000Z",
+        },
+        options,
+      );
+    }
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    // Bounded, so a cursor that fails to advance fails the test instead of spinning in it.
+    for (let page = 0; page < 5; page += 1) {
+      const result = await readOverdueCustodyCheckoutsPage(database, "2026-08-11", {
+        cursor,
+        pageSize: 2,
+      });
+      seen.push(...result.data.map((row) => row.dueBackOn));
+      if (result.nextCursor === null) break;
+      cursor = result.nextCursor;
+    }
+    // Ascending: the page of the MOST overdue is the answer, and paging walks toward the merely late.
+    expect(seen).toEqual(due);
   });
 });
