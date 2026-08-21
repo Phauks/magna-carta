@@ -271,7 +271,4 @@
     {/if}
   {/snippet}
 
-  {#snippet footer()}
-    <p>Access is provisioned by your firm's administrator.</p>
-  {/snippet}
 </AuthPanel>
