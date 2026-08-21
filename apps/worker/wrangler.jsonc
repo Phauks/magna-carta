@@ -425,7 +425,24 @@
   // than to UTC's — firms whose local hour it is not cost two small setting reads, and a deployment
   // with no outbound-mail provisioning exits before reading a single firm. src/index.ts routes each
   // Cron expression to its handler.
+  // THREE, and the ceiling is the account's rather than a judgement about what is worth running.
+  // Cloudflare refused the fourth and fifth with an empty API error body on POST .../schedules — the
+  // Worker itself uploads, and only the schedule step fails, which is what makes the refusal easy to
+  // read as a transient fault. It is not: it reproduces on every build. The three kept here are
+  // exactly the set that has been live and firing since 2026-07-04.
+  //
+  // What was dropped, and why these two: `0 * * * *` drove the hourly notification digest and
+  // `0 4 * * 0` the weekly natural-language search keep-alive. Both were added 2026-08-16 and NEITHER
+  // HAS EVER FIRED IN PRODUCTION, because no deploy carrying them ever succeeded. The digest needs an
+  // outbound-mail provisioning this deployment does not have, and the keep-alive matters only once a
+  // managed search instance exists to go stale. Dropping a trigger deletes no code: the branch in
+  // src/index.ts stays, and restoring the line is the whole of turning it back on.
+  //
+  // `*/5 * * * *` is the one that must never be traded away. It is the SOLE applier of control-plane
+  // migrations (src/scheduled.ts runs them as the pass's first action), single-flight by construction
+  // because a cron fires once per tick and the migration runner is not concurrency-safe. Nothing else
+  // in the system applies them — not the deploy, not any request path.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *", "0 * * * *", "0 4 * * 0"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
   },
 }
