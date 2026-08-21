@@ -9,7 +9,7 @@
  * a blank frame and letting the person conclude the feature is broken.
  *
  * Verified against apps/worker/src/editing/CLAUDE.md, apps/worker/src/editing/edit-session-route.ts,
- * and apps/magna-carta-edit/. Delete an entry when its runtime lands; every consumer follows.
+ * and apps/edit-worker/. Delete an entry when its runtime lands; every consumer follows.
  */
 
 export interface LoopStep {

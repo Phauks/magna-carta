@@ -14,13 +14,13 @@
       "path": "apps/discovery-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/edit-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/email-worker/tsconfig.build.json"
     },
     {
       "path": "apps/file-repair-worker/tsconfig.build.json"
-    },
-    {
-      "path": "apps/magna-carta-edit/tsconfig.build.json"
     },
     {
       "path": "apps/ocr-worker/tsconfig.build.json"
