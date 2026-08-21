@@ -16,12 +16,33 @@
   // src/sql-modules.d.ts (the Vite-side half is the sql-as-text plugin in vitest.config.ts).
   "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
   // The SvelteKit SPA (apps/web build output) bound as Workers Static Assets.
-  // run_worker_first routes /api/* to the Hono Worker; everything else falls through to assets, with single-page-application not-found handling serving index.html for deep links.
+  //
+  // THE ROUTING RULE, and it runs asset-server-first: Cloudflare serves a matching static asset for
+  // every path `run_worker_first` does NOT name, and the Worker is invoked only on a miss. So the
+  // array is not a list of API prefixes — it is the list of EVERY top-level path family the Hono app
+  // answers on, and a family missing from it is not merely slow to reach: no asset matches it, the
+  // not_found_handling below then answers `/index.html` with a 200, and the handler is never entered.
+  // The caller gets the app shell with a success status where it expected a document, a byte range or
+  // a page, which is why this is listed exhaustively rather than trusted to review. The families:
+  //   /api/*            — the whole API surface (the /api/v1 chokepoint routes, Better Auth's
+  //                       /api/auth/*, /api/openapi.json, the cookieless files-preview serve path,
+  //                       and the dev-only /api/__dev helpers).
+  //   /wopi/*           — the editor's data plane (apps/worker/src/editing/wopi-host.ts): cookieless
+  //                       and access-token-guarded, deliberately outside the chokepoint.
+  //   /search-objects/* — the keyword engine's ranged-read surface
+  //                       (apps/worker/src/search/split-object-host.ts), cookieless for the same
+  //                       reason: the caller is a Container holding no session.
+  //   /__dev/*          — the throwaway local demo page (apps/worker/src/routes/dev-web-tools-demo.ts),
+  //                       which answers 404 unless DEV_DEMO_TOOLS is set.
+  // It stays an explicit list rather than inverting to `true` with exceptions so the SPA's own files
+  // keep being served by the asset server — free, and off this Worker's CPU and invocation count.
+  // apps/worker/test/worker-first-routing-scan.test.ts reads this array against the app's live Hono
+  // dispatch table and fails on the day a family is added without a line here.
   "assets": {
     "directory": "../web/build",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"],
+    "run_worker_first": ["/api/*", "/wopi/*", "/search-objects/*", "/__dev/*"],
   },
   // Public, non-secret config. FILES_ORIGIN is the cookieless preview/download host; bound here (not
   // .dev.vars) because it is a hostname, not a credential. In production this becomes

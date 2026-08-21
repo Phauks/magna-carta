@@ -117,6 +117,15 @@ which is the asymmetry `@magna-carta/notifications` exists to prevent — it wan
   fails any new write path that omits them; a genuine exception carries an inline
   `fitness:allow-no-dimensions` marker with its reason. Objects that predate the stamp are repaired by
   `files/dimension-backfill-sweep.ts` on the daily storage pass.
+- **A new top-level path family is also a `wrangler.jsonc` change.** Workers Static Assets routes
+  asset-server-FIRST: every path `assets.run_worker_first` does not name is looked for among the SPA's
+  files, and on a miss the `single-page-application` not-found handling answers `/index.html` with a 200. A route registered outside the named families therefore does not 404 — it answers the app shell
+  with a success status and the handler never runs. So `run_worker_first` lists every family this
+  Worker serves (`/api/*`, `/wopi/*`, `/search-objects/*`, `/__dev/*`), not just the API, and adding a
+  fifth means adding a line there in the same commit. `test/worker-first-routing-scan.test.ts` reads
+  the array against the app's live Hono dispatch table and fails when they disagree — the local test
+  pool cannot catch it any other way, because `SELF.fetch` reaches the Worker without crossing the
+  asset server.
 - **Bulk bytes never buffer in the Worker.** Streaming only: R2 bodies flow straight through `client-zip`
   and out; an archive of unknown length is written to R2 as a **multipart** upload, never a single
   length-bound `put`.
