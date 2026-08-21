@@ -62,6 +62,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { discoveryLoadJobName } from "../discovery/discovery-load-types.ts";
@@ -356,14 +357,12 @@ const listReviewSetsRoute = defineOpenAPIRoute(readMeta("listReviewSets"), {
     "The matter's review sets, newest first. A matter may have several — the firm's own " +
     "collection, a production received in March, a second request — and each is its own corpus " +
     "with its own index and its own lifecycle.",
-  request: { params: matterIdParam },
+  request: { params: matterIdParam, query: cursorQuery },
   responses: {
     200: {
-      description: "The matter's review sets",
+      description: "One page of the matter's review sets",
       content: {
-        "application/json": {
-          schema: z.object({ data: z.array(ReviewSetSummary) }).openapi("ReviewSetList"),
-        },
+        "application/json": { schema: paginated(ReviewSetSummary).openapi("ReviewSetList") },
       },
     },
     ...commonErrors,
@@ -494,15 +493,13 @@ const listRecordCustodiansRoute = defineOpenAPIRoute(readMeta("listRecordCustodi
     "Whose records are in this review set. A Custodian of Record is scoped to the review set on " +
     "purpose: the same name in two matters is not assertably the same person, and asserting it " +
     "wrongly is a defensibility problem.",
-  request: { params: reviewSetIdParam },
+  request: { params: reviewSetIdParam, query: cursorQuery },
   responses: {
     200: {
-      description: "The review set's Custodians of Record",
+      description: "One page of the review set's Custodians of Record, by name",
       content: {
         "application/json": {
-          schema: z
-            .object({ data: z.array(RecordCustodianSummary) })
-            .openapi("RecordCustodianList"),
+          schema: paginated(RecordCustodianSummary).openapi("RecordCustodianList"),
         },
       },
     },
@@ -586,14 +583,12 @@ const listLoadsRoute = defineOpenAPIRoute(readMeta("listLoads"), {
     "What went into this corpus: every load, newest first, with its lane, its source, who ran it, " +
     "when, whether assistant transcripts were in scope, and how what arrived reconciles against " +
     "what was declared. This is the provenance record a firm hands over.",
-  request: { params: reviewSetIdParam },
+  request: { params: reviewSetIdParam, query: cursorQuery },
   responses: {
     200: {
-      description: "The review set's loads",
+      description: "One page of the review set's loads",
       content: {
-        "application/json": {
-          schema: z.object({ data: z.array(LoadSummary) }).openapi("DiscoveryLoadList"),
-        },
+        "application/json": { schema: paginated(LoadSummary).openapi("DiscoveryLoadList") },
       },
     },
     ...commonErrors,
@@ -790,13 +785,15 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
       // disclose it — "Plaintiff's production, Ridgeway settlement" tells a reader what exists — and
       // holding the matter's discovery permission is not the same thing as being cleared for material
       // an opposing party produced under a protective order.
-      const rows = await readVisibleReviewSetsForMatter(
+      const { cursor } = c.req.valid("query");
+      const page = await readVisibleReviewSetsForMatter(
         firm.firmDatabase,
         matterId as MatterId,
         accessFor(c),
         DEFAULT_PAGE_SIZE,
+        cursor,
       );
-      return c.json({ data: rows.map(reviewSetPayload) }, 200);
+      return c.json({ data: page.data.map(reviewSetPayload), nextCursor: page.nextCursor }, 200);
     },
   );
 
@@ -986,14 +983,17 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
       const { reviewSetId } = c.req.valid("param");
       const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
       if (refusal !== undefined) return refusal;
-      const rows = await readRecordCustodians(
+      const { cursor } = c.req.valid("query");
+      const page = await readRecordCustodians(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
         DEFAULT_PAGE_SIZE,
+        cursor,
       );
       return c.json(
         {
-          data: rows.map((row) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((row) => ({
             id: row.id,
             reviewSetId: row.review_set_id,
             displayName: row.display_name,
@@ -1132,13 +1132,15 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
       const { reviewSetId } = c.req.valid("param");
       const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
       if (refusal !== undefined) return refusal;
-      const rows = await readVisibleDiscoveryLoads(
+      const { cursor } = c.req.valid("query");
+      const page = await readVisibleDiscoveryLoads(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
         accessFor(c),
         DEFAULT_PAGE_SIZE,
+        cursor,
       );
-      return c.json({ data: rows.map(loadPayload) }, 200);
+      return c.json({ data: page.data.map(loadPayload), nextCursor: page.nextCursor }, 200);
     },
   );
 

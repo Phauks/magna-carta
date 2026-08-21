@@ -1,3 +1,10 @@
+import {
+  decodeCursor,
+  encodeCursor,
+  keysetClause,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { RecordCustodianId, ReviewSetId } from "@magna-carta/identifiers/types";
 import type { RecordCustodianKind } from "./types.ts";
@@ -105,28 +112,54 @@ export function updateRecordCustodianStatement(
 
 // A review set's record custodians, by name. review_set_id leads the unique index, so this is an
 // index walk rather than a scan of every row the firm has ever recorded.
+//
+// The identifier joins the sort key. `display_name` alone is not a total order — two custodians in
+// one review set may share a name, which is exactly why the row carries an identifier and not a name
+// — and a keyset over a non-total order skips or repeats rows at a page boundary. The visible order
+// among same-named custodians was arbitrary before and is stable now.
 export function selectRecordCustodiansStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  const bindings: unknown[] = [reviewSetId];
+  const cursorClause = keysetClause(bindings, cursor, "display_name", "id", true);
+  bindings.push(limit);
   return database
     .prepare(
-      `SELECT ${RECORD_CUSTODIAN_COLUMNS} FROM ${RECORD_CUSTODIAN_TABLE} WHERE review_set_id = ?1 ` +
-        `ORDER BY display_name ASC LIMIT ?2`,
+      `SELECT ${RECORD_CUSTODIAN_COLUMNS} FROM ${RECORD_CUSTODIAN_TABLE} WHERE review_set_id = ? ` +
+        cursorClause +
+        `ORDER BY display_name ASC, id ASC LIMIT ?`,
     )
-    .bind(reviewSetId, limit);
+    .bind(...bindings);
 }
 
+/**
+ * Whose records are in this review set, by name, a page at a time.
+ *
+ * Ascending and alphabetical, because that is how a person looks a record custodian up. The list
+ * carried a LIMIT and no cursor, and a matter with more record custodians than fit a page answered
+ * with the ones whose names sort first and nothing saying the rest existed.
+ */
 export async function readRecordCustodians(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
-  limit: number,
-): Promise<RecordCustodianRow[]> {
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<RecordCustodianRow>> {
   const { results } = await selectRecordCustodiansStatement(
     database,
     reviewSetId,
-    limit,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(cursor),
   ).all<RecordCustodianRow>();
-  return results;
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows,
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.display_name, last.id) : null,
+  };
 }

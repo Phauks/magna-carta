@@ -13,6 +13,7 @@ import {
   readVisibleReviewSet,
   readVisibleReviewSetsForMatter,
 } from "../src/review-reads.ts";
+import { readRecordCustodians } from "../src/record-custodian-statements.ts";
 import {
   ATTACHMENT_DOCUMENT,
   LOAD,
@@ -108,13 +109,13 @@ describe("the review-set list is what a member may reach and nothing else", () =
   it("returns the corpus the reviewer is on the list for and never the walled one on the same matter", async () => {
     const { database } = migratedDatabase();
     const visible = await readVisibleReviewSetsForMatter(database, MATTER, reviewerAccess, 50);
-    expect(visible.map((row) => row.id)).toEqual([REVIEW_SET]);
+    expect(visible.data.map((row) => row.id)).toEqual([REVIEW_SET]);
   });
 
   it("returns the OTHER corpus for the member who is on the other list", async () => {
     const { database } = migratedDatabase();
     const visible = await readVisibleReviewSetsForMatter(database, MATTER, outsiderAccess, 50);
-    expect(visible.map((row) => row.id)).toEqual([WALLED_REVIEW_SET]);
+    expect(visible.data.map((row) => row.id)).toEqual([WALLED_REVIEW_SET]);
   });
 
   it("answers ABSENT rather than refused for a corpus the member is not on", async () => {
@@ -303,12 +304,13 @@ describe("the occurrence read", () => {
       reviewerAccess,
       50,
     );
-    expect(occurrences).toHaveLength(1);
-    expect(occurrences[0]?.record_custodian_id).toBe(OTHER_CUSTODIAN);
-    expect(occurrences[0]?.duplicate_review_document_id).toBe(STANDALONE_DOCUMENT);
+    expect(occurrences.data).toHaveLength(1);
+    expect(occurrences.data[0]?.record_custodian_id).toBe(OTHER_CUSTODIAN);
+    expect(occurrences.data[0]?.duplicate_review_document_id).toBe(STANDALONE_DOCUMENT);
 
     expect(
-      await readVisibleOccurrences(database, REVIEW_SET, PARENT_DOCUMENT, outsiderAccess, 50),
+      (await readVisibleOccurrences(database, REVIEW_SET, PARENT_DOCUMENT, outsiderAccess, 50))
+        .data,
     ).toEqual([]);
   });
 
@@ -321,7 +323,72 @@ describe("the occurrence read", () => {
       reviewerAccess,
       50,
     );
-    expect(occurrences).toEqual([]);
+    expect(occurrences.data).toEqual([]);
     expect(RECORD_CUSTODIAN).toBeDefined();
+  });
+});
+
+// The keyset walks. Each proves the same two things the campaign is about: the page order is the
+// ordering the read claims, and walking the cursor reaches every row exactly once. Bounded loops, so
+// a cursor that fails to advance fails the test instead of spinning in it.
+
+describe("the discovery reads walk their pages", () => {
+  it("reaches every Custodian of Record, alphabetically, two at a time", async () => {
+    const { database, raw } = migratedDatabase();
+    const names = ["Almond", "Birch", "Cedar", "Damson"];
+    names.forEach((name, index) => {
+      raw.exec(
+        `INSERT INTO record_custodian (id, review_set_id, display_name, kind, created_at, ` +
+          `updated_at) VALUES ('recordCustodian_walk${String(index).padStart(15, "0")}', ` +
+          `'${REVIEW_SET}', '${name}', 'person', '${INSTANT}', '${INSTANT}')`,
+      );
+    });
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page += 1) {
+      const result = await readRecordCustodians(database, REVIEW_SET, 2, cursor);
+      seen.push(...result.data.map((row) => row.display_name));
+      if (result.nextCursor === null) break;
+      cursor = result.nextCursor;
+    }
+    // The seeded record custodian sorts among them rather than beside them, so the walk proves the
+    // ORDER and not merely that the four inserted rows came back.
+    expect(seen).toEqual([...seen].toSorted((left, right) => left.localeCompare(right)));
+    expect(seen.filter((name) => names.includes(name))).toEqual(names);
+  });
+
+  it("reaches every copy of a document, one page at a time", async () => {
+    const { database, raw } = migratedDatabase();
+    // Both copies live in THIS corpus. A walled document as a duplicate would pass the access
+    // predicate on the occurrence row's own review_set_id and read as an ordinary fixture, which is
+    // exactly the confusion this file exists to avoid.
+    const duplicates = [ATTACHMENT_DOCUMENT, STANDALONE_DOCUMENT];
+    duplicates.forEach((duplicate, index) => {
+      raw.exec(
+        `INSERT INTO review_document_occurrence (id, review_set_id, primary_review_document_id, ` +
+          `duplicate_review_document_id, record_custodian_id, discovery_load_id, created_at) ` +
+          `VALUES ('reviewDocumentOccurrence_walk${String(index).padStart(8, "0")}', ` +
+          `'${REVIEW_SET}', '${PARENT_DOCUMENT}', '${duplicate}', '${RECORD_CUSTODIAN}', ` +
+          `'${LOAD}', '${INSTANT}')`,
+      );
+    });
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 4; page += 1) {
+      const result = await readVisibleOccurrences(
+        database,
+        REVIEW_SET,
+        PARENT_DOCUMENT,
+        reviewerAccess,
+        1,
+        cursor,
+      );
+      seen.push(...result.data.map((row) => row.duplicate_review_document_id));
+      if (result.nextCursor === null) break;
+      cursor = result.nextCursor;
+    }
+    expect(seen).toEqual([...duplicates].toSorted((left, right) => left.localeCompare(right)));
   });
 });

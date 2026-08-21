@@ -27,13 +27,6 @@ export const UNPAGED_LIST_OPERATIONS = [
   "calendar.resourceAvailability",
   "custody.listReminders",
   "custody.listSightings",
-  "discovery.getCodingHistory",
-  "discovery.getDocumentCoding",
-  "discovery.getReviewSetAccess",
-  "discovery.listLoads",
-  "discovery.listRecordCustodians",
-  "discovery.listReviewDocumentOccurrences",
-  "discovery.listReviewSets",
   "documentTypes.list",
   "emails.autoFileDecisions",
   "emails.autoFileReview",
@@ -93,6 +86,17 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "One row per node of the location tree, so it is bounded by the same physical thing " +
     "custody.listLocations is, and it is read as an occupancy picture of the whole register — a " +
     "page of it would be a picture of part of a building.",
+  "discovery.getReviewSetAccess":
+    "One row per member who may reach the corpus, and the schema will not hold two: " +
+    "review_set_access_member_unique_index in packages/database/src/per-firm-schema.ts is unique on " +
+    "(review_set_id, member_user_id). The bound is the firm's own headcount, and a list that never " +
+    "reaches empty is one whose whole point is to be read entire.",
+  "discovery.getDocumentCoding":
+    "The LIVE coding on one document — selectDocumentCodingStatement in " +
+    "packages/discovery/src/coding-statements.ts filters to removed_at IS NULL, and " +
+    "review_document_tag_live_unique_index holds one live row per tag per document. The bound is " +
+    "the review set's own tag catalog, which a person configures. The document's HISTORY is the " +
+    "unbounded one; it is a separate read.",
   "customFields.listRecordValues":
     "One current row per custom field configured for that target, so the firm's own field catalog " +
     "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +

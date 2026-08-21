@@ -14750,10 +14750,17 @@
             "items": {
               "$ref": "#/components/schemas/ReviewTagEvent"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "ReviewTagEvent": {
@@ -15193,10 +15200,17 @@
             "items": {
               "$ref": "#/components/schemas/ReviewDocumentOccurrence"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "ReviewDocumentOccurrence": {
@@ -15261,10 +15275,17 @@
             "items": {
               "$ref": "#/components/schemas/ReviewSet"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "ReviewSet": {
@@ -15385,10 +15406,17 @@
             "items": {
               "$ref": "#/components/schemas/RecordCustodian"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "RecordCustodian": {
@@ -15494,10 +15522,17 @@
             "items": {
               "$ref": "#/components/schemas/DiscoveryLoad"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "DiscoveryLoad": {
@@ -55875,11 +55910,19 @@
             "required": true,
             "name": "reviewSetId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The coding history",
+            "description": "One page of the coding history",
             "content": {
               "application/json": {
                 "schema": {
@@ -56386,11 +56429,19 @@
             "required": true,
             "name": "reviewDocumentId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The document's other copies",
+            "description": "One page of the document's other copies",
             "content": {
               "application/json": {
                 "schema": {
@@ -56574,11 +56625,19 @@
             "required": true,
             "name": "matterId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The matter's review sets",
+            "description": "One page of the matter's review sets",
             "content": {
               "application/json": {
                 "schema": {
@@ -57155,11 +57214,19 @@
             "required": true,
             "name": "reviewSetId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The review set's Custodians of Record",
+            "description": "One page of the review set's Custodians of Record, by name",
             "content": {
               "application/json": {
                 "schema": {
@@ -57511,11 +57578,19 @@
             "required": true,
             "name": "reviewSetId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The review set's loads",
+            "description": "One page of the review set's loads",
             "content": {
               "application/json": {
                 "schema": {

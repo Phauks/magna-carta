@@ -1,3 +1,11 @@
+import {
+  assemblePage,
+  decodeCursor,
+  encodeCursor,
+  keysetClause,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   DiscoveryLoadId,
@@ -44,29 +52,39 @@ export function selectVisibleReviewSetsForMatterStatement(
   matterId: MatterId,
   access: ReviewSetAccessPredicate,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  const bindings: unknown[] = [matterId, ...access.bindings];
+  // The keyset clause goes between the access fragment and the ORDER BY, so the predicate still
+  // precedes the LIMIT — the property the visibility fitness pass asserts on every builder here.
+  const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
+  bindings.push(limit);
   return database
     .prepare(
       `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} ` +
         `WHERE matter_id = ? AND ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)} ` +
+        cursorClause +
         `ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
-    .bind(matterId, ...access.bindings, limit);
+    .bind(...bindings);
 }
 
 export async function readVisibleReviewSetsForMatter(
   database: SqlDatabase,
   matterId: MatterId,
   access: ReviewSetAccessPredicate,
-  limit: number,
-): Promise<ReviewSetRow[]> {
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<ReviewSetRow>> {
   const { results } = await selectVisibleReviewSetsForMatterStatement(
     database,
     matterId,
     access,
-    limit,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(cursor),
   ).all<ReviewSetRow>();
-  return results;
+  return assemblePage(results, pageSize, (row) => row);
 }
 
 export function selectVisibleReviewSetStatement(
@@ -144,30 +162,50 @@ export function selectVisibleDiscoveryLoadsStatement(
   reviewSetId: ReviewSetId,
   access: ReviewSetAccessPredicate,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  const bindings: unknown[] = [reviewSetId, ...access.bindings];
+  const cursorClause = keysetClause(bindings, cursor, "initiated_at", "id", false);
+  bindings.push(limit);
   return database
     .prepare(
       `SELECT ${DISCOVERY_LOAD_COLUMNS} FROM ${DISCOVERY_LOAD_TABLE} ` +
         `WHERE review_set_id = ? ` +
         `AND ${access.fragmentFor(`${DISCOVERY_LOAD_TABLE}.review_set_id`)} ` +
+        cursorClause +
         `ORDER BY initiated_at DESC, id DESC LIMIT ?`,
     )
-    .bind(reviewSetId, ...access.bindings, limit);
+    .bind(...bindings);
 }
 
+/**
+ * The provenance record, newest first, a page at a time.
+ *
+ * The cursor rides `initiated_at` rather than `created_at`, so the page order is the order a person
+ * reads this list in: when the load was STARTED, which is the fact the record is about.
+ */
 export async function readVisibleDiscoveryLoads(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
   access: ReviewSetAccessPredicate,
-  limit: number,
-): Promise<DiscoveryLoadRow[]> {
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<DiscoveryLoadRow>> {
   const { results } = await selectVisibleDiscoveryLoadsStatement(
     database,
     reviewSetId,
     access,
-    limit,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(cursor),
   ).all<DiscoveryLoadRow>();
-  return results;
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows,
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.initiated_at, last.id) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -577,33 +615,61 @@ export function selectVisibleOccurrencesStatement(
   primaryReviewDocumentId: ReviewDocumentId,
   access: ReviewSetAccessPredicate,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  const bindings: unknown[] = [reviewSetId, primaryReviewDocumentId, ...access.bindings];
+  const cursorClause = keysetClause(bindings, cursor, "duplicate_review_document_id", "id", true);
+  bindings.push(limit);
   return database
     .prepare(
       `SELECT id, primary_review_document_id, duplicate_review_document_id, record_custodian_id, ` +
         `discovery_load_id, created_at FROM ${REVIEW_DOCUMENT_OCCURRENCE_TABLE} ` +
         `WHERE review_set_id = ? AND primary_review_document_id = ? ` +
         `AND ${access.fragmentFor(`${REVIEW_DOCUMENT_OCCURRENCE_TABLE}.review_set_id`)} ` +
-        `ORDER BY duplicate_review_document_id ASC LIMIT ?`,
+        cursorClause +
+        // The occurrence row's own id joins the sort key. The duplicate identifier alone was already
+        // unique per primary, so this changes no order that exists today; it makes the order TOTAL by
+        // construction, which is what a keyset needs and what a future second row for one duplicate
+        // would otherwise quietly break.
+        `ORDER BY duplicate_review_document_id ASC, id ASC LIMIT ?`,
     )
-    .bind(reviewSetId, primaryReviewDocumentId, ...access.bindings, limit);
+    .bind(...bindings);
 }
 
+/**
+ * Which custodians held this document, a page at a time.
+ *
+ * Paged rather than capped because the answer's size is the corpus's to choose, not the caller's: a
+ * boilerplate signature block or a company-wide announcement is held by every record custodian in
+ * the matter, and that is precisely the document whose occurrence list is asked about under oath.
+ */
 export async function readVisibleOccurrences(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
   primaryReviewDocumentId: ReviewDocumentId,
   access: ReviewSetAccessPredicate,
-  limit: number,
-): Promise<ReviewDocumentOccurrenceListRow[]> {
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<ReviewDocumentOccurrenceListRow>> {
   const { results } = await selectVisibleOccurrencesStatement(
     database,
     reviewSetId,
     primaryReviewDocumentId,
     access,
-    limit,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(cursor),
   ).all<ReviewDocumentOccurrenceListRow>();
-  return results;
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows,
+    nextCursor:
+      hasMore && last !== undefined
+        ? encodeCursor(last.duplicate_review_document_id, last.id)
+        : null,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -104,7 +104,7 @@ describe("applying a tag", () => {
     expect(coding[0]?.applied_by_event_id).toBe(result.reviewTagEventId);
     expect(coding[0]?.removed_at).toBeNull();
 
-    const journal = await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50);
+    const journal = (await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50)).data;
     expect(journal).toHaveLength(1);
     expect(journal[0]).toMatchObject({ kind: "apply", scope: "document", document_count: 1 });
   });
@@ -294,7 +294,7 @@ describe("bulk coding over a frozen selection", () => {
     }
     await commit(database, completeBulkCoding(database, plan, written, serviceOptions()));
 
-    const journal = await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50);
+    const journal = (await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50)).data;
     expect(journal[0]).toMatchObject({
       kind: "bulk-apply",
       scope: "selection",
@@ -391,7 +391,7 @@ describe("undo", () => {
     expect(standalone[0]?.applied_by_event_id).toBe(independent.reviewTagEventId);
 
     // History never shortens: the undone act stays in the journal, pointing at its reversal.
-    const journal = await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50);
+    const journal = (await readTagEventPage(database, REVIEW_SET, reviewerAccess, 50)).data;
     const undone = journal.find((event) => event.id === bulk.reviewTagEventId);
     expect(undone?.state).toBe("undone");
     const reversal = journal.find((event) => event.kind === "undo");

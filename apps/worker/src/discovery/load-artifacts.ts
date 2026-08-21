@@ -196,7 +196,7 @@ export async function writeLoadRecordArtifacts(
     MANIFEST_RECORD_CUSTODIAN_CEILING,
   );
   const custodianNames = new Map(
-    custodians.map((custodian) => [custodian.id as string, custodian.display_name]),
+    custodians.data.map((custodian) => [custodian.id as string, custodian.display_name]),
   );
   const exceptionCounts = await readLoadExceptionCountsByCode(database, loadId);
 
@@ -223,7 +223,7 @@ export async function writeLoadRecordArtifacts(
       declarationMatched: reconciliation.declarationMatched,
       accountedFor: reconciliation.accountedFor,
     },
-    recordCustodians: custodians.map((custodian) => ({
+    recordCustodians: custodians.data.map((custodian) => ({
       id: custodian.id,
       displayName: custodian.display_name,
       kind: custodian.kind,
