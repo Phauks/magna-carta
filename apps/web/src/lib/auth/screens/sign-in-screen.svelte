@@ -141,6 +141,7 @@
           size="lg"
           bind:value={password}
           autocomplete="current-password"
+          placeholder="Password"
           aria-invalid={rejection ? "true" : undefined}
           aria-describedby={resolvedElsewhere ? "sign-in-identity-provider" : undefined}
           disabled={pending || lockedOut}
