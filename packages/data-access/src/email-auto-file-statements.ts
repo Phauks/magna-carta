@@ -349,50 +349,138 @@ export async function findAutoFileRuleByMatch(
   return row === undefined ? null : toRuleRow(row);
 }
 
-// A link a rule made — the unit of the review read: what has been filing itself lately, on which
-// matter, under which rule, and whether somebody has since taken it off.
-export interface AutomaticEmailLink {
-  readonly emailMessageId: EmailMessageId;
-  readonly matterId: MatterId;
-  readonly autoFileRuleId: EmailAutoFileRuleId;
-  readonly state: "staged" | "filed" | "unlinked";
-  readonly createdAt: string;
+// D1 caps bound parameters at 100 per query. Restated rather than imported because this package is
+// the foundational layer and `@magna-carta/ledger` — where the shared constant lives — sits above it;
+// packages/conflicts/src/matching.ts and packages/directory/src/edges.ts restate it for the same
+// reason. The node:sqlite test substrate allows far more, so an oversized IN-list would pass every
+// local test and fail only against production D1.
+const MAX_BOUND_PARAMETERS = 100;
+
+// THE REVIEW READ, IN TWO PARTS, AND THE SPLIT IS WHAT MAKES ITS NUMBERS TRUE.
+//
+// The review answers "what have this firm's rules actually been doing" as a count per rule, and a
+// count is only worth reading if it is exact. It was computed by walking a capped page of links and
+// tallying them in application code, which broke twice past that cap: every count understated, and a
+// matter whose links all fell past the cut vanished from the answer entirely — not undercounted,
+// absent, because the matter set handed to the wall filter came from the same truncated page.
+//
+// So: take the matter set from the RULES, let the caller put it through the wall, then count in SQL
+// over the matters that survived. The ceiling moves off links — which grow with every message a rule
+// files — and onto the firm's own rule catalog, and the counting has no ceiling at all.
+//
+// The count is served by the (matter_id, created_at) index, so it seeks per matter inside the window
+// rather than walking the firm's mail. NEITHER READ IS PAGED, and that is deliberate rather than
+// unfinished: a cursor over a set the wall can shrink hands out short pages and calls it the end of
+// the list.
+
+export interface AutoFileRuleMatters {
+  readonly matterIds: MatterId[];
+  /** True when the firm holds rules on more matters than one answer carries. */
+  readonly capped: boolean;
 }
 
-// The firm's recent automatic links, newest first. Two bounds, and both are load-bearing: `since`
-// keeps the walk inside a window rather than over the whole history, and `limit` caps what comes back.
-//
-// Served by the PARTIAL index over the automatic links — the walk is proportional to how much the
-// firm's rules have been doing, never to how much mail it holds, and a firm with no rules walks an
-// empty index. A full index on the column would instead grow with every link ever written, the vast
-// majority of which are a person's.
-export async function readRecentAutomaticEmailLinks(
+/**
+ * The distinct matters this firm has auto-file rules on — every state, revoked included.
+ *
+ * THE MATTER SET COMES FROM THE RULES, NOT FROM THE LINKS, and that is the whole repair. A rule is
+ * bound to one matter, so the rules name every matter a rule could possibly have filed to; taking
+ * the set from a capped page of links instead meant a matter whose links all fell past the cut was
+ * absent from the review entirely. It also puts the ceiling on a quantity a PERSON controls — how
+ * many matters the firm has set rules on — rather than on one that activity drives.
+ *
+ * Revoked rules are included because a rule that filed for three weeks and was then stopped is
+ * precisely what a reviewer is looking for; a rule with no activity in the window simply produces no
+ * tally and no entry.
+ *
+ * The caller puts these through the wall before anything else is read, so a rule on a matter the
+ * caller cannot open contributes no entry and no count — it never enters the answer rather than
+ * being filtered out of a rendered one.
+ */
+export async function readAutoFileRuleMatterIds(
   database: SqlDatabase,
-  input: { since: string; limit: number },
-): Promise<AutomaticEmailLink[]> {
+  input: { limit: number },
+): Promise<AutoFileRuleMatters> {
   const { results } = await database
     .prepare(
-      `SELECT email_message_id, matter_id, auto_file_rule_id, state, created_at
-       FROM email_matter_link
-       WHERE auto_file_rule_id IS NOT NULL AND created_at >= ?1
-       ORDER BY created_at DESC, id DESC
-       LIMIT ?2`,
+      `SELECT DISTINCT matter_id FROM ${EMAIL_AUTO_FILE_RULE_TABLE} ORDER BY matter_id ASC LIMIT ?1`,
     )
-    .bind(input.since, input.limit)
-    .all<{
-      email_message_id: string;
-      matter_id: string;
-      auto_file_rule_id: string;
-      state: string;
-      created_at: string;
-    }>();
-  return results.map((row) => ({
-    emailMessageId: row.email_message_id as EmailMessageId,
-    matterId: row.matter_id as MatterId,
-    autoFileRuleId: row.auto_file_rule_id as EmailAutoFileRuleId,
-    state: row.state as "staged" | "filed" | "unlinked",
-    createdAt: row.created_at,
-  }));
+    // One over the ceiling, purely to tell "exactly at it" from "past it".
+    .bind(input.limit + 1)
+    .all<{ matter_id: string }>();
+  const capped = results.length > input.limit;
+  return {
+    capped,
+    matterIds: (capped ? results.slice(0, input.limit) : results).map(
+      (row) => row.matter_id as MatterId,
+    ),
+  };
+}
+
+export interface AutomaticRuleTally {
+  readonly autoFileRuleId: EmailAutoFileRuleId;
+  readonly filedCount: number;
+  readonly stagedCount: number;
+  readonly undoneCount: number;
+  readonly lastActedAt: string;
+}
+
+/**
+ * What each rule did over the window, counted in SQL over the matters the caller may see.
+ *
+ * Chunked at the bound-parameter cap and merged, because a count is a sum and a sum merges: adding
+ * two chunks' tallies for one rule gives the same number one query would have. The merge takes the
+ * later `lastActedAt` for the same reason.
+ *
+ * The link state carries the CURRENT truth — a filing somebody has since taken off reads as
+ * `unlinked` — which is what a reviewer is looking at, and it is the same signal the circuit
+ * breaker's undo input is derived from, so the two cannot tell a firm different stories about one
+ * rule.
+ */
+export async function readAutomaticRuleTallies(
+  database: SqlDatabase,
+  input: { since: string; matterIds: readonly MatterId[] },
+): Promise<AutomaticRuleTally[]> {
+  const merged = new Map<EmailAutoFileRuleId, AutomaticRuleTally>();
+  // One bind is spent on `since`, so a chunk carries one fewer matter than the cap allows.
+  const chunkSize = MAX_BOUND_PARAMETERS - 1;
+  for (let offset = 0; offset < input.matterIds.length; offset += chunkSize) {
+    const chunk = input.matterIds.slice(offset, offset + chunkSize);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT auto_file_rule_id,
+                SUM(CASE WHEN state = 'filed' THEN 1 ELSE 0 END) AS filed_count,
+                SUM(CASE WHEN state = 'staged' THEN 1 ELSE 0 END) AS staged_count,
+                SUM(CASE WHEN state = 'unlinked' THEN 1 ELSE 0 END) AS undone_count,
+                MAX(created_at) AS last_acted_at
+           FROM email_matter_link
+          WHERE auto_file_rule_id IS NOT NULL AND created_at >= ? AND matter_id IN (${placeholders})
+          GROUP BY auto_file_rule_id`,
+      )
+      .bind(input.since, ...chunk)
+      .all<{
+        auto_file_rule_id: string;
+        filed_count: number;
+        staged_count: number;
+        undone_count: number;
+        last_acted_at: string;
+      }>();
+    for (const row of results) {
+      const ruleId = row.auto_file_rule_id as EmailAutoFileRuleId;
+      const existing = merged.get(ruleId);
+      merged.set(ruleId, {
+        autoFileRuleId: ruleId,
+        filedCount: (existing?.filedCount ?? 0) + row.filed_count,
+        stagedCount: (existing?.stagedCount ?? 0) + row.staged_count,
+        undoneCount: (existing?.undoneCount ?? 0) + row.undone_count,
+        lastActedAt:
+          existing !== undefined && existing.lastActedAt > row.last_acted_at
+            ? existing.lastActedAt
+            : row.last_acted_at,
+      });
+    }
+  }
+  return [...merged.values()];
 }
 
 export interface EmailAutoFileDecisionInsert {

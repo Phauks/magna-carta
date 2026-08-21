@@ -1190,6 +1190,9 @@
           "windowStart": {
             "type": "string"
           },
+          "matterScopeCapped": {
+            "type": "boolean"
+          },
           "data": {
             "type": "array",
             "items": {
@@ -1199,6 +1202,7 @@
         },
         "required": [
           "windowStart",
+          "matterScopeCapped",
           "data"
         ]
       },
@@ -28793,7 +28797,7 @@
     },
     "/api/v1/emails/auto-file-review": {
       "get": {
-        "description": "What the firm's auto-file rules have actually been doing over the last thirty days: per rule, how many messages it filed, how many it placed for confirmation, how many of those somebody has since removed, and whether it has stopped itself. Rules on matters the caller cannot access contribute nothing — no entry and no count. This is the read a firm looks at before deciding whether to permit filing without confirmation.",
+        "description": "What the firm's auto-file rules have actually been doing over the last thirty days: per rule, how many messages it filed, how many it placed for confirmation, how many of those somebody has since removed, and whether it has stopped itself. Every count is exact over the window — this is the read a firm looks at before deciding whether to permit filing without confirmation, and a count that understated would make a rule look less consequential than it is. Rules on matters the caller cannot access contribute nothing: no entry and no count. `matterScopeCapped` is true in the rare case that the firm holds rules on more matters than one answer considers, which means a rule may be missing from the list rather than mis-counted.",
         "operationId": "emails.autoFileReview",
         "tags": [
           "emails"
