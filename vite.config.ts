@@ -165,6 +165,18 @@ export default defineConfig({
         command: 'vp run --filter "@magna-carta/worker" build',
         dependsOn: ["@magna-carta/web#build", "rust-wasm-build"],
       },
+      // The `magna-carta-sign` Worker's deploy build, and the same shape as build-all one line up:
+      // apps/sign-worker/src/index.ts imports pdf-core's wasm directly, so wrangler cannot bundle it
+      // until packages/pdf/src/pkg exists — and that directory is a git-ignored build artefact
+      // (packages/pdf/.gitignore), so on a fresh clone it does not. `dependsOn` puts the wasm build
+      // ahead of the bundle; running the package's own `build` script instead skips it and the bundle
+      // fails with ENOENT on pdf_core_bg.wasm. This is the Workers Build command for
+      // `magna-carta-sign` (see the deploy runbook, docs/conventions/operations.md) and is SCOPED to
+      // that Worker: no SPA, no sibling workers, no container images.
+      "sign-worker-build": {
+        command: 'vp run --filter "@magna-carta/sign-worker" build',
+        dependsOn: ["rust-wasm-build"],
+      },
       // Rust quality gate: fmt + clippy + unit tests for the crates/ workspace.
       // Run via `vp run rust-check`; also wired into the root `check` script so `pnpm check` covers Rust.
       // --all is required for cargo fmt to discover targets when --manifest-path points at a workspace root.
