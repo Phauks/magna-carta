@@ -256,6 +256,26 @@ frozen-field list, the ingest chokepoint, the provenance row, the telemetry — 
   declares each as a seam and holds no WebAssembly, which is what keeps the fill DECISION testable
   without a PDF. Nothing here may grow a second filler, for the reason nothing may grow a second way to
   make a PDF: a firm's court form has one appearance.
+- **The engine RUNS IN THE SIGN WORKER, and this worker no longer bundles it.** `@magna-carta/pdf` is
+  a pinned Rust crate compiled to WebAssembly, and a worker that imports it can only be built where
+  that artefact exists — which is what made this app's bundle need a container toolchain. The
+  execution moved behind the `SIGN_SERVICE` binding, which already carried the engine for the seal;
+  `src/documents/pdf-engine-binding.ts` is the client and `packages/pdf/src/service.ts` is the one
+  definition of what crosses. **Still exactly one filler**, running elsewhere: the far side receives
+  bytes plus the finish and returns bytes, and every domain decision — which box gets which value,
+  `FILLED_FORM_FINISH` — stays here and in `@magna-carta/document-assembly`.
+  **Three states, not two, and only the first two are verdicts**, on the same terms
+  `src/files/scan-port-binding.ts` states them. No binding at all → `PdfEngineUnavailableError`
+  (nothing can produce an engine, so the queue consumer records `form-engine-unavailable`
+  TERMINALLY, exactly as an undeployed office suite fails a conversion, and the registration route
+  answers 503). Bound and answering → the engine's verdict, where `undefined` means it read these
+  bytes and refused them. Bound and failing → `PdfEngineFaultError`, which the queue consumer lets
+  propagate so the message RETRIES — a transient engine fault is not "this form cannot be filled",
+  it is "nobody looked", and the terminal rule exists to stop a wrong document being filed, not to
+  discard a job a redelivery would complete. Both non-verdict states file nothing.
+  The test pool cannot run the sign worker, so its `SIGN_SERVICE` stub answers only `/seal`; suites
+  that need a real PDF operation bind `test/support/pdf-engine-service.ts`, which serves the same
+  handler in-process.
 - **`FILLED_FORM_FINISH` is the platform's one answer to whether a filed form is interactive or
   flattened, and today it is `interactive` because the owner has not decided.** Flattening is
   irreversible — a flattened form cannot be corrected — so the non-destructive option is what sits behind

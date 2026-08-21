@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./service": "./src/service.ts",
     "./src/pkg/pdf_core_bg.wasm": "./src/pkg/pdf_core_bg.wasm"
   },
   "scripts": {

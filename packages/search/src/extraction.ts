@@ -240,7 +240,7 @@ export function passagesFromPages(
 //
 // The route is an ARGUMENT rather than something inferred from the page provenances, because the two
 // are not the same fact and inferring one from the other would be wrong in both directions: a page
-// read `native` says nothing about whether the discovery engine or the in-Worker PDF reader read it,
+// read `native` says nothing about whether the discovery engine or the PDF text-layer reader read it,
 // and a document routed through conversion and then read natively has an engine in its route that no
 // page provenance mentions.
 export function extractedFromPages(

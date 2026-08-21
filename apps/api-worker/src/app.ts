@@ -193,7 +193,8 @@ export type Bindings = {
   // owns the pure-Rust extraction Container (crates/discovery-core): identify from bytes, native text
   // extraction, page counts, document dates, and the near-duplicate fingerprint. Optional: absent in
   // every test environment and until the deploy-time binding is added; while unset, the extraction
-  // port falls back to the in-Worker PDF reader plus recognition, which reads strictly less.
+  // port falls back to the platform PDF engine's text-layer reader plus recognition, which reads
+  // strictly less.
   DISCOVERY_SERVICE?: Fetcher;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while

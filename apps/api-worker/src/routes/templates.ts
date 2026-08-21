@@ -95,7 +95,8 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { readAcroFormFields, scrubFormTemplate } from "../assemblies/pdf-form-engine.ts";
+import { formEngineFor } from "../assemblies/pdf-form-engine.ts";
+import { PdfEngineFaultError, PdfEngineUnavailableError } from "../documents/pdf-engine-binding.ts";
 
 // The template-catalogue surface: presign an upload slot, register a template (or a new version of
 // one), list the catalogue, read a version's field manifest, archive a template, and read the merge-field
@@ -660,7 +661,9 @@ const registerRoute = defineOpenAPIRoute(manageMeta("register", true, "required"
       content: { "application/problem+json": { schema: Problem } },
     },
     503: {
-      description: "The scan engine is deployed but did not answer; nothing was registered",
+      description:
+        "An engine this registration depends on did not answer — the malware scan, or the PDF form " +
+        "engine that reads a fillable PDF's boxes; nothing was registered",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -714,7 +717,9 @@ const addVersionRoute = defineOpenAPIRoute(manageMeta("addVersion", true, "requi
       content: { "application/problem+json": { schema: Problem } },
     },
     503: {
-      description: "The scan engine is deployed but did not answer; nothing was registered",
+      description:
+        "An engine this registration depends on did not answer — the malware scan, or the PDF form " +
+        "engine that reads a fillable PDF's boxes; nothing was registered",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -1082,7 +1087,11 @@ interface PreparedUpload {
 
 type PreparationOutcome =
   | { readonly ok: true; readonly prepared: PreparedUpload }
-  | { readonly ok: false; readonly response: ProblemResponse<422> };
+  // 422 is a refusal of the document; 503 is a refusal to guess. The PDF engine that reads a fillable
+  // form runs in another worker, and an engine that is not deployed or will not answer has said
+  // NOTHING about the upload — reporting that as "this file could not be read as a PDF" would tell an
+  // administrator to fix a document that is fine.
+  | { readonly ok: false; readonly response: ProblemResponse<422> | ProblemResponse<503> };
 
 export interface RegistrationConsent {
   readonly kind: TemplateKind;
@@ -1333,12 +1342,23 @@ async function prepareStagedFormUpload(
   // must not cost two hundred lookups, the same batching rule the merge context follows.
   const libraryMappings = await readFieldMappingLibrary(firm.firmDatabase);
 
-  const preparation = await prepareFormTemplateVersion(
-    uploadedBytes,
-    readAcroFormFields,
-    scrubFormTemplate,
-    { dictionary, libraryMappings, confirmMappings: consent.fieldMappings },
-  );
+  const engine = formEngineFor(c.env.SIGN_SERVICE);
+  let preparation: Awaited<ReturnType<typeof prepareFormTemplateVersion>>;
+  try {
+    preparation = await prepareFormTemplateVersion(
+      uploadedBytes,
+      engine.readAcroFormFields,
+      engine.scrubFormTemplate,
+      { dictionary, libraryMappings, confirmMappings: consent.fieldMappings },
+    );
+  } catch (error) {
+    const refusal = refuseOnPdfEngineFault(c, error);
+    logger.count(documentTemplateNormalization.metricName, {
+      outcome: "refused",
+      placeholderForm: "acroForm",
+    });
+    return { ok: false, response: refusal };
+  }
 
   if (!preparation.ok) {
     logger.count(documentTemplateNormalization.metricName, {
@@ -1514,6 +1534,30 @@ function refuseOnScanFault(c: TemplatesContext, error: unknown): ProblemResponse
     detail:
       "The malware-scan engine did not answer, so this template has not been scanned and nothing was" +
       " registered. The upload is still staged; try again shortly.",
+  });
+}
+
+// The PDF engine that reads a fillable form runs in the sign worker, and neither of the two states
+// where it does not answer is a fact about the upload: the engine may not be deployed at all, or it may
+// be deployed and unreachable. Both are answered the way routes/scan-diagnose.ts answers the identical
+// posture for the scan engine — a retryable 503 naming the engine — because an administrator
+// registering a form template while it is down can only wait, and a 422 would send them to re-cut a
+// document that is perfectly good.
+//
+// NOTHING IS REGISTERED and nothing is written: this runs before the idempotent effect, so there is not
+// even an orphaned object to collect. The staged upload is left in place so a retry does not mean
+// re-uploading the file.
+function refuseOnPdfEngineFault(c: TemplatesContext, error: unknown): ProblemResponse<503> {
+  if (!(error instanceof PdfEngineUnavailableError) && !(error instanceof PdfEngineFaultError)) {
+    throw error;
+  }
+  return problemJson(c, {
+    type: "service-unavailable",
+    title: "The PDF form engine is unreachable",
+    status: 503,
+    detail:
+      "The engine that reads a fillable PDF's boxes did not answer, so this document has not been" +
+      " read and nothing was registered. The upload is still staged; try again shortly.",
   });
 }
 

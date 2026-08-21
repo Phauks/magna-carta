@@ -323,12 +323,16 @@
   //     routes 503 until it is bound.
   //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
   //   OCR_SERVICE: the text-recognition engine worker (POST /ocr); the ocr route 503s until it is bound.
-  //   SIGN_SERVICE: the e-signature/seal worker (POST /seal), which alone holds the platform signing
-  //     key; the documents/seal route 503s until it is bound (deferred activation).
+  //   SIGN_SERVICE: the e-signature/seal worker, which alone holds the platform signing key, and which
+  //     also hosts the platform PDF ENGINE for every worker that does not bundle it. POST /seal (the
+  //     documents/seal route 503s until it is bound — deferred activation) plus POST /pdf/* (read a
+  //     form, scrub one, fill one, read a text layer). Unbound, form-template registration and
+  //     assembly refuse honestly rather than guessing, and composite text extraction loses its
+  //     PDF text-layer route; see src/documents/pdf-engine-binding.ts.
   //   DISCOVERY_SERVICE: the pure-Rust discovery engine worker (POST /read|/identify|/digest|
-  //     /archive/*). While unbound the composite extraction port falls back to the in-Worker PDF
-  //     reader plus recognition, which reads strictly less — every non-PDF review document parks
-  //     rather than being recorded unreadable.
+  //     /archive/*). While unbound the composite extraction port falls back to the platform PDF
+  //     engine's text-layer reader (over SIGN_SERVICE) plus recognition, which reads strictly less —
+  //     every non-PDF review document parks rather than being recorded unreadable.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import pdfFixtures from "virtual:pdf-core-fixtures";
 import type { Bindings } from "../src/app.ts";
 import { resolveTextExtractionPort } from "../src/search/text-extraction.ts";
+import { pdfEngineService, unreachablePdfEngineService } from "./support/pdf-engine-service.ts";
 
 // The composite text-extraction port. The recognition engine cannot run under the test pool, so it is
 // stood in for by a fake that behaves the way the real container does — most importantly, it reports a
@@ -46,8 +47,20 @@ function respondingWith(status: number, body: unknown = {}): Pick<Fetcher, "fetc
   return { fetch: async () => Response.json(body, { status }) };
 }
 
-function portOver(service: Pick<Fetcher, "fetch"> | undefined) {
-  return resolveTextExtractionPort({ OCR_SERVICE: service } as unknown as Bindings);
+// The PDF text-layer route runs in the sign worker and is reached over SIGN_SERVICE, so every case
+// that expects a document's own text read supplies one. The default is the real engine in-process; a
+// case that is about the binding's other two states passes its own.
+// `null` means the binding is ABSENT, and it is spelled that way rather than as `undefined` because a
+// defaulted parameter cannot tell an omitted argument from an explicit undefined one — which is exactly
+// the distinction every case below turns on.
+function portOver(
+  service: Pick<Fetcher, "fetch"> | undefined,
+  signService: Pick<Fetcher, "fetch"> | null = pdfEngineService(),
+) {
+  return resolveTextExtractionPort({
+    OCR_SERVICE: service,
+    SIGN_SERVICE: signService ?? undefined,
+  } as unknown as Bindings);
 }
 
 // A stand-in for the discovery engine Container. It answers `/read` with whatever reading the case
@@ -448,5 +461,54 @@ describe("composite text extraction with no recognition engine bound", () => {
       if (result.ok) return;
       expect(result.reason).toBe("engine-not-implemented");
     }
+  });
+});
+
+// The PDF engine runs in another worker now, so the route that reads a document's own text layer has
+// three states rather than always being there. Only two of them are answers about the document.
+describe("the PDF text-layer route across the three states of its binding", () => {
+  it("reads the text layer when the engine is bound and answering", async () => {
+    const engine = fakeRecognition([]);
+    const result = await portOver(engine.service).extract({ bytes: BORN_DIGITAL, ...asPdf });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.route).toEqual(["pdf-text-layer"]);
+    expect(engine.calls()).toBe(0);
+  });
+
+  it("falls through to recognition when no PDF engine is bound at all", async () => {
+    // Not a failure and not a lie: this deployment has one fewer way to read a document, so the
+    // document goes to the engine it does have. The reading is recognition's and says so.
+    const engine = fakeRecognition([{ pageIndex: 0, lines: [{ text: "read as a picture" }] }]);
+    const result = await portOver(engine.service, null).extract({
+      bytes: BORN_DIGITAL,
+      ...asPdf,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.route).toEqual(["recognition"]);
+    expect(engine.calls()).toBe(1);
+  });
+
+  it("parks a PDF when neither the PDF engine nor recognition is bound", async () => {
+    const result = await portOver(undefined, null).extract({ bytes: BORN_DIGITAL, ...asPdf });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("engine-not-implemented");
+  });
+
+  it("reports a bound PDF engine that will not answer as transient, and never as a reading", async () => {
+    // THE THIRD STATE. Recognition is bound and would happily answer, and it is deliberately not
+    // asked: whether a page needs recognizing at all is what the text layer decides, so a reading
+    // taken without it would be a reading of a document nothing had read first.
+    const engine = fakeRecognition([{ pageIndex: 0, lines: [{ text: "read as a picture" }] }]);
+    const result = await portOver(engine.service, unreachablePdfEngineService()).extract({
+      bytes: BORN_DIGITAL,
+      ...asPdf,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+    expect(engine.calls()).toBe(0);
   });
 });

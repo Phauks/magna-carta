@@ -227,12 +227,13 @@ export async function prepareFormTemplateVersion(
   //    manifest has to describe the document an assembly will actually fill: a scrub that dropped the
   //    interactive form, or clearing that changed the field set, must be visible here and not at
   //    assembly time.
-  let scrubbedBytes: Uint8Array | undefined;
-  try {
-    scrubbedBytes = await scrub(uploadedBytes);
-  } catch {
-    scrubbedBytes = undefined;
-  }
+  //
+  //    A THROW IS NOT A REFUSAL AND IS NOT CAUGHT. The seam reports "this document could not be
+  //    processed" by returning undefined; a throw means the engine behind it did not run at all, which
+  //    is a fact about the deployment rather than about the firm's document. Recording it as
+  //    `scrub-failed` would tell an administrator to re-cut a form that is perfectly good. The reader
+  //    above is called on the same terms, so both seams behave alike.
+  const scrubbedBytes = await scrub(uploadedBytes);
   if (scrubbedBytes === undefined) {
     return failure(
       "scrub-failed",
