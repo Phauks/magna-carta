@@ -458,20 +458,46 @@ function pairOverlappingBookings(rows: readonly LiveBookingRow[]): number[][] {
   return overlaps;
 }
 
+/**
+ * How many bookings one availability answer can be computed over.
+ *
+ * It is a CEILING ON THE QUESTION, not a page size, and that distinction is the whole reason this
+ * read refuses instead of truncating. The overlap sweep below pairs the rows it was handed; a
+ * booking past a cut that overlaps one inside it is a conflict the grid never paints — a WRONG
+ * answer rather than a short one, and wrong in the direction that says a room is free.
+ *
+ * The cap is reachable with ordinary data, not only pathological data: the window is capped at
+ * MAX_CALENDAR_WINDOW_DAYS, and a well-used meeting room booked six times a working day crosses two
+ * thousand inside one year. So a caller that asks for a year of a busy room must be told to ask for
+ * less, in the same posture the continuance walk and the stocktake reconciliation already take.
+ */
+export const MAX_AVAILABILITY_BOOKINGS = 2000;
+
 export async function readResourceAvailability(
   database: SqlDatabase,
   options: {
     readonly resourceId: FirmResourceId;
     readonly fromDate: string;
     readonly toDate: string;
+    // Injectable so the refusal can be proven at a size a test can seed. Seeding two thousand
+    // bookings to watch a guard fire would be a slow test of the seeding, not of the guard.
+    readonly maximumBookings?: number;
   },
 ): Promise<AvailabilityEntry[]> {
+  const ceiling = options.maximumBookings ?? MAX_AVAILABILITY_BOOKINGS;
   const rows = await readLiveBookingsInWindow(database, {
     resourceId: options.resourceId,
     fromDate: options.fromDate,
     toDate: options.toDate,
-    limit: 2000,
+    // One over the ceiling, purely to tell "exactly at the ceiling" from "past it".
+    limit: ceiling + 1,
   });
+  if (rows.length > ceiling) {
+    throw new CalendarValidationError(
+      "calendar-availability-window-too-dense",
+      `this resource holds more than ${String(ceiling)} bookings in the window asked for, and the conflicts across that many cannot be reported accurately in one answer: ask for a shorter window`,
+    );
+  }
   const overlaps = pairOverlappingBookings(rows);
   return rows.map((row, index) => {
     const overlapping = (overlaps[index] ?? [])

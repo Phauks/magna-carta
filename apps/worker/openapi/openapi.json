@@ -8696,10 +8696,14 @@
             "items": {
               "$ref": "#/components/schemas/FirmResourceDetail"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "FirmResourceDetail": {
@@ -45266,7 +45270,7 @@
     },
     "/api/v1/calendar/resources": {
       "get": {
-        "description": "The firm's bookable resources — rooms, vehicles, equipment — for the picker. Capacity is shown so a person can decide; nothing refuses a twelve-person meeting in a ten-seat room.",
+        "description": "The firm's bookable resources — rooms, vehicles, equipment — for the picker. Capacity is shown so a person can decide; nothing refuses a twelve-person meeting in a ten-seat room. The whole catalog is returned rather than a page, because a picker missing a room says the room does not exist; `capped` is true in the implausible case of a firm holding more bookable things than one answer carries, and the kind and office filters are how it is narrowed.",
         "operationId": "calendar.listResources",
         "tags": [
           "calendar"
