@@ -608,6 +608,15 @@ importers:
         specifier: 'catalog:'
         version: 4.3.0
 
+  apps/web-worker:
+    devDependencies:
+      '@magna-carta/web':
+        specifier: workspace:*
+        version: link:../web
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
+
   apps/worker:
     dependencies:
       '@cloudflare/containers':
