@@ -149,7 +149,14 @@ const NOTIFICATION_DIGEST_CRON = "0 * * * *";
 // query a week sits comfortably inside that window at a seventh of the metered cost of a daily one.
 // The failure it removes is the worst shape this feature has — not an error, but silently stale
 // answers on an index nobody was told had stopped syncing.
-const NATURAL_LANGUAGE_KEEP_ALIVE_CRON = "0 4 * * 0";
+// Sunday is `1` and not `0`. Cloudflare's cron parser numbers days of the week 1 = Sunday through
+// 7 = Saturday, where almost every other implementation reads 0 as Sunday. `0 4 * * 0` is not a
+// different-but-valid spelling — it is out of range, and the schedule write is one atomic call for
+// the whole set, so it refuses every other trigger along with it. This constant and the expression
+// in wrangler.jsonc have to change together: the dispatch chain in scheduled() ends in a catch-all
+// that runs the five-minute sweep, so a constant that matches no configured expression does not
+// fail loudly, it silently runs the control-plane migration pass on this schedule instead.
+const NATURAL_LANGUAGE_KEEP_ALIVE_CRON = "0 4 * * 1";
 
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
