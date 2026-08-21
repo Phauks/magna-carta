@@ -17,10 +17,6 @@
 
 /** Operation ids that answer with `{ data: [...] }` and no `nextCursor`. Only ever remove from this. */
 export const UNPAGED_LIST_OPERATIONS = [
-  "billing.clientCredits",
-  "billing.listCreditNotes",
-  "billing.listDeliveries",
-  "billing.listRecoveries",
   "calendar.continuanceChain",
   "calendar.listEventTypes",
   "calendar.listResources",
@@ -97,6 +93,14 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "review_document_tag_live_unique_index holds one live row per tag per document. The bound is " +
     "the review set's own tag catalog, which a person configures. The document's HISTORY is the " +
     "unbounded one; it is a separate read.",
+  "billing.listDeliveries":
+    "Capped at DEFAULT_PAGE_SIZE in readInvoiceDeliveries " +
+    "(packages/billing/src/statements.ts), with the response's `capped` flag saying when the bill " +
+    "carries more attempts. Not cursor-paged: the order is (delivery_date, recorded_at, id), a " +
+    "three-column key the platform's two-part opaque cursor cannot carry, and dropping " +
+    "`recorded_at` would scramble same-day attempts into identifier order. The response leads with " +
+    "readInvoiceDeliveryState, which answers whether the bill was delivered from aggregates " +
+    "without reading this list at all.",
   "customFields.listRecordValues":
     "One current row per custom field configured for that target, so the firm's own field catalog " +
     "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +

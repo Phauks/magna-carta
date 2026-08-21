@@ -21309,10 +21309,17 @@
                 "voidReason"
               ]
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "BillingVoidRecoveryRequest": {
@@ -21895,10 +21902,17 @@
                 "lines"
               ]
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "BillingDeliveryAck": {
@@ -22012,11 +22026,15 @@
                 "recordedAt"
               ]
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
           "state",
-          "data"
+          "data",
+          "capped"
         ]
       },
       "BillingApplicationAck": {
@@ -22109,10 +22127,17 @@
                 "openedAt"
               ]
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "BillingApplyClientCreditAck": {
@@ -67567,7 +67592,7 @@
         }
       },
       "get": {
-        "description": "The recoveries recorded on a matter, voided ones included — a voided recovery stays readable with the reason it was wrong.",
+        "description": "The recoveries recorded on a matter, oldest first, voided ones included — a voided recovery stays readable with the reason it was wrong. One page at a time; the contingency fee is derived from every recovery on the matter, never from a page of them.",
         "operationId": "billing.listRecoveries",
         "tags": [
           "billing"
@@ -67593,6 +67618,14 @@
             "required": true,
             "name": "matterId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -68868,7 +68901,7 @@
         }
       },
       "get": {
-        "description": "Every credit note issued against one bill, with its lines. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
+        "description": "Every credit note issued against one bill, with its lines, oldest first and one page at a time. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
         "operationId": "billing.listCreditNotes",
         "tags": [
           "billing"
@@ -68894,6 +68927,14 @@
             "required": true,
             "name": "invoiceId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -69320,7 +69361,7 @@
     },
     "/api/v1/billing/clients/{clientEntityId}/credits": {
       "get": {
-        "description": "What the firm still owes one client back, across all of their matters. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
+        "description": "What the firm still owes one client back, across all of their matters, oldest first and one page at a time. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
         "operationId": "billing.clientCredits",
         "tags": [
           "billing"
@@ -69346,6 +69387,14 @@
             "required": true,
             "name": "clientEntityId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
