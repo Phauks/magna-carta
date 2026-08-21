@@ -2735,7 +2735,11 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { stocktakeId } = c.req.valid("param");
       const { limit } = c.req.valid("query");
-      const page = await readCustodyStocktakeSightings(firm.firmDatabase, stocktakeId, limit ?? 500);
+      const page = await readCustodyStocktakeSightings(
+        firm.firmDatabase,
+        stocktakeId,
+        limit ?? 500,
+      );
       return c.json(
         {
           capped: page.capped,

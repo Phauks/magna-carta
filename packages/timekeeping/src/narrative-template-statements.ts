@@ -125,11 +125,9 @@ export async function readRecentNarratives(
   timekeeperUserId: string,
   limit: number,
 ): Promise<RecentNarrativesPage> {
-  const { results } = await recentNarrativesStatement(
-    database,
-    timekeeperUserId,
-    limit + 1,
-  ).all<{ narrative: string }>();
+  const { results } = await recentNarrativesStatement(database, timekeeperUserId, limit + 1).all<{
+    narrative: string;
+  }>();
   const capped = results.length > limit;
   return {
     capped,

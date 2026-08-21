@@ -778,7 +778,7 @@ describe("what the rules have been doing", () => {
       { headers: { cookie: ownerCookie } },
     );
     expect(read.status).toBe(200);
-    expect(await read.json()).toEqual({ data: [] });
+    expect(await read.json()).toEqual({ capped: false, data: [] });
   });
 
   it("counts what each rule placed, and what somebody has since taken off", async () => {
