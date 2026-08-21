@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-16 (the notification digest is built and dormant — three values in a fixed order, and an hourly Cron trigger that rides the deploy; the CI outage remains the entry immediately below and still gates every merge, not only every deploy)._
+_Last updated: 2026-08-21 (twenty list endpoints changed response envelope — see \_Behaviour changes_; the notification digest is built and dormant — three values in a fixed order, and an hourly Cron trigger that rides the deploy; the CI outage remains the entry immediately below and still gates every merge, not only every deploy).\_
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
@@ -275,6 +275,27 @@ answering `503`, and no visitor is being told it is their fault.
   with real presigning credentials.
 
 ## Behaviour changes the next deploy carries (no dashboard step)
+
+- **Twenty list endpoints changed the SHAPE of their answer.** The campaign
+  behind `pnpm run lint:list-pagination` worked the unpaged-listing baseline from
+  forty-seven down to thirty-three, and every endpoint it touched changed its
+  response envelope. Three shapes now exist and a client has to read which one it
+  got: `{ data, nextCursor }` where a caller can walk the whole record,
+  `{ data, capped }` where the answer is the best or most recent N and `capped`
+  says the firm holds more, and the bare `{ data }` that remains only where a
+  read is bounded by something checkable — a firm-configured vocabulary, a unique
+  index, a physical tree.
+
+  **Nothing in the product breaks on the push**, because none of these endpoints
+  has a shipped screen: the affected surfaces are custody, discovery, billing and
+  the matter listings, and only the last has UI, which already reads the paged
+  envelope. What changes is the contract an integration would read — the emitted
+  `openapi.json` carries all of it, and an external consumer written against the
+  old bare-array shape would need the one-line change to `.data`.
+
+  No migration, no binding, no secret. Two reads that money depends on were
+  deliberately left whole and now say so in their own names: the contingency fee
+  still derives from every recovery on the matter, never from a page.
 
 - **Notification preferences become live, and every category starts on.** The
   matrix ships with the recommended defaults — every category reaching the feed,
