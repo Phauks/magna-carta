@@ -11,16 +11,30 @@
   import type { Snippet } from "svelte";
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import * as TopBar from "@magna-carta/design-system/top-bar";
+  import { ECOSYSTEM_SITES } from "../navigation/ecosystem-sites.ts";
 
   let { children }: { children: Snippet } = $props();
 
   /*
-   * The chrome nav destinations. Each is a SEPARATE future site (marketing, community forum, the
-   * help centre, the public status page), none of which exists yet, so every href is a placeholder
-   * until those sites are stood up — the links are here so the band's shape is right, not because
-   * they navigate. apps/web/src/lib/navigation/ecosystem-sites.ts is where the real URLs land.
+   * The chrome nav destinations, resolved from the ecosystem-site registry rather than listed here.
+   * Each is a SEPARATE site (marketing, community forum, the help centre, the public status page),
+   * and the registry's `href` is the light-up switch: an entry with a URL renders as a real external
+   * link, one still null renders inert. That keeps this band from being a second place a site's
+   * address is written down, which is how the status page ended up live behind a "#" — its URL had
+   * been in the registry for some time while these four links stayed placeholders.
+   *
+   * The label stays local because the band's vocabulary is its own: the registry calls them "About
+   * Magna Carta" and "Documentation" for the profile menu, where there is room for the longer name.
    */
-  const CHROME_NAVIGATION = ["Product", "Forum", "Help", "Status"];
+  const CHROME_NAVIGATION = [
+    { label: "Product", id: "about" },
+    { label: "Forum", id: "forums" },
+    { label: "Help", id: "documentation" },
+    { label: "Status", id: "status" },
+  ].map((entry) => ({
+    ...entry,
+    href: ECOSYSTEM_SITES.find((site) => site.id === entry.id)?.href ?? null,
+  }));
 </script>
 
 <div class="flex min-h-screen flex-col bg-surface-sunken">
@@ -28,8 +42,14 @@
     <BrandMark />
     <TopBar.Actions>
       <nav aria-label="Magna Carta" class="flex items-center gap-4">
-        {#each CHROME_NAVIGATION as destination (destination)}
-          <TopBar.Link href="#">{destination}</TopBar.Link>
+        {#each CHROME_NAVIGATION as destination (destination.id)}
+          {#if destination.href}
+            <TopBar.Link href={destination.href} rel="noreferrer">
+              {destination.label}
+            </TopBar.Link>
+          {:else}
+            <TopBar.Link aria-disabled="true">{destination.label}</TopBar.Link>
+          {/if}
         {/each}
       </nav>
     </TopBar.Actions>
