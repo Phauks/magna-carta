@@ -422,7 +422,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0131, ADR-0140
-  evidence: apps/worker/src/firm-database/, apps/worker/src/timer/, apps/magna-carta-edit
+  evidence: apps/worker/src/firm-database/, apps/worker/src/timer/, apps/edit-worker
 
 - id: platform.primitives.queues
   name: Queues

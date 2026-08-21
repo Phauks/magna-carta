@@ -218,7 +218,7 @@
   slices: 2-2-editing-versioning-storage-tiering
   adrs: ADR-0010, ADR-0125, ADR-0126
   spec: docs/specs/2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md
-  evidence: containers/collabora + apps/magna-carta-edit deployed + apps/worker/src/editing on main; editor UI pending. Every route on this surface is now reachable by a member holding an ordinary seeded role — until 2026-08-19 none of the four documents:\* permissions was granted to any role, so the launch answered 403 firm-wide.
+  evidence: containers/collabora + apps/edit-worker deployed + apps/worker/src/editing on main; editor UI pending. Every route on this surface is now reachable by a member holding an ordinary seeded role — until 2026-08-19 none of the four documents:\* permissions was granted to any role, so the launch answered 403 firm-wide.
   audience: public
   public-name: Editing in the browser
   public-summary: Open and edit a document in the browser without downloading it, and keep the version history as you work.
@@ -229,7 +229,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0125, ADR-0138
-  evidence: apps/magna-carta-edit/src/document-editor-container.ts + containers/collabora/Dockerfile; slice 2-2 fragment: magna-carta-edit deployed.
+  evidence: apps/edit-worker/src/document-editor-container.ts + containers/collabora/Dockerfile; slice 2-2 fragment: magna-carta-edit deployed.
 
 - id: documents.editing.wopi-host
   name: WOPI host & version-cut policy

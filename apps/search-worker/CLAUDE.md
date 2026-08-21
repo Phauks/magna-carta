@@ -8,7 +8,7 @@ makes no index decisions — the catalog, firm scoping, and every object key bel
 `apps/worker/src/search/`.
 
 **Template:** [`apps/scan-worker`](../scan-worker) (dedicated Container worker) and
-[`apps/magna-carta-edit`](../magna-carta-edit) (outbound interception). **Spec:**
+[`apps/edit-worker`](../edit-worker) (outbound interception). **Spec:**
 [`docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md`](../../docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md).
 
 ## Key files

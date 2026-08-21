@@ -30,7 +30,7 @@ const TOKEN_WINDOW_MS = 60 * 60 * 1000;
 // The internal host coolwsd uses as its WOPISrc. It never resolves on the public internet: the editor
 // container intercepts it (DocumentEditorContainer.outboundByHost) and forwards to this worker's WOPI
 // surface over the service binding, so coolwsd reaches the document with no egress. MUST match WOPI_HOST
-// in the magna-carta-edit worker (apps/magna-carta-edit/src/document-editor-container.ts).
+// in the magna-carta-edit worker (apps/edit-worker/src/document-editor-container.ts).
 const WOPI_HOST = "wopi.magna-carta.internal";
 
 // The dedicated cookieless content domain — a separate registrable domain from the app, the one home for
@@ -48,7 +48,7 @@ function userContentDomain(env: Bindings): string {
 //
 // The shape produced here — exactly 52 lowercase hex characters — is a contract: the edit worker refuses
 // any Host label that does not match it rather than booting a container for it, so changing the length or
-// the alphabet means changing DOCUMENT_KEY_PATTERN in apps/magna-carta-edit/src/document-routing.ts in
+// the alphabet means changing DOCUMENT_KEY_PATTERN in apps/edit-worker/src/document-routing.ts in
 // the same commit.
 async function deriveDocumentKey(fileId: FileId): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fileId));

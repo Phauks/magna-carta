@@ -123,7 +123,7 @@ export default defineConfig({
       "apps/discovery-worker/vitest.config.ts",
       "apps/email-worker/vitest.config.ts",
       "apps/file-repair-worker/vitest.config.ts",
-      "apps/magna-carta-edit/vitest.config.ts",
+      "apps/edit-worker/vitest.config.ts",
       "apps/ocr-worker/vitest.config.ts",
       "apps/recovery-worker/vitest.config.ts",
       "apps/scan-worker/vitest.config.ts",
