@@ -47,6 +47,12 @@ export type CalendarValidationCode =
   // never a silent clamp: a caller that asked for three years and quietly received one cannot tell
   // that from a firm with nothing recorded in years two and three.
   | "calendar-window-too-wide"
+  // The window is legal but the resource is too densely booked inside it for the answer to be
+  // accurate. Distinct from the width refusal above and fixed the same way — ask for less — but the
+  // reason differs: availability reports which bookings overlap which, and that pairing is computed
+  // over the rows one read returned. Truncating would not shorten the answer, it would drop
+  // conflicts, and a dropped conflict reads as a free room.
+  | "calendar-availability-window-too-dense"
   // A booking against a resource that has been deactivated. Existing bookings keep resolving; new
   // ones are refused, which is what soft-deactivation means.
   | "calendar-resource-inactive"

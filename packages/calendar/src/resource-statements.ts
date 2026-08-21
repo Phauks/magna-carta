@@ -117,6 +117,39 @@ export function selectLocationTimeZoneStatement(
   return database.prepare("SELECT time_zone FROM location WHERE id = ?1").bind(locationId);
 }
 
+export interface FirmResourcePage {
+  readonly rows: FirmResourceRow[];
+  /** True when the firm's catalog holds more than one answer can carry — filter by kind or office. */
+  readonly capped: boolean;
+}
+
+/**
+ * The picker's catalog, by name, capped with a signal.
+ *
+ * Not cursor-paged, because the read exists to be complete: a picker is how a person finds the room
+ * they mean, and half a catalog answers the wrong question. `capped` is what turns an
+ * implausible-but-possible overflow into something a surface can act on rather than something it
+ * cannot see.
+ */
+export async function readFirmResources(
+  database: SqlDatabase,
+  options: {
+    readonly kind?: FirmResourceKind;
+    readonly locationId?: LocationId;
+    readonly includeInactive?: boolean;
+    readonly limit?: number;
+  } = {},
+): Promise<FirmResourcePage> {
+  const limit = options.limit ?? MAX_FIRM_RESOURCES;
+  const { results } = await selectFirmResourcesStatement(database, {
+    ...options,
+    // One over the backstop as the has-more probe; it is never returned.
+    limit: limit + 1,
+  }).all<FirmResourceRow>();
+  const capped = results.length > limit;
+  return { capped, rows: capped ? results.slice(0, limit) : results };
+}
+
 export async function readLocationTimeZone(
   database: SqlDatabase,
   locationId: LocationId,
@@ -127,8 +160,18 @@ export async function readLocationTimeZone(
   return results[0]?.time_zone ?? null;
 }
 
-// The picker's list: the whole catalog, filtered. A firm has tens of resources, not thousands, so
-// the read is bounded by the catalog itself; the LIMIT is a backstop, not pagination.
+/**
+ * How many resources one picker answer can carry.
+ *
+ * A BACKSTOP, not a page size. The bound is the catalog itself: a firm has tens of bookable things —
+ * rooms, vehicles, equipment it physically owns and a person configures one at a time — not
+ * thousands, and the picker wants all of them so a person can choose. What the backstop was missing
+ * is a way to say it had been reached: a picker silently short of a room is a picker that says the
+ * room does not exist, which is worse than a picker that says "narrow this".
+ */
+export const MAX_FIRM_RESOURCES = 500;
+
+// The picker's list: the whole catalog, filtered.
 export function selectFirmResourcesStatement(
   database: SqlDatabase,
   options: {

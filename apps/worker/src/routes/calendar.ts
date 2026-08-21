@@ -52,7 +52,7 @@ import { readContinuanceLinksForEvents, type LinkEnd } from "@magna-carta/calend
 import { createFirmResource, updateFirmResource } from "@magna-carta/calendar/resource-service";
 import {
   readFirmResource,
-  selectFirmResourcesStatement,
+  readFirmResources,
   type FirmResourceRow,
 } from "@magna-carta/calendar/resource-statements";
 import {
@@ -105,7 +105,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
-import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { capped, cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -1387,14 +1387,17 @@ const listResourcesRoute = defineOpenAPIRoute(readMeta("listResources", "firm"),
   path: "/api/v1/calendar/resources",
   description:
     "The firm's bookable resources — rooms, vehicles, equipment — for the picker. Capacity is " +
-    "shown so a person can decide; nothing refuses a twelve-person meeting in a ten-seat room.",
+    "shown so a person can decide; nothing refuses a twelve-person meeting in a ten-seat room. The " +
+    "whole catalog is returned rather than a page, because a picker missing a room says the room " +
+    "does not exist; `capped` is true in the implausible case of a firm holding more bookable " +
+    "things than one answer carries, and the kind and office filters are how it is narrowed.",
   request: { query: resourcesQuery },
   responses: {
     200: {
       description: "The resource catalog",
       content: {
         "application/json": {
-          schema: z.object({ data: z.array(ResourceDetail) }).openapi("FirmResourceList"),
+          schema: capped(ResourceDetail).openapi("FirmResourceList"),
         },
       },
     },
@@ -2716,13 +2719,12 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const query = c.req.valid("query");
-      const { results } = await selectFirmResourcesStatement(firm.firmDatabase, {
+      const page = await readFirmResources(firm.firmDatabase, {
         kind: query.kind,
         locationId: query.locationId as never,
         includeInactive: query.includeInactive === "true",
-        limit: 500,
-      }).all<FirmResourceRow>();
-      return c.json({ data: results.map(resourceDetail) }, 200);
+      });
+      return c.json({ data: page.rows.map(resourceDetail), capped: page.capped }, 200);
     },
   );
 

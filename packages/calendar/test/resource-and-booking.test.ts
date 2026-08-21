@@ -10,6 +10,7 @@ import {
 import { createMatterEvent, cancelMatterEvent } from "../src/event-service.ts";
 import { createFirmEvent } from "../src/firm-event-service.ts";
 import { createFirmResource, updateFirmResource } from "../src/resource-service.ts";
+import { readFirmResources } from "../src/resource-statements.ts";
 import { continueMatterEvent } from "../src/continuance-service.ts";
 import { CalendarValidationError } from "../src/validation.ts";
 import {
@@ -517,5 +518,51 @@ describe("liveness is derived, never stored", () => {
     await expect(
       deleteFirmResourceBooking(database, booking.firmResourceBookingId, options),
     ).rejects.toThrow(CalendarValidationError);
+  });
+});
+
+// Both ceilings on this surface, and they answer differently on purpose. The picker's is a backstop
+// that reports itself; the availability read's is a refusal, because past it the answer would be
+// WRONG rather than short — the overlap sweep pairs the rows it holds, so a conflict spanning the
+// cut is a conflict the grid never paints, and it fails in the direction that says a room is free.
+
+describe("the ceilings on the resource surface", () => {
+  it("says so when the catalog holds more rooms than one picker answer carries", async () => {
+    const { database } = seeded();
+    for (const name of ["Room A", "Room B", "Room C"]) {
+      await seedRoom(database, name);
+    }
+
+    const cut = await readFirmResources(database, { limit: 2 });
+    expect(cut.rows).toHaveLength(2);
+    expect(cut.capped).toBe(true);
+    expect((await readFirmResources(database, { limit: 3 })).capped).toBe(false);
+  });
+
+  it("refuses an availability window it cannot report the conflicts across", async () => {
+    const { database } = seeded();
+    const roomId = await seedRoom(database);
+    for (const startsOn of ["2026-09-14", "2026-09-15", "2026-09-16"]) {
+      const eventId = await seedHearing(database, { startsOn });
+      const booked = await createFirmResourceBooking(
+        database,
+        { resourceId: roomId, matterEventId: eventId },
+        options,
+      );
+      await commit(database, booked.effect);
+    }
+
+    const window = { resourceId: roomId, fromDate: "2026-09-01", toDate: "2026-09-30" };
+    // At the ceiling the answer is complete and is given.
+    expect(
+      await readResourceAvailability(database, { ...window, maximumBookings: 3 }),
+    ).toHaveLength(3);
+    // Past it, a refusal that names the remedy — never a short list that reads like a free room.
+    await expect(
+      readResourceAvailability(database, { ...window, maximumBookings: 2 }),
+    ).rejects.toThrow(/ask for a shorter window/);
+    await expect(
+      readResourceAvailability(database, { ...window, maximumBookings: 2 }),
+    ).rejects.toBeInstanceOf(CalendarValidationError);
   });
 });

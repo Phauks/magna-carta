@@ -17,10 +17,6 @@
 
 /** Operation ids that answer with `{ data: [...] }` and no `nextCursor`. Only ever remove from this. */
 export const UNPAGED_LIST_OPERATIONS = [
-  "calendar.continuanceChain",
-  "calendar.listEventTypes",
-  "calendar.listResources",
-  "calendar.resourceAvailability",
   "custody.listReminders",
   "custody.listSightings",
   "documentTypes.list",
@@ -101,6 +97,29 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "`recorded_at` would scramble same-day attempts into identifier order. The response leads with " +
     "readInvoiceDeliveryState, which answers whether the bill was delivered from aggregates " +
     "without reading this list at all.",
+  "calendar.resourceAvailability":
+    "Bounded by the WINDOW, which the route requires and caps at MAX_CALENDAR_WINDOW_DAYS " +
+    "(packages/calendar/src/types.ts). Deliberately not paged, and this one is not a preference: " +
+    "readResourceAvailability in packages/calendar/src/booking-service.ts pairs overlapping " +
+    "bookings over the rows it holds, so a booking past a page boundary that overlaps one inside " +
+    "it would be a conflict the grid never paints. Past MAX_AVAILABILITY_BOOKINGS the read REFUSES " +
+    "rather than truncating, because the answer would be wrong rather than short.",
+  "calendar.listResources":
+    "Capped at MAX_FIRM_RESOURCES in readFirmResources " +
+    "(packages/calendar/src/resource-statements.ts), with the response's `capped` flag saying when " +
+    "the firm holds more. The bound is the catalog itself — rooms, vehicles and equipment a firm " +
+    "physically owns and a person configures one at a time. Not paged: this is the picker, and a " +
+    "picker missing a room says the room does not exist.",
+  "calendar.listEventTypes":
+    "The firm's event-type vocabulary: the platform seed plus whatever the firm has added, read " +
+    "from matter_event_type. It grows when a person adds a kind of event the firm records, never " +
+    "with the calendar's activity — the same shape as every other settings catalog here.",
+  "calendar.continuanceChain":
+    "One hearing's settings, walked in both directions and bounded by MAX_CONTINUANCE_CHAIN_DEPTH " +
+    "(packages/calendar/src/types.ts): readContinuanceChain calls assertChainDepth on every step " +
+    "and throws past it, because a chain longer than that is corrupt rather than continued. The " +
+    "chain must also stay whole — it is the procedural history of one hearing, and half of it is a " +
+    "different account of what happened.",
   "customFields.listRecordValues":
     "One current row per custom field configured for that target, so the firm's own field catalog " +
     "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +
