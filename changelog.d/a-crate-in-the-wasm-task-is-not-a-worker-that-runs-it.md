@@ -14,6 +14,8 @@ a build command that reaches the task, not merely a crate that is listed in it.*
 [`operations.md`](../docs/conventions/operations.md) section 12 with the failure signature and the
 watch paths.
 
-No repository change was needed. `build-all` already declares `dependsOn: ["rust-wasm-build"]`, so
-the fix is the app worker's own build and deploy commands, and a per-Worker task added for this one
-case was withdrawn as redundant.
+The fix is one line in `apps/sign-worker/package.json`: its `build` script now runs
+`vp run -w rust-wasm-build` ahead of the bundle. `-w` reaches the repository-root task from a package
+directory, so the Worker stays rooted at its own `apps/sign-worker` like every sibling and its
+dashboard build command stays the plain `pnpm run build` they all use. A per-Worker root task drafted
+for this was withdrawn: the dependency belongs where the import is.
