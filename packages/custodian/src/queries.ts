@@ -3,6 +3,7 @@ import {
   assemblePage,
   DEFAULT_PAGE_SIZE,
   decodeCursor,
+  encodeCursor,
   type Page,
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
@@ -173,7 +174,19 @@ export function selectOverdueCustodyCheckoutsStatement(
   database: SqlDatabase,
   asOfDate: string,
   limit: number,
+  cursor?: SortCursor,
 ): SqlStatement {
+  // Positional binds rather than numbered, because the keyset clause is conditional and renumbering
+  // ?1..?n around an optional fragment is how an off-by-one binding gets written.
+  const bindings: unknown[] = [asOfDate];
+  const cursorClause =
+    cursor === undefined
+      ? ""
+      : (() => {
+          bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+          return `AND (movement.due_back_on > ? OR (movement.due_back_on = ? AND packet.id > ?))`;
+        })();
+  bindings.push(limit);
   return database
     .prepare(
       `SELECT packet.id AS packet_id,
@@ -190,14 +203,53 @@ export function selectOverdueCustodyCheckoutsStatement(
               )
         WHERE packet.status = 'out'
           AND movement.due_back_on IS NOT NULL
-          AND movement.due_back_on < ?1
+          AND movement.due_back_on < ?
+        ${cursorClause}
         ORDER BY movement.due_back_on ASC, packet.id ASC
-        LIMIT ?2`,
+        LIMIT ?`,
     )
-    .bind(asOfDate, limit);
+    .bind(...bindings);
 }
 
 const MILLISECONDS_PER_DAY = 86_400_000;
+
+/**
+ * The check-outs still out past their due-back date, most overdue first.
+ *
+ * The list carried a LIMIT but no cursor, so a firm with more overdue packets than fit a page got a
+ * short answer with nothing saying so and no way to reach the rest. Ascending, and the cursor with
+ * it: a page of the MOST overdue is the answer, and paging forward walks toward the merely late.
+ *
+ * `readOverdueCustodyCheckoutsPage` is the paged read; the array-returning `readOverdueCustodyCheckouts`
+ * stays for the reminder collector, which merges this stream with another and pages neither.
+ */
+export async function readOverdueCustodyCheckoutsPage(
+  database: SqlDatabase,
+  asOfDate: string,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<OverdueCustodyCheckout>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const { results } = await selectOverdueCustodyCheckoutsStatement(
+    database,
+    asOfDate,
+    // One more than the page, as the has-more probe.
+    pageSize + 1,
+    decodeCursor(options.cursor),
+  ).all<{
+    packet_id: CustodyPacketId;
+    custody_number: string;
+    due_back_on: string;
+    borrower_kind: string | null;
+  }>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor:
+      hasMore && last !== undefined ? encodeCursor(last.due_back_on, last.packet_id) : null,
+    data: rows.map((row) => overdueCheckout(row, Date.parse(asOfDate))),
+  };
+}
 
 export async function readOverdueCustodyCheckouts(
   database: SqlDatabase,
@@ -211,7 +263,19 @@ export async function readOverdueCustodyCheckouts(
     borrower_kind: string | null;
   }>();
   const asOf = Date.parse(asOfDate);
-  return results.map((row) => ({
+  return results.map((row) => overdueCheckout(row, asOf));
+}
+
+function overdueCheckout(
+  row: {
+    packet_id: CustodyPacketId;
+    custody_number: string;
+    due_back_on: string;
+    borrower_kind: string | null;
+  },
+  asOf: number,
+): OverdueCustodyCheckout {
+  return {
     packetId: row.packet_id,
     custodyNumber: row.custody_number,
     dueBackOn: row.due_back_on,
@@ -220,7 +284,7 @@ export async function readOverdueCustodyCheckouts(
       0,
       Math.floor((asOf - Date.parse(row.due_back_on)) / MILLISECONDS_PER_DAY),
     ),
-  }));
+  };
 }
 
 // Coarse buckets for the overdue gauge. A firm-level count of how overdue its check-outs are is

@@ -262,6 +262,12 @@ Four views over what your firm holds:
   and forgotten is visible rather than only surfacing when it refuses something.
 - **Overdue check-outs** — the list described above.
 
+A long report is shown a page at a time rather than all at once, and you can keep asking for the next
+page until you reach the end. Holdings by owner works differently: it shows the biggest holders first
+and tells you when your firm holds for more people than the page names, because "biggest first" is not
+an order you can walk to the end of. Either way, a partial view says that it is partial — you will
+never be shown a short list that looks like a complete one.
+
 ## Taking a stocktake
 
 A **stocktake** is a physical count: somebody walks the shelves, records what they actually see, and

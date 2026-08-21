@@ -1,4 +1,9 @@
-import { DEFAULT_PAGE_SIZE } from "@magna-carta/data-access/cursor-pagination";
+import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   CustodyHoldId,
@@ -81,24 +86,37 @@ export function selectCustodyHoldingsByOwnerStatement(
     .bind(limit);
 }
 
+/**
+ * What the firm holds for each owner, the biggest holders first.
+ *
+ * CAPPED with a signal rather than cursor-paged, and the ORDER BY is why: the key is
+ * `packets_held DESC, packets_out DESC` — counts computed by the query, not columns any row carries.
+ * A keyset over them would page by a value that does not exist in the table. The biggest holders are
+ * what a holdings report is for; `capped` is what stops the cut being silent.
+ */
 export async function readCustodyHoldingsByOwner(
   database: SqlDatabase,
   limit = DEFAULT_PAGE_SIZE,
-): Promise<CustodyHoldingsByOwner[]> {
-  const { results } = await selectCustodyHoldingsByOwnerStatement(database, limit).all<{
+): Promise<{ rows: CustodyHoldingsByOwner[]; capped: boolean }> {
+  // One over the cap as the has-more probe; it is never returned.
+  const { results } = await selectCustodyHoldingsByOwnerStatement(database, limit + 1).all<{
     entity_id: string;
     packets_held: number;
     packets_out: number;
     items_described: number;
     packets_under_hold: number;
   }>();
-  return results.map((row) => ({
-    entityId: row.entity_id,
-    packetsHeld: row.packets_held,
-    packetsOut: row.packets_out,
-    itemsDescribed: row.items_described,
-    packetsUnderHold: row.packets_under_hold,
-  }));
+  const capped = results.length > limit;
+  return {
+    capped,
+    rows: (capped ? results.slice(0, limit) : results).map((row) => ({
+      entityId: row.entity_id,
+      packetsHeld: row.packets_held,
+      packetsOut: row.packets_out,
+      itemsDescribed: row.items_described,
+      packetsUnderHold: row.packets_under_hold,
+    })),
+  };
 }
 
 // ---- holdings per location, with occupancy ----
@@ -216,10 +234,26 @@ export interface CustodyPacketUnderHold {
 // Every hold in force across the register, oldest first. This is the report that makes a hold
 // visible as a standing state rather than only as a refusal somebody hit — a hold nobody can see is
 // a hold nobody will remember to release.
+//
+// PAGED. The read carried a LIMIT but no cursor, so a register holding more than a page of standing
+// holds answered short with nothing saying so — which is the same failure the report exists to
+// prevent, one level up.
 export async function readCustodyPacketsUnderHold(
   database: SqlDatabase,
-  limit = DEFAULT_PAGE_SIZE,
-): Promise<CustodyPacketUnderHold[]> {
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<CustodyPacketUnderHold>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const cursor = decodeCursor(options.cursor);
+  const bindings: unknown[] = [];
+  const cursorClause =
+    cursor === undefined
+      ? ""
+      : (() => {
+          bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+          return "AND (hold.placed_at > ? OR (hold.placed_at = ? AND hold.id > ?))";
+        })();
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
   const { results } = await database
     .prepare(
       `SELECT hold.id AS hold_id,
@@ -232,10 +266,11 @@ export async function readCustodyPacketsUnderHold(
          FROM ${CUSTODY_HOLD_TABLE} AS hold
          JOIN ${CUSTODY_PACKET_TABLE} AS packet ON packet.id = hold.packet_id
         WHERE hold.released_at IS NULL
+        ${cursorClause}
         ORDER BY hold.placed_at ASC, hold.id ASC
-        LIMIT ?1`,
+        LIMIT ?`,
     )
-    .bind(limit)
+    .bind(...bindings)
     .all<{
       hold_id: CustodyHoldId;
       packet_id: CustodyPacketId;
@@ -245,13 +280,19 @@ export async function readCustodyPacketsUnderHold(
       custody_number: string;
       packet_status: string;
     }>();
-  return results.map((row) => ({
-    holdId: row.hold_id,
-    packetId: row.packet_id,
-    itemId: row.item_id,
-    custodyNumber: row.custody_number,
-    kind: row.kind,
-    placedAt: row.placed_at,
-    packetStatus: row.packet_status,
-  }));
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.placed_at, last.hold_id) : null,
+    data: rows.map((row) => ({
+      holdId: row.hold_id,
+      packetId: row.packet_id,
+      itemId: row.item_id,
+      custodyNumber: row.custody_number,
+      kind: row.kind,
+      placedAt: row.placed_at,
+      packetStatus: row.packet_status,
+    })),
+  };
 }

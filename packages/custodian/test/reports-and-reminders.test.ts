@@ -91,10 +91,11 @@ describe("holdings per owner", () => {
     // Released is gone: the report answers "what do we hold", not "what did we ever hold".
     await recordCustodyMovement(database, third.packetId, AUTHORIZED_RELEASE, options);
 
-    const report = await readCustodyHoldingsByOwner(database);
-    const smith = report.find((row) => row.entityId === SMITH);
+    const { rows, capped } = await readCustodyHoldingsByOwner(database);
+    expect(capped).toBe(false);
+    const smith = rows.find((row) => row.entityId === SMITH);
     expect(smith).toMatchObject({ packetsHeld: 1, packetsOut: 1, itemsDescribed: 1 });
-    expect(report.find((row) => row.entityId === JONES)).toBeUndefined();
+    expect(rows.find((row) => row.entityId === JONES)).toBeUndefined();
   });
 
   it("counts a packet under hold once, however many holds are on it", async () => {
@@ -106,11 +107,25 @@ describe("holdings per owner", () => {
     }
     // And the packet itself is counted once too: the hold join is one-to-many, so a plain SUM would
     // report the firm holding twice as much for this person as it does.
-    const report = await readCustodyHoldingsByOwner(database);
-    expect(report.find((row) => row.entityId === SMITH)).toMatchObject({
+    const { rows } = await readCustodyHoldingsByOwner(database);
+    expect(rows.find((row) => row.entityId === SMITH)).toMatchObject({
       packetsHeld: 1,
       packetsUnderHold: 1,
     });
+  });
+
+  it("says so when the firm holds for more owners than the cap returns", async () => {
+    const { database, safe } = await scaffold();
+    for (let index = 0; index < 3; index += 1) {
+      // A distinct owner per packet, so the grouped report has three rows to cut from.
+      await logPacket(database, safe, `directoryPerson_owner${String(index).padStart(13, "0")}`);
+    }
+
+    const cut = await readCustodyHoldingsByOwner(database, 2);
+    expect(cut.rows).toHaveLength(2);
+    // The point of the flag: a short answer that reads exactly like a complete one is the defect.
+    expect(cut.capped).toBe(true);
+    expect((await readCustodyHoldingsByOwner(database, 3)).capped).toBe(false);
   });
 });
 
@@ -158,8 +173,38 @@ describe("packets under hold", () => {
     await commit(database, placed.effect);
 
     const report = await readCustodyPacketsUnderHold(database);
-    expect(report).toHaveLength(1);
-    expect(report[0]).toMatchObject({ packetId: packet.packetId, kind: "legal" });
+    expect(report.data).toHaveLength(1);
+    expect(report.nextCursor).toBeNull();
+    expect(report.data[0]).toMatchObject({ packetId: packet.packetId, kind: "legal" });
+  });
+
+  it("walks the holds a page at a time, oldest first, without repeating or skipping one", async () => {
+    const { database, safe } = await scaffold();
+    const held: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const packet = await logPacket(database, safe, SMITH, `Held packet ${String(index)}`);
+      // A distinct placed_at per hold, so the page order is the ordering under test rather than the
+      // hold id the tiebreaker falls back to when five holds are placed in the same instant.
+      const placed = await placeCustodyHold(
+        database,
+        packet.packetId,
+        { kind: "legal", reason: "Estate dispute" },
+        { ...options, clock: { now: () => `2026-08-0${String(index + 1)}T12:00:00.000Z` } },
+      );
+      await commit(database, placed.effect);
+      held.push(packet.packetId);
+    }
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    // Bounded: a cursor that fails to advance would otherwise spin here rather than fail.
+    for (let page = 0; page < 5; page += 1) {
+      const result = await readCustodyPacketsUnderHold(database, { cursor, pageSize: 2 });
+      seen.push(...result.data.map((row) => row.packetId));
+      if (result.nextCursor === null) break;
+      cursor = result.nextCursor;
+    }
+    expect(seen).toEqual(held);
   });
 });
 

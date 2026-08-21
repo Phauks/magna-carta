@@ -48637,11 +48637,19 @@
             "required": false,
             "name": "asOf",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Overdue check-outs",
+            "description": "One page of overdue check-outs",
             "content": {
               "application/json": {
                 "schema": {
@@ -48652,10 +48660,17 @@
                       "items": {
                         "$ref": "#/components/schemas/OverdueCustodyCheckout"
                       }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "nextCursor"
                   ]
                 }
               }
@@ -48934,7 +48949,7 @@
     },
     "/api/v1/custody/reports/holdings-by-owner": {
       "get": {
-        "description": "What the firm currently holds for each person or organization: packets in the safe, packets out, items described, and packets under hold. Owners are returned as directory handles, not names — the caller resolves them through the directory it already reads.",
+        "description": "What the firm currently holds for each person or organization: packets in the safe, packets out, items described, and packets under hold. Owners are returned as directory handles, not names — the caller resolves them through the directory it already reads. Biggest holders first, capped at `limit` rather than paged; `capped` is true when the firm holds for more owners than the answer names.",
         "operationId": "custody.reportHoldingsByOwner",
         "tags": [
           "custody"
@@ -48965,7 +48980,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Holdings per owner",
+            "description": "Holdings for the biggest holders, and whether the firm has more",
             "content": {
               "application/json": {
                 "schema": {
@@ -48976,10 +48991,14 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodyHoldingsByOwner"
                       }
+                    },
+                    "capped": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "capped"
                   ]
                 }
               }
@@ -49134,18 +49153,16 @@
         "parameters": [
           {
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 500
+              "type": "string"
             },
             "required": false,
-            "name": "limit",
+            "name": "cursor",
             "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Packets under hold",
+            "description": "One page of packets under hold",
             "content": {
               "application/json": {
                 "schema": {
@@ -49156,10 +49173,17 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodyPacketUnderHold"
                       }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "nextCursor"
                   ]
                 }
               }
@@ -49332,7 +49356,7 @@
         }
       },
       "get": {
-        "description": "Lists physical counts, most recently opened first, with the findings frozen on each closed one.",
+        "description": "Lists physical counts, most recently opened first, with the findings frozen on each closed one. Capped at `limit` rather than paged; `capped` is true when the firm has counted more than the answer carries.",
         "operationId": "custody.listStocktakes",
         "tags": [
           "custody"
@@ -49387,10 +49411,14 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodyStocktake"
                       }
+                    },
+                    "capped": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "capped"
                   ]
                 }
               }

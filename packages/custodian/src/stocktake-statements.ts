@@ -154,17 +154,33 @@ export function selectCustodyStocktakesStatement(
   return status === undefined ? statement.bind(limit) : statement.bind(limit, status);
 }
 
+export interface CustodyStocktakePage {
+  readonly rows: CustodyStocktakeRow[];
+  /** True when the firm has counted more than the requested limit and the tail was not returned. */
+  readonly capped: boolean;
+}
+
+/**
+ * The counts, newest first, capped rather than cursor-paged.
+ *
+ * The cap is the honest shape here for the reason the ORDER BY comment gives: this list answers
+ * "what is being counted now, and what did the last one find", and a caller walking a decade of
+ * counts backwards is not a use this read has. What it was missing is the SIGNAL — a short answer
+ * that looks identical to a complete one is the defect, not the shortness. One row past the limit is
+ * fetched purely to tell the two apart.
+ */
 export async function readCustodyStocktakes(
   database: SqlDatabase,
   status: CustodyStocktakeStatus | undefined,
   limit: number,
-): Promise<CustodyStocktakeRow[]> {
+): Promise<CustodyStocktakePage> {
   const { results } = await selectCustodyStocktakesStatement(
     database,
     status,
-    limit,
+    limit + 1,
   ).all<CustodyStocktakeRow>();
-  return results;
+  const capped = results.length > limit;
+  return { rows: capped ? results.slice(0, limit) : results, capped };
 }
 
 export interface CustodyStocktakeSightingRow {

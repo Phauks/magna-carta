@@ -25,15 +25,8 @@ export const UNPAGED_LIST_OPERATIONS = [
   "calendar.listEventTypes",
   "calendar.listResources",
   "calendar.resourceAvailability",
-  "custody.listItemTypes",
-  "custody.listLocations",
-  "custody.listOverdue",
   "custody.listReminders",
   "custody.listSightings",
-  "custody.listStocktakes",
-  "custody.reportHoldingsByLocation",
-  "custody.reportHoldingsByOwner",
-  "custody.reportHolds",
   "discovery.getCodingHistory",
   "discovery.getDocumentCoding",
   "discovery.getReviewSetAccess",
@@ -75,6 +68,31 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "(foldersPerMatter in packages/fixtures/src/load-profile/profile.ts). Deliberately NOT paged: " +
     "one of the three callers is the ZIP builder in apps/worker/src/routes/downloads.ts, which " +
     "needs the whole tree to resolve paths, and half a tree is not a tree.",
+  "custody.listStocktakes":
+    "Capped at the caller's `limit` in readCustodyStocktakes " +
+    "(packages/custodian/src/stocktake-statements.ts), which fetches one row past it so the " +
+    "response's `capped` flag can say when the firm has counted more. Not cursor-paged on purpose: " +
+    "this list answers which count is running now and what the last one found, and nothing walks a " +
+    "decade of counts backwards.",
+  "custody.listItemTypes":
+    "The firm's own item-type vocabulary — configured by hand, read from custody_item_type, and " +
+    "the same shape as every other settings catalog here. It grows when a person adds a kind of " +
+    "thing the firm holds, never with the register's activity.",
+  "custody.listLocations":
+    "The container tree, and it must stay whole for the same reason a matter's folder tree does: " +
+    "the callers resolve a packet's shelf to a path through its ancestors, and half a tree resolves " +
+    "to a wrong path rather than to a short one. Bounded by the physical thing it models — a firm " +
+    "has offices, safes, and shelves, not a row per packet.",
+  "custody.reportHoldingsByOwner":
+    "Capped at the caller's `limit` in readCustodyHoldingsByOwner " +
+    "(packages/custodian/src/reports.ts), with the response's `capped` flag saying when the firm " +
+    "holds for more owners than the answer names. Not cursor-paged on purpose: the ordering key is " +
+    "`packets_held DESC`, a count the query computes rather than a column any row carries, so a " +
+    "keyset over it would page by a value that does not exist in the table.",
+  "custody.reportHoldingsByLocation":
+    "One row per node of the location tree, so it is bounded by the same physical thing " +
+    "custody.listLocations is, and it is read as an occupancy picture of the whole register — a " +
+    "page of it would be a picture of part of a building.",
   "customFields.listRecordValues":
     "One current row per custom field configured for that target, so the firm's own field catalog " +
     "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +
