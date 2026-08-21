@@ -88,7 +88,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
-import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { capped, cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
@@ -964,16 +964,20 @@ const listValuationsRoute = defineOpenAPIRoute(readMeta("listValuations", "matte
   method: "get",
   path: "/api/v1/matter-assets/{assetId}/valuations",
   description:
-    "The asset's whole value history, newest date first. Corrections are shown AS corrections, " +
+    "The asset's value history, newest date first. Corrections are shown AS corrections, " +
     "naming the entry they replace — a figure somebody corrected stays visible, because the record's " +
-    "worth in a dispute is that nothing could be quietly rewritten after the fact.",
+    "worth in a dispute is that nothing could be quietly rewritten after the fact. The read is " +
+    "capped rather than paged, and `capped` says whether the asset holds more assertions than were " +
+    "returned: the order is (as-of date, then when it was asserted, then the row), three keys where " +
+    "a continuation cursor carries two, and the middle one is what puts a correction after the " +
+    "figure it corrects.",
   request: { params: assetIdParam },
   responses: {
     200: {
       description: "The value history",
       content: {
         "application/json": {
-          schema: z.object({ data: z.array(ValuationDetail) }).openapi("MatterAssetValuationList"),
+          schema: capped(ValuationDetail).openapi("MatterAssetValuationList"),
         },
       },
     },
@@ -1857,10 +1861,11 @@ export function registerMatterAssetRoutes(app: MatterAssetsApp, chokepoint: Chok
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { assetId } = c.req.valid("param");
-      const rows = await readMatterAssetValuations(firm.firmDatabase, assetId as MatterAssetId);
+      const page = await readMatterAssetValuations(firm.firmDatabase, assetId as MatterAssetId);
       return c.json(
         {
-          data: rows.map((row) => ({
+          capped: page.capped,
+          data: page.rows.map((row) => ({
             id: row.id,
             assetId: row.asset_id,
             asOfDate: row.as_of_date,

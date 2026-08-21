@@ -132,7 +132,7 @@ describe("recording what the counters saw", () => {
     );
     expect(recorded.sightingIds).toHaveLength(2);
 
-    const rows = await readCustodyStocktakeSightings(database, stocktakeId, 100);
+    const rows = (await readCustodyStocktakeSightings(database, stocktakeId, 100)).rows;
     expect(rows).toHaveLength(2);
     expect(rows.find((row) => row.packet_id === inSafe.packetId)?.expected_location_id).toBe(safe);
     expect(rows.find((row) => row.packet_id === onShelf.packetId)?.expected_location_id).toBe(
@@ -156,7 +156,7 @@ describe("recording what the counters saw", () => {
       ],
       options,
     );
-    const [row] = await readCustodyStocktakeSightings(database, stocktakeId, 10);
+    const [row] = (await readCustodyStocktakeSightings(database, stocktakeId, 10)).rows;
     expect(row).toMatchObject({
       kind: "unregistered",
       packet_id: null,
@@ -204,7 +204,7 @@ describe("recording what the counters saw", () => {
       ),
     ).rejects.toThrow(/no such custody packet/);
     // A refused batch writes nothing at all — every handle is resolved before the batch is composed.
-    expect(await readCustodyStocktakeSightings(database, stocktakeId, 10)).toEqual([]);
+    expect((await readCustodyStocktakeSightings(database, stocktakeId, 10)).rows).toEqual([]);
   });
 
   it("refuses a batch larger than one request should compose", async () => {

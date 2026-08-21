@@ -89,7 +89,7 @@ export function listNarrativeTemplatesStatement(database: SqlDatabase): SqlState
 // The timekeeper's distinct recent narratives, most recent first — the one-tap re-pick read. DISTINCT
 // de-dups a repeated narrative; MAX(work_date) orders by the most recent use. The secondary
 // MAX(created_at) tiebreaker makes the order deterministic when two narratives share their
-// latest work_date, so pagination and tests produce a stable sequence.
+// latest work_date, so the sequence is stable across calls and in tests.
 export function recentNarrativesStatement(
   database: SqlDatabase,
   timekeeperUserId: string,
@@ -100,4 +100,39 @@ export function recentNarrativesStatement(
       `SELECT narrative FROM time_entry WHERE timekeeper_user_id = ?1 GROUP BY narrative ORDER BY MAX(work_date) DESC, MAX(created_at) DESC LIMIT ?2`,
     )
     .bind(timekeeperUserId, limit);
+}
+
+export interface RecentNarrativesPage {
+  readonly narratives: string[];
+  readonly capped: boolean;
+}
+
+/**
+ * The same read, capped with a signal rather than paged.
+ *
+ * A continuation cursor is the wrong shape here twice over. The ordering key is `MAX(work_date)`,
+ * an aggregate the query computes over the group rather than a column any row carries, so a keyset
+ * would page by a value that is not in the table. And the answer is a typing aid: it exists to put
+ * the phrases somebody used this week under their cursor, not to let them walk backwards through
+ * every narrative they have ever written. Nothing pages an autocomplete.
+ *
+ * What it does owe the caller is the difference between "that is all of them" and "we stopped
+ * there", which is what `capped` carries — a re-pick list silently cut at its limit reads as a
+ * complete history of the timekeeper's phrasing.
+ */
+export async function readRecentNarratives(
+  database: SqlDatabase,
+  timekeeperUserId: string,
+  limit: number,
+): Promise<RecentNarrativesPage> {
+  const { results } = await recentNarrativesStatement(
+    database,
+    timekeeperUserId,
+    limit + 1,
+  ).all<{ narrative: string }>();
+  const capped = results.length > limit;
+  return {
+    capped,
+    narratives: (capped ? results.slice(0, limit) : results).map((row) => row.narrative),
+  };
 }

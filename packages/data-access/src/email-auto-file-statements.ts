@@ -283,11 +283,26 @@ export async function readActiveAutoFileRulesByMatchValues(
 }
 
 // A matter's rules, for the list a member prunes. Served by the matter index.
+export interface EmailAutoFileRulePage {
+  readonly rows: EmailAutoFileRuleRow[];
+  readonly capped: boolean;
+}
+
+/**
+ * A matter's live auto-file rules, newest first, CAPPED with a signal rather than paged.
+ *
+ * The cap is the point of the read rather than an accident of it: these are the standing
+ * instructions a firm has given the platform to file mail unattended, and the screen exists so a
+ * person can see all of them at once and judge them together. A page of them is not a shorter answer
+ * to that question, it is a different one — a rule the reader never saw is a rule they never
+ * withdrew. So the read fetches one past the caller's limit and SAYS when the matter holds more,
+ * which is what turns "these are the rules" into a claim the reader can check.
+ */
 export async function readAutoFileRulesForMatter(
   database: SqlDatabase,
   matterId: MatterId,
   limit: number,
-): Promise<EmailAutoFileRuleRow[]> {
+): Promise<EmailAutoFileRulePage> {
   const { results } = await database
     .prepare(
       `${SELECT_RULE_COLUMNS}
@@ -295,9 +310,10 @@ export async function readAutoFileRulesForMatter(
        ORDER BY created_at DESC, id DESC
        LIMIT ?2`,
     )
-    .bind(matterId, limit)
+    .bind(matterId, limit + 1)
     .all<RuleResultRow>();
-  return results.map(toRuleRow);
+  const capped = results.length > limit;
+  return { capped, rows: (capped ? results.slice(0, limit) : results).map(toRuleRow) };
 }
 
 // One rule by handle, INCLUDING a revoked one. Every mutation route reads this first, because the
@@ -562,11 +578,25 @@ function toDecisionRow(row: DecisionResultRow): EmailAutoFileDecisionRow {
 }
 
 // "Why did this message file itself" — one message's decision history, newest first and bounded.
+export interface EmailAutoFileDecisionPage {
+  readonly rows: EmailAutoFileDecisionRow[];
+  readonly capped: boolean;
+}
+
+/**
+ * Every decision the engine recorded about ONE message, newest first, capped with a signal.
+ *
+ * This is the read a person opens when they want to know why a message was filed where it was, and
+ * the honest answer to that is either the whole account or an account that admits it is partial. A
+ * message re-evaluated after its rules changed accumulates a decision per pass, so the list is not
+ * bounded by the matter's rule count; a silent cut here would show the most recent pass and hide the
+ * one that actually did the filing.
+ */
 export async function readAutoFileDecisionsForMessage(
   database: SqlDatabase,
   emailMessageId: EmailMessageId,
   limit: number,
-): Promise<EmailAutoFileDecisionRow[]> {
+): Promise<EmailAutoFileDecisionPage> {
   const { results } = await database
     .prepare(
       `${SELECT_DECISION_COLUMNS}
@@ -574,9 +604,10 @@ export async function readAutoFileDecisionsForMessage(
        ORDER BY created_at DESC, id DESC
        LIMIT ?2`,
     )
-    .bind(emailMessageId, limit)
+    .bind(emailMessageId, limit + 1)
     .all<DecisionResultRow>();
-  return results.map(toDecisionRow);
+  const capped = results.length > limit;
+  return { capped, rows: (capped ? results.slice(0, limit) : results).map(toDecisionRow) };
 }
 
 export interface AutoFileRuleActivity {

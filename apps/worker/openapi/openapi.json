@@ -1090,10 +1090,14 @@
             "items": {
               "$ref": "#/components/schemas/AutoFileRule"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "UpdateAutoFileRuleRequest": {
@@ -1119,10 +1123,14 @@
             "items": {
               "$ref": "#/components/schemas/AutoFileDecisionEntry"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "AutoFileDecisionEntry": {
@@ -1597,10 +1605,14 @@
             "items": {
               "$ref": "#/components/schemas/CaptureAddressSummary"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "CaptureAddressSummary": {
@@ -3427,10 +3439,14 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssignmentRecord"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "MatterAssignmentRecord": {
@@ -12960,10 +12976,14 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssetValuationDetail"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "MatterAssetValuationDetail": {
@@ -23089,10 +23109,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "MyDayResponse": {
@@ -28163,7 +28187,7 @@
         }
       },
       "get": {
-        "description": "The auto-file rules on this matter, newest first, with what each one asks for and what it would actually do under the firm's current posture. Revoked rules are omitted; a suspended one is listed with the reason it stopped, because a suspended rule with its history explains what had been filing and a hidden one does not.",
+        "description": "The auto-file rules on this matter, newest first, with what each one asks for and what it would actually do under the firm's current posture. Revoked rules are omitted; a suspended one is listed with the reason it stopped, because a suspended rule with its history explains what had been filing and a hidden one does not. `capped` says whether the matter carries more rules than were returned: this list is read to judge the standing instructions as a set, so a rule past the cut is one nobody withdrew because nobody saw it.",
         "operationId": "emails.listAutoFileRules",
         "tags": [
           "emails"
@@ -28713,7 +28737,7 @@
     },
     "/api/v1/emails/{emailMessageId}/auto-file-decisions": {
       "get": {
-        "description": "Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped.",
+        "description": "Why this message is where it is: every automatic-filing decision recorded about it, newest first, each with the rule responsible and the reasons in plain language. Decisions about a matter the caller cannot access are absent entirely — no row and no count. A message no rule ever looked at has no decisions, which is a different answer from a rule having been stopped. `capped` says whether more decisions were recorded than were returned — a message re-evaluated after its rules changed accumulates one per pass.",
         "operationId": "emails.autoFileDecisions",
         "tags": [
           "emails"
@@ -29740,7 +29764,7 @@
         }
       },
       "get": {
-        "description": "List this matter's capture addresses, live and retired, newest first. Token values are never returned — each row carries a short prefix and its metadata.",
+        "description": "List this matter's capture addresses, live and retired, newest first. Token values are never returned — each row carries a short prefix and its metadata. `capped` says whether the matter holds more than were returned: a rotation retires the old address rather than deleting it, so the list grows with rotations and is read whole rather than paged.",
         "operationId": "emails.listCaptureAddresses",
         "tags": [
           "emails"
@@ -34674,7 +34698,7 @@
     },
     "/api/v1/matters/{id}/assignments": {
       "get": {
-        "description": "Lists the matter's staffing assignments, every recorded window included. The responsible attorney is not among them: that fact lives on the matter record itself.",
+        "description": "Lists the matter's staffing assignments, every recorded window included. The responsible attorney is not among them: that fact lives on the matter record itself. `capped` says whether the matter carries more windows than were returned — the answer is grouped by role and read whole rather than paged, because a partial staffing history is a different history.",
         "operationId": "matters.listAssignments",
         "tags": [
           "matters"
@@ -49752,7 +49776,7 @@
         }
       },
       "get": {
-        "description": "Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed.",
+        "description": "Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed. Capped at `limit` rather than paged, and `capped` is true when the count holds more: a count over a whole register is one observation per packet, so the cap is reachable, and paging it wants a design decision the ordering does not currently allow.",
         "operationId": "custody.listSightings",
         "tags": [
           "custody"
@@ -49803,10 +49827,14 @@
                       "items": {
                         "$ref": "#/components/schemas/CustodySighting"
                       }
+                    },
+                    "capped": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "data"
+                    "data",
+                    "capped"
                   ]
                 }
               }
@@ -51665,7 +51693,7 @@
     },
     "/api/v1/matter-assets/{assetId}/valuations": {
       "get": {
-        "description": "The asset's whole value history, newest date first. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact.",
+        "description": "The asset's value history, newest date first. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact. The read is capped rather than paged, and `capped` says whether the asset holds more assertions than were returned: the order is (as-of date, then when it was asserted, then the row), three keys where a continuation cursor carries two, and the middle one is what puts a correction after the figure it corrects.",
         "operationId": "matterAssets.listValuations",
         "tags": [
           "matterAssets"
@@ -73164,7 +73192,7 @@
     },
     "/api/v1/narrative-templates/recent-narratives": {
       "get": {
-        "description": "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.",
+        "description": "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user. `capped` says whether the timekeeper has written more distinct narratives than the requested limit returned; the read is capped rather than paged, because it is ordered by most recent use, which is computed per query rather than held on any row.",
         "operationId": "narrativeTemplates.recentNarratives",
         "tags": [
           "narrativeTemplates"

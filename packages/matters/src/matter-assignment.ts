@@ -78,22 +78,48 @@ function toRow(columns: MatterAssignmentColumns): MatterAssignmentRow {
   };
 }
 
-// The staffing on a matter, every recorded window included — the reader decides what "current"
-// means for its own question (the merge engine windows by the assembly instant; a staffing screen
-// shows history).
+export interface MatterAssignmentPage {
+  readonly rows: MatterAssignmentRow[];
+  readonly capped: boolean;
+}
+
+/**
+ * How many staffing windows one read of a matter can carry.
+ *
+ * A matter's staffing accumulates a row per (member, role) episode for as long as the matter runs,
+ * so nothing about the table bounds it — a decade-old matter that has been re-staffed through three
+ * associates and two paralegals holds dozens, and there is no ceiling in the schema. This is a
+ * ceiling on the read so it cannot return a firm's whole staffing history in one response.
+ */
+export const MAX_MATTER_ASSIGNMENTS = 500;
+
+/**
+ * The staffing on a matter, every recorded window included — the reader decides what "current" means
+ * for its own question (the merge engine windows by the assembly instant; a staffing screen shows
+ * history). Capped with a signal rather than paged, for two reasons that both point the same way.
+ *
+ * The order is `(assignment_role, created_at, id)`, three columns where the platform's opaque cursor
+ * carries two, and the role is what groups the answer into something a person can read. And every
+ * caller wants the windows TOGETHER: the merge engine picks the row covering one instant, which it
+ * can only do over the whole set, and a staffing screen showing part of a history is showing a
+ * different history.
+ */
 export async function listMatterAssignments(
   database: SqlDatabase,
   matterId: MatterId,
-): Promise<MatterAssignmentRow[]> {
+  limit: number = MAX_MATTER_ASSIGNMENTS,
+): Promise<MatterAssignmentPage> {
   const { results } = await database
     .prepare(
       `SELECT id, matter_id, member_user_id, assignment_role, valid_from, valid_to, created_at
          FROM matter_assignment WHERE matter_id = ?1
-        ORDER BY assignment_role ASC, created_at ASC, id ASC`,
+        ORDER BY assignment_role ASC, created_at ASC, id ASC
+        LIMIT ?2`,
     )
-    .bind(matterId)
+    .bind(matterId, limit + 1)
     .all<MatterAssignmentColumns>();
-  return results.map(toRow);
+  const capped = results.length > limit;
+  return { capped, rows: (capped ? results.slice(0, limit) : results).map(toRow) };
 }
 
 async function assertExists(

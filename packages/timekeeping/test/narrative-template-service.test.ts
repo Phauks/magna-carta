@@ -5,6 +5,7 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   listNarrativeTemplatesStatement,
+  readRecentNarratives,
   recentNarrativesStatement,
 } from "../src/narrative-template-statements.ts";
 import {
@@ -262,5 +263,16 @@ describe("recent narratives", () => {
     }>();
     const narratives = results.map((r) => r.narrative);
     expect(narratives).toEqual(["reviewed pleadings", "drafted demand letter"]);
+
+    // The read that carries the signal: two distinct narratives fit under a limit of ten, and asking
+    // for one says so rather than handing back a list that reads as the whole history.
+    expect(await readRecentNarratives(database, TIMEKEEPER, 10)).toEqual({
+      capped: false,
+      narratives: ["reviewed pleadings", "drafted demand letter"],
+    });
+    expect(await readRecentNarratives(database, TIMEKEEPER, 1)).toEqual({
+      capped: true,
+      narratives: ["reviewed pleadings"],
+    });
   });
 });

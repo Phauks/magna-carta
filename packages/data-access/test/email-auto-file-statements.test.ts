@@ -130,7 +130,7 @@ describe("the rule mutations", () => {
     const messageId = seedMessage("emailMessage_a");
     await createRule(matterId, { createdFromEmailMessageId: messageId });
 
-    const [row] = await readAutoFileRulesForMatter(database, matterId, 10);
+    const [row] = (await readAutoFileRulesForMatter(database, matterId, 10)).rows;
     expect(row?.state).toBe("active");
     expect(row?.suspendedReason).toBeNull();
     expect(row?.createdFromEmailMessageId).toBe(messageId);
@@ -213,7 +213,7 @@ describe("the rule mutations", () => {
     await run(revokeEmailAutoFileRule(database, { id: RULE }, auditOptions).statements);
     expect(ruleStateOf(RULE)).toEqual({ state: "revoked", suspended_reason: null });
     // Revoked rules are out of the matter's working list.
-    expect(await readAutoFileRulesForMatter(database, matterId, 10)).toEqual([]);
+    expect((await readAutoFileRulesForMatter(database, matterId, 10)).rows).toEqual([]);
   });
 });
 
@@ -298,7 +298,7 @@ describe("the decision ledger", () => {
         NOW,
       ),
     ]);
-    const [row] = await readAutoFileDecisionsForMessage(database, messageId, 10);
+    const [row] = (await readAutoFileDecisionsForMessage(database, messageId, 10)).rows;
     expect(row?.outcome).toBe("suppressed");
     expect(row?.suppressionReason).toBe("ambiguousEvidence");
     expect(row?.matterId).toBeNull();
@@ -453,7 +453,7 @@ describe("the reads the management surface is built on", () => {
     // The matter list omits it — a member pruning rules should not see retired ones — but the
     // by-handle read must still answer, or a link a revoked rule made becomes unexplainable and
     // every transition route would 404 instead of saying the rule is already revoked.
-    expect(await readAutoFileRulesForMatter(database, matterId, 10)).toEqual([]);
+    expect((await readAutoFileRulesForMatter(database, matterId, 10)).rows).toEqual([]);
     expect((await readAutoFileRuleById(database, RULE))?.state).toBe("revoked");
   });
 

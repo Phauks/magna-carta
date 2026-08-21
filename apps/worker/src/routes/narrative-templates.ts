@@ -4,7 +4,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { createNarrativeTemplate } from "@magna-carta/timekeeping/narrative-template-service";
 import {
   listNarrativeTemplatesStatement,
-  recentNarrativesStatement,
+  readRecentNarratives,
 } from "@magna-carta/timekeeping/narrative-template-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { Context } from "hono";
@@ -18,6 +18,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField } from "../contracts/common.ts";
+import { capped } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -54,9 +55,7 @@ const NarrativeTemplateListResponse = z
   .object({ data: z.array(NarrativeTemplateSummary) })
   .openapi("NarrativeTemplateListResponse");
 
-const RecentNarrativesResponse = z
-  .object({ data: z.array(z.string()) })
-  .openapi("RecentNarrativesResponse");
+const RecentNarrativesResponse = capped(z.string()).openapi("RecentNarrativesResponse");
 
 const recentNarrativesQuery = z.object({
   timekeeperUserId: identifierField("user"),
@@ -201,7 +200,7 @@ const recentNarrativesRoute = defineOpenAPIRoute(recentNarrativesMeta, {
   method: "get",
   path: "/api/v1/narrative-templates/recent-narratives",
   description:
-    "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.",
+    "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user. `capped` says whether the timekeeper has written more distinct narratives than the requested limit returned; the read is capped rather than paged, because it is ordered by most recent use, which is computed per query rather than held on any row.",
   request: { query: recentNarrativesQuery },
   responses: {
     200: {
@@ -337,12 +336,8 @@ export function registerNarrativeTemplatesRoutes(
           detail: "Recent narratives may only be read for the authenticated user.",
         });
       }
-      const { results } = await recentNarrativesStatement(
-        firm.firmDatabase,
-        sessionUserId,
-        limit,
-      ).all<{ narrative: string }>();
-      return c.json({ data: results.map((row) => row.narrative) }, 200);
+      const page = await readRecentNarratives(firm.firmDatabase, sessionUserId, limit);
+      return c.json({ data: page.narratives, capped: page.capped }, 200);
     },
   );
 }

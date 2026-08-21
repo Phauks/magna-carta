@@ -274,19 +274,44 @@ export function selectCustodyStocktakeSightingsStatement(
     .bind(stocktakeId, limit);
 }
 
+export interface CustodyStocktakeSightingPage {
+  readonly rows: CustodyStocktakeSightingRow[];
+  /** True when the count holds more observations than the requested limit returned. */
+  readonly capped: boolean;
+}
+
+/**
+ * A count's observations, capped with a signal rather than cursor-paged.
+ *
+ * The cap is real and reachable — a count over a whole register is one sighting per packet, which is
+ * thousands — so this is the least comfortable of the capped reads and the reason it stays capped is
+ * worth stating.
+ *
+ * The sort key is `(observed_at, recorded_at, id)`, three columns where the platform's opaque cursor
+ * carries two. The obvious repair is to drop `recorded_at`, since `(observed_at, id)` is already a
+ * total order — and it is exactly what must not be done. A correction shares the physical instant of
+ * the observation it supersedes; only `recorded_at` orders the two. The reconciliation reads this
+ * same statement `newest-first` and keeps the FIRST row it sees per packet, so dropping the tie-break
+ * would silently make a corrected sighting lose to the one it corrected.
+ *
+ * So the answer is capped and says so, and paging it wants either a cursor that carries three
+ * columns or a second ordering for the list alone — a design decision rather than an omission.
+ */
 export async function readCustodyStocktakeSightings(
   database: SqlDatabase,
   stocktakeId: CustodyStocktakeId,
   limit: number,
   order: CustodyStocktakeSightingOrder = "oldest-first",
-): Promise<CustodyStocktakeSightingRow[]> {
+): Promise<CustodyStocktakeSightingPage> {
   const { results } = await selectCustodyStocktakeSightingsStatement(
     database,
     stocktakeId,
-    limit,
+    // One over the cap as the has-more probe; it is never returned.
+    limit + 1,
     order,
   ).all<CustodyStocktakeSightingRow>();
-  return results;
+  const capped = results.length > limit;
+  return { capped, rows: capped ? results.slice(0, limit) : results };
 }
 
 export interface CustodyExpectedPacketRow {

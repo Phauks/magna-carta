@@ -117,17 +117,37 @@ export function selectMatterAssetValuationsStatement(
     .bind(assetId, limit);
 }
 
+export interface MatterAssetValuationPage {
+  readonly rows: MatterAssetValuationRow[];
+  /** True when the asset carries more assertions than the requested limit returned. */
+  readonly capped: boolean;
+}
+
+/**
+ * One asset's valuation history, newest assertion first, CAPPED with a signal rather than paged.
+ *
+ * The sort key is `(as_of_date, recorded_at, id)` — three columns where the platform's opaque cursor
+ * carries two — and the middle one earns its place: `as_of_date` is a civil date, so an appraisal and
+ * a tax assessment as of the same day are ordinary, and `recorded_at` is what puts a correction after
+ * the figure it corrects. Dropping it to make the key pageable would put a correction in identifier
+ * order beside what it corrected, which is the one thing this history exists to show.
+ *
+ * The bound is the asset itself: a property revalued annually carries a valuation a year, not one a
+ * transaction. `capped` is what stops a long-held asset's older assertions vanishing in silence.
+ */
 export async function readMatterAssetValuations(
   database: SqlDatabase,
   assetId: MatterAssetId,
   limit = 200,
-): Promise<MatterAssetValuationRow[]> {
+): Promise<MatterAssetValuationPage> {
   const { results } = await selectMatterAssetValuationsStatement(
     database,
     assetId,
-    limit,
+    // One over the cap as the has-more probe; it is never returned.
+    limit + 1,
   ).all<MatterAssetValuationRow>();
-  return results;
+  const capped = results.length > limit;
+  return { capped, rows: capped ? results.slice(0, limit) : results };
 }
 
 // THE as-of resolution: for one asset, the valuation whose as_of_date is the latest at or before the

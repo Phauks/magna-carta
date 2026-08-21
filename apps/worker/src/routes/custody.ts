@@ -1776,7 +1776,10 @@ const listSightingsRoute = defineOpenAPIRoute(readMeta("listSightings"), {
   path: "/api/v1/custody/stocktakes/{stocktakeId}/sightings",
   description:
     "Every observation recorded during a count, oldest first, each with where the register expected " +
-    "the packet at the moment it was observed.",
+    "the packet at the moment it was observed. Capped at `limit` rather than paged, and `capped` is " +
+    "true when the count holds more: a count over a whole register is one observation per packet, so " +
+    "the cap is reachable, and paging it wants a design decision the ordering does not currently " +
+    "allow.",
   request: {
     params: stocktakeIdParam,
     query: z.object({ limit: z.coerce.number().int().min(1).max(1000).optional() }),
@@ -1784,7 +1787,7 @@ const listSightingsRoute = defineOpenAPIRoute(readMeta("listSightings"), {
   responses: {
     200: {
       description: "Observations",
-      content: { "application/json": { schema: z.object({ data: z.array(CustodySighting) }) } },
+      content: { "application/json": { schema: capped(CustodySighting) } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -2732,14 +2735,11 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { stocktakeId } = c.req.valid("param");
       const { limit } = c.req.valid("query");
-      const rows = await readCustodyStocktakeSightings(
-        firm.firmDatabase,
-        stocktakeId,
-        limit ?? 500,
-      );
+      const page = await readCustodyStocktakeSightings(firm.firmDatabase, stocktakeId, limit ?? 500);
       return c.json(
         {
-          data: rows.map((row) => ({
+          capped: page.capped,
+          data: page.rows.map((row) => ({
             id: row.id,
             kind: row.kind,
             packetId: row.packet_id,

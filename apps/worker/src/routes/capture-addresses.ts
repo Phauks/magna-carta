@@ -33,6 +33,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
+import { capped } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import {
@@ -93,9 +94,7 @@ const CaptureAddressSummary = z
   })
   .openapi("CaptureAddressSummary");
 
-const CaptureAddressList = z
-  .object({ data: z.array(CaptureAddressSummary) })
-  .openapi("CaptureAddressList");
+const CaptureAddressList = capped(CaptureAddressSummary).openapi("CaptureAddressList");
 
 const RevokedCaptureAddress = z
   .object({ emailCaptureAddressId: z.string(), active: z.literal(false) })
@@ -285,7 +284,9 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   path: "/api/v1/matters/{matterId}/capture-addresses",
   description:
     "List this matter's capture addresses, live and retired, newest first. Token values are never " +
-    "returned — each row carries a short prefix and its metadata.",
+    "returned — each row carries a short prefix and its metadata. `capped` says whether the matter " +
+    "holds more than were returned: a rotation retires the old address rather than deleting it, so " +
+    "the list grows with rotations and is read whole rather than paged.",
   request: { params: matterParam },
   responses: {
     200: {
@@ -628,9 +629,12 @@ export function registerCaptureAddressRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
-      const rows = await readMatterCaptureAddresses(firm.firmDatabase, matterId);
+      const page = await readMatterCaptureAddresses(firm.firmDatabase, matterId);
       return c.json(
-        { data: rows.map((row) => summarizeCaptureAddress(row, maskCaptureToken)) },
+        {
+          capped: page.capped,
+          data: page.rows.map((row) => summarizeCaptureAddress(row, maskCaptureToken)),
+        },
         200,
       );
     },

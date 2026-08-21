@@ -27,6 +27,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { capped } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -54,9 +55,7 @@ const AssignmentRecord = z
   })
   .openapi("MatterAssignmentRecord");
 
-const AssignmentListResponse = z
-  .object({ data: z.array(AssignmentRecord) })
-  .openapi("MatterAssignmentListResponse");
+const AssignmentListResponse = capped(AssignmentRecord).openapi("MatterAssignmentListResponse");
 
 const CreateAssignmentRequest = z
   .object({
@@ -230,7 +229,9 @@ const listAssignmentsRoute = defineOpenAPIRoute(readMeta("listAssignments"), {
   path: "/api/v1/matters/{id}/assignments",
   description:
     "Lists the matter's staffing assignments, every recorded window included. The responsible " +
-    "attorney is not among them: that fact lives on the matter record itself.",
+    "attorney is not among them: that fact lives on the matter record itself. `capped` says whether " +
+    "the matter carries more windows than were returned — the answer is grouped by role and read " +
+    "whole rather than paged, because a partial staffing history is a different history.",
   request: { params: matterParam },
   responses: {
     200: {
@@ -423,8 +424,11 @@ export function registerMatterRecordsRoutes(app: MatterRecordsApp, chokepoint: C
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
-      const data = await listMatterAssignments(firm.firmDatabase, id);
-      return c.json({ data } as z.infer<typeof AssignmentListResponse>, 200);
+      const page = await listMatterAssignments(firm.firmDatabase, id);
+      return c.json(
+        { capped: page.capped, data: page.rows } as z.infer<typeof AssignmentListResponse>,
+        200,
+      );
     },
   );
 

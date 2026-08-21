@@ -103,8 +103,9 @@ describe("the validity window at composition", () => {
     for (const built of [windowed, oneDay, open]) {
       for (const statement of built.statements) await statement.run();
     }
-    const rows = await listMatterAssignments(database, MATTER_ID);
+    const { rows, capped } = await listMatterAssignments(database, MATTER_ID);
     expect(rows).toHaveLength(3);
+    expect(capped).toBe(false);
     // Same role and creation instant for all three, so the listing's order among them is by id.
     const bounds = rows.map((row) => row.validTo);
     expect(bounds.filter((bound) => bound === "2026-08-07")).toHaveLength(2);
@@ -123,7 +124,7 @@ describe("the validity window at composition", () => {
       context,
     );
     for (const statement of ended.statements) await statement.run();
-    const rows = await listMatterAssignments(database, MATTER_ID);
+    const { rows } = await listMatterAssignments(database, MATTER_ID);
     expect(rows[0]?.validTo).toBe("2026-08-07T12:00:00.000Z");
   });
 });

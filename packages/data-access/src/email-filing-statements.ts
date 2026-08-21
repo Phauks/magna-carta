@@ -364,19 +364,43 @@ export async function readCaptureAddressById(
 // Every capture address minted for one matter, live and retired, newest first. A matter holds a
 // handful of these (one live address, plus whatever rotation left behind), so this is deliberately
 // unpaginated — a keyset cursor would cost more than it saves at this cardinality.
+export interface CaptureAddressPage {
+  readonly rows: CaptureAddressRow[];
+  readonly capped: boolean;
+}
+
+/**
+ * How many of a matter's capture addresses one read carries.
+ *
+ * The list is the LIVE address plus everything it replaced — a rotation retires the old row rather
+ * than deleting it, so the history is what tells a member that mail sent to last year's address
+ * stopped arriving on the day it was rotated. That means the row count grows with rotations and
+ * nothing in the schema bounds it: `email_capture_address` is unique on the token, not on
+ * (matter, live).
+ */
+export const MAX_MATTER_CAPTURE_ADDRESSES = 200;
+
+/**
+ * A matter's capture addresses, newest first, capped with a signal rather than paged: this is the
+ * screen where a member checks which address is in service and what became of the others, and a page
+ * of it cannot answer either question.
+ */
 export async function readMatterCaptureAddresses(
   database: SqlDatabase,
   matterId: MatterId,
-): Promise<CaptureAddressRow[]> {
+  limit: number = MAX_MATTER_CAPTURE_ADDRESSES,
+): Promise<CaptureAddressPage> {
   const { results } = await database
     .prepare(
       `SELECT ${CAPTURE_ADDRESS_COLUMNS} FROM ${EMAIL_CAPTURE_ADDRESS_TABLE}
        WHERE matter_id = ?1 AND kind = 'matter'
-       ORDER BY created_at DESC, id DESC`,
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?2`,
     )
-    .bind(matterId)
+    .bind(matterId, limit + 1)
     .all<CaptureAddressResultRow>();
-  return results.map(toCaptureAddressRow);
+  const capped = results.length > limit;
+  return { capped, rows: (capped ? results.slice(0, limit) : results).map(toCaptureAddressRow) };
 }
 
 // The firm's live catch-all, if it has one. The catch-all has no matter, so it is found by kind — and

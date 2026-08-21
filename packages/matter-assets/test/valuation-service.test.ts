@@ -90,7 +90,22 @@ describe("the as-of read", () => {
     // Both rows are still on the record: a correction hides a figure from the READ, never from the
     // history a firm can be asked to account for.
     const history = await readMatterAssetValuations(database, assetId);
-    expect(history).toHaveLength(2);
+    expect(history.rows).toHaveLength(2);
+    expect(history.capped).toBe(false);
+  });
+
+  // The cap carries a signal, because a history cut at its limit and a history that is complete are
+  // otherwise the same answer — and this is the record a firm is asked to account for.
+  it("says when the asset holds more assertions than the read returned", async () => {
+    await append("2026-03-14", 40000000, "appraisal");
+    await append("2026-04-14", 41000000, "appraisal");
+    await append("2026-05-14", 42000000, "appraisal");
+    expect(await readMatterAssetValuations(database, assetId, 3)).toMatchObject({ capped: false });
+    const short = await readMatterAssetValuations(database, assetId, 2);
+    expect(short.capped).toBe(true);
+    expect(short.rows).toHaveLength(2);
+    // Newest first, and the cap takes from the far end rather than the near one.
+    expect(short.rows.map((row) => row.as_of_date)).toEqual(["2026-05-14", "2026-04-14"]);
   });
 
   it("reports an unvalued asset as unvalued rather than as zero", async () => {
@@ -131,7 +146,8 @@ describe("appending a valuation", () => {
 
   it("records the assertion date separately from the date the figure speaks to", async () => {
     await append("2026-03-14", 40000000, "appraisal");
-    const [row] = await readMatterAssetValuations(database, assetId);
+    const { rows } = await readMatterAssetValuations(database, assetId);
+    const [row] = rows;
     expect(row?.as_of_date).toBe("2026-03-14");
     expect(row?.recorded_at).toBe(clock.now());
   });

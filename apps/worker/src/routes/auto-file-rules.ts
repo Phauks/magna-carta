@@ -38,6 +38,7 @@ import {
 import type { AppVariables, FirmContext } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { capped } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { readAutoFileDirectFilingPermitted } from "../emails/auto-file-policy.ts";
@@ -106,7 +107,7 @@ const AutoFileRule = z
   })
   .openapi("AutoFileRule");
 
-const AutoFileRuleList = z.object({ data: z.array(AutoFileRule) }).openapi("AutoFileRuleList");
+const AutoFileRuleList = capped(AutoFileRule).openapi("AutoFileRuleList");
 
 const CreateAutoFileRuleRequest = z
   .object({
@@ -140,9 +141,7 @@ const AutoFileDecisionEntry = z
   })
   .openapi("AutoFileDecisionEntry");
 
-const AutoFileDecisionList = z
-  .object({ data: z.array(AutoFileDecisionEntry) })
-  .openapi("AutoFileDecisionList");
+const AutoFileDecisionList = capped(AutoFileDecisionEntry).openapi("AutoFileDecisionList");
 
 const AutoFileReviewEntry = z
   .object({
@@ -362,7 +361,9 @@ const listRoute = defineOpenAPIRoute(listMeta, {
     "The auto-file rules on this matter, newest first, with what each one asks for and what it " +
     "would actually do under the firm's current posture. Revoked rules are omitted; a suspended one " +
     "is listed with the reason it stopped, because a suspended rule with its history explains what " +
-    "had been filing and a hidden one does not.",
+    "had been filing and a hidden one does not. `capped` says whether the matter carries more rules " +
+    "than were returned: this list is read to judge the standing instructions as a set, so a rule " +
+    "past the cut is one nobody withdrew because nobody saw it.",
   request: { params: matterParam },
   responses: {
     200: {
@@ -492,7 +493,9 @@ const decisionsRoute = defineOpenAPIRoute(decisionsMeta, {
     "Why this message is where it is: every automatic-filing decision recorded about it, newest " +
     "first, each with the rule responsible and the reasons in plain language. Decisions about a " +
     "matter the caller cannot access are absent entirely — no row and no count. A message no rule " +
-    "ever looked at has no decisions, which is a different answer from a rule having been stopped.",
+    "ever looked at has no decisions, which is a different answer from a rule having been stopped. " +
+    "`capped` says whether more decisions were recorded than were returned — a message re-evaluated " +
+    "after its rules changed accumulates one per pass.",
   request: {
     params: z.object({ emailMessageId: identifierPathParam("emailMessage", "emailMessageId") }),
   },
@@ -808,7 +811,13 @@ export function registerAutoFileRuleRoutes(
         readAutoFileRulesForMatter(firm.firmDatabase, matterId, MATTER_RULE_LIMIT),
         readAutoFileDirectFilingPermitted(firm.firmDatabase),
       ]);
-      return c.json({ data: rules.map((rule) => presentRule(rule, directFilingPermitted)) }, 200);
+      return c.json(
+        {
+          capped: rules.capped,
+          data: rules.rows.map((rule) => presentRule(rule, directFilingPermitted)),
+        },
+        200,
+      );
     },
   );
 
@@ -986,11 +995,12 @@ export function registerAutoFileRuleRoutes(
         });
       }
 
-      const decisions = await readAutoFileDecisionsForMessage(
+      const decisionPage = await readAutoFileDecisionsForMessage(
         firm.firmDatabase,
         emailMessageId,
         MESSAGE_DECISION_LIMIT,
       );
+      const decisions = decisionPage.rows;
       // Narrow the matters the decisions name BEFORE anything is rendered. A decision about a matter
       // the caller cannot open is dropped whole — it would otherwise name that matter's identity in a
       // read whose subject is a message the caller can legitimately see.
@@ -1038,7 +1048,7 @@ export function registerAutoFileRuleRoutes(
             createdAt: decision.createdAt,
           };
         });
-      return c.json({ data }, 200);
+      return c.json({ capped: decisionPage.capped, data }, 200);
     },
   );
 
