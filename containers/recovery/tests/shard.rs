@@ -305,3 +305,110 @@ async fn malformed_hash_returns_400() {
 
     assert_eq!(response.status(), 400, "a malformed hash must yield 400");
 }
+
+// ---------------------------------------------------------------------------
+// Encryption-header read (POST /extract-hash)
+//
+// The status code is the whole contract: 200 carries a hash, 422 carries a stable code about the
+// FILE, and a 5xx means this service could not answer. The caller turns those into a result, a 400,
+// and a retryable 503, so a test that lets two of them blur is testing nothing.
+// ---------------------------------------------------------------------------
+
+/// The committed RC4-128 fixture, password "test" — the same bytes crates/decryption-core's own
+/// tests parse, so the two agree on what this file is.
+const ENCRYPTED_PDF: &[u8] =
+    include_bytes!("../../../crates/decryption-core/tests/fixtures/pdf_userpw_test.pdf");
+
+#[tokio::test]
+async fn extract_hash_returns_the_hash_mode_and_tier_for_an_encrypted_pdf() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/extract-hash"))
+        .body(ENCRYPTED_PDF)
+        .send()
+        .await
+        .expect("POST /extract-hash");
+
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value = response.json().await.expect("json body");
+    assert_eq!(body["format"], "pdf");
+    assert_eq!(body["hashcatMode"], 10500);
+    assert_eq!(body["tier"], "cfCapable");
+    assert!(
+        body["hash"]
+            .as_str()
+            .expect("hash string")
+            .starts_with("$pdf$"),
+        "the hash must be the hashcat-consumable string"
+    );
+}
+
+#[tokio::test]
+async fn extract_hash_refuses_unencrypted_bytes_with_a_stable_code_not_a_fault() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/extract-hash"))
+        .body("this is not an encrypted document".as_bytes())
+        .send()
+        .await
+        .expect("POST /extract-hash");
+
+    // 422, never a 5xx: the service answered, and the answer is about the submitted file.
+    assert_eq!(response.status(), 422);
+    let body: serde_json::Value = response.json().await.expect("json body");
+    assert!(
+        matches!(
+            body["code"].as_str(),
+            Some("notEncrypted" | "unsupported" | "malformed")
+        ),
+        "the refusal must carry one of the stable codes, got {body}"
+    );
+}
+
+#[tokio::test]
+async fn extract_hash_rejects_an_empty_body() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/extract-hash"))
+        .body(Vec::<u8>::new())
+        .send()
+        .await
+        .expect("POST /extract-hash");
+
+    assert_eq!(
+        response.status(),
+        400,
+        "no bytes is a caller error, not a verdict on a file"
+    );
+}
+
+#[tokio::test]
+async fn extract_hash_accepts_a_body_past_axums_two_megabyte_default() {
+    // The default body limit would reject ordinary encrypted documents. Pad the fixture well past
+    // it and assert the handler still reads it (as a refusal here — the padded bytes are no longer
+    // a valid PDF — which is a 422 from the parser, not a 413 from the framework).
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let mut padded = ENCRYPTED_PDF.to_vec();
+    padded.resize(4 * 1024 * 1024, 0);
+
+    let response = Client::new()
+        .post(format!("{base}/extract-hash"))
+        .body(padded)
+        .send()
+        .await
+        .expect("POST /extract-hash");
+
+    assert_ne!(
+        response.status(),
+        413,
+        "a multi-megabyte encrypted document must reach the parser"
+    );
+}

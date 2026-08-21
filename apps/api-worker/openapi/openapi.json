@@ -26534,7 +26534,7 @@
     },
     "/api/v1/decryption/inspect": {
       "post": {
-        "description": "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "description": "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written. Where no decryption engine is wired, or the engine is wired but unreachable, the answer is a 503 — an engine that cannot read the file says nothing about the file.",
         "operationId": "decryption.inspect",
         "tags": [
           "decryption"
@@ -26625,6 +26625,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No decryption engine is wired, or it is wired but unreachable, so no hash can be extracted",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -26747,7 +26757,7 @@
     },
     "/api/v1/decryption/recover": {
       "post": {
-        "description": "Starts an offline password-recovery job for an encrypted file (base64): extracts a hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation function outside that tier). Requires explicit attestation that the requester holds the file legitimately. The file is never stored; only the extracted hash reaches the coordinator.",
+        "description": "Starts an offline password-recovery job for an encrypted file (base64): extracts a hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation function outside that tier). Requires explicit attestation that the requester holds the file legitimately. The file is never stored; only the extracted hash reaches the coordinator. Where no decryption engine is wired, or the engine is wired but unreachable, the answer is a 503 and no job is started.",
         "operationId": "decryption.recoverStart",
         "tags": [
           "decryption"
@@ -26838,6 +26848,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No decryption engine is wired, or it is wired but unreachable, so no job was started",
             "content": {
               "application/problem+json": {
                 "schema": {

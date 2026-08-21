@@ -1,8 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { DecryptionError, ensureReady, extractHash, recoveryTier } from "@magna-carta/decryption";
-import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
@@ -16,12 +14,15 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveDecryptionEnginePort } from "../decryption/decryption-engine-binding.ts";
+import { decryptionEngineProblem } from "../decryption/decryption-engine-problem.ts";
+import type { ExtractedRecoveryHash } from "../decryption/decryption-engine-port.ts";
 import type { RecoveryJobState, RecoveryStartInput } from "../recovery/recovery-types.ts";
 
 // The button-initiated password-recovery surface: mints a job, fans it out through the
 // RecoveryJobCoordinator Durable Object (env.RECOVERY_JOB, keyed `${firmId}:${jobId}`), and polls
-// or cancels it. Mirrors routes/decryption.ts's boundary (attestation, size-cap, base64 decode,
-// wasm init, DecryptionError -> 400 mapping) — that route extracts a hash and returns it inline;
+// or cancels it. Mirrors routes/decryption.ts's inspect boundary (attestation, size-cap, base64
+// decode, one header read through the engine port) — that route returns the extracted hash inline;
 // this one hands the SAME extracted hash to the coordinator instead, and NEVER returns file bytes.
 
 // The Cloudflare-CPU-band fan-out width: how many containers a cfCapable job splits its wordlist
@@ -29,12 +30,6 @@ import type { RecoveryJobState, RecoveryStartInput } from "../recovery/recovery-
 // first-hit-cancel aggregation; it is a tunable throughput knob, not a bound on the keyspace a job
 // can search (the container itself self-splits within a shard).
 const RECOVERY_SHARD_COUNT = 4;
-
-// Wrangler bundles .wasm imports as WebAssembly.Module — typed by the ambient declaration in
-// worker-env.d.ts and passed to ensureReady so the engine initialises from the compiled module
-// rather than attempting a network fetch at runtime. Cast through unknown because the ambient
-// declaration must satisfy the compiler in all contexts, not just this assignment.
-const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
 // atob -> Uint8Array. Duplicated from routes/decryption.ts rather than imported: both are small,
 // private, and re-exporting them would couple two otherwise-independent route boundaries for no
@@ -90,7 +85,9 @@ const recoverStartRoute = defineOpenAPIRoute(recoverStartMeta, {
     "hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out " +
     "across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation " +
     "function outside that tier). Requires explicit attestation that the requester holds the file " +
-    "legitimately. The file is never stored; only the extracted hash reaches the coordinator.",
+    "legitimately. The file is never stored; only the extracted hash reaches the coordinator. " +
+    "Where no decryption engine is wired, or the engine is wired but unreachable, the answer is a " +
+    "503 and no job is started.",
   request: {
     body: {
       content: { "application/json": { schema: RecoverStartRequest } },
@@ -117,6 +114,11 @@ const recoverStartRoute = defineOpenAPIRoute(recoverStartMeta, {
     },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description:
+        "No decryption engine is wired, or it is wired but unreachable, so no job was started",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -280,32 +282,22 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
         });
       }
 
-      // Initialise the decryption engine from the compiled WASM module bundled at build time.
-      await ensureReady(decryptionWasm);
-
-      let extracted: Awaited<ReturnType<typeof extractHash>>;
+      // Read the encryption header in the recovery worker's Container — the same engine that will
+      // run the search this job starts, so the hash the coordinator receives and the hash the
+      // shards parse were produced by one build of one parser. Three outcomes, and only the first
+      // is about this file: a hash, a stable refusal code (400), or an engine that is absent or
+      // cannot answer (503 — starting a job against an engine that is not there would queue work
+      // nothing can run).
+      let extracted: ExtractedRecoveryHash;
       try {
-        extracted = await extractHash(bytes);
+        extracted = await resolveDecryptionEnginePort(c.env).extractRecoveryHash(bytes);
       } catch (error) {
-        if (error instanceof DecryptionError) {
-          const title =
-            error.code === "notEncrypted"
-              ? "The file is not encrypted"
-              : error.code === "unsupported"
-                ? "Encrypted file format not supported"
-                : "The file could not be read";
-          return problemJson(c, {
-            type: "validation",
-            status: 400,
-            title,
-            // Stable code surfaces without echoing any file content.
-            detail: `The recovery tool could not extract a recovery hash (${error.code}).`,
-          });
-        }
+        const refusal = decryptionEngineProblem(c, error, "The recovery tool");
+        if (refusal !== null) return refusal;
         throw error;
       }
 
-      const tier = await recoveryTier(extracted.format, extracted.hashcatMode);
+      const tier = extracted.tier;
       const jobId = newIdentifier("recoveryJob");
       const startInput: RecoveryStartInput = {
         tier,

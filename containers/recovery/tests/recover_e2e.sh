@@ -5,6 +5,8 @@ set -euo pipefail
 # assert /ready → "ok", then POST /recover-shard with a small shard over the baked NCSC
 # wordlist and assert the response is valid JSON with a `candidatesTried` field (found may
 # be null — the gate proves the container is wired, not that the test hash is in the list).
+# Finally POST /extract-hash twice — the committed encrypted PDF, then bytes that are not an
+# encrypted document — to prove the header read answers with a hash and with a refusal.
 #
 # Requires a running Docker daemon. Run from the repo root:
 #   containers/recovery/tests/recover_e2e.sh
@@ -54,4 +56,32 @@ echo "  -> $response"
 echo "$response" | grep -q '"candidatesTried"' \
   || { echo "FAIL: /recover-shard did not return a JSON body with candidatesTried"; exit 1; }
 
-echo "PASS: /ready returned ok and /recover-shard returned valid JSON"
+# The encryption-header read the app worker makes on every inspect and every recovery start. It is
+# a request-path call on a member's own connection, so proving it answers in a BUILT image — not
+# only in the unit tests — is what stands between a deploy and a 503 on a live surface.
+FIXTURE="$REPO_ROOT/crates/decryption-core/tests/fixtures/pdf_userpw_test.pdf"
+
+echo "POST /extract-hash (the committed RC4-128 PDF fixture) ..."
+extracted=$(curl -fsS -X POST \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary "@$FIXTURE" \
+  "http://127.0.0.1:$PORT/extract-hash")
+echo "  -> $extracted"
+
+echo "$extracted" | grep -q '"hashcatMode":10500' \
+  || { echo "FAIL: /extract-hash did not report the fixture's hashcat mode"; exit 1; }
+echo "$extracted" | grep -q '"tier":"cfCapable"' \
+  || { echo "FAIL: /extract-hash did not report the fixture's recovery tier"; exit 1; }
+
+# Bytes that are not an encrypted document must come back 422 with a stable code — never a 5xx,
+# which the app worker reads as "the engine is down" and answers with a 503 instead of telling the
+# member what is wrong with their file.
+echo "POST /extract-hash (bytes that are not an encrypted document) ..."
+refusal_status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary "not an encrypted document" \
+  "http://127.0.0.1:$PORT/extract-hash")
+[ "$refusal_status" = "422" ] \
+  || { echo "FAIL: /extract-hash answered $refusal_status for unreadable bytes, expected 422"; exit 1; }
+
+echo "PASS: /ready returned ok, /recover-shard returned valid JSON, and /extract-hash read the fixture"

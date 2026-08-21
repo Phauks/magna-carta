@@ -59,6 +59,16 @@ routes requests through the chokepoint into those packages.
   **binds a stub** (`vitest.config.ts`), so `env.SCAN_SERVICE` is defined in tests and the container
   adapter — not the engine-less one — is what runs; drive the unreachable case by passing a failing
   binding in the request env, as `test/scan-unreachable-engine-seam.test.ts` does.
+- `src/decryption/` — the encryption-header read the decryption and recovery routes both make:
+  `decryption-engine-port.ts` (the port, its three error classes, the no-engine port),
+  `container-decryption-adapter.ts` (POST raw bytes → `/extract-hash`, zod-validated, status-mapped),
+  `decryption-engine-binding.ts` (`resolveDecryptionEnginePort` — the adapter over `RECOVERY_SERVICE`
+  when bound, the no-engine port otherwise), and `decryption-engine-problem.ts` (the one mapping from
+  those errors to a reply). See the section below.
+- `src/recovery/` — the password-recovery orchestration: the `RecoveryJobCoordinator` Durable Object,
+  the `RECOVERY_QUEUE` consumer, and `recovery-backend.ts` (`resolveRecoveryBackend` — the shard
+  search over the same `RECOVERY_SERVICE` binding). Long-running and queue-driven; do not confuse it
+  with the synchronous header read above, which shares only the binding.
 - `wrangler.jsonc` — bindings (D1/R2/Queues/DO/Analytics/Email), the `secrets.required` deploy gate, the
   queue producers/consumers, the Cron triggers, and the `durable_objects` + `migrations` ledger.
 - `openapi/openapi.json` — the committed contract snapshot. **Never hand-edit;** run
@@ -290,6 +300,52 @@ frozen-field list, the ingest chokepoint, the provenance row, the telemetry — 
   open owner question on the ledger's `document-automation.template-storage-reclamation` node. Reaping
   abandoned staged uploads is a separate half and is deliberately not here — it wants an R2 lifecycle
   rule ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
+
+## Decryption — the header read is a Container call, the decrypt is not
+
+Two things this app does with an encrypted file a member uploads, and they are on opposite sides of a
+line that is not a style choice:
+
+- **Reading its encryption header** — `extractRecoveryHash`, behind `resolveDecryptionEnginePort` in
+  `src/decryption/`. `POST /api/v1/decryption/inspect` and `POST /api/v1/decryption/recover` both go
+  through it. The engine is the `decryption-core` crate running in the Container that `apps/recovery-worker`
+  owns, reached over `RECOVERY_SERVICE`. Nothing about this parse needs a key: it reads the parameters
+  the container already advertises about itself.
+- **Decrypting it with its password** — `stripWithKey`, still the in-Worker WebAssembly import in
+  `routes/decryption.ts`, serving `POST /api/v1/decryption/unlock` alone. **Do not move it behind the
+  port without the owner saying so.** The argument it takes is the file's own password; putting that
+  on a wire into a long-lived Container that is shared across firms and whose day job is cracking
+  passwords is a change to where a firm's document secrets live, not a refactor. Until that is
+  decided the app worker keeps its `@magna-carta/decryption` import, and `rust-wasm-build` keeps
+  building `decryption-core` — the header read alone does not free the build of Docker.
+
+**Three states, not two, and only the first two are verdicts.** Same rule the scan port runs on, and
+the same reason.
+
+- No `RECOVERY_SERVICE` binding at all → `DecryptionEngineUnavailableError`. No engine, no read, no
+  claim about the file.
+- Bound and answering → a hash (200 from the container), or `HashExtractionRefusedError` carrying
+  `notEncrypted` / `unsupported` / `malformed` (422). Only these are facts about the member's file.
+- Bound and failing — a placeholder worker, a Container that is not up, a wedged request, a reply
+  that does not parse → `DecryptionEngineFaultError`.
+
+`decryptionEngineProblem` is the single mapping: the refusal becomes a **400** with the stable code
+and no echo of file content; both of the others become a retryable **503** with distinct wording and
+no Error ID. Handing a member an Error ID for an engine that is simply not there is the failure this
+pattern replaced, and blaming their file for our outage is worse. A third route that reads a header
+calls the same helper — it must not grow its own mapping.
+
+**The container's status codes ARE the contract** (`containers/recovery/src/server.rs`,
+`apps/recovery-worker/src/forward-recovery.ts`): 200 a hash, 422 a code about the file, 5xx a fault.
+The proxy passes all three through verbatim and the adapter branches on them; collapsing any two on
+either side silently turns an outage into a verdict. `containers/recovery/tests/recover_e2e.sh`
+asserts the 200 and the 422 against a built image.
+
+**The test pool binds a stub** (`vitest.config.ts`) that recognises the one committed encrypted-PDF
+fixture by its magic bytes and replays the hash `crates/decryption-core` really extracts from it;
+everything else gets 422 `notEncrypted`. The parser itself is held by the Rust tests, not here — a
+stub that invented a hash for bytes it never parsed would be testing its own fiction. Drive the
+absent and unreachable cases with a fake port, as `test/decryption-engine-adapter.test.ts` does.
 
 ## The split-object host — how the search engine reads R2 without credentials
 

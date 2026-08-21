@@ -1,13 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import {
-  DecryptionError,
-  detectFormat,
-  ensureReady,
-  extractHash,
-  stripWithKey,
-} from "@magna-carta/decryption";
+import { DecryptionError, detectFormat, ensureReady, stripWithKey } from "@magna-carta/decryption";
 import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -21,11 +15,19 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveDecryptionEnginePort } from "../decryption/decryption-engine-binding.ts";
+import { decryptionEngineProblem } from "../decryption/decryption-engine-problem.ts";
+import type { ExtractedRecoveryHash } from "../decryption/decryption-engine-port.ts";
 
 // Wrangler bundles .wasm imports as WebAssembly.Module — typed by the ambient declaration in
 // worker-env.d.ts and passed to ensureReady so the engine initialises from the compiled module
 // rather than attempting a network fetch at runtime. Cast through unknown because the ambient
 // declaration must satisfy the compiler in all contexts, not just this assignment.
+//
+// This in-Worker engine now serves the UNLOCK route alone. Reading an encryption header — what
+// inspect does, and what the recovery route does — runs in the recovery worker's Container behind
+// the port in ../decryption/. Unlock is the one call that takes the file's own password, and a
+// password is not something this Worker puts on a wire to another process, so it stays here.
 const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
 // atob -> Uint8Array.
@@ -89,7 +91,9 @@ const inspectRoute = defineOpenAPIRoute(decryptionInspectMeta, {
   description:
     "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible " +
     "recovery hash for offline password recovery. Requires explicit attestation that the requester " +
-    "holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+    "holds the file legitimately. Nothing is stored; only a redacted audit record is written. " +
+    "Where no decryption engine is wired, or the engine is wired but unreachable, the answer is a " +
+    "503 — an engine that cannot read the file says nothing about the file.",
   request: {
     body: {
       content: { "application/json": { schema: DecryptionInspectRequest } },
@@ -116,6 +120,11 @@ const inspectRoute = defineOpenAPIRoute(decryptionInspectMeta, {
     },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description:
+        "No decryption engine is wired, or it is wired but unreachable, so no hash can be extracted",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -247,30 +256,15 @@ export function registerDecryptionRoutes(
         });
       }
 
-      // Initialise the decryption engine from the compiled WASM module bundled at build time.
-      // Passing the module explicitly avoids the URL-fetch fallback that wasm-bindgen would
-      // otherwise attempt at runtime (there is no serving URL in the Worker context).
-      await ensureReady(decryptionWasm);
-
-      let result: Awaited<ReturnType<typeof extractHash>>;
+      // Read the encryption header in the recovery worker's Container. Three outcomes, and only
+      // the first is about this file: a hash, a stable refusal code (400), or an engine that is
+      // absent or cannot answer (503 — never an Error ID for an engine that is simply not there).
+      let result: ExtractedRecoveryHash;
       try {
-        result = await extractHash(bytes);
+        result = await resolveDecryptionEnginePort(c.env).extractRecoveryHash(bytes);
       } catch (error) {
-        if (error instanceof DecryptionError) {
-          const title =
-            error.code === "notEncrypted"
-              ? "The file is not encrypted"
-              : error.code === "unsupported"
-                ? "Encrypted file format not supported"
-                : "The file could not be read";
-          return problemJson(c, {
-            type: "validation",
-            status: 400,
-            title,
-            // Stable code surfaces without echoing any file content.
-            detail: `The decryption tool could not extract a recovery hash (${error.code}).`,
-          });
-        }
+        const refusal = decryptionEngineProblem(c, error, "The decryption tool");
+        if (refusal !== null) return refusal;
         throw error;
       }
 

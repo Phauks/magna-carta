@@ -279,6 +279,7 @@ export type AutoFileDecisionEntry = {
 
 export type AutoFileReview = {
     windowStart: string;
+    matterScopeCapped: boolean;
     data: Array<AutoFileReviewEntry>;
 };
 
@@ -774,6 +775,13 @@ export type MatterDetail = {
     clientDisplayName: string | null;
     clientCode: string | null;
     matterNumber: string | null;
+    eBilling: boolean;
+    openedAt: string | null;
+    closedAt: string | null;
+    createdAt: string;
+    matterTypeName: string | null;
+    locationName: string | null;
+    responsibleMemberName: string | null;
 };
 
 export type MatterActionAck = {
@@ -1266,6 +1274,7 @@ export type FileSummary = {
 
 export type FileVersionsResponse = {
     data: Array<FileVersionItem>;
+    nextCursor: string | null;
 };
 
 export type FileVersionItem = {
@@ -1546,6 +1555,7 @@ export type AssignDirectoryCategoryRequest = {
 
 export type DirectorySearchResponse = {
     data: Array<DirectorySearchHit>;
+    capped: boolean;
 };
 
 export type DirectorySearchHit = {
@@ -1600,6 +1610,33 @@ export type LinkMatterPartyRequest = {
      * The capacity the entity acts in on this matter — Administrator, Trustee, Attorney-in-fact. Recorded by the firm, never inferred; documents that name a capacity read this value and show an honest gap where none was recorded.
      */
     capacity?: string;
+};
+
+export type MatterPartyListResponse = {
+    parties: Array<MatterPartyEntry>;
+};
+
+export type MatterPartyEntry = {
+    id: string;
+    matterId: string;
+    entityId: string;
+    role: string;
+    /**
+     * The capacity recorded on this link, or null where the firm recorded none. A null is an honest absence and never a default — nothing infers a capacity from the role.
+     */
+    capacity: string | null;
+    /**
+     * Which side of the directory the entity resolves to. 'unknown' means the link points at an entity that is no longer there, which is a fact worth showing rather than hiding.
+     */
+    entityKind: 'person' | 'organization' | 'unknown';
+    /**
+     * What to call this party, or null when the directory holds no name for the entity. A caller shows the identifier itself rather than inventing a placeholder.
+     */
+    displayName: string | null;
+};
+
+export type UnlinkMatterPartyResponse = {
+    unlinked: boolean;
 };
 
 export type CreatedConflictsCheckResponse = {
@@ -1818,6 +1855,7 @@ export type MatterEventDetail = {
     id: string;
     matterId: string;
     eventTypeId: string | null;
+    eventTypeName: string | null;
     title: string;
     description: string | null;
     status: 'scheduled' | 'occurred' | 'cancelled';
@@ -2047,6 +2085,7 @@ export type UpdateFirmEventRequest = {
 
 export type FirmResourceList = {
     data: Array<FirmResourceDetail>;
+    capped: boolean;
 };
 
 export type FirmResourceDetail = {
@@ -3356,6 +3395,7 @@ export type UndoCodingResult = {
 
 export type CodingHistory = {
     data: Array<ReviewTagEvent>;
+    nextCursor: string | null;
 };
 
 export type ReviewTagEvent = {
@@ -3436,6 +3476,7 @@ export type ReviewDocumentException = {
 
 export type ReviewDocumentOccurrenceList = {
     data: Array<ReviewDocumentOccurrence>;
+    nextCursor: string | null;
 };
 
 export type ReviewDocumentOccurrence = {
@@ -3456,6 +3497,7 @@ export type ReviewSetIndexStatus = {
 
 export type ReviewSetList = {
     data: Array<ReviewSet>;
+    nextCursor: string | null;
 };
 
 export type ReviewSet = {
@@ -3489,6 +3531,7 @@ export type TransitionReviewSetRequest = {
 
 export type RecordCustodianList = {
     data: Array<RecordCustodian>;
+    nextCursor: string | null;
 };
 
 export type RecordCustodian = {
@@ -3515,6 +3558,7 @@ export type UpdateRecordCustodianRequest = {
 
 export type DiscoveryLoadList = {
     data: Array<DiscoveryLoad>;
+    nextCursor: string | null;
 };
 
 export type DiscoveryLoad = {
@@ -3692,6 +3736,11 @@ export type CustomFieldValueRow = {
     validTo: string | null;
 };
 
+export type CustomFieldValueHistoryResponse = {
+    data: Array<CustomFieldValueRow>;
+    nextCursor: string | null;
+};
+
 export type CostBatchAck = {
     costEntryIds: Array<string>;
 };
@@ -3719,6 +3768,7 @@ export type CostAck = {
 
 export type CostListResponse = {
     data: Array<CostSummary>;
+    nextCursor: string | null;
 };
 
 export type CostSummary = {
@@ -3733,6 +3783,7 @@ export type CostSummary = {
     utbmsExpenseCodeId: string | null;
     description: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    vendorName?: string | null;
     source: 'manual' | 'grid' | 'recovery';
     recoveryCategory: string | null;
 };
@@ -4808,6 +4859,7 @@ export type BillingRecoveryListResponse = {
         voidedAt: string | null;
         voidReason: string | null;
     }>;
+    nextCursor: string | null;
 };
 
 export type BillingVoidRecoveryRequest = {
@@ -4950,6 +5002,7 @@ export type BillingCreditNoteListResponse = {
             creditsInvoiceLineId: string | null;
         }>;
     }>;
+    nextCursor: string | null;
 };
 
 export type BillingDeliveryAck = {
@@ -4977,6 +5030,7 @@ export type BillingDeliveryListResponse = {
         recordedBy: string | null;
         recordedAt: string;
     }>;
+    capped: boolean;
 };
 
 export type BillingApplicationAck = {
@@ -5003,6 +5057,7 @@ export type BillingClientCreditListResponse = {
         currency: string;
         openedAt: string;
     }>;
+    nextCursor: string | null;
 };
 
 export type BillingApplyClientCreditAck = {
@@ -5064,6 +5119,7 @@ export type CreateTimeEntryRequest = {
 
 export type TimeEntryListResponse = {
     data: Array<TimeEntrySummary>;
+    nextCursor: string | null;
 };
 
 export type TimeEntrySummary = {
@@ -5078,6 +5134,7 @@ export type TimeEntrySummary = {
     amountMinor: number | null;
     currency: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    timekeeperName?: string | null;
 };
 
 export type PatchTimeEntryRequest = {
@@ -6197,6 +6254,10 @@ export type DecryptionInspectErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * No decryption engine is wired, or it is wired but unreachable, so no hash can be extracted
+     */
+    503: Problem;
 };
 
 export type DecryptionInspectError = DecryptionInspectErrors[keyof DecryptionInspectErrors];
@@ -6282,6 +6343,10 @@ export type DecryptionRecoverStartErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * No decryption engine is wired, or it is wired but unreachable, so no job was started
+     */
+    503: Problem;
 };
 
 export type DecryptionRecoverStartError = DecryptionRecoverStartErrors[keyof DecryptionRecoverStartErrors];
@@ -11263,7 +11328,9 @@ export type FilesVersionsData = {
     path: {
         id: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/files/{id}/versions';
 };
 
@@ -12566,6 +12633,45 @@ export type DirectoryMergeResponses = {
 
 export type DirectoryMergeResponse2 = DirectoryMergeResponses[keyof DirectoryMergeResponses];
 
+export type DirectoryListMatterPartiesData = {
+    body?: never;
+    path?: never;
+    query: {
+        matterId: string;
+    };
+    url: '/api/v1/directory/matter-parties';
+};
+
+export type DirectoryListMatterPartiesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListMatterPartiesError = DirectoryListMatterPartiesErrors[keyof DirectoryListMatterPartiesErrors];
+
+export type DirectoryListMatterPartiesResponses = {
+    /**
+     * The matter's parties. A matter that holds none answers with an empty list rather than a 404 — the read is already scoped to the session firm's own database, so an empty answer is the truthful one and distinguishing 'no parties' from 'no such matter' would cost a second query to tell a caller something it cannot act on differently.
+     */
+    200: MatterPartyListResponse;
+};
+
+export type DirectoryListMatterPartiesResponse = DirectoryListMatterPartiesResponses[keyof DirectoryListMatterPartiesResponses];
+
 export type DirectoryLinkMatterPartyData = {
     body: LinkMatterPartyRequest;
     headers: {
@@ -12617,6 +12723,60 @@ export type DirectoryLinkMatterPartyResponses = {
 };
 
 export type DirectoryLinkMatterPartyResponse = DirectoryLinkMatterPartyResponses[keyof DirectoryLinkMatterPartyResponses];
+
+export type DirectoryUnlinkMatterPartyData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/matter-parties/{id}';
+};
+
+export type DirectoryUnlinkMatterPartyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryUnlinkMatterPartyError = DirectoryUnlinkMatterPartyErrors[keyof DirectoryUnlinkMatterPartyErrors];
+
+export type DirectoryUnlinkMatterPartyResponses = {
+    /**
+     * The link was severed
+     */
+    200: UnlinkMatterPartyResponse;
+};
+
+export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
 
 export type ConflictsRunCheckData = {
     body: CreateConflictsCheckRequest;
@@ -15336,6 +15496,7 @@ export type CustodyListOverdueData = {
     path?: never;
     query?: {
         asOf?: string;
+        cursor?: string;
     };
     url: '/api/v1/custody/overdue';
 };
@@ -15363,10 +15524,11 @@ export type CustodyListOverdueError = CustodyListOverdueErrors[keyof CustodyList
 
 export type CustodyListOverdueResponses = {
     /**
-     * Overdue check-outs
+     * One page of overdue check-outs
      */
     200: {
         data: Array<OverdueCustodyCheckout>;
+        nextCursor: string | null;
     };
 };
 
@@ -15499,10 +15661,11 @@ export type CustodyReportHoldingsByOwnerError = CustodyReportHoldingsByOwnerErro
 
 export type CustodyReportHoldingsByOwnerResponses = {
     /**
-     * Holdings per owner
+     * Holdings for the biggest holders, and whether the firm has more
      */
     200: {
         data: Array<CustodyHoldingsByOwner>;
+        capped: boolean;
     };
 };
 
@@ -15551,7 +15714,7 @@ export type CustodyReportHoldsData = {
     body?: never;
     path?: never;
     query?: {
-        limit?: number;
+        cursor?: string;
     };
     url: '/api/v1/custody/reports/holds';
 };
@@ -15579,10 +15742,11 @@ export type CustodyReportHoldsError = CustodyReportHoldsErrors[keyof CustodyRepo
 
 export type CustodyReportHoldsResponses = {
     /**
-     * Packets under hold
+     * One page of packets under hold
      */
     200: {
         data: Array<CustodyPacketUnderHold>;
+        nextCursor: string | null;
     };
 };
 
@@ -15625,6 +15789,7 @@ export type CustodyListStocktakesResponses = {
      */
     200: {
         data: Array<CustodyStocktake>;
+        capped: boolean;
     };
 };
 
@@ -18338,7 +18503,9 @@ export type DiscoveryGetCodingHistoryData = {
     path: {
         reviewSetId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/review-sets/{reviewSetId}/coding/acts';
 };
 
@@ -18373,7 +18540,7 @@ export type DiscoveryGetCodingHistoryError = DiscoveryGetCodingHistoryErrors[key
 
 export type DiscoveryGetCodingHistoryResponses = {
     /**
-     * The coding history
+     * One page of the coding history
      */
     200: CodingHistory;
 };
@@ -18536,7 +18703,9 @@ export type DiscoveryListReviewDocumentOccurrencesData = {
         reviewSetId: string;
         reviewDocumentId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/occurrences';
 };
 
@@ -18567,7 +18736,7 @@ export type DiscoveryListReviewDocumentOccurrencesError = DiscoveryListReviewDoc
 
 export type DiscoveryListReviewDocumentOccurrencesResponses = {
     /**
-     * The document's other copies
+     * One page of the document's other copies
      */
     200: ReviewDocumentOccurrenceList;
 };
@@ -18622,7 +18791,9 @@ export type DiscoveryListReviewSetsData = {
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/matters/{matterId}/review-sets';
 };
 
@@ -18657,7 +18828,7 @@ export type DiscoveryListReviewSetsError = DiscoveryListReviewSetsErrors[keyof D
 
 export type DiscoveryListReviewSetsResponses = {
     /**
-     * The matter's review sets
+     * One page of the matter's review sets
      */
     200: ReviewSetList;
 };
@@ -18868,7 +19039,9 @@ export type DiscoveryListRecordCustodiansData = {
     path: {
         reviewSetId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/review-sets/{reviewSetId}/record-custodians';
 };
 
@@ -18903,7 +19076,7 @@ export type DiscoveryListRecordCustodiansError = DiscoveryListRecordCustodiansEr
 
 export type DiscoveryListRecordCustodiansResponses = {
     /**
-     * The review set's Custodians of Record
+     * One page of the review set's Custodians of Record, by name
      */
     200: RecordCustodianList;
 };
@@ -19017,7 +19190,9 @@ export type DiscoveryListLoadsData = {
     path: {
         reviewSetId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/review-sets/{reviewSetId}/loads';
 };
 
@@ -19052,7 +19227,7 @@ export type DiscoveryListLoadsError = DiscoveryListLoadsErrors[keyof DiscoveryLi
 
 export type DiscoveryListLoadsResponses = {
     /**
-     * The review set's loads
+     * One page of the review set's loads
      */
     200: DiscoveryLoadList;
 };
@@ -20189,7 +20364,9 @@ export type CustomFieldsValueHistoryData = {
         fieldId: string;
         targetRowId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history';
 };
 
@@ -20212,9 +20389,9 @@ export type CustomFieldsValueHistoryError = CustomFieldsValueHistoryErrors[keyof
 
 export type CustomFieldsValueHistoryResponses = {
     /**
-     * The value history
+     * One page of the value history
      */
-    200: CustomFieldValueListResponse;
+    200: CustomFieldValueHistoryResponse;
 };
 
 export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
@@ -20275,7 +20452,11 @@ export type CostsListData = {
     body?: never;
     path?: never;
     query?: {
+        cursor?: string;
         matterId?: string;
+        /**
+         * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
+         */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
     };
     url: '/api/v1/costs';
@@ -23207,7 +23388,9 @@ export type BillingListRecoveriesData = {
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/billing/matters/{matterId}/recoveries';
 };
 
@@ -23760,7 +23943,9 @@ export type BillingListCreditNotesData = {
     path: {
         invoiceId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/billing/invoices/{invoiceId}/credit-notes';
 };
 
@@ -24008,7 +24193,9 @@ export type BillingClientCreditsData = {
     path: {
         clientEntityId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/billing/clients/{clientEntityId}/credits';
 };
 
@@ -24204,7 +24391,11 @@ export type TimeEntriesListData = {
         timekeeperUserId?: string;
         matterId?: string;
         workDate?: string;
+        /**
+         * Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.
+         */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        cursor?: string;
     };
     url: '/api/v1/time-entries';
 };
