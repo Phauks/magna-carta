@@ -51,7 +51,7 @@ The architecture audit agent was asked to propose the exact integration seam.
 ## Architecture audit (2026-07-02, full report: audit-2026-07-02.md)
 
 Verdicts: tokens needs-attention · recipes sound · composition boundary needs-attention · theming
-sound · motion sound · one must-fix (apps/web never imports fonts.css). Fix-now items in flight.
+sound · motion sound · one must-fix (apps/web-worker never imports fonts.css). Fix-now items in flight.
 Two decisions taken PROVISIONALLY while the owner was away (re-raise for confirmation):
 
 - **Density axis: prove it fully** (re-plumb control recipes through density aliases + real

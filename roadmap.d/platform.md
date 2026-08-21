@@ -8,7 +8,7 @@
   name: Platform
   scope: Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions.
   status: partial
-  evidence: apps/worker, apps/web, packages/{data-access,database,money,identifiers}, crates/
+  evidence: apps/api-worker, apps/web-worker, packages/{data-access,database,money,identifiers}, crates/
   notes: Backend foundations largely shipped; web UI shell in build; desktop not started.
 
 - id: platform.workers-api
@@ -17,7 +17,7 @@
   status: partial
   slices: 0-1-walking-skeleton, 0-5a-api-contract-foundation, 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0001, ADR-0022, ADR-0069
-  evidence: apps/worker/src/app.ts over eighty-two route modules in apps/worker/src/routes/, emitting 446 operations into the committed contract at apps/worker/openapi/openapi.json.
+  evidence: apps/api-worker/src/app.ts over eighty-two route modules in apps/api-worker/src/routes/, emitting 446 operations into the committed contract at apps/api-worker/openapi/openapi.json.
   notes: First-party same-origin /api surface live; the public token-auth host is reserved, not built.
 
 - id: platform.workers-api.code-as-contract
@@ -28,7 +28,7 @@
   slices: 0-5a-api-contract-foundation, 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0066, ADR-0067
   spec: docs/specs/2026-06-04-api-contract-design.md
-  evidence: apps/worker/src/contracts/, apps/worker/openapi/openapi.json
+  evidence: apps/api-worker/src/contracts/, apps/api-worker/openapi/openapi.json
 
 - id: platform.workers-api.contract-toolchain
   name: Spec CI toolchain
@@ -37,7 +37,7 @@
   surface: internal
   slices: 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0066
-  evidence: apps/worker/openapi/ committed snapshot + CI contract gates
+  evidence: apps/api-worker/openapi/ committed snapshot + CI contract gates
   notes: Spectral duplicated-entry-in-enum rule disabled (crash on null-valued extensions), recorded as an ADR-0066 amendment.
 
 - id: platform.workers-api.typed-client
@@ -55,7 +55,7 @@
   surface: internal
   slices: 0-5b-api-contract-enforcement-pipeline
   adrs: ADR-0067
-  evidence: apps/worker/src/chokepoint/chokepoint.ts
+  evidence: apps/api-worker/src/chokepoint/chokepoint.ts
 
 - id: platform.workers-api.public-api-host
   name: Public API host
@@ -77,7 +77,7 @@
   status: partial
   slices: 0-1-walking-skeleton, 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0005
-  evidence: apps/web/src/routes/ (login, matters, settings, tools, account)
+  evidence: apps/web-worker/src/routes/ (login, matters, settings, tools, account)
   notes: Skeleton shipped; app shell and first operable surfaces in build on branch slice-0-7b-app-shell.
 
 - id: platform.web-spa.app-shell
@@ -87,7 +87,7 @@
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   spec: docs/specs/2026-07-02-slice-0-7b-stage-1-app-shell-design.md
-  evidence: apps/web/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md; branch slice-0-7b-app-shell on origin
+  evidence: apps/web-worker/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md; branch slice-0-7b-app-shell on origin
 
 - id: platform.web-spa.multi-tab-sync
   name: Cross-tab state sync
@@ -110,7 +110,7 @@
   name: Public web surfaces
   scope: Marketing site, help center, public intake forms, product-updates pages rendered separately (static/SSR) for SEO.
   status: not-started
-  notes: Crawler directives for private surfaces exist (apps/worker/src/crawler-directives.ts); the public sites themselves do not.
+  notes: Crawler directives for private surfaces exist (apps/api-worker/src/crawler-directives.ts); the public sites themselves do not.
 
 - id: platform.desktop
   name: Tauri desktop shell
@@ -162,7 +162,7 @@
   surface: awaiting-screen
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
-  evidence: apps/worker/src/files/, containers/scan, apps/scan-worker
+  evidence: apps/api-worker/src/files/, containers/scan, apps/scan-worker
 
 - id: platform.scan-capture.inbound-email
   name: Inbound email capture
@@ -193,7 +193,7 @@
   scope: Real deep-linkable permalink per view; matter-number canonical URLs over immutable opaque handles; path=addressable state, query=refinement.
   status: partial
   adrs: ADR-0052
-  evidence: apps/web/src/routes/(app)/matters/[id], packages/matters (numbering engine), packages/identifiers (opaque handles)
+  evidence: apps/web-worker/src/routes/(app)/matters/[id], packages/matters (numbering engine), packages/identifiers (opaque handles)
 
 - id: platform.url-navigation.matter-number-urls
   name: Matter-number URL scheme
@@ -201,7 +201,7 @@
   status: partial
   surface: awaiting-screen
   adrs: ADR-0079
-  evidence: packages/matters numbering engine + apps/web matter routes
+  evidence: packages/matters numbering engine + apps/web-worker matter routes
   notes: Backend numbering shipped; configurable scheme/forced-opaque URL behavior awaits the web matter surface.
 
 - id: platform.url-navigation.alias-redirects
@@ -219,7 +219,7 @@
   scope: app/api/portal/marketing hosts; firm resolved from session never the address; cookie auth same-origin vs token auth by host.
   status: partial
   surface: internal
-  evidence: apps/worker session-context + same-origin /api
+  evidence: apps/api-worker session-context + same-origin /api
   notes: First-party host + session-resolved firm shipped; api. and portal. hosts not stood up.
 
 - id: platform.url-navigation.custom-domains
@@ -248,7 +248,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0131
-  evidence: apps/worker/src/timer/, apps/worker/src/routes/bundle-status.ts, async bulk-download job DO
+  evidence: apps/api-worker/src/timer/, apps/api-worker/src/routes/bundle-status.ts, async bulk-download job DO
 
 - id: platform.client-state.global-server-push
   name: Global server-push layer
@@ -276,7 +276,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0003, ADR-0026
-  evidence: packages/data-access/src/effect-batch.ts, protected-fields.ts, apps/worker/src/chokepoint/
+  evidence: packages/data-access/src/effect-batch.ts, protected-fields.ts, apps/api-worker/src/chokepoint/
 
 - id: platform.architectural-integrity.registry-first
   name: Registry-first pattern
@@ -291,7 +291,7 @@
   status: partial
   surface: internal
   adrs: ADR-0070
-  evidence: apps/worker/test/conformance.test.ts over the route registries and the emitted contract, packages/design-system/test/fitness/ (off-token and import-boundary gates), and sixteen lint:\* scripts in package.json that the gate's Governance step derives rather than lists, so a new one runs on the pull request that adds it. Two are about capabilities nobody can reach: tooling/lint-unwired-writes fails an exported write-shaped function in apps/ or packages/ that nothing outside a test calls, and tooling/lint-ungranted-permissions fails a permission that gates a chokepoint route or a Tools catalogue manifest and that no migration seed grants to any role. Both were measured in several forms and kept in their narrowest; the permission scan reports one hit on today's tree, allowlisted with its reason, and replayed against 2026-06-22 it names documents:edit on the commit that introduced the route.
+  evidence: apps/api-worker/test/conformance.test.ts over the route registries and the emitted contract, packages/design-system/test/fitness/ (off-token and import-boundary gates), and sixteen lint:\* scripts in package.json that the gate's Governance step derives rather than lists, so a new one runs on the pull request that adds it. Two are about capabilities nobody can reach: tooling/lint-unwired-writes fails an exported write-shaped function in apps/ or packages/ that nothing outside a test calls, and tooling/lint-ungranted-permissions fails a permission that gates a chokepoint route or a Tools catalogue manifest and that no migration seed grants to any role. Both were measured in several forms and kept in their narrowest; the permission scan reports one hit on today's tree, allowlisted with its reason, and replayed against 2026-06-22 it names documents:edit on the commit that introduced the route.
   notes: Deterministic tiers shipped piecemeal per area; the propose-only LLM-as-fitness-function tier is not built (docs-sync agent exists for docs, not architecture).
 
 - id: platform.architectural-integrity.capability-indexes
@@ -329,7 +329,7 @@
   slices: per-firm-database-durable-object
   adrs: ADR-0003, ADR-0140
   spec: docs/specs/2026-06-23-per-firm-database-durable-object-design.md
-  evidence: apps/worker/src/firm-database/, packages/database/src/per-firm-schema.ts
+  evidence: apps/api-worker/src/firm-database/, packages/database/src/per-firm-schema.ts
   notes: Realized as a firmId-addressed FirmDatabase SQLite Durable Object, superseding the per-firm-D1 half of the original decision.
 
 - id: platform.tenancy.per-firm-bucket
@@ -338,7 +338,7 @@
   status: shipped
   surface: internal
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/file-manager, apps/worker firm provisioning (R2 create)
+  evidence: packages/file-manager, apps/api-worker firm provisioning (R2 create)
 
 - id: platform.tenancy.firm-scoped-dal
   name: Firm-scoped data-access layer
@@ -356,7 +356,7 @@
   status: shipped
   surface: internal
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
-  evidence: apps/worker/src/member-provision-consumer.ts, packages/data-access/src/member-statements.ts
+  evidence: apps/api-worker/src/member-provision-consumer.ts, packages/data-access/src/member-statements.ts
 
 - id: platform.tenancy.locations-dimension
   name: Locations inside the firm
@@ -373,7 +373,7 @@
   status: shipped
   surface: internal
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
-  evidence: apps/worker/src/firm-provisioner.ts, firm-resource-provider.ts
+  evidence: apps/api-worker/src/firm-provisioner.ts, firm-resource-provider.ts
 
 - id: platform.tenancy.backup-dr
   name: Backup and disaster recovery
@@ -393,7 +393,7 @@
   scope: Cron-triggered Workflow fanning out across firms, streaming zstd-compressed SQL dumps into each firm's R2 under backups/, control plane included; restore drills.
   status: not-started
   adrs: ADR-0050, ADR-0078
-  evidence: no backup workflow in apps/worker/src/scheduled.ts
+  evidence: no backup workflow in apps/api-worker/src/scheduled.ts
 
 - id: platform.tenancy.backup-dr.gfs-retention
   name: GFS retention tiering
@@ -422,7 +422,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0131, ADR-0140
-  evidence: apps/worker/src/firm-database/, apps/worker/src/timer/, apps/edit-worker
+  evidence: apps/api-worker/src/firm-database/, apps/api-worker/src/timer/, apps/edit-worker
 
 - id: platform.primitives.queues
   name: Queues
@@ -430,7 +430,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0155
-  evidence: apps/worker files-ingest consumer, member-provision-consumer.ts
+  evidence: apps/api-worker files-ingest consumer, member-provision-consumer.ts
 
 - id: platform.primitives.containers
   name: Containers
@@ -469,7 +469,7 @@
   slices: 0-6-telemetry-baseline-platform-closeout
   adrs: ADR-0074
   spec: docs/specs/2026-06-09-slice-0-6-telemetry-baseline-design.md
-  evidence: packages/telemetry, apps/worker/src/telemetry-middleware.ts
+  evidence: packages/telemetry, apps/api-worker/src/telemetry-middleware.ts
 
 - id: platform.time-model
   name: Time, dates and timezones
@@ -502,7 +502,7 @@
   scope: Idempotent replay, outbox, DO durable storage for timer/job state, at-least-once queues with idempotent consumers.
   status: shipped
   surface: internal
-  evidence: packages/data-access (idempotency + outbox), apps/worker/src/timer/
+  evidence: packages/data-access (idempotency + outbox), apps/api-worker/src/timer/
 
 - id: platform.durability-on-close.client-guard
   name: Shared close/logout guard
@@ -563,7 +563,7 @@
   status: partial
   slices: 0-2-foundational-data-money-identifiers-database-data-access
   adrs: ADR-0064
-  evidence: packages/data-access/src/{outbox-statements,outbox-relay}.ts, apps/worker cron relay sweep
+  evidence: packages/data-access/src/{outbox-statements,outbox-relay}.ts, apps/api-worker cron relay sweep
 
 - id: platform.outbox.saga-workflows
   name: Sagas via Workflows
@@ -586,7 +586,7 @@
   scope: Bounded-concurrency fan-out applying pending per-firm migrations, quarantine on failure, idempotent resume, version recorded in the firm registry.
   status: shipped
   surface: internal
-  evidence: packages/database migration runner, apps/worker/src/per-firm-migrations.ts
+  evidence: packages/database migration runner, apps/api-worker/src/per-firm-migrations.ts
 
 - id: platform.schema-migration.control-plane-applier
   name: Control-plane auto-applier
@@ -596,7 +596,7 @@
   slices: release-channels-backend-rails
   adrs: ADR-0151
   spec: docs/specs/2026-06-26-control-plane-migration-applier-design.md
-  evidence: apps/worker/src/control-plane-migrations.ts
+  evidence: apps/api-worker/src/control-plane-migrations.ts
 
 - id: platform.schema-migration.monotonic-ids
   name: Monotonic migration ids

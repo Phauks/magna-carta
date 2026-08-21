@@ -120,7 +120,7 @@ Every backend capability that shipped ahead of its UI, in the order the UI strea
 
 **Stage 1 — the frame (slice 0·7b core; strictly ordered)**
 
-- **Real App Shell in `apps/web`** — routes, the assembled chrome (Sidebar/TopBar/BrandMark parts from the design system; nav registry plus permission filtering in the app), route-level View Transitions. No backend dependency. Landed.
+- **Real App Shell in `apps/web-worker`** — routes, the assembled chrome (Sidebar/TopBar/BrandMark parts from the design system; nav registry plus permission filtering in the app), route-level View Transitions. No backend dependency. Landed.
 - **Auth (slice 0·4 backend)** — sign-in, registration and invitation redemption have shipped. What remains on this line: password reset and recovery-code entry as real screens, the 2FA and passkey enrolment surfaces, and the alternative-method row, which stays absent until a second method exists behind it.
 - **Appearance settings** — theme/mode/density/motion pickers over the wired axes; proves the Settings archetype.
 

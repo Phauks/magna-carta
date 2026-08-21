@@ -3,8 +3,8 @@
 Pure TypeScript engine for **document automation**: prepare an uploaded `.docx` into a registrable
 template version, and merge a registered template against a matter into a filed document. No D1
 binding, no Hono, no `env`, no Svelte, no network — the caller hands in a firm-scoped database handle
-and gets typed results back. Consumed by `apps/worker/src/routes/templates.ts`,
-`apps/worker/src/routes/assemblies.ts`, and `apps/worker/src/assemblies/assembly-consumer.ts`.
+and gets typed results back. Consumed by `apps/api-worker/src/routes/templates.ts`,
+`apps/api-worker/src/routes/assemblies.ts`, and `apps/api-worker/src/assemblies/assembly-consumer.ts`.
 Design: `docs/specs/2026-08-04-document-automation-design.md`.
 
 ## Shape
@@ -110,7 +110,7 @@ templates_ below.
 - **The merge emits a word-processing package and nothing else.** `document_assembly.output_format`
   (`src/assembly-statements.ts`) records what a JOB was asked to produce, not what this package
   produced: a `pdf` job carries these bytes across the office-suite conversion edge in
-  `apps/worker/src/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
+  `apps/api-worker/src/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
   and no second opinion about layout belongs in here — that is the whole reason the engine can be
   pure TypeScript over OOXML.
 - **`buildXml` writes the XML declaration; the parser drops the source one** (`ignoreDeclaration`).
@@ -410,7 +410,7 @@ from that one sentence.
 - **`sensitivity: protected` is the ROUTING decision, not a label.** A protected entry resolves through
   `src/protected-bindings.ts` and nothing else, and that module holds no ciphertext column name, derives
   no key, and decrypts nothing. The plaintext arrives from `ResolutionInput.readProtectedIdentifier`, a
-  seam the caller wires to the protected-field chokepoint (`apps/worker/src/assemblies/assembly-consumer.ts`
+  seam the caller wires to the protected-field chokepoint (`apps/api-worker/src/assemblies/assembly-consumer.ts`
   → `@magna-carta/directory`'s `readIdentifier` → `readProtected`): permission gate, decrypt-audit row
   committed BEFORE any plaintext, AAD-bound decrypt — inseparable and in that order. Adding a merge
   field that reads an encrypted column any other way is the one change this subsystem must never take.
@@ -474,7 +474,7 @@ from that one sentence.
 - **`FormFillFinish` is an owner decision held open as a required parameter.** Whether a filed form is
   `interactive` or `flattened` is not this package's call; `fillFormTemplate` takes it explicitly so no
   default can be acquired by omission. The platform's one answer lives in
-  `apps/worker/src/assemblies/pdf-form-engine.ts`.
+  `apps/api-worker/src/assemblies/pdf-form-engine.ts`.
 - **The engine is injected, three ways** — `AcroFormReader`, `FormTemplateScrub`, `FormFiller` — on
   exactly the terms the OOXML metadata scrub is. `src/` holds no WebAssembly and no PDF syntax
   (`test/purity.test.ts` is the scan); `@magna-carta/pdf` is a DEVELOPMENT dependency so the package's
@@ -482,7 +482,7 @@ from that one sentence.
 - **The fixture is built, not copied.** `test/fixtures/build-fillable-form.mjs` emits
   `test/fixtures/intake-form.pdf` — an invented two-page intake form with one box of every kind the
   engine distinguishes plus one of no stated type. A real client document cannot be committed and a
-  court's published form carries somebody else's asserted rights. `apps/worker` reads the same bytes
+  court's published form carries somebody else's asserted rights. `apps/api-worker` reads the same bytes
   through the `documentAssemblyFormFixtures` plugin rather than committing a second copy.
 
 ## Named seams (not built here)

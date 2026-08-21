@@ -25,7 +25,7 @@ the lint's own failure line names the repair instead of offering generic advice 
 **Ending a test run now ends the runners.** `pnpm test` killed its direct child, which is `vp` — two
 levels above the work. Under it sit the Vitest CLI, the esbuild services and the workerd instances the
 Miniflare suites stand up; signalling only `vp` orphans the rest. Measured interrupting
-`pnpm test apps/worker`: the guard exited after 17 s and **released the single-flight lock with nine
+`pnpm test apps/api-worker`: the guard exited after 17 s and **released the single-flight lock with nine
 runner processes still alive**, which stayed up a further **44 s**. The next run then claims the lock
 correctly — its holder really has gone — and starts into a machine that is not idle, which is the
 contention the lock exists to prevent arriving through the one door it does not watch, and which

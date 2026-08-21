@@ -33,7 +33,7 @@ export class DocumentEditorContainer extends Container<Bindings> {
   // forwards to the app worker over the APP_WORKER service binding, inside the Workers runtime (so no
   // public-internet egress opens). Every other outbound host is refused by default (enableInternet
   // false). The app worker re-derives firm scope + capability from the access token on every callback
-  // (apps/worker/src/editing/wopi-guard.ts), so this hop carries no trust of its own: forwarding here
+  // (apps/api-worker/src/editing/wopi-guard.ts), so this hop carries no trust of its own: forwarding here
   // is plumbing, and a forged or replayed callback still fails the token check on the far side.
   static override outboundByHost: Record<
     string,

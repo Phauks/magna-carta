@@ -1,7 +1,7 @@
 ---
 branch: file-surface-web
 worktree: C:/dev/magna-carta-worktrees/file-surface-web
-area: matter file surface in apps/web — abandoned, partly landed, superseded (see below)
+area: matter file surface in apps/web-worker — abandoned, partly landed, superseded (see below)
 status: abandoned
 touches:
 ---
@@ -11,19 +11,19 @@ touches:
 > **Disposition (2026-08-12): abandoned, partly landed, superseded for the matter host.** The branch
 > stopped a month ago at three `wip` commits with no pull request, against a base `main` has since
 > moved ~350 commits past. Two of its three deliverables reached `main` independently and are in use:
-> the shared multi-view shell (`apps/web/src/lib/view-shell/`) and the persisted-preference primitive
-> (`apps/web/src/lib/preferences/`), plus the `seed-dev-firm` route and script and the Playwright
+> the shared multi-view shell (`apps/web-worker/src/lib/view-shell/`) and the persisted-preference primitive
+> (`apps/web-worker/src/lib/preferences/`), plus the `seed-dev-firm` route and script and the Playwright
 > login e2e described below. What never landed is the Matter Files body itself.
 >
 > That body is **not** revived: it is built on `@magna-carta/api-client` + TanStack Query mounted into
-> `apps/web`, which is a dependency decision the app has since gone the other way on — every API call
-> in `apps/web` today is a same-origin `fetch` behind a hand-written seam, and the WHOIS module says
+> `apps/web-worker`, which is a dependency decision the app has since gone the other way on — every API call
+> in `apps/web-worker` today is a same-origin `fetch` behind a hand-written seam, and the WHOIS module says
 > in as many words that adopting the generated client is a scope decision the owner has not made.
 > Reviving would mean re-litigating that on a branch that also has to be re-based across a moved
 > contract and a regenerated client. Its **reasoning** was taken, though: the document-surface stream
 > that carried it forward has since landed and retired, and what it built is on `main` —
-> `apps/web/src/lib/documents/` (the same-origin fetch seam, the pure presentation decisions) and
-> `apps/web/src/lib/matters/matter-record.ts` (a live matter and a sample matter distinguishable by
+> `apps/web-worker/src/lib/documents/` (the same-origin fetch seam, the pure presentation decisions) and
+> `apps/web-worker/src/lib/matters/matter-record.ts` (a live matter and a sample matter distinguishable by
 > `source`). Its own note is gone with the stream, which is what retiring a note means; the code is
 > the record. The Overlaps section at the end of this file is half stale: `file-manager-contract` and
 > `file-manager-primitives` no longer exist on the remote, but `slice-0-7b-app-shell` is still a live
@@ -45,13 +45,13 @@ Design (converging into one home):
 
 ## Base & integration
 
-- Branched from `slice-0-7b-app-shell` (the only branch with `apps/web`).
+- Branched from `slice-0-7b-app-shell` (the only branch with `apps/web-worker`).
 - Merged `file-manager-primitives` (Dropzone / Tree / FileIcon / Breadcrumb / ContextMenu) — reuse, not reinvent.
 - Merged `file-manager-contract` (folders.list, enriched FileSummary, uploads.get, dev R2 upload route). Generated api-client conflicts were resolved by regeneration, not hand-merge (`emit-openapi` → `generate-client`). One-time wasm build (`decryption-core`) was needed for the worker to load; do the same in any fresh worktree.
 
 ## Progress
 
-- **Shared multi-view shell + persisted-preference primitive — built.** `apps/web/src/lib/view-shell/` (headerless: `createViewShell` controller + `view-switch` + `view-shell-body` + pure types; registrable views, regions record, shared selection) and `apps/web/src/lib/preferences/` (`createPersistedPreference` over a codec). Six preference call sites migrated onto the primitive; `/tools` ported onto the shell as the proving consumer. `appearance-axes` deliberately NOT migrated (theme persists through the design-system boot-script seam — one home). svelte-check clean, web unit tests green.
+- **Shared multi-view shell + persisted-preference primitive — built.** `apps/web-worker/src/lib/view-shell/` (headerless: `createViewShell` controller + `view-switch` + `view-shell-body` + pure types; registrable views, regions record, shared selection) and `apps/web-worker/src/lib/preferences/` (`createPersistedPreference` over a codec). Six preference call sites migrated onto the primitive; `/tools` ported onto the shell as the proving consumer. `appearance-axes` deliberately NOT migrated (theme persists through the design-system boot-script seam — one home). svelte-check clean, web unit tests green.
 
 ## Real-data path (no fixtures baked into the UI)
 
@@ -87,7 +87,7 @@ Stand up real seeded data and sign in — the whole loop is three steps:
    The command first triggers the scheduled handler (`/cdn-cgi/handler/scheduled`) to apply the
    control-plane migrations — wrangler dev does not auto-run Cron, so a fresh Miniflare database has
    no schema and the seed would otherwise 500 with `no such table: firm` — then calls the
-   development-only seed route `POST /api/__dev/seed` (`apps/worker/src/routes/dev-seed.ts`). That
+   development-only seed route `POST /api/__dev/seed` (`apps/api-worker/src/routes/dev-seed.ts`). That
    route is gated exactly like the dev R2 upload route — it serves only when the real R2 S3
    credentials are absent, so it is a bare 404 in production and is never in the OpenAPI contract.
    Both steps are idempotent (a re-run resumes the same tenant). Override the Worker URL with
@@ -106,32 +106,32 @@ guard redirect, successful sign-in + session cookie, bad-credentials error, and 
 (`next`) guard. Run:
 
 ```
-pnpm --filter @magna-carta/web run test:e2e
+pnpm --filter @magna-carta/web-worker run test:e2e
 ```
 
-Config: `apps/web/e2e/playwright.config.ts`. Its `webServer` boots `vp run worker-dev` (builds the SPA,
+Config: `apps/web-worker/e2e/playwright.config.ts`. Its `webServer` boots `vp run worker-dev` (builds the SPA,
 then wrangler dev on `http://localhost:8787`) — allow ~2 min on a cold start. A `setup` project runs
 before the specs: it triggers the scheduled handler (`/cdn-cgi/handler/scheduled`) to apply the
 control-plane migrations (wrangler dev does not auto-run Cron, so a fresh Miniflare D1 has no schema),
-then POSTs to `/api/__dev/seed` and writes the tenant to `apps/web/e2e/.seeded/credentials.json` (git-
+then POSTs to `/api/__dev/seed` and writes the tenant to `apps/web-worker/e2e/.seeded/credentials.json` (git-
 ignored) for the specs. Chromium only. Deliberately NOT part of `vp test` — the worker-dev boot is
 heavy, the same reason the design-system visual-regression sweep is separate. If Chromium is missing,
-`pnpm --filter @magna-carta/web exec playwright install chromium`.
+`pnpm --filter @magna-carta/web-worker exec playwright install chromium`.
 
 ## Files expected to be touched
 
-- `apps/web/src/lib/` — the multi-view shell (regions record, view registry, shared selection), the file
+- `apps/web-worker/src/lib/` — the multi-view shell (regions record, view registry, shared selection), the file
   body (collection region + capability detail pane), the persisted-preference primitive (extracted; 5 call
   sites migrate).
-- `apps/web/src/routes/(app)/matters/[id]/files/` (Matter host) and `apps/web/src/routes/(app)/tools/file-inspector/` (Tools host).
-- `apps/web/src/routes/(app)/tools/` — port `/tools` onto the shell as the proving consumer.
+- `apps/web-worker/src/routes/(app)/matters/[id]/files/` (Matter host) and `apps/web-worker/src/routes/(app)/tools/file-inspector/` (Tools host).
+- `apps/web-worker/src/routes/(app)/tools/` — port `/tools` onto the shell as the proving consumer.
 - A `seed-dev-firm` script + a dev login route.
-- On contract integration: generated `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`.
+- On contract integration: generated `apps/api-worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`.
 
 **Never edited:** `packages/file-manager/src/ingest-core.ts`.
 
 ## Overlaps
 
-- Owns `apps/web` file-surface work; coordinate with `slice-0-7b-app-shell` (shared `apps/web`) — this branch
+- Owns `apps/web-worker` file-surface work; coordinate with `slice-0-7b-app-shell` (shared `apps/web-worker`) — this branch
   is built on top of its tip.
 - Consumes `file-manager-contract` and `file-manager-primitives`; those land to `main` independently.

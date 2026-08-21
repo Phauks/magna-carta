@@ -12,7 +12,7 @@ Docker steps that produce them. The new Worker carries the same build output and
 `main`, no bindings, no secrets. A page request is answered by Cloudflare's asset server and invokes
 no script at all.
 
-It is separable because `apps/web` genuinely depends on nothing that reaches a crate — its four
+It is separable because `apps/web-worker` genuinely depends on nothing that reaches a crate — its four
 workspace dependencies are `@magna-carta/design-system`, `@magna-carta/design-tokens`,
 `@magna-carta/tools` and `@magna-carta/merge-field-catalog-contract`. The WebAssembly imports that
 make the app Worker's build slow and Docker-dependent are the API's own: PDF form fill and text

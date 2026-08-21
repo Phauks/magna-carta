@@ -51,6 +51,6 @@ contradiction rather than hiding it.
 **Two shape findings about the gate itself.** Rule 1 (unaccounted code) is disarmed inside any area
 whose root names its whole package: a `partial` root naming `packages/custodian` accounts for every
 path under it, so a `deferred` child naming a shipped module in the same package never fires. And the
-path parser reads a SvelteKit route group out of a path — `apps/web/src/routes/(app)/tools/whois-lookup`
+path parser reads a SvelteKit route group out of a path — `apps/web-worker/src/routes/(app)/tools/whois-lookup`
 resolves as `tools/whois-lookup` and reports missing — so evidence for a web route has to be written
 around it.

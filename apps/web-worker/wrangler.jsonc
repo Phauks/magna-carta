@@ -2,7 +2,7 @@
   // The SvelteKit single-page application, deployed on its own. This Worker holds NO script: it is
   // an assets-only deployable, so a request for a page or a bundle is answered by Cloudflare's asset
   // server and invokes nothing. That is the whole point of separating it — the API Worker
-  // (apps/worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules and every runtime
+  // (apps/api-worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules and every runtime
   // secret, and a change to a button's label should not rebuild and redeploy any of that.
   //
   // Deliberately empty of bindings and secrets, and it must stay that way. The browser bundle this
@@ -10,7 +10,7 @@
   // surface is "hand back a file", and the isolation is what makes that safe to deploy on a UI
   // change alone.
   //
-  // This is ADDITIVE today: apps/worker still binds the same build output under its own `assets`
+  // This is ADDITIVE today: apps/api-worker still binds the same build output under its own `assets`
   // block, so the application keeps serving exactly as it does now from a single origin. Cutting
   // over means giving the two Workers route patterns on one hostname (the SPA everywhere, the API
   // Worker on its own paths), which needs a zone hostname the account does not have yet. Until then
@@ -18,16 +18,19 @@
   // Runbook: docs/conventions/operations.md.
   "name": "magna-carta-web",
   "compatibility_date": "2026-06-05",
-  // The build output of apps/web (adapter-static). `pnpm run build` in this directory builds that
+  // The build output of apps/web-worker (adapter-static). `pnpm run build` in this directory builds that
   // package first, so the directory exists before wrangler reads it.
   // not_found_handling serves index.html for any path that matches no file, which is what makes a
   // deep link into a client-routed application resolve instead of 404ing.
   "assets": {
-    "directory": "../web/build",
+    "directory": "./build",
     "not_found_handling": "single-page-application",
   },
-  // workers.dev serving stays on: it is the only reachable URL until magnacarta.esq attaches.
-  // Per-version preview URLs stay off, matching apps/worker.
+  // workers.dev serving stays on: it is how this Worker is reached until app.magnacarta.esq is
+  // attached as a route. The zone is live — apps/status-worker already serves
+  // status.magnacarta.esq on a custom_domain route — so this is a step nobody has taken rather
+  // than one that is blocked.
+  // Per-version preview URLs stay off, matching apps/api-worker.
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true, "head_sampling_rate": 1 },

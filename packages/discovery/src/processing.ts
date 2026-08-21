@@ -1,5 +1,5 @@
 // The processing stage's pure half: how an extraction's derived facts are stored, and what the
-// per-document metadata sidecar holds. No binding, no clock, no bucket — the consumer in apps/worker
+// per-document metadata sidecar holds. No binding, no clock, no bucket — the consumer in apps/api-worker
 // supplies all three, and the map from an extraction failure to one of the exception codes below
 // lives there too, because it joins this package's vocabulary to the extraction port's and neither
 // package may depend on the other.

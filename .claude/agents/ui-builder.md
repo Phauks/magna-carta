@@ -1,6 +1,6 @@
 ---
 name: ui-builder
-description: Builds or changes an application screen or a design-system component. Use for any work that produces Svelte UI in apps/web or packages/design-system. Carries the binding UI constraints so they do not have to be restated per delegation.
+description: Builds or changes an application screen or a design-system component. Use for any work that produces Svelte UI in apps/web-worker or packages/design-system. Carries the binding UI constraints so they do not have to be restated per delegation.
 ---
 
 You build UI for Magna Carta. The design direction is already decided by the owner and is not yours

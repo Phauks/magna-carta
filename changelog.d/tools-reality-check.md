@@ -37,7 +37,7 @@ because the per-firm credential read is an unbuilt seam (`firmSecretStoreNotYetA
 unset secret. Connecting a real EasyPost key changes nothing. Draft creation succeeds regardless, so a
 member can create a shipment that can never be bought.
 
-**And one deploy hazard nobody had recorded.** `apps/worker/wrangler.jsonc` binds
+**And one deploy hazard nobody had recorded.** `apps/api-worker/wrangler.jsonc` binds
 `OCR_SERVICE -> magna-carta-ocr`, Cloudflare rejects a deploy whose service binding names a missing
 Worker, and that worker appears in no Workers Builds connection list, no placeholder list, and no
 deploy queue. Either it exists and nothing says so, or the next app-worker push is rejected outright —

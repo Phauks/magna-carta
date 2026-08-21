@@ -42,7 +42,7 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
   `@magna-carta/money`, `zod`. Does NOT import the live-timer Durable Object: the DO lives in
-  `apps/worker` and is a pure coordinator; the route composes the `time_entry` write through this package.
+  `apps/api-worker` and is a pure coordinator; the route composes the `time_entry` write through this package.
 - Pure and synchronous: produces statements for the caller to run; holds no D1 binding, does no I/O.
 
 ## Gotchas

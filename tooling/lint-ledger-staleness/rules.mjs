@@ -665,15 +665,15 @@ export const SELF_TEST = [
         id: "portal.capabilities.download",
         status: "not-started",
         evidence:
-          "The bulk-download engine it reuses is shipped (apps/worker); no portal-scoped path.",
+          "The bulk-download engine it reuses is shipped (apps/api-worker); no portal-scoped path.",
       }),
       fixture({
         id: "matters.file-manager.bulk-download",
         status: "shipped",
-        evidence: "apps/worker",
+        evidence: "apps/api-worker",
       }),
     ],
-    tree: ["apps/worker"],
+    tree: ["apps/api-worker"],
     expect: [],
   },
   {
@@ -750,10 +750,10 @@ export const SELF_TEST = [
     nodes: [
       fixture({
         status: "in-build",
-        evidence: "apps/web/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md",
+        evidence: "apps/web-worker/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md",
       }),
     ],
-    tree: ["apps/web/src/lib/view-shell", "docs/active-work/slice-0-7b-app-shell.md"],
+    tree: ["apps/web-worker/src/lib/view-shell", "docs/active-work/slice-0-7b-app-shell.md"],
     expect: [],
   },
   {
@@ -761,10 +761,10 @@ export const SELF_TEST = [
     nodes: [
       fixture({
         status: "in-build",
-        evidence: "Branch claude/document-surface — apps/web/src/lib",
+        evidence: "Branch claude/document-surface — apps/web-worker/src/lib",
       }),
     ],
-    tree: ["apps/web/src/lib"],
+    tree: ["apps/web-worker/src/lib"],
     expect: ["in-build-without-stream"],
   },
   {

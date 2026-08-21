@@ -22,7 +22,7 @@
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
   adrs: ADR-0004, ADR-0073
   spec: docs/specs/2026-06-09-slice-0-4-auth-rbac-provisioning-design.md
-  evidence: apps/worker/src/auth.ts, control-plane auth tables + schema-sync fitness test
+  evidence: apps/api-worker/src/auth.ts, control-plane auth tables + schema-sync fitness test
   notes: API-only to date; the login/2FA UI is the 0-7b slice (branch active).
 
 - id: auth.first-party-login.invitation-only
@@ -31,7 +31,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0280
-  evidence: apps/worker fitness-tested signup-off configuration (disableSignUp stays true); invitation redemption takes a code plus surname and date of birth against one digest over all three, so the handler cannot report which fact was wrong.
+  evidence: apps/api-worker fitness-tested signup-off configuration (disableSignUp stays true); invitation redemption takes a code plus surname and date of birth against one digest over all three, so the handler cannot report which fact was wrong.
   notes: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers.
 
 - id: auth.first-party-login.auth-ui
@@ -40,8 +40,8 @@
   status: partial
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
-  evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
-  notes: Sign-in shipped, and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
+  evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web-worker/src/routes/login and account/security; every state renders on apps/web-worker/src/routes/developer-console/sign-in-screens, and apps/web-worker/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered.
+  notes: Sign-in shipped, and so are the joining screens — apps/web-worker/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
 
 - id: auth.two-factor
   name: Second factors
@@ -57,7 +57,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 0-4-auth-rbac-skeleton-firm-provisioning
-  evidence: apps/worker end-to-end TOTP coverage; two_factor audit hooks
+  evidence: apps/api-worker end-to-end TOTP coverage; two_factor audit hooks
 
 - id: auth.two-factor.passkeys
   name: Passkeys / WebAuthn
@@ -95,7 +95,7 @@
   status: partial
   surface: internal
   slices: 0-5a-api-contract-foundation
-  evidence: apps/worker/src/chokepoint/rate-limiter.ts holds four named buckets as data (default, auth, expensive, incident-report) and an in-memory sliding-window log behind an async-capable RateLimiter interface; every route declares its bucket as meta.rateLimit in apps/worker/src/contracts/route-meta.ts and the chokepoint checks it before the handler, publishing limit and remaining on every verdict so a client can warn before it is refused.
+  evidence: apps/api-worker/src/chokepoint/rate-limiter.ts holds four named buckets as data (default, auth, expensive, incident-report) and an in-memory sliding-window log behind an async-capable RateLimiter interface; every route declares its bucket as meta.rateLimit in apps/api-worker/src/contracts/route-meta.ts and the chokepoint checks it before the handler, publishing limit and remaining on every verdict so a client can warn before it is refused.
   notes: Partial because of WHERE the state lives, not because nothing enforces: the limiter is per Workers isolate, so it resets on eviction or redeploy and the effective global ceiling is the bucket limit times the number of live isolates. That is an abuse backstop rather than a limit. A distributed adapter over Durable Objects or KV swaps in behind the same interface with no route or contract change, which is why the signature is sync-or-promise.
 
 - id: auth.hardening.human-verification
@@ -103,7 +103,7 @@
   scope: A bot check ahead of the platform's anonymous writes — server-side verification of a Cloudflare Turnstile challenge solution, with a typed absence when no verifier is provisioned.
   status: partial
   surface: internal
-  evidence: apps/worker/src/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/worker/test/turnstile-verifier.test.ts and apps/worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
+  evidence: apps/api-worker/src/human-verification/ — the port with its three-valued outcome, the siteverify adapter (single-use tokens, retry under one idempotency key), and the gate called by POST /api/v1/registrations and POST /api/v1/invitations/redemptions; apps/api-worker/test/turnstile-verifier.test.ts and apps/api-worker/test/human-verification-gate.test.ts cover a valid solution, a rejected one, a replayed one, both unconfigured postures and an unreachable verifier.
   notes: PARTIAL, and specifically: the server half exists and enforces nothing today. No Turnstile widget has been created, so no secret is provisioned, so every environment resolves the not-configured verifier and the protected endpoints serve exactly as before — counting each unprotected pass as human_verification.decided/unenforced. Two things are outstanding and neither is server work: the owner creating the widget and setting TURNSTILE_SECRET_KEY (queued in docs/deploy-queue.md), and a client that renders the challenge and mints a token, which is UI reserved to the owner. The Better Auth credential endpoints are deliberately NOT gated — their shipped sign-in screen mints no token, so gating them would break a working surface; that mounting belongs to the identity slice that owns them.
 
 - id: auth.access-control
@@ -148,7 +148,7 @@
   scope: Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.
   status: partial
   surface: awaiting-screen
-  evidence: The denial half and the grant READ are both built — apps/worker/src/chokepoint/chokepoint.ts answers a within-firm denial with 403 plus the requestAccess flag on the problem body, and packages/access-control/src/resolver.ts already unions direct grants into a member's effective permissions off the direct_grant table.
+  evidence: The denial half and the grant READ are both built — apps/api-worker/src/chokepoint/chokepoint.ts answers a within-firm denial with 403 plus the requestAccess flag on the problem body, and packages/access-control/src/resolver.ts already unions direct grants into a member's effective permissions off the direct_grant table.
   notes: What is missing is the middle: nothing writes a direct_grant row. The table already carries the time box (expires_at, null meaning none) and who granted it, and the resolver already honours expiry in code rather than in SQL, so what a build has to add is the request record and the approver route rather than the model. The separate support-access framework (support_grant) covers platform staff, not member grants.
 
 - id: auth.access-control.cross-firm-404
@@ -216,7 +216,7 @@
   scope: Destroying a firm's wrapped key renders its encrypted corpus permanently unreadable — instant per-firm offboard.
   status: shipped
   surface: internal
-  evidence: apps/worker/src/firm-key-shred.ts
+  evidence: apps/api-worker/src/firm-key-shred.ts
   notes: Function only; the offboarding flow that invokes it is its own future design.
 
 - id: auth.encryption.key-rotation

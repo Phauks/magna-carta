@@ -112,7 +112,7 @@ impl HttpRangeReader {
         // runtime may rewrite the content-length of, and a reader that learns the wrong length looks
         // for the footer in the wrong place — so the authoritative answer travels in a header nothing
         // in the path has a reason to touch. Kept in sync with SPLIT_OBJECT_SIZE_HEADER in
-        // apps/worker/src/search/split-object-host.ts.
+        // apps/api-worker/src/search/split-object-host.ts.
         let header = |name: &str| {
             response
                 .headers()

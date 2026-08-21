@@ -46,7 +46,7 @@ export const GATE_INVOCATIONS = {
 
 // The sink rule must stay a rule about outliers. At most this many packages may be selected, and each
 // must weigh at least this multiple of the heaviest NON-sink package. Measured 2026-08-05: the one
-// sink (@magna-carta/worker) weighs 1261 lintable files against the next package's 550 — a factor of
+// sink (@magna-carta/api-worker) weighs 1261 lintable files against the next package's 550 — a factor of
 // 2.29. The floor is set below that with room to breathe; if a genuine second sink ever appears, raise
 // the count deliberately and record the measured distribution here, never widen it to make a red run
 // green.

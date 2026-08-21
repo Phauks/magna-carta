@@ -30,7 +30,7 @@
 
   /*
    * A slice of a firm's catalog, shaped into the picker's structural option type — the adaptation a
-   * real consumer writes once (see apps/web/src/lib/document-assembly/picker-options.ts).
+   * real consumer writes once (see apps/web-worker/src/lib/document-assembly/picker-options.ts).
    */
   const OPTIONS: readonly MergeFieldPickerOption[] = [
     {

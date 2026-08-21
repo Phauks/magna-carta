@@ -29,7 +29,7 @@ import { collectSourceFiles } from "./source-file-sweep.ts";
  *                                   enforced outside this UI-source sweep (review + commit hooks).
  *
  * THE SWEEP SURFACE (deliberate; every exclusion justified):
- *   IN  apps/web/src — .svelte, .ts, .css — the product UI. The plan names svelte+ts;
+ *   IN  apps/web-worker/src — .svelte, .ts, .css — the product UI. The plan names svelte+ts;
  *       .css is added because app.css is the app's one stylesheet and a literal there
  *       would be the easiest place to hide one.
  *   IN  packages/design-system/src — .svelte, .ts, .css — the design system itself,
@@ -58,7 +58,7 @@ const REPOSITORY_ROOT = join(import.meta.dirname, "..", "..", "..", "..");
 
 /** Sweep roots, relative to the repository root, with the extensions swept there. */
 const SWEEP_ROOTS: ReadonlyArray<{ root: string; extensions: readonly string[] }> = [
-  { root: "apps/web/src", extensions: [".svelte", ".ts", ".css"] },
+  { root: "apps/web-worker/src", extensions: [".svelte", ".ts", ".css"] },
   { root: "packages/design-system/src", extensions: [".svelte", ".ts", ".css"] },
 ];
 
@@ -203,8 +203,8 @@ const sweptFiles: string[] = SWEEP_ROOTS.flatMap(({ root, extensions }) =>
 describe("off-token sweep surface (vacuity guard)", () => {
   it("finds the files the gate exists to police", () => {
     // An empty or misrooted sweep would pass every assertion below vacuously.
-    expect(sweptFiles).toContain("apps/web/src/lib/components/app-shell.svelte");
-    expect(sweptFiles).toContain("apps/web/src/app.css");
+    expect(sweptFiles).toContain("apps/web-worker/src/lib/components/app-shell.svelte");
+    expect(sweptFiles).toContain("apps/web-worker/src/app.css");
     expect(sweptFiles).toContain("packages/design-system/src/lib/internal/floating.ts");
     expect(sweptFiles).toContain("packages/design-system/src/lib/styles/components.css");
     expect(sweptFiles).toContain("packages/design-system/src/stories/design-tokens.stories.svelte");

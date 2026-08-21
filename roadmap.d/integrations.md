@@ -28,7 +28,7 @@
   status: partial
   surface: internal
   adrs: ADR-0092, ADR-0095
-  evidence: packages/integrations/src/connection.ts + credentials.ts; apps/worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
+  evidence: packages/integrations/src/connection.ts + credentials.ts; apps/api-worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
   notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.
 
 - id: integrations.platform-foundation
@@ -39,7 +39,7 @@
   slices: integration-platform-foundation
   adrs: ADR-0096
   spec: docs/specs/2026-06-17-integration-platform-foundation-design.md
-  evidence: apps/worker/src/plugins/ (registry.ts, runtime.ts, shipping-plugin.ts).
+  evidence: apps/api-worker/src/plugins/ (registry.ts, runtime.ts, shipping-plugin.ts).
 
 - id: integrations.c-transition
   name: Plugin transport progression (C seam)
@@ -104,7 +104,7 @@
   scope: Communications-layer channel ports; Telnyx launch adapter, swappable to Twilio/Bandwidth/Plivo.
   status: not-started
   adrs: ADR-0047
-  evidence: Decision recorded; no messaging or voice code in packages/ or apps/worker.
+  evidence: Decision recorded; no messaging or voice code in packages/ or apps/api-worker.
 
 - id: integrations.ports.password-manager
   name: Password manager / secrets vault port
@@ -119,7 +119,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094, ADR-0095
   spec: docs/specs/2026-06-16-shipping-easypost-design.md
-  evidence: packages/shipping + apps/worker/src/routes/shipping.ts on main; UI, webhook ingress, and live firm secret deferred.
+  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; UI, webhook ingress, and live firm secret deferred.
   audience: public
   public-name: Postage and shipping
   public-summary: Buy a label, track the package, and have the cost land on the matter.
@@ -153,13 +153,13 @@
   status: shipped
   surface: internal
   adrs: ADR-0156
-  evidence: handleShipmentPurchased in apps/worker/src/costs/recoverable-charge-consumer.ts subscribes to shipment.purchased on the transactional outbox and posts the charge through packages/costs/src/recoverable-charge.ts against the firm's recovery policy — a built consumer rather than a named seam.
+  evidence: handleShipmentPurchased in apps/api-worker/src/costs/recoverable-charge-consumer.ts subscribes to shipment.purchased on the transactional outbox and posts the charge through packages/costs/src/recoverable-charge.ts against the firm's recovery policy — a built consumer rather than a named seam.
 
 - id: integrations.shipping.ui
   name: Shipping UI
   scope: Firm-facing surface for drafting, buying, and tracking shipments.
   status: deferred
-  evidence: status.d/shipping-postage-backend.md marks UI deferred; no shipping pages in apps/web.
+  evidence: status.d/shipping-postage-backend.md marks UI deferred; no shipping pages in apps/web-worker.
 
 - id: integrations.tools-area
   name: Tools area
@@ -177,7 +177,7 @@
   surface: internal
   slices: tools-area
   adrs: ADR-0101
-  evidence: packages/tools/src/catalog.ts + apps/worker/src/routes/tools-connection.ts.
+  evidence: packages/tools/src/catalog.ts + apps/api-worker/src/routes/tools-connection.ts.
 
 - id: integrations.tools-area.listing-page
   name: Tools listing page
@@ -186,7 +186,7 @@
   surface: screen
   slices: tools-area
   spec: docs/specs/2026-07-08-tools-listing-page-design.md
-  evidence: apps/web/src/routes/(app)/tools/+page.svelte over apps/web/src/lib/tools/ (tools-tiles-view, tools-list-view, tool-tile, tool-row, tool-presentation.ts, and the view preference), grouped by toolsByGroup from packages/tools/src/select.ts; unbuilt tools read "Soon".
+  evidence: apps/web-worker/src/routes/(app)/tools/+page.svelte over apps/web-worker/src/lib/tools/ (tools-tiles-view, tools-list-view, tool-tile, tool-row, tool-presentation.ts, and the view preference), grouped by toolsByGroup from packages/tools/src/select.ts; unbuilt tools read "Soon".
   notes: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql; all nineteen manifests are now reachable by some seat.
 
 - id: integrations.tools-area.contextual-entry
@@ -194,7 +194,7 @@
   scope: Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
   status: partial
   surface: screen
-  evidence: The command palette half is built and derived rather than hand-listed — apps/web/src/lib/navigation/tool-destinations.ts turns the catalog plus the presentation layer into searchable entries, so adding a tool to the catalog is what puts it in the palette. The context half is data and a selector with no consumer: every manifest declares contextTags, and toolsFor in packages/tools/src/select.ts filters the catalog by tag and permission, but only its own tests call it. No Location, Directory or file surface offers tools in context.
+  evidence: The command palette half is built and derived rather than hand-listed — apps/web-worker/src/lib/navigation/tool-destinations.ts turns the catalog plus the presentation layer into searchable entries, so adding a tool to the catalog is what puts it in the palette. The context half is data and a selector with no consumer: every manifest declares contextTags, and toolsFor in packages/tools/src/select.ts filters the catalog by tag and permission, but only its own tests call it. No Location, Directory or file surface offers tools in context.
 
 - id: integrations.tools-area.diagnostics-group
   name: Diagnostics group (firm usage)
@@ -203,7 +203,7 @@
   surface: awaiting-screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
-  evidence: apps/worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
+  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
   notes: Backend only — no screen yet. Entity counts verified correct against a seeded firm; storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools-area.network-speed-test
@@ -212,7 +212,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-07-09-network-speed-test-design.md
-  evidence: A route directory named after its catalog id under the app's tools section, over apps/web/src/lib/tools/speed-test/ — the measurement engine, the per-direction charts, the quality scores and the authenticated connection probe; stage alpha on the listing page.
+  evidence: A route directory named after its catalog id under the app's tools section, over apps/web-worker/src/lib/tools/speed-test/ — the measurement engine, the per-direction charts, the quality scores and the authenticated connection probe; stage alpha on the listing page.
 
 - id: integrations.tools
   name: First-party tool set
@@ -248,7 +248,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0120, ADR-0121
-  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts, with its own page in the app's tools section over apps/web/src/lib/tools/whois/.
+  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/api-worker/src/routes/whois.ts, with its own page in the app's tools section over apps/web-worker/src/lib/tools/whois/.
   notes: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md.
 
 - id: integrations.tools.safe-browse
@@ -257,7 +257,7 @@
   status: partial
   surface: awaiting-screen
   adrs: ADR-0119, ADR-0120
-  evidence: packages/safe-browse/src/capture.ts + apps/worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
+  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
   notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md.
 
 - id: integrations.tools.metadata
@@ -267,7 +267,7 @@
   surface: awaiting-screen
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
-  evidence: packages/metadata + apps/worker/src/routes/metadata.ts.
+  evidence: packages/metadata + apps/api-worker/src/routes/metadata.ts.
   notes: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-integrity
@@ -277,7 +277,7 @@
   surface: awaiting-screen
   slices: file-hash-integrity
   adrs: ADR-0143
-  evidence: packages/file-integrity + apps/worker/src/routes/file-integrity.ts.
+  evidence: packages/file-integrity + apps/api-worker/src/routes/file-integrity.ts.
   notes: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-type
@@ -287,7 +287,7 @@
   surface: awaiting-screen
   slices: file-type-verifier
   adrs: ADR-0160
-  evidence: packages/file-type + apps/worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
+  evidence: packages/file-type + apps/api-worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
   notes: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md.
 
 - id: integrations.tools.ssrf-guard

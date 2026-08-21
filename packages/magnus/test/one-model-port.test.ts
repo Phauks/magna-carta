@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 // This package runs in the node pool, so it can.
 
 const repositoryRoot = join(import.meta.dirname, "..", "..", "..");
-const workerSource = join(repositoryRoot, "apps", "worker", "src");
+const workerSource = join(repositoryRoot, "apps", "api-worker", "src");
 const packagesDirectory = join(repositoryRoot, "packages");
 
 // The composition roots: the modules that exist precisely to hand the authenticated binding to the
@@ -121,7 +121,10 @@ describe("seeding the permissions turns nothing on (fitness)", () => {
   });
 
   it("the committed deploy configuration does not set the adapter switch", () => {
-    const wrangler = readFileSync(join(repositoryRoot, "apps", "worker", "wrangler.jsonc"), "utf8");
+    const wrangler = readFileSync(
+      join(repositoryRoot, "apps", "api-worker", "wrangler.jsonc"),
+      "utf8",
+    );
     expect(wrangler.includes("MAGNUS_INFERENCE_ADAPTER")).toBe(false);
   });
 });

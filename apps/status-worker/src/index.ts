@@ -38,7 +38,7 @@ const SNAPSHOT_CACHE = "public, max-age=30, stale-while-revalidate=600";
 const NEVER_CACHE = "no-store";
 
 // Purge-by-tag is scoped to the worker that issues the purge, and every writer of this data lives in
-// a different worker (the cron and the operator endpoints in apps/worker), so nothing can purge these
+// a different worker (the cron and the operator endpoints in apps/api-worker), so nothing can purge these
 // entries today — a published incident becomes visible when the 30-second window lapses. Tagging the
 // responses now costs nothing and is what a future purge path would need: it would be a route on
 // THIS worker calling ctx.cache.purge({ tags: ["status-snapshot"] }). Tags must be ASCII and

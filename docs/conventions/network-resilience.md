@@ -29,13 +29,13 @@ fetch:
 
 - **Upload** — direct-to-R2 via the presigner: a single-shot presigned PUT at or below the firm's
   threshold, a **multipart-resumable session** above it (sign-part / complete / abort). Reference
-  implementation: [`apps/worker/src/routes/uploads.ts`](../../apps/worker/src/routes/uploads.ts) over
-  [`apps/worker/src/files/presign.ts`](../../apps/worker/src/files/presign.ts).
+  implementation: [`apps/api-worker/src/routes/uploads.ts`](../../apps/api-worker/src/routes/uploads.ts) over
+  [`apps/api-worker/src/files/presign.ts`](../../apps/api-worker/src/files/presign.ts).
 - **Download** — a presigned GET (a 302 to a real URL), so the browser's own download manager owns
   pause, resume, and speed. Reference: the single-file and over-threshold paths in
-  [`apps/worker/src/routes/downloads.ts`](../../apps/worker/src/routes/downloads.ts).
+  [`apps/api-worker/src/routes/downloads.ts`](../../apps/api-worker/src/routes/downloads.ts).
 - **Inline / seekable serving** — HTTP Range with If-Range conditional resume and ETag. Reference:
-  [`apps/worker/src/files/preview-serve.ts`](../../apps/worker/src/files/preview-serve.ts).
+  [`apps/api-worker/src/files/preview-serve.ts`](../../apps/api-worker/src/files/preview-serve.ts).
 
 `R2Presigner` is the canonical transfer seam: a new path that moves bytes reaches for it (or the Range
 serve path) rather than hand-rolling a buffered transfer.

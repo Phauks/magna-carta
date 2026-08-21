@@ -39,11 +39,11 @@ teardown and only removes the evidence.
 
 Every piece of fire-and-forget work therefore goes through a helper that accounts for it, and the
 harness waits for the count to reach zero after each test. In the Worker that is
-`trackBackgroundWork` / `runInBackground` (`apps/worker/src/background.ts`) and the global
-`afterEach` barrier in `apps/worker/test/support/settle-background-work.ts`, registered for every
+`trackBackgroundWork` / `runInBackground` (`apps/api-worker/src/background.ts`) and the global
+`afterEach` barrier in `apps/api-worker/test/support/settle-background-work.ts`, registered for every
 file through `setupFiles`. A new fire-and-forget path that skips the helper is invisible to the
 barrier, which is the one way to reopen this: the barrier's own test
-(`apps/worker/test/background-work-barrier.test.ts`) proves it can still see work being started, so
+(`apps/api-worker/test/background-work-barrier.test.ts`) proves it can still see work being started, so
 a barrier that has quietly become vacuous fails rather than passing instantly.
 
 Waiting is a poll on a counter rather than an `await` of the promises, because the work runs in the
@@ -75,9 +75,9 @@ Two things follow from it.
   (`packages/conversion/src/port.ts`, `packages/search/src/port.ts`),
   `credential-store-not-implemented` (`packages/integrations/src/dispatch.ts`), `ScanFaultError`
   (`packages/file-manager/src/verdict.ts`). Map it to a status whose registered contract in
-  `apps/worker/src/contracts/problem-types.ts` is actually true — `service-unavailable` promises a
+  `apps/api-worker/src/contracts/problem-types.ts` is actually true — `service-unavailable` promises a
   deploy clears it, `not-implemented` does not.
-- **A stub service binding in the test pool is a test double too.** `apps/worker/vitest.config.ts`
+- **A stub service binding in the test pool is a test double too.** `apps/api-worker/vitest.config.ts`
   registers a stub worker for every service binding, and a stub that answers correctly proves only
   that the route works against a healthy service. The state a deployment actually spends time in is
   bound-but-unreachable — a placeholder worker, a Container that is not up — so drive that case by

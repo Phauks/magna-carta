@@ -8,7 +8,7 @@ describe("the formatter never receives a path it cannot parse", () => {
   it("gives a screen-only change a lint step and no formatter step", () => {
     // The regression: `vp check` refuses when every path in the set is one it cannot format, so this
     // change set could not pass the gate at all before the split.
-    const steps = formatAndLintSteps(["apps/web/src/routes/a/+page.svelte"]);
+    const steps = formatAndLintSteps(["apps/web-worker/src/routes/a/+page.svelte"]);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.args[0]).toBe("lint");
     expect(formatterSees(steps)).toEqual([]);
@@ -16,10 +16,10 @@ describe("the formatter never receives a path it cannot parse", () => {
 
   it("keeps svelte out of the formatter's paths in a mixed change too", () => {
     const steps = formatAndLintSteps([
-      "apps/web/src/lib/thing.ts",
-      "apps/web/src/routes/a/+page.svelte",
+      "apps/web-worker/src/lib/thing.ts",
+      "apps/web-worker/src/routes/a/+page.svelte",
     ]);
-    expect(formatterSees(steps)).toEqual(["apps/web/src/lib/thing.ts"]);
+    expect(formatterSees(steps)).toEqual(["apps/web-worker/src/lib/thing.ts"]);
     expect(steps.map((step) => step.args[0])).toEqual(["check", "lint"]);
   });
 

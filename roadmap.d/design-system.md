@@ -53,7 +53,7 @@
   scope: Tailwind configured via @theme to consume only generated tokens so off-scale values cannot be expressed naturally.
   status: shipped
   surface: internal
-  evidence: packages/design-tokens/tailwind.template.css, apps/web Tailwind wiring
+  evidence: packages/design-tokens/tailwind.template.css, apps/web-worker Tailwind wiring
 
 - id: design-system.components
   name: Component library

@@ -10,7 +10,7 @@ Design only, and gated on a measurement — two reversible settings on the exist
 most of the gap first, in which case the proposal should be withdrawn rather than built.
 
 **Corrects a claim in [`operations.md`](../docs/conventions/operations.md) that had stood since
-2026-06-28:** that `@magna-carta/pdf` is "imported by the SPA". It is not. `apps/web` depends on none
+2026-06-28:** that `@magna-carta/pdf` is "imported by the SPA". It is not. `apps/web-worker` depends on none
 of the three WebAssembly packages; every importer of the pdf package is server-side. The sentence
 mattered because it is why "can the interface build without the Rust toolchain?" carried an answer of
 no for two months without anyone reading the dependency graph.

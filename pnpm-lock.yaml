@@ -244,6 +244,220 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
 
+  apps/api-worker:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: 'catalog:'
+        version: 0.3.7
+      '@hono/zod-openapi':
+        specifier: 'catalog:'
+        version: 1.5.1(hono@4.13.0)(zod@4.4.3)
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../../packages/access-control
+      '@magna-carta/ai-detection':
+        specifier: workspace:*
+        version: link:../../packages/ai-detection
+      '@magna-carta/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../../packages/billing-core
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../../packages/calendar
+      '@magna-carta/conflicts':
+        specifier: workspace:*
+        version: link:../../packages/conflicts
+      '@magna-carta/conversion':
+        specifier: workspace:*
+        version: link:../../packages/conversion
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../../packages/costs
+      '@magna-carta/custodian':
+        specifier: workspace:*
+        version: link:../../packages/custodian
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../../packages/custom-fields
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../../packages/data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@magna-carta/decryption':
+        specifier: workspace:*
+        version: link:../../packages/decryption
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../../packages/directory
+      '@magna-carta/discovery':
+        specifier: workspace:*
+        version: link:../../packages/discovery
+      '@magna-carta/document-assembly':
+        specifier: workspace:*
+        version: link:../../packages/document-assembly
+      '@magna-carta/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@magna-carta/email-filing':
+        specifier: workspace:*
+        version: link:../../packages/email-filing
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../../packages/encryption
+      '@magna-carta/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
+      '@magna-carta/file-integrity':
+        specifier: workspace:*
+        version: link:../../packages/file-integrity
+      '@magna-carta/file-manager':
+        specifier: workspace:*
+        version: link:../../packages/file-manager
+      '@magna-carta/file-type':
+        specifier: workspace:*
+        version: link:../../packages/file-type
+      '@magna-carta/government-links':
+        specifier: workspace:*
+        version: link:../../packages/government-links
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../../packages/identifiers
+      '@magna-carta/inference':
+        specifier: workspace:*
+        version: link:../../packages/inference
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
+      '@magna-carta/ledger':
+        specifier: workspace:*
+        version: link:../../packages/ledger
+      '@magna-carta/locations':
+        specifier: workspace:*
+        version: link:../../packages/locations
+      '@magna-carta/magnus':
+        specifier: workspace:*
+        version: link:../../packages/magnus
+      '@magna-carta/matter-assets':
+        specifier: workspace:*
+        version: link:../../packages/matter-assets
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../../packages/matters
+      '@magna-carta/metadata':
+        specifier: workspace:*
+        version: link:../../packages/metadata
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../../packages/money
+      '@magna-carta/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@magna-carta/object-dimensions':
+        specifier: workspace:*
+        version: link:../../packages/object-dimensions
+      '@magna-carta/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
+      '@magna-carta/property-links':
+        specifier: workspace:*
+        version: link:../../packages/property-links
+      '@magna-carta/reporting':
+        specifier: workspace:*
+        version: link:../../packages/reporting
+      '@magna-carta/safe-browse':
+        specifier: workspace:*
+        version: link:../../packages/safe-browse
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../../packages/search
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../../packages/sequence-numbering
+      '@magna-carta/shipping':
+        specifier: workspace:*
+        version: link:../../packages/shipping
+      '@magna-carta/status':
+        specifier: workspace:*
+        version: link:../../packages/status
+      '@magna-carta/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
+      '@magna-carta/timekeeping':
+        specifier: workspace:*
+        version: link:../../packages/timekeeping
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../../packages/trust
+      '@magna-carta/whois':
+        specifier: workspace:*
+        version: link:../../packages/whois
+      aws4fetch:
+        specifier: 'catalog:'
+        version: 1.0.20
+      better-auth:
+        specifier: 'catalog:'
+        version: 1.6.22(@cloudflare/workers-types@5.20260713.1)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0))(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.2)
+      client-zip:
+        specifier: 'catalog:'
+        version: 2.5.0
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
+      hono:
+        specifier: 'catalog:'
+        version: 4.13.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: 'catalog:'
+        version: 0.18.4(@cloudflare/workers-types@5.20260713.1)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0))
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260713.1
+      '@hey-api/openapi-ts':
+        specifier: 'catalog:'
+        version: 0.98.2(typescript@6.0.3)
+      '@magna-carta/signing':
+        specifier: workspace:*
+        version: link:../../packages/signing
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@stoplight/prism-cli':
+        specifier: 'catalog:'
+        version: 5.16.0
+      '@stoplight/spectral-cli':
+        specifier: 'catalog:'
+        version: 6.16.3
+      asn1js:
+        specifier: 'catalog:'
+        version: 3.0.10
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      otpauth:
+        specifier: 'catalog:'
+        version: 9.5.1
+      pkijs:
+        specifier: 'catalog:'
+        version: 3.4.0
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
+
   apps/bundle-worker:
     dependencies:
       '@cloudflare/containers':
@@ -553,7 +767,7 @@ importers:
         specifier: 'catalog:'
         version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
 
-  apps/web:
+  apps/web-worker:
     dependencies:
       '@cloudflare/speedtest':
         specifier: 'catalog:'
@@ -607,226 +821,6 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.0
-
-  apps/web-worker:
-    devDependencies:
-      '@magna-carta/web':
-        specifier: workspace:*
-        version: link:../web
-      wrangler:
-        specifier: 'catalog:'
-        version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
-
-  apps/worker:
-    dependencies:
-      '@cloudflare/containers':
-        specifier: 'catalog:'
-        version: 0.3.7
-      '@hono/zod-openapi':
-        specifier: 'catalog:'
-        version: 1.5.1(hono@4.13.0)(zod@4.4.3)
-      '@magna-carta/access-control':
-        specifier: workspace:*
-        version: link:../../packages/access-control
-      '@magna-carta/ai-detection':
-        specifier: workspace:*
-        version: link:../../packages/ai-detection
-      '@magna-carta/billing':
-        specifier: workspace:*
-        version: link:../../packages/billing
-      '@magna-carta/billing-core':
-        specifier: workspace:*
-        version: link:../../packages/billing-core
-      '@magna-carta/calendar':
-        specifier: workspace:*
-        version: link:../../packages/calendar
-      '@magna-carta/conflicts':
-        specifier: workspace:*
-        version: link:../../packages/conflicts
-      '@magna-carta/conversion':
-        specifier: workspace:*
-        version: link:../../packages/conversion
-      '@magna-carta/costs':
-        specifier: workspace:*
-        version: link:../../packages/costs
-      '@magna-carta/custodian':
-        specifier: workspace:*
-        version: link:../../packages/custodian
-      '@magna-carta/custom-fields':
-        specifier: workspace:*
-        version: link:../../packages/custom-fields
-      '@magna-carta/data-access':
-        specifier: workspace:*
-        version: link:../../packages/data-access
-      '@magna-carta/database':
-        specifier: workspace:*
-        version: link:../../packages/database
-      '@magna-carta/decryption':
-        specifier: workspace:*
-        version: link:../../packages/decryption
-      '@magna-carta/directory':
-        specifier: workspace:*
-        version: link:../../packages/directory
-      '@magna-carta/discovery':
-        specifier: workspace:*
-        version: link:../../packages/discovery
-      '@magna-carta/document-assembly':
-        specifier: workspace:*
-        version: link:../../packages/document-assembly
-      '@magna-carta/email':
-        specifier: workspace:*
-        version: link:../../packages/email
-      '@magna-carta/email-filing':
-        specifier: workspace:*
-        version: link:../../packages/email-filing
-      '@magna-carta/encryption':
-        specifier: workspace:*
-        version: link:../../packages/encryption
-      '@magna-carta/feature-flags':
-        specifier: workspace:*
-        version: link:../../packages/feature-flags
-      '@magna-carta/file-integrity':
-        specifier: workspace:*
-        version: link:../../packages/file-integrity
-      '@magna-carta/file-manager':
-        specifier: workspace:*
-        version: link:../../packages/file-manager
-      '@magna-carta/file-type':
-        specifier: workspace:*
-        version: link:../../packages/file-type
-      '@magna-carta/government-links':
-        specifier: workspace:*
-        version: link:../../packages/government-links
-      '@magna-carta/identifiers':
-        specifier: workspace:*
-        version: link:../../packages/identifiers
-      '@magna-carta/inference':
-        specifier: workspace:*
-        version: link:../../packages/inference
-      '@magna-carta/integrations':
-        specifier: workspace:*
-        version: link:../../packages/integrations
-      '@magna-carta/ledger':
-        specifier: workspace:*
-        version: link:../../packages/ledger
-      '@magna-carta/locations':
-        specifier: workspace:*
-        version: link:../../packages/locations
-      '@magna-carta/magnus':
-        specifier: workspace:*
-        version: link:../../packages/magnus
-      '@magna-carta/matter-assets':
-        specifier: workspace:*
-        version: link:../../packages/matter-assets
-      '@magna-carta/matters':
-        specifier: workspace:*
-        version: link:../../packages/matters
-      '@magna-carta/metadata':
-        specifier: workspace:*
-        version: link:../../packages/metadata
-      '@magna-carta/money':
-        specifier: workspace:*
-        version: link:../../packages/money
-      '@magna-carta/notifications':
-        specifier: workspace:*
-        version: link:../../packages/notifications
-      '@magna-carta/object-dimensions':
-        specifier: workspace:*
-        version: link:../../packages/object-dimensions
-      '@magna-carta/pdf':
-        specifier: workspace:*
-        version: link:../../packages/pdf
-      '@magna-carta/property-links':
-        specifier: workspace:*
-        version: link:../../packages/property-links
-      '@magna-carta/reporting':
-        specifier: workspace:*
-        version: link:../../packages/reporting
-      '@magna-carta/safe-browse':
-        specifier: workspace:*
-        version: link:../../packages/safe-browse
-      '@magna-carta/search':
-        specifier: workspace:*
-        version: link:../../packages/search
-      '@magna-carta/sequence-numbering':
-        specifier: workspace:*
-        version: link:../../packages/sequence-numbering
-      '@magna-carta/shipping':
-        specifier: workspace:*
-        version: link:../../packages/shipping
-      '@magna-carta/status':
-        specifier: workspace:*
-        version: link:../../packages/status
-      '@magna-carta/telemetry':
-        specifier: workspace:*
-        version: link:../../packages/telemetry
-      '@magna-carta/timekeeping':
-        specifier: workspace:*
-        version: link:../../packages/timekeeping
-      '@magna-carta/trust':
-        specifier: workspace:*
-        version: link:../../packages/trust
-      '@magna-carta/whois':
-        specifier: workspace:*
-        version: link:../../packages/whois
-      aws4fetch:
-        specifier: 'catalog:'
-        version: 1.0.20
-      better-auth:
-        specifier: 'catalog:'
-        version: 1.6.22(@cloudflare/workers-types@5.20260713.1)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0))(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.2)
-      client-zip:
-        specifier: 'catalog:'
-        version: 2.5.0
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
-      hono:
-        specifier: 'catalog:'
-        version: 4.13.0
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@cloudflare/vitest-pool-workers':
-        specifier: 'catalog:'
-        version: 0.18.4(@cloudflare/workers-types@5.20260713.1)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0))
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20260713.1
-      '@hey-api/openapi-ts':
-        specifier: 'catalog:'
-        version: 0.98.2(typescript@6.0.3)
-      '@magna-carta/signing':
-        specifier: workspace:*
-        version: link:../../packages/signing
-      '@magna-carta/tsconfig':
-        specifier: workspace:*
-        version: link:../../packages/tsconfig
-      '@stoplight/prism-cli':
-        specifier: 'catalog:'
-        version: 5.16.0
-      '@stoplight/spectral-cli':
-        specifier: 'catalog:'
-        version: 6.16.3
-      asn1js:
-        specifier: 'catalog:'
-        version: 3.0.10
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
-      otpauth:
-        specifier: 'catalog:'
-        version: 9.5.1
-      pkijs:
-        specifier: 'catalog:'
-        version: 3.4.0
-      vite-plus:
-        specifier: 'catalog:'
-        version: 0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
-      vitest:
-        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
-        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'
       wrangler:
         specifier: 'catalog:'
         version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
@@ -3061,10 +3055,6 @@ packages:
 
   '@exodus/schemasafe@1.3.0':
     resolution: {integrity: sha512-5Aap/GaRupgNx/feGBwLLTVv8OQFfv3pq2lPRzPg9R+IOBnDgghTGW7l7EuVXOvg5cc/xSAlRW8rBrjIC3Nvqw==}
-
-  '@faker-js/faker@10.4.0':
-    resolution: {integrity: sha512-sDBWI3yLy8EcDzgobvJTWq1MJYzAkQdpjXuPukga9wXonhpMRvd1Izuo2Qgwey2OiEoRIBr35RMU9HJRoOHzpw==}
-    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@faker-js/faker@10.5.0':
     resolution: {integrity: sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg==}
@@ -7915,8 +7905,6 @@ snapshots:
   '@exodus/schemasafe@1.3.0':
     optional: true
 
-  '@faker-js/faker@10.4.0': {}
-
   '@faker-js/faker@10.5.0': {}
 
   '@faker-js/faker@5.5.3': {}
@@ -8733,7 +8721,7 @@ snapshots:
 
   '@stoplight/prism-http@5.16.0':
     dependencies:
-      '@faker-js/faker': 10.4.0
+      '@faker-js/faker': 10.5.0
       '@scarf/scarf': 1.4.0
       '@stoplight/http-spec': 7.1.0
       '@stoplight/json': 3.21.7

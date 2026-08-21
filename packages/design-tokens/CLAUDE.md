@@ -52,7 +52,7 @@ nothing visual is defined anywhere else.
 - Dev-only dependencies: Terrazzo (CLI + CSS/Tailwind plugins), culori. Nothing here ships runtime
   JavaScript.
 - Exports: `tokens.css`, `tailwind-theme.css`, and `contrast-pairs`.
-- Consumers: `@magna-carta/design-system` (not yet created) and `apps/web`.
+- Consumers: `@magna-carta/design-system` (not yet created) and `apps/web-worker`.
 
 ## Gotchas
 

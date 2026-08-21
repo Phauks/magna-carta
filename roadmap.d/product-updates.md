@@ -36,7 +36,7 @@
   scope: Authenticated deep-linkable route with What's New, Changelog, and Roadmap tabs plus a help-menu entry carrying the unread badge.
   status: not-started
   adrs: ADR-0048
-  evidence: No such route in apps/web; design system it must build from is shipped.
+  evidence: No such route in apps/web-worker; design system it must build from is shipped.
 
 - id: product-updates.public-pages
   name: Public changelog/roadmap/status pages
@@ -61,7 +61,7 @@
   scope: lastSeenProductUpdate identity-level preference in the Settings framework driving a client-side unread badge.
   status: not-started
   adrs: ADR-0040, ADR-0048
-  evidence: The settings foundation it would live in is shipped (apps/web/src/lib/settings/ and apps/web/src/lib/preferences/persisted-preference.svelte.ts); no lastSeenProductUpdate preference and no badge exists.
+  evidence: The settings foundation it would live in is shipped (apps/web-worker/src/lib/settings/ and apps/web-worker/src/lib/preferences/persisted-preference.svelte.ts); no lastSeenProductUpdate preference and no badge exists.
 
 - id: product-updates.audience-seam
   name: Roadmap audience field
@@ -96,7 +96,7 @@
   scope: Contextual help surfaced inside the application.
   status: not-started
   adrs: ADR-0019
-  evidence: No contextual-help component or content wiring in apps/web.
+  evidence: No contextual-help component or content wiring in apps/web-worker.
 
 - id: user-docs.admin-docs
   name: Admin documentation

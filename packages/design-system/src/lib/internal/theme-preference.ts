@@ -4,7 +4,7 @@
  * This module is the ONLY place the persisted appearance preferences are read or written — slice
  * 0.7b swaps the localStorage calls for the settings registry without touching anything else.
  *
- * MIRROR RULE: the inline no-FOUC boot script in apps/web/src/app.html duplicates this read+apply
+ * MIRROR RULE: the inline no-FOUC boot script in apps/web-worker/src/app.html duplicates this read+apply
  * logic (it must run before first paint, so it cannot import a module). Any change here — keys,
  * defaults, the dark-mode or motion resolution rules — must be mirrored there in the same commit.
  */

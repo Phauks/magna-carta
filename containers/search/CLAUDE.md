@@ -48,9 +48,9 @@ The adapter only works as three parts, and two of them are elsewhere:
 - **`apps/search-worker/src/search-index-container.ts`** intercepts `splits.magna-carta.internal` and
   forwards it into the app worker. The host name is duplicated in
   `apps/search-worker/src/split-object-forwarding.ts` and
-  `apps/worker/src/search/split-object-host.ts` — change one, change all three in the same commit, or
+  `apps/api-worker/src/search/split-object-host.ts` — change one, change all three in the same commit, or
   every read becomes blocked egress.
-- **`apps/worker/src/search/split-object-host.ts`** verifies the capability token, resolves the firm's
+- **`apps/api-worker/src/search/split-object-host.ts`** verifies the capability token, resolves the firm's
   bucket, and performs the R2 operation. Its `x-mc-split-size` header is what `HttpRangeReader::open`
   reads to find the footer; its 416-on-unranged-GET is what keeps the whole-object shape unreachable.
 

@@ -183,11 +183,11 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
-  evidence: packages/matters + apps/worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
+  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
   audience: public
   public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
-  notes: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed.
+  notes: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web-worker/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed.
 
 - id: matters.parties
   name: Matter parties
@@ -195,7 +195,7 @@
   status: partial
   surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
-  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte reads and severs.
+  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web-worker/src/routes/(app)/matters/[id]/parties/+page.svelte reads and severs.
   notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party from the screen still waits on the directory picker, so the section renders that action disabled and says so; the link route itself has always worked.
 
 - id: matters.numbering
@@ -266,7 +266,7 @@
   status: shipped
   surface: internal
   slices: 1-1-matters-locations-file-manager
-  evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/worker/src/routes/matters.ts, where the subsystems meet.
+  evidence: packages/matters/src/close-preconditions.ts holds the registry and CLOSE_PRECONDITIONS is empty there by design — the matter shell runs what it is handed and imports no subsystem. The rules are registered in apps/api-worker/src/routes/matters.ts, where the subsystems meet.
   notes: Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing.
 
 - id: matters.lifecycle.stale-consultations
@@ -284,7 +284,7 @@
   status: partial
   slices: 1-1-matters-locations-file-manager
   spec: docs/specs/2026-07-09-matter-file-manager-design.md
-  evidence: packages/file-manager; routes folders.ts, files.ts, document-types.ts; and the Files section of the matter host, which runs the whole loop — list, create, open, save the next version, read the version history — through the same-origin seam in apps/web/src/lib/documents/.
+  evidence: packages/file-manager; routes folders.ts, files.ts, document-types.ts; and the Files section of the matter host, which runs the whole loop — list, create, open, save the next version, read the version history — through the same-origin seam in apps/web-worker/src/lib/documents/.
   notes: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built.
 
 - id: matters.file-manager.content-hash
@@ -304,7 +304,7 @@
   status: shipped
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0082
-  evidence: apps/worker/src/downloads/bundle-coordinator.ts + routes/downloads.ts; status.d/2-1 built
+  evidence: apps/api-worker/src/downloads/bundle-coordinator.ts + routes/downloads.ts; status.d/2-1 built
   notes: Client-portal reuse awaits the portal (not built).
 
 - id: matters.file-manager.bulk-download.async-jobs
@@ -383,8 +383,8 @@
   scope: Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits.
   status: partial
   surface: internal
-  evidence: access-triggered rescan built — rescanCommittedVersion in apps/worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
-  notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
+  evidence: access-triggered rescan built — rescanCommittedVersion in apps/api-worker/src/files/ingest-consumer.ts over the scan port (docs/specs/2026-06-22-access-triggered-rescan-design.md and its implementation plan)
+  notes: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it.
 
 - id: locations
   name: Locations (offices)
@@ -540,7 +540,7 @@
   status: partial
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: packages/matter-assets + twenty routes in apps/worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
+  evidence: packages/matter-assets + twenty routes in apps/api-worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
   audience: public
   public-name: Asset registers
   public-summary: Track the property, accounts and possessions a matter deals with — what each is worth, what is owed against it, and who holds an interest.
@@ -663,7 +663,7 @@
   surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/worker/src/routes/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/worker/test/matter-assets-routes.test.ts.
+  evidence: CUSTOM_FIELD_TARGETS in packages/custom-fields/src/types.ts drives the drizzle column, the define-field request schema, and readCustomFieldValuesForScope in src/reads.ts; the asset detail composes it in apps/api-worker/src/routes/matter-assets.ts; packages/custom-fields/test/{schema-name-sync,matter-asset-target}.test.ts and the asset-field block in apps/api-worker/test/matter-assets-routes.test.ts.
   notes: No migration — custom_field.target is a bare text NOT NULL with no CHECK and drizzle's enum emits no SQL, so check-snapshots reports the per-firm head already current; the readers carry the whole of the safety and the vocabulary has one home. The Custodian custodyPacket widening is decoupled rather than coordinated, because with no migration there is nothing to share.
 
 - id: matter-assets.schedule-template

@@ -1,7 +1,7 @@
 //! The wire shapes of the four engine operations.
 //!
 //! These mirror `packages/search/src/port.ts` — the `SearchIndexPort` the app Worker calls through and
-//! the adapter in `apps/worker/src/search/search-engine.ts` marshals. The field names are the port's,
+//! the adapter in `apps/api-worker/src/search/search-engine.ts` marshals. The field names are the port's,
 //! in camelCase, so the two files can be read side by side; a field renamed on one side and not the
 //! other fails deserialization here rather than silently arriving as a default.
 //!

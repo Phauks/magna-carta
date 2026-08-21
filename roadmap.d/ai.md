@@ -19,7 +19,7 @@
   slices: ai-inference-foundation
   adrs: ADR-0111
   spec: docs/specs/2026-06-17-ai-inference-foundation-design.md
-  evidence: packages/inference/src (port.ts, catalog.ts, gateway.ts, settings.ts) + apps/worker/src/inference; status.d marks built done, tests todo.
+  evidence: packages/inference/src (port.ts, catalog.ts, gateway.ts, settings.ts) + apps/api-worker/src/inference; status.d marks built done, tests todo.
 
 - id: ai.inference.port
   name: InferencePort operations
@@ -33,7 +33,7 @@
   scope: The embedding model is changeable only while no vector index exists, because every stored vector is a function of the model that produced it. The catalog records that state and a fitness scan refuses to let the window close by accident — while the pin reads open, no source file may reach a vector index.
   status: shipped
   surface: internal
-  evidence: packages/inference/src/catalog.ts (pinState on the embedding entry) and the source scan in packages/inference/test/fitness-model-pin-rot.test.ts; apps/worker/src/search/semantic-search.ts is still engine-not-implemented and no wrangler configuration declares a Vectorize binding.
+  evidence: packages/inference/src/catalog.ts (pinState on the embedding entry) and the source scan in packages/inference/test/fitness-model-pin-rot.test.ts; apps/api-worker/src/search/semantic-search.ts is still engine-not-implemented and no wrangler configuration declares a Vectorize binding.
   awaiting-owner: Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 
 - id: ai.inference.model-catalog
@@ -80,7 +80,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0113
-  evidence: Per-firm token meter feeding the firm-usage diagnostics surface (apps/worker/src/routes/firm-usage.ts).
+  evidence: Per-firm token meter feeding the firm-usage diagnostics surface (apps/api-worker/src/routes/firm-usage.ts).
 
 - id: ai.inference.fairness
   name: Multi-tenant fairness
@@ -88,7 +88,7 @@
   status: partial
   surface: internal
   adrs: ADR-0112
-  evidence: Queue dispatch built (apps/worker/src/inference); spend rules/alarms are gateway dashboard configuration, not verifiable in-repo.
+  evidence: Queue dispatch built (apps/api-worker/src/inference); spend rules/alarms are gateway dashboard configuration, not verifiable in-repo.
 
 - id: ai.inference.byok
   name: BYOK credentialed adapter
@@ -128,13 +128,13 @@
   scope: Platform-managed adapter (one platform key, credential none), per-firm consent setting enforced at the chokepoint, paste-text endpoint, per-firm usage metering.
   status: shipped
   surface: awaiting-screen
-  evidence: POST /api/v1/ai-detection/detect (apps/worker/src/routes/ai-detection.ts) over packages/ai-detection/src/adapters, with the manifest, the per-firm consent setting (consent.ts, settings.ts) and the ai_detection_usage metering table.
+  evidence: POST /api/v1/ai-detection/detect (apps/api-worker/src/routes/ai-detection.ts) over packages/ai-detection/src/adapters, with the manifest, the per-firm consent setting (consent.ts, settings.ts) and the ai_detection_usage metering table.
 
 - id: ai.text-detection.ui
   name: Detection UI
   scope: In-app surface for running and reading detections.
   status: not-started
-  evidence: Deferred in status.d/ai-text-detection.md; no page in apps/web.
+  evidence: Deferred in status.d/ai-text-detection.md; no page in apps/web-worker.
 
 - id: ai.text-detection.extensions
   name: Detection extensions
@@ -150,7 +150,7 @@
   slices: magnus
   adrs: ADR-0109
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: Magnus is that consumer and its backend is built (packages/magnus + apps/worker/src/magnus). It is off by default and has no interface; production enablement is gated on the consent decision and the ZDR procurement artifacts.
+  evidence: Magnus is that consumer and its backend is built (packages/magnus + apps/api-worker/src/magnus). It is off by default and has no interface; production enablement is gated on the consent decision and the ZDR procurement artifacts.
 
 - id: ai.magnus
   name: Magnus — the conversational assistant
@@ -159,7 +159,7 @@
   slices: magnus
   adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: packages/magnus + apps/worker/src/magnus + apps/worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. Backend only; the interface and token streaming are later slices.
+  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. Backend only; the interface and token streaming are later slices.
   audience: public
   public-name: Magnus, the in-app assistant
   public-summary: Ask a question about your matters in plain language and get an answer, with nothing you ask retained by the model provider.
@@ -176,7 +176,7 @@
   scope: The firm's general AI-processing setting plus a feature-specific one, both default closed, read in one resolver, re-read by the consumer before the model call so a gate closing stops queued work.
   status: shipped
   surface: internal
-  evidence: apps/worker/src/magnus/consent.ts; magnus.enabled and inference.aiProcessingEligibility both default false; every route refuses by a named problem type.
+  evidence: apps/api-worker/src/magnus/consent.ts; magnus.enabled and inference.aiProcessingEligibility both default false; every route refuses by a named problem type.
 
 - id: ai.magnus.port-reuse
   name: One model port, one additive operation
@@ -191,7 +191,7 @@
   scope: A complete, network-free implementation of the port that every AI feature inherits; the composition root resolves to it whenever the binding or the enabling configuration is absent.
   status: shipped
   surface: internal
-  evidence: packages/inference/src/stub.ts; apps/worker/src/magnus/inference-port-binding.ts (absence resolves to the stub, the resolveScanPort shape).
+  evidence: packages/inference/src/stub.ts; apps/api-worker/src/magnus/inference-port-binding.ts (absence resolves to the stub, the resolveScanPort shape).
 
 - id: ai.magnus.streaming
   name: Token streaming
@@ -203,7 +203,7 @@
   name: Assistant interface
   scope: The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
   status: not-started
-  evidence: No surface in apps/web; gated on the design-system chat surface. The backend is off by default and UI-less.
+  evidence: No surface in apps/web-worker; gated on the design-system chat surface. The backend is off by default and UI-less.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants
@@ -224,7 +224,7 @@
   slices: natural-language-document-search
   adrs: ADR-0003, ADR-0110, ADR-0111, ADR-0255
   spec: docs/specs/2026-08-06-ai-search-integration-design.md
-  evidence: packages/search/src/natural-language-enablement.ts is the one write path (the gate, the disclosure acknowledgement, the matter exclusion); packages/search/src/natural-language-feed.ts and apps/worker/src/search/natural-language-feed-writer.ts are the feed; apps/worker/src/search/natural-language-lifecycle.ts is provisioning, teardown and deletion. Three per-firm tables and one control-plane table in packages/database/drizzle/per-firm/20260816T152756_natural-language-search.sql and packages/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql. Off for every firm and no instance exists — apps/worker/test/natural-language-gates-closed.test.ts asserts a firm with no setting row produces no feed object, no instance, and an instance-not-provisioned outcome from the production resolver. The retrieval adapter and route are deliberately unbuilt.
+  evidence: packages/search/src/natural-language-enablement.ts is the one write path (the gate, the disclosure acknowledgement, the matter exclusion); packages/search/src/natural-language-feed.ts and apps/api-worker/src/search/natural-language-feed-writer.ts are the feed; apps/api-worker/src/search/natural-language-lifecycle.ts is provisioning, teardown and deletion. Three per-firm tables and one control-plane table in packages/database/drizzle/per-firm/20260816T152756_natural-language-search.sql and packages/database/drizzle/control-plane/20260816T152908_natural-language-search-instance.sql. Off for every firm and no instance exists — apps/api-worker/test/natural-language-gates-closed.test.ts asserts a firm with no setting row produces no feed object, no instance, and an instance-not-provisioned outcome from the production resolver. The retrieval adapter and route are deliberately unbuilt.
   audience: public
   public-name: Ask a question of a matter's documents
   public-summary: Ask an ordinary question about a matter and get back the passages of your own documents that answer it, each with its source.
@@ -242,14 +242,14 @@
   scope: The only thing that can reach the managed index — extracted text of committed file versions, written by the existing search index job as a second consumer of the extraction already computed there, catalogued per object so deletion is demonstrable and freshness computable.
   status: shipped
   surface: internal
-  evidence: packages/search/src/natural-language-feed.ts + apps/worker/src/search/natural-language-feed-writer.ts; the ai_search_feed_object table. A fitness test asserts exactly one emitted object class and that no reserved class is reachable; a worker test asserts the extraction runs exactly once per version.
+  evidence: packages/search/src/natural-language-feed.ts + apps/api-worker/src/search/natural-language-feed-writer.ts; the ai_search_feed_object table. A fitness test asserts exactly one emitted object class and that no reserved class is reachable; a worker test asserts the extraction runs exactly once per version.
 
 - id: ai.natural-language-search.lifecycle
   name: Instance lifecycle, deletion, and the meter
   scope: One instance per firm under a derived opaque name and a single versioned configuration constant; queue-dispatched provisioning and teardown; catalog-driven deletion reconciled against the bucket; a weekly keep-alive inside the inactivity-pause window; a usage meter keeping authoritative counts structurally apart from the one estimated figure.
   status: shipped
   surface: internal
-  evidence: apps/worker/src/search/natural-language-lifecycle.ts, apps/worker/src/search/natural-language-keep-alive.ts and apps/worker/src/search/natural-language-binding.ts; packages/search/src/natural-language-instance.ts, packages/search/src/natural-language-provisioning.ts and packages/search/src/natural-language-instance-statements.ts; the control-plane ai_search_instance table and the per-firm ai_search_usage_meter. Managed storage is recorded as a named unmetered gap rather than estimated. Both bindings are declared and commented out in apps/worker/wrangler.jsonc.
+  evidence: apps/api-worker/src/search/natural-language-lifecycle.ts, apps/api-worker/src/search/natural-language-keep-alive.ts and apps/api-worker/src/search/natural-language-binding.ts; packages/search/src/natural-language-instance.ts, packages/search/src/natural-language-provisioning.ts and packages/search/src/natural-language-instance-statements.ts; the control-plane ai_search_instance table and the per-firm ai_search_usage_meter. Managed storage is recorded as a named unmetered gap rather than estimated. Both bindings are declared and commented out in apps/api-worker/wrangler.jsonc.
 
 - id: ai.natural-language-search.retrieval
   name: Matter-scoped retrieval and read-time re-authorization
@@ -257,7 +257,7 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-08-06-ai-search-integration-design.md
-  evidence: The port, its typed outcomes and its not-configured default resolution are built (packages/search/src/natural-language-port.ts) and reached through apps/worker/src/search/natural-language-binding.ts; the adapter, the filter builder and the route are not. The construction protocol and its sensitivity proof are runnable in packages/search/test/natural-language-filter-wall/.
+  evidence: The port, its typed outcomes and its not-configured default resolution are built (packages/search/src/natural-language-port.ts) and reached through apps/api-worker/src/search/natural-language-binding.ts; the adapter, the filter builder and the route are not. The construction protocol and its sensitivity proof are runnable in packages/search/test/natural-language-filter-wall/.
   notes: Blocked on observing the managed index's filter semantics against a real instance — a filter that fails open, or is accepted and silently ignored, cannot bear even the recall-optimization weight the design assigns it.
 
 - id: ai.consumer-seams

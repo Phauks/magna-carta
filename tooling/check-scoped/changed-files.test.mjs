@@ -22,24 +22,24 @@ describe("parseBaseFlag", () => {
 describe("partitionByTool", () => {
   it("routes each path to the passes that can actually parse it", () => {
     const { scripts, lintOnly, formatOnly } = partitionByTool([
-      "apps/web/src/lib/thing.ts",
+      "apps/web-worker/src/lib/thing.ts",
       "tooling/check-scoped/fix.mjs",
-      "apps/web/src/lib/thing.svelte",
+      "apps/web-worker/src/lib/thing.svelte",
       "docs/conventions/build-performance.md",
       "package.json",
-      "apps/web/src/app.css",
+      "apps/web-worker/src/app.css",
       "pnpm-workspace.yaml",
       "osv-scanner.toml",
       "crates/engine-host/src/format.rs",
       "packages/database/migrations/0001_init.sql",
     ]);
 
-    expect(scripts).toEqual(["apps/web/src/lib/thing.ts", "tooling/check-scoped/fix.mjs"]);
-    expect(lintOnly).toEqual(["apps/web/src/lib/thing.svelte"]);
+    expect(scripts).toEqual(["apps/web-worker/src/lib/thing.ts", "tooling/check-scoped/fix.mjs"]);
+    expect(lintOnly).toEqual(["apps/web-worker/src/lib/thing.svelte"]);
     expect(formatOnly).toEqual([
       "docs/conventions/build-performance.md",
       "package.json",
-      "apps/web/src/app.css",
+      "apps/web-worker/src/app.css",
       "pnpm-workspace.yaml",
       "osv-scanner.toml",
     ]);

@@ -52,7 +52,7 @@ const config: StorybookConfig = {
     // The Svelte compiler plugin. @storybook/svelte-vite does NOT register it — upstream assumes
     // the project's own vite.config.ts provides it, and this package deliberately has no
     // vite.config.ts (vp's lint pass loads every workspace vite.config.ts from the repo root;
-    // see the apps/web/vite.config.ts cwd-guard comment). Without it, every .svelte file —
+    // see the apps/web-worker/vite.config.ts cwd-guard comment). Without it, every .svelte file —
     // including Storybook's own PreviewRender.svelte — reaches the bundler raw and the build
     // fails with parse errors. It must be UNSHIFTED, not pushed: the framework's docgen plugin
     // and addon-svelte-csf's story transform both expect already-COMPILED output (they call
@@ -63,7 +63,7 @@ const config: StorybookConfig = {
     // Tailwind v4 processing inside Storybook's own Vite (and inside the addon-vitest browser
     // project, which applies this same viteFinal): compiles .storybook/preview.css — the
     // Tailwind entry that imports tokens + theme mapping + component recipes in the canonical
-    // order (mirrors apps/web/src/app.css).
+    // order (mirrors apps/web-worker/src/app.css).
     viteConfiguration.plugins.push(tailwindcss());
     return viteConfiguration;
   },

@@ -19,7 +19,7 @@ lints are enumerated from the `lint:*` scripts in the root `package.json` (the C
 calls the same runner with `--all`, so the tiers cannot disagree); the fitness tests self-register with an
 `@repo-wide-fitness` directive in their own header. Two lints are deferred with their numbers:
 `lint:licenses` (1.6 s, dependency-set-only — runs when a manifest or lockfile changes) and
-`lint:test-collection` (26 s — CI's own job). `apps/worker`'s route conformance is excluded outright at
+`lint:test-collection` (26 s — CI's own job). `apps/api-worker`'s route conformance is excluded outright at
 26 s in the Miniflare pool.
 
 Measured warm, before → after: a markdown-only diff 0.9 s → 1.6 s, one ordinary source file 2.3 s →

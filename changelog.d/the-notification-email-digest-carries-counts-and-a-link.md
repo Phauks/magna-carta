@@ -44,6 +44,6 @@ binding is absent — right for a password reset, catastrophic here, because the
 sender, or a public origin, the port answers with a typed reason, the pass exits before reading a
 firm, and the reason is counted every pass. Owner steps are in `docs/deploy-queue.md`.
 
-Still deferred: the notification centre and the preference screens (no `apps/web` change here), and
+Still deferred: the notification centre and the preference screens (no `apps/web-worker` change here), and
 the `matter-number` detail level, which stays declared and renders as `counts-only` so a firm's
 stored ceiling is honoured at its most private reading rather than silently rewritten.

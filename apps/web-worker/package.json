@@ -5,12 +5,34 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "build": "vp build && wrangler deploy --dry-run --outdir dist",
+    "dev": "vp dev",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "prepare": "svelte-kit sync || echo ''",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
+  },
+  "dependencies": {
+    "@cloudflare/speedtest": "catalog:",
+    "@internationalized/date": "catalog:",
+    "@lucide/svelte": "catalog:",
+    "@magna-carta/design-system": "workspace:*",
+    "@magna-carta/design-tokens": "workspace:*",
+    "@magna-carta/merge-field-catalog-contract": "workspace:*",
+    "@magna-carta/tools": "workspace:*",
+    "better-auth": "catalog:"
   },
   "devDependencies": {
-    "@magna-carta/web": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@sveltejs/adapter-static": "catalog:",
+    "@sveltejs/kit": "catalog:",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "catalog:",
+    "tailwindcss": "catalog:",
     "wrangler": "catalog:"
   }
 }

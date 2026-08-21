@@ -1,7 +1,7 @@
 /*
  * Stylesheet-entry mirror pin.
  *
- * The catalog (.storybook/preview.css) and the app (apps/web/src/app.css) must build the SAME
+ * The catalog (.storybook/preview.css) and the app (apps/web-worker/src/app.css) must build the SAME
  * cascade — fonts, Tailwind layer declaration, tokens, Tailwind theme mapping, keyframes,
  * recipes, in that order — or the catalog reviews a different product than the one that ships.
  * The mirror is governed by comments in both files, but a comment cannot fail CI — this pin can.
@@ -24,9 +24,12 @@ function importSequence(css: string): string[] {
 }
 
 const previewCss = readFileSync(join(import.meta.dirname, "../.storybook/preview.css"), "utf-8");
-const appCss = readFileSync(join(import.meta.dirname, "../../../apps/web/src/app.css"), "utf-8");
+const appCss = readFileSync(
+  join(import.meta.dirname, "../../../apps/web-worker/src/app.css"),
+  "utf-8",
+);
 
-describe("apps/web/src/app.css mirrors .storybook/preview.css", () => {
+describe("apps/web-worker/src/app.css mirrors .storybook/preview.css", () => {
   it("imports the same stylesheets in the same order", () => {
     expect(importSequence(appCss)).toEqual(importSequence(previewCss));
   });

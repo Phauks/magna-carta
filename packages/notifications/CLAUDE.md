@@ -281,7 +281,7 @@ is not enforced.
   composes a firm ceiling with a member's choice and the digest pass calls it every run, but nothing
   in this package writes `notifications.emailDetailLevel` at either scope and no route reaches it — so
   every firm resolves the `counts-only` default forever. That is the same shape the firm's in-app
-  floor was in until `apps/worker/src/routes/firm-notification-policy.ts` shipped, and it is invisible
+  floor was in until `apps/api-worker/src/routes/firm-notification-policy.ts` shipped, and it is invisible
   to `pnpm run lint:unwired-writes` for the reason that gate states out loud: there is no write
   function to find a caller for. **Build both tiers together or neither.** A firm ceiling alone lets a
   firm raise what its members' mail carries with no member lever to lower it, which inverts the one
@@ -296,7 +296,7 @@ is not enforced.
   when the Email Service binding is absent — right for a password reset, catastrophic here: a
   summary resolved through it returns successfully having mailed nobody, and the run then records
   `sent` rows and advances the watermark, so the member never hears about those notifications again.
-  `apps/worker/src/notifications/digest-send-port.ts` answers `unavailable` with a closed reason
+  `apps/api-worker/src/notifications/digest-send-port.ts` answers `unavailable` with a closed reason
   instead, and the pass exits before reading a single firm.
 - **The digest run is HOURLY, and most of what it does is decline to run.** A summary lands in the
   firm's own morning, so the pass wakes every hour and asks each firm whether its local hour has come

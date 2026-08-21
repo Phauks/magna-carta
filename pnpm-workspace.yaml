@@ -19,7 +19,7 @@ onlyBuiltDependencies:
 catalog:
   # Toolchain
   vite-plus: 0.1.24
-  # Network Speed Test tool (apps/web). Cloudflare's own client-side measurement engine, on their
+  # Network Speed Test tool (apps/web-worker). Cloudflare's own client-side measurement engine, on their
   # default ladder, so the numbers are comparable to speed.cloudflare.com.
   "@cloudflare/speedtest": 1.13.0
   # The type-check compiler for the project-references build graph (`tsc -b tsconfig.build.json`).
@@ -36,9 +36,9 @@ catalog:
   "@cloudflare/vitest-pool-workers": 0.18.4
   # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
   "@cloudflare/containers": 0.3.7
-  # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
+  # vitest is declared by apps/api-worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
   vitest: 4.1.8
-  # API / Worker (apps/worker)
+  # API / Worker (apps/api-worker)
   # 4.12.34 fixed four security defects reachable from a Worker: JSX cross-request data disclosure,
   # a whitespace-tolerant CORS origin regex (ReDoS), a Language-middleware algorithmic-complexity DoS,
   # and response-header leakage in the proxy helper. Stay at or above it.
@@ -46,12 +46,12 @@ catalog:
   "@hono/zod-openapi": 1.5.1
   zod: 4.4.3
   # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
-  # OpenAPI document; Spectral lints the document and Prism mock-serves it (apps/worker devDeps).
+  # OpenAPI document; Spectral lints the document and Prism mock-serves it (apps/api-worker devDeps).
   "@hey-api/openapi-ts": 0.98.2
   "@stoplight/prism-cli": 5.16.0
   "@stoplight/spectral-cli": 6.16.3
   "@tanstack/svelte-query": 6.1.38
-  # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
+  # Auth (apps/api-worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
   # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
   better-auth: 1.6.22
   otpauth: 9.5.1
@@ -73,7 +73,7 @@ catalog:
   # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
   drizzle-orm: 0.45.2
   drizzle-kit: 0.31.10
-  # File Manager — uploads & bulk download (packages/file-manager, apps/worker).
+  # File Manager — uploads & bulk download (packages/file-manager, apps/api-worker).
   # aws4fetch: SigV4 presigning of R2's S3-compatible endpoint (single-key, single-method, short-TTL
   # signed URLs; bytes never transit the Worker). client-zip 2.x: streaming store-mode ZIP64 (no
   # buffering, >4 GiB bundles). file-type 22.x: magic-byte sniffing over the head bytes — the
@@ -83,7 +83,7 @@ catalog:
   file-type: 22.0.1
   # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
   "@faker-js/faker": 10.5.0
-  # Web (apps/web)
+  # Web (apps/web-worker)
   "@types/node": 26.1.2
   svelte: 5.56.2
   svelte-check: 4.6.0

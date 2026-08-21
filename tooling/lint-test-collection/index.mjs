@@ -79,7 +79,7 @@ const GATE_INVOCATIONS = [
     job: "test-node",
     command:
       "pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} " +
-      '"$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker" ' +
+      '"$PWD/packages" "$PWD/tooling" "$PWD/apps/web-worker" "$PWD/apps/bundle-worker" ' +
       '"$PWD/apps/convert-worker" "$PWD/apps/discovery-worker" "$PWD/apps/email-worker" ' +
       '"$PWD/apps/file-repair-worker" "$PWD/apps/edit-worker" "$PWD/apps/ocr-worker" ' +
       '"$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/search-worker" ' +
@@ -89,7 +89,7 @@ const GATE_INVOCATIONS = [
     job: "test-worker",
     command:
       "pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} " +
-      '"$PWD/apps/worker" "$PWD/apps/status-worker"',
+      '"$PWD/apps/api-worker" "$PWD/apps/status-worker"',
   },
   {
     job: "test-stories",

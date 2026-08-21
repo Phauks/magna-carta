@@ -92,7 +92,9 @@ describe("refusalReason", () => {
   it("allows a run started from a subdirectory of the script's own checkout", () => {
     const root = checkout("repo", { installed: true });
 
-    expect(refusalReason({ scriptRoot: root, invokedFrom: directory("repo/apps/web") })).toBeNull();
+    expect(
+      refusalReason({ scriptRoot: root, invokedFrom: directory("repo/apps/web-worker") }),
+    ).toBeNull();
   });
 
   it("allows a run whose caller directory is unknown rather than guessing a mismatch", () => {

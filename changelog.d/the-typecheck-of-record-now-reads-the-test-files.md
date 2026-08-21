@@ -5,7 +5,7 @@ audience: internal
 
 **The typecheck of record now reads the test files. Every graph member gains a generated,
 non-emitting `tsconfig.test.json` beside its `tsconfig.build.json`; the 53 errors that surfaced are
-fixed at the seam each one names, and `apps/worker` is deferred with its measurement rather than
+fixed at the seam each one names, and `apps/api-worker` is deferred with its measurement rather than
 quietly skipped.**
 
 **What was open.** The gap the previous pass measured and documented rather than closed: the member
@@ -44,14 +44,14 @@ annotation.
 **Three sibling workers were under-declaring what they contain, which is why their tests would not
 resolve.** `apps/status-worker` had no `worker-env.d.ts` — the file its seven sibling worker apps all
 carry — so `cloudflare:test` was unresolvable in its own tests; it has one now, plus the `?raw`
-declaration for the Wrangler-config read, in the `test/support/` shape `apps/worker` established.
+declaration for the Wrangler-config read, in the `test/support/` shape `apps/api-worker` established.
 `apps/scan-worker`'s shard test read its Wrangler config through `node:fs` in a package typed for
 workerd; it now imports the same text through `?raw`, which is both what the other workers do and
 closer to how the worker itself is built. `apps/sign-worker`'s `.wasm` ambient declaration lives in
 `src/`, which the generator now includes in the test project for exactly this reason.
 
 **One member is deferred, named, and measured — and the reason is not that it is big.**
-`@magna-carta/worker` gets its test project like everything else and is checkable on demand, but is
+`@magna-carta/api-worker` gets its test project like everything else and is checkable on demand, but is
 held out of the root solution by `DEFERRED_TEST_PROJECTS`, for two findings that only surfaced
 because the question was finally asked. **One file does not type-check at all**:
 `test/firm-database/firm-database-migration-partial-failure.test.ts` does not finish in 600 seconds

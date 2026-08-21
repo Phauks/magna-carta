@@ -81,7 +81,9 @@ const touchedRust = files.some((f) => f.startsWith("crates/") || f.endsWith(".rs
 // src/. The check costs ~2.6 s, cheap enough that widening the trigger to the package beats reasoning
 // about which file reaches the generator.
 const touchedSchemaPackage = files.some((f) => f.startsWith("packages/database/"));
-const touchedSvelteApp = files.some((f) => f.endsWith(".svelte") && f.startsWith("apps/web/"));
+const touchedSvelteApp = files.some(
+  (f) => f.endsWith(".svelte") && f.startsWith("apps/web-worker/"),
+);
 const touchedSvelteDs = files.some(
   (f) => f.endsWith(".svelte") && f.startsWith("packages/design-system/"),
 );
@@ -185,7 +187,7 @@ if (touchedSvelteApp) {
   steps.push({
     name: "svelte-check (web)",
     cmd: "pnpm",
-    args: ["--filter", "@magna-carta/web", "check"],
+    args: ["--filter", "@magna-carta/web-worker", "check"],
   });
 }
 if (touchedSvelteDs) {

@@ -14,7 +14,7 @@ row, attributable to nobody, editable in place, with no history and no reader be
 detail view. They are not a primitive; they are the symptom of one being absent. Corroborated three
 more ways: no `NoteId` among the 166 identifier types (this platform reserves handles before it builds
 things — `PortalGrantId` is reserved with no portal); no node describing a note anywhere in
-`roadmap.d/`; and `apps/web/src/lib/matters/sections.ts` already promising a Notes section at maturity
+`roadmap.d/`; and `apps/web-worker/src/lib/matters/sections.ts` already promising a Notes section at maturity
 stage `soon`, "dated, attributed, and searchable," over nothing. The `matter` table carries `closed_at`
 and no reason column of any kind, and the only later `ALTER TABLE matter` in the tree adds
 `system_key`.

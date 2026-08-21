@@ -94,7 +94,7 @@ describe("the embedding pin is open, and stays honest about it (fitness)", () =>
     // Self-check on the real file the stripper exists for. If this ever inverts, the scan below is
     // measuring something other than what it claims.
     const deferred = readFileSync(
-      join(repositoryRoot, "apps", "worker", "src", "search", "semantic-search.ts"),
+      join(repositoryRoot, "apps", "api-worker", "src", "search", "semantic-search.ts"),
       "utf8",
     );
     expect(deferred).toContain("VECTORIZE");

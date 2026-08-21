@@ -1,6 +1,6 @@
 /*
  * Self-hosted fonts (design language: faces are in-custody, OFL-licensed, never a font CDN).
- * Imported once by the app shell (apps/web app.css) and the catalog (.storybook/preview.css);
+ * Imported once by the app shell (apps/web-worker app.css) and the catalog (.storybook/preview.css);
  * the token stacks in @magna-carta/design-tokens name these families first and fall back to the
  * system stack until they load.
  *

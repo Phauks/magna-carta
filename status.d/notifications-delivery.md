@@ -76,7 +76,7 @@ password reset; catastrophic here, because the run would record `sent` rows and 
 for mail printed to a log, and the member would never hear about those notifications again. The
 digest port reports one of three typed not-configured reasons instead, counted every pass.
 
-**Not built, deliberately:** any `apps/web` change. An email template is not a screen, and the
+**Not built, deliberately:** any `apps/web-worker` change. An email template is not a screen, and the
 notification centre and the preference screens stay deferred; `docs/user/` says plainly that the
 digest cannot reach anybody until the firm's outbound mail is provisioned.
 

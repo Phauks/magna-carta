@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: the signed-out surface — sign-in copy, the quiet-link cursor, the chrome band's destinations
 status: building
-touches: apps/web/src/lib/auth, changelog.d
+touches: apps/web-worker/src/lib/auth, changelog.d
 ---
 
 Three owner corrections from the first live pass over the deployed site.

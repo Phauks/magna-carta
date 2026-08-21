@@ -9,7 +9,7 @@
   scope: Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   status: partial
   adrs: ADR-0018, ADR-0055
-  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources in TIMELINE_SOURCES), and thirty-three routes are built (packages/calendar, apps/worker/src/routes/calendar.ts registers thirty-three handlers); the only interface is the matter's own Calendar section, and there is no docketing computation (which is a deliberate position, not a gap).
+  evidence: The event and deadline model, firm events with an audience switch, resources and bookings with derived liveness, typed event links with chain-held continuance, the federated timeline (fourteen sources in TIMELINE_SOURCES), and thirty-three routes are built (packages/calendar, apps/api-worker/src/routes/calendar.ts registers thirty-three handlers); the only interface is the matter's own Calendar section, and there is no docketing computation (which is a deliberate position, not a gap).
   audience: public
   public-name: Calendar and deadlines
   public-summary: Hearings, deadlines, firm events and room bookings in one calendar, with every date on a matter visible as that matter's own timeline.
@@ -21,7 +21,7 @@
   surface: screen
   adrs: ADR-0055
   notes: The matter's Calendar section reads both records; recording from the screen still waits on the participant picker, so those actions render disabled. The firm-wide calendar screens remain their own slice.
-  evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte over the two listings.
+  evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web-worker/src/routes/(app)/matters/[id]/calendar/+page.svelte over the two listings.
 
 - id: calendar.timeline
   name: Matter timeline (federated)
@@ -47,7 +47,7 @@
   status: shipped
   surface: awaiting-screen
   notes: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams.
-  evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability and booking routes in apps/worker/src/routes/calendar.ts.
+  evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability and booking routes in apps/api-worker/src/routes/calendar.ts.
 
 - id: calendar.links-continuance
   name: Event links and continuance
@@ -63,7 +63,7 @@
   status: partial
   surface: screen
   notes: One screen of several. A month grid, a week view, an agenda list, and the firm-wide calendar are all still unbuilt, as is any way to record a date from a screen.
-  evidence: The matter's Calendar section at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte reads the matter's events and its deadlines, in every state, and reports which deadlines are past due. There is still no firm calendar route, and the reads a month grid and a week view consume are built and contract-emitted with nothing consuming them.
+  evidence: The matter's Calendar section at apps/web-worker/src/routes/(app)/matters/[id]/calendar/+page.svelte reads the matter's events and its deadlines, in every state, and reports which deadlines are past due. There is still no firm calendar route, and the reads a month grid and a week view consume are built and contract-emitted with nothing consuming them.
 
 - id: calendar.sync
   name: Two-way Google/Outlook sync

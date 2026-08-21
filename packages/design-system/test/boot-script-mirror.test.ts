@@ -1,7 +1,7 @@
 /*
  * Boot-script mirror pin.
  *
- * The inline no-FOUC boot script in apps/web/src/app.html duplicates the read+apply logic of
+ * The inline no-FOUC boot script in apps/web-worker/src/app.html duplicates the read+apply logic of
  * src/lib/internal/theme-preference.ts (it must run before first paint, so it cannot import the
  * module). That duplication is governed by the MIRROR RULE comment in both files, but a comment
  * cannot fail CI — this test can. It is a cheap mechanical pin: if either side renames a storage
@@ -24,9 +24,12 @@ import {
   THEME_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
-const appHtml = readFileSync(join(import.meta.dirname, "../../../apps/web/src/app.html"), "utf-8");
+const appHtml = readFileSync(
+  join(import.meta.dirname, "../../../apps/web-worker/src/app.html"),
+  "utf-8",
+);
 
-describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts", () => {
+describe("apps/web-worker/src/app.html inline boot script mirrors theme-preference.ts", () => {
   it("reads the same theme storage key", () => {
     expect(appHtml).toContain(`"${THEME_STORAGE_KEY}"`);
   });

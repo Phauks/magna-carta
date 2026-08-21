@@ -6,7 +6,7 @@ turn from being bulk content. Pure TypeScript on the structure-versus-access sea
 `@magna-carta/conflicts` / `@magna-carta/calendar` shape): no D1 binding, no Hono, no `env`, no
 Workers runtime type. It composes statements into `@magna-carta/data-access`'s effect batches and
 returns typed results rather than throwing for a business outcome. The routes, the queue consumer, the
-push transport, and the composition root live in `apps/worker/src/magnus/`.
+push transport, and the composition root live in `apps/api-worker/src/magnus/`.
 
 **White paper:** _AI / inference_, with _Tenancy and data isolation_ and _Observability &
 diagnostics_ — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
@@ -47,7 +47,7 @@ registered there; this file states what they mean for the code, not where they w
   there being exactly one place they are set, and a second place would fail silently. Enforced by the
   source scan in `test/one-model-port.test.ts`.
 - **The Durable Object holds no conversation content.** `MagnusConversation`
-  (`apps/worker/src/magnus/magnus-conversation.ts`) writes nothing to its own storage. It reads a
+  (`apps/api-worker/src/magnus/magnus-conversation.ts`) writes nothing to its own storage. It reads a
   turn's state back from the firm's database and pushes it, so exactly one copy of a transcript
   exists. That is what makes the retention posture enforceable rather than aspirational, and it is why
   a conversation-persisting agent framework was unusable here: such a framework writes history into
@@ -74,7 +74,7 @@ registered there; this file states what they mean for the code, not where they w
   **by design**: everything the firm or the platform needs to know about assistant spend comes from
   the in-repo record — the per-turn provenance columns and the shipped `token_usage_meter`.
 - **Both consent gates fail closed and are read in one place.** `resolveMagnusConsent` /
-  `resolveMagnusFirmGates` (`apps/worker/src/magnus/consent.ts`) is the only reader of
+  `resolveMagnusFirmGates` (`apps/api-worker/src/magnus/consent.ts`) is the only reader of
   `magnus.enabled` and `inference.aiProcessingEligibility`, so submission and execution can never
   disagree about whether the assistant is on. The consumer re-reads the firm gates before the model
   call; a gate that closed in between produces a `refused` turn with the `not-eligible` label, never a
@@ -93,7 +93,7 @@ registered there; this file states what they mean for the code, not where they w
   any surface that searches or collects across the firm's records must let the firm say whether
   transcripts are in scope — an explicit include-or-exclude, not a default either way. That control
   belongs to the discovery surface and lands with it; nothing in this package or in
-  `apps/worker/src/magnus/` exposes transcripts to a cross-record search today, and nothing here
+  `apps/api-worker/src/magnus/` exposes transcripts to a cross-record search today, and nothing here
   should start doing so without that control existing.
 - **Retention is not optional.** There is no per-conversation off-the-record mode, and there will not
   be one: the question "why was that one off the record" is worse than any answer. Deletion is the
@@ -104,8 +104,8 @@ registered there; this file states what they mean for the code, not where they w
 
 - Depends on `@magna-carta/data-access` (effect batches, the audit builder, cursor pagination, the
   firm-setting accessor), `@magna-carta/identifiers`, and `zod`. Nothing else.
-- Consumed by `apps/worker/src/routes/magnus.ts` (the surface), `apps/worker/src/magnus/` (consent,
-  the queue consumer, the push object), and `apps/worker/src/costs/recoverable-charge-consumer.ts`
+- Consumed by `apps/api-worker/src/routes/magnus.ts` (the surface), `apps/api-worker/src/magnus/` (consent,
+  the queue consumer, the push object), and `apps/api-worker/src/costs/recoverable-charge-consumer.ts`
   (the outbox topic hand-off).
 - Produces statements; the caller commits them. This package holds no database handle and crosses no
   firm.
@@ -128,6 +128,6 @@ registered there; this file states what they mean for the code, not where they w
   whose attachment lacks one — a confidentiality guard for the two surfaces that hand out signed URLs.
   A conversation has no artifact to sign, so relaxing that check to share the class would weaken it
   for both. The **frames** stay in the one home
-  (`apps/worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
+  (`apps/api-worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
 - **No user interface yet.** The feature is off by default and has no surface; the user-facing
   disclosure text and the enablement guide land with the interface slice.

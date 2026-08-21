@@ -36,10 +36,10 @@ describe("reachesTypeGraph", () => {
 
   for (const file of [
     "packages/ledger/src/post-entry.ts",
-    "apps/web/src/routes/+page.svelte",
+    "apps/web-worker/src/routes/+page.svelte",
     "tooling/platform-seal-certificate/index.mts",
     "packages/database/src/schema.cts",
-    "apps/worker/scripts/emit-openapi.mts",
+    "apps/api-worker/scripts/emit-openapi.mts",
     "packages/money/package.json",
     "packages/money/tsconfig.build.json",
     "tsconfig.base.json",

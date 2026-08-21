@@ -39,7 +39,7 @@ holds no data access, no network calls, and no assembly logic.
 ## Dependencies & contracts
 
 - No runtime dependencies. Pure TypeScript types and data.
-- Consumed by `@magna-carta/web` (the assembly input area) and by the design-system stories, which
+- Consumed by `@magna-carta/web-worker` (the assembly input area) and by the design-system stories, which
   adapt entries into the components' own structural option shape rather than importing this package
   into the design system.
 - The live provider will call the merge-field dictionary and template-fields endpoints once those

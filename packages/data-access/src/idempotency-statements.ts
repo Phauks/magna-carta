@@ -87,7 +87,7 @@ export function idempotencyRecordInsertStatement(
 }
 
 // TTL purge: the record is ephemeral dedup state, not the record of truth. The schedule
-// (Cron) lives with apps/worker; the cutoff is an ISO-8601 instant.
+// (Cron) lives with apps/api-worker; the cutoff is an ISO-8601 instant.
 export function purgeExpiredIdempotencyRecordsStatement(
   database: SqlDatabase,
   olderThan: string,

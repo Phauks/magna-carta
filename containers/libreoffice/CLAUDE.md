@@ -7,7 +7,7 @@ on :8080) plus a pool of long-lived worker child processes, each of which loads 
 
 **Worker side:** `apps/convert-worker/src/libreoffice-engine-container.ts` (the
 `LibreOfficeEngineContainer` Durable Object), `apps/convert-worker/src/engine-dispatch.ts`, and
-`apps/worker/src/conversions/conversion-engine.ts` (the app-worker adapter that reaches this engine
+`apps/api-worker/src/conversions/conversion-engine.ts` (the app-worker adapter that reaches this engine
 over the `CONVERT` service binding). **Deploy:**
 [`docs/conventions/operations.md`](../../docs/conventions/operations.md) and
 [`docs/deploy-queue.md`](../../docs/deploy-queue.md).

@@ -137,13 +137,13 @@ describe("unregisteredInvocations — the workflow must hold no test job this li
 describe("listArgumentsFor — a workflow command as a list-only selection", () => {
   const command =
     "pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} " +
-    '"$PWD/packages" "$PWD/apps/web"';
+    '"$PWD/packages" "$PWD/apps/web-worker"';
 
   it("drops the runner prefix and the shard, unquotes, and resolves $PWD", () => {
     expect(listArgumentsFor(command, "/repo/")).toEqual([
       "--project=!storybook",
       "/repo/packages",
-      "/repo/apps/web",
+      "/repo/apps/web-worker",
     ]);
   });
 
@@ -152,7 +152,7 @@ describe("listArgumentsFor — a workflow command as a list-only selection", () 
     // reproduce the very truncation it exists to prevent.
     const printed = runnableCommand(command, "/repo/");
     expect(printed).toBe(
-      `pnpm exec vp test run --project='!storybook' "/repo/packages" "/repo/apps/web"`,
+      `pnpm exec vp test run --project='!storybook' "/repo/packages" "/repo/apps/web-worker"`,
     );
     // No un-runnable `--shard=0/0`, and every positional survives.
     expect(printed).not.toContain("--shard");

@@ -1,6 +1,6 @@
 /*
  * The catalog's one stylesheet — the Tailwind v4 entry for Storybook's Vite.
- * MIRRORS apps/web/src/app.css: same imports, same order, because order matters:
+ * MIRRORS apps/web-worker/src/app.css: same imports, same order, because order matters:
  *   1. Tailwind v4 (declares the theme/base/components/utilities cascade layers),
  *   2. token custom properties (per theme-and-mode, scoped by [data-theme] + .dark),
  *   3. the @theme mapping that turns semantic tokens into Tailwind utilities,

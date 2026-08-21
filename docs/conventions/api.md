@@ -1,6 +1,6 @@
 # API conventions
 
-**Status:** Active — toolchain decided (ADR-0066/ADR-0067), **empirically validated** by the Phase 0 spike (2026-06-09; its emission guards retained as `apps/worker/test/openapi-emission.test.ts`), and **built** in slice 0·5 ([`ROADMAP.md`](../../ROADMAP.md)): the chokepoint, the committed OpenAPI snapshot, the conformance fitness suite, the CI contract gates, and the generated client are all live. The operational surface is documented below.
+**Status:** Active — toolchain decided (ADR-0066/ADR-0067), **empirically validated** by the Phase 0 spike (2026-06-09; its emission guards retained as `apps/api-worker/test/openapi-emission.test.ts`), and **built** in slice 0·5 ([`ROADMAP.md`](../../ROADMAP.md)): the chokepoint, the committed OpenAPI snapshot, the conformance fitness suite, the CI contract gates, and the generated client are all live. The operational surface is documented below.
 
 **Scope (single home for):** how HTTP APIs are defined, evolved, and consumed — the contract toolchain, versioning, error shape, and internal vs. public calls. The implementation-grade design (route-metadata model, chokepoint order, auth surfaces, pagination, CI pipeline) lives in the spec: [`docs/specs/2026-06-04-api-contract-design.md`](../specs/2026-06-04-api-contract-design.md) — this file states the working rules and what the spike verified, and does not restate that design.
 
@@ -32,26 +32,26 @@
 1. **`operationId` must be set natively, not only as `x-mc-operationId`** — Hey API falls back to path-derived names (`getApiV1Matters`) otherwise. Derive the OpenAPI `operationId` from `RouteMeta.operationId` at route-registration time so SDK methods get stable domain names.
 2. **Spectral's default ruleset flags missing `servers`, `info.contact`/`description`, `operation-description`/`tags`** — the slice 0·5 emission config populates these; the custom ruleset then adds the `x-mc-*` conformance assertions (spec, fitness functions).
 3. **Hey API config:** plain-object config file (`openapi-ts.config.mjs`); importing `defineConfig` from `@hey-api/openapi-ts` fails under its jiti config loader (`ERR_PACKAGE_PATH_NOT_EXPORTED`).
-4. The emission-contract guard suite stays in the tree (`apps/worker/test/openapi-emission.test.ts`) — a library bump that breaks any emission claim fails the build. (Originally the Phase 0 spike's suite; retained as a permanent guard after the throwaway spike app was removed.)
+4. The emission-contract guard suite stays in the tree (`apps/api-worker/test/openapi-emission.test.ts`) — a library bump that breaks any emission claim fails the build. (Originally the Phase 0 spike's suite; retained as a permanent guard after the throwaway spike app was removed.)
 
 ## Pipeline operations (slice 0·5, built)
 
-**The committed snapshot is the source of truth — never hand-edit it.** `apps/worker/openapi/openapi.json` is generated; CI re-derives it and fails on any drift. To change the contract, change the routes, then regenerate.
+**The committed snapshot is the source of truth — never hand-edit it.** `apps/api-worker/openapi/openapi.json` is generated; CI re-derives it and fails on any drift. To change the contract, change the routes, then regenerate.
 
-| Command                                                                  | What it does                                                                                                      |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `pnpm --filter @magna-carta/worker run emit-openapi`                     | Re-emit the snapshot (`apps/worker/openapi/openapi.json`) — run after any route change.                           |
-| `pnpm run generate-client`                                               | Regenerate the committed Hey API + Svelte Query client (`packages/api-client/src`) from the snapshot.             |
-| `pnpm --filter @magna-carta/worker exec prism mock openapi/openapi.json` | Serve a mock backend from the snapshot (frontend/plugin consumers mock from the snapshot, not a running backend). |
+| Command                                                                      | What it does                                                                                                      |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @magna-carta/api-worker run emit-openapi`                     | Re-emit the snapshot (`apps/api-worker/openapi/openapi.json`) — run after any route change.                       |
+| `pnpm run generate-client`                                                   | Regenerate the committed Hey API + Svelte Query client (`packages/api-client/src`) from the snapshot.             |
+| `pnpm --filter @magna-carta/api-worker exec prism mock openapi/openapi.json` | Serve a mock backend from the snapshot (frontend/plugin consumers mock from the snapshot, not a running backend). |
 
-The snapshot is built through a programmatic Vite SSR pipeline (`apps/worker/scripts/emit-openapi.mts`), not plain Node: the worker route graph is bundler-targeted (extensionless imports, `.sql` text modules, attribute-less `.json`) and never loads under plain Node ESM. The document's root `tags` are derived from the operations in a shared emit helper used by both the snapshot and the live `/api/openapi.json` route, so the two never diverge (a test asserts the running Worker serves the committed document).
+The snapshot is built through a programmatic Vite SSR pipeline (`apps/api-worker/scripts/emit-openapi.mts`), not plain Node: the worker route graph is bundler-targeted (extensionless imports, `.sql` text modules, attribute-less `.json`) and never loads under plain Node ESM. The document's root `tags` are derived from the operations in a shared emit helper used by both the snapshot and the live `/api/openapi.json` route, so the two never diverge (a test asserts the running Worker serves the committed document).
 
 **CI contract gates** (`.github/workflows/ci.yml`, all under `pnpm check` or dedicated steps): snapshot drift (`emit-openapi` + `git diff --exit-code`), generated-client drift (`generate-client` + `git diff`), Spectral hygiene lint (`--fail-severity warn`), oasdiff breaking-change (PR-only, vs the base branch's committed snapshot, `fail-on ERR`, `review: false` so the contract never leaves CI; skipped on first introduction when the base has no snapshot), and a Prism mock smoke (`curl /api/v1/me` → 2xx).
 
 - **`PUBLIC_ALLOW_LIST` policy.** A route may declare `authenticated: false` only if it has an entry (with a justification) in the allow-list in `test/conformance.test.ts`; the §3.5 fitness function fails CI otherwise — no route is silently public. `firms.provision` is `surface: "public"` + `authenticated: true` (the platform-admin-key exception), so it needs no allow-list entry.
 - **Permission-namespace binding.** The conformance suite binds a route's permission namespace to its `x-mc-resource` (the subsystem the permission governs), not the operationId tag — route modules `members`/`firms` both belong to the `firm` subsystem. Holds under the registry's `<subsystem>:<action>` convention; a future permission whose subsystem diverges from its resource must revisit it.
 - **Rate-limiter limitation.** The Phase 0 limiter is per-isolate in-memory (resets on eviction, not shared across isolates) behind the `RateLimiter` seam; a distributed Durable-Objects/KV adapter fits the same async interface without a breaking change. The chokepoint position and the 429 problem shape are the contract locked now.
-- **Problem-type registry.** `apps/worker/src/contracts/problem-types.ts` — `problemType(key)` → `https://api.magnacarta.esq/problems/<key>`; an unknown key is a compile error. The committed slugs are the public contract URIs (the snapshot locks them): `validation`, `unauthenticated`, `permission-denied`, `not-found`, `idempotency-key-missing`/`-conflict`/`-fingerprint-mismatch`, `rate-limited`, `conflict`, `email-in-use`.
+- **Problem-type registry.** `apps/api-worker/src/contracts/problem-types.ts` — `problemType(key)` → `https://api.magnacarta.esq/problems/<key>`; an unknown key is a compile error. The committed slugs are the public contract URIs (the snapshot locks them): `validation`, `unauthenticated`, `permission-denied`, `not-found`, `idempotency-key-missing`/`-conflict`/`-fingerprint-mismatch`, `rate-limited`, `conflict`, `email-in-use`.
 - **`defaultHook` reflection posture.** `defaultHook` reflects a Zod `issue.message` into `errors[].detail` on a 422, so **no secret-bearing field may be validated through the body/query/header validators** — a future secret-bearing schema field could leak its value back to the caller on a validation failure. Validate secrets out of band.
 
 ## Push progress over WebSocket
@@ -75,7 +75,7 @@ Durable Object pushes state down. The rules:
 - **A plain request to a subscribe endpoint is `426`** with the `websocket-upgrade-required` problem
   type, whose `detail` names the poll endpoint.
 - WebSocket framing is outside OpenAPI's model, so the frame contract is documented in the route's
-  `description` and in `apps/worker/src/progress/job-progress-protocol.ts` — that module is the one
+  `description` and in `apps/api-worker/src/progress/job-progress-protocol.ts` — that module is the one
   home for it. Bump `JOB_PROGRESS_PROTOCOL_VERSION` on any incompatible frame change.
 
 Implementations: `downloads.bundleEvents` and `conversions.events`.

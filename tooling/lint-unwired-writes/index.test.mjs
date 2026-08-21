@@ -109,7 +109,7 @@ describe("what counts as a reference", () => {
     const counts = countReferences(
       new Map([
         ["packages/x/src/y.ts", "export function insertThing() {}\n"],
-        ["apps/worker/src/route.ts", 'import { insertThing } from "x";\ninsertThing();\n'],
+        ["apps/api-worker/src/route.ts", 'import { insertThing } from "x";\ninsertThing();\n'],
       ]),
       definitions,
     );
@@ -120,7 +120,7 @@ describe("what counts as a reference", () => {
     const counts = countReferences(
       new Map([
         ["packages/x/src/y.ts", "export function insertThing() {}\n"],
-        ["apps/worker/src/route.ts", "insertThingElse();\nmyInsertThing();\n"],
+        ["apps/api-worker/src/route.ts", "insertThingElse();\nmyInsertThing();\n"],
       ]),
       definitions,
     );
@@ -131,14 +131,14 @@ describe("what counts as a reference", () => {
 describe("test paths, which are the whole point of the scan", () => {
   it("recognizes both layouts the repository uses", () => {
     expect(isTestPath("packages/notifications/test/preferences.test.ts")).toBe(true);
-    expect(isTestPath("apps/worker/test/support/test-auth.ts")).toBe(true);
+    expect(isTestPath("apps/api-worker/test/support/test-auth.ts")).toBe(true);
     expect(isTestPath("packages/x/src/thing.test.ts")).toBe(true);
-    expect(isTestPath("apps/worker/test/directory-e2e.test.ts")).toBe(true);
+    expect(isTestPath("apps/api-worker/test/directory-e2e.test.ts")).toBe(true);
     expect(isTestPath("packages/x/src/__mocks__/thing.ts")).toBe(true);
   });
 
   it("does not mistake production code for a test", () => {
-    expect(isTestPath("apps/worker/src/routes/firm-notification-policy.ts")).toBe(false);
+    expect(isTestPath("apps/api-worker/src/routes/firm-notification-policy.ts")).toBe(false);
     expect(isTestPath("packages/notifications/src/preferences.ts")).toBe(false);
     // A directory whose name merely starts with "test" is not the test directory.
     expect(isTestPath("packages/x/src/testing-utilities.ts")).toBe(false);

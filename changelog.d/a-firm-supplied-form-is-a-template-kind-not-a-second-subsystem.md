@@ -33,7 +33,7 @@ recorded, and a non-boolean value bound to a tick box or a value outside a drop-
 reported absence rather than a guess.
 
 **Flatten-or-not is left open as a typed seam.** `FormFillFinish` is a required parameter on the fill;
-the platform's one answer is a named constant in `apps/worker/src/assemblies/pdf-form-engine.ts`, set to
+the platform's one answer is a named constant in `apps/api-worker/src/assemblies/pdf-form-engine.ts`, set to
 `interactive` while the owner decision stands open, because flattening is irreversible.
 
 Also: `crates/pdf-core`'s `FormField` gains `required` (`/Ff` bit 2, inherited down the field tree), which

@@ -11,7 +11,7 @@
 -- from the baseline's member-rbac seed.
 
 -- ---------------------------------------------------------------------------------------------
--- The co-editing surface. apps/worker/src/editing enforces four keys at the chokepoint, and none of
+-- The co-editing surface. apps/api-worker/src/editing enforces four keys at the chokepoint, and none of
 -- them was reachable: the editor launch, the offline checkout and its check-in, the divergent-copy
 -- reconciliation, and the force-release of another member's lock all answered 403 to every member
 -- of every firm.

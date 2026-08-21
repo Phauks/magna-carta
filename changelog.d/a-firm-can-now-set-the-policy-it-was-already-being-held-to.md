@@ -18,7 +18,7 @@ returned the default forever and the tests that covered the floor inserted the r
 a detail.** The member preference route rides `notifications:read`, which is deliberately seeded to
 every default role including Read-only, because reading one's own feed is not a privilege. Reusing it
 for the firm tier would have meant any member of any firm could raise the floor for all their
-colleagues and shorten the whole firm's retention window — `apps/worker/test/firm-notification-policy-routes.test.ts`
+colleagues and shorten the whole firm's retention window — `apps/api-worker/test/firm-notification-policy-routes.test.ts`
 seeds exactly that member and asserts 403 on both verbs, and swapping the route's permission back to
 the member key was watched to turn both red with `expected 200 to be 403`.
 

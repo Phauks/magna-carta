@@ -8,7 +8,7 @@ touches: docs/specs, docs/decisions/pending, docs/conventions/operations.md, cha
 Design only, no product code. The owner asked for the split to be specced after a ten-minute rebuild
 for a one-line interface change.
 
-The finding that made it possible is a correction rather than an invention: `apps/web` imports none of
+The finding that made it possible is a correction rather than an invention: `apps/web-worker` imports none of
 the WebAssembly packages, so the interface build is separable from the three Docker Rust builds. The
 deploy runbook had claimed otherwise since 2026-06-28, and that claim is why the question stayed shut.
 

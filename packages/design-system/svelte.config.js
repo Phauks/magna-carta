@@ -1,6 +1,6 @@
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
-// Plain Svelte package config (no SvelteKit — mirrors apps/web/svelte.config.js minus `kit`).
+// Plain Svelte package config (no SvelteKit — mirrors apps/web-worker/svelte.config.js minus `kit`).
 // Required: without a package-level svelte config, svelte-check walks up to the repo-root
 // vite.config.ts and fails ("No Svelte configuration found in vite config"), and Storybook's
 // vite-plugin-svelte logs a "no Svelte config found" fallback on every boot. vitePreprocess
