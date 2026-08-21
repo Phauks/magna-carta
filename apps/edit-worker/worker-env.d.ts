@@ -10,5 +10,3 @@ declare global {
     interface Env extends Bindings {}
   }
 }
-
-export {};
