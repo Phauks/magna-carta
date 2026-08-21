@@ -35,7 +35,7 @@ import {
 import {
   addContingencyFeeToDraft,
   readContingencyResidual,
-  readMatterRecoveries,
+  readMatterRecoveriesPage,
   recordMatterRecovery,
   voidMatterRecovery,
 } from "@magna-carta/billing/contingency";
@@ -47,11 +47,11 @@ import {
 } from "@magna-carta/billing/credit-note";
 import { recordInvoiceDelivery } from "@magna-carta/billing/delivery";
 import {
-  readCreditNoteLines,
-  readCreditNotesForInvoice,
+  readCreditNoteLinesForNotes,
+  readCreditNotesForInvoicePage,
   readInvoiceDeliveries,
   readInvoiceDeliveryState,
-  readOpenClientCreditsForClient,
+  readOpenClientCreditsForClientPage,
 } from "@magna-carta/billing/statements";
 import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
 import {
@@ -91,6 +91,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -495,6 +496,7 @@ const RecoveryListResponse = z
         voidReason: z.string().nullable(),
       }),
     ),
+    nextCursor: z.string().nullable(),
   })
   .openapi("BillingRecoveryListResponse");
 
@@ -671,6 +673,7 @@ const CreditNoteListResponse = z
         ),
       }),
     ),
+    nextCursor: z.string().nullable(),
   })
   .openapi("BillingCreditNoteListResponse");
 
@@ -701,6 +704,7 @@ const ClientCreditListResponse = z
         openedAt: z.string(),
       }),
     ),
+    nextCursor: z.string().nullable(),
   })
   .openapi("BillingClientCreditListResponse");
 
@@ -772,6 +776,9 @@ const DeliveryListResponse = z
         recordedAt: z.string(),
       }),
     ),
+    // Capped, not paged: the attempt order is a three-column composite the platform's cursor cannot
+    // carry. See readInvoiceDeliveries in packages/billing/src/statements.ts.
+    capped: z.boolean(),
   })
   .openapi("BillingDeliveryListResponse");
 
@@ -1325,8 +1332,8 @@ const listRecoveriesRoute = defineOpenAPIRoute(readMeta("billing.listRecoveries"
   method: "get",
   path: "/api/v1/billing/matters/{matterId}/recoveries",
   description:
-    "The recoveries recorded on a matter, voided ones included — a voided recovery stays readable with the reason it was wrong.",
-  request: { params: matterParam },
+    "The recoveries recorded on a matter, oldest first, voided ones included — a voided recovery stays readable with the reason it was wrong. One page at a time; the contingency fee is derived from every recovery on the matter, never from a page of them.",
+  request: { params: matterParam, query: cursorQuery },
   responses: {
     200: {
       description: "The matter's recoveries",
@@ -1536,8 +1543,8 @@ const listCreditNotesRoute = defineOpenAPIRoute(readMeta("billing.listCreditNote
   method: "get",
   path: "/api/v1/billing/invoices/{invoiceId}/credit-notes",
   description:
-    "Every credit note issued against one bill, with its lines. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
-  request: { params: invoiceParam },
+    "Every credit note issued against one bill, with its lines, oldest first and one page at a time. A note is never edited or withdrawn once issued, so this is the complete correction history of that bill.",
+  request: { params: invoiceParam, query: cursorQuery },
   responses: {
     200: {
       description: "The bill's credit notes",
@@ -1570,8 +1577,8 @@ const clientCreditsRoute = defineOpenAPIRoute(readMeta("billing.clientCredits"),
   method: "get",
   path: "/api/v1/billing/clients/{clientEntityId}/credits",
   description:
-    "What the firm still owes one client back, across all of their matters. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
-  request: { params: clientParam },
+    "What the firm still owes one client back, across all of their matters, oldest first and one page at a time. A credit is open until it has been given back in full; how much is left is worked out from what has been set against later bills rather than stored, so it can never disagree with those records.",
+  request: { params: clientParam, query: cursorQuery },
   responses: {
     200: {
       description: "The client's open credits",
@@ -2392,10 +2399,16 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
-      const recoveries = await readMatterRecoveries(firm.firmDatabase, matterId);
+      const { cursor } = c.req.valid("query");
+      const page = await readMatterRecoveriesPage(
+        firm.firmDatabase,
+        matterId,
+        cursor === undefined ? {} : { cursor },
+      );
       return c.json(
         {
-          data: recoveries.map((recovery) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((recovery) => ({
             id: recovery.id,
             amountMinor: recovery.amountMinor,
             currency: recovery.currency,
@@ -2708,10 +2721,21 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { invoiceId } = c.req.valid("param");
-      const notes = await readCreditNotesForInvoice(firm.firmDatabase, invoiceId);
+      const { cursor } = c.req.valid("query");
+      const page = await readCreditNotesForInvoicePage(
+        firm.firmDatabase,
+        invoiceId,
+        cursor === undefined ? {} : { cursor },
+      );
+      // One read for the whole page's lines rather than one per note: the page bounds the
+      // identifier list, so what was an N+1 whose length the bill chose is now two reads.
+      const linesByNote = await readCreditNoteLinesForNotes(
+        firm.firmDatabase,
+        page.data.map((note) => note.id),
+      );
       const data = [];
-      for (const note of notes) {
-        const lines = await readCreditNoteLines(firm.firmDatabase, note.id);
+      for (const note of page.data) {
+        const lines = linesByNote.get(note.id) ?? [];
         data.push({
           id: note.id,
           reason: note.reason,
@@ -2774,6 +2798,8 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { invoiceId } = c.req.valid("param");
       const attempts = await readInvoiceDeliveries(firm.firmDatabase, invoiceId);
+      // The cap's signal, beside the state summary rather than inside it: the state is derived from
+      // every attempt the bill carries, the list is the ones this response could hold.
       const state = await readInvoiceDeliveryState(firm.firmDatabase, invoiceId);
       return c.json(
         {
@@ -2784,7 +2810,8 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
             failedAttemptCount: state.failedAttemptCount,
             lastAttemptOn: state.lastAttemptOn,
           },
-          data: attempts.map((attempt) => ({
+          capped: attempts.capped,
+          data: attempts.rows.map((attempt) => ({
             id: attempt.id,
             channel: attempt.channel,
             recipientReference: attempt.recipientReference,
@@ -2842,10 +2869,16 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { clientEntityId } = c.req.valid("param");
-      const credits = await readOpenClientCreditsForClient(firm.firmDatabase, clientEntityId);
+      const { cursor } = c.req.valid("query");
+      const page = await readOpenClientCreditsForClientPage(
+        firm.firmDatabase,
+        clientEntityId,
+        cursor === undefined ? {} : { cursor },
+      );
       return c.json(
         {
-          data: credits.map((credit) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((credit) => ({
             id: credit.id,
             matterId: credit.matterId,
             creditNoteId: credit.creditNoteId,

@@ -1,3 +1,10 @@
+import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+  keysetClause,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   BillingArrangementId,
@@ -659,18 +666,59 @@ function toCreditNoteSnapshot(row: CreditNoteRow): CreditNoteSnapshot {
   };
 }
 
+const CREDIT_NOTE_COLUMNS = "id, invoice_id, currency, reason, effective_date, entry_id, issued_at";
+
 export async function readCreditNotesForInvoice(
   database: SqlDatabase,
   invoiceId: InvoiceId,
 ): Promise<CreditNoteSnapshot[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, invoice_id, currency, reason, effective_date, entry_id, issued_at
-         FROM credit_note WHERE invoice_id = ?1 ORDER BY issued_at, id`,
+      `SELECT ${CREDIT_NOTE_COLUMNS} FROM credit_note WHERE invoice_id = ?1 ORDER BY issued_at, id`,
     )
     .bind(invoiceId)
     .all<CreditNoteRow>();
   return results.map(toCreditNoteSnapshot);
+}
+
+/**
+ * One page of a bill's credit notes, oldest first.
+ *
+ * Ascending, because this is the correction HISTORY of one bill and a history is read forwards. A
+ * note is never edited or withdrawn once issued, so the order is stable and a cursor over it never
+ * revisits a row whose sort key moved.
+ */
+export async function readCreditNotesForInvoicePage(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<CreditNoteSnapshot>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const bindings: unknown[] = [invoiceId];
+  const cursorClause = keysetClause(
+    bindings,
+    decodeCursor(options.cursor),
+    "issued_at",
+    "id",
+    true,
+  );
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+  const { results } = await database
+    .prepare(
+      `SELECT ${CREDIT_NOTE_COLUMNS} FROM credit_note WHERE invoice_id = ? ` +
+        cursorClause +
+        `ORDER BY issued_at, id LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<CreditNoteRow>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(toCreditNoteSnapshot),
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.issued_at, last.id) : null,
+  };
 }
 
 export interface CreditNoteLineSnapshot {
@@ -708,7 +756,11 @@ export async function readCreditNoteLines(
     )
     .bind(creditNoteId)
     .all<CreditNoteLineRow>();
-  return results.map((row) => ({
+  return results.map(toCreditNoteLineSnapshot);
+}
+
+function toCreditNoteLineSnapshot(row: CreditNoteLineRow): CreditNoteLineSnapshot {
+  return {
     id: row.id as CreditNoteLineId,
     creditNoteId: row.credit_note_id as CreditNoteId,
     lineIndex: row.line_index,
@@ -718,7 +770,44 @@ export async function readCreditNoteLines(
     amountMinor: row.amount_minor,
     currency: row.currency,
     creditsInvoiceLineId: (row.credits_invoice_line_id as InvoiceLineId | null) ?? null,
-  }));
+  };
+}
+
+/**
+ * The lines of several credit notes in ONE read, grouped by the note they belong to.
+ *
+ * The list surface renders a note with its lines, and reading them note by note is an N+1 whose
+ * length the caller does not control. The page bounds the identifier list, so a single `IN (...)`
+ * answers the whole page — and the page size is far below `MAX_BOUND_PARAMETERS`, which is the
+ * ceiling that would otherwise make a value list its own unbounded thing.
+ */
+export async function readCreditNoteLinesForNotes(
+  database: SqlDatabase,
+  creditNoteIds: readonly CreditNoteId[],
+): Promise<Map<CreditNoteId, CreditNoteLineSnapshot[]>> {
+  const grouped = new Map<CreditNoteId, CreditNoteLineSnapshot[]>();
+  if (creditNoteIds.length === 0) return grouped;
+  if (creditNoteIds.length > MAX_BOUND_PARAMETERS) {
+    throw new Error(
+      `readCreditNoteLinesForNotes was given ${String(creditNoteIds.length)} credit notes, past the ` +
+        `${String(MAX_BOUND_PARAMETERS)} bound-parameter ceiling: call it with one page at a time`,
+    );
+  }
+  const placeholders = creditNoteIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT id, credit_note_id, line_index, matter_id, kind, description, amount_minor, currency, credits_invoice_line_id
+         FROM credit_note_line WHERE credit_note_id IN (${placeholders}) ORDER BY credit_note_id, line_index`,
+    )
+    .bind(...creditNoteIds)
+    .all<CreditNoteLineRow>();
+  for (const row of results) {
+    const noteId = row.credit_note_id as CreditNoteId;
+    const lines = grouped.get(noteId) ?? [];
+    lines.push(toCreditNoteLineSnapshot(row));
+    grouped.set(noteId, lines);
+  }
+  return grouped;
 }
 
 export interface ClientCreditSnapshot {
@@ -790,6 +879,48 @@ export async function readOpenClientCreditsForClient(
     .bind(clientEntityId)
     .all<ClientCreditRow>();
   return results.map(toClientCreditSnapshot);
+}
+
+/**
+ * One page of what the firm still owes a client back, oldest first.
+ *
+ * Ascending, because a credit is discharged against later bills and the oldest open one is the one
+ * a person reaches for first. Open is derived, not stored — `discharged_minor < amount_minor` — so
+ * a credit leaves this list by being given back rather than by a flag somebody has to remember to
+ * set, and the keyset rides `opened_at`, which never moves.
+ */
+export async function readOpenClientCreditsForClientPage(
+  database: SqlDatabase,
+  clientEntityId: string,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<ClientCreditSnapshot>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const bindings: unknown[] = [clientEntityId];
+  const cursorClause = keysetClause(
+    bindings,
+    decodeCursor(options.cursor),
+    "opened_at",
+    "id",
+    true,
+  );
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+  const { results } = await database
+    .prepare(
+      `SELECT ${CLIENT_CREDIT_COLUMNS} FROM client_credit
+        WHERE client_entity_id = ? AND discharged_minor < amount_minor ` +
+        cursorClause +
+        `ORDER BY opened_at, id LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<ClientCreditRow>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(toClientCreditSnapshot),
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.opened_at, last.id) : null,
+  };
 }
 
 export async function readOpenClientCreditsForMatter(
@@ -1250,18 +1381,46 @@ function toInvoiceDeliverySnapshot(row: InvoiceDeliveryRow): InvoiceDeliverySnap
 
 // Every attempt on one bill, oldest first — the complete delivery history, which is what it has to be
 // because a failed attempt followed by a successful one is a different story from either alone.
+export interface InvoiceDeliveryPage {
+  readonly rows: InvoiceDeliverySnapshot[];
+  /** True when the bill carries more attempts than the requested limit returned. */
+  readonly capped: boolean;
+}
+
+/**
+ * A bill's delivery attempts, oldest first, CAPPED with a signal rather than cursor-paged.
+ *
+ * The ordering is the reason. `delivery_date` is a civil date and two attempts on one day are
+ * ordinary — an email in the morning and a posted copy in the afternoon — so `recorded_at` sits
+ * between it and the identifier to keep same-day attempts in the order a person recorded them. That
+ * is a THREE-column sort key, and the platform's cursor carries two: paging it would mean either
+ * forking the opaque wire encoding or dropping `recorded_at` from the order, which would scramble
+ * same-day attempts into identifier order and lose the fact a reader is looking for.
+ *
+ * The cap is safe here in a way it would not be on a growing ledger: the read is fronted by
+ * `readInvoiceDeliveryState`, which answers "has this bill been given to the client" from three
+ * aggregates without touching this list at all, so the list is the detail behind an answer already
+ * given. What it was missing is the signal — a bill chased twenty times must not read like a bill
+ * chased fifty and cut at twenty.
+ */
 export async function readInvoiceDeliveries(
   database: SqlDatabase,
   invoiceId: InvoiceId,
-): Promise<InvoiceDeliverySnapshot[]> {
+  limit: number = DEFAULT_PAGE_SIZE,
+): Promise<InvoiceDeliveryPage> {
   const { results } = await database
     .prepare(
       `SELECT id, invoice_id, channel, recipient_reference, delivery_date, external_reference, outcome, recorded_by, recorded_at
-         FROM invoice_delivery WHERE invoice_id = ?1 ORDER BY delivery_date, recorded_at, id`,
+         FROM invoice_delivery WHERE invoice_id = ?1 ORDER BY delivery_date, recorded_at, id LIMIT ?2`,
     )
-    .bind(invoiceId)
+    // One over the cap as the has-more probe; it is never returned.
+    .bind(invoiceId, limit + 1)
     .all<InvoiceDeliveryRow>();
-  return results.map(toInvoiceDeliverySnapshot);
+  const capped = results.length > limit;
+  return {
+    capped,
+    rows: (capped ? results.slice(0, limit) : results).map(toInvoiceDeliverySnapshot),
+  };
 }
 
 // THE ANSWER TO "HAS THIS BILL BEEN GIVEN TO THE CLIENT", reduced to the three facts a surface needs

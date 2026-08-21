@@ -1,4 +1,12 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+  keysetClause,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -70,18 +78,67 @@ function toRecoverySnapshot(row: MatterRecoveryRow): MatterRecoverySnapshot {
   };
 }
 
+const RECOVERY_COLUMNS =
+  "id, matter_id, amount_minor, currency, recovered_date, description, voided_at, void_reason";
+
+/**
+ * EVERY recovery on the matter, deliberately unbounded.
+ *
+ * This is the read the contingency fee is derived from, and the derivation is a sum: a page of
+ * recoveries would produce a fee computed from part of what the firm recovered, which is a wrong
+ * number rather than a short list. Nothing about it is displayed — the callers below filter to the
+ * non-voided rows and add them up. A matter has as many recoveries as it had settlements, judgments,
+ * and awards, which is a handful and does not grow with time the way a cost or a time entry does.
+ *
+ * `readMatterRecoveriesPage` is the read the HTTP list uses. The two are separate on purpose: the
+ * moment they are one function, a page size added for the list silently changes a fee.
+ */
 export async function readMatterRecoveries(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<MatterRecoverySnapshot[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, matter_id, amount_minor, currency, recovered_date, description, voided_at, void_reason
-         FROM matter_recovery WHERE matter_id = ?1 ORDER BY recovered_date, id`,
+      `SELECT ${RECOVERY_COLUMNS} FROM matter_recovery WHERE matter_id = ?1 ORDER BY recovered_date, id`,
     )
     .bind(matterId)
     .all<MatterRecoveryRow>();
   return results.map(toRecoverySnapshot);
+}
+
+/**
+ * One page of the matter's recoveries, oldest first — the read behind the list surface.
+ *
+ * Ascending, matching the whole-record read above, so the two never disagree about order. Voided
+ * recoveries are included: a voided recovery stays readable with the reason it was wrong, and
+ * hiding it here would make the list disagree with the record it is a view of.
+ */
+export async function readMatterRecoveriesPage(
+  database: SqlDatabase,
+  matterId: MatterId,
+  options: { readonly cursor?: string; readonly pageSize?: number } = {},
+): Promise<Page<MatterRecoverySnapshot>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const cursor: SortCursor | undefined = decodeCursor(options.cursor);
+  const bindings: unknown[] = [matterId];
+  const cursorClause = keysetClause(bindings, cursor, "recovered_date", "id", true);
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+  const { results } = await database
+    .prepare(
+      `SELECT ${RECOVERY_COLUMNS} FROM matter_recovery WHERE matter_id = ? ` +
+        cursorClause +
+        `ORDER BY recovered_date, id LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<MatterRecoveryRow>();
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(toRecoverySnapshot),
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.recovered_date, last.id) : null,
+  };
 }
 
 export interface RecordMatterRecoveryInput {

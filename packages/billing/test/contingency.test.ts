@@ -5,6 +5,7 @@ import {
   addContingencyFeeToDraft,
   contingencyFeeMinor,
   deriveContingencyFee,
+  readMatterRecoveriesPage,
   recordMatterRecovery,
   voidMatterRecovery,
 } from "../src/contingency.ts";
@@ -57,6 +58,7 @@ async function recordRecovery(
   fixture: BillingFixture,
   matterId: MatterId,
   amountMinor: number,
+  recoveredDate = "2026-08-03",
 ): Promise<MatterRecoveryId> {
   const composed = recordMatterRecovery(
     fixture.database,
@@ -64,7 +66,7 @@ async function recordRecovery(
       matterId,
       amountMinor,
       currency: "USD",
-      recoveredDate: "2026-08-03",
+      recoveredDate,
       description: "Settlement of all claims",
       recordedBy: null,
     },
@@ -700,5 +702,50 @@ describe("the contingency fee", () => {
     await expect(
       addContingencyFeeToDraft(fixture.database, invoiceId, matterId, options),
     ).rejects.toMatchObject({ code: "billing-arrangement-kind-mismatch" });
+  });
+});
+
+// The list read and the arithmetic read are two functions on purpose. This is the test that keeps
+// them two: a page size on the list must never become a page size on the fee.
+describe("the recovery list pages, and the fee does not", () => {
+  it("walks every recovery a page at a time, oldest first", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    const dates = ["2026-01-05", "2026-02-05", "2026-03-05", "2026-04-05", "2026-05-05"];
+    for (const date of dates) {
+      await recordRecovery(fixture, matterId, 1_000_000, date);
+    }
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    // Bounded, so a cursor that fails to advance fails the test instead of spinning in it.
+    for (let page = 0; page < 5; page += 1) {
+      const result = await readMatterRecoveriesPage(fixture.database, matterId, {
+        cursor,
+        pageSize: 2,
+      });
+      seen.push(...result.data.map((recovery) => recovery.recoveredDate));
+      if (result.nextCursor === null) break;
+      cursor = result.nextCursor;
+    }
+    expect(seen).toEqual(dates);
+  });
+
+  it("derives the fee from every recovery, not from the first page of them", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedContingencyMatter(fixture, "entity_client", "gross_recovery");
+    // More recoveries than any page size the list uses. If the derivation ever started reading
+    // through the paged function, the base would be short and the fee would be wrong by that much.
+    for (let index = 0; index < 60; index += 1) {
+      await recordRecovery(
+        fixture,
+        matterId,
+        100_000,
+        `2026-01-${String((index % 28) + 1).padStart(2, "0")}`,
+      );
+    }
+
+    const derivation = await deriveContingencyFee(fixture.database, matterId);
+    expect(derivation.baseMinor).toBe(6_000_000);
   });
 });

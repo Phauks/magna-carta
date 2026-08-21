@@ -107,7 +107,7 @@ describe("recording that a bill was given to a client", () => {
       lastAttemptOn: "2026-08-04",
     });
 
-    const [attempt] = await readInvoiceDeliveries(fixture.database, bill.invoiceId);
+    const [attempt] = (await readInvoiceDeliveries(fixture.database, bill.invoiceId)).rows;
     expect(attempt).toMatchObject({
       channel: "post",
       recipientReference: "12 Court Street, Reno NV",
@@ -171,7 +171,15 @@ describe("recording that a bill was given to a client", () => {
     }
 
     const attempts = await readInvoiceDeliveries(fixture.database, bill.invoiceId);
-    expect(attempts).toHaveLength(3);
+    expect(attempts.rows).toHaveLength(3);
+    expect(attempts.capped).toBe(false);
+
+    // The list is capped rather than paged, so the flag is the only thing separating a short answer
+    // from a complete one — and the state summary beside it counts every attempt either way, which
+    // is what makes the cap safe here.
+    const cut = await readInvoiceDeliveries(fixture.database, bill.invoiceId, 2);
+    expect(cut.rows).toHaveLength(2);
+    expect(cut.capped).toBe(true);
     // Not the latest. What a jurisdiction asks is when the client was FIRST given the bill — a
     // courtesy re-send weeks later does not move the date the clock ran from.
     expect(await readInvoiceDeliveryState(fixture.database, bill.invoiceId)).toMatchObject({
