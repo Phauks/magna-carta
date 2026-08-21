@@ -153,6 +153,9 @@ export function applyContrastToDocument(contrast: ContrastPreference): void {
  * module stays importable during SSR/tests where `window` does not exist. `event.key === null`
  * means `storage.clear()` — every key may have changed, so re-apply then too.
  */
+// Deliberately an array, not a Set. `unicorn/prefer-set-has` autofixes this to `new Set([...])` and
+// leaves the annotation, which does not compile; the membership test runs once per storage event over
+// five keys, so there is nothing to win here anyway.
 const APPEARANCE_STORAGE_KEYS: readonly string[] = [
   THEME_STORAGE_KEY,
   MODE_STORAGE_KEY,

@@ -22,6 +22,7 @@
     "lint:ledger-staleness": "node tooling/lint-ledger-staleness/index.mjs",
     "lint:ungranted-permissions": "node tooling/lint-ungranted-permissions/index.mjs",
     "lint:unwired-writes": "node tooling/lint-unwired-writes/index.mjs",
+    "lint:background-imports": "node tooling/lint-background-imports/index.mjs",
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",
     "lint:list-pagination": "node tooling/lint-list-pagination/index.mjs",
