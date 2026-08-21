@@ -108,6 +108,12 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   "in",
   "exists",
   "case",
+  // Projection aliases — names that exist only on the wire, never in the schema. A display read that
+  // resolves a party's entity name has to call the two joined columns something, and the something it
+  // calls them is not a column of any table. They are listed rather than pattern-matched, because a
+  // rule like "anything ending _display_name" would wave through a genuine typo in a real column.
+  "person_display_name",
+  "organization_display_name",
   "when",
   "then",
   "else",

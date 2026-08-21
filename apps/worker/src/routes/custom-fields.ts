@@ -49,6 +49,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
@@ -284,6 +285,11 @@ const ValueRow = z
 const ValueListResponse = z
   .object({ data: z.array(ValueRow) })
   .openapi("CustomFieldValueListResponse");
+
+// The history gets its own envelope rather than sharing the one above. A record's CURRENT values are
+// one row per field configured for that target, so the firm's own field catalog bounds them; its
+// HISTORY is append-only and bounded by nothing, so it pages.
+const ValueHistoryResponse = paginated(ValueRow).openapi("CustomFieldValueHistoryResponse");
 
 const fieldParam = z.object({ fieldId: identifierPathParam("customField", "fieldId") });
 const optionParam = z.object({ optionId: identifierPathParam("picklistOption", "optionId") });
@@ -743,12 +749,15 @@ const recordValuesRoute = defineOpenAPIRoute(readMeta("listRecordValues"), {
 const valueHistoryRoute = defineOpenAPIRoute(readMeta("valueHistory"), {
   method: "get",
   path: "/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history",
-  description: "Returns the full value history of one custom field on one record, oldest first.",
-  request: { params: fieldRecordParam },
+  description:
+    "Returns the value history of one custom field on one record, oldest first. CURSOR-PAGED: this " +
+    "table is append-only, so a value the firm edits often has a history bounded by nothing, and " +
+    "this read carried no bound at all.",
+  request: { params: fieldRecordParam, query: cursorQuery },
   responses: {
     200: {
-      description: "The value history",
-      content: { "application/json": { schema: ValueListResponse } },
+      description: "One page of the value history",
+      content: { "application/json": { schema: ValueHistoryResponse } },
     },
     ...readErrorResponses,
   },
@@ -1256,8 +1265,14 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { fieldId, targetRowId } = c.req.valid("param");
-      const data = await readValueHistory(firm.firmDatabase, fieldId, targetRowId);
-      return c.json({ data } as unknown as z.infer<typeof ValueListResponse>, 200);
+      const { cursor } = c.req.valid("query");
+      const page = await readValueHistory(
+        firm.firmDatabase,
+        fieldId,
+        targetRowId,
+        cursor === undefined ? {} : { cursor },
+      );
+      return c.json(page as unknown as z.infer<typeof ValueHistoryResponse>, 200);
     },
   );
 }

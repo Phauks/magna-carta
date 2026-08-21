@@ -5196,10 +5196,17 @@
             "items": {
               "$ref": "#/components/schemas/FileVersionItem"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "FileVersionItem": {
@@ -6302,10 +6309,14 @@
             "items": {
               "$ref": "#/components/schemas/DirectorySearchHit"
             }
+          },
+          "capped": {
+            "type": "boolean"
           }
         },
         "required": [
-          "data"
+          "data",
+          "capped"
         ]
       },
       "DirectorySearchHit": {
@@ -16244,6 +16255,27 @@
           "valueReferenceId",
           "validFrom",
           "validTo"
+        ]
+      },
+      "CustomFieldValueHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomFieldValueRow"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
         ]
       },
       "CostBatchAck": {
@@ -38617,7 +38649,7 @@
     },
     "/api/v1/files/{id}/versions": {
       "get": {
-        "description": "Lists a file's committed (clean) version history, newest first.",
+        "description": "Lists a file's committed (clean) version history, newest first. CURSOR-PAGED: a version history only grows, and a document under daily revision for years is thousands of versions that this read carried no bound on at all.",
         "operationId": "files.versions",
         "tags": [
           "files"
@@ -38643,6 +38675,14 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -41361,7 +41401,7 @@
     },
     "/api/v1/directory/search": {
       "get": {
-        "description": "Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by relevance. Merged-away entities are excluded.",
+        "description": "Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by relevance. Merged-away entities are excluded. CAPPED at the most relevant matches, and `capped` says when the firm holds more than were returned — this read had no bound at all, so a broad query against a large directory returned every match in one response.",
         "operationId": "directory.search",
         "tags": [
           "directory"
@@ -60186,7 +60226,7 @@
     },
     "/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history": {
       "get": {
-        "description": "Returns the full value history of one custom field on one record, oldest first.",
+        "description": "Returns the value history of one custom field on one record, oldest first. CURSOR-PAGED: this table is append-only, so a value the firm edits often has a history bounded by nothing, and this read carried no bound at all.",
         "operationId": "customFields.valueHistory",
         "tags": [
           "customFields"
@@ -60221,15 +60261,23 @@
             "required": true,
             "name": "targetRowId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The value history",
+            "description": "One page of the value history",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CustomFieldValueListResponse"
+                  "$ref": "#/components/schemas/CustomFieldValueHistoryResponse"
                 }
               }
             }

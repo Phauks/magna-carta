@@ -77,7 +77,7 @@ it("apply with park: coerces clean values, flips originals to history, clears pa
       .all<{ n: number }>()
   ).results[0];
   expect(m2current?.n).toBe(0); // parked -> cleared, original preserved as history
-  const m1history = await readValueHistory(db, customFieldId, "matter_1");
+  const m1history = (await readValueHistory(db, customFieldId, "matter_1")).data;
   expect(m1history.length).toBe(2); // original text row + new number row
 });
 
@@ -242,7 +242,7 @@ it("currency to number parks a value carrying cents, and the preview says so bef
   expect(await currentNumber(db, customFieldId, "matter_1")).toBeUndefined();
   expect(await currentNumber(db, customFieldId, "matter_2")).toBe(500);
   // Nothing is lost: the parked value's original row endures as history.
-  const history = await readValueHistory(db, customFieldId, "matter_1");
+  const history = (await readValueHistory(db, customFieldId, "matter_1")).data;
   expect(history.map((row) => row.valueNumber)).toEqual([50_050]);
 });
 

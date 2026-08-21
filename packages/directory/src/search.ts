@@ -83,13 +83,37 @@ function buildTrigramOrExpression(normalizedQuery: string): string {
 //     results. This is the deliberate divergence from findDuplicateCandidates: ordinary search
 //     hides merged entities outright, while duplicate detection (the conflicts corpus) keeps them
 //     and resolves a subordinate to its surviving master. See the merge-resolution note below.
-export async function searchNames(database: SqlDatabase, query: string): Promise<NameSearchHit[]> {
+/**
+ * The most relevant matches, and whether the firm has more that did not fit.
+ *
+ * CAPPED rather than cursor-paged, and that is the shape a relevance-ranked search wants. The
+ * ordering key is bm25, a score recomputed per query rather than a stored column, so a keyset over
+ * it would be paging by a value the row does not carry. The top matches ARE the answer a name box is
+ * asking for; a person who does not see what they wanted types more, they do not walk to page nine.
+ *
+ * What is NOT acceptable is cutting the answer silently, so the cap reports itself: `capped` says the
+ * firm holds more matches than were returned, which is a caller's cue to narrow rather than a
+ * suggestion that the directory is small.
+ */
+export interface NameSearchResult {
+  readonly hits: NameSearchHit[];
+  readonly capped: boolean;
+}
+
+/** How many matches a single search answers with, when the caller names no smaller number. */
+export const NAME_SEARCH_LIMIT = 50;
+
+export async function searchNames(
+  database: SqlDatabase,
+  query: string,
+  limit: number = NAME_SEARCH_LIMIT,
+): Promise<NameSearchResult> {
   const normalizedQuery = normalizeName(query);
 
   // The trigram tokenizer requires at least three characters to form a single trigram.
   // Return early rather than running a MATCH that can produce no results.
   if (normalizedQuery.length < TRIGRAM_MINIMUM_LENGTH) {
-    return [];
+    return { hits: [], capped: false };
   }
 
   // Build the OR expression from the query's trigrams. normalizeName() guarantees the output
@@ -132,21 +156,30 @@ export async function searchNames(database: SqlDatabase, query: string): Promise
         (dn.entity_kind = 'organization' AND do.deleted_at IS NULL AND do.status != 'merged_into')
       )
     ORDER BY relevance
+    LIMIT ?2
   `;
 
-  const { results } = await database.prepare(sql).bind(ftsMatchExpression).all<{
-    entity_id: string;
-    entity_kind: string;
-    display_name: string | null;
-    relevance: number;
-  }>();
+  const { results } = await database
+    .prepare(sql)
+    .bind(ftsMatchExpression, limit + 1)
+    .all<{
+      entity_id: string;
+      entity_kind: string;
+      display_name: string | null;
+      relevance: number;
+    }>();
 
-  return results.map((row) => ({
-    entityId: row.entity_id,
-    entityKind: row.entity_kind as EntityKind,
-    displayName: row.display_name ?? "",
-    relevance: row.relevance,
-  }));
+  // One row over the limit was asked for as the has-more probe; it is never returned.
+  const capped = results.length > limit;
+  return {
+    capped,
+    hits: (capped ? results.slice(0, limit) : results).map((row) => ({
+      entityId: row.entity_id,
+      entityKind: row.entity_kind as EntityKind,
+      displayName: row.display_name ?? "",
+      relevance: row.relevance,
+    })),
+  };
 }
 
 // ── Duplicate-candidate generation ────────────────────────────────────────────

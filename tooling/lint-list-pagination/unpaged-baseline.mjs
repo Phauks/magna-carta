@@ -34,9 +34,6 @@ export const UNPAGED_LIST_OPERATIONS = [
   "custody.reportHoldingsByLocation",
   "custody.reportHoldingsByOwner",
   "custody.reportHolds",
-  "customFields.listRecordValues",
-  "customFields.valueHistory",
-  "directory.search",
   "discovery.getCodingHistory",
   "discovery.getDocumentCoding",
   "discovery.getReviewSetAccess",
@@ -49,8 +46,6 @@ export const UNPAGED_LIST_OPERATIONS = [
   "emails.autoFileReview",
   "emails.listAutoFileRules",
   "emails.listCaptureAddresses",
-  "files.versions",
-  "folders.list",
   "locations.list",
   "matterAssets.listAssetClasses",
   "matterAssets.listAssetTypes",
@@ -69,4 +64,19 @@ export const UNPAGED_LIST_OPERATIONS = [
  * entry here is a CLAIM about the read, and the claim must be checkable at the named place — never
  * "it is probably small".
  */
-export const BOUNDED_BY_CONSTRUCTION = {};
+export const BOUNDED_BY_CONSTRUCTION = {
+  "directory.search":
+    "Capped at NAME_SEARCH_LIMIT in packages/directory/src/search.ts, and the response's `capped` " +
+    "flag says when the firm holds more. Not cursor-paged on purpose: the ordering key is bm25, a " +
+    "score recomputed per query rather than a column the row carries, so a keyset over it would " +
+    "page by a value that does not exist in the table.",
+  "folders.list":
+    "A matter's folder tree is flat and small — the load profile models 2 to 6 folders per matter " +
+    "(foldersPerMatter in packages/fixtures/src/load-profile/profile.ts). Deliberately NOT paged: " +
+    "one of the three callers is the ZIP builder in apps/worker/src/routes/downloads.ts, which " +
+    "needs the whole tree to resolve paths, and half a tree is not a tree.",
+  "customFields.listRecordValues":
+    "One current row per custom field configured for that target, so the firm's own field catalog " +
+    "is the bound — readCurrentValues in packages/custom-fields/src/reads.ts filters to the " +
+    "current row. The field's HISTORY is the unbounded one, and that read pages.",
+};

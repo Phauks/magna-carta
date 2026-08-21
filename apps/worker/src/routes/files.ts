@@ -42,6 +42,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
@@ -104,9 +105,7 @@ const FileVersionItem = z
   })
   .openapi("FileVersionItem");
 
-const FileVersionsResponse = z
-  .object({ data: z.array(FileVersionItem) })
-  .openapi("FileVersionsResponse");
+const FileVersionsResponse = paginated(FileVersionItem).openapi("FileVersionsResponse");
 
 const PreviewGrant = z
   .object({
@@ -324,8 +323,11 @@ const getFileRoute = defineOpenAPIRoute(getFileMeta, {
 const listFileVersionsRoute = defineOpenAPIRoute(listFileVersionsMeta, {
   method: "get",
   path: "/api/v1/files/{id}/versions",
-  description: "Lists a file's committed (clean) version history, newest first.",
-  request: { params: fileParam },
+  description:
+    "Lists a file's committed (clean) version history, newest first. CURSOR-PAGED: a version " +
+    "history only grows, and a document under daily revision for years is thousands of versions " +
+    "that this read carried no bound on at all.",
+  request: { params: fileParam, query: cursorQuery },
   responses: {
     200: {
       description: "The file's clean version history",
@@ -603,10 +605,16 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file in this firm.",
         });
       }
-      const versions = await listCleanVersions(firm.firmDatabase, id);
+      const { cursor } = c.req.valid("query");
+      const page = await listCleanVersions(
+        firm.firmDatabase,
+        id,
+        cursor === undefined ? {} : { cursor },
+      );
       return c.json(
         {
-          data: versions.map((version) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((version) => ({
             id: version.id,
             versionNumber: version.versionNumber,
             sizeBytes: version.sizeBytes,
