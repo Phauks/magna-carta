@@ -457,18 +457,31 @@
   // than to UTC's — firms whose local hour it is not cost two small setting reads, and a deployment
   // with no outbound-mail provisioning exits before reading a single firm. src/index.ts routes each
   // Cron expression to its handler.
-  // THREE, and the ceiling is the account's rather than a judgement about what is worth running.
-  // Cloudflare refused the fourth and fifth with an empty API error body on POST .../schedules — the
-  // Worker itself uploads, and only the schedule step fails, which is what makes the refusal easy to
-  // read as a transient fault. It is not: it reproduces on every build. The three kept here are
-  // exactly the set that has been live and firing since 2026-07-04.
+  // THREE, and this set is known-good: it deployed successfully on 2026-08-21, the first deploy in
+  // seven weeks. The two dropped from it are `0 * * * *` (the hourly notification digest) and
+  // `0 4 * * 0` (the weekly natural-language search keep-alive), added 2026-08-16. NEITHER HAS EVER
+  // FIRED IN PRODUCTION, because no deploy carrying them ever succeeded. Dropping a trigger deletes no
+  // code: the branch in src/index.ts stays, and restoring the line is the whole of turning it back on.
   //
-  // What was dropped, and why these two: `0 * * * *` drove the hourly notification digest and
-  // `0 4 * * 0` the weekly natural-language search keep-alive. Both were added 2026-08-16 and NEITHER
-  // HAS EVER FIRED IN PRODUCTION, because no deploy carrying them ever succeeded. The digest needs an
-  // outbound-mail provisioning this deployment does not have, and the keep-alive matters only once a
-  // managed search instance exists to go stale. Dropping a trigger deletes no code: the branch in
-  // src/index.ts stays, and restoring the line is the whole of turning it back on.
+  // Why they failed, corrected — an earlier note here blamed an account ceiling on the number of
+  // triggers, and that was wrong twice over. The write is ONE atomic PUT of the whole set (wrangler
+  // resolves `config.triggers?.crons` and PUTs .../schedules once), so a single malformed expression
+  // refuses ALL of them; "three work, five do not" looked like a count ceiling and never was. And
+  // `0 4 * * 0` is malformed: Cloudflare's cron parser numbers days of the week 1 = Sunday through
+  // 7 = Saturday, so 0 is out of range, where almost every other cron implementation reads it as
+  // Sunday. A weekly Sunday trigger here is `0 4 * * 1` — the constant in src/index.ts now says so.
+  // The error's empty body is a reporting artifact rather than an empty response: wrangler puts the
+  // API's errors[] into a field its trigger aggregation does not print, so the absence of a code was
+  // never evidence about what Cloudflare returned.
+  //
+  // That correction is untested against this account: the deploy that went green carried three, not
+  // four. Restoring `0 * * * *` alone would settle it — nothing in that expression is malformed, so a
+  // refusal would mean a real ceiling and a success would mean the day-of-week rule was the whole of
+  // it. Add them back ONE AT A TIME either way, because the atomic PUT hides which one was rejected.
+  //
+  // Omitting the block entirely is a third, different gesture: with no `triggers` key wrangler skips
+  // the schedule call altogether and leaves whatever is attached alone. `"crons": []` is NOT that —
+  // an empty array is truthy, so it PUTs an empty set and DELETES every schedule the Worker has.
   //
   // `*/5 * * * *` is the one that must never be traded away. It is the SOLE applier of control-plane
   // migrations (src/scheduled.ts runs them as the pass's first action), single-flight by construction
