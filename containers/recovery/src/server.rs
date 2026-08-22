@@ -1,16 +1,24 @@
 use axum::{
-    extract::{rejection::JsonRejection, State},
+    body::Bytes,
+    extract::{rejection::JsonRejection, DefaultBodyLimit, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use decryption_core::{
-    parse_rules, recover_shard, split_keyspace, Format, OoxmlAdapter, PdfAdapter, RecoveryJob,
-    RuleSet, ZipAdapter,
+    extract_hash, parse_rules, recover_shard, recovery_tier, split_keyspace, ExtractError, Format,
+    OoxmlAdapter, PdfAdapter, RecoveryJob, RecoveryTier, RuleSet, ZipAdapter,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+/// Ceiling on the raw file body `POST /extract-hash` will read. The only caller is the app worker
+/// over its service binding, which has already enforced the firm's own inspectable-size cap, and a
+/// Cloudflare Worker cannot forward a request body larger than 100 MiB anyway — so this is a
+/// backstop against a wedged or misconfigured caller, not the product limit. It replaces axum's
+/// 2 MiB default, which would reject ordinary encrypted documents.
+const EXTRACT_HASH_BODY_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 
 /// Shared state loaded once at startup and shared across requests.
 #[derive(Clone)]
@@ -27,11 +35,115 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/ready", get(ready))
         .route("/recover-shard", post(recover_shard_handler))
+        .route(
+            "/extract-hash",
+            post(extract_hash_handler).layer(DefaultBodyLimit::max(EXTRACT_HASH_BODY_LIMIT_BYTES)),
+        )
         .with_state(state)
 }
 
 async fn ready() -> &'static str {
     "ok"
+}
+
+/// The response body for a successful `POST /extract-hash`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtractHashResponse {
+    /// One of `"pdf"`, `"zip"`, or `"ooxml"`.
+    format: &'static str,
+    /// The cracker hash string, directly consumable by hashcat.
+    hash: String,
+    /// The hashcat mode matching `hash`.
+    hashcat_mode: u32,
+    /// `"cfCapable"` or `"gpuRequired"` — how hard this mode is to search. Returned alongside the
+    /// hash because the classifier is a property of the extracted mode, and one round trip here
+    /// saves the caller a second one for an answer this handler already holds.
+    tier: &'static str,
+}
+
+/// The response body when the bytes are a valid request but yield no hash. This is a fact about the
+/// submitted FILE, not about the service, so it is answered with a code the caller can turn into a
+/// message for the person who uploaded it — never a 5xx, which the caller reads as "engine down".
+#[derive(Serialize)]
+struct ExtractHashRefusal {
+    /// `"notEncrypted"`, `"unsupported"`, or `"malformed"`.
+    code: &'static str,
+}
+
+/// `POST /extract-hash` — read the encryption header of the raw file bytes in the request body and
+/// return the recovery hash plus its tier. The bytes are held only for the duration of the call:
+/// nothing is written to disk and nothing is logged.
+///
+/// Status codes are the contract, and the three are not interchangeable: 200 carries a hash, 422
+/// carries a stable refusal code about the file, and any 5xx means this service could not answer at
+/// all. The caller maps them to a result, a 400, and a retryable 503 respectively.
+async fn extract_hash_handler(bytes: Bytes) -> Response {
+    if bytes.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            "the request body carried no file bytes",
+        )
+            .into_response();
+    }
+
+    // CPU-bound parsing of untrusted bytes — off the async executor, like the shard search.
+    let parsed = tokio::task::spawn_blocking(move || extract_hash(&bytes)).await;
+
+    let job = match parsed {
+        Ok(Ok(job)) => job,
+        Ok(Err(error)) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(ExtractHashRefusal {
+                    code: extract_error_code(&error),
+                }),
+            )
+                .into_response();
+        }
+        Err(join_error) => {
+            // A panic in the parser is a fault in this service, not a verdict on the file. The
+            // message names the join failure only — never any part of the submitted bytes.
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("hash extraction task panicked: {join_error}"),
+            )
+                .into_response();
+        }
+    };
+
+    let tier = match recovery_tier(job.format, job.hashcat_mode) {
+        RecoveryTier::CfCapable => "cfCapable",
+        RecoveryTier::GpuRequired => "gpuRequired",
+    };
+    Json(ExtractHashResponse {
+        format: format_name(job.format),
+        hash: job.hash,
+        hashcat_mode: job.hashcat_mode,
+        tier,
+    })
+    .into_response()
+}
+
+/// Map an extraction failure to the stable code the caller branches on. The variants' own messages
+/// are deliberately dropped: they quote parser detail about the submitted file, and the caller
+/// surfaces this to a member.
+fn extract_error_code(error: &ExtractError) -> &'static str {
+    match error {
+        ExtractError::NotEncrypted => "notEncrypted",
+        ExtractError::Unsupported(_) => "unsupported",
+        ExtractError::Malformed(_) => "malformed",
+    }
+}
+
+/// The wire spelling of a format. Matches the strings `build_recovery_job` accepts, so a hash this
+/// handler emits can be handed straight back to `/recover-shard`.
+fn format_name(format: Format) -> &'static str {
+    match format {
+        Format::Pdf => "pdf",
+        Format::Zip => "zip",
+        Format::Ooxml => "ooxml",
+    }
 }
 
 /// The request body for `POST /recover-shard`.
@@ -250,5 +362,36 @@ mod tests {
     #[test]
     fn build_recovery_job_rejects_malformed_ooxml_hash() {
         assert!(build_recovery_job("ooxml", "not-a-hash", 9600).is_err());
+    }
+
+    #[test]
+    fn extract_error_maps_to_the_stable_codes_and_carries_no_parser_detail() {
+        assert_eq!(
+            extract_error_code(&ExtractError::NotEncrypted),
+            "notEncrypted"
+        );
+        assert_eq!(
+            extract_error_code(&ExtractError::Unsupported("some parser detail".into())),
+            "unsupported"
+        );
+        assert_eq!(
+            extract_error_code(&ExtractError::Malformed("offset 4919 of the file".into())),
+            "malformed"
+        );
+    }
+
+    #[test]
+    fn format_names_round_trip_through_build_recovery_job() {
+        // The strings extract-hash emits must be the strings /recover-shard accepts, or a hash this
+        // service produced could not be handed back to it.
+        for format in [Format::Pdf, Format::Zip, Format::Ooxml] {
+            let name = format_name(format);
+            let rejected_for_the_hash_not_the_format =
+                build_recovery_job(name, "not-a-hash", 0).unwrap_err();
+            assert!(
+                !rejected_for_the_hash_not_the_format.starts_with("unknown format"),
+                "format_name emitted {name:?}, which build_recovery_job does not accept"
+            );
+        }
     }
 }

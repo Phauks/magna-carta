@@ -1,7 +1,5 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { ensureReady, recoveryTier } from "@magna-carta/decryption";
-import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { createApp, type Bindings } from "../src/app.ts";
@@ -48,11 +46,6 @@ const PDF_FIXTURE_BASE64 =
   "MjM1NjMzNjMzNjM2MTYyNjU2NjM1NjE2NjYxNjU2NjMxMzE+IDwzNTM5NjMzMjMwNjI2MjYxNjU2" +
   "MzM4MzI2NTMxNjIzNTYzMzYzMzYzNjE2MjY1NjYzNTYxNjY2MTY1NjYzMTMxPiBdCi9FbmNyeXB0" +
   "IDUgMCBSCj4+CnN0YXJ0eHJlZgo0NzYKJSVFT0YK";
-
-// Wrangler bundles .wasm imports as WebAssembly.Module — the same ambient-declared cast
-// routes/recovery.ts uses, so recoveryTier() below can initialise the engine from the compiled
-// module rather than attempting a network fetch under workerd.
-const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
 const app = createApp();
 
@@ -342,18 +335,14 @@ describe("recovery end-to-end: password retrieval is bound to the initiating use
 // The gpuRequired tier (slow key-derivation functions — PDF R5/R6, OOXML agile encryption, 7-Zip) has
 // no encrypted-file fixture in this repo: only the mode-9600 example HASH string used by the Rust
 // engine's own unit tests, which is a hash string, not file bytes, and cannot be driven through the
-// route's extractHash(bytes). So this covers the tier-routing behavior at the level that IS testable
-// today — the classification function and the coordinator's zero-shard terminal path — rather than
-// fabricating a fake "OOXML" upload that would just 400. The full-file HTTP path (POST /recover with a
-// real agile-OOXML encrypted file) awaits that fixture; the GPU rung that eventually serves needsGpu
-// jobs plugs into this same coordinator seam with no further route or coordinator changes.
+// route's header read. So this covers the tier-routing behavior at the level that IS testable here —
+// the coordinator's zero-shard terminal path — rather than fabricating a fake "OOXML" upload that
+// would just 400. The classification itself is no longer this worker's to test: the tier arrives on
+// the engine's reply alongside the hash, and crates/decryption-core's tier tests hold it. The
+// full-file HTTP path (POST /recover with a real agile-OOXML encrypted file) awaits that fixture; the
+// GPU rung that eventually serves needsGpu jobs plugs into this same coordinator seam with no further
+// route or coordinator changes.
 describe("recovery end-to-end: gpuRequired tier routing (coordinator-level; full-file HTTP path awaits an agile-OOXML fixture)", () => {
-  it("recoveryTier classifies OOXML agile encryption (hashcat mode 9600) as gpuRequired", async () => {
-    await ensureReady(decryptionWasm);
-    const tier = await recoveryTier("ooxml", 9600);
-    expect(tier).toBe("gpuRequired");
-  });
-
   it("the coordinator started with tier gpuRequired enqueues zero shards and is immediately terminal needsGpu", async () => {
     const gpuJobId = newIdentifier("recoveryJob");
     const coordinator = env.RECOVERY_JOB.get(env.RECOVERY_JOB.idFromName(`${firmId}:${gpuJobId}`));

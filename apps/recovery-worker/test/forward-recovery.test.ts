@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { forwardRecoveryShard, forwardReady, routeRequest } from "../src/forward-recovery.ts";
+import {
+  forwardExtractHash,
+  forwardRecoveryShard,
+  forwardReady,
+  routeRequest,
+} from "../src/forward-recovery.ts";
 
 // A minimal fake container that returns a fixed response. The real container is a Docker image that
 // cannot run under the local test pool; the forward functions only need a { fetch } object, so we
@@ -72,6 +77,51 @@ describe("forwardRecoveryShard", () => {
   });
 });
 
+describe("forwardExtractHash", () => {
+  it("forwards POST /extract-hash to the container and returns the 200 verbatim", async () => {
+    const extracted = { format: "pdf", hash: "$pdf$2*3*128*-4*1*32*abc", hashcatMode: 10500 };
+    const container = fakeContainer(
+      new Response(JSON.stringify(extracted), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const response = await forwardExtractHash(
+      new Request("http://recovery-worker/extract-hash", { method: "POST", body: "%PDF-1.3" }),
+      container,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(extracted);
+  });
+
+  it("passes a 422 refusal about the file through unchanged, so the caller can tell it from a fault", async () => {
+    const container = fakeContainer(
+      new Response(JSON.stringify({ code: "notEncrypted" }), {
+        status: 422,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const response = await forwardExtractHash(
+      new Request("http://recovery-worker/extract-hash", { method: "POST", body: "plain text" }),
+      container,
+    );
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ code: "notEncrypted" });
+  });
+
+  it("propagates a 5xx from the container rather than converting it into a refusal", async () => {
+    const container = fakeContainer(new Response("engine panicked", { status: 500 }));
+
+    const response = await forwardExtractHash(
+      new Request("http://recovery-worker/extract-hash", { method: "POST", body: "%PDF-1.3" }),
+      container,
+    );
+    expect(response.status).toBe(500);
+  });
+});
+
 describe("forwardReady", () => {
   it("routes GET /ready to the container and returns the response verbatim", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
@@ -140,6 +190,28 @@ describe("routeRequest routing", () => {
     );
     expect(response.status).toBe(200);
     expect(seen).toEqual(["recovery"]);
+  });
+
+  it("routes POST /extract-hash to the container via routeRequest", async () => {
+    const container = fakeContainer(
+      new Response('{"format":"pdf","hash":"$pdf$x","hashcatMode":10500,"tier":"cfCapable"}', {
+        status: 200,
+      }),
+    );
+    const response = await routeRequest(
+      new Request("http://recovery-worker/extract-hash", { method: "POST", body: "%PDF-1.3" }),
+      () => container,
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 404 for a GET to /extract-hash (wrong method)", async () => {
+    const container = fakeContainer(new Response("ok", { status: 200 }));
+    const response = await routeRequest(
+      new Request("http://recovery-worker/extract-hash", { method: "GET" }),
+      () => container,
+    );
+    expect(response.status).toBe(404);
   });
 
   it("routes GET /ready to the container via routeRequest", async () => {

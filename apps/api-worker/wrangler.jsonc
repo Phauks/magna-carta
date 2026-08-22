@@ -321,7 +321,10 @@
   //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
   //   FILE_REPAIR_SERVICE: the file-repair engine worker (POST /diagnose|/repair|/carve); the file-repair
   //     routes 503 until it is bound.
-  //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
+  //   RECOVERY_SERVICE: the password-recovery worker, carrying two unrelated calls to the same
+  //     Container — the queued shard search (resolveRecoveryBackend), and the synchronous
+  //     encryption-header read the inspect and recover routes make (resolveDecryptionEnginePort).
+  //     Optional: the search falls back to an honest zero-count miss, the header read to a 503.
   //   OCR_SERVICE: the text-recognition engine worker (POST /ocr); the ocr route 503s until it is bound.
   //   SIGN_SERVICE: the e-signature/seal worker, which alone holds the platform signing key, and which
   //     also hosts the platform PDF ENGINE for every worker that does not bundle it. POST /seal (the
