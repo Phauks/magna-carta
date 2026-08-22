@@ -26648,7 +26648,7 @@
     },
     "/api/v1/decryption/unlock": {
       "post": {
-        "description": "Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return the decrypted bytes as base64. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "description": "Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return the decrypted bytes as base64. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written. Where no decryption engine is wired, or the engine is wired but unreachable, the answer is a 503 — an engine that cannot run the decrypt says nothing about the password.",
         "operationId": "decryption.unlock",
         "tags": [
           "decryption"
@@ -26744,6 +26744,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No decryption engine is wired, or it is wired but unreachable, so the file was not decrypted",
             "content": {
               "application/problem+json": {
                 "schema": {

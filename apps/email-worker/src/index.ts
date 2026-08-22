@@ -1,6 +1,8 @@
 import { DEFAULT_CAPTURE_ROOT_DOMAIN } from "@magna-carta/email-filing/capture-address";
 import { MAX_CAPTURED_MESSAGE_BYTES } from "@magna-carta/email-filing/message-format";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
+import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
+import { routeEngineRequest } from "./parse-service.ts";
 import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 
 // The Cloudflare Email Worker forward/CC capture entrance. Cloudflare Email Routing delivers a forwarded
@@ -10,12 +12,28 @@ import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 // resolution is a control-plane query, and the capture token is resolved to a matter later, in the
 // consumer. DNS for the capture zone (the `in.magnacarta.esq` subdomain and one DMARC) is a deploy-time
 // step documented in the operations runbook, not code.
+//
+// It is also the home of the PARSE ENGINE (parse-service.ts) — the WebAssembly build that reads a
+// message and materialises one of its parts. Mail's entrance is where the thing that reads mail
+// belongs, and putting it here is what lets the app worker call it over a service binding instead
+// of carrying a second copy of the build in its own deploy. The engine has no public route; the
+// binding is the only way in.
 
 // Email Routing caps a message near ~25–40 MiB; over the shared capture ceiling the message is not
 // staged (the add-in path handles larger messages), and the sender is told rather than the message
 // being silently dropped. The ceiling is shared with the authenticated API entrance so the two doors
 // cannot disagree about what "too large to file" means.
 const OVERSIZE_CEILING_BYTES = MAX_CAPTURED_MESSAGE_BYTES;
+
+// Wrangler bundles the .wasm import as a WebAssembly.Module — typed by the ambient declaration in
+// wasm-modules.d.ts and handed to the parse engine so it initialises from the compiled module
+// rather than attempting a network fetch at runtime. Cast through unknown because the ambient
+// declaration must satisfy the compiler in all contexts, not just this assignment.
+//
+// The import lives HERE, in the composition root, and not in parse-service.ts: a bare .wasm import
+// is a bundler feature that Vite's node pool refuses, so a module that names it cannot be loaded by
+// its own unit tests. See the note on EngineWasmInput.
+const emailWasm = emailWasmModule as unknown as WebAssembly.Module;
 
 // The emails-capture job shape — matches @magna-carta/api-worker's capture consumer (the queue is the
 // contract boundary; the JSON message is the shared shape).
@@ -55,6 +73,13 @@ function makeFirmResolver(env: Bindings): FirmResolver {
 }
 
 export default {
+  // The parse engine's service-binding surface: POST /parse, POST /extract-part?index=N, GET /ready.
+  // Unreachable from the public internet — this worker declares no routes and no workers.dev
+  // subdomain, so the app worker's binding is the only caller.
+  fetch(request: Request): Promise<Response> {
+    return routeEngineRequest(request, emailWasm);
+  },
+
   async email(message: ForwardableEmailMessage, env: Bindings): Promise<void> {
     const rootDomain = env.CAPTURE_ROOT_DOMAIN ?? DEFAULT_CAPTURE_ROOT_DOMAIN;
     const routing = await resolveCaptureRouting(message.to, rootDomain, makeFirmResolver(env));

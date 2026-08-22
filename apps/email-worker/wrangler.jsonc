@@ -8,7 +8,11 @@
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
-  // No public HTTP surface: this worker is reached only by Email Routing.
+  // No PUBLIC HTTP surface. The fetch handler exists — it serves the parse engine (POST /parse,
+  // POST /extract-part, GET /ready) that the app worker calls over its EMAIL_SERVICE binding — but
+  // no route and no workers.dev subdomain is declared, so the service binding is the only way in
+  // and is the trust boundary, exactly as it is for magna-carta-recovery and magna-carta-scan.
+  // Adding a route here would put an unauthenticated mail parser on the open internet.
   "workers_dev": false,
   "preview_urls": false,
   // The control-plane database (capture token → firm id + bucket, via the email_capture_route index) and

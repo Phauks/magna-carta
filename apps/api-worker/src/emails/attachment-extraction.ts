@@ -1,9 +1,4 @@
-import {
-  EmailError,
-  extractPart,
-  type ParsedMessage,
-  type PartDescriptor,
-} from "@magna-carta/email";
+import type { ParsedMessage, PartDescriptor } from "@magna-carta/email-filing/message";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertEmailAttachmentStatement } from "@magna-carta/data-access/email-filing-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
@@ -22,6 +17,7 @@ import type { Bindings } from "../app.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
+import { MessageRefusedError, type EmailEnginePort } from "./email-engine-port.ts";
 
 // The largest attachment part the Worker will materialize in memory to extract. Above this the part
 // records an `oversize` outcome and is not extracted (the add-in path handles larger attachments). Sized
@@ -37,6 +33,10 @@ export interface AttachmentExtractionInput {
   readonly uploadedBy: UserId | null;
   readonly correlationId: string;
   readonly logger: Logger;
+  // The engine that copies a part's bytes out of the message. Passed in rather than resolved here:
+  // the caller has already parsed through the same port, and reaching for the binding twice in one
+  // capture would let a redeploy change engines mid-message.
+  readonly engine: EmailEnginePort;
 }
 
 // Extract the message's real attachments into the matter's File Manager as first-class documents,
@@ -107,9 +107,9 @@ export async function extractAndFileAttachments(
 
     let bytes: Uint8Array;
     try {
-      bytes = await extractPart(input.rawBytes, index);
+      bytes = await input.engine.extractPart(input.rawBytes, index);
     } catch (caught) {
-      if (caught instanceof EmailError && caught.code === "limitExceeded") {
+      if (caught instanceof MessageRefusedError && caught.code === "limitExceeded") {
         metaStatements.push(oversizeRow(firmDatabase, input.emailMessageId, part, now()));
         continue;
       }

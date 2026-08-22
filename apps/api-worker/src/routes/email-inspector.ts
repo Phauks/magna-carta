@@ -1,6 +1,4 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { EmailError, ensureReady, parseMessage } from "@magna-carta/email";
-import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -9,12 +7,11 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveEmailEnginePort } from "../emails/email-engine-binding.ts";
+import { emailEngineProblem } from "../emails/email-engine-problem.ts";
 
-// Wrangler bundles .wasm imports as WebAssembly.Module — typed by the ambient declaration in
-// wasm-modules.d.ts and passed to ensureReady so the engine initialises from the compiled module
-// rather than attempting a network fetch at runtime. Cast through unknown because the ambient
-// declaration must satisfy the compiler in all contexts, not just this assignment.
-const emailWasm = emailWasmModule as unknown as WebAssembly.Module;
+// The parse itself runs in apps/email-worker, the entrance Cloudflare Email Routing already
+// delivers to, behind the port in ../emails/. This route holds no engine and no WebAssembly build.
 
 export const emailInspectMeta: RouteMeta = {
   operationId: "emailInspector.inspect",
@@ -52,7 +49,7 @@ const PartDescriptorSchema = z.object({
   isEmbeddedMessage: z.boolean(),
 });
 
-// Mirrors @magna-carta/email's ParsedMessage field-for-field: the engine describes a message
+// Mirrors the engine's ParsedMessage field-for-field: the engine describes a message
 // without materialising any attachment bytes, so this is metadata and body text only.
 const ParsedMessageSchema = z.object({
   // A message identifier remembers where it came from: a .msg file carries RFC 5322 headers only
@@ -92,7 +89,8 @@ const inspectRoute = defineOpenAPIRoute(emailInspectMeta, {
     "Parse an uploaded email file (.eml or .msg) and return its headers, participants, subject, " +
     "message and reply identifiers, body text, described attachments, and authenticity evidence " +
     "(DKIM signatures, authentication results, and the received chain) captured verbatim with no " +
-    "verdict. Nothing is stored.",
+    "verdict. Nothing is stored. Where no parse engine is wired, or the engine is wired but " +
+    "unreachable, the answer is a 503 — an engine that cannot read the file says nothing about it.",
   request: {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
@@ -124,6 +122,11 @@ const inspectRoute = defineOpenAPIRoute(emailInspectMeta, {
     },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description:
+        "No email parse engine is wired, or it is wired but unreachable, so the file was not read",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -158,40 +161,16 @@ export function registerEmailInspectorRoutes(
         });
       }
 
-      await ensureReady(emailWasm);
+      // Three outcomes and only the first is about this file: the parse, a stable refusal code
+      // (413 or 422), or an engine that is absent or cannot answer (503 — never an Error ID for an
+      // engine that is simply not there). The one mapping is shared with any other request-path
+      // caller of the engine; this route must not grow its own.
       try {
         const bytes = new Uint8Array(await c.req.arrayBuffer());
-        return c.json(await parseMessage(bytes), 200);
+        return c.json(await resolveEmailEnginePort(c.env).parseMessage(bytes), 200);
       } catch (thrown) {
-        // Branch on the engine's stable code — a fixed set that carries no file content, so
-        // nothing input-derived reaches the reply. An unrecognised throw is not ours: rethrow it
-        // to the app error boundary.
-        if (thrown instanceof EmailError) {
-          switch (thrown.code) {
-            case "limitExceeded":
-              return problemJson(c, {
-                type: "upload-not-allowed",
-                title: "Email too large to inspect",
-                status: 413,
-                detail: "The file exceeds the engine's decode limits.",
-              });
-            case "malformed":
-            case "partNotFound":
-              return problemJson(c, {
-                type: "validation",
-                title: "Could not parse the email",
-                status: 422,
-                detail: "The bytes could not be read as an email.",
-              });
-            case "unsupported":
-              return problemJson(c, {
-                type: "validation",
-                title: "Unsupported email format",
-                status: 422,
-                detail: "The bytes are not an email format this tool can read.",
-              });
-          }
-        }
+        const refusal = emailEngineProblem(c, thrown);
+        if (refusal !== null) return refusal;
         throw thrown;
       }
     },

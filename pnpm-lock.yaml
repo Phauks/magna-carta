@@ -288,9 +288,6 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@magna-carta/decryption':
-        specifier: workspace:*
-        version: link:../../packages/decryption
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory
@@ -300,9 +297,6 @@ importers:
       '@magna-carta/document-assembly':
         specifier: workspace:*
         version: link:../../packages/document-assembly
-      '@magna-carta/email':
-        specifier: workspace:*
-        version: link:../../packages/email
       '@magna-carta/email-filing':
         specifier: workspace:*
         version: link:../../packages/email-filing
@@ -424,6 +418,9 @@ importers:
       '@hey-api/openapi-ts':
         specifier: 'catalog:'
         version: 0.98.2(typescript@6.0.3)
+      '@magna-carta/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@magna-carta/signing':
         specifier: workspace:*
         version: link:../../packages/signing
@@ -566,6 +563,9 @@ importers:
 
   apps/email-worker:
     dependencies:
+      '@magna-carta/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@magna-carta/email-filing':
         specifier: workspace:*
         version: link:../../packages/email-filing
@@ -579,6 +579,9 @@ importers:
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.2
       vite-plus:
         specifier: 'catalog:'
         version: 0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)

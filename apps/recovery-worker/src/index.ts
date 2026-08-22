@@ -21,6 +21,8 @@ export default {
   // forwards it to the recovery Container, and returns the JSON ShardOutcome verbatim.
   // POST /extract-hash forwards raw file bytes for an encryption-header read and returns the
   // recovery hash (200), a refusal code about the file (422), or a fault (5xx) verbatim.
+  // POST /unlock forwards a framed password-plus-file body for a decrypt and returns the plaintext
+  // (200), a refusal code about the file or the password (422), or a fault (5xx) verbatim.
   // GET /ready is forwarded to the Container's health endpoint.
   // No authentication is performed here — the service binding provides the trust boundary
   // (only the app worker can reach this worker; it is not reachable from the public internet).

@@ -260,45 +260,67 @@ export default {
 // directly with a fake RecoveryBackend, the pattern the recovery e2e test uses for a deterministic
 // found/miss split) gets a shape-correct ShardOutcome, not a boot failure or a silent hit.
 //
-// POST /extract-hash answers the encryption-header read the decryption and recovery routes make.
-// The real parser is a Rust Container that cannot run here, so the stub recognises the one
-// committed PDF fixture those suites submit by its magic bytes and replays what the engine returns
-// for it — the hash string below is the actual output of crates/decryption-core's extract_hash over
-// crates/decryption-core/tests/fixtures/pdf_userpw_test.pdf, and the Rust tests are what hold the
-// parser to it. Anything else is answered 422 notEncrypted, which is the honest reply for bytes
-// this stub cannot read: it must never invent a hash for a file it did not parse.
+// POST /extract-hash answers the encryption-header read the decryption and recovery routes make,
+// and POST /unlock answers the password decrypt. The real engine is a Rust Container that cannot
+// run here, so the stub recognises the one committed PDF fixture those suites submit by its magic
+// bytes and replays what the engine returns for it — the hash string below is the actual output of
+// crates/decryption-core's extract_hash over crates/decryption-core/tests/fixtures/pdf_userpw_test.pdf,
+// and "test" is that fixture's real password. The Rust tests are what hold the engine to both.
+// Anything else is answered 422, which is the honest reply for bytes this stub cannot read: it must
+// never invent a hash, or a plaintext, for a file it did not parse.
+//
+// The /unlock stub splits the framed body exactly as containers/recovery/src/server.rs does — a
+// big-endian u32 password length, the password, then the file — so the framing the adapter writes
+// is exercised rather than assumed, and a change to it fails here rather than in production.
 const RECOVERY_SERVICE_STUB_SCRIPT = `
 const PDF_FIXTURE_HASH =
   "$pdf$2*3*128*-4*1*32*3539633230626261656338326531623563363363616265663561666165663131" +
   "*32*f11aceb1f5a2f5cdf7a36a48d0beae9728bf4e5e4e758a4164004e56fffa0108" +
   "*32*badad1e86442699427116d3e5d5271bc80a27814fc5e80f815efeef839354c5f";
 
+const FIXTURE_PASSWORD = "test";
+// A minimal decrypted PDF: enough for a caller to see the %PDF magic bytes it asserts on, and
+// deliberately not a copy of any fixture's real plaintext.
+const DECRYPTED_PDF_BASE64 = btoa("%PDF-1.4 decrypted-stub");
+
+const isPdf = (bytes) =>
+  bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+
+const json = (body, status) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+
 export default {
   async fetch(request) {
-    if (new URL(request.url).pathname === "/extract-hash") {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === "/extract-hash") {
       const bytes = new Uint8Array(await request.arrayBuffer());
-      const isPdf =
-        bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-      if (!isPdf) {
-        return new Response(JSON.stringify({ code: "notEncrypted" }), {
-          status: 422,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      return new Response(
-        JSON.stringify({
-          format: "pdf",
-          hash: PDF_FIXTURE_HASH,
-          hashcatMode: 10500,
-          tier: "cfCapable",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
+      if (!isPdf(bytes)) return json({ code: "notEncrypted" }, 422);
+      return json(
+        { format: "pdf", hash: PDF_FIXTURE_HASH, hashcatMode: 10500, tier: "cfCapable" },
+        200
       );
     }
-    return new Response(
-      JSON.stringify({ found: null, candidatesTried: 0 }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
+    if (pathname === "/unlock") {
+      const framed = new Uint8Array(await request.arrayBuffer());
+      if (framed.byteLength < 4) return new Response("short body", { status: 400 });
+      const passwordLength = new DataView(framed.buffer, framed.byteOffset).getUint32(0, false);
+      if (passwordLength === 0 || passwordLength > framed.byteLength - 4) {
+        return new Response("bad framing", { status: 400 });
+      }
+      const password = new TextDecoder().decode(framed.subarray(4, 4 + passwordLength));
+      const file = framed.subarray(4 + passwordLength);
+      if (file.byteLength === 0) return new Response("no file bytes", { status: 400 });
+      if (!isPdf(file)) return json({ code: "notEncrypted" }, 422);
+      if (password !== FIXTURE_PASSWORD) return json({ code: "wrongPassword" }, 422);
+      return json(
+        { format: "pdf", decryptedBase64: DECRYPTED_PDF_BASE64, filenameHint: null },
+        200
+      );
+    }
+    return json({ found: null, candidatesTried: 0 }, 200);
   }
 };
 `;
@@ -378,7 +400,9 @@ export default defineConfig({
       // the coordinator's happy path; the recovery stub returns an honest zero-count miss so the pool
       // boots (the recovery e2e test drives the queue consumer directly with a fake RecoveryBackend
       // rather than routing through this stub) and replays the committed PDF fixture's real extracted
-      // hash for the encryption-header read; the ocr stub returns a shape-correct empty-page result;
+      // hash for the encryption-header read plus a stub plaintext for the decrypt, splitting the
+      // decrypt's framed body the way the Container does; the ocr stub returns a shape-correct
+      // empty-page result;
       // the sign stub returns 503 seal-not-configured (no signing identity in the pool) so the seal
       // route's not-configured path is exercised, while the sealed-response path is driven by a fake
       // SealPort injected in the route test.

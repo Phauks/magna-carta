@@ -11,6 +11,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { handleCaptureMessage, type EmailsCaptureMessage } from "../src/emails/capture-consumer.ts";
+import { resolveInProcessEmailEngine } from "./support/email-engine.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -75,18 +76,24 @@ async function capture(
   const jobId = newIdentifier("idempotencyRecord");
   const stagedR2Key = `emails/staging/${jobId}`;
   await env.R2.put(stagedR2Key, bytes);
-  await handleCaptureMessage(env, {
-    firmId,
-    bucketName: "test-bucket",
-    stagedR2Key,
-    capturedVia: "forward",
-    matterId: null,
-    captureToken: null,
-    linkedBy: null,
-    acceptOnCapture: false,
-    jobId,
-    ...overrides,
-  });
+  await handleCaptureMessage(
+    env,
+    {
+      firmId,
+      bucketName: "test-bucket",
+      stagedR2Key,
+      capturedVia: "forward",
+      matterId: null,
+      captureToken: null,
+      linkedBy: null,
+      acceptOnCapture: false,
+      jobId,
+      ...overrides,
+    },
+    undefined,
+    undefined,
+    resolveInProcessEmailEngine,
+  );
   return jobId;
 }
 
@@ -568,9 +575,9 @@ describe("auto-file rules in the capture consumer", () => {
       jobId,
     };
     await env.R2.put(stagedR2Key, bytes);
-    await handleCaptureMessage(env, job);
+    await handleCaptureMessage(env, job, undefined, undefined, resolveInProcessEmailEngine);
     await env.R2.put(stagedR2Key, bytes);
-    await handleCaptureMessage(env, job);
+    await handleCaptureMessage(env, job, undefined, undefined, resolveInProcessEmailEngine);
 
     const messageId = await messageIdFor(headerId);
     expect(await linksFor(messageId)).toHaveLength(1);

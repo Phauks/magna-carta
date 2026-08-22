@@ -412,3 +412,141 @@ async fn extract_hash_accepts_a_body_past_axums_two_megabyte_default() {
         "a multi-megabyte encrypted document must reach the parser"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Password decrypt (POST /unlock)
+//
+// The same three-code contract the header read runs on — 200 plaintext, 422 a stable code about the
+// file or the password, 5xx this service could not answer — over a body that carries a member's own
+// document password. The assertions below that look like formatting details are the framing that
+// keeps that password out of a URL, a header, and a deserializer's error text.
+// ---------------------------------------------------------------------------
+
+/// Frame an unlock body: a big-endian `u32` password length, the password, then the file.
+fn unlock_body(password: &str, file: &[u8]) -> Vec<u8> {
+    let mut body = Vec::with_capacity(4 + password.len() + file.len());
+    body.extend_from_slice(&(password.len() as u32).to_be_bytes());
+    body.extend_from_slice(password.as_bytes());
+    body.extend_from_slice(file);
+    body
+}
+
+#[tokio::test]
+async fn unlock_returns_the_plaintext_for_the_right_password() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/unlock"))
+        .body(unlock_body("test", ENCRYPTED_PDF))
+        .send()
+        .await
+        .expect("POST /unlock");
+
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value = response.json().await.expect("json body");
+    assert_eq!(body["format"], "pdf");
+    let decrypted = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        body["decryptedBase64"].as_str().expect("base64 string"),
+    )
+    .expect("the reply must decode");
+    assert!(
+        decrypted.starts_with(b"%PDF"),
+        "the reply must carry the decrypted document"
+    );
+}
+
+#[tokio::test]
+async fn unlock_refuses_a_wrong_password_with_a_stable_code_not_a_fault() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/unlock"))
+        .body(unlock_body("not-the-password", ENCRYPTED_PDF))
+        .send()
+        .await
+        .expect("POST /unlock");
+
+    // 422, never a 5xx: the service answered, and the answer is about what was submitted.
+    assert_eq!(response.status(), 422);
+    let text = response.text().await.expect("body text");
+    assert!(
+        text.contains("wrongPassword"),
+        "the refusal must carry the stable code, got {text}"
+    );
+    assert!(
+        !text.contains("not-the-password"),
+        "a refusal must never echo the password back: {text}"
+    );
+}
+
+#[tokio::test]
+async fn unlock_refuses_unencrypted_bytes_with_a_stable_code() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/unlock"))
+        .body(unlock_body("test", b"this is not an encrypted document"))
+        .send()
+        .await
+        .expect("POST /unlock");
+
+    assert_eq!(response.status(), 422);
+    let body: serde_json::Value = response.json().await.expect("json body");
+    assert!(
+        matches!(
+            body["code"].as_str(),
+            Some("notEncrypted" | "unsupported" | "malformed")
+        ),
+        "the refusal must carry one of the stable codes, got {body}"
+    );
+}
+
+#[tokio::test]
+async fn unlock_rejects_a_body_that_carries_no_file_after_the_password() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let response = Client::new()
+        .post(format!("{base}/unlock"))
+        .body(unlock_body("swordfish", b""))
+        .send()
+        .await
+        .expect("POST /unlock");
+
+    assert_eq!(
+        response.status(),
+        400,
+        "a body with no document is a caller error, not a verdict on a file"
+    );
+    let text = response.text().await.expect("body text");
+    assert!(
+        !text.contains("swordfish"),
+        "a framing complaint must never quote the body: {text}"
+    );
+}
+
+#[tokio::test]
+async fn unlock_accepts_a_body_past_axums_two_megabyte_default() {
+    let (state, _temp) = state_with_words(&["foo"]);
+    let base = spawn_server(state).await;
+
+    let mut padded = ENCRYPTED_PDF.to_vec();
+    padded.resize(4 * 1024 * 1024, 0);
+
+    let response = Client::new()
+        .post(format!("{base}/unlock"))
+        .body(unlock_body("test", &padded))
+        .send()
+        .await
+        .expect("POST /unlock");
+
+    assert_ne!(
+        response.status(),
+        413,
+        "a multi-megabyte encrypted document must reach the decryptor"
+    );
+}

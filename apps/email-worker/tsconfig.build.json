@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../../packages/email/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/email-filing/tsconfig.build.json"
     },
     {

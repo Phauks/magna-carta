@@ -49,9 +49,6 @@
       "path": "../../packages/database/tsconfig.build.json"
     },
     {
-      "path": "../../packages/decryption/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/directory/tsconfig.build.json"
     },
     {

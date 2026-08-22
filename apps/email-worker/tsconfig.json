@@ -1,4 +1,10 @@
 {
   "extends": "../../packages/tsconfig/worker.json",
+  "compilerOptions": {
+    // The Workers globals PLUS node, because the engine tests run in the node pool: they read the
+    // WebAssembly artefact off disk with node:fs, the local stand-in for the module the bundler
+    // hands the deployed worker. Same reason packages/email-filing's tests carry node types.
+    "types": ["@cloudflare/workers-types", "node"]
+  },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

@@ -1041,12 +1041,14 @@ name = "magna-carta-recovery"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "decryption-core",
  "reqwest",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "zeroize",
 ]
 
 [[package]]

@@ -1,8 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { DecryptionError, detectFormat, ensureReady, stripWithKey } from "@magna-carta/decryption";
-import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
@@ -17,18 +15,15 @@ import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveDecryptionEnginePort } from "../decryption/decryption-engine-binding.ts";
 import { decryptionEngineProblem } from "../decryption/decryption-engine-problem.ts";
-import type { ExtractedRecoveryHash } from "../decryption/decryption-engine-port.ts";
+import type { ExtractedRecoveryHash, UnlockedFile } from "../decryption/decryption-engine-port.ts";
 
-// Wrangler bundles .wasm imports as WebAssembly.Module — typed by the ambient declaration in
-// worker-env.d.ts and passed to ensureReady so the engine initialises from the compiled module
-// rather than attempting a network fetch at runtime. Cast through unknown because the ambient
-// declaration must satisfy the compiler in all contexts, not just this assignment.
-//
-// This in-Worker engine now serves the UNLOCK route alone. Reading an encryption header — what
-// inspect does, and what the recovery route does — runs in the recovery worker's Container behind
-// the port in ../decryption/. Unlock is the one call that takes the file's own password, and a
-// password is not something this Worker puts on a wire to another process, so it stays here.
-const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
+// Both routes here reach the engine through the port in ../decryption/ — this Worker holds no copy
+// of it and no WebAssembly build of it. Inspect reads an encryption header, which needs no key.
+// Unlock takes the file's own password and sends it over the service binding into the recovery
+// Container; the owner authorised that, having been told twice what it means, in order to take the
+// WebAssembly build out of this Worker's deploy. What the authorisation obliges is written on the
+// port: the password reaches the request body and nothing else — no log, no counter dimension, no
+// error message, no URL, no audit row.
 
 // atob -> Uint8Array.
 function decodeBase64(value: string): Uint8Array {
@@ -36,16 +31,6 @@ function decodeBase64(value: string): Uint8Array {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
-}
-
-// Uint8Array -> base64, chunked so large files do not blow the argument stack of String.fromCharCode.
-function encodeBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
 }
 
 // SHA-256 of raw bytes, returned as lowercase hex. Used exclusively for the redacted audit record
@@ -168,7 +153,9 @@ const unlockRoute = defineOpenAPIRoute(decryptionUnlockMeta, {
   description:
     "Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return " +
     "the decrypted bytes as base64. Requires explicit attestation that the requester holds the " +
-    "file legitimately. Nothing is stored; only a redacted audit record is written.",
+    "file legitimately. Nothing is stored; only a redacted audit record is written. Where no " +
+    "decryption engine is wired, or the engine is wired but unreachable, the answer is a 503 — an " +
+    "engine that cannot run the decrypt says nothing about the password.",
   request: {
     body: {
       content: { "application/json": { schema: DecryptionUnlockRequest } },
@@ -195,6 +182,11 @@ const unlockRoute = defineOpenAPIRoute(decryptionUnlockMeta, {
     },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description:
+        "No decryption engine is wired, or it is wired but unreachable, so the file was not decrypted",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -359,42 +351,19 @@ export function registerDecryptionRoutes(
         });
       }
 
-      // Initialise the decryption engine from the compiled WASM module bundled at build time.
-      await ensureReady(decryptionWasm);
-
-      // Detect the format for the audit record from the raw bytes (lightweight magic-byte check).
-      // detectFormat reuses the already-initialised engine. null means unrecognised — omit from audit
-      // rather than guess.
-      const detectedFormat = await detectFormat(bytes);
-
-      let result: Awaited<ReturnType<typeof stripWithKey>>;
+      // Decrypt in the recovery worker's Container. Three outcomes on the same terms the header
+      // read runs on, and only the first is about what the member submitted: the plaintext, a
+      // stable refusal code including a wrong password (400), or an engine that is absent or cannot
+      // answer (503 — never an Error ID, and never "wrong password" for an engine that is down).
+      //
+      // `password` crosses the service binding inside the request body the adapter frames. It is
+      // not on this line's error path, not in the audit metadata below, and not in the response.
+      let result: UnlockedFile;
       try {
-        result = await stripWithKey(bytes, password);
+        result = await resolveDecryptionEnginePort(c.env).unlockWithPassword(bytes, password);
       } catch (error) {
-        if (error instanceof DecryptionError) {
-          if (error.code === "wrongPassword") {
-            // Generic detail only — do NOT reveal whether the file or format was otherwise valid,
-            // and never echo the password or any file content in the response.
-            return problemJson(c, {
-              type: "wrong-password",
-              status: 400,
-              title: "Wrong password",
-              detail: "The supplied password did not decrypt the file.",
-            });
-          }
-          const title =
-            error.code === "notEncrypted"
-              ? "The file is not encrypted"
-              : error.code === "unsupported"
-                ? "Encrypted file format not supported"
-                : "The file could not be read";
-          return problemJson(c, {
-            type: "validation",
-            status: 400,
-            title,
-            detail: `The decryption tool could not decrypt the file (${error.code}).`,
-          });
-        }
+        const refusal = decryptionEngineProblem(c, error, "The decryption tool");
+        if (refusal !== null) return refusal;
         throw error;
       }
 
@@ -404,17 +373,16 @@ export function registerDecryptionRoutes(
       const fileSha256 = await sha256Hex(bytes);
       const now = new Date().toISOString();
 
-      // Build the audit metadata — actor, digest, outcome, attestation. Conditionally include format
-      // when detection succeeded. NEVER include the password, the decrypted bytes, or any plaintext.
+      // Build the audit metadata — actor, digest, format, outcome, attestation. The format is the
+      // engine's own answer for the file it decrypted, so the record cannot disagree with what was
+      // read. NEVER include the password, the decrypted bytes, or any plaintext.
       const auditMetadata: Record<string, unknown> = {
         actorUserId: userId,
         fileSha256,
+        format: result.format,
         outcome: "decrypted",
         attestation: attestation.authorized,
       };
-      if (detectedFormat !== null) {
-        auditMetadata["format"] = detectedFormat;
-      }
 
       const auditLogId = newIdentifier("auditLog");
       await commitEffectBatch(
@@ -437,10 +405,12 @@ export function registerDecryptionRoutes(
         { now: () => now },
       );
 
+      // The engine already produced base64, so the plaintext is passed straight through rather than
+      // decoded and re-encoded to move it one hop.
       const response: { decryptedBase64: string; filenameHint?: string } = {
-        decryptedBase64: encodeBase64(result.bytes),
+        decryptedBase64: result.decryptedBase64,
       };
-      if (result.filenameHint !== undefined) {
+      if (result.filenameHint !== null) {
         response.filenameHint = result.filenameHint;
       }
       return c.json(response, 200);

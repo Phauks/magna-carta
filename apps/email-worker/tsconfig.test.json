@@ -13,6 +13,9 @@
       "path": "./tsconfig.build.json"
     },
     {
+      "path": "../../packages/email/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/email-filing/tsconfig.build.json"
     },
     {
@@ -20,6 +23,7 @@
     }
   ],
   "include": [
+    "src/**/*.d.ts",
     "test/**/*.ts"
   ]
 }

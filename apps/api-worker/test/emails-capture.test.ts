@@ -8,6 +8,8 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EmailMessageId, FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { handleCaptureMessage, type EmailsCaptureMessage } from "../src/emails/capture-consumer.ts";
+import { EmailEngineUnavailableError } from "../src/emails/email-engine-port.ts";
+import { resolveInProcessEmailEngine } from "./support/email-engine.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { mirrorMemberWithOwnerRole, seedCredentialedUser, seedFirm } from "./support/test-auth.ts";
 
@@ -82,18 +84,24 @@ async function capture(
   const jobId = newIdentifier("idempotencyRecord");
   const stagedR2Key = `emails/staging/${jobId}`;
   await env.R2.put(stagedR2Key, bytes);
-  await handleCaptureMessage(env, {
-    firmId,
-    bucketName: "test-bucket",
-    stagedR2Key,
-    capturedVia: "api",
-    matterId: matterOne,
-    captureToken: null,
-    linkedBy: ownerUserId,
-    acceptOnCapture: true,
-    jobId,
-    ...overrides,
-  });
+  await handleCaptureMessage(
+    env,
+    {
+      firmId,
+      bucketName: "test-bucket",
+      stagedR2Key,
+      capturedVia: "api",
+      matterId: matterOne,
+      captureToken: null,
+      linkedBy: ownerUserId,
+      acceptOnCapture: true,
+      jobId,
+      ...overrides,
+    },
+    undefined,
+    undefined,
+    resolveInProcessEmailEngine,
+  );
 }
 
 // Which message a matter's filing points at. Dedup is firm-wide, so one `email_message` table
@@ -236,5 +244,77 @@ describe("email capture consumer", () => {
       .prepare("SELECT COUNT(*) AS n FROM email_attachment")
       .all<{ n: number }>();
     expect(second.results[0]?.n).toBe(first.results[0]?.n); // no duplicate attachment rows
+  });
+});
+
+// The capture consumer runs on a QUEUE, where a throw is a redelivery. That makes the engine's
+// unavailable state a different problem here than it is on a request path: an engine that was never
+// deployed does not become reachable by being asked again, so a throw would put every captured
+// message into a retry storm and dead-letter the firm's whole mail flow. The tests below are the
+// enforcement of the alternative — terminal, acked, recorded, and non-destructive.
+describe("emails-capture with no parse engine wired", () => {
+  const noEngine = (): ReturnType<typeof resolveInProcessEmailEngine> => ({
+    parseMessage: () => Promise.reject(new EmailEngineUnavailableError()),
+    extractPart: () => Promise.reject(new EmailEngineUnavailableError()),
+  });
+
+  async function captureWithNoEngine(bytes: Uint8Array): Promise<string> {
+    const jobId = newIdentifier("idempotencyRecord");
+    const stagedR2Key = `emails/staging/${jobId}`;
+    await env.R2.put(stagedR2Key, bytes);
+    await handleCaptureMessage(
+      env,
+      {
+        firmId,
+        bucketName: "test-bucket",
+        stagedR2Key,
+        capturedVia: "forward",
+        matterId: null,
+        captureToken: null,
+        linkedBy: null,
+        acceptOnCapture: false,
+        jobId,
+      },
+      undefined,
+      undefined,
+      noEngine,
+    );
+    return stagedR2Key;
+  }
+
+  it("returns rather than throwing, so the queue acks instead of retrying forever", async () => {
+    // The assertion is the absence of a throw. handleCaptureMessage settles the terminal outcome
+    // itself and returns; emailsCaptureQueue's catch is therefore only reached by genuinely
+    // retryable failures.
+    await expect(captureWithNoEngine(fixture("simple.eml"))).resolves.toBeTypeOf("string");
+  });
+
+  it("records why the capture was abandoned, with no message content in the row", async () => {
+    const stagedR2Key = await captureWithNoEngine(fixture("simple.eml"));
+    const rows = await firmDatabase
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'emails.captureAbandoned'")
+      .all<{ metadata: string }>();
+    // The staged key is on the row because it is what an operator re-enqueues from, which also
+    // makes it how this test finds the row it just caused.
+    const metadata = rows.results.map((row) => row.metadata).find((m) => m.includes(stagedR2Key));
+    expect(metadata).toBeDefined();
+    expect(metadata).toContain('"reason":"engine-unavailable"');
+    // Identifiers and enums only: nothing from the message itself.
+    expect(metadata).not.toContain("Retainer");
+    expect(metadata).not.toContain("alice@example.test");
+  });
+
+  it("files nothing and DELETES NOTHING — the staged message is still there to re-run", async () => {
+    const before = await firmDatabase
+      .prepare("SELECT COUNT(*) AS n FROM email_message")
+      .first<{ n: number }>();
+    const stagedR2Key = await captureWithNoEngine(fixture("simple.eml"));
+    // The member's mail is the only copy of itself. An abandoned capture must never be a lost one.
+    expect(await env.R2.get(stagedR2Key)).not.toBeNull();
+
+    const after = await firmDatabase
+      .prepare("SELECT COUNT(*) AS n FROM email_message")
+      .first<{ n: number }>();
+    expect(after?.n).toBe(before?.n);
   });
 });

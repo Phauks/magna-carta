@@ -31,7 +31,8 @@ routes requests through the chokepoint into those packages.
 - `src/downloads/` — the async bulk-download build (the DO coordinator, the queue consumer, the shared
   types). See the flow below.
 - `src/emails/` — the email-capture consumer both entrances converge on, attachment extraction onto the
-  ingest chokepoint, and `dkim-dns-resolver.ts`. That resolver makes an outbound call the capture path
+  ingest chokepoint, the parse-engine port (see the email section below — the engine itself runs in
+  `apps/email-worker`), and `dkim-dns-resolver.ts`. That resolver makes an outbound call the capture path
   would not otherwise make: a DNS-over-HTTPS TXT lookup of a signer's `_domainkey` selector, bounded in
   time and response size, whose failures degrade the recorded DKIM verdict to `unverified` rather than
   failing the capture. Its target is deployment config (`DKIM_RESOLVER_URL`), never a user-supplied
@@ -59,9 +60,10 @@ routes requests through the chokepoint into those packages.
   **binds a stub** (`vitest.config.ts`), so `env.SCAN_SERVICE` is defined in tests and the container
   adapter — not the engine-less one — is what runs; drive the unreachable case by passing a failing
   binding in the request env, as `test/scan-unreachable-engine-seam.test.ts` does.
-- `src/decryption/` — the encryption-header read the decryption and recovery routes both make:
-  `decryption-engine-port.ts` (the port, its three error classes, the no-engine port),
-  `container-decryption-adapter.ts` (POST raw bytes → `/extract-hash`, zod-validated, status-mapped),
+- `src/decryption/` — the encryption engine the decryption and recovery routes reach:
+  `decryption-engine-port.ts` (the port, its error classes, the no-engine port),
+  `container-decryption-adapter.ts` (POST raw bytes → `/extract-hash`, or a framed
+  password-plus-file body → `/unlock`; zod-validated, status-mapped),
   `decryption-engine-binding.ts` (`resolveDecryptionEnginePort` — the adapter over `RECOVERY_SERVICE`
   when bound, the no-engine port otherwise), and `decryption-engine-problem.ts` (the one mapping from
   those errors to a reply). See the section below.
@@ -301,51 +303,129 @@ frozen-field list, the ingest chokepoint, the provenance row, the telemetry — 
   abandoned staged uploads is a separate half and is deliberately not here — it wants an R2 lifecycle
   rule ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)).
 
-## Decryption — the header read is a Container call, the decrypt is not
+## Decryption — both halves are Container calls now, and one of them carries a password
 
-Two things this app does with an encrypted file a member uploads, and they are on opposite sides of a
-line that is not a style choice:
+Two things this app does with an encrypted file a member uploads. Both run in the Container
+`apps/recovery-worker` owns, reached over `RECOVERY_SERVICE` behind the port in `src/decryption/`;
+this Worker holds no decryption engine and no WebAssembly build of one.
 
-- **Reading its encryption header** — `extractRecoveryHash`, behind `resolveDecryptionEnginePort` in
-  `src/decryption/`. `POST /api/v1/decryption/inspect` and `POST /api/v1/decryption/recover` both go
-  through it. The engine is the `decryption-core` crate running in the Container that `apps/recovery-worker`
-  owns, reached over `RECOVERY_SERVICE`. Nothing about this parse needs a key: it reads the parameters
-  the container already advertises about itself.
-- **Decrypting it with its password** — `stripWithKey`, still the in-Worker WebAssembly import in
-  `routes/decryption.ts`, serving `POST /api/v1/decryption/unlock` alone. **Do not move it behind the
-  port without the owner saying so.** The argument it takes is the file's own password; putting that
-  on a wire into a long-lived Container that is shared across firms and whose day job is cracking
-  passwords is a change to where a firm's document secrets live, not a refactor. Until that is
-  decided the app worker keeps its `@magna-carta/decryption` import, and `rust-wasm-build` keeps
-  building `decryption-core` — the header read alone does not free the build of Docker.
+- **Reading its encryption header** — `extractRecoveryHash`, serving
+  `POST /api/v1/decryption/inspect` and `POST /api/v1/decryption/recover`. Nothing about this parse
+  needs a key: it reads the parameters the container already advertises about itself.
+- **Decrypting it with its password** — `unlockWithPassword`, serving
+  `POST /api/v1/decryption/unlock`. **This one sends a member's own document password across the
+  service binding into a Container that is long-lived, shared across firms, and whose other job is
+  running password searches. The owner authorised it, having been told the risk twice, to complete
+  the removal of the WebAssembly build from this Worker's deploy.**
+
+Because the decrypt is authorised rather than harmless, the containment is a rule and not a habit:
+
+- **The password is not loggable, not countable, and not dimensionable.** No log line, no telemetry
+  dimension, no metric label, no error message, no URL, no header, no retry buffer, and no audit
+  row. It reaches the request body and stops. Every failure path names the transport or the status
+  and never the input, and `test/decryption-engine-adapter.test.ts` asserts exactly that — including
+  on the wrong-password verdict, which says the decrypt failed and never which string failed.
+- **The framing is why it is only in the body.** `containerDecryptionAdapter` writes
+  `[u32 big-endian password length][password][file]` into an `application/octet-stream` body. A
+  header or a query parameter is the part of a request that proxies and access logs record by
+  default; a JSON body is a body a deserializer can quote back in an error. A length-prefixed body
+  is neither, and the container's own framing complaints name lengths only. The prefix width is
+  pinned in both the adapter and `containers/recovery/src/server.rs` — a Worker cannot import from a
+  Container, so change one and change both in the same commit.
+- **The container zeroes what it owns.** `unlock_blocking` wipes the request buffer in place and
+  holds its own copy in a `Zeroizing<String>`. What it cannot reach is documented there rather than
+  assumed: `lopdf`'s `Document::decrypt` makes a sanitized `Vec<u8>` of the password and drops it
+  unwiped, and the `zip` crate copies it into its cipher state the same way. Neither retains it past
+  the call.
+- **The `tools:decryption` chokepoint gate and the `decryption.unlocked` audit row are unchanged**,
+  with the engine call between them. The audit metadata carries actor, digest, format, and outcome —
+  never the password, never the plaintext.
+
+ROOT_KEK and the per-firm key providers are untouched by any of this; nothing that is or wraps a
+platform key crosses the binding.
 
 **Three states, not two, and only the first two are verdicts.** Same rule the scan port runs on, and
 the same reason.
 
 - No `RECOVERY_SERVICE` binding at all → `DecryptionEngineUnavailableError`. No engine, no read, no
   claim about the file.
-- Bound and answering → a hash (200 from the container), or `HashExtractionRefusedError` carrying
-  `notEncrypted` / `unsupported` / `malformed` (422). Only these are facts about the member's file.
+- Bound and answering → a hash or the plaintext (200 from the container), or a typed refusal (422):
+  `HashExtractionRefusedError` carrying `notEncrypted` / `unsupported` / `malformed`, or
+  `UnlockRefusedError` carrying those plus `wrongPassword`. Only these are facts about what the
+  member submitted.
 - Bound and failing — a placeholder worker, a Container that is not up, a wedged request, a reply
   that does not parse → `DecryptionEngineFaultError`.
 
-`decryptionEngineProblem` is the single mapping: the refusal becomes a **400** with the stable code
-and no echo of file content; both of the others become a retryable **503** with distinct wording and
-no Error ID. Handing a member an Error ID for an engine that is simply not there is the failure this
-pattern replaced, and blaming their file for our outage is worse. A third route that reads a header
-calls the same helper — it must not grow its own mapping.
+`decryptionEngineProblem` is the single mapping: either refusal becomes a **400** with the stable
+code and no echo of file content or password; both of the others become a retryable **503** with
+distinct wording and no Error ID. Handing a member an Error ID for an engine that is simply not
+there is the failure this pattern replaced; blaming their file for our outage is worse; and telling
+someone their password is wrong because a Container did not start is worse still, which is why the
+adapter's non-200 branch is a fault and never a `wrongPassword`. A third route that calls the engine
+uses the same helper — it must not grow its own mapping.
 
 **The container's status codes ARE the contract** (`containers/recovery/src/server.rs`,
-`apps/recovery-worker/src/forward-recovery.ts`): 200 a hash, 422 a code about the file, 5xx a fault.
-The proxy passes all three through verbatim and the adapter branches on them; collapsing any two on
-either side silently turns an outage into a verdict. `containers/recovery/tests/recover_e2e.sh`
-asserts the 200 and the 422 against a built image.
+`apps/recovery-worker/src/forward-recovery.ts`): 200 a result, 422 a code about what was submitted,
+5xx a fault. The proxy passes all three through verbatim on both routes and the adapter branches on
+them; collapsing any two on either side silently turns an outage into a verdict.
+`containers/recovery/tests/recover_e2e.sh` asserts them against a built image.
 
 **The test pool binds a stub** (`vitest.config.ts`) that recognises the one committed encrypted-PDF
-fixture by its magic bytes and replays the hash `crates/decryption-core` really extracts from it;
-everything else gets 422 `notEncrypted`. The parser itself is held by the Rust tests, not here — a
-stub that invented a hash for bytes it never parsed would be testing its own fiction. Drive the
-absent and unreachable cases with a fake port, as `test/decryption-engine-adapter.test.ts` does.
+fixture by its magic bytes, replays the hash `crates/decryption-core` really extracts from it, and
+answers the decrypt only for that fixture's real password; everything else gets a 422. The stub
+splits the framed unlock body the way the Container does, so the framing is exercised rather than
+assumed. The engine itself is held by the Rust tests, not here — a stub that invented a hash, or a
+plaintext, for bytes it never parsed would be testing its own fiction. Drive the absent and
+unreachable cases with a fake port, as `test/decryption-engine-adapter.test.ts` does.
+
+## Email — the parse engine runs where the mail arrives, and the queue caller is the awkward one
+
+Everything this app does with a `.eml` or `.msg` goes through the port in `src/emails/`:
+`email-engine-port.ts` (the port, its three error classes, the no-engine port),
+`container-email-adapter.ts` (raw bytes → `POST /parse` or `POST /extract-part?index=N`,
+status-mapped), `email-engine-binding.ts` (`resolveEmailEnginePort` — the adapter over
+`EMAIL_SERVICE` when bound, the no-engine port otherwise), and `email-engine-problem.ts` (the one
+mapping from those errors to a reply). The engine is the `email-core` build running in
+`apps/email-worker`, which Cloudflare Email Routing already delivers to — mail's entrance is where
+the thing that reads mail belongs, and keeping it out of here keeps this bundle free of a second
+copy of the WebAssembly build.
+
+**`magna-carta-email` is not connected in Cloudflare, so the no-engine port is what runs in
+production today.** `EMAIL_SERVICE` is declared COMMENTED OUT in `wrangler.jsonc` — a service
+binding to a service that does not exist fails the deploy — and the operator steps that turn it on
+are in [`docs/conventions/operations.md`](../../docs/conventions/operations.md). Everything below is
+therefore the live behaviour, not a contingency.
+
+**Three states, and the absent one means DIFFERENT things to the two callers.** That difference is
+the whole design and not an inconsistency:
+
+- `routes/email-inspector.ts` is a request path. Absent or faulting → a retryable **503** with no
+  Error ID, via `emailEngineProblem`; a refusal → **413** for `limitExceeded`, **422** otherwise.
+- `emails/capture-consumer.ts` runs on a **queue**, where a throw is a redelivery. An engine that
+  was never deployed does not become reachable by being asked again, so throwing would put every
+  captured message into a retry storm and dead-letter the firm's entire mail flow against a
+  condition only a deployment change can fix. So an absent engine — and a refusal, which is a fact
+  about the mail — is a **terminal, acked outcome that records why**: an `emails.captureAbandoned`
+  audit row carrying the job id, the entrance, the reason enum, and the staged key. Same call
+  `assemblies/assembly-consumer.ts` makes for an office suite that is not deployed. A wedged engine
+  (`EmailEngineFaultError`) still throws and still retries, because that class a redelivery can fix.
+
+Two rules for that terminal path:
+
+- **It deletes nothing.** The staged MIME is the only copy of the member's message and is what an
+  operator re-enqueues from once the engine is connected. `test/emails-capture.test.ts` asserts the
+  object survives.
+- **The classification lives at the stage that knows it** — inside `handleCaptureMessage`, around
+  the `captureEmail` call — not in the queue loop. Past that point a capture has already committed,
+  and recording it as abandoned would be false.
+
+The engine is injectable on `handleCaptureMessage` for the same reason the assembly consumer's
+resolver is: another Worker cannot run under the local pool. The capture suites inject
+`test/support/email-engine.ts`, which runs the same `email-core` build in-process so those suites
+stay about capture; the wire — status mapping, framing, the three states — is held separately by
+`test/email-engine-adapter.test.ts`. Neither substitutes for the other. `@magna-carta/email` is a
+**devDependency** of this app precisely so that support module can exist while nothing under `src/`
+can name the engine.
 
 ## The split-object host — how the search engine reads R2 without credentials
 

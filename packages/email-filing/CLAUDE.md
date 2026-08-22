@@ -77,6 +77,11 @@ testable with no database.
 
 - Depends on `@magna-carta/email` (the Rust parse core through its WASM edge),
   `@magna-carta/identifiers`, and `@magna-carta/money` only for value types.
+- **`src/message.ts` re-exports the parsed-message TYPES**, and it exists so a consumer can describe
+  a message without claiming the engine. Naming `@magna-carta/email` is what pulls the WebAssembly
+  build into a bundle; the engine now runs in `apps/email-worker` and every other caller reaches it
+  over a service binding, so `apps/api-worker` imports its types from here instead. Type-only
+  re-exports are erased at compile time, so this module adds nothing to any bundle.
 - Consumed by `apps/api-worker/src/emails/` (the capture consumer, the evidence gatherer, the firm policy
   helpers) and by `apps/api-worker/src/routes/` (`emails.ts`, `capture-addresses.ts`, `email-add-in.ts`,
   `auto-file-rules.ts`, `auto-file-policy.ts`).

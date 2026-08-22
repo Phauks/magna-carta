@@ -57,6 +57,36 @@ export async function forwardExtractHash(
   });
 }
 
+// Forward a password decrypt to the recovery Container and return its response verbatim. The route
+// is `POST /unlock`: a framed body carrying the member's own document password followed by the file
+// goes in, and either the plaintext (200), a stable refusal code about the file or the password
+// (422), or a fault (5xx) comes back. As with the header read, the status codes are the contract the
+// app worker branches on, so nothing here may collapse or rewrite one.
+//
+// THE BODY CARRIES A PASSWORD, and that is why this function is four lines of pass-through and no
+// more. It streams — nothing buffers a body holding a secret into this worker's memory — and it
+// reads nothing out of the body, logs nothing, and adds no header, query parameter, or retry buffer
+// that could hold a copy. A future change here that inspects the body for any reason is a change to
+// where a firm's document passwords live.
+export async function forwardUnlock(
+  request: Request,
+  container: RecoveryEngineContainerFetcher,
+): Promise<Response> {
+  const containerResponse = await container.fetch(
+    new Request("http://recovery/unlock", {
+      method: "POST",
+      body: request.body,
+      duplex: "half",
+      signal: request.signal,
+    } as RequestInit & { duplex: "half" }),
+  );
+  return new Response(containerResponse.body, {
+    status: containerResponse.status,
+    statusText: containerResponse.statusText,
+    headers: containerResponse.headers,
+  });
+}
+
 // Forward a health probe to the recovery Container's /ready endpoint and return its response verbatim.
 export async function forwardReady(container: RecoveryEngineContainerFetcher): Promise<Response> {
   return container.fetch(new Request("http://recovery/ready"));
@@ -86,6 +116,12 @@ export async function routeRequest(
     // header when the caller does set one, so a future caller can pin the read alongside its shards.
     const instanceId = request.headers.get("X-Recovery-Instance") ?? "recovery";
     return forwardExtractHash(request, resolveContainer(instanceId));
+  }
+  if (request.method === "POST" && url.pathname === "/unlock") {
+    // A decrypt is one short synchronous call like the header read, not a shard of a long search,
+    // so it rides the same fixed instance a shard falls back to.
+    const instanceId = request.headers.get("X-Recovery-Instance") ?? "recovery";
+    return forwardUnlock(request, resolveContainer(instanceId));
   }
   if (request.method === "GET" && url.pathname === "/ready") {
     return forwardReady(resolveContainer("recovery"));

@@ -214,6 +214,13 @@ export type Bindings = {
   // The dedicated password-recovery worker (magna-carta-recovery), reached over a service binding.
   // Optional here so the pool can start without a running recovery worker.
   RECOVERY_SERVICE?: Fetcher;
+  // The inbound-mail worker (magna-carta-email), reached over a service binding. It is both the
+  // Email Routing entrance and the home of the email parse engine, which this worker calls to read
+  // a captured message and to copy one of its attachments out. Optional, and ABSENT IN PRODUCTION
+  // TODAY — magna-carta-email is not connected yet (docs/conventions/operations.md). While unset,
+  // resolveEmailEnginePort returns the no-engine port: the inspector route answers 503 and the
+  // capture consumer records an unfiled capture and acks rather than retrying.
+  EMAIL_SERVICE?: Fetcher;
   // The dedicated text-recognition engine worker (magna-carta-ocr), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, the ocr route returns 503 (the same posture the file-type and file-repair routes take).

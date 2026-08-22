@@ -6,19 +6,22 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use decryption_core::{
-    extract_hash, parse_rules, recover_shard, recovery_tier, split_keyspace, ExtractError, Format,
-    OoxmlAdapter, PdfAdapter, RecoveryJob, RecoveryTier, RuleSet, ZipAdapter,
+    detect, extract_hash, parse_rules, recover_shard, recovery_tier, split_keyspace,
+    strip_with_key, DecryptError, ExtractError, Format, OoxmlAdapter, PdfAdapter, RecoveryJob,
+    RecoveryTier, RuleSet, ZipAdapter,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use zeroize::Zeroize;
 
-/// Ceiling on the raw file body `POST /extract-hash` will read. The only caller is the app worker
-/// over its service binding, which has already enforced the firm's own inspectable-size cap, and a
-/// Cloudflare Worker cannot forward a request body larger than 100 MiB anyway — so this is a
-/// backstop against a wedged or misconfigured caller, not the product limit. It replaces axum's
-/// 2 MiB default, which would reject ordinary encrypted documents.
-const EXTRACT_HASH_BODY_LIMIT_BYTES: usize = 128 * 1024 * 1024;
+/// Ceiling on the raw file body `POST /extract-hash` and `POST /unlock` will read. The only caller
+/// is the app worker over its service binding, which has already enforced the firm's own
+/// inspectable-size cap, and a Cloudflare Worker cannot forward a request body larger than 100 MiB
+/// anyway — so this is a backstop against a wedged or misconfigured caller, not the product limit.
+/// It replaces axum's 2 MiB default, which would reject ordinary encrypted documents.
+const FILE_BODY_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 
 /// Shared state loaded once at startup and shared across requests.
 #[derive(Clone)]
@@ -37,7 +40,11 @@ pub fn router(state: AppState) -> Router {
         .route("/recover-shard", post(recover_shard_handler))
         .route(
             "/extract-hash",
-            post(extract_hash_handler).layer(DefaultBodyLimit::max(EXTRACT_HASH_BODY_LIMIT_BYTES)),
+            post(extract_hash_handler).layer(DefaultBodyLimit::max(FILE_BODY_LIMIT_BYTES)),
+        )
+        .route(
+            "/unlock",
+            post(unlock_handler).layer(DefaultBodyLimit::max(FILE_BODY_LIMIT_BYTES)),
         )
         .with_state(state)
 }
@@ -143,6 +150,191 @@ fn format_name(format: Format) -> &'static str {
         Format::Pdf => "pdf",
         Format::Zip => "zip",
         Format::Ooxml => "ooxml",
+    }
+}
+
+/// How many leading bytes of a `POST /unlock` body carry the password length: a big-endian `u32`.
+const UNLOCK_PASSWORD_LENGTH_PREFIX_BYTES: usize = 4;
+
+/// The response body for a successful `POST /unlock`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UnlockResponse {
+    /// One of `"pdf"`, `"zip"`, or `"ooxml"` — what the plaintext was decrypted out of.
+    format: &'static str,
+    /// The decrypted bytes, base64-encoded. The caller returns this string verbatim, so nothing
+    /// decodes and re-encodes a whole document to move it one hop.
+    decrypted_base64: String,
+    /// The name the encrypted container carried for its payload, where it carried one.
+    filename_hint: Option<String>,
+}
+
+/// The response body when the bytes and the password are a valid request but yield no plaintext.
+/// Like `ExtractHashRefusal` this is a fact about the submitted FILE (or about the password the
+/// person typed), not about this service, so it is a 422 the caller turns into a message — never a
+/// 5xx, which the caller reads as "engine down".
+#[derive(Serialize)]
+struct UnlockRefusal {
+    /// `"wrongPassword"`, `"notEncrypted"`, `"unsupported"`, or `"malformed"`.
+    code: &'static str,
+}
+
+/// `POST /unlock` — decrypt the password-protected file in the request body and return its
+/// plaintext.
+///
+/// **The body carries a password, so its framing is deliberate.** The password is length-prefixed
+/// into the body rather than sent as a header or a query parameter, because a body is the one part
+/// of an HTTP request that no proxy, access log, or trace metadata records by default: a
+/// `u32` big-endian byte length, the password's UTF-8 bytes, then the file. It is not JSON either —
+/// a deserializer's error text quotes the input it choked on, and that input would be the password.
+///
+/// Nothing here logs, counts, or echoes the password: not the refusal codes, not the 400s, not the
+/// panic path. The owned copy this handler makes lives in a `Zeroizing<String>` and the request
+/// buffer is wiped before the handler returns; see `unlock_blocking` for what that can and cannot
+/// reach.
+///
+/// Status codes are the contract, on exactly the terms `/extract-hash` sets: 200 carries plaintext,
+/// 422 carries a stable refusal code, and any 5xx means this service could not answer at all.
+async fn unlock_handler(bytes: Bytes) -> Response {
+    // CPU-bound decryption of untrusted bytes — off the async executor, like the shard search. The
+    // whole body moves into the closure so the password never outlives one blocking task.
+    match tokio::task::spawn_blocking(move || unlock_blocking(bytes)).await {
+        Ok(response) => response,
+        Err(join_error) => {
+            // A panic in the decryptor is a fault in this service, not a verdict on the file. The
+            // message names the join failure only — never any part of the body, which holds the
+            // password as well as the file.
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("unlock task panicked: {join_error}"),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// The blocking half of `POST /unlock`: split the framed body, decrypt, and wipe what it owns.
+///
+/// Three copies of the password exist while this runs and each is accounted for:
+///
+/// 1. `body` — the request buffer axum handed over. Wiped in place before returning when this task
+///    holds the only reference to it (the common case: axum has dropped its own).
+/// 2. `password` — the owned `String` this function builds to satisfy `strip_with_key`'s `&str`.
+///    A `Zeroizing` wrapper wipes it on drop, including on the early-return paths.
+/// 3. Whatever the format adapter copies internally. That is outside this crate's reach: `lopdf`'s
+///    `Document::decrypt` builds its own sanitized `Vec<u8>` of the password and drops it without
+///    wiping, and the `zip` crate copies the password into its cipher state the same way. Neither
+///    retains it past the call, but neither zeroes it either — the allocation is returned to the
+///    allocator still holding the bytes.
+fn unlock_blocking(mut body: Bytes) -> Response {
+    let framed = match split_unlock_body(&body) {
+        Ok(framed) => framed,
+        Err(message) => {
+            // A framing complaint describes the LENGTHS ONLY. It never quotes the bytes, because
+            // the bytes are a password followed by a member's document.
+            return (StatusCode::BAD_REQUEST, message).into_response();
+        }
+    };
+
+    let outcome = {
+        let password = match String::from_utf8(framed.password.to_vec()) {
+            Ok(text) => zeroize::Zeroizing::new(text),
+            Err(_) => {
+                wipe(&mut body);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    "the password bytes are not valid UTF-8",
+                )
+                    .into_response();
+            }
+        };
+        let format = detect(framed.file);
+        (format, strip_with_key(framed.file, &password))
+    };
+
+    // The password copy above is gone by here; the request buffer is the last place it lives.
+    wipe(&mut body);
+
+    match outcome {
+        (Some(format), Ok(decrypted)) => Json(UnlockResponse {
+            format: format_name(format),
+            decrypted_base64: BASE64.encode(&decrypted.bytes),
+            filename_hint: decrypted.filename_hint,
+        })
+        .into_response(),
+        // `strip_with_key` dispatches on the same `detect` this handler called, so a success with no
+        // detected format cannot happen. Report it as a fault rather than guessing a format onto a
+        // document the caller will file.
+        (None, Ok(_)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "decryption succeeded for a format detection did not recognise",
+        )
+            .into_response(),
+        (_, Err(error)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(UnlockRefusal {
+                code: decrypt_error_code(&error),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+/// The two spans of a framed `POST /unlock` body.
+struct UnlockBody<'a> {
+    password: &'a [u8],
+    file: &'a [u8],
+}
+
+/// Split `[u32 big-endian password length][password][file]`. Every error names lengths only.
+fn split_unlock_body(body: &[u8]) -> Result<UnlockBody<'_>, String> {
+    if body.len() < UNLOCK_PASSWORD_LENGTH_PREFIX_BYTES {
+        return Err(format!(
+            "the request body is {} bytes, shorter than the {UNLOCK_PASSWORD_LENGTH_PREFIX_BYTES}-byte password-length prefix",
+            body.len()
+        ));
+    }
+    let (prefix, rest) = body.split_at(UNLOCK_PASSWORD_LENGTH_PREFIX_BYTES);
+    let password_length = u32::from_be_bytes([prefix[0], prefix[1], prefix[2], prefix[3]]) as usize;
+    if password_length == 0 {
+        return Err("the request body declared a zero-length password".to_owned());
+    }
+    if password_length > rest.len() {
+        return Err(format!(
+            "the request body declared a {password_length}-byte password but carries only {} bytes after the prefix",
+            rest.len()
+        ));
+    }
+    let (password, file) = rest.split_at(password_length);
+    if file.is_empty() {
+        return Err("the request body carried no file bytes after the password".to_owned());
+    }
+    Ok(UnlockBody { password, file })
+}
+
+/// Wipe a request buffer in place when this task holds the only reference to it.
+///
+/// `Bytes` is reference-counted, so this can only succeed while nothing else is looking at the
+/// allocation — which is the ordinary case once axum has handed the body over and dropped its own
+/// handle. When it does not succeed the buffer is simply dropped: the allocator gets it back with
+/// the bytes still in it, exactly as it would have without this call, so there is nothing to fall
+/// back to and nothing lost by trying.
+fn wipe(body: &mut Bytes) {
+    let taken = std::mem::take(body);
+    if let Ok(mut owned) = taken.try_into_mut() {
+        owned.as_mut().zeroize();
+    }
+}
+
+/// Map a decryption failure to the stable code the caller branches on. As with
+/// `extract_error_code`, the variants' own messages are dropped: they quote parser detail about the
+/// submitted file, and the caller surfaces this to a member.
+fn decrypt_error_code(error: &DecryptError) -> &'static str {
+    match error {
+        DecryptError::WrongPassword => "wrongPassword",
+        DecryptError::NotEncrypted => "notEncrypted",
+        DecryptError::Unsupported(_) => "unsupported",
+        DecryptError::Malformed(_) => "malformed",
     }
 }
 
@@ -378,6 +570,68 @@ mod tests {
             extract_error_code(&ExtractError::Malformed("offset 4919 of the file".into())),
             "malformed"
         );
+    }
+
+    #[test]
+    fn decrypt_error_maps_to_the_stable_codes_and_carries_no_parser_detail() {
+        assert_eq!(
+            decrypt_error_code(&DecryptError::WrongPassword),
+            "wrongPassword"
+        );
+        assert_eq!(
+            decrypt_error_code(&DecryptError::NotEncrypted),
+            "notEncrypted"
+        );
+        assert_eq!(
+            decrypt_error_code(&DecryptError::Unsupported("some parser detail".into())),
+            "unsupported"
+        );
+        assert_eq!(
+            decrypt_error_code(&DecryptError::Malformed("offset 4919 of the file".into())),
+            "malformed"
+        );
+    }
+
+    #[test]
+    fn unlock_body_splits_at_the_declared_password_length() {
+        let mut body = Vec::new();
+        body.extend_from_slice(&6u32.to_be_bytes());
+        body.extend_from_slice(b"hunter");
+        body.extend_from_slice(b"%PDF-1.7 file bytes");
+        let framed = split_unlock_body(&body).expect("a well-formed body must split");
+        assert_eq!(framed.password, b"hunter");
+        assert_eq!(framed.file, b"%PDF-1.7 file bytes");
+    }
+
+    #[test]
+    fn a_framing_complaint_never_quotes_the_body() {
+        // Every rejection reason is read by a caller that may log it, and the bytes it would be
+        // quoting are a password followed by a member's document.
+        let password = b"correct-horse-battery-staple";
+        let mut truncated = Vec::new();
+        truncated.extend_from_slice(&(password.len() as u32 + 40).to_be_bytes());
+        truncated.extend_from_slice(password);
+        // `UnlockBody` deliberately has no `Debug`, so a rejection is unwrapped by hand rather than
+        // through `unwrap_err` — a derived formatter over a password field is the very thing this
+        // test exists to keep out of the service.
+        let refusal = |body: &[u8]| match split_unlock_body(body) {
+            Ok(_) => panic!("this body must not split"),
+            Err(message) => message,
+        };
+        let cases = [
+            refusal(&[0u8; 2]),
+            refusal(&0u32.to_be_bytes()),
+            refusal(&truncated),
+            refusal(&[&(password.len() as u32).to_be_bytes()[..], password].concat()),
+        ];
+        for message in cases {
+            assert!(
+                !message.contains("correct")
+                    && !message.contains("horse")
+                    && !message.contains("PDF"),
+                "a framing complaint quoted the body: {message}"
+            );
+        }
     }
 
     #[test]

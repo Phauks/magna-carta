@@ -3,6 +3,7 @@ import {
   forwardExtractHash,
   forwardRecoveryShard,
   forwardReady,
+  forwardUnlock,
   routeRequest,
 } from "../src/forward-recovery.ts";
 
@@ -122,6 +123,75 @@ describe("forwardExtractHash", () => {
   });
 });
 
+describe("forwardUnlock", () => {
+  it("forwards POST /unlock to the container and returns the 200 verbatim", async () => {
+    const unlocked = { format: "pdf", decryptedBase64: "JVBERi0=", filenameHint: null };
+    const container = fakeContainer(
+      new Response(JSON.stringify(unlocked), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const response = await forwardUnlock(
+      new Request("http://recovery-worker/unlock", { method: "POST", body: "framed-body" }),
+      container,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(unlocked);
+  });
+
+  it("passes a 422 wrong-password verdict through unchanged, so the caller can tell it from a fault", async () => {
+    const container = fakeContainer(
+      new Response(JSON.stringify({ code: "wrongPassword" }), {
+        status: 422,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const response = await forwardUnlock(
+      new Request("http://recovery-worker/unlock", { method: "POST", body: "framed-body" }),
+      container,
+    );
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ code: "wrongPassword" });
+  });
+
+  it("propagates a 5xx from the container rather than converting it into a refusal", async () => {
+    const container = fakeContainer(new Response("engine panicked", { status: 500 }));
+
+    const response = await forwardUnlock(
+      new Request("http://recovery-worker/unlock", { method: "POST", body: "framed-body" }),
+      container,
+    );
+    expect(response.status).toBe(500);
+  });
+
+  it("adds no header, query parameter, or copy of its own to a body that carries a password", async () => {
+    // The forward is deliberately four lines. A password lives in this request body and nowhere
+    // else on the wire; anything this worker reads out of it or hangs beside it is a second place
+    // it can be observed.
+    let forwarded: Request | undefined;
+    const container = {
+      fetch: async (request: Request) => {
+        forwarded = request;
+        return new Response("{}", { status: 200 });
+      },
+    };
+
+    const framed = new Uint8Array([0, 0, 0, 4, 116, 101, 115, 116, 37, 80, 68, 70]);
+    await forwardUnlock(
+      new Request("http://recovery-worker/unlock", { method: "POST", body: framed }),
+      container,
+    );
+
+    const sent = forwarded as unknown as Request;
+    expect(new URL(sent.url).search).toBe("");
+    expect([...sent.headers.keys()]).not.toContain("x-decryption-password");
+    expect(new Uint8Array(await sent.arrayBuffer())).toEqual(framed);
+  });
+});
+
 describe("forwardReady", () => {
   it("routes GET /ready to the container and returns the response verbatim", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
@@ -203,6 +273,28 @@ describe("routeRequest routing", () => {
       () => container,
     );
     expect(response.status).toBe(200);
+  });
+
+  it("routes POST /unlock to the container via routeRequest", async () => {
+    const container = fakeContainer(
+      new Response('{"format":"pdf","decryptedBase64":"JVBERi0=","filenameHint":null}', {
+        status: 200,
+      }),
+    );
+    const response = await routeRequest(
+      new Request("http://recovery-worker/unlock", { method: "POST", body: "framed-body" }),
+      () => container,
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 404 for a GET to /unlock (wrong method)", async () => {
+    const container = fakeContainer(new Response("ok", { status: 200 }));
+    const response = await routeRequest(
+      new Request("http://recovery-worker/unlock", { method: "GET" }),
+      () => container,
+    );
+    expect(response.status).toBe(404);
   });
 
   it("returns 404 for a GET to /extract-hash (wrong method)", async () => {

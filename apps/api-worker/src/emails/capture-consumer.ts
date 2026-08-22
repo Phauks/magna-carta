@@ -1,8 +1,10 @@
-import { ensureReady, parseMessage } from "@magna-carta/email";
-import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import {
+  domainAuditStatement,
+  insertAuditLogStatement,
+} from "@magna-carta/data-access/audit-statements";
 import {
   insertEmailAutoFileDecisionStatement,
   suspendEmailAutoFileRule,
@@ -49,9 +51,13 @@ import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
 import { createAutoFileDecisionPort } from "./auto-file-evaluation.ts";
 import { createDkimKeyLookup } from "./dkim-dns-resolver.ts";
+import { resolveEmailEnginePort } from "./email-engine-binding.ts";
+import {
+  EmailEngineUnavailableError,
+  MessageRefusedError,
+  type EmailEnginePort,
+} from "./email-engine-port.ts";
 import { EMAIL_FILED_TOPIC } from "@magna-carta/email-filing/topics";
-
-const emailWasm = emailWasmModule as unknown as WebAssembly.Module;
 
 // The capture-address token store lives per-firm; this consumer is the one convergence point both
 // entrances (the forward/CC Email Worker and the authenticated file-to-matter API) enqueue into. The
@@ -77,13 +83,21 @@ export interface EmailsCaptureMessage {
 // Process one capture job. Acks (returns) on every terminal outcome; THROWS only on a transient
 // condition (the staged object not yet readable) so the queue retries and, at max attempts,
 // dead-letters — mirroring the files-ingest consumer.
+//
+// `resolveEngine` is injectable for the same reason the assembly consumer's engine resolver is: the
+// engine is another Worker, which does not run under the local test pool, and the absent and
+// faulting cases are the ones worth driving deliberately.
 export async function handleCaptureMessage(
   env: Bindings,
   message: EmailsCaptureMessage,
   logger: Logger = createWorkersLogger(env.TELEMETRY),
   correlationId: string = newCorrelationId(),
+  resolveEngine: (env: Bindings) => EmailEnginePort = resolveEmailEnginePort,
 ): Promise<void> {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
+  // Resolved once per message. Every read of these bytes — the parse and each attachment — goes
+  // through this one handle, so a redeploy cannot change engines halfway through one capture.
+  const engine = resolveEngine(env);
 
   const staged = await env.R2.get(message.stagedR2Key);
   if (staged === null) {
@@ -104,10 +118,7 @@ export async function handleCaptureMessage(
   const now = (): string => new Date().toISOString();
 
   const ports: CapturePorts = {
-    parse: async (input) => {
-      await ensureReady(emailWasm);
-      return parseMessage(input);
-    },
+    parse: (input) => engine.parseMessage(input),
     persistOriginal: async (input) => {
       const digest = await crypto.subtle.digest("SHA-256", input);
       const contentSha256 = [...new Uint8Array(digest)]
@@ -262,6 +273,32 @@ export async function handleCaptureMessage(
       ports,
     );
   } catch (caught) {
+    // TWO OF THE ENGINE'S THREE STATES END THE JOB HERE, and the middle one is why this is not a
+    // bare rethrow. This runs on a QUEUE, where a throw is a redelivery.
+    //
+    //  - No engine wired at all (EmailEngineUnavailableError). An absent engine does not become
+    //    reachable by being asked again, so throwing would put every captured message into a retry
+    //    storm and dead-letter the firm's whole mail flow against a condition only a deployment
+    //    change can fix. Terminal, acked, and RECORDED — the same call the document-assembly
+    //    consumer makes for an office suite that is not deployed.
+    //  - The engine read the bytes and refused them (MessageRefusedError: malformed, unsupported).
+    //    A fact about the mail; no redelivery changes it.
+    //
+    // Everything else — a wedged engine, a transport failure, a database error — is rethrown and
+    // retried, because a redelivery genuinely can fix that class.
+    //
+    // NOTHING DELETES THE STAGED MIME ON EITHER TERMINAL PATH. It is the only copy of the member's
+    // message, and it is the key an operator re-enqueues from once the engine is connected.
+    const terminalReason =
+      caught instanceof EmailEngineUnavailableError
+        ? "engine-unavailable"
+        : caught instanceof MessageRefusedError
+          ? caught.code
+          : null;
+    if (terminalReason !== null) {
+      await recordCaptureAbandoned(firmDatabase, message, terminalReason, logger, correlationId);
+      return;
+    }
     logOperationFailed(logger, "emails.capture", caught, correlationId);
     throw caught; // transient/unknown → retry; a poison message dead-letters at max attempts
   }
@@ -281,6 +318,7 @@ export async function handleCaptureMessage(
     uploadedBy: message.linkedBy === null ? null : (message.linkedBy as UserId),
     correlationId,
     logger,
+    engine,
   });
 
   // The staged pointer is transient — the verbatim original now lives under its content-addressed key.
@@ -373,7 +411,8 @@ function autoFileStatements(
   return statements;
 }
 
-// The emails-capture queue consumer: one job per message. Ack on success, retry on throw.
+// The emails-capture queue consumer: one job per message. Ack on success or on a settled terminal
+// outcome, retry on throw.
 export async function emailsCaptureQueue(
   batch: MessageBatch<EmailsCaptureMessage>,
   env: Bindings,
@@ -381,10 +420,69 @@ export async function emailsCaptureQueue(
   const logger = createWorkersLogger(env.TELEMETRY);
   for (const message of batch.messages) {
     try {
+      // A terminal outcome is settled inside handleCaptureMessage, at the stage that knows which
+      // one it is, and RETURNS — so anything that reaches this catch is genuinely retryable.
       await handleCaptureMessage(env, message.body, logger);
       message.ack();
     } catch {
       message.retry();
     }
   }
+}
+
+// Write the one row that says a captured message was not filed and why, so an unfiled capture is a
+// fact in the firm's own audit trail rather than a silence — the difference between "the engine is
+// not connected yet" and mail quietly disappearing. Identifiers and enums only: no subject, no
+// address, no message content, on the same terms as every other row this consumer writes.
+//
+// This is the ONLY thing a terminal outcome does. It does not delete the staged object and must
+// never grow that: the staged MIME is the member's message, and the recorded key is what an
+// operator re-enqueues from.
+//
+// A write that fails is left to throw. The outcome is then unrecorded, and an unrecorded terminal
+// outcome must not be acked — a failing per-firm database is exactly the transient condition a
+// redelivery fixes.
+async function recordCaptureAbandoned(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  message: EmailsCaptureMessage,
+  reason: string,
+  logger: Logger,
+  correlationId: string,
+): Promise<void> {
+  const now = (): string => new Date().toISOString();
+  await commitEffectBatch(
+    firmDatabase,
+    {
+      statements: [
+        // insertAuditLogStatement rather than domainAuditStatement: the domain helper requires a
+        // subject, and this row has none. No email_message row exists — the parse is what would
+        // have created one — so the job id is the traceability anchor and it travels in the
+        // metadata.
+        insertAuditLogStatement(firmDatabase, {
+          id: newIdentifier("auditLog"),
+          event: "emails.captureAbandoned",
+          subjectId: null,
+          actorUserId: null,
+          metadata: {
+            jobId: message.jobId,
+            capturedVia: message.capturedVia,
+            reason,
+            stagedR2Key: message.stagedR2Key,
+          },
+          now: now(),
+        }),
+      ],
+      outboxMessages: [],
+    },
+    { now },
+  );
+  // Recorded in the trail above; also surfaced through the standard operational pipeline so an
+  // engine that is not connected is visible without reading every firm's audit_log. `reason` is a
+  // closed enum, so nothing message-derived reaches the log line.
+  logOperationFailed(
+    logger,
+    "emails.captureAbandoned",
+    new Error(`emails-capture abandoned: ${reason}`),
+    correlationId,
+  );
 }
