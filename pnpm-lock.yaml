@@ -360,9 +360,6 @@ importers:
       '@magna-carta/object-dimensions':
         specifier: workspace:*
         version: link:../../packages/object-dimensions
-      '@magna-carta/pdf':
-        specifier: workspace:*
-        version: link:../../packages/pdf
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
@@ -424,6 +421,9 @@ importers:
       '@hey-api/openapi-ts':
         specifier: 'catalog:'
         version: 0.98.2(typescript@6.0.3)
+      '@magna-carta/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@magna-carta/signing':
         specifier: workspace:*
         version: link:../../packages/signing

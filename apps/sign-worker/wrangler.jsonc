@@ -1,9 +1,11 @@
 {
-  // The standalone platform-seal worker. Stateless: no D1, R2, Queues, or Durable Objects. It holds
-  // the platform signing key (PLATFORM_SEAL_KEY / PLATFORM_SEAL_CERT, set as Worker secrets — never
-  // committed) and applies the PAdES seal, reached only via a service binding from the app worker
-  // (SIGN_SERVICE). It has no public routes. The pure-Rust PDF engine and pkijs run in-process; the
-  // firm document bytes cross the internal service binding, not the network.
+  // The standalone platform-seal worker, and the platform's PDF ENGINE HOST. Stateless: no D1, R2,
+  // Queues, or Durable Objects. It holds the platform signing key (PLATFORM_SEAL_KEY /
+  // PLATFORM_SEAL_CERT, set as Worker secrets — never committed) and applies the PAdES seal, and it
+  // serves the raw PDF operations (POST /pdf/*) for callers that do not bundle the engine themselves.
+  // Reached only via a service binding from the app worker (SIGN_SERVICE); it has no public routes.
+  // The pure-Rust PDF engine and pkijs run in-process; the firm document bytes cross the internal
+  // service binding, not the network.
   "name": "magna-carta-sign",
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",

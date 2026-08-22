@@ -1,7 +1,9 @@
 import type { FormFillFinish, FormFiller } from "@magna-carta/document-assembly/fill-form";
 import type { AcroFormReader, FormTemplateScrub } from "@magna-carta/document-assembly/pdf-form";
-import { ensureReady, fillForm, readForm, sanitizeDocument } from "@magna-carta/pdf";
-import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
+import {
+  resolvePdfFormEnginePort,
+  type PdfServiceFetcher,
+} from "../documents/pdf-engine-binding.ts";
 
 // The three PDF operations a form template needs, wired to the one PDF engine this platform has.
 //
@@ -11,24 +13,32 @@ import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 // is what keeps the fill decision — which box gets which value, which absence shows a marker, which one
 // fails the assembly — testable without a PDF at all.
 //
-// The engine is `crates/pdf-core` compiled to WebAssembly. There is NO SECOND WAY to fill a form here
-// and none should be added: a firm's court form has one appearance, and a second filler would be a
-// second answer to what the filed document looks like.
+// The engine is `crates/pdf-core` compiled to WebAssembly, and it RUNS IN THE SIGN WORKER rather than
+// here — the same engine, one filler, reached over a service binding instead of bundled (see
+// ../documents/pdf-engine-binding.ts for why, and for the three states that binding has). Where it
+// executes is a deployment fact; there is still NO SECOND WAY to fill a form and none should be added,
+// because a firm's court form has one appearance and a second filler would be a second answer to what
+// the filed document looks like.
+//
+// WHAT THE SEAMS RETURN, AND WHAT THEY THROW. Undefined means the engine looked and refused these
+// bytes — a document over the size cap, a decompression bomb, an encrypted file, or something that is
+// not a PDF at all. An empty field list is a different answer, and the caller tells the two apart.
+// A THROW is not a verdict about the document: `PdfEngineUnavailableError` says no engine is deployed
+// and `PdfEngineFaultError` says the deployed one would not answer. Neither is swallowed here, because
+// swallowing them would file the refusal a document earned onto a document nothing read.
 
-// The engine's module has to be handed in explicitly under Workers — there is no URL to fetch it from.
-// `ensureReady` caches the first initialization, so the later argument-less calls the engine's own entry
-// points make resolve against this module.
-async function readyEngine(): Promise<void> {
-  await ensureReady(pdfWasmModule);
+export interface AssemblyFormEngine {
+  readonly readAcroFormFields: AcroFormReader;
+  readonly scrubFormTemplate: FormTemplateScrub;
+  readonly fillAcroForm: FormFiller;
 }
 
-// Read the AcroForm field set. Undefined is "these bytes are not a PDF this engine will read" — a
-// document over the size cap, a decompression bomb, an encrypted file, or something that is not a PDF
-// at all. An empty array is a different answer, and the caller tells the two apart.
-export const readAcroFormFields: AcroFormReader = async (bytes) => {
-  try {
-    await readyEngine();
-    return (await readForm(bytes)).map((field) => ({
+export function formEngineFor(service: PdfServiceFetcher | undefined): AssemblyFormEngine {
+  const engine = resolvePdfFormEnginePort(service);
+
+  const readAcroFormFields: AcroFormReader = async (bytes) => {
+    const fields = await engine.readFields(bytes);
+    return fields?.map((field) => ({
       name: field.name,
       kind: field.kind,
       required: field.required,
@@ -37,39 +47,22 @@ export const readAcroFormFields: AcroFormReader = async (bytes) => {
       options: field.options,
       readOnly: field.readOnly,
     }));
-  } catch {
-    return undefined;
-  }
-};
+  };
 
-// The form template's scrub, and the direct counterpart of the OOXML metadata scrub on the
-// word-processing path: document metadata, embedded attachments, the XFA dataset, whatever entries the
-// uploaded form was carrying, the structure tree, bookmarks, and optional-content configuration all come
-// out ONCE here rather than on every document the template produces.
-//
-// Clearing the existing entries is the load-bearing one. A firm uploads the form it last filed, and a
-// template that quietly carried the previous client's answers into every document assembled from it is
-// the worst confidentiality failure this subsystem could produce.
-export const scrubFormTemplate: FormTemplateScrub = async (bytes) => {
-  try {
-    await readyEngine();
-    return (await sanitizeDocument(bytes)).pdf;
-  } catch {
-    return undefined;
-  }
-};
+  // The form template's scrub, and the direct counterpart of the OOXML metadata scrub on the
+  // word-processing path: document metadata, embedded attachments, the XFA dataset, whatever entries
+  // the uploaded form was carrying, the structure tree, bookmarks, and optional-content configuration
+  // all come out ONCE here rather than on every document the template produces.
+  //
+  // Clearing the existing entries is the load-bearing one. A firm uploads the form it last filed, and a
+  // template that quietly carried the previous client's answers into every document assembled from it
+  // is the worst confidentiality failure this subsystem could produce.
+  const scrubFormTemplate: FormTemplateScrub = (bytes) => engine.scrub(bytes);
 
-export const fillAcroForm: FormFiller = async (bytes, values, finish) => {
-  try {
-    await readyEngine();
-    const filled = await fillForm(bytes, Object.fromEntries(values), {
-      flatten: finish === "flattened",
-    });
-    return filled.pdf;
-  } catch {
-    return undefined;
-  }
-};
+  const fillAcroForm: FormFiller = (bytes, values, finish) => engine.fill(bytes, values, finish);
+
+  return { readAcroFormFields, scrubFormTemplate, fillAcroForm };
+}
 
 // WHAT A FILLED FORM IS WHEN IT IS FILED — the one place the platform answers it.
 //
@@ -81,5 +74,6 @@ export const fillAcroForm: FormFiller = async (bytes, values, finish) => {
 //
 // When the answer arrives it is this constant, or this constant becomes a read of a per-template column.
 // Nothing downstream has a default of its own to unpick: `fillFormTemplate` takes the finish as a
-// required parameter precisely so it cannot acquire one.
+// required parameter precisely so it cannot acquire one, and the engine's own wire surface requires it
+// too, so the decision cannot be lost by omission on the way across the binding either.
 export const FILLED_FORM_FINISH: FormFillFinish = "interactive";

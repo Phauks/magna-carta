@@ -74922,7 +74922,7 @@
             }
           },
           "503": {
-            "description": "The scan engine is deployed but did not answer; nothing was registered",
+            "description": "An engine this registration depends on did not answer — the malware scan, or the PDF form engine that reads a fillable PDF's boxes; nothing was registered",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -75166,7 +75166,7 @@
             }
           },
           "503": {
-            "description": "The scan engine is deployed but did not answer; nothing was registered",
+            "description": "An engine this registration depends on did not answer — the malware scan, or the PDF form engine that reads a fillable PDF's boxes; nothing was registered",
             "content": {
               "application/problem+json": {
                 "schema": {

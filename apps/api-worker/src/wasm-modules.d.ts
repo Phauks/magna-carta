@@ -13,7 +13,7 @@ declare module "@magna-carta/email/src/pkg/email_core_bg.wasm" {
   const wasm: WebAssembly.Module;
   export default wasm;
 }
-declare module "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm" {
-  const wasm: WebAssembly.Module;
-  export default wasm;
-}
+// The PDF engine's module is deliberately NOT declared here: this worker no longer bundles it. PDF
+// work goes over the SIGN_SERVICE binding to the worker that does host it — see
+// src/documents/pdf-engine-binding.ts. The declaration the test suite needs to drive that engine
+// in-process lives beside the tests, in test/support/wasm-modules.d.ts.

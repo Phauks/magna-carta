@@ -1,6 +1,4 @@
 import { runConversion } from "@magna-carta/conversion/execute";
-import { extractPdfText } from "@magna-carta/pdf";
-import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 import {
   extractedFromPages,
   extractionAdapterError,
@@ -19,6 +17,11 @@ import {
 import { z } from "zod";
 import type { Bindings } from "../app.ts";
 import { resolveEnginePort } from "../conversions/conversion-engine.ts";
+import {
+  PdfEngineFaultError,
+  resolvePdfTextReader,
+  type PdfTextReader,
+} from "../documents/pdf-engine-binding.ts";
 
 // The text-extraction port: document bytes in, indexable passages out, COMPOSITE and decided per page.
 //
@@ -46,8 +49,11 @@ import { resolveEnginePort } from "../conversions/conversion-engine.ts";
 //      and it also identifies the format from the BYTES and returns the page count, the document date
 //      and the near-duplicate fingerprint in the same pass — facts that cost nothing here and a second
 //      run over the whole corpus to recover later.
-//   2. The in-Worker WASM PDF reader, when the engine is not bound. Narrower (PDFs only) and kept
-//      because a deployment without the engine still has to read the documents it can.
+//   2. The platform PDF engine, when the discovery engine is not bound. Narrower (PDFs only) and kept
+//      because a deployment without the discovery engine still has to read the documents it can. It
+//      runs in the sign worker rather than in this bundle — see ../documents/pdf-engine-binding.ts —
+//      so a deployment can also be missing THIS route, and then a PDF has only recognition to fall
+//      back on.
 //   3. Recognition, for the pages either of the above reported as pixels, and never for a page that
 //      already had words.
 //
@@ -153,47 +159,53 @@ interface NativePages {
   readonly facts: ExtractedDocumentFacts;
 }
 
-// Read the document's own text layer with the in-Worker PDF reader. Returns undefined when the bytes
-// are not a PDF, or when the PDF engine refuses them — an image, a bomb, or a document with more pages
-// than one call will interpret. Undefined means "the native route has nothing to say about this", NOT
-// "this document has no text": the caller falls through to recognition, which is the honest next thing
-// to try rather than a conclusion.
+// Read the document's own text layer with the platform PDF engine. Returns undefined when the bytes are
+// not a PDF, when no PDF engine is bound to this deployment, or when the engine refuses them — an
+// image, a bomb, or a document with more pages than one call will interpret. Undefined means "the
+// native route has nothing to say about this", NOT "this document has no text": the caller falls
+// through to recognition, which is the honest next thing to try rather than a conclusion.
+//
+// THROWS when the engine is bound and would not answer. That is a third thing, and it is not this
+// document's property: falling through to recognition on a fault would silently swap which engine read
+// a firm's document based on nothing but a deploy's health, and the corpus would record a provenance
+// that was never true.
 //
 // The page ceiling is the engine's, and it deliberately matches the recognition container's, so a
 // document too long for one route is too long for the other and the outcome does not depend on which
 // one looked. Both are bounded because page count is declared in the file and wholly
 // attacker-controlled.
-async function nativePages(bytes: Uint8Array): Promise<NativePages | undefined> {
-  if (!looksLikePdf(bytes)) return undefined;
-  try {
-    const extractedText = await extractPdfText(bytes, pdfWasmModule);
-    const pages: ExtractedPage[] = [];
-    const needRecognition: number[] = [];
-    for (const page of extractedText.pages) {
-      if (page.needsRecognition) {
-        needRecognition.push(page.pageIndex);
-        continue;
-      }
-      pages.push({ pageIndex: page.pageIndex, provenance: "native", lines: page.lines });
+async function nativePages(
+  reader: PdfTextReader | undefined,
+  bytes: Uint8Array,
+): Promise<NativePages | undefined> {
+  if (reader === undefined || !looksLikePdf(bytes)) return undefined;
+  // A guard refusal, a page-count refusal, or a parse failure comes back as undefined and is this
+  // document's property: recognition applies its own guards to the same bytes, so let it have its turn
+  // rather than deciding here. Turning that into a failure would take a document the recognizer could
+  // have read out of the corpus.
+  const extractedText = await reader(bytes);
+  if (extractedText === undefined) return undefined;
+  const pages: ExtractedPage[] = [];
+  const needRecognition: number[] = [];
+  for (const page of extractedText.pages) {
+    if (page.needsRecognition) {
+      needRecognition.push(page.pageIndex);
+      continue;
     }
-    return {
-      pages,
-      needRecognition,
-      // This reader answers about text layers and page indexes only. It identifies nothing (the caller
-      // already sniffed the magic bytes), dates nothing, and fingerprints nothing — so it reports the
-      // page count it actually walked and leaves the rest null rather than filling them with guesses.
-      facts: {
-        ...NO_DOCUMENT_FACTS,
-        formatIdentified: "pdf",
-        pageCount: pages.length + needRecognition.length,
-      },
-    };
-  } catch {
-    // A guard refusal, a page-count refusal, or a parse failure is this document's property, and
-    // recognition applies its own guards to the same bytes: let it have its turn rather than deciding
-    // here. Rethrowing would turn a document the recognizer could have read into a retry storm.
-    return undefined;
+    pages.push({ pageIndex: page.pageIndex, provenance: "native", lines: page.lines });
   }
+  return {
+    pages,
+    needRecognition,
+    // This reader answers about text layers and page indexes only. It identifies nothing (the caller
+    // already sniffed the magic bytes), dates nothing, and fingerprints nothing — so it reports the
+    // page count it actually walked and leaves the rest null rather than filling them with guesses.
+    facts: {
+      ...NO_DOCUMENT_FACTS,
+      formatIdentified: "pdf",
+      pageCount: pages.length + needRecognition.length,
+    },
+  };
 }
 
 // The recognition half. The engine is handed the whole document and skips the pages that already carry a
@@ -336,6 +348,9 @@ function factsOfReading(reading: EngineReading): ExtractedDocumentFacts {
 interface CompositeServices {
   readonly discovery: Pick<Fetcher, "fetch"> | undefined;
   readonly ocr: Pick<Fetcher, "fetch"> | undefined;
+  // The platform PDF engine's text-layer reader, or undefined when no engine is bound. Only the
+  // no-discovery-engine route consults it — the discovery engine reads PDF text layers itself.
+  readonly pdfText: PdfTextReader | undefined;
   // Resolved lazily and per hop by the conversion registry's own resolver, so discovery does not grow
   // a second answer to "which service runs the office engine".
   readonly convert: ReturnType<typeof resolveEnginePort>;
@@ -345,7 +360,7 @@ function compositePort(services: CompositeServices): TextExtractionPort {
   return {
     extract(input: TextExtractionInput): Promise<TextExtractionResult> {
       return services.discovery === undefined
-        ? readWithoutEngine(services.ocr, input.bytes)
+        ? readWithoutEngine(services.pdfText, services.ocr, input.bytes)
         : readWithEngine(services, services.discovery, input.bytes, 0);
     },
   };
@@ -478,14 +493,29 @@ async function convertThenRead(
   };
 }
 
-// The route when the discovery engine is not bound: the in-Worker PDF reader plus recognition. Narrower
-// than the engine — a PDF and anything recognition can read, and nothing else — and kept because a
-// deployment without the engine still has to read the documents it can.
+// The route when the discovery engine is not bound: the platform PDF engine's text-layer reader plus
+// recognition. Narrower than the discovery engine — a PDF and anything recognition can read, and
+// nothing else — and kept because a deployment without the discovery engine still has to read the
+// documents it can.
 async function readWithoutEngine(
+  pdfText: PdfTextReader | undefined,
   ocr: Pick<Fetcher, "fetch"> | undefined,
   bytes: Uint8Array,
 ): Promise<TextExtractionResult> {
-  const native = await nativePages(bytes);
+  let native: NativePages | undefined;
+  try {
+    native = await nativePages(pdfText, bytes);
+  } catch (error) {
+    if (!(error instanceof PdfEngineFaultError)) throw error;
+    // The PDF engine is deployed and did not answer. TRANSIENT, and reported as such so the queue
+    // retries rather than dead-lettering: the document is readable, by a service that is momentarily
+    // not. Recognition is deliberately not tried instead — a page's text layer is what decides whether
+    // recognition should look at it at all, so with that answer missing anything recognition returned
+    // would be a reading of a document nothing had read first.
+    // No code: there is no diagnosis to record. Nothing looked at the document, exactly as for a
+    // discovery engine that did not answer, and a guessed code would read like a real one.
+    return extractionAdapterError("the PDF text engine did not answer");
+  }
   if (ocr === undefined) {
     if (native === undefined || native.needRecognition.length > 0) {
       return extractionEngineNotImplemented();
@@ -555,6 +585,7 @@ export function resolveTextExtractionPort(env: Bindings): TextExtractionPort {
   return compositePort({
     discovery: env.DISCOVERY_SERVICE,
     ocr: env.OCR_SERVICE,
+    pdfText: resolvePdfTextReader(env.SIGN_SERVICE),
     convert: resolveEnginePort(env),
   });
 }

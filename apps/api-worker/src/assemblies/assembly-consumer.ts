@@ -47,7 +47,8 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { resolveEnginePort } from "../conversions/conversion-engine.ts";
-import { fillAcroForm, FILLED_FORM_FINISH } from "./pdf-form-engine.ts";
+import { PdfEngineUnavailableError } from "../documents/pdf-engine-binding.ts";
+import { formEngineFor, FILLED_FORM_FINISH } from "./pdf-form-engine.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
@@ -130,6 +131,12 @@ type AssemblyFailureCode =
   // same shape `template-unreadable` has on the word-processing side, named separately so a firm reading
   // the failure knows which engine could not read its document.
   | "form-fill-failed"
+  // No PDF engine is reachable from this deployment at all, so no form can be filled here. TERMINAL on
+  // the same terms `conversion-failed` is terminal for an undeployed office suite: a redelivery cannot
+  // deploy a service, so the job is recorded failed rather than burning its attempts, and nothing is
+  // filed. An engine that IS deployed and merely did not answer is the opposite case — it throws out of
+  // the fill and the batch loop retries the message.
+  | "form-engine-unavailable"
   // The job asked for an output format the template's kind cannot produce — a word-processing document
   // out of a fillable PDF. The submit route refuses this while the caller can act on the answer; the
   // code exists because the consumer must not silently file the other format instead.
@@ -405,19 +412,32 @@ async function assembleOne(
   let absences: readonly AssemblyAbsence[];
 
   if (isFormTemplate) {
-    const filled = await fillFormTemplate(
-      templateBytes,
-      resolution.context,
-      manifest,
-      fillAcroForm,
-      {
-        dictionary,
-        // The one place the platform decides what a filled form IS when it is filed. See
-        // pdf-form-engine.ts — the choice between interactive and flattened is the firm owner's, and
-        // the parameter is explicit here so nothing can acquire a default by omission.
-        finish: FILLED_FORM_FINISH,
-      },
-    );
+    let filled: Awaited<ReturnType<typeof fillFormTemplate>>;
+    try {
+      filled = await fillFormTemplate(
+        templateBytes,
+        resolution.context,
+        manifest,
+        formEngineFor(env.SIGN_SERVICE).fillAcroForm,
+        {
+          dictionary,
+          // The one place the platform decides what a filled form IS when it is filed. See
+          // pdf-form-engine.ts — the choice between interactive and flattened is the firm owner's, and
+          // the parameter is explicit here so nothing can acquire a default by omission.
+          finish: FILLED_FORM_FINISH,
+        },
+      );
+    } catch (error) {
+      // NO ENGINE AT ALL is a deployment fact, and a typed terminal failure is the honest record of it.
+      if (error instanceof PdfEngineUnavailableError) {
+        return { code: "form-engine-unavailable", stage: "fill", keys: [] };
+      }
+      // A DEPLOYED ENGINE THAT DID NOT ANSWER is deliberately not caught. It means nobody looked at
+      // this document, which is exactly the class of failure a redelivery fixes — rethrowing carries it
+      // to the batch loop, which retries the message. Recording `form-fill-failed` here instead would
+      // tell a firm its own court form is unreadable on the evidence of an engine that was merely down.
+      throw error;
+    }
     if (!filled.ok) {
       return {
         code:

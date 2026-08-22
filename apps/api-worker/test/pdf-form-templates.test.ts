@@ -6,6 +6,7 @@ import { documentAssemblyQueue } from "../src/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "../src/assemblies/assembly-types.ts";
 import type { ProblemBody } from "../src/contracts/problem.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { pdfEngineService, unreachablePdfEngineService } from "./support/pdf-engine-service.ts";
 import {
   mirrorMemberWithOwnerRole,
   readJson,
@@ -57,7 +58,10 @@ async function post(
       },
       body: JSON.stringify(body),
     },
-    { ...env, ...environmentOverride },
+    // The PDF engine runs in the sign worker, which the local pool cannot start; the stub bound as
+    // SIGN_SERVICE in vitest.config.ts answers only the seal path. Every form-template request here
+    // therefore binds the real engine in-process, behind the same adapter production uses.
+    { ...env, SIGN_SERVICE: pdfEngineService(), ...environmentOverride },
   );
 }
 
@@ -173,11 +177,19 @@ async function registerForm(
   );
 }
 
-function makeBatch(message: DocumentAssemblyMessage): {
+function makeBatch(
+  message: DocumentAssemblyMessage,
+  // A batch that RECORDS a retry rather than refusing one. The default refuses, because a typed
+  // failure is terminal and retrying it burns the message's attempts; the exception is the fault a
+  // redelivery genuinely fixes, and a case about that has to be able to observe it.
+  allowRetry = false,
+): {
   batch: MessageBatch<DocumentAssemblyMessage>;
   acks: string[];
+  retries: string[];
 } {
   const acks: string[] = [];
+  const retries: string[] = [];
   const batch = {
     queue: "magna-carta-production-document-assembly",
     messages: [
@@ -188,12 +200,13 @@ function makeBatch(message: DocumentAssemblyMessage): {
         body: message,
         ack: () => acks.push("form-assembly-msg"),
         retry: () => {
-          throw new Error("a typed failure must be acked, never retried");
+          if (!allowRetry) throw new Error("a typed failure must be acked, never retried");
+          retries.push("form-assembly-msg");
         },
       },
     ],
   } as unknown as MessageBatch<DocumentAssemblyMessage>;
-  return { batch, acks };
+  return { batch, acks, retries };
 }
 
 beforeAll(async () => {
@@ -400,6 +413,33 @@ describe("registering a fillable PDF as a template", () => {
     );
     expect(registered?.n).toBe(0);
   });
+
+  // The PDF engine is reached over a service binding now, and it has the same three states the scan
+  // engine has. The two that are NOT verdicts must not read as "this file could not be read as a PDF":
+  // that sentence tells an administrator to re-cut a document that is perfectly good.
+  for (const engineState of [
+    { name: "is not bound at all", service: undefined },
+    { name: "is bound and will not answer", service: unreachablePdfEngineService() },
+  ]) {
+    it(`refuses with a retryable 503 when the PDF form engine ${engineState.name}`, async () => {
+      const response = await registerForm("Engine Down Form", CONFIRMED_MAPPINGS, cookie, {
+        SIGN_SERVICE: engineState.service,
+      });
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("content-type")).toContain("application/problem+json");
+      const problem = await readJson<{ type: string; title: string; detail: string }>(response);
+      expect(problem.type).toContain("service-unavailable");
+      expect(problem.title).toContain("PDF form engine");
+      expect(problem.detail).toContain("has not been read");
+
+      const registered = await queryFirstRow<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM document_template WHERE name = ?1",
+        ["Engine Down Form"],
+      );
+      expect(registered?.n).toBe(0);
+    });
+  }
 });
 
 describe("assembling a form template, end to end through the ingest chokepoint", () => {
@@ -429,7 +469,7 @@ describe("assembling a form template, end to end through the ingest chokepoint",
       outputFormat: "pdf",
       requestedBy: userId,
     });
-    await documentAssemblyQueue(batch, env);
+    await documentAssemblyQueue(batch, { ...env, SIGN_SERVICE: pdfEngineService() } as typeof env);
     expect(acks).toHaveLength(1);
 
     const polled = await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, cookie);
@@ -490,6 +530,74 @@ describe("assembling a form template, end to end through the ingest chokepoint",
       state.fileId,
     ]);
     expect(file?.name.endsWith(".pdf")).toBe(true);
+  });
+
+  // THE QUEUE CONSUMER'S TWO NON-VERDICT STATES, and they resolve opposite ways on purpose. Both
+  // file nothing; what differs is whether a redelivery can fix the condition.
+  it("fails the job terminally when no PDF engine is bound at all", async () => {
+    const registered = await readJson<RegisteredFormBody>(await registerForm("No Engine Form"));
+    const submitted = await post(
+      `/api/v1/matters/${matterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      cookie,
+    );
+    const { assemblyId } = await readJson<{ assemblyId: string }>(submitted);
+
+    const { batch, acks } = makeBatch({
+      firmId,
+      bucketName,
+      assemblyId,
+      matterId,
+      templateVersionId: registered.versionId,
+      folderId: null,
+      outputFormat: "pdf",
+      requestedBy: userId,
+    });
+    // The batch refuses a retry, which is the assertion: an undeployed service is not a condition a
+    // redelivery changes, so the job is recorded failed and the message acked.
+    await documentAssemblyQueue(batch, { ...env, SIGN_SERVICE: undefined } as typeof env);
+    expect(acks).toHaveLength(1);
+
+    const polled = await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, cookie);
+    const state = await readJson<{ status: string; reason: string | null }>(polled);
+    expect(state.status).toBe("failed");
+    expect(state.reason).toBe("form-engine-unavailable");
+  });
+
+  it("retries the job when the PDF engine is bound and did not answer, filing nothing", async () => {
+    const registered = await readJson<RegisteredFormBody>(await registerForm("Engine Fault Form"));
+    const submitted = await post(
+      `/api/v1/matters/${matterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      cookie,
+    );
+    const { assemblyId } = await readJson<{ assemblyId: string }>(submitted);
+
+    const { batch, acks, retries } = makeBatch(
+      {
+        firmId,
+        bucketName,
+        assemblyId,
+        matterId,
+        templateVersionId: registered.versionId,
+        folderId: null,
+        outputFormat: "pdf",
+        requestedBy: userId,
+      },
+      true,
+    );
+    await documentAssemblyQueue(batch, {
+      ...env,
+      SIGN_SERVICE: unreachablePdfEngineService(),
+    } as typeof env);
+    // Nobody looked at this document. Recording it as a form that could not be filled would tell a
+    // firm its own court form is unreadable on the evidence of an engine that was merely down.
+    expect(retries).toHaveLength(1);
+    expect(acks).toHaveLength(0);
+
+    const polled = await get(`/api/v1/matters/${matterId}/assemblies/${assemblyId}`, cookie);
+    const state = await readJson<{ fileVersionId: string | null }>(polled);
+    expect(state.fileVersionId).toBeNull();
   });
 
   it("refuses a word-processing output format for a form template, at submit", async () => {
