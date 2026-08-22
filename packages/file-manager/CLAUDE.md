@@ -20,8 +20,8 @@ runs logic mid-transaction.
 - `src/ingest-core.ts` — the pure single-read pipeline (`runIngest`); the Worker consumer is a thin shell. Also `measureContent`, the hash-only re-measurement the consumer's custody check runs against an already-committed object
 - `src/content-type-equivalence.ts` — `contentTypesAgree`: does the sniffed container type describe the same bytes as the declared type (the compound-file and ZIP families), with unknown pairs failing closed
 - `src/scan-port.ts` — `MalwareScanPort` (returns a `RawScanResult` of engine facts: clamd state, structural heuristic, YARA matches with tier/score, per-leg timings) + the engine-less `unscannedAdapter` launch adapter
-- `src/verdict.ts` — `computeVerdict(raw, policy)` turns the raw facts + a firm scan policy into a `clean | flagged | unscanned` file verdict (the per-firm decision, app-side); `scanDetailFor(verdict)` is the single home for what a committing verdict writes into `scan_detail` (the `active-content` badge, the unscanned reason, the flagged reason) — every writer that has a `FileVerdict` in hand calls it, because three of them once decided it separately and two disagreed. Three committing call sites deliberately do not, because they have no verdict to hand it: the over-cap commit records `oversize` (below) and `commitEditedVersion`/`restoreVersion` in `file-service.ts` commit `unscanned` with no reason at all. A caller that QUARANTINES also skips it and writes its own reason; `ScanFaultError` marks a deployed-engine-unavailable fault the consumer must retry
-- `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`)
+- `src/verdict.ts` — `computeVerdict(raw, policy)` turns the raw facts + a firm scan policy into a `clean | flagged | unscanned` file verdict (the per-firm decision, app-side); `scanDetailFor(verdict)` is the single home for what a committing verdict writes into `scan_detail` (the `active-content` badge, the unscanned reason, the flagged reason) — every writer that has a `FileVerdict` in hand calls it, because three of them once decided it separately and two disagreed. Three committing call sites deliberately do not, because they have no verdict to hand it: the over-cap commit records `oversize` (below) and `commitEditedVersion`/`restoreVersion` in `file-service.ts` commit `unscanned` with no reason at all. A caller that QUARANTINES also skips it and writes its own reason; `ScanFaultError` marks a deployed-engine-unavailable fault the consumer must retry. `coarseScanReason(scanVerdict, versionStatus, scanDetail)` is the READING counterpart, in the same file for the same reason: it narrows that open column to the closed `SCAN_REASONS` vocabulary plus an `activeContent` boolean, and it is the only thing a read surface or a telemetry dimension may report
+- `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`); `FILE_SORTS` is the closed set of orders `listFiles` can serve and the one home for each order's column, collation and natural direction
 - `src/metering-statements.ts` — the storage-meter delta/commit/tier/delete builders + `reconciliationDiff` + `normalizeR2StorageClass`
 - `src/scan-policy-settings.ts` — the three firm scan-policy `FirmSettingDefinition`s (`scan.policy`, `scan.flagged_treatment`, `scan.step_up_reauth_on_flagged`) + `readFirmScanPolicy` / `readFlaggedTreatment` / `readStepUpReauthOnFlagged` helpers; defaults preserve today's behaviour (`extended/75/block/off`)
 - `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode threshold and the live-download threshold setting definitions (`liveMaxFileCount` / `liveMaxTotalBytes`, superseding `zipAsyncThreshold`)
@@ -106,6 +106,22 @@ runs logic mid-transaction.
   platform. `flagged` (any signal that counts under the firm's policy) quarantines with reason `scan-flagged`;
   `unscanned` commits (encrypted, or no engine — explicit launch policy, pending the real engine). A
   deployed engine reporting unavailable raises `ScanFaultError` — the consumer retries, never commits.
+- **`scan_detail` is written open and read closed.** The column holds whatever the writer had: a
+  platform-authored token, or — on a flagged verdict — the scan engine's own signature name, or the
+  composed `<reason>: <enrichment>` the custody withdrawal builds. Nothing outside this package may
+  project it. Every read surface and every telemetry dimension goes through `coarseScanReason`
+  (verdict.ts), which maps it onto the closed `SCAN_REASONS` set and collapses anything it does not
+  author to `scan-flagged`. A new writer that invents a detail string adds its token to that set, or
+  its string is reported as a flag it may not be. `FileSummary.quarantineReason` still carries the raw
+  column and is superseded; it is removed at the next API version.
+- **The file listing's sort is a closed set, and its cursor carries which one minted it.** A caller
+  chooses among `FILE_SORTS`; a column on the joined display version is never one of them, because it
+  cannot be indexed from `file` and its value can change under a caller mid-scroll. The keyset is the
+  row-value form with the collation on the BOUND side — `(f.name, f.id) > (? COLLATE NOCASE, ?)` — and
+  that spelling is load-bearing: the two obvious alternatives are correct and plan as a scan of the
+  whole matter on every page. `packages/file-manager/test/file-listing-sort.test.ts` asserts the query
+  plan for every order and direction. A cursor whose order tag disagrees with the request is refused
+  (`cursor-sort-mismatch`), never silently restarted.
 - **`scan_detail` records the badge/quarantine reason** — the human-readable string written to the
   `file_version.scan_detail` column explaining why a version received its verdict (e.g. the rule hit, the
   over-size reason, or the suspicious-type classification).

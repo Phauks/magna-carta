@@ -855,6 +855,27 @@ export const file = sqliteTable(
     // sort (and still cover the bare FK lookup that each replaces).
     index("file_matter_id_created_at_id_index").on(table.matterId, table.createdAt, table.id),
     index("file_folder_id_created_at_id_index").on(table.folderId, table.createdAt, table.id),
+    // The two other orders a file table is sorted by, same shape and same reasoning as the pair
+    // above. `name` is indexed NOCASE because SQLite uses an index for ORDER BY only when the
+    // collations match, and a case-sensitive name sort puts every capitalised file ahead of every
+    // lowercase one — the first NOCASE index in this schema, and deliberate. NOCASE folds ASCII only,
+    // so a firm filing in a language with non-ASCII names gets an order that is stable and locally
+    // wrong; the upgrade is a normalised sort key on the row, which changes an index rather than a
+    // contract. `updated_at` is the expensive pair: it moves on every metadata write, including both
+    // co-editing state transitions, so a matter under active editing rewrites two entries per session
+    // open and close. That is the price of a last-activity column.
+    index("file_matter_id_name_id_index").on(
+      table.matterId,
+      sql`${table.name} COLLATE NOCASE`,
+      table.id,
+    ),
+    index("file_folder_id_name_id_index").on(
+      table.folderId,
+      sql`${table.name} COLLATE NOCASE`,
+      table.id,
+    ),
+    index("file_matter_id_updated_at_id_index").on(table.matterId, table.updatedAt, table.id),
+    index("file_folder_id_updated_at_id_index").on(table.folderId, table.updatedAt, table.id),
     check("file_name_nonempty_check", sql`length(${table.name}) > 0`),
     check("file_edit_state_check", sql`${table.editState} IN ('idle', 'coediting', 'checked_out')`),
   ],

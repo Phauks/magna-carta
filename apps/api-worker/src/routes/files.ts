@@ -12,6 +12,7 @@ import {
 } from "@magna-carta/file-manager/file-service";
 import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
 import {
+  FILE_SORT_KEYS,
   getCurrentCleanVersion,
   getCurrentCleanVersionForPreview,
   getFileSummary,
@@ -312,7 +313,10 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
   description:
     "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its " +
     "display version's number, size, sniffed type, scan verdict, and status, so one call paints a file " +
-    "table with no per-row fan-out to the version history. By default only files with a committed clean " +
+    "table with no per-row fan-out to the version history. Sortable by created (default, newest " +
+    "first), name (A-Z by default, case-insensitive) or updated (last activity, newest first) — the " +
+    "cursor records the order it was issued under and a cursor replayed against a different order is " +
+    "refused with 422 rather than silently restarting. By default only files with a committed clean " +
     "version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to " +
     "also surface files whose latest version is still processing (pending) or was rejected as malware " +
     "(quarantined); those rows carry a null currentVersionId and cannot be downloaded. scanReason " +
@@ -326,6 +330,12 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
       pageSize: z.coerce.number().int().positive().max(200).optional(),
       // Opt-in: include files whose latest version is pending or quarantined (default: clean only).
       includePendingAndQuarantined: z.literal("true").optional(),
+      // The closed set is the answer to "why can I not sort by size": a size or version sort lives on
+      // the joined display version, which is neither indexable from this table nor stable under a
+      // cursor — the display version can change mid-scroll. Refusing at the edge tells a caller what
+      // they may ask for instead; serving it would hand them a page that quietly skips rows.
+      sort: z.enum(FILE_SORT_KEYS).optional(),
+      direction: z.enum(["asc", "desc"]).optional(),
     }),
   },
   responses: {
@@ -335,6 +345,10 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
     },
     401: authErrors[401],
     404: authErrors[404],
+    422: {
+      description: "The cursor was issued under a different sort order",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: authErrors[429],
   },
 });
@@ -590,13 +604,28 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const query = c.req.valid("query");
-      const page = await listFiles(firm.firmDatabase, {
-        matterId: query.matterId,
-        folderId: query.folderId,
-        cursor: query.cursor,
-        pageSize: query.pageSize,
-        includePendingAndQuarantined: query.includePendingAndQuarantined === "true",
-      });
+      let page;
+      try {
+        page = await listFiles(firm.firmDatabase, {
+          matterId: query.matterId,
+          folderId: query.folderId,
+          cursor: query.cursor,
+          pageSize: query.pageSize,
+          includePendingAndQuarantined: query.includePendingAndQuarantined === "true",
+          sort: query.sort,
+          direction: query.direction,
+        });
+      } catch (error) {
+        if (error instanceof FileManagerValidationError && error.code === "cursor-sort-mismatch") {
+          return problemJson(c, {
+            type: "cursor-sort-mismatch",
+            title: "This cursor belongs to a different sort order",
+            status: 422,
+            detail: error.message,
+          });
+        }
+        throw error;
+      }
       return c.json(
         {
           data: page.data.map(toFileSummaryResponse),

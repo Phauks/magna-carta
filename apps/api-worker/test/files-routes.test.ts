@@ -374,6 +374,10 @@ interface EnrichedRow {
   scanVerdict: string | null;
   status: string;
   quarantineReason: string | null;
+  scanReason: string | null;
+  activeContent: boolean;
+  uploadedByUserId: string | null;
+  uploadedByDisplayName: string | null;
 }
 
 describe("FileSummary enrichment", () => {
@@ -445,6 +449,71 @@ describe("files.list opt-in status include", () => {
     expect(quarantinedRow?.status).toBe("quarantined");
     expect(quarantinedRow?.currentVersionId).toBeNull();
     expect(quarantinedRow?.quarantineReason).toBe("Eicar-Test");
+    // The signature the engine supplied reaches the wire only as the one closed token. This route is
+    // permission: null and audited: false, so what it says about a quarantine has to be text the
+    // platform authors.
+    expect(quarantinedRow?.scanReason).toBe("scan-flagged");
+    expect(quarantinedRow?.activeContent).toBe(false);
+  });
+});
+
+describe("files.list sorting", () => {
+  it("serves each order, and refuses a cursor replayed under a different one", async () => {
+    const folderId = await seedFolder("SortScope");
+    await seedCleanFile("banana.txt", folderId, "b", "2026-06-01T00:00:00.000Z");
+    await seedCleanFile("Apple.txt", folderId, "a", "2026-06-02T00:00:00.000Z");
+    await seedCleanFile("cherry.txt", folderId, "c", "2026-06-03T00:00:00.000Z");
+    const scope = `matterId=${matterId}&folderId=${folderId}`;
+
+    const byCreated = (await (await get(`/api/v1/files?${scope}`)).json()) as {
+      data: EnrichedRow[];
+    };
+    expect(byCreated.data.map((row) => row.name)).toEqual([
+      "cherry.txt",
+      "Apple.txt",
+      "banana.txt",
+    ]);
+
+    const byName = (await (await get(`/api/v1/files?${scope}&sort=name`)).json()) as {
+      data: EnrichedRow[];
+    };
+    expect(byName.data.map((row) => row.name)).toEqual(["Apple.txt", "banana.txt", "cherry.txt"]);
+
+    // An order the listing refuses is a 422 from the schema at the edge, so the caller is told what
+    // it may ask for rather than served a page in the wrong order.
+    expect((await get(`/api/v1/files?${scope}&sort=size`)).status).toBe(422);
+
+    const firstPage = (await (await get(`/api/v1/files?${scope}&sort=name&pageSize=1`)).json()) as {
+      data: EnrichedRow[];
+      nextCursor: string | null;
+    };
+    expect(firstPage.nextCursor).not.toBeNull();
+    const replayed = await get(
+      `/api/v1/files?${scope}&sort=updated&cursor=${encodeURIComponent(firstPage.nextCursor ?? "")}`,
+    );
+    expect(replayed.status).toBe(422);
+    const problem = (await replayed.json()) as { type: string };
+    expect(problem.type).toBe("https://api.magnacarta.esq/problems/cursor-sort-mismatch");
+  });
+});
+
+describe("who committed a version", () => {
+  it("names the member on the listing and in the version history", async () => {
+    const folderId = await seedFolder("AuthorScope");
+    const { fileId } = await seedCleanFile("authored.txt", folderId, "bytes");
+
+    const listing = (await (
+      await get(`/api/v1/files?matterId=${matterId}&folderId=${folderId}`)
+    ).json()) as { data: EnrichedRow[] };
+    const row = listing.data.find((entry) => entry.id === fileId);
+    expect(row?.uploadedByUserId).toBe(ownerUserId);
+    expect(row?.uploadedByDisplayName).not.toBeNull();
+
+    const versions = (await (await get(`/api/v1/files/${fileId}/versions`)).json()) as {
+      data: { uploadedByUserId: string | null; uploadedByDisplayName: string | null }[];
+    };
+    expect(versions.data[0]?.uploadedByUserId).toBe(ownerUserId);
+    expect(versions.data[0]?.uploadedByDisplayName).toBe(row?.uploadedByDisplayName);
   });
 });
 

@@ -14,19 +14,34 @@ export interface Page<Row> {
 export interface SortCursor {
   readonly createdAt: string;
   readonly id: string;
+  // Which order minted this cursor, for the reads that offer more than one. Absent means the read
+  // has a single order and never needed to say — including every cursor minted before the key
+  // existed, which is why absence has to keep meaning "the caller's only order" rather than an error.
+  // A read that offers a choice compares this against the order it was asked for and REFUSES a
+  // mismatch: replaying a cursor minted under one order against another produces a predicate that is
+  // well-formed, silently wrong, and skips or repeats an arbitrary slice.
+  readonly sort?: string;
 }
 
-// The opaque continuation token over the (created_at, id) sort key.
-export function encodeCursor(createdAt: string, id: string): string {
-  return btoa(JSON.stringify({ c: createdAt, i: id }));
+// The opaque continuation token over the (created_at, id) sort key, optionally tagged with the order
+// that minted it. Safe to add to a token that must decode across a deploy in both directions: an
+// older cursor arrives with no tag, and a tagged cursor replayed against an older deploy decodes to
+// the same (sort value, id) pair with the extra key ignored, which is what JSON.parse does and what
+// the reader below did before the key existed.
+export function encodeCursor(createdAt: string, id: string, sort?: string): string {
+  return btoa(
+    JSON.stringify(sort === undefined ? { c: createdAt, i: id } : { c: createdAt, i: id, s: sort }),
+  );
 }
 
 export function decodeCursor(cursor: string | undefined): SortCursor | undefined {
   if (cursor === undefined) return undefined;
   try {
-    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; i?: unknown };
+    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; i?: unknown; s?: unknown };
     if (typeof parsed.c === "string" && typeof parsed.i === "string") {
-      return { createdAt: parsed.c, id: parsed.i };
+      return typeof parsed.s === "string"
+        ? { createdAt: parsed.c, id: parsed.i, sort: parsed.s }
+        : { createdAt: parsed.c, id: parsed.i };
     }
   } catch {
     // A malformed/tampered cursor reveals nothing and is treated as the first page.

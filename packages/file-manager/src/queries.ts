@@ -1,5 +1,4 @@
 import {
-  assemblePage,
   DEFAULT_PAGE_SIZE,
   decodeCursor,
   encodeCursor,
@@ -21,6 +20,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { FILE_TABLE, FILE_VERSION_TABLE, UPLOAD_SESSION_TABLE } from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
+import { FileManagerValidationError } from "./validation.ts";
 import { coarseScanReason, type ScanReason } from "./verdict.ts";
 
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
@@ -28,6 +28,40 @@ import { coarseScanReason, type ScanReason } from "./verdict.ts";
 // read filters status = 'clean'. The pending/quarantined gate is enforced HERE, not by a key scheme.
 // The cursor-paginated list draws its keyset toolkit from @magna-carta/data-access/cursor-pagination.
 export type { Page };
+
+// The orders the file listing can serve, and the shape of each one's keyset.
+//
+// The deciding property is whether the column lives on `file` or on the joined display version. A
+// column on `file` is indexable and keyset-able. A column on the display version — its size, its
+// version number — is neither: no index on `file` can order by a column of a row it has to join to
+// find, so every page would materialise the whole matter into a temp B-tree, and the display version
+// can CHANGE under a caller mid-scroll (a commit advances current_version_id), which moves a row's
+// sort value while the cursor is walking past it. That is exactly the defect a cursor exists to
+// prevent, so those orders are refused at the edge rather than served unsoundly.
+//
+// `updated` sorts on file.updated_at, which every metadata write bumps — opening a document for
+// co-editing and closing it both move a file to the top without its content changing. It is honest
+// as "last activity" and dishonest as "modified"; a content-modified sort wants a denormalised column
+// maintained in the version-commit batch and is a different piece of work.
+export const FILE_SORTS = {
+  created: { column: "f.created_at", collate: false, defaultDirection: "desc" },
+  name: { column: "f.name", collate: true, defaultDirection: "asc" },
+  updated: { column: "f.updated_at", collate: false, defaultDirection: "desc" },
+} as const;
+
+export type FileSort = keyof typeof FILE_SORTS;
+export type SortDirection = "asc" | "desc";
+
+export const FILE_SORT_KEYS = Object.keys(FILE_SORTS) as readonly FileSort[];
+
+export function defaultDirectionFor(sort: FileSort): SortDirection {
+  return FILE_SORTS[sort].defaultDirection;
+}
+
+// The tag a cursor carries so a page cannot be served under an order it was not minted for.
+export function fileSortTag(sort: FileSort, direction: SortDirection): string {
+  return `${sort}:${direction}`;
+}
 
 export interface ListFilesFilters {
   readonly matterId: MatterId;
@@ -38,6 +72,11 @@ export interface ListFilesFilters {
   // the historical behaviour (only files with a clean current version appear). currentVersionId stays
   // clean-only in either mode, so a pending/quarantined row can never render a download link.
   readonly includePendingAndQuarantined?: boolean;
+  // The order. Both optional and both default to what the listing has always served: `created`,
+  // descending — so a caller that says nothing gets byte-for-byte the page it got before the
+  // parameters existed. `direction` defaults to each order's natural sense, not to one global value.
+  readonly sort?: FileSort;
+  readonly direction?: SortDirection;
 }
 
 // The file summary a table row is painted from — the file's metadata joined to its display version, so
@@ -160,6 +199,8 @@ export function listFilesStatement(
   cursor: SortCursor | undefined,
   limit: number,
 ): SqlStatement {
+  const sort = filters.sort ?? "created";
+  const direction = filters.direction ?? defaultDirectionFor(sort);
   const conditions = ["f.matter_id = ?"];
   const bindings: unknown[] = [filters.matterId];
   if (filters.folderId !== undefined) {
@@ -184,11 +225,29 @@ export function listFilesStatement(
   }
   // The keyset predicate, qualified to the file table: the JOIN to file_version makes bare created_at/id
   // ambiguous, so this cannot reuse the shared appendCursorPredicate (which emits unqualified columns).
+  //
+  // Written as a ROW VALUE rather than the OR form, and with the collation on the BOUND SIDE, because
+  // that is the only spelling SQLite turns into an index seek. Measured against the per-firm index set:
+  // `(f.name, f.id) > (? COLLATE NOCASE, ?)` plans as
+  // `SEARCH file USING COVERING INDEX ... (matter_id=? AND (name,id)>(?,?))`, while both
+  // `(f.name COLLATE NOCASE, f.id) > (?, ?)` and the OR form plan as a bare `matter_id=?` scan of the
+  // whole matter on every page. The comparison is still NOCASE — for a binary comparison SQLite takes
+  // the left operand's explicit collation, then the right operand's, then the left column's — so the
+  // predicate and the ORDER BY agree, and both agree with the index.
+  const { column, collate } = FILE_SORTS[sort];
+  const comparison = direction === "asc" ? ">" : "<";
+  const collation = collate ? " COLLATE NOCASE" : "";
   if (cursor !== undefined) {
-    conditions.push("(f.created_at < ? OR (f.created_at = ? AND f.id < ?))");
-    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+    conditions.push(`(${column}, f.id) ${comparison} (?${collation}, ?)`);
+    bindings.push(cursor.createdAt, cursor.id);
   }
   bindings.push(limit);
+  // Every order carries `id` last. Neither `name` (files have no sibling-name uniqueness at all) nor
+  // `updated_at` (a batch move writes the same instant to many rows) is a total order on its own, and
+  // a keyset over a non-total order skips and repeats.
+  const ordering =
+    `${column}${collation} ${direction === "asc" ? "ASC" : "DESC"}, ` +
+    `f.id ${direction === "asc" ? "ASC" : "DESC"}`;
   // fitness:allow-no-status — this read deliberately spans version statuses. The gate is not a WHERE
   // status= on the joined row but the display-version resolution: the JOIN targets either the clean
   // current version (current_version_id, clean-only by construction) or, in include mode, a version
@@ -198,7 +257,7 @@ export function listFilesStatement(
     .prepare(
       `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
         `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = ${displayVersion} ${uploaderJoin("dv")} ` +
-        `WHERE ${conditions.join(" AND ")} ORDER BY f.created_at DESC, f.id DESC LIMIT ?`,
+        `WHERE ${conditions.join(" AND ")} ORDER BY ${ordering} LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -208,18 +267,59 @@ export interface ListFilesParams extends ListFilesFilters {
   readonly pageSize?: number;
 }
 
+// The sort value the next cursor carries — the same column the page was ordered by, so a cursor is
+// always comparable against the predicate that will read it back.
+function sortValueOf(row: FileSummaryRowRaw, sort: FileSort): string {
+  switch (sort) {
+    case "created":
+      return row.created_at;
+    case "name":
+      return row.name;
+    case "updated":
+      return row.updated_at;
+  }
+}
+
 export async function listFiles(
   database: SqlDatabase,
   params: ListFilesParams,
 ): Promise<Page<FileListItem>> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const sort = params.sort ?? "created";
+  const direction = params.direction ?? defaultDirectionFor(sort);
+  const tag = fileSortTag(sort, direction);
+  const cursor = decodeCursor(params.cursor);
+  // A cursor minted under one order and replayed under another produces a predicate that is
+  // well-formed and silently wrong: it compares this page's column against the other order's value
+  // and skips or repeats an arbitrary slice of the matter. A MALFORMED cursor is different and is
+  // still treated as the first page (decodeCursor's behaviour) — a tampered token reveals nothing by
+  // being ignored. This one was minted by us, the caller is mid-scroll, and quietly serving them page
+  // one while their interface believes it is on page four is the failure mode worth refusing.
+  //
+  // An untagged cursor is one minted before the orders existed, when `created:desc` was the only one
+  // there was, so it is accepted under that order and refused under any other.
+  if (cursor !== undefined && (cursor.sort ?? fileSortTag("created", "desc")) !== tag) {
+    throw new FileManagerValidationError(
+      "cursor-sort-mismatch",
+      `this cursor was issued for ${cursor.sort ?? fileSortTag("created", "desc")} and cannot be read back under ${tag}; drop it and request the first page`,
+    );
+  }
   const { results } = await listFilesStatement(
     database,
-    params,
-    decodeCursor(params.cursor),
+    { ...params, sort, direction },
+    cursor,
     pageSize + 1,
   ).all<FileSummaryRowRaw>();
-  return assemblePage(results, pageSize, toFileListItem);
+  // Not assemblePage: that helper mints the next cursor from created_at, which is the sort key for
+  // exactly one of the three orders.
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(toFileListItem),
+    nextCursor:
+      hasMore && last !== undefined ? encodeCursor(sortValueOf(last, sort), last.id, tag) : null,
+  };
 }
 
 // One file's enriched summary — the same shape a list row carries, for the detail read. Gated to a

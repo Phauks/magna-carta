@@ -542,6 +542,12 @@ export const PROBLEM_TYPES = {
   // the refusing subsystem's own words, because each of those is fixed by a different person doing a
   // different thing.
   "report-cannot-be-produced": "report-cannot-be-produced",
+  // A continuation cursor replayed against a different sort order than the one that issued it (HTTP
+  // 422). Its own type because the remedy is specific and mechanical — drop the cursor and request the
+  // first page under the new order, which is what a column-header click means anyway. Not a silent
+  // restart: the token is well-formed and this system minted it, so the caller is mid-scroll and being
+  // handed page one while their interface believes it is on page four is the failure worth naming.
+  "cursor-sort-mismatch": "cursor-sort-mismatch",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

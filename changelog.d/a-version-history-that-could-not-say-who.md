@@ -18,7 +18,7 @@ The name is resolved in the same read (`LEFT JOIN member ON member.user_id = upl
 primary-key seek, no extra round trip) rather than left to the client, because no route maps a user
 identifier to a display name — an identifier-only field would have been a field nothing could render.
 The precedent is `BillingAuthorizedMember`, which embeds a name for the same reason: a ledger that can
-say only that *somebody* did this is not a ledger. The join is LEFT, and a test holds it there: an
+say only that _somebody_ did this is not a ledger. The join is LEFT, and a test holds it there: an
 inner join would make a removed member's uploads vanish from the history.
 
 No migration. The erasure classification for the column landed separately and already reads

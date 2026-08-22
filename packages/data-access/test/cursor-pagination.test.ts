@@ -25,6 +25,29 @@ describe("the cursor encoding is one contract in both directions", () => {
     expect(decodeCursor(btoa(JSON.stringify({ c: 5, i: null })))).toBeUndefined();
     expect(decodeCursor(undefined)).toBeUndefined();
   });
+
+  it("carries the order that minted it, for a read that offers more than one", () => {
+    const cursor = encodeCursor("a-document.pdf", "file_x", "name:asc");
+    expect(decodeCursor(cursor)).toEqual({
+      createdAt: "a-document.pdf",
+      id: "file_x",
+      sort: "name:asc",
+    });
+    expect(cursor).toBe(btoa(JSON.stringify({ c: "a-document.pdf", i: "file_x", s: "name:asc" })));
+  });
+
+  it("leaves an untagged cursor untagged, in both directions across a deploy", () => {
+    // A read with one order must keep minting the bytes it always did, or every cursor in flight
+    // changes shape for no reason. And a cursor minted by a NEWER deploy has to stay readable by an
+    // older one: the extra key is simply not read, which is what JSON.parse does and what this
+    // decoder did before the key existed.
+    expect(encodeCursor("2026-09-07", "matterDeadline_x")).toBe(
+      btoa(JSON.stringify({ c: "2026-09-07", i: "matterDeadline_x" })),
+    );
+    expect(decodeCursor(encodeCursor("2026-09-07", "matterDeadline_x"))).not.toHaveProperty("sort");
+    const parsed = JSON.parse(atob(encodeCursor("x", "y", "name:asc"))) as Record<string, unknown>;
+    expect({ c: parsed["c"], i: parsed["i"] }).toEqual({ c: "x", i: "y" });
+  });
 });
 
 describe("the keyset predicates", () => {

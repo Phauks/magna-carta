@@ -42,6 +42,7 @@ describe("problem-type URI registry", () => {
         "report-period-invalid",
         "report-period-too-large",
         "report-cannot-be-produced",
+        "cursor-sort-mismatch",
         "conflict",
         "custody-approver-must-differ",
         "custody-destruction-not-actionable",

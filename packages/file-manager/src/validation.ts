@@ -28,6 +28,11 @@ export type FileManagerValidationCode =
   // Upload policy (re-checked against real bytes at the ingest gate too)
   | "upload-policy-size"
   | "upload-policy-type"
+  // A continuation cursor presented against a different order from the one that minted it. Refused
+  // rather than restarted: the token is well-formed and was issued by this system, so the caller is
+  // mid-scroll, and silently handing them the first page while their interface believes it is on page
+  // four is worse than telling them the cursor no longer applies.
+  | "cursor-sort-mismatch"
   // Upload sessions
   | "unknown-upload-session"
   | "upload-session-not-open"
