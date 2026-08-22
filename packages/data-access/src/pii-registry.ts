@@ -93,6 +93,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "ai_detection_usage", subjectKey: "requested_by", action: "pseudonymize-keep" },
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
+  // A version records WHO committed it, and that reference outlives the member row by design —
+  // file_version.uploaded_by is deliberately not a foreign key, so nothing cascades when a member
+  // is erased. The column sat inside NO_PII_TABLES until 2026-08-22, under a note enumerating the
+  // r2_key, the hashes and the status and simply not mentioning it, so an erasure passed over every
+  // version that member had ever uploaded. Pseudonymize rather than delete, for the reason
+  // audit_log and entity_merge do: the fact that SOMEBODY committed this version at this time is
+  // chain-of-custody a firm can be asked to account for, and removing the row would break the
+  // version lineage the current-version pointer walks.
+  { table: "file_version", subjectKey: "uploaded_by", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
@@ -691,9 +700,6 @@ export const NO_PII_TABLES: readonly string[] = [
   "storage_meter",
   "scan_cache",
   "token_usage_meter",
-  // file-version metadata (r2_key, hashes, status) — no personal data of its own; the document's
-  // matter-corpus retention is expressed by the file entry
-  "file_version",
   // Repair/carve provenance for a file version — operation kind, recovery flag, a structural
   // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
   // data of its own (the underlying document's retention is the file entry's, as above).
