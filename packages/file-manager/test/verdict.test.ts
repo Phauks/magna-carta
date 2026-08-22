@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  coarseScanReason,
   computeVerdict,
   DEFAULT_SCAN_POLICY,
+  SCAN_REASONS,
   ScanFaultError,
   scanDetailFor,
 } from "../src/verdict.ts";
@@ -173,5 +175,79 @@ describe("scanDetailFor", () => {
     expect(scanDetailFor({ verdict: "flagged", reason: "Eicar-Test-Signature" })).toBe(
       "Eicar-Test-Signature",
     );
+  });
+});
+
+describe("coarseScanReason — what a read surface may say about a scan", () => {
+  it("collapses an engine-supplied signature name to the one closed token", () => {
+    // The exposure this exists to close: quarantineVersion persists `scanDetail ?? reason`, and a
+    // malware quarantine passes the signature, so the column holds text the platform never authored.
+    expect(coarseScanReason(null, "quarantined", "Win.Trojan.Fake-1234")).toEqual({
+      scanReason: "scan-flagged",
+      activeContent: false,
+    });
+    expect(coarseScanReason("flagged", "clean", "Eicar-Test-Signature")).toEqual({
+      scanReason: "scan-flagged",
+      activeContent: false,
+    });
+  });
+
+  it("reports every platform-authored token unchanged", () => {
+    for (const token of SCAN_REASONS) {
+      expect(coarseScanReason(null, "quarantined", token)).toEqual({
+        scanReason: token,
+        activeContent: false,
+      });
+    }
+  });
+
+  it("reports active content as the badge it is, not as a reason the file was refused", () => {
+    expect(coarseScanReason("clean", "clean", "active-content")).toEqual({
+      scanReason: null,
+      activeContent: true,
+    });
+  });
+
+  it("keeps the prefix of a composed withdrawal detail and drops what the engine added", () => {
+    expect(coarseScanReason(null, "quarantined", "content-drift: Win.Trojan.Fake-1234")).toEqual({
+      scanReason: "content-drift",
+      activeContent: false,
+    });
+    expect(
+      coarseScanReason(null, "quarantined", "content-unverifiable: replacement bytes not scanned"),
+    ).toEqual({ scanReason: "content-unverifiable", activeContent: false });
+  });
+
+  it("says nothing about a row that is neither flagged nor quarantined", () => {
+    // An unrecognized detail on a clean, unflagged row is not evidence of anything, and answering
+    // "scan-flagged" there would invent an alarm the platform cannot substantiate.
+    expect(coarseScanReason("clean", "clean", "seeded sample text")).toEqual({
+      scanReason: null,
+      activeContent: false,
+    });
+    expect(coarseScanReason(null, "clean", null)).toEqual({
+      scanReason: null,
+      activeContent: false,
+    });
+  });
+
+  it("never returns a string outside the closed vocabulary", () => {
+    const details = [
+      null,
+      "active-content",
+      "oversize",
+      "Win.Trojan.Fake-1234",
+      "content-drift: anything at all",
+      "YARA_rule_name_with_free_text",
+      "Rejected by the malware scan (seeded quarantined sample).",
+    ];
+    for (const detail of details) {
+      for (const status of ["clean", "pending", "quarantined"] as const) {
+        const { scanReason } = coarseScanReason("flagged", status, detail);
+        expect(
+          scanReason === null || (SCAN_REASONS as readonly string[]).includes(scanReason),
+        ).toBe(true);
+      }
+    }
   });
 });

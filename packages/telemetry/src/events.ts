@@ -84,6 +84,11 @@ export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId
 // there is NO slot for file id, name, r2 key, or content — only the scan verdict and the outcome
 // classification. This makes infected/quarantine rates observable without logging anything that
 // identifies the file or its uploader.
+//
+// `scanDetail` takes the COARSE reason, from the closed vocabulary in
+// @magna-carta/file-manager/verdict — never the stored scan_detail string, which on a flagged verdict
+// is the engine's own signature name. Structural redaction covers the slots that do not exist; this
+// one does exist, so the discipline has to be kept by every producer that fills it.
 export const ingestVerdict = defineEvent("ingest.verdict", [
   "outcome",
   "scanVerdict",

@@ -14,7 +14,12 @@ import {
 } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict, ScanFaultError, scanDetailFor } from "@magna-carta/file-manager/verdict";
+import {
+  coarseScanReason,
+  computeVerdict,
+  ScanFaultError,
+  scanDetailFor,
+} from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
@@ -227,17 +232,22 @@ export async function handleIngestMessage(
     logger?.log(
       ingestVerdict(
         { correlationId, now: new Date().toISOString() },
+        // The scanDetail dimension carries the COARSE reason, never the stored detail. This event is
+        // a cross-firm analytics point, and the stored detail is the scan engine's own signature name
+        // on a flagged verdict — the widest audience the platform has for a string it does not author.
+        // The narrowing loses nothing the dimension is used for: rates by reason still resolve.
         outcome.kind === "commit"
           ? {
               outcome: "commit",
               scanVerdict: outcome.scanVerdict,
-              scanDetail: outcome.scanDetail,
+              scanDetail: coarseScanReason(outcome.scanVerdict, "clean", outcome.scanDetail)
+                .scanReason,
               quarantineReason: null,
             }
           : {
               outcome: "quarantine",
               scanVerdict: null,
-              scanDetail: outcome.scanDetail,
+              scanDetail: coarseScanReason(null, "quarantined", outcome.scanDetail).scanReason,
               quarantineReason: outcome.reason,
             },
       ),
@@ -355,7 +365,14 @@ async function withdrawOnContentDrift(
   logger?.log(
     ingestVerdict(
       { correlationId, now: new Date().toISOString() },
-      { outcome: "quarantine", scanVerdict: null, scanDetail, quarantineReason: reason },
+      {
+        outcome: "quarantine",
+        scanVerdict: null,
+        // Coarse, for the reason the ingest verdict above is: the composed detail's suffix is the
+        // engine's words about the replacement bytes, and this event crosses firms.
+        scanDetail: coarseScanReason(null, "quarantined", scanDetail).scanReason,
+        quarantineReason: reason,
+      },
     ),
   );
   return true;

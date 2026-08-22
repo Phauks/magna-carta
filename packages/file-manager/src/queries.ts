@@ -8,6 +8,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { INDEX_SPLIT_TABLE } from "@magna-carta/data-access/index-split-statements";
+import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type {
   DocumentCheckoutId,
   DocumentTypeId,
@@ -16,9 +17,11 @@ import type {
   FolderId,
   MatterId,
   UploadSessionId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import { FILE_TABLE, FILE_VERSION_TABLE, UPLOAD_SESSION_TABLE } from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
+import { coarseScanReason, type ScanReason } from "./verdict.ts";
 
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
 // is visible once it has a clean current version (current_version_id, set only on commit); a version
@@ -59,11 +62,21 @@ export interface FileListItem {
   readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
   readonly status: "clean" | "pending" | "quarantined";
   // The human-readable reason a version was quarantined (the scan detail), present only when status is
-  // "quarantined"; null otherwise.
+  // "quarantined"; null otherwise. OPEN TEXT: for a scan quarantine it is the engine's own words.
+  // Superseded on the wire by scanReason, which is a closed vocabulary; consumers branch on that.
   readonly quarantineReason: string | null;
+  // The closed-vocabulary reason behind the display version's verdict, and the active-content badge —
+  // both derived from the same open scan_detail column by coarseScanReason (verdict.ts), which is
+  // where the narrowing and its reasoning live. Present for any status, not just a quarantine.
+  readonly scanReason: ScanReason | null;
+  readonly activeContent: boolean;
+  // Who committed the display version, and their name if the firm still has them. Both nullable, and
+  // each for its own reason — see uploaderColumns below.
+  readonly uploadedByUserId: UserId | null;
+  readonly uploadedByDisplayName: string | null;
 }
 
-interface FileSummaryRowRaw {
+interface FileSummaryRowRaw extends UploaderRowRaw {
   id: FileId;
   matter_id: MatterId;
   folder_id: FolderId | null;
@@ -102,15 +115,44 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
     scanVerdict: row.scan_verdict,
     status,
     quarantineReason: status === "quarantined" ? row.scan_detail : null,
+    ...coarseScanReason(row.scan_verdict, status, row.scan_detail),
+    ...toUploader(row),
   };
 }
 
+// Who committed a version, resolved to a name in the same read rather than left to the caller: no
+// route maps a user identifier to a display name, so an identifier alone would be a field nothing can
+// render. The join is LEFT and the name is separately nullable because `file_version.uploaded_by` is
+// deliberately not a foreign key — the upload fact outlives the member row — so a version committed
+// by a member the firm has since removed keeps its identifier and resolves to no name. Collapsing the
+// two into one nullable object would erase exactly the distinction the non-foreign-key decision
+// exists to preserve. `member` is keyed on user_id, so this is a primary-key seek, not a scan.
+function uploaderColumns(versionAlias: string): string {
+  return `${versionAlias}.uploaded_by, uploader.display_name AS uploaded_by_name`;
+}
+
+function uploaderJoin(versionAlias: string): string {
+  return `LEFT JOIN ${MEMBER_TABLE} uploader ON uploader.user_id = ${versionAlias}.uploaded_by`;
+}
+
+interface UploaderRowRaw {
+  uploaded_by: UserId | null;
+  uploaded_by_name: string | null;
+}
+
+function toUploader(row: UploaderRowRaw): {
+  readonly uploadedByUserId: UserId | null;
+  readonly uploadedByDisplayName: string | null;
+} {
+  return { uploadedByUserId: row.uploaded_by, uploadedByDisplayName: row.uploaded_by_name };
+}
+
 // The summary columns both the list and the single-file read project — the file row plus its display
-// version's version_number/size/sniffed-type/verdict/status/detail.
+// version's version_number/size/sniffed-type/verdict/status/detail and who committed it.
 const FILE_SUMMARY_COLUMNS =
   "f.id, f.matter_id, f.folder_id, f.name, f.document_type_id, f.current_version_id, " +
   "f.created_at, f.updated_at, dv.version_number, dv.size_bytes, dv.sniffed_content_type, " +
-  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail";
+  `dv.scan_verdict, dv.status AS version_status, dv.scan_detail, ${uploaderColumns("dv")}`;
 
 export function listFilesStatement(
   database: SqlDatabase,
@@ -155,7 +197,7 @@ export function listFilesStatement(
   return database
     .prepare(
       `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
-        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = ${displayVersion} ` +
+        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = ${displayVersion} ${uploaderJoin("dv")} ` +
         `WHERE ${conditions.join(" AND ")} ORDER BY f.created_at DESC, f.id DESC LIMIT ?`,
     )
     .bind(...bindings);
@@ -187,7 +229,7 @@ export function selectFileSummaryStatement(database: SqlDatabase, fileId: FileId
   return database
     .prepare(
       `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
-        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = f.current_version_id ` +
+        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = f.current_version_id ${uploaderJoin("dv")} ` +
         `WHERE f.id = ?1 AND f.deleted_at IS NULL AND dv.status = 'clean'`,
     )
     .bind(fileId);
@@ -596,7 +638,7 @@ export function listCleanVersionsStatement(
   fileId: FileId,
   options: { readonly cursor?: SortCursor; readonly limit: number } = { limit: DEFAULT_PAGE_SIZE },
 ): SqlStatement {
-  const conditions = ["file_id = ?", "status = 'clean'"];
+  const conditions = ["v.file_id = ?", "v.status = 'clean'"];
   const bindings: unknown[] = [fileId];
   if (options.cursor !== undefined) {
     // Written out rather than composed with appendCursorPredicateOnColumn, because that helper binds
@@ -604,15 +646,17 @@ export function listCleanVersionsStatement(
     // across storage classes before it compares within one, so every integer is less than every
     // string: `version_number < '9'` would be true for every row in the table and the page would not
     // advance. The comparison has to be numeric, so the binding is a number.
-    conditions.push("(version_number < ? OR (version_number = ? AND id < ?))");
+    conditions.push("(v.version_number < ? OR (v.version_number = ? AND v.id < ?))");
     const sortValue = Number(options.cursor.createdAt);
     bindings.push(sortValue, sortValue, options.cursor.id);
   }
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable ` +
-        `FROM ${FILE_VERSION_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY version_number DESC, id DESC LIMIT ?`,
+      `SELECT v.id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.content_sha256, ` +
+        `v.committed_at, v.inline_playable, v.scan_verdict, v.scan_detail, ${uploaderColumns("v")} ` +
+        `FROM ${FILE_VERSION_TABLE} v ${uploaderJoin("v")} ` +
+        `WHERE ${conditions.join(" AND ")} ORDER BY v.version_number DESC, v.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -625,6 +669,16 @@ export interface CleanVersionListItem {
   readonly contentSha256: string | null;
   readonly committedAt: string | null;
   readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;
+  // The same closed-vocabulary pair the file summary carries. A version in this list is status =
+  // 'clean', which is not the same as "the scan liked it": an oversize commit, an encrypted commit,
+  // and — under the informed-access and allow-and-flag treatments — a version the engine flagged all
+  // sit here, and until now the history could not say which.
+  readonly scanReason: ScanReason | null;
+  readonly activeContent: boolean;
+  // Who committed this version. The custody question a version history exists to answer, and the one
+  // it could not: the column has carried the answer since the baseline schema and nothing selected it.
+  readonly uploadedByUserId: UserId | null;
+  readonly uploadedByDisplayName: string | null;
 }
 
 export async function listCleanVersions(
@@ -645,6 +699,10 @@ export async function listCleanVersions(
     content_sha256: string | null;
     committed_at: string | null;
     inline_playable: "playable" | "download-only" | "indeterminate" | null;
+    scan_verdict: "unscanned" | "clean" | "flagged" | null;
+    scan_detail: string | null;
+    uploaded_by: UserId | null;
+    uploaded_by_name: string | null;
   }>();
   const hasMore = results.length > pageSize;
   const rows = hasMore ? results.slice(0, pageSize) : results;
@@ -652,15 +710,21 @@ export async function listCleanVersions(
   return {
     nextCursor:
       hasMore && last !== undefined ? encodeCursor(String(last.version_number), last.id) : null,
-    data: rows.map((row) => ({
-      id: row.id,
-      versionNumber: row.version_number,
-      sizeBytes: row.size_bytes,
-      sniffedContentType: row.sniffed_content_type,
-      contentSha256: row.content_sha256,
-      committedAt: row.committed_at,
-      inlinePlayable: row.inline_playable,
-    })),
+    data: rows.map((row) =>
+      Object.assign(
+        {
+          id: row.id,
+          versionNumber: row.version_number,
+          sizeBytes: row.size_bytes,
+          sniffedContentType: row.sniffed_content_type,
+          contentSha256: row.content_sha256,
+          committedAt: row.committed_at,
+          inlinePlayable: row.inline_playable,
+        },
+        coarseScanReason(row.scan_verdict, "clean", row.scan_detail),
+        toUploader(row),
+      ),
+    ),
   };
 }
 

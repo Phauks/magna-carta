@@ -20,6 +20,7 @@ import {
   type FileListItem,
 } from "@magna-carta/file-manager/queries";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
+import { SCAN_REASONS } from "@magna-carta/file-manager/verdict";
 import {
   readFlaggedTreatment,
   readStepUpReauthOnFlagged,
@@ -85,8 +86,28 @@ const FileSummary = z
     sniffedContentType: z.string().nullable(),
     scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
     status: z.enum(["clean", "pending", "quarantined"]),
-    // The reason a version was quarantined, present only when status is "quarantined".
-    quarantineReason: z.string().nullable(),
+    // Superseded by scanReason and removed at the next API version. Open text: for a scan quarantine
+    // it carries the engine's own words (a signature name), which a client cannot tell apart from a
+    // platform-authored token and must not render. Branch on scanReason instead.
+    quarantineReason: z
+      .string()
+      .nullable()
+      .describe(
+        "Deprecated: open text, and for a malware quarantine it is the scan engine's own signature " +
+          "name. Use scanReason, which is a closed vocabulary. Removed at the next API version.",
+      ),
+    // Why the display version carries the verdict it does, from a closed vocabulary the platform
+    // authors, and whether an otherwise-clean file holds active content (PDF JavaScript, Office
+    // macros). Set for any status, not only a quarantine: an unscanned row can now say it was
+    // oversize or encrypted rather than only that nothing looked at it.
+    scanReason: z.enum(SCAN_REASONS).nullable(),
+    activeContent: z.boolean(),
+    // Who committed the display version. Two separately nullable fields rather than one object: the
+    // identifier is null for a version no member produced (a repair or carve writes none), and the
+    // NAME is null while the identifier is not for a member the firm has since removed, because the
+    // upload fact deliberately outlives the member row.
+    uploadedByUserId: z.string().nullable(),
+    uploadedByDisplayName: z.string().nullable(),
   })
   .openapi("FileSummary");
 
@@ -102,6 +123,16 @@ const FileVersionItem = z
     sniffedContentType: z.string().nullable(),
     contentSha256: z.string().nullable(),
     committedAt: z.string().nullable(),
+    // The same closed pair FileSummary carries. A committed version is not necessarily a scanned one:
+    // an oversize or encrypted commit, and a flagged commit under a non-blocking treatment, all
+    // appear in this history and each now says which it is.
+    scanReason: z.enum(SCAN_REASONS).nullable(),
+    activeContent: z.boolean(),
+    // Who committed this version — the custody fact a version history is read for. Nullable on both
+    // halves for the reasons FileSummary states. A version cut by a restore names the member who
+    // performed the restore, which is the honest answer to "who put these bytes here as version N".
+    uploadedByUserId: z.string().nullable(),
+    uploadedByDisplayName: z.string().nullable(),
   })
   .openapi("FileVersionItem");
 
@@ -284,7 +315,9 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
     "table with no per-row fan-out to the version history. By default only files with a committed clean " +
     "version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to " +
     "also surface files whose latest version is still processing (pending) or was rejected as malware " +
-    "(quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
+    "(quarantined); those rows carry a null currentVersionId and cannot be downloaded. scanReason " +
+    "reports why a version carries its verdict from a closed vocabulary, and activeContent flags a " +
+    "clean file that still holds PDF JavaScript or Office macros.",
   request: {
     query: z.object({
       matterId: identifierField("matter"),
@@ -324,9 +357,11 @@ const listFileVersionsRoute = defineOpenAPIRoute(listFileVersionsMeta, {
   method: "get",
   path: "/api/v1/files/{id}/versions",
   description:
-    "Lists a file's committed (clean) version history, newest first. CURSOR-PAGED: a version " +
-    "history only grows, and a document under daily revision for years is thousands of versions " +
-    "that this read carried no bound on at all.",
+    "Lists a file's committed (clean) version history, newest first, with the member who committed " +
+    "each version. CURSOR-PAGED: a version history only grows, and a document under daily revision " +
+    "for years is thousands of versions that this read carried no bound on at all. " +
+    "uploadedByDisplayName is null for a member the firm has removed, whose identifier the version " +
+    "still carries.",
   request: { params: fileParam, query: cursorQuery },
   responses: {
     200: {
@@ -494,6 +529,10 @@ function toFileSummaryResponse(file: FileListItem): z.infer<typeof FileSummary> 
     scanVerdict: file.scanVerdict,
     status: file.status,
     quarantineReason: file.quarantineReason,
+    scanReason: file.scanReason,
+    activeContent: file.activeContent,
+    uploadedByUserId: file.uploadedByUserId,
+    uploadedByDisplayName: file.uploadedByDisplayName,
   };
 }
 
@@ -621,6 +660,10 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             sniffedContentType: version.sniffedContentType,
             contentSha256: version.contentSha256,
             committedAt: version.committedAt,
+            scanReason: version.scanReason,
+            activeContent: version.activeContent,
+            uploadedByUserId: version.uploadedByUserId,
+            uploadedByDisplayName: version.uploadedByDisplayName,
           })),
         } as z.infer<typeof FileVersionsResponse>,
         200,

@@ -5172,6 +5172,44 @@
             "type": [
               "string",
               "null"
+            ],
+            "description": "Deprecated: open text, and for a malware quarantine it is the scan engine's own signature name. Use scanReason, which is a closed vocabulary. Removed at the next API version."
+          },
+          "scanReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "oversize",
+              "encrypted",
+              "no-engine",
+              "decompression-bomb",
+              "archive-nesting",
+              "archive-entry-count",
+              "size-mismatch",
+              "type-mismatch",
+              "policy-size",
+              "policy-type",
+              "content-drift",
+              "content-unverifiable",
+              "scan-flagged",
+              null
+            ]
+          },
+          "activeContent": {
+            "type": "boolean"
+          },
+          "uploadedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByDisplayName": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         },
@@ -5189,7 +5227,11 @@
           "sniffedContentType",
           "scanVerdict",
           "status",
-          "quarantineReason"
+          "quarantineReason",
+          "scanReason",
+          "activeContent",
+          "uploadedByUserId",
+          "uploadedByDisplayName"
         ]
       },
       "FileVersionsResponse": {
@@ -5245,6 +5287,43 @@
               "string",
               "null"
             ]
+          },
+          "scanReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "oversize",
+              "encrypted",
+              "no-engine",
+              "decompression-bomb",
+              "archive-nesting",
+              "archive-entry-count",
+              "size-mismatch",
+              "type-mismatch",
+              "policy-size",
+              "policy-type",
+              "content-drift",
+              "content-unverifiable",
+              "scan-flagged",
+              null
+            ]
+          },
+          "activeContent": {
+            "type": "boolean"
+          },
+          "uploadedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByDisplayName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -5253,7 +5332,11 @@
           "sizeBytes",
           "sniffedContentType",
           "contentSha256",
-          "committedAt"
+          "committedAt",
+          "scanReason",
+          "activeContent",
+          "uploadedByUserId",
+          "uploadedByDisplayName"
         ]
       },
       "FileActionAck": {
@@ -38279,7 +38362,7 @@
     },
     "/api/v1/files": {
       "get": {
-        "description": "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its display version's number, size, sniffed type, scan verdict, and status, so one call paints a file table with no per-row fan-out to the version history. By default only files with a committed clean version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to also surface files whose latest version is still processing (pending) or was rejected as malware (quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
+        "description": "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its display version's number, size, sniffed type, scan verdict, and status, so one call paints a file table with no per-row fan-out to the version history. By default only files with a committed clean version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to also surface files whose latest version is still processing (pending) or was rejected as malware (quarantined); those rows carry a null currentVersionId and cannot be downloaded. scanReason reports why a version carries its verdict from a closed vocabulary, and activeContent flags a clean file that still holds PDF JavaScript or Office macros.",
         "operationId": "files.list",
         "tags": [
           "files"
@@ -38717,7 +38800,7 @@
     },
     "/api/v1/files/{id}/versions": {
       "get": {
-        "description": "Lists a file's committed (clean) version history, newest first. CURSOR-PAGED: a version history only grows, and a document under daily revision for years is thousands of versions that this read carried no bound on at all.",
+        "description": "Lists a file's committed (clean) version history, newest first, with the member who committed each version. CURSOR-PAGED: a version history only grows, and a document under daily revision for years is thousands of versions that this read carried no bound on at all. uploadedByDisplayName is null for a member the firm has removed, whose identifier the version still carries.",
         "operationId": "files.versions",
         "tags": [
           "files"

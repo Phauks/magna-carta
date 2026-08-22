@@ -38,6 +38,75 @@ export function scanDetailFor(verdict: FileVerdict): string | null {
   }
 }
 
+// The closed vocabulary a READ surface may report as the reason behind a version's verdict. It is
+// deliberately narrower than the `scan_detail` column, which is open text: three of the writers put
+// engine-supplied free text in it (a clamd signature name, a YARA rule id, the enrichment suffix the
+// content-drift withdrawal composes), and a signature name is a fact the platform does not author,
+// does not bound in shape, and has no business handing to an unpermissioned, unaudited listing.
+// Everything of that kind collapses to `scan-flagged`; the raw name stays reachable only on the
+// audited download refusal and the permissioned scan-diagnosis read, both of which record who asked.
+//
+// `active-content` is absent on purpose — it is not a reason a file was refused but a badge on a file
+// that passed, so it rides the separate boolean coarseScanReason returns.
+export const SCAN_REASONS = [
+  // Committed with no scan: the bytes were past the inspectable-size cap, could not be decrypted, or
+  // no engine was deployed to look at them.
+  "oversize",
+  "encrypted",
+  "no-engine",
+  // Structural heuristics — the shapes an archive can take that make scanning it unsafe or endless.
+  "decompression-bomb",
+  "archive-nesting",
+  "archive-entry-count",
+  // Gate refusals: the bytes contradicted what the upload declared, or the firm's own upload policy
+  // refused them once their real size and sniffed type were known.
+  "size-mismatch",
+  "type-mismatch",
+  "policy-size",
+  "policy-type",
+  // The custody withdrawal: an already-committed version whose stored bytes stopped matching the hash
+  // recorded at commit, or one that carried no hash to check against.
+  "content-drift",
+  "content-unverifiable",
+  // The collapsing token: a named signature, a counting rule match, or any other detail this
+  // vocabulary does not author. A client renders "rejected by the malware scan" and nothing narrower.
+  "scan-flagged",
+] as const;
+
+export type ScanReason = (typeof SCAN_REASONS)[number];
+
+const SCAN_REASON_SET = new Set<string>(SCAN_REASONS);
+
+// The withdrawal path composes its detail as `<reason>: <what the replacement bytes turned out to
+// be>`, and that suffix is the engine's own words. The prefix is the part a reader is owed.
+const COMPOSED_SCAN_REASON_PREFIXES = ["content-drift", "content-unverifiable"] as const;
+
+// What a read surface reports about a version's scan, derived from the open `scan_detail` column at
+// projection time. Pure, and beside scanDetailFor because that function is what writes the column:
+// keeping the writer and the narrowing reader in one file is what stops a new detail string being
+// added on one side and silently classified as a signature on the other.
+export function coarseScanReason(
+  scanVerdict: "unscanned" | "clean" | "flagged" | null,
+  versionStatus: "clean" | "pending" | "quarantined",
+  scanDetail: string | null,
+): { readonly scanReason: ScanReason | null; readonly activeContent: boolean } {
+  if (scanDetail === null) return { scanReason: null, activeContent: false };
+  // The one detail that is a property of a file that PASSED, so it is reported as the badge it is
+  // rather than as a reason the file was refused.
+  if (scanDetail === "active-content") return { scanReason: null, activeContent: true };
+  if (SCAN_REASON_SET.has(scanDetail)) {
+    return { scanReason: scanDetail as ScanReason, activeContent: false };
+  }
+  for (const prefix of COMPOSED_SCAN_REASON_PREFIXES) {
+    if (scanDetail.startsWith(`${prefix}:`)) return { scanReason: prefix, activeContent: false };
+  }
+  // Anything left is text this vocabulary does not author. Report it as a flag only where a flag is
+  // what happened; on a row that is neither flagged nor quarantined, an unrecognized detail is not
+  // evidence of anything and saying "scan-flagged" would invent an alarm.
+  const flagged = scanVerdict === "flagged" || versionStatus === "quarantined";
+  return { scanReason: flagged ? "scan-flagged" : null, activeContent: false };
+}
+
 export function tierRank(tier: Tier): number {
   return tier === "core" ? 0 : tier === "extended" ? 1 : 2;
 }
