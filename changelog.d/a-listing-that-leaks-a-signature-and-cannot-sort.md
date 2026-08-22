@@ -1,0 +1,14 @@
+---
+category: Added
+audience: internal
+---
+
+**Four contract gaps between the File Manager API and a file-manager screen, designed — and two of the four turned out to be something other than what was reported.** `docs/specs/2026-08-22-file-manager-api-gaps-design.md` covers a `sort` parameter on `files.list`, a restore route and a deleted-files listing, the scan reason and active-content marker on the wire, and the version author on version history. Design only; five owner flags in the `FM` series, three of the four buildable without answering any of them.
+
+**The scan-detail gap is the opposite of a missing field.** `FileSummary.quarantineReason` is `scan_detail` projected raw, and `quarantineVersion` writes `scanDetail ?? reason` into that one column — so the field returns either a closed quarantine token or a raw ClamAV signature, untagged, on a route that is `permission: null` and `audited: false`. The design collapses it to a closed `scanReason` enum plus an `activeContent` boolean, mirroring the `ScanDiagnosis` component that already splits it correctly, and leaves the raw name only on the audited download refusal and `scan.diagnose`. The same raw string is also a cross-firm telemetry dimension on `ingest.verdict`, whose comment claims its redaction is structural; that is flagged rather than fixed.
+
+**The version author needs no migration and does need a registry correction.** `file_version.uploaded_by` has been on the row since the baseline — but `file_version` sits in `NO_PII_TABLES` under a note that enumerates three columns and misses that one, while `time_entry.timekeeper_user_id`, `incident.reported_by` and `audit_log.actor_user_id` are all registered `pseudonymize-keep` for being exactly the same shape. A member's erasure would today miss every version they uploaded. That is a standing defect, not one the wire field creates.
+
+**Two of gap 2's stated hazards cannot occur.** A folder holding a soft-deleted file is never empty, because the emptiness check has no `deleted_at` filter and says so — restore always finds its folder. And files have no name-uniqueness concept at all; the sibling-name unique index is on `folder`, and two files with one name in one folder is already reachable by upload. Neither needed designing; the first needs a test naming the coupling, because that filter's absence is load-bearing and reads like an oversight.
+
+**Sorting refuses two of the five orders that were suggested.** `size` and `version` live on the joined display version, which no index on `file` can order by and which can change under a caller mid-scroll — so a keyset over them is the exact defect the cursor exists to prevent. Three orders ship on indexable `file` columns; the cursor encoding gains a sort tag, and a cursor replayed under a different order is a 422 rather than a silent restart to page one. The load profile lays down three to fourteen files per matter, so none of this is measurable until that fixture grows.
