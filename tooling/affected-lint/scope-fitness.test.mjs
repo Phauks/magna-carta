@@ -32,10 +32,10 @@ describe("trueDependentClosure", () => {
       (a, b) => (a < b ? -1 : a > b ? 1 : 0),
     );
     expect(reached).toEqual([
+      "@magna-carta/api-worker",
       "@magna-carta/data-access",
       "@magna-carta/money",
       "@magna-carta/web-worker",
-      "@magna-carta/api-worker",
     ]);
   });
 

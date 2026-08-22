@@ -37,8 +37,8 @@ describe("computeAffected", () => {
     expect(result.mode).toBe("paths");
     // money + everything that (transitively) depends on it — the soundness requirement.
     expect(result.paths).toEqual([
-      "apps/web-worker",
       "apps/api-worker",
+      "apps/web-worker",
       "packages/data-access",
       "packages/money",
     ]);
@@ -56,8 +56,8 @@ describe("computeAffected", () => {
       packages,
     });
     expect(result.paths).toEqual([
-      "apps/web-worker",
       "apps/api-worker",
+      "apps/web-worker",
       "packages/data-access",
       "packages/money",
     ]);
@@ -181,7 +181,7 @@ describe("computeAffected", () => {
       packages,
       sinks: new Set(["@magna-carta/api-worker"]),
     });
-    expect(result.paths).toEqual(["apps/web-worker", "apps/api-worker"]);
+    expect(result.paths).toEqual(["apps/api-worker", "apps/web-worker"]);
     expect(result.deferred).toEqual([]);
   });
 
@@ -205,7 +205,7 @@ describe("computeAffected", () => {
       sinks: new Set(packages.keys()),
     });
     expect(result.paths).toEqual(["packages/data-access"]);
-    expect(result.deferred).toEqual(["apps/web-worker", "apps/api-worker"]);
+    expect(result.deferred).toEqual(["apps/api-worker", "apps/web-worker"]);
   });
 
   it("deferral never overrides the whole-repo triggers", () => {
