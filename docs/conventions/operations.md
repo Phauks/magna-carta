@@ -370,6 +370,34 @@ Recorded per Worker below, with the Watch Paths that are genuinely its own:
 - `magna-carta-web` — root directory `apps/web-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The SvelteKit single-page application, on its own deployable. **Not connected in the dashboard yet** — connecting it is what makes a UI-only change stop rebuilding the app Worker, and until then this entry describes the settings to create rather than settings to check. It is an **assets-only** Worker: no `main`, no bindings, no secrets, so a page request is answered by Cloudflare's asset server and invokes nothing. Its own `build` script builds `@magna-carta/web` first (the sibling package whose output `wrangler.jsonc` points at), then runs the usual `wrangler deploy --dry-run --outdir dist` — the dashboard command stays the plain `pnpm run build` every sibling uses. **It needs no Docker and no WASM step**: `apps/web` depends on `@magna-carta/design-system`, `@magna-carta/design-tokens`, `@magna-carta/tools` and `@magna-carta/merge-field-catalog-contract`, and none of those reaches a crate — which is the whole reason this Worker is separable from `magna-carta`, and why the sign Worker's WASM lesson above does not apply here. **This is additive while it stands alone**: `apps/worker` still binds the same build output under its own `assets` block, so the application keeps serving from one origin exactly as it does today, and this Worker is a second door to the same files. Cutting over means giving the two Workers route patterns on one hostname — the SPA everywhere, the app Worker on its own paths — which needs a zone hostname the account does not have yet; a workers.dev URL cannot carry a route pattern. Do not remove the app Worker's `assets` block before those routes exist, or the application becomes unreachable. **Build Watch Paths (inclusion):** `apps/web-worker/*`, `apps/web/*`, `packages/design-system/*`, `packages/design-tokens/*`, `packages/tools/*`, `packages/merge-field-catalog-contract/*`, `packages/access-control/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
 - `magna-carta-edit` — root directory `apps/edit-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. The Collabora editing Worker. **The Worker keeps the name `magna-carta-edit`; only its directory moved** (from `apps/magna-carta-edit`, 2026-08-21) to match its own package name, `@magna-carta/edit-worker`, and its siblings' `<thing>-worker` shape. **The dashboard root directory must be repointed to `apps/edit-worker` or its build cannot find the package.** (This entry also carried two stale claims until the same date: a root directory of `/` and a `--filter` deploy, both wrong against the live configuration and against its own package.json — a third drift between this file and the dashboard, after the two Watch Path corrections noted below. Read the live build configuration when the two disagree.) **Its production branch is still `slice-2-2-editing`, not the trunk** — a leftover from the editing slice's test deploys — and **every build it has attempted since 2026-06-28 has failed** (eight consecutive; last success 2026-06-26, on that branch). Nothing has deployed from it in that window, so the live editing Worker is older than the trunk. Point it at `release` with the others and diagnose the build failure from its logs before relying on an editing deploy. **Build Watch Paths (inclusion):** `apps/edit-worker/*`, `containers/collabora/*`, `pnpm-lock.yaml`.
 
+### Cron Triggers — two rules that have each cost a deploy
+
+**Cloudflare numbers days of the week 1 = Sunday through 7 = Saturday.** `0` is out of range, not a
+synonym for Sunday, and almost every other cron implementation disagrees. An expression carrying it is
+rejected.
+
+**The schedule write is one atomic call for the whole set**, so a single malformed expression refuses
+every trigger alongside it. A configuration that works at three and fails at five is not evidence of a
+count ceiling — it is evidence that one of the two added expressions is bad. Restore triggers **one at
+a time**, because the atomic write does not say which one it rejected.
+
+**The error you get says nothing.** `Some triggers failed to deploy … /schedules failed` carries no
+code and no message, because wrangler puts the API's `errors[]` into a field its trigger aggregation
+does not print. The absence of a code is a reporting artifact, never evidence about the response. To
+see the real error, call the endpoint directly — `GET` reads what is attached, `PUT` replaces the
+whole set, so capture the `GET` first.
+
+**Omitting the `triggers` key and writing `"crons": []` are opposite gestures.** With no key at all
+wrangler skips the schedule call entirely and leaves whatever is attached alone — which is the safe
+way to ship code while a schedule is in question. An empty array is truthy, so it writes an empty set
+and **deletes every schedule the Worker has**. On the app Worker that stops the five-minute pass, which
+is the only thing in the system that applies control-plane migrations.
+
+**And check `release` before diagnosing anything.** Seven weeks of trigger failures ended when the
+already-correct trunk configuration was pushed to the production branch; every build until then had
+been carrying the older set. `git show origin/release:apps/worker/wrangler.jsonc` is the first thing to
+read, not the last.
+
 **Two Watch Path settings drift from what this file used to claim** — read from the live build configuration, 2026-07-09, and both silently suppress rebuilds:
 
 - `magna-carta-file-repair` includes `containers/file-repair-worker/*`, but the container lives at `containers/file-repair/`. **No path matches it**, so a change to the file-repair container image never triggers a rebuild. Correct it to `containers/file-repair/*`.
