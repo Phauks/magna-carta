@@ -38,6 +38,18 @@ export const UNSAFE_AUTOFIX_RULES = [
       "changes what a reviewer of a security guard reads.",
   },
   {
+    rule: "unicorn/prefer-set-has",
+    reason:
+      "rewrites the INITIALIZER of an array constant to `new Set([...])` and its `.includes()` call " +
+      "to `.has()`, but leaves the declaration's type annotation alone. On any constant written " +
+      "`const KEYS: readonly string[] = [...]` — among them APPEARANCE_STORAGE_KEYS in " +
+      "packages/design-system/src/lib/internal/theme-preference.ts — the result is TS2740 on the " +
+      "declaration (a Set is not an array) and TS2339 on the call (`has` does not exist on an " +
+      "array). The fixer never reads the annotation it has just contradicted, so the file stops " +
+      "compiling every time the fix pass touches it, and five separate passes have had to notice " +
+      "and undo it by hand.",
+  },
+  {
     rule: "typescript/no-unnecessary-type-assertion",
     reason:
       "strips the shape assertion off `await response.json()` in the worker's route tests, and the " +

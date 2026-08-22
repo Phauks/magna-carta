@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { allowFlagsForFixPass, UNSAFE_AUTOFIX_RULES } from "./unsafe-autofix-rules.mjs";
 
 describe("the fix-pass exclusions", () => {
-  it("cover the two rewrites that broke real files", () => {
+  it("cover every rewrite that broke a real file", () => {
     const rules = UNSAFE_AUTOFIX_RULES.map((entry) => entry.rule);
     // `.sort()` -> `.toSorted()` is invalid under `lib: ES2022`; `=== false` -> `!x` rewrites the
-    // deliberate spelling in the worker's access-control route metadata.
+    // deliberate spelling in the worker's access-control route metadata; the assertion strip and the
+    // Set rewrite each leave a file that does not type-check.
     expect(rules).toContain("unicorn/no-array-sort");
     expect(rules).toContain("typescript/no-unnecessary-boolean-literal-compare");
     expect(rules).toContain("typescript/no-unnecessary-type-assertion");
+    expect(rules).toContain("unicorn/prefer-set-has");
   });
 
   it("names every rule plugin-qualified, the form the linter's --allow accepts", () => {
