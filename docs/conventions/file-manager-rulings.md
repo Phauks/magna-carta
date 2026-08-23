@@ -105,8 +105,8 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | #   | Ruling                                                                                                                       | Status  |
 | --- | ---------------------------------------------------------------------------------------------------------------------------- | ------- |
 | F1  | A file-analysis view listing every potential issue on the matter: safety findings, type mismatches, other errors.            | settled |
-| F2  | Analysis must let you **act on** the files from there, not only reveal them in the list. Reveal stays as one of the actions. | open    |
-| F3  | Analysis rows show location.                                                                                                 | open    |
+| F2  | Analysis must let you **act on** the files from there, not only reveal them in the list. Reveal stays as one of the actions. | settled |
+| F3  | Analysis rows show location.                                                                                                 | settled |
 | F4  | No keyboard-hint text at the bottom of the analysis view.                                                                    | open    |
 | F5  | Drop the "Every open finding on this matter…" explanatory line.                                                              | open    |
 | F6  | Drop "View every finding on this matter" from the file list.                                                                 | open    |
@@ -168,7 +168,7 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | I26 | Remove "— bytes agree". Agreement is the assumption; only disagreement is stated.                                                                                            | settled               |
 | I27 | **Regression:** document type can no longer be set.                                                                                                                          | settled               |
 | P12 | Enter zip files from the list.                                                                                                                                               | settled               |
-| P13 | File analysis gives more information and lets the files be acted on.                                                                                                         | open                  |
+| P13 | File analysis gives more information and lets the files be acted on.                                                                                                         | settled               |
 | P14 | Where does signature-library content come from? Is there a public source to tie to?                                                                                          | open — owner question |
 | P15 | Is a quarantine view worth having for matter viewing?                                                                                                                        | open — owner question |
 

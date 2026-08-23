@@ -399,6 +399,52 @@ await check(
   },
 );
 
+await check("F3", "Every analysis card names where the file is", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.viewrow[data-view="analysis"]').click();
+  const cards = page.locator(".ancard");
+  const n = await cards.count();
+  if (n === 0) return false;
+  for (let i = 0; i < n; i++) {
+    if ((await cards.nth(i).locator(".anwhere").innerText()).trim().length === 0) return false;
+  }
+  return true;
+});
+
+await check(
+  "P13",
+  "Analysis covers more than the scanner's opinion, and narrows by kind",
+  async () => {
+    const pills = page.locator(".anpill");
+    // At minimum: All, plus a scanner verdict, plus something the scanner never said.
+    if ((await pills.count()) < 3) return false;
+    const labels = (await pills.allInnerTexts()).join(" ").toLowerCase();
+    if (!labels.includes("never scanned") && !labels.includes("no document type")) return false;
+    const before = await page.locator(".ancard").count();
+    await page.locator('.anpill:not([data-anfilter=""])').first().click();
+    const after = await page.locator(".ancard").count();
+    return after > 0 && after <= before;
+  },
+);
+
+await check("F2", "A file can be acted on from analysis, not merely revealed", async () => {
+  await page.locator('.anpill[data-anfilter=""]').click();
+  const card = page.locator(".ancard").first();
+  const acts = await card
+    .locator("[data-anact]")
+    .evaluateAll((bs) => bs.map((b) => b.dataset.anact));
+  if (!acts.includes("reveal")) return false;
+  if (acts.length < 2) return false; // reveal alone is the complaint, not the fix
+  // Reveal still works and lands on the file, in its folder, with Safety open.
+  await card.locator('[data-anact="reveal"]').click();
+  if (!(await page.locator("#tablewrap").isVisible())) return false;
+  return (
+    (await page.locator('#inspector [data-instab="safety"]').getAttribute("aria-selected")) ===
+    "true"
+  );
+});
+
 await check(
   "JS",
   "No page errors while exercising all of the above",
