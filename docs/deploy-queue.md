@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-21 (twenty list endpoints changed response envelope — see \_Behaviour changes_; the notification digest is built and dormant — three values in a fixed order, and an hourly Cron trigger that rides the deploy; the CI outage remains the entry immediately below and still gates every merge, not only every deploy).\_
+_Last updated: 2026-08-22 — **13 commits undeployed** (`git log release..main`). `main` was red on two independent counts today and both are answered: the conformance operation inventory (#373, merged) and the web test project's unresolvable `$lib` alias (#376, open) — the second had been silently skipping seventeen tests and reproduces on a clean checkout of `main`, so it is not new damage. The GitHub Actions billing block below still gates every merge, not only every deploy._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
