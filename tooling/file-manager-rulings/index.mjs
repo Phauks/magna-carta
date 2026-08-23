@@ -321,6 +321,46 @@ await check("I27", "Document type can be set, and a new one added to the firm's 
 });
 
 await check(
+  "L27",
+  "Uploaded By and Location are columns, and Uploaded By names a person",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    const heads = (await page.locator("#headRow th").allInnerTexts()).join(" ");
+    if (!heads.toLowerCase().includes("uploaded by")) return false;
+    await page.locator("#colsBtn").click();
+    const location = page.locator('#colsMenu input[data-col="location"]');
+    if ((await location.count()) !== 1) return false;
+    if (await location.isChecked()) return false; // off by default in browse
+    await page.keyboard.press("Escape");
+    const row = page.locator('#rows tr[data-key^="d:"]').first();
+    return /[A-Z]\. [A-Z][a-z]+/.test(await row.innerText()); // a person's name, not "You"
+  },
+);
+
+await check("L26", "A photograph folder opens as icons, and the toggle switches back", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  // Discovery is already expanded at load, so clicking its twist would collapse it.
+  await page.locator('.tnode[data-tree="sitephotos"]').first().click();
+  const grid = page.locator("#iconGrid");
+  if (!(await grid.isVisible())) return false; // mostly-images opens as icons
+  if ((await grid.locator(".tile .thumb.photo").count()) !== 8) return false;
+  await page.locator("#viewModeBtn").click();
+  if (await grid.isVisible()) return false; // toggles back to the list
+  return await page.locator("#tablewrap").isVisible();
+});
+
+await check("L26b", "A tile selects, and right-click on one opens the same menu", async () => {
+  await page.locator("#viewModeBtn").click();
+  const tile = page.locator("#iconGrid .tile").first();
+  await tile.click();
+  if ((await tile.getAttribute("aria-selected")) !== "true") return false;
+  await tile.click({ button: "right" });
+  return await page.locator("#ctx").isVisible();
+});
+
+await check(
   "JS",
   "No page errors while exercising all of the above",
   async () => consoleErrors.length === 0,
