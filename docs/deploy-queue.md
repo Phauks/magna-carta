@@ -6,7 +6,7 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-22 — **13 commits undeployed** (`git log release..main`). `main` was red on two independent counts today and both are answered: the conformance operation inventory (#373, merged) and the web test project's unresolvable `$lib` alias (#376, open) — the second had been silently skipping seventeen tests and reproduces on a clean checkout of `main`, so it is not new damage. The GitHub Actions billing block below still gates every merge, not only every deploy._
+_Last updated: 2026-08-23 — **16 commits undeployed** (`git log release..main`). `main` is green: both of the reds found on 08-22 have landed — the conformance operation inventory (#373) and the web test project's unresolvable `$lib` alias (#376), the second of which had been silently skipping seventeen tests. **A new dashboard step joined the queue today**: the `magna-carta` project's root directory moved to `apps/api-worker` and must be repointed before its next build — see the entry below, and do it in the same pass as `magna-carta-edit`'s outstanding repoint. The GitHub Actions billing block below still gates every merge, not only every deploy._
 
 ## GitHub Actions is blocked account-side — one billing step, and it gates all CI
 
