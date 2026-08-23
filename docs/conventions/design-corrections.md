@@ -30,6 +30,18 @@ updated in the same commit.
 
 ---
 
+## Per-surface ledgers
+
+A surface under active review accumulates more rulings than belong in the standing list — most of
+them specific to that screen and not yet generalizable. Those live in their own ledger, linked here,
+and graduate into _Standing rules_ above when they turn out to bind everywhere.
+
+- **Matter file manager** — [`file-manager-rulings.md`](file-manager-rulings.md). Machine-checkable
+  entries are asserted by [`tooling/file-manager-rulings/`](../../tooling/file-manager-rulings/),
+  which opens the surface in a browser and exercises each one.
+
+---
+
 ## Standing rules
 
 These bind every surface. Each carries the surface it was first issued against, because the example
