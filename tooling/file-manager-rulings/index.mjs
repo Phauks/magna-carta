@@ -1,25 +1,14 @@
-/*
- * Checks a built file-manager surface against the owner's standing rulings for it
- * (docs/conventions/file-manager-rulings.md). Point it at a page:
- *
- *   node tooling/file-manager-rulings/index.mjs <path-or-url>
- *
- * WHY THIS EXISTS. Design review here happens in rounds, and a round that rebuilds the surface
- * from scratch quietly reverts everything the previous rounds settled. It happened three times in
- * one afternoon: the forward button vanished, the breadcrumb root went back to the word "Files",
- * and the matter search moved back into the file-manager toolbar — all of them already decided,
- * none of them mentioned in the round that undid them. Prose in a ledger does not stop that. A
- * check that opens the page and asserts each ruling does.
- *
- * Only mechanically-checkable rulings live here. Taste is still a person's job; "the forward button
- * exists and enables after Back" is not.
- */
+// Checks the file-manager mockup against the owner's standing rulings.
+// A ruling that a later round silently undoes fails here instead of reaching the owner.
 import { chromium } from "@playwright/test";
 import { pathToFileURL } from "node:url";
 
 const page_url = pathToFileURL(process.argv[2] ?? "docket.html").href;
 const browser = await chromium.launch();
 const page = await browser.newPage();
+// A failing assertion should fail in seconds, not thirty: with this many checks the default
+// per-action timeout turns one real failure into a run that never finishes.
+page.setDefaultTimeout(15000);
 const consoleErrors = [];
 page.on("pageerror", (e) => consoleErrors.push(String(e)));
 // A blocked font CDN is the sandbox, not the page. Only script failures count.
@@ -27,7 +16,7 @@ page.on("console", (m) => {
   if (m.type() === "error" && !m.text().includes("Failed to load resource"))
     consoleErrors.push(m.text());
 });
-await page.goto(page_url, { waitUntil: "load" });
+await page.goto(page_url, { waitUntil: "domcontentloaded", timeout: 30000 });
 await page.waitForTimeout(400);
 
 const results = [];
@@ -163,7 +152,7 @@ await check("SOON", "Development status uses the design system's Badge", async (
 });
 
 await check("I17", "Clicking a row does not open the inspector", async () => {
-  await page.reload({ waitUntil: "load" });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
   const openBefore = await page.locator("#inspector").isVisible();
   await page.locator("#rows tr").first().click();
@@ -175,7 +164,7 @@ await check("I17", "Clicking a row does not open the inspector", async () => {
 
 // Open the inspector once, on a file with an open finding, and exercise every tab.
 const openFile = async (folder, nameFragment) => {
-  await page.reload({ waitUntil: "load" });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(300);
   if (!(await page.locator("#inspector").isVisible())) await page.locator("#insBtn").click();
   await page.locator(`.tnode[data-tree="${folder}"]`).first().click();
@@ -273,6 +262,62 @@ await check("I9", "A signature match is its own line and opens an explanation", 
   const text = await sheet.innerText();
   await page.locator("[data-sigclose]").click();
   return shown && text.includes("What it matches");
+});
+
+await check(
+  "T4",
+  "Right-click reaches folders in the rail, not only rows in the list",
+  async () => {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.locator('.tnode[data-tree="discovery"]').first().click({ button: "right" });
+    return await page.locator("#ctx").isVisible();
+  },
+);
+
+await check("T5", "A folder recolours from the closed palette, and the icon follows", async () => {
+  const swatches = page.locator("#ctx .swatch[data-colour]");
+  if ((await swatches.count()) !== 11) return false; // ten colours plus Default
+  if ((await page.locator("#ctx .swatch.icon").count()) !== 1) return false; // room reserved for icons
+  await page.locator('#ctx .swatch[data-colour="red"]').click();
+  const style = await page.locator('.tnode[data-tree="discovery"] svg.fold').getAttribute("style");
+  return style !== null && style.includes("color");
+});
+
+await check("L25", "Selecting a row does not reflow the footer", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  const foot = page.locator("#selfoot");
+  const before = await foot.boundingBox();
+  await page.locator("#rows tr").first().click();
+  const after = await foot.boundingBox();
+  // Both controls exist either way; only the disabled state changes.
+  if ((await foot.locator("#selNone").count()) !== 1) return false;
+  return Math.abs(before.width - after.width) < 1;
+});
+
+await check("L24", "A row queued for cut looks different from one queued for copy", async () => {
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="copy"]').click();
+  if ((await row.getAttribute("data-clipboard")) !== "copy") return false;
+  await row.click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="cut"]').click();
+  return (await row.getAttribute("data-clipboard")) === "cut";
+});
+
+await check("I27", "Document type can be set, and a new one added to the firm's list", async () => {
+  const row = page.locator('#rows tr[data-key^="d:"]').first();
+  await row.click({ button: "right" });
+  await page.locator('#ctx button[data-cmd="doctype"]').click();
+  const wash = page.locator("#newDocWash");
+  if (!(await wash.isVisible())) return false;
+  await page.locator("#dtFilter").fill("Trial Brief");
+  const add = page.locator('#dtList [data-new="1"]');
+  if ((await add.count()) !== 1) return false;
+  await add.click();
+  if (await wash.isVisible()) return false;
+  return (await row.innerText()).includes("Trial Brief");
 });
 
 await check(
