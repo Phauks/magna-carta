@@ -29,7 +29,7 @@ retry nor a deploy. The diagnostic route catches the typed error and returns the
 is true here. Nothing about the ingest consumer changed: a queued file with an unreachable engine
 still throws, still retries, and still never commits as clean.
 
-**Why nothing caught it.** `apps/worker/vitest.config.ts` registers a stub worker for every service
+**Why nothing caught it.** `apps/api-worker/vitest.config.ts` registers a stub worker for every service
 binding, and the scan stub answers an honest engine-less result over HTTP 200. A stub that behaves
 correctly proves only that the route works against a healthy service.
 `scan-unreachable-engine-seam.test.ts` binds a placeholder that answers 503 and pins both states

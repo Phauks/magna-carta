@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/cron-trigger-bypass
 area: Correct the Cron Trigger failure record and the out-of-range weekly expression
 status: review
-touches: apps/worker/wrangler.jsonc, apps/worker/src/index.ts, docs/conventions/operations.md, changelog.d
+touches: apps/api-worker/wrangler.jsonc, apps/api-worker/src/index.ts, docs/conventions/operations.md, changelog.d
 ---
 
 Two corrections and no behaviour change to the three live triggers. `NATURAL_LANGUAGE_KEEP_ALIVE_CRON`

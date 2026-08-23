@@ -7,7 +7,7 @@
 // The pattern is anchored and the length fixed, so the check is a total function of the label — the
 // caller never has to reason about which characters a container name will tolerate. Any change to how
 // the launch derives the key must change this pattern in the same commit (the app worker's
-// apps/worker/src/editing/edit-session-route.ts derives it).
+// apps/api-worker/src/editing/edit-session-route.ts derives it).
 const DOCUMENT_KEY_PATTERN = /^[0-9a-f]{52}$/;
 
 // The per-document container key — the first label of the Host. The editor is served on a cookieless

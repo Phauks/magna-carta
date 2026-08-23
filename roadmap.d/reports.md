@@ -9,7 +9,7 @@
   scope: Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
   status: partial
   slices: 3-6-financial-reporting
-  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/worker/src/routes/reports.ts serves it. The financial, productivity and operational families and the delivery surface are unbuilt, and no report has a screen.
+  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/routes/reports.ts serves it. The financial, productivity and operational families and the delivery surface are unbuilt, and no report has a screen.
   audience: public
   public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.

@@ -3,12 +3,12 @@ category: Fixed
 audience: internal
 ---
 
-**`apps/worker`'s 231 test files join the typecheck of record, closing the last hole in it. The one
+**`apps/api-worker`'s 231 test files join the typecheck of record, closing the last hole in it. The one
 file that would not type-check in 600 seconds now takes 2, and the cause was not the file: the
 `@cloudflare/workers-types` package ships its entire surface twice, and this repository was loading
 both copies.**
 
-`@magna-carta/worker` was the single graph member generated with a `tsconfig.test.json` and then held
+`@magna-carta/api-worker` was the single graph member generated with a `tsconfig.test.json` and then held
 out of the root test solution, so more than a quarter of the workspace's test corpus was checked by
 nothing. Two separate problems stood behind that, and both are gone.
 

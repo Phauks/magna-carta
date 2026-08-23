@@ -2,7 +2,7 @@ import type { CapabilityDescriptor, CredentialRequirement } from "./port.ts";
 
 // A plugin's self-description: pure data (no D1, no Hono, no env), so the core reads it to build the
 // catalog and route mount, and the future per-Worker transport (the C seam) ships it unchanged. The
-// worker pairs it with its route-registration + adapter binding (apps/worker/src/plugins). The
+// worker pairs it with its route-registration + adapter binding (apps/api-worker/src/plugins). The
 // marketplace fields (defaultEnablement, connectSchema, settingsSchema) are declared here so the
 // contract is whole; the core leaves them dormant until the marketplace slice consumes them.
 export interface IntegrationManifest {

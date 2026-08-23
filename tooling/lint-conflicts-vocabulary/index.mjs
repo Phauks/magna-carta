@@ -45,7 +45,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 // demanded every tree would fail on the first one to arrive.
 const CONFLICTS_TREES = [
   "packages/conflicts",
-  "apps/worker/src/routes/conflicts.ts",
+  "apps/api-worker/src/routes/conflicts.ts",
   "apps/web/src/routes/conflicts",
   "apps/web/src/lib/conflicts",
   "docs/user",
@@ -157,7 +157,7 @@ export function isDispositionAllowance(line) {
 // special-casing comments would be worse than useless (the most dangerous strings in the codebase are
 // user-facing prose, and a `//` is one keystroke), so the exemption is explicit, per line, and carries
 // its reason, exactly as a bucket write without dimensions is allowlisted in
-// apps/worker/test/r2-object-dimension-scan.test.ts.
+// apps/api-worker/test/r2-object-dimension-scan.test.ts.
 //
 // It exempts ONLY the assertion-phrase rule. A verdict-shaped FIELD has no legitimate meta-use in the
 // scanned trees, so that rule has no escape hatch at all.

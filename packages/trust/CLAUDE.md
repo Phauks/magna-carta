@@ -302,7 +302,7 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - A parent created in the same batch is not readable yet, which is why `createAccount` takes
   `pendingParents`. Do not "fix" this by splitting the tiers across batches: that reintroduces a
   window in which a half-built tree exists.
-- **A new migration must be registered in `apps/worker/src/per-firm-migrations.ts`** as well as the
+- **A new migration must be registered in `apps/api-worker/src/per-firm-migrations.ts`** as well as the
   drizzle journal — the Durable Object applies the lineage from there.
 - The no-negative floor guards the firm's **book**. It cannot prevent a bank overdraft, which can
   arise from an item the firm never recorded (a bank fee, a returned deposit, a forged check).

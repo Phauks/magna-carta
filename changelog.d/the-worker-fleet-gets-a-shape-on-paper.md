@@ -7,7 +7,7 @@ audience: internal
 API and the orchestration stay one program.**
 
 Fifteen entries under `apps/` are three different kinds of thing — entrances, the core, and engines —
-and nothing said so. The design names the kinds, records that `apps/worker` is the naming convention
+and nothing said so. The design names the kinds, records that `apps/api-worker` is the naming convention
 applied to the root script rather than an oversight, and refuses the split of the API from the
 orchestration on the one fact that settles it: `FirmDatabase` is a Durable Object on that script and
 is each firm's database.

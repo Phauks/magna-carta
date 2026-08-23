@@ -21,10 +21,10 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 // The committed OpenAPI snapshot, which is the machine-readable form of every route's RouteMeta:
 // `defineOpenAPIRoute` writes `x-mc-permission` and `x-mc-surface` onto each operation, and a
-// byte-exact test in apps/worker fails if the snapshot drifts from the code. Reading it beats
+// byte-exact test in apps/api-worker fails if the snapshot drifts from the code. Reading it beats
 // parsing the TypeScript for a fact that is already committed in a shape with no ambiguity — and it
 // is the only place `surface` and `permission` sit beside each other for every route at once.
-const OPENAPI_SNAPSHOT = "apps/worker/openapi/openapi.json";
+const OPENAPI_SNAPSHOT = "apps/api-worker/openapi/openapi.json";
 
 // The Tools catalogue: one manifest per tool, each naming the permission that decides whether a
 // member sees it. `toolsByGroup`/`toolsFor` in packages/tools/src/select.ts filter on exactly this,
@@ -40,7 +40,7 @@ const MIGRATION_ROOT = "packages/database/drizzle";
 const PERMISSION_SEED_TABLES = ["role_permission", "direct_grant"];
 
 // A chokepoint route whose surface is "public" is NOT a demand. The chokepoint
-// (apps/worker/src/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely for a
+// (apps/api-worker/src/chokepoint/chokepoint.ts) skips its session, authn and RBAC steps entirely for a
 // public surface — those routes carry their own header-token guard — so the `permission:` on one is
 // nominal metadata and a role that held it would gain nothing. Counting them was measured at three
 // false positives out of seven; see rules.mjs.

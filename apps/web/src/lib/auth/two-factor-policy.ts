@@ -6,7 +6,7 @@
  * drifts silently the day the server changes. Every such number is derived from a constant here and
  * interpolated into the copy, so a change is one edit and the sentence follows it.
  *
- * These mirror the two-factor configuration in apps/worker/src/auth.ts, which mounts the plugin on
+ * These mirror the two-factor configuration in apps/api-worker/src/auth.ts, which mounts the plugin on
  * its defaults (trusted-device window, code period, and code length are all left unset there, so the
  * library defaults apply). If that call ever passes explicit options, these move with it — they are
  * the browser's copy of a server-side fact, and there is no endpoint that publishes it.

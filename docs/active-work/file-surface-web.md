@@ -87,7 +87,7 @@ Stand up real seeded data and sign in — the whole loop is three steps:
    The command first triggers the scheduled handler (`/cdn-cgi/handler/scheduled`) to apply the
    control-plane migrations — wrangler dev does not auto-run Cron, so a fresh Miniflare database has
    no schema and the seed would otherwise 500 with `no such table: firm` — then calls the
-   development-only seed route `POST /api/__dev/seed` (`apps/worker/src/routes/dev-seed.ts`). That
+   development-only seed route `POST /api/__dev/seed` (`apps/api-worker/src/routes/dev-seed.ts`). That
    route is gated exactly like the dev R2 upload route — it serves only when the real R2 S3
    credentials are absent, so it is a bare 404 in production and is never in the OpenAPI contract.
    Both steps are idempotent (a re-run resumes the same tenant). Override the Worker URL with
@@ -126,7 +126,7 @@ heavy, the same reason the design-system visual-regression sweep is separate. If
 - `apps/web/src/routes/(app)/matters/[id]/files/` (Matter host) and `apps/web/src/routes/(app)/tools/file-inspector/` (Tools host).
 - `apps/web/src/routes/(app)/tools/` — port `/tools` onto the shell as the proving consumer.
 - A `seed-dev-firm` script + a dev login route.
-- On contract integration: generated `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`.
+- On contract integration: generated `apps/api-worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`.
 
 **Never edited:** `packages/file-manager/src/ingest-core.ts`.
 

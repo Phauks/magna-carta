@@ -6,7 +6,7 @@
 // The non-routable host the engine addresses its split reads and writes to. It never resolves on the
 // public internet: SearchIndexContainer.outboundByHost intercepts it and this module forwards it to the
 // app Worker, which mounts the real surface. It MUST stay in sync with the app Worker's
-// `SPLIT_OBJECT_HOST` (apps/worker/src/search/split-object-host.ts) — change one and change the other in
+// `SPLIT_OBJECT_HOST` (apps/api-worker/src/search/split-object-host.ts) — change one and change the other in
 // the same commit, or the engine's reads leave the container and are refused as egress.
 export const SPLIT_OBJECT_HOST = "splits.magna-carta.internal";
 

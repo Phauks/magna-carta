@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 // The console ban — the one-logging-path rule (docs/conventions/error-logging.md) made structural.
 // That rule binds EVERY Worker, not just the API worker, so the scan enumerates every app and every
-// package rather than naming apps/worker: a raw console.* anywhere in apps/*/src or packages/*/src
+// package rather than naming apps/api-worker: a raw console.* anywhere in apps/*/src or packages/*/src
 // fails CI. Enumerating (instead of listing) is the point — an extracted worker app is inside the
 // ban the moment it exists, with no test edit to remember. This scan lives here because the
 // telemetry package owns the one logging path, runs in the node pool (fs available, unlike the

@@ -3,7 +3,7 @@
 **Purpose.** The platform permission registry, the resolver that turns a member's rows into their
 effective permission set, and the platform-operator decision. Pure and dependency-free: no D1, no
 Hono, no `env`, no network. It decides nothing about a request — the chokepoint
-(`apps/worker/src/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
+(`apps/api-worker/src/chokepoint/`) enforces, this package supplies the vocabulary and the arithmetic.
 
 **White paper:** _Authentication & encryption_ —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md). (ADR-0067.)
@@ -68,7 +68,7 @@ Two consequences bind here:
 
 - Depends on nothing. Consumed by `@magna-carta/data-access` (which is why
   `platform-operator.ts` restates its input row shape locally rather than importing it — importing
-  back would close a workspace dependency cycle), by `apps/worker`'s chokepoint and session context,
+  back would close a workspace dependency cycle), by `apps/api-worker`'s chokepoint and session context,
   and by `@magna-carta/tools` for the `Permission` type on each manifest.
 - The seeds that make a permission real live in `@magna-carta/database`; the fitness function in
   `packages/database/test/generated-migrations.test.ts` holds the other direction — every seeded

@@ -38,7 +38,7 @@ function documentTextOf(bytes: Uint8Array): string {
 // nothing else, and a member who may not decrypt gets a DECLARED ABSENCE naming the field and the
 // permission — not the value, not a silent blank, and not a failed assembly. These are the assertions
 // that hold that shape in place; the audit row itself is asserted against the real chokepoint in
-// apps/worker/test/document-assembly-protected-binding.test.ts, because a decrypt that writes no audit
+// apps/api-worker/test/document-assembly-protected-binding.test.ts, because a decrypt that writes no audit
 // row is a property of the chokepoint, not of a fake.
 
 const SEALED_VALUE = "123-45-6789";

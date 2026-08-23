@@ -8,7 +8,7 @@
 
 /** @type {import('@hey-api/openapi-ts').UserConfig} */
 export default {
-  input: "../../apps/worker/openapi/openapi.json",
+  input: "../../apps/api-worker/openapi/openapi.json",
   output: "./src",
   plugins: [
     "@hey-api/client-fetch",

@@ -281,7 +281,7 @@ ${renderCountryOptions()}
 }
 
 // The countdown target: the derived snapshot is republished on a 10-minute cron cadence
-// (apps/worker's status cron), so the next check lands at generatedAt + 10 minutes.
+// (apps/api-worker's status cron), so the next check lands at generatedAt + 10 minutes.
 const CHECK_CADENCE_MS = 10 * 60_000;
 
 function nextCheckIso(generatedAt: string): string | null {

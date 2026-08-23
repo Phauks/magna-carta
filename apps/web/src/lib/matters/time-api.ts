@@ -1,6 +1,6 @@
 /*
  * The matter Time section's response shapes and calls. Mirrors the time-entry operations in
- * apps/worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
+ * apps/api-worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 

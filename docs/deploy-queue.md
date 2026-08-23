@@ -49,7 +49,7 @@ the order they have to happen. Nothing here duplicates the LibreOffice, search, 
 email-capture steps already on this queue.
 
 1. **Confirm `magna-carta-ocr` exists — do this before ANY app-worker deploy.**
-   `apps/worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`, and Cloudflare rejects a
+   `apps/api-worker/wrangler.jsonc` declares `OCR_SERVICE -> magna-carta-ocr`, and Cloudflare rejects a
    deploy whose service binding names a Worker that does not exist (the same rule §14 and §16 of
    `docs/conventions/operations.md` state for the bundle, convert and sign workers). But
    `magna-carta-ocr` is in **none** of the three places such a worker is recorded: not the seven
@@ -95,7 +95,7 @@ email-capture steps already on this queue.
 
 **One thing on this list is NOT a deploy step, and no amount of deploying fixes it.** Shipping cannot
 connect a postage account at all — `firmSecretStoreNotYetAvailable` in
-`apps/worker/src/plugins/secret-store.ts` reports the per-firm credential read as unbuilt, an
+`apps/api-worker/src/plugins/secret-store.ts` reports the per-firm credential read as unbuilt, an
 absence awaiting the marketplace slice. Connecting a real EasyPost key and deploying everything above
 would leave it exactly as it is. Connect, rate-shop, purchase, tracking and refund answer `501
 not-implemented` (they returned `500` until 2026-08-15); draft creation still succeeds, because a
@@ -216,7 +216,7 @@ or `.ppt` in a review set parks rather than being recorded unreadable.
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
 Server-side human verification is built and ships **dormant**
-(`apps/worker/src/human-verification/`). It gates the two anonymous writes — `POST
+(`apps/api-worker/src/human-verification/`). It gates the two anonymous writes — `POST
 /api/v1/registrations` (founding a firm) and `POST /api/v1/invitations/redemptions`. With no secret
 set it does nothing to either endpoint except count: one `human_verification.decided` point per
 request, outcome `unenforced`. Nothing below is required for the next deploy; the app worker deploys
@@ -250,7 +250,7 @@ platform's only self-serve front door.**
    no token, so gating them today would break a working surface. Mounting Better Auth's own captcha
    plugin over them is the identity slice's job, once the widget exists.
 5. **Optional, and only if the posture is being changed:** `HUMAN_VERIFICATION_POSTURE` is already in
-   `apps/worker/wrangler.jsonc`, set to `fail-open`; changing that one line to `fail-closed` makes
+   `apps/api-worker/wrangler.jsonc`, set to `fail-open`; changing that one line to `fail-closed` makes
    those two endpoints refuse with a `503` when **no** secret is provisioned, instead of serving
    unprotected. `fail-open` is the recorded decision — see the pending ADR
    `an-unprovisioned-human-check-fails-open-and-counts-itself`, which is **awaiting owner
@@ -273,6 +273,21 @@ answering `503`, and no visitor is being told it is their fault.
   would have broken every upload (presign wrote to per-firm buckets, ingest read
   the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
   with real presigning credentials.
+
+## The `magna-carta` project's root directory moved — repoint it before its next build
+
+`apps/worker` is now `apps/api-worker`. The **Cloudflare script name is unchanged** (`magna-carta`),
+nothing in production moves, and no Durable Object namespace is affected — but Workers Builds finds
+the package by root directory, and that path no longer exists.
+
+**In the dashboard, before the next deploy of `magna-carta`:** set the project's **root directory**
+to `apps/api-worker`, and update its **Build Watch Paths** inclusion list, replacing `apps/worker/*`
+with `apps/api-worker/*`. Both live in the project's build configuration, which only the account
+owner can edit. A build that runs before this fails at package resolution rather than at compile,
+so the log will name a missing directory rather than a code fault.
+
+This is the same class of step `magna-carta-edit` needed when it moved from `apps/magna-carta-edit`
+(2026-08-21), and that one is still outstanding — see its entry below. Repoint both in one pass.
 
 ## Behaviour changes the next deploy carries (no dashboard step)
 
@@ -341,7 +356,7 @@ answering `503`, and no visitor is being told it is their fault.
   evening before, locally, for the American zones — the dedupe key buckets by the
   deadline's own civil day so the row lands on the correct date either way, but if
   a morning arrival matters, adding a second daily cron (e.g. `0 15 * * *`) to
-  `apps/worker/wrangler.jsonc` is the whole fix: the second pass writes nothing
+  `apps/api-worker/wrangler.jsonc` is the whole fix: the second pass writes nothing
   the first already wrote.
 
   Deliberately still silent: `calendar.deadline.horizon`, the "entering the lead
@@ -450,7 +465,7 @@ what fills it. Two smaller things travel with it:
 No new binding, no new secret, no dashboard step. But the fix spans the two
 sides of `STATUS_KV` and only shows once both have shipped:
 
-- **`apps/worker`** (the cron) computes the provider severity and writes
+- **`apps/api-worker`** (the cron) computes the provider severity and writes
   `status:derived`. Until it redeploys, the stored snapshot still carries the
   old whole-page reading and the page will keep rendering Cloudflare as
   degraded no matter how current the status worker is.
@@ -507,7 +522,7 @@ edges. Everything is committed; the steps below are the deploy, in order.
 ## Notification digest activation — three values, in this order, and nothing is mailed until all three exist
 
 The digest is built and dormant. `resolveNotificationDigestSendPort`
-(`apps/worker/src/notifications/digest-send-port.ts`) checks three things and, if any is missing,
+(`apps/api-worker/src/notifications/digest-send-port.ts`) checks three things and, if any is missing,
 reports a typed reason, counts `notifications.digest_unavailable`, and exits the hourly pass before
 it reads a single firm. **Nobody receives anything and no watermark moves** — deliberately, so that
 turning this on later delivers the backlog rather than discovering it was silently discarded.
@@ -611,7 +626,7 @@ one authority holder from two-person to solo — a reduction, so it waits for a 
 
 The two organization match keys are derived at write time for every new name and filled for
 existing corpora by a **bounded, resumable pass on the daily cron**
-(`runDirectoryNameIndexBackfill` in `apps/worker/src/scheduled.ts`, 500 name rows per firm per
+(`runDirectoryNameIndexBackfill` in `apps/api-worker/src/scheduled.ts`, 500 name rows per firm per
 pass). Until a firm's pass has finished, the names it has not reached are invisible to those two
 blocking channels — while a conflicts check reports them as channels that ran.
 
@@ -638,7 +653,7 @@ is expected to retry against the same staged bytes rather than upload the file a
 object cannot be reaped by anything that runs on a scale of minutes.
 
 The daily sweep over template objects no row names
-(`apps/worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
+(`apps/api-worker/src/assemblies/template-orphan-sweep.ts`) therefore **skips the staging prefix by
 rule**, and abandoned staging is left to expire on its own. Nothing expires it yet: the bucket
 carries no lifecycle rule for that prefix.
 

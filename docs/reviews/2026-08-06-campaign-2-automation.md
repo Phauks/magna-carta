@@ -8,10 +8,10 @@
 - `packages/document-assembly/` — the expression language and its aggregates, custom-field bindings,
   directory role sources, protected-value bindings, letterhead image emission, and the
   subject-by-facet catalog registry.
-- The email add-in client API (`apps/worker/src/routes/email-add-in.ts`),
+- The email add-in client API (`apps/api-worker/src/routes/email-add-in.ts`),
   `packages/email-filing/src/auto-file-rules.ts` and its statements, and the DKIM verifier
   (`packages/email-filing/src/dkim.ts`).
-- Composite text extraction — the worker adapter (`apps/worker/src/search/text-extraction.ts`), the
+- Composite text extraction — the worker adapter (`apps/api-worker/src/search/text-extraction.ts`), the
   assembly point in `packages/search/src/extraction.ts`, the `crates/pdf-core` textextract seam read
   as source, and the re-extraction sweep.
 
@@ -31,12 +31,12 @@ Two things materially change how the severities below should be read, and both w
 than assumed:
 
 - **The ethical wall is an identity filter today.** `filterAccessibleMatters`
-  (`apps/worker/src/emails/matter-access.ts:9-15`) returns its input unchanged; the comment says
+  (`apps/api-worker/src/emails/matter-access.ts:9-15`) returns its input unchanged; the comment says
   enforcement is a later phase. Every wall finding here is therefore a defect in the _shape of the
   seam_ — invisible now, live the day the filter starts narrowing.
 - **The auto-file rule engine is unwired.** `resolveAutoFileDecision` is exported from
   `packages/email-filing/src/index.ts:40` and called from nothing outside its own test. No route
-  creates a rule, the capture consumer (`apps/worker/src/emails/capture-consumer.ts`) never consults
+  creates a rule, the capture consumer (`apps/api-worker/src/emails/capture-consumer.ts`) never consults
   one, and no code writes an `email_auto_file_decision` row — the migration
   (`20260805T220000_auto-file-rules`) and the statements exist with no producer. So the auto-file and
   DKIM-gating findings are latent: they describe what will happen at the moment the consumer wiring
@@ -108,8 +108,8 @@ should record an absence with a reason, not an empty string.
 
 **Fixed in #PR.** The candidate query takes a `(committed_at, id)` keyset cursor, and the sweep advances it past every candidate examined rather than only the repaired ones; the per-firm cap counts messages produced, with a separate scan ceiling bounding one pass. Beside it the coordinator bounds re-attempts per document per engine generation (`SEARCH_INDEX_MAXIMUM_ATTEMPTS_PER_GENERATION`), resetting when a deploy changes which engines are bound so a deferred backlog drains rather than being written off. No migration — the counter lives in Durable Object storage. Convergence proven by fixture: a catalogue whose entire head is permanently failed still reaches its tail.
 
-**`apps/worker/src/search/reextraction-sweep.ts:64`, `packages/file-manager/src/queries.ts`
-(`listVersionsMissingFromSearchIndexStatement`), `apps/worker/src/search/index-coordinator.ts:27-39`**
+**`apps/api-worker/src/search/reextraction-sweep.ts:64`, `packages/file-manager/src/queries.ts`
+(`listVersionsMissingFromSearchIndexStatement`), `apps/api-worker/src/search/index-coordinator.ts:27-39`**
 
 The sweep's stated safety property is convergence: "The candidate query returns only documents with
 no live split, so a document repaired by the last pass is not a candidate for the next one." That
@@ -237,7 +237,7 @@ gate.
 
 **Fixed in #PR.** Both database-truncating paths over-fetch a bounded multiple and then filter: the typed-query signal requests `limit * WALL_FILTER_OVERFETCH_MULTIPLE` before the wall filter, and `readRecentFilingTargets` does the same before slicing back to `targetLimit`.
 
-**`apps/worker/src/routes/email-add-in.ts:393`, `:459`**
+**`apps/api-worker/src/routes/email-add-in.ts:393`, `:459`**
 
 The route states its invariant plainly at `:47-52` and again at `:399-400`: "a matter the member
 cannot see contributes no suggestion, no reason, and no count", and "the wall filter runs BEFORE the
@@ -265,7 +265,7 @@ multiple, filter, then take `limit` — and assert the property in a test that s
 
 **Fixed in #PR.** `findEntitiesByEmailAddresses` resolves the whole participant set in one `IN` query, capped at `MAXIMUM_BATCHED_EMAIL_LOOKUPS`, with the merge/soft-delete resolution memoized across the batch. Tested to agree with the single-address form on merges, removals, and soft-deleted owners.
 
-**`apps/worker/src/emails/capture-consumer.ts:111-119`**
+**`apps/api-worker/src/emails/capture-consumer.ts:111-119`**
 
 ```ts
 resolveDirectoryEntities: async (addresses) => {
@@ -294,7 +294,7 @@ with the address list bound and capped the way `normalizedParticipants`
 
 **Fixed in #PR.** `extractedFromPages` keeps exactly one page per index — preferring the reading that has lines, then `native` over `ocr` on a tie — and drops a negative index rather than turning it into page 0. `RecognitionSchema`'s `pageIndex` is now `nonnegative()`.
 
-**`apps/worker/src/search/text-extraction.ts:129-136`, `packages/search/src/extraction.ts:102`,
+**`apps/api-worker/src/search/text-extraction.ts:129-136`, `packages/search/src/extraction.ts:102`,
 `:111-123`**
 
 `RecognitionSchema` (`text-extraction.ts:39-46`) validates the shape of the recognition response but
@@ -355,18 +355,18 @@ belt-and-braces the currency arm already applies.
 
 **Fixed in #PR.** `enqueueVersionForIndexing` gates on the version's `size_bytes` and records anything past an explicit extraction ceiling as `deferred` naming that ceiling, so the decision is a recorded state rather than an out-of-memory that reads like an unreadable document.
 
-**`apps/worker/src/search/index-consumer.ts:87`, `apps/worker/src/search/text-extraction.ts:108`**
+**`apps/api-worker/src/search/index-consumer.ts:87`, `apps/api-worker/src/search/text-extraction.ts:108`**
 
 ```ts
 const bytes = new Uint8Array(await source.arrayBuffer());
 ```
 
 The worker's own local rules state "Bulk bytes never buffer in the Worker. Streaming only"
-(`apps/worker/CLAUDE.md`). Here the full source object is materialised, then handed to the WASM PDF
+(`apps/api-worker/CLAUDE.md`). Here the full source object is materialised, then handed to the WASM PDF
 engine (which copies it into linear memory) and, on the recognition path, used whole as a `fetch`
 body. That is at least two live copies of an object whose ceiling is the firm's inspectable-size cap
 — which `email-add-in.ts:515` shows can be far above a Worker's memory budget — and no size gate
-exists on the enqueue side (`apps/worker/src/search/enqueue-index.ts` checks only the indexing
+exists on the enqueue side (`apps/api-worker/src/search/enqueue-index.ts` checks only the indexing
 switch and the version's cleanliness).
 
 The failure mode is an OOM inside the queue consumer, which surfaces as a retry and then a
@@ -464,7 +464,7 @@ a malformed rule is handled.
 
 **Fixed in #PR** as the report's second option — documented, not persisted. The `pages` field is stated in the module as a forward seam with no store and no reader, so a reader does not assume the corpus report is already possible. Persisting a per-page provenance summary needs a column on the split row and belongs with the change that adds it.
 
-**`apps/worker/src/search/index-consumer.ts:120-126`**
+**`apps/api-worker/src/search/index-consumer.ts:120-126`**
 
 `extraction.pages` is produced by `extractedFromPages` and never read: `ports.index.index` receives
 only `passages`, and `replaceDocumentSplitStatements` records document count, size, and schema

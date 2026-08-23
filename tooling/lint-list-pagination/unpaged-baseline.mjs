@@ -51,7 +51,7 @@ export const BOUNDED_BY_CONSTRUCTION = {
   "folders.list":
     "A matter's folder tree is flat and small — the load profile models 2 to 6 folders per matter " +
     "(foldersPerMatter in packages/fixtures/src/load-profile/profile.ts). Deliberately NOT paged: " +
-    "one of the three callers is the ZIP builder in apps/worker/src/routes/downloads.ts, which " +
+    "one of the three callers is the ZIP builder in apps/api-worker/src/routes/downloads.ts, which " +
     "needs the whole tree to resolve paths, and half a tree is not a tree.",
   "custody.listStocktakes":
     "Capped at the caller's `limit` in readCustodyStocktakes " +

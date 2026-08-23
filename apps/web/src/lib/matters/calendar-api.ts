@@ -1,6 +1,6 @@
 /*
  * The matter Calendar section's response shapes and calls. Mirrors the calendar operations in
- * apps/worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
+ * apps/api-worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
  *
  * Two reads, because a matter's calendar is two different questions. An EVENT is a setting that was
  * recorded — a hearing, a deposition, a meeting — and it has a place and people. A DEADLINE is a

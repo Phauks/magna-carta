@@ -439,7 +439,7 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     audienceCapability: "firm:manageMembers",
     includeActor: false,
     // The only registered topic whose producer is a worker route rather than a domain package, so
-    // there is no package constant to import here. apps/worker/test/notifications-routes.test.ts
+    // there is no package constant to import here. apps/api-worker/test/notifications-routes.test.ts
     // pins this spelling against the route's own exported constant, which is the same guarantee the
     // imports above give by construction.
     subscribesTo: "incident.created",

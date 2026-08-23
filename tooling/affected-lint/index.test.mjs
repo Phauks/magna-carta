@@ -18,8 +18,11 @@ const packages = new Map([
     "@magna-carta/data-access",
     { dir: "packages/data-access", deps: new Set(["@magna-carta/money"]) },
   ],
-  ["@magna-carta/worker", { dir: "apps/worker", deps: new Set(["@magna-carta/data-access"]) }],
-  ["@magna-carta/web", { dir: "apps/web", deps: new Set(["@magna-carta/worker"]) }],
+  [
+    "@magna-carta/api-worker",
+    { dir: "apps/api-worker", deps: new Set(["@magna-carta/data-access"]) },
+  ],
+  ["@magna-carta/web", { dir: "apps/web", deps: new Set(["@magna-carta/api-worker"]) }],
 ]);
 
 describe("computeAffected", () => {
@@ -31,8 +34,8 @@ describe("computeAffected", () => {
     expect(result.mode).toBe("paths");
     // money + everything that (transitively) depends on it — the soundness requirement.
     expect(result.paths).toEqual([
+      "apps/api-worker",
       "apps/web",
-      "apps/worker",
       "packages/data-access",
       "packages/money",
     ]);
@@ -50,8 +53,8 @@ describe("computeAffected", () => {
       packages,
     });
     expect(result.paths).toEqual([
+      "apps/api-worker",
       "apps/web",
-      "apps/worker",
       "packages/data-access",
       "packages/money",
     ]);
@@ -118,7 +121,7 @@ describe("computeAffected", () => {
       packages,
       maxHops: 2,
     });
-    expect(twoHops.paths).toEqual(["apps/worker", "packages/data-access", "packages/money"]);
+    expect(twoHops.paths).toEqual(["apps/api-worker", "packages/data-access", "packages/money"]);
     // A cap at or beyond the graph's depth is identical to the unbounded default.
     const deep = computeAffected({
       changedFiles: ["packages/money/src/dinero.ts"],
@@ -161,32 +164,32 @@ describe("computeAffected", () => {
     const result = computeAffected({
       changedFiles: ["packages/money/src/dinero.ts"],
       packages,
-      sinks: new Set(["@magna-carta/worker"]),
+      sinks: new Set(["@magna-carta/api-worker"]),
     });
     // The worker drops out; everything else in the closure — including the worker's OWN dependent,
     // web — stays, because deferral is per package, not a cut of the walk.
     expect(result.paths).toEqual(["apps/web", "packages/data-access", "packages/money"]);
-    expect(result.deferred).toEqual(["apps/worker"]);
+    expect(result.deferred).toEqual(["apps/api-worker"]);
   });
 
   it("never defers a sink the change itself touched", () => {
     const result = computeAffected({
-      changedFiles: ["apps/worker/src/app.ts"],
+      changedFiles: ["apps/api-worker/src/app.ts"],
       packages,
-      sinks: new Set(["@magna-carta/worker"]),
+      sinks: new Set(["@magna-carta/api-worker"]),
     });
-    expect(result.paths).toEqual(["apps/web", "apps/worker"]);
+    expect(result.paths).toEqual(["apps/api-worker", "apps/web"]);
     expect(result.deferred).toEqual([]);
   });
 
   it("still defers the sink as a dependent when the same change also touches it", () => {
     // Both changed: the worker is linted because it changed, not despite being a sink.
     const result = computeAffected({
-      changedFiles: ["packages/money/src/dinero.ts", "apps/worker/src/app.ts"],
+      changedFiles: ["packages/money/src/dinero.ts", "apps/api-worker/src/app.ts"],
       packages,
-      sinks: new Set(["@magna-carta/worker"]),
+      sinks: new Set(["@magna-carta/api-worker"]),
     });
-    expect(result.paths).toContain("apps/worker");
+    expect(result.paths).toContain("apps/api-worker");
     expect(result.deferred).toEqual([]);
   });
 
@@ -199,7 +202,7 @@ describe("computeAffected", () => {
       sinks: new Set(packages.keys()),
     });
     expect(result.paths).toEqual(["packages/data-access"]);
-    expect(result.deferred).toEqual(["apps/web", "apps/worker"]);
+    expect(result.deferred).toEqual(["apps/api-worker", "apps/web"]);
   });
 
   it("deferral never overrides the whole-repo triggers", () => {
@@ -207,7 +210,7 @@ describe("computeAffected", () => {
       computeAffected({
         changedFiles: ["vite.config.ts"],
         packages,
-        sinks: new Set(["@magna-carta/worker"]),
+        sinks: new Set(["@magna-carta/api-worker"]),
       }).mode,
     ).toBe("all");
   });

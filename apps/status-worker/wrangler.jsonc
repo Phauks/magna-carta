@@ -17,8 +17,8 @@
   "workers_dev": true,
   "preview_urls": false,
   // Same namespace the app worker's cron writes status:derived / status:authored into (see
-  // apps/worker/wrangler.jsonc) — this worker only ever reads it. This id MUST stay identical to the
-  // STATUS_KV id in apps/worker/wrangler.jsonc; both bind the one real "Magna_Carta_Status" namespace.
+  // apps/api-worker/wrangler.jsonc) — this worker only ever reads it. This id MUST stay identical to the
+  // STATUS_KV id in apps/api-worker/wrangler.jsonc; both bind the one real "Magna_Carta_Status" namespace.
   "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
   // Bundle the page's font (Atkinson Hyperlegible Next, latin variable woff2) into the worker as
   // a binary module, served same-origin from /assets — the page depends on nothing but this
@@ -27,7 +27,7 @@
   // An edge cache in front of this worker's entrypoint. Safe HERE and nowhere else in this repo:
   // every response this worker serves is byte-identical for every reader — there is no session, no
   // cookie, no per-firm content, and no `Authorization` header in play — so the cache key (entrypoint
-  // + path + query + worker version) fully determines the body. Contrast apps/worker, where the firm
+  // + path + query + worker version) fully determines the body. Contrast apps/api-worker, where the firm
   // comes from a session cookie that is NOT part of that key: caching its default entrypoint would
   // serve one firm's /api/v1 reply to the next firm asking for the same path, which is why a fitness
   // guard there rejects this very key. Reasoning: docs/conventions/security.md (response cache-control).

@@ -183,7 +183,7 @@ It is **never** a change to the owning subsystem's write path, and never a new t
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`, and
   `@magna-carta/money`. It depends on no other domain package: every source reads its rows by table
   name, which the schema-name-sync fitness test pins to `@magna-carta/database`.
-- The route layer (`apps/worker/src/routes/calendar.ts`) hands every service the firm-scoped database,
+- The route layer (`apps/api-worker/src/routes/calendar.ts`) hands every service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 
 ## Gotchas

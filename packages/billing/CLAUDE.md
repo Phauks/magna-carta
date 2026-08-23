@@ -271,7 +271,7 @@ ADR-0072, ADR-0079.) **Invariants:**
 - **Releasing ONE claim nulls its `invoice_line_id` in the same statement**, because the line is
   deleted in the same batch and the claim's foreign key would otherwise refuse. Voiding a whole draft
   keeps its lines and its claim links — the invoice is frozen at that point anyway.
-- **A new migration must be registered in `apps/worker/src/per-firm-migrations.ts`** as well as the
+- **A new migration must be registered in `apps/api-worker/src/per-firm-migrations.ts`** as well as the
   drizzle journal — the Durable Object applies the lineage from there.
 - The invoice-number allocation carries a no-overwrite BEFORE INSERT trigger, so a losing draw
   surfaces as an append-only refusal rather than a UNIQUE constraint. `isNumberAllocationConflict`

@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: the first production deploy since 2026-07-04 — Cron Triggers and the sign Worker's build
 status: building
-touches: apps/worker/wrangler.jsonc, docs/conventions/operations.md, changelog.d
+touches: apps/api-worker/wrangler.jsonc, docs/conventions/operations.md, changelog.d
 ---
 
 Two deploy-step failures from the same cause: 627 commits landed between deploys, and neither the

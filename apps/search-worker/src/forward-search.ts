@@ -6,7 +6,7 @@ export interface SearchContainerFetcher {
 }
 
 // The four engine operations the app Worker's SearchIndexPort adapter calls
-// (apps/worker/src/search/search-engine.ts). Listed rather than pattern-matched so an unknown path is a
+// (apps/api-worker/src/search/search-engine.ts). Listed rather than pattern-matched so an unknown path is a
 // 404 here instead of reaching the engine: the service binding is the trust boundary, but a boundary
 // that forwards anything is not one.
 export const ENGINE_OPERATIONS = ["index", "query", "remove", "compact"] as const;

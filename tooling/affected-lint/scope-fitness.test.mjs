@@ -15,10 +15,13 @@ const packages = new Map([
     "@magna-carta/data-access",
     { dir: "packages/data-access", deps: new Set(["@magna-carta/money"]) },
   ],
-  ["@magna-carta/worker", { dir: "apps/worker", deps: new Set(["@magna-carta/data-access"]) }],
-  ["@magna-carta/web", { dir: "apps/web", deps: new Set(["@magna-carta/worker"]) }],
+  [
+    "@magna-carta/api-worker",
+    { dir: "apps/api-worker", deps: new Set(["@magna-carta/data-access"]) },
+  ],
+  ["@magna-carta/web", { dir: "apps/web", deps: new Set(["@magna-carta/api-worker"]) }],
 ]);
-const sinks = new Set(["@magna-carta/worker"]);
+const sinks = new Set(["@magna-carta/api-worker"]);
 
 describe("trueDependentClosure", () => {
   it("reaches every transitive dependent", () => {
@@ -26,10 +29,10 @@ describe("trueDependentClosure", () => {
       (a, b) => (a < b ? -1 : a > b ? 1 : 0),
     );
     expect(reached).toEqual([
+      "@magna-carta/api-worker",
       "@magna-carta/data-access",
       "@magna-carta/money",
       "@magna-carta/web",
-      "@magna-carta/worker",
     ]);
   });
 
@@ -60,7 +63,7 @@ describe("verifyScopeCoverage", () => {
       computeScope: cappedAtOneHop,
     });
     expect(problems.join("\n")).toContain(
-      "a change to packages/money leaves apps/worker out of the post-merge scope",
+      "a change to packages/money leaves apps/api-worker out of the post-merge scope",
     );
     expect(problems.join("\n")).toContain("apps/web");
   });
@@ -69,14 +72,14 @@ describe("verifyScopeCoverage", () => {
     // Deferral has to be a MOVE. A classifier that drops the sink from BOTH tiers is a hole, and the
     // union assertion is the one that says so.
     const dropsSinkEverywhere = (arguments_) =>
-      computeAffected({ ...arguments_, sinks: new Set(["@magna-carta/worker"]) });
+      computeAffected({ ...arguments_, sinks: new Set(["@magna-carta/api-worker"]) });
     const problems = verifyScopeCoverage({
       packages,
       sinks,
       computeScope: dropsSinkEverywhere,
     });
     expect(problems.join("\n")).toContain(
-      "leaves apps/worker out of BOTH tiers — the deferral is a hole, not a move",
+      "leaves apps/api-worker out of BOTH tiers — the deferral is a hole, not a move",
     );
   });
 
@@ -102,7 +105,7 @@ describe("verifyScopeCoverage", () => {
       const result = computeAffected(arguments_);
       if (!arguments_.sinks || arguments_.sinks.size === 0 || result.mode !== "paths")
         return result;
-      return { ...result, paths: result.paths.filter((d) => d !== "apps/worker") };
+      return { ...result, paths: result.paths.filter((d) => d !== "apps/api-worker") };
     };
     const problems = verifyScopeCoverage({
       packages,
@@ -110,14 +113,14 @@ describe("verifyScopeCoverage", () => {
       computeScope: defersTheChangedPackage,
     });
     expect(problems.join("\n")).toContain(
-      "a change to apps/worker does not lint apps/worker itself on the pull-request tier",
+      "a change to apps/api-worker does not lint apps/api-worker itself on the pull-request tier",
     );
   });
 });
 
 describe("verifySinkSelection", () => {
   const weights = new Map([
-    ["@magna-carta/worker", 1261],
+    ["@magna-carta/api-worker", 1261],
     ["@magna-carta/fixtures", 550],
     ["@magna-carta/trust", 265],
   ]);

@@ -17,7 +17,7 @@ import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 // cannot disagree about what "too large to file" means.
 const OVERSIZE_CEILING_BYTES = MAX_CAPTURED_MESSAGE_BYTES;
 
-// The emails-capture job shape — matches @magna-carta/worker's capture consumer (the queue is the
+// The emails-capture job shape — matches @magna-carta/api-worker's capture consumer (the queue is the
 // contract boundary; the JSON message is the shared shape).
 interface EmailsCaptureMessage {
   readonly firmId: string;

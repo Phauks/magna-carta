@@ -28,7 +28,7 @@ import type { LoadedSnapshot } from "./snapshot.ts";
 
 export type EditingMeasurementHandle = LedgerMeasurementHandle;
 
-// The sweep batch caps (apps/worker — tiering-sweep.ts / idle-checkout-sweep.ts): the LIMIT each sweep
+// The sweep batch caps (apps/api-worker — tiering-sweep.ts / idle-checkout-sweep.ts): the LIMIT each sweep
 // read draws, so the measured cost matches one real sweep batch.
 const TIER_SWEEP_BATCH = 500;
 const IDLE_SWEEP_BATCH = 200;

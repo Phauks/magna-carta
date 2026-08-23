@@ -22,7 +22,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0082
-  evidence: apps/bundle-worker streaming bulk-download zip; apps/worker/src/downloads streaming paths.
+  evidence: apps/bundle-worker streaming bulk-download zip; apps/api-worker/src/downloads streaming paths.
 
 - id: performance.compute-placement.containers-queues
   name: Heavy work in Containers via Queues

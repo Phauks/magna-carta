@@ -11,7 +11,7 @@
   slices: slice-4-1-conflicts
   adrs: ADR-0013
   spec: docs/specs/2026-07-09-slice-4-1-conflicts-design.md
-  evidence: packages/conflicts on main — the check orchestrator, the six comparison channels over the Directory corpus, the append-only three-table log, the disposition stream, the re-check ledger and its consumers, plus apps/worker/src/routes/conflicts.ts. No web surface yet, and the intake trigger has no intake flow to fire from.
+  evidence: packages/conflicts on main — the check orchestrator, the six comparison channels over the Directory corpus, the append-only three-table log, the disposition stream, the re-check ledger and its consumers, plus apps/api-worker/src/routes/conflicts.ts. No web surface yet, and the intake trigger has no intake flow to fire from.
   audience: public
   public-name: Conflicts checking
   public-summary: Check a prospective client or matter against everyone the firm has acted for or against, and keep a permanent record of what the check returned and who cleared it.
@@ -32,7 +32,7 @@
   status: partial
   surface: internal
   slices: slice-4-1-conflicts
-  evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/worker/src/conflicts/, and apps/worker/src/conflicts/periodic-rescan.ts; TRIGGER_BY_TOPIC already records a matter.created check as preliminary and a matter.opened or matter.reopened one as comprehensive. Missing is the check that runs BEFORE a matter exists to raise an event about — the pre-engagement screen an intake flow would fire, which no topic can reach because there is no matter row yet.
+  evidence: The add-a-party and corpus-change triggers and the scheduled re-scan shipped — packages/conflicts/src/recheck-cause.ts and recheck-request.ts over the Directory outbox topics, the two consumers in apps/api-worker/src/conflicts/, and apps/api-worker/src/conflicts/periodic-rescan.ts; TRIGGER_BY_TOPIC already records a matter.created check as preliminary and a matter.opened or matter.reopened one as comprehensive. Missing is the check that runs BEFORE a matter exists to raise an event about — the pre-engagement screen an intake flow would fire, which no topic can reach because there is no matter row yet.
 
 - id: conflicts.matching-engine
   name: Matching engine

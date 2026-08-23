@@ -665,15 +665,15 @@ export const SELF_TEST = [
         id: "portal.capabilities.download",
         status: "not-started",
         evidence:
-          "The bulk-download engine it reuses is shipped (apps/worker); no portal-scoped path.",
+          "The bulk-download engine it reuses is shipped (apps/api-worker); no portal-scoped path.",
       }),
       fixture({
         id: "matters.file-manager.bulk-download",
         status: "shipped",
-        evidence: "apps/worker",
+        evidence: "apps/api-worker",
       }),
     ],
-    tree: ["apps/worker"],
+    tree: ["apps/api-worker"],
     expect: [],
   },
   {

@@ -25,7 +25,7 @@
   scope: Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   status: shipped
   surface: internal
-  evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/worker/src/telemetry-middleware.ts.
+  evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/api-worker/src/telemetry-middleware.ts.
 
 - id: observability.operational-telemetry
   name: Always-on operational telemetry
@@ -35,7 +35,7 @@
   slices: 0-6-telemetry-baseline-platform-closeout
   adrs: ADR-0074
   spec: docs/specs/2026-06-09-slice-0-6-telemetry-baseline-design.md
-  evidence: packages/telemetry/src/workers-logger.ts + TELEMETRY analytics_engine dataset binding in apps/worker/wrangler.jsonc.
+  evidence: packages/telemetry/src/workers-logger.ts + TELEMETRY analytics_engine dataset binding in apps/api-worker/wrangler.jsonc.
   notes: Logpush-to-R2 archival is account configuration, not verified in-repo.
 
 - id: observability.client-reporter
@@ -58,7 +58,7 @@
   name: Client breadcrumb ring buffer
   scope: Client-side ring of recent actions/IDs (never field content) attached to reports.
   status: not-started
-  evidence: apps/worker/src/routes/incidents.ts accepts a breadcrumbs array but notes the client library enforces content rules "when it ships".
+  evidence: apps/api-worker/src/routes/incidents.ts accepts a breadcrumbs array but notes the client library enforces content rules "when it ships".
 
 - id: observability.client-reporter.report-a-problem
   name: Report a problem affordance
@@ -85,7 +85,7 @@
   scope: POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/worker/src/routes/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
+  evidence: apps/api-worker/src/routes/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
 
 - id: observability.incidents.screenshot
   name: Opt-in redactable screenshot
@@ -132,7 +132,7 @@
   scope: Route-to-feature middleware for reached; outbox sweep topic-to-feature for completed; versioned feature taxonomy.
   status: shipped
   surface: internal
-  evidence: apps/worker/src/usage/ (reached-middleware.ts, completed.ts, feature-map.ts) + packages/telemetry/src/usage-features.ts.
+  evidence: apps/api-worker/src/usage/ (reached-middleware.ts, completed.ts, feature-map.ts) + packages/telemetry/src/usage-features.ts.
 
 - id: observability.usage-analytics.pseudonymization
   name: HMAC pseudonymization
@@ -146,7 +146,7 @@
   scope: Firm-level enable (default on) with per-member opt-out, resolved off the hot path via a cached resolver.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/worker/src/usage/consent.ts + packages/data-access/src/usage-consent-statements.ts.
+  evidence: apps/api-worker/src/usage/consent.ts + packages/data-access/src/usage-consent-statements.ts.
 
 - id: observability.usage-analytics.aggregate-queries
   name: Aggregate queries with small-n suppression
@@ -182,7 +182,7 @@
   surface: awaiting-screen
   slices: support-access-framework
   adrs: ADR-0157
-  evidence: apps/worker/src/support/ + routes/support-grants.ts, support-sessions.ts, support-diagnostics.ts.
+  evidence: apps/api-worker/src/support/ + routes/support-grants.ts, support-sessions.ts, support-diagnostics.ts.
   audience: public
   public-summary: Any access to your firm's data by our support staff is recorded, and the record is yours to read.
   notes: Dormant until platform_staff is seeded; UI deferred.

@@ -72,7 +72,7 @@ holds. This is the shape the compaction pass produces.
 **Axis 2 — split fan-out.** The same corpus published the way the pipeline publishes it today: a split's
 object key is derived from one document version ([`packages/search/src/split.ts`](../../packages/search/src/split.ts)),
 and a query is handed every live split key the catalog holds
-([`apps/worker/src/search/keyword-search.ts`](../../apps/worker/src/search/keyword-search.ts)). So a
+([`apps/api-worker/src/search/keyword-search.ts`](../../apps/api-worker/src/search/keyword-search.ts)). So a
 matter of N indexed document versions is N splits and one query touches all of them. Cost on this axis
 grows with the split count rather than the corpus, which is why it is measured separately: it is what
 falls over first, and the gap between the two axes at the same document count is what compaction is

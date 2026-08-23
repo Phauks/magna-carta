@@ -1,5 +1,5 @@
 // The key hierarchy: the root key-encryption key wraps per-firm data keys; this module derives
-// and unwraps them. The root key arrives as the ROOT_KEK runtime secret plumbed in apps/worker.
+// and unwraps them. The root key arrives as the ROOT_KEK runtime secret plumbed in apps/api-worker.
 //
 // Shape of the hierarchy:
 //   - The root KEK (a Worker secret) is an AES-KW key whose only powers are wrap/unwrap.

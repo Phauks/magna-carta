@@ -9,7 +9,7 @@ export { requestJson, type ApiOutcome, type ApiProblem };
  * These are same-origin `fetch` calls against the relative `/api/v1` paths, matching the WHOIS tool
  * (apps/web/src/lib/tools/whois/whois-lookup.ts) and the speed test: `apps/web` does not depend on
  * @magna-carta/api-client, so the response shapes below are hand-written mirrors of the contract in
- * apps/worker/openapi/openapi.json. Keep them in step with it — a field added there is a field added
+ * apps/api-worker/openapi/openapi.json. Keep them in step with it — a field added there is a field added
  * here, and nowhere else in this app.
  *
  * Every call resolves rather than throws. A caller has three outcomes to render — the value, a

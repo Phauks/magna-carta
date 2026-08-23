@@ -461,7 +461,7 @@ jobs:
   #
   # Completeness is by construction — the three jobs partition every REGISTERED test file exactly once:
   #   • test-stories runs the `storybook` project (the only browser suite);
-  #   • test-worker runs the files under apps/worker + apps/status-worker (the only Miniflare suites);
+  #   • test-worker runs the files under apps/api-worker + apps/status-worker (the only Miniflare suites);
   #   • test-node runs everything else — packages, apps/web, the standalone sibling workers
   #     (default-pool unit tests with faked bindings), and tooling — with the `storybook` project
   #     excluded, so no browser boots here.
@@ -564,7 +564,7 @@ jobs:
         # that coincidence. Kept byte-identical to tooling/lint-test-collection/index.mjs.
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
-          "$PWD/apps/worker" "$PWD/apps/status-worker"
+          "$PWD/apps/api-worker" "$PWD/apps/status-worker"
 
   # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
   # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
@@ -794,8 +794,8 @@ jobs:
 
       - name: OpenAPI snapshot drift
         run: |
-          pnpm --filter @magna-carta/worker run emit-openapi
-          git diff --exit-code apps/worker/openapi/openapi.json
+          pnpm --filter @magna-carta/api-worker run emit-openapi
+          git diff --exit-code apps/api-worker/openapi/openapi.json
 
       - name: Generated client drift
         run: |
@@ -803,7 +803,7 @@ jobs:
           git diff --exit-code packages/api-client/src
 
       - name: Spectral hygiene lint
-        run: pnpm --filter @magna-carta/worker exec spectral lint openapi/openapi.json --fail-severity warn
+        run: pnpm --filter @magna-carta/api-worker exec spectral lint openapi/openapi.json --fail-severity warn
 
       - name: Design-token drift
         run: |

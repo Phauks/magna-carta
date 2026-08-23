@@ -10,7 +10,7 @@
    * TWO OF THE THREE END AT THE SAME PLACE, and that is the point rather than an accident. Whether
    * a person is a client of a firm or works at one, membership of an existing firm is that firm's
    * decision, so both doors lead to invitation redemption and neither creates anything. Only
-   * founding a firm creates. The registration route (apps/worker/src/routes/registrations.ts) says
+   * founding a firm creates. The registration route (apps/api-worker/src/routes/registrations.ts) says
    * the same thing on the server side, answering `redeemInvitation` for both — the fork is settled
    * in the browser because the answer is a constant, and spending a round trip and a slice of the
    * anonymous rate-limit budget to be told a constant would leave the front door of the platform

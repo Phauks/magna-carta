@@ -8,7 +8,7 @@ managed-instance configuration and lifecycle, the usage meter, and `NaturalLangu
 
 No binding, no `env`, no network, no bucket handle. Every function here takes a firm-scoped database
 handle from its caller, which is the whole of how firm scoping works in this package — nothing in it
-can reach two firms at once. The runtime halves live in `apps/worker/src/search/` (the queue
+can reach two firms at once. The runtime halves live in `apps/api-worker/src/search/` (the queue
 consumers, the sweeps, and the binding resolvers) and in `apps/search-worker` + `containers/search`
 (the keyword engine).
 
@@ -112,13 +112,13 @@ are the ones the production modules adopted; keep the two in step.
 - Depends on `@magna-carta/data-access` (statement and effect shapes), `@magna-carta/identifiers`,
   `@magna-carta/object-dimensions` (the one home for what a bucket object is stamped with), and
   `@magna-carta/inference` (the embedding pin only — never a provider).
-- Consumed by `apps/worker/src/search/` and, for the keyword half, by `apps/search-worker`.
+- Consumed by `apps/api-worker/src/search/` and, for the keyword half, by `apps/search-worker`.
 - Table names are tracked against `@magna-carta/database` by
   `test/natural-language-schema-name-sync.test.ts`; renaming a table there fails here.
 
 ## Gotchas
 
-- **The managed-search bindings are declared and commented out in `apps/worker/wrangler.jsonc`.**
+- **The managed-search bindings are declared and commented out in `apps/api-worker/wrangler.jsonc`.**
   Uncommenting them is a decision rather than a configuration step: the first instance the management
   binding creates fixes an embedding model that cannot be changed afterwards without re-embedding the
   corpus, and the platform's embedding pin still reads open in

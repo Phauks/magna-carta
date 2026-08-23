@@ -5,7 +5,7 @@
  * drift.
  *
  * `apps/web` does not depend on @magna-carta/api-client, so each surface hand-writes the response
- * shapes it reads, mirroring apps/worker/openapi/openapi.json. This module owns the envelope only;
+ * shapes it reads, mirroring apps/api-worker/openapi/openapi.json. This module owns the envelope only;
  * the shapes stay with the surface that reads them.
  *
  * Every call resolves rather than throws. A caller has three outcomes to render — the value, a

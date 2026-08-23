@@ -170,7 +170,7 @@ because it reads every installed package's license file — and its only possibl
 set, so the inner loop runs it exactly when a manifest or lockfile moves. `lint:test-collection` is 26 s
 (four list-only Vitest collections over ~70 projects), an order of magnitude past the inner loop's budget,
 and only a change to the CI test split can break it; its home is the gate's own `test-collection` job.
-`apps/worker`'s route-conformance suite is 26 s as well — it runs in the Miniflare pool, which costs far
+`apps/api-worker`'s route-conformance suite is 26 s as well — it runs in the Miniflare pool, which costs far
 more to start than the assertions are worth here — so it stays a CI check. An honest exclusion with a
 number beats a gate people disable.
 
@@ -251,7 +251,7 @@ byte-for-byte unchanged.
 `vp` is two levels above the thing doing the work: under it sits the Vitest CLI, and under that the
 esbuild services and the workerd instances the Miniflare suites stand up. Signalling only the direct
 child orphans the rest, and they keep the CPU, the transform cache and the `.wrangler` state. Measured
-here, interrupting `pnpm test apps/worker`: the guard exited after 17 s and **released the lock with
+here, interrupting `pnpm test apps/api-worker`: the guard exited after 17 s and **released the lock with
 nine runner processes still alive**, which stayed up for a further **44 s**. The next `pnpm test` then
 claims the lock correctly — its holder really is gone — and starts into the previous run's live
 runners, which is the contention the lock exists to prevent arriving through the one door it does not
@@ -481,27 +481,27 @@ files but type **errors** in them were reported by no pass in `pnpm check`, `pnp
 the CI gate, and `pnpm test` never noticed because Vitest strips types rather than checking them. The
 test corpus is 885 of the workspace's 2,118 type-checkable files — 42% of it — so a green typecheck
 was a statement about a little over half the repository. The backlog that surfaced when the projects
-were turned on was 53 errors across 16 members, and a further 156 in `apps/worker` once its own
+were turned on was 53 errors across 16 members, and a further 156 in `apps/api-worker` once its own
 deferral was lifted; all real, and all now fixed.
 
 **Cost.** Both roots are incremental and the test half is cheap. One machine, one session, `.tsbuild`
 deleted before each cold run:
 
-| Cold, both roots                                 |           Time |
-| ------------------------------------------------ | -------------: |
-| build half alone (`tsconfig.build.json`)         |     1 min 54 s |
-| both roots, `apps/worker`'s tests still deferred |     2 min 29 s |
-| both roots, complete graph (all 71 members)      | **2 min 41 s** |
+| Cold, both roots                                     |           Time |
+| ---------------------------------------------------- | -------------: |
+| build half alone (`tsconfig.build.json`)             |     1 min 54 s |
+| both roots, `apps/api-worker`'s tests still deferred |     2 min 29 s |
+| both roots, complete graph (all 71 members)          | **2 min 41 s** |
 
 Warm, the complete pair is **1–2 s**. So the test half costs about 47 s cold over the build half, of
-which `apps/worker` — 231 test files, more than a quarter of the corpus — is only **12 s (+8%)**: its
+which `apps/api-worker` — 231 test files, more than a quarter of the corpus — is only **12 s (+8%)**: its
 test project references build projects whose declarations are already emitted, so the incremental work
 is checking test files and nothing else. The inner loop pays nothing, which is why `check:scoped` runs
 `vp run typecheck` over the whole graph rather than skipping the test half.
 
-#### Every member is in the solution — and what `apps/worker` cost to get there
+#### Every member is in the solution — and what `apps/api-worker` cost to get there
 
-`@magna-carta/worker` was the one member generated but held out of the root `tsconfig.test.json`, so
+`@magna-carta/api-worker` was the one member generated but held out of the root `tsconfig.test.json`, so
 its 231 test files were checked by nothing. It is in now, there is no deferral mechanism left in
 `tooling/tsconfig-refs/index.mjs`, and the graph is complete at 71 members. Two separate problems had
 to be settled first; both are worth keeping written down, because the first is a trap anyone can walk
@@ -537,7 +537,7 @@ that name is the same type and is already in scope.**
 **And the backlog behind it was 156 errors**, all now fixed at the seam each one named, with no `any`,
 no `@ts-expect-error`, and no production type weakened. 106 of them were one idiom — `Response.json()`
 is declared `Promise<unknown>`, so reading a field off it is an error — resolved by `readJson<T>()` in
-`apps/worker/test/support/test-auth.ts`, which makes each call site name the shape it expects. The
+`apps/api-worker/test/support/test-auth.ts`, which makes each call site name the shape it expects. The
 remainder were ordinary drift of the kind this pass exists to find, and four of them were substantive:
 a proxy input type narrower than the port it stood in for (sound only through method bivariance), two
 test fakes that had stopped covering fields their production types had gained, and a manifest fixture
@@ -682,7 +682,7 @@ transitive dependent closure.
 
 **Why depth-capping was the wrong dial, and weight is the right one.** The pull-request tier used to
 cap the dependent walk at one hop. Measured on this repository that saved almost nothing, because graph
-_distance_ is a poor proxy for lint _cost_: `apps/worker` depends **directly** on 39 of the 61
+_distance_ is a poor proxy for lint _cost_: `apps/api-worker` depends **directly** on 39 of the 61
 workspace packages, so it sits one hop from nearly every change and a one-hop cap dragged it in anyway.
 Cost is set by the size of the type program the linter has to build, which is a package's own files
 plus everything they import — so that is what the classifier now measures, and the one package whose
@@ -736,7 +736,7 @@ recomputes identically on every run is cached.
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
-- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/worker`'s whole-program type graph. Because the worker depends _directly_ on 39 of the 61 workspace packages, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. **Scoping is exhausted as a lever, measured in both directions** (2026-08-05): at package granularity by the fan-out above, and at _file_ granularity too — a reverse-import closure over the repository's own module graph still reaches 70–80% of the worker's 394 files for 37 of its 38 package dependencies, because `apps/worker/src/app.ts` mounts every route and 157 files import it. So the remaining structural fix is the dependency shape itself: the sink deferral below moves the cost to a cheaper tier, it does not remove it.
+- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/api-worker`'s whole-program type graph. Because the worker depends _directly_ on 39 of the 61 workspace packages, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. **Scoping is exhausted as a lever, measured in both directions** (2026-08-05): at package granularity by the fan-out above, and at _file_ granularity too — a reverse-import closure over the repository's own module graph still reaches 70–80% of the worker's 394 files for 37 of its 38 package dependencies, because `apps/api-worker/src/app.ts` mounts every route and 157 files import it. So the remaining structural fix is the dependency shape itself: the sink deferral below moves the cost to a cheaper tier, it does not remove it.
 
 ### Scope the CI type-aware lint to the affected packages (now)
 
@@ -749,14 +749,14 @@ So the gate's **`lint` job lints only the affected packages**, computed by `tool
 Scoping alone did not finish the job. On a measured pull-request gate run (2026-08-05, 17 jobs) the
 `lint` job billed **26 minutes of ~60 for the whole run — 43% of the bill** — at the _cheap_ scoped
 tier, and [the CI evaluation](../research/2026-08-05-cloudflare-ci-evaluation.md) named the cause: the
-scope was correct, and it contained `apps/worker`.
+scope was correct, and it contained `apps/api-worker`.
 
 **The cost model.** The type-aware linter builds its type program lazily from the passed files' import
 closure, so a package's lint cost tracks the **size of that program** — the package's own lintable
 files plus every lintable file in its transitive _dependency_ closure. That is the opposite direction
 from the dependent walk the scope is computed with, and it is what makes one package's lint seconds and
 another's half an hour. Call it the package's **type-program weight**. Measured 2026-08-05 across 61
-workspace packages and 1,669 lintable files: `@magna-carta/worker` weighs **1,261 files — 75.6% of the
+workspace packages and 1,669 lintable files: `@magna-carta/api-worker` weighs **1,261 files — 75.6% of the
 repository**. The next package down is `@magna-carta/fixtures` at 550 (33%), and the median package
 weighs 34 (2%). Linting the worker is, to within rounding, a whole-repo lint.
 
@@ -767,7 +767,7 @@ a 4-core/15 GB box, 2026-08-05, for a change to `@magna-carta/identifiers`:
 | -------------------------------------------------------- | -----------: | ----------: |
 | `packages/identifiers` alone                             |           20 |   **2.3 s** |
 | the 28-package pull-request scope with the sink deferred |          883 |     **9 s** |
-| `apps/worker` alone                                      |          394 | **2,755 s** |
+| `apps/api-worker` alone                                  |          394 | **2,755 s** |
 
 Twenty-eight packages and 883 files finish in nine seconds. One package and 394 files take
 three-quarters of an hour, because the type program behind those 394 files is the repository.
@@ -802,7 +802,7 @@ pays here:
   repository's own module graph, resolved with the TypeScript resolver rather than guessed. Sound in
   principle, and measured worth roughly a quarter of the worst case: for **37 of the worker's 38
   package dependencies the closure still reaches 70–80% of its 394 files**, because
-  `apps/worker/src/app.ts` mounts every route and 157 files import it. That buys a fraction off the tall
+  `apps/api-worker/src/app.ts` mounts every route and 157 files import it. That buys a fraction off the tall
   pole in exchange for a module-resolution graph whose failure mode — a specifier that quietly resolves
   to nothing — is silent under-linting on a merge gate. Not worth it until the hub itself is broken up.
 - **Content-hash caching of a package's lint result**, keyed on the package plus its dependency
@@ -820,7 +820,7 @@ threshold. Never widen a threshold to make a red run green.
 The tests are deliberately **not** affected-scoped — a change in a foundational package can break a consumer's test that a dependency-graph scope would miss, and a missed test failure is a correctness hole, not (as with lint) one type-aware rule. So instead of _scoping_ the tests, the gate _shards_ them, and it shards along the suite's **natural project boundaries** rather than one blind shard over everything. The suite has three substrates with very different per-file cost and setup — plain node units (milliseconds), the Miniflare Workers pool (a Workers runtime per file), and the design-system Storybook stories (Chromium via Playwright) — so the `test` job is split into three:
 
 - **`test-node`** — `packages` + `apps/web` + the standalone sibling workers (`apps/bundle-worker`, `apps/convert-worker`, `apps/file-repair-worker`, `apps/edit-worker`, `apps/ocr-worker`, `apps/recovery-worker`, `apps/scan-worker` — default-pool unit tests with faked bindings) + `tooling`, with the `storybook` project excluded (`--project='!storybook'`), sharded within the job. No Miniflare, no browser: the bulk of the tests, cheapest per file.
-- **`test-worker`** — the files under `apps/worker` + `apps/status-worker`, sharded within the job. The heaviest substrate (a Workers runtime per file), on its own so it scales independently.
+- **`test-worker`** — the files under `apps/api-worker` + `apps/status-worker`, sharded within the job. The heaviest substrate (a Workers runtime per file), on its own so it scales independently.
 - **`test-stories`** — the `storybook` project, one runner. The **only** browser suite, so it is the **only** job that installs Chromium — the split's biggest win over a blind shard, which paid the Playwright install on every shard.
 
 Each job shards by file count (`--shard=i/N` over its scope; `SHARD_TOTAL` + the matrix list per job). **Completeness is by construction:** the three jobs partition every **registered** test file exactly once — `storybook` is the only project that spans a path root (it lives under `packages/design-system`), so it is the only one included-by-name in one job and excluded-by-name from another; every other file belongs to exactly one path root. Adding a new test area is **two registrations**: its vitest config into the root `vite.config.ts` `test.projects` list, **and** its path into `test-node` (or a new job). The path half fails loud when mis-scoped (vitest's `passWithNoTests` is left off — a path that matches nothing errors); the registry half is the one nothing catches automatically — `test.projects` is a closed list, and an unregistered project's tests run **nowhere** (root `vp test` and CI both walk only registered projects), so treat the registry as part of the partition. Wall-clock is now paced by the heaviest substrate rather than a random file draw; if `test-worker` becomes the pole, raise its shard count alone.

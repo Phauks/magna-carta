@@ -5,6 +5,9 @@
   "files": [],
   "references": [
     {
+      "path": "apps/api-worker/tsconfig.test.json"
+    },
+    {
       "path": "apps/bundle-worker/tsconfig.test.json"
     },
     {
@@ -39,9 +42,6 @@
     },
     {
       "path": "apps/status-worker/tsconfig.test.json"
-    },
-    {
-      "path": "apps/worker/tsconfig.test.json"
     },
     {
       "path": "packages/access-control/tsconfig.test.json"

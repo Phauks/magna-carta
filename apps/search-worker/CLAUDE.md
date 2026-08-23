@@ -5,7 +5,7 @@
 app worker. It routes the four engine operations to the instance holding a firm's working set, keeps
 that instance warm, and intercepts the engine's object calls back into the app worker. Boundary: it
 makes no index decisions — the catalog, firm scoping, and every object key belong to
-`apps/worker/src/search/`.
+`apps/api-worker/src/search/`.
 
 **Template:** [`apps/scan-worker`](../scan-worker) (dedicated Container worker) and
 [`apps/edit-worker`](../edit-worker) (outbound interception). **Spec:**
@@ -26,7 +26,7 @@ makes no index decisions — the catalog, firm scoping, and every object key bel
 
 - **This worker holds no R2, D1, Queue, or secret binding, and must not grow one.** All object I/O
   flows through the app worker's split-object host, which is what keeps "which bucket holds this firm's
-  bytes" a single decision (`apps/worker/src/files/firm-bucket.ts`). A binding here would be a second
+  bytes" a single decision (`apps/api-worker/src/files/firm-bucket.ts`). A binding here would be a second
   answer to it.
 - **The forward adds nothing and strips nothing.** The capability token rides in the engine's own
   headers and is verified on the far side; this hop carries no trust, so it must not start carrying
@@ -48,7 +48,7 @@ makes no index decisions — the catalog, firm scoping, and every object key bel
   throws `ctx.exports.ContainerProxy is undefined`. It is a `WorkerEntrypoint`, so it needs no binding
   and no migration.
 - **`SPLIT_OBJECT_HOST` is duplicated on purpose** in `src/split-object-forwarding.ts` and
-  `apps/worker/src/search/split-object-host.ts` — a worker cannot import from another worker. A test in
+  `apps/api-worker/src/search/split-object-host.ts` — a worker cannot import from another worker. A test in
   each pins the literal; change both in one commit or every engine read becomes blocked egress.
 - **The container cannot run under the local test pool** (it needs a live image). The tests run in the
   default node pool against a fake `{ fetch }` — no Miniflare, no Docker.

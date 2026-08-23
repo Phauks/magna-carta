@@ -103,7 +103,7 @@ const bitsUiSweep = collectWorkspaceSourceFiles([
 describe("bits-ui import boundary (golden rule 2)", () => {
   it("sweeps a real surface (vacuity guard)", () => {
     expect(bitsUiSweep).toContain("apps/web/src/lib/components/app-shell.svelte");
-    expect(bitsUiSweep).toContain("apps/worker/src/index.ts");
+    expect(bitsUiSweep).toContain("apps/api-worker/src/index.ts");
     expect(bitsUiSweep.length).toBeGreaterThanOrEqual(25);
     // The exclusions must not be vacuous either: the excluded trees really exist and
     // really contain bits-ui references (proven on the real files below).
