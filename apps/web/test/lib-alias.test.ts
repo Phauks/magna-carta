@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
  */
 describe("the $lib alias", () => {
   it("resolves at test time, not only for the type-checker", async () => {
-    const module_ = await import("$lib/api/request.ts");
-    expect(typeof module_.requestJson).toBe("function");
+    const requestModule = await import("$lib/api/request.ts");
+    expect(typeof requestModule.requestJson).toBe("function");
   });
 });
