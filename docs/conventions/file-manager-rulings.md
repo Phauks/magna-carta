@@ -10,36 +10,44 @@ rebuild the screen from scratch: edit it. Regeneration is what loses these.
 Status values: `settled` (built and confirmed) · `regressed` (was settled, a later round undid it) ·
 `open` (asked for, not yet built) · `superseded` (a later ruling replaced it, with the pointer).
 
+**Reconcile the statuses before reading them as work.** A status is a claim about the built screen,
+and it goes stale the moment a round builds something without coming back to this table. Stale in
+the `open` direction is as costly as stale in the `regressed` direction — it sends the next round to
+rebuild what already exists, which is how a screen loses the thing it had. So the first step of any
+round is `pnpm check:file-manager-rulings <path-or-url>`: what it asserts is the answer, and any row
+it contradicts is corrected here in the same commit, before a line of the screen changes. Rows the
+harness does not cover are checked by hand and get a check added when they are next built.
+
 ## R1 — shell and navigation
 
-| #   | Ruling                                                                                                                            | Status                            |
-| --- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| N1  | The screen lives inside the existing app shell; it is not a full-page takeover.                                                   | settled                           |
-| N2  | Selecting a file does **not** darken the screen. It behaves like the workbench, not a modal.                                      | settled                           |
-| N3  | Back, forward and up buttons, all three, in the file-manager toolbar.                                                             | **regressed** — forward is absent |
-| N4  | The breadcrumb root is a **home icon**, not the word "Files".                                                                     | **regressed** — renders "Files"   |
-| N5  | Back/forward/up hovers say just "Back", "Forward", "Up" plus the shortcut. Not verbose.                                           | settled                           |
-| N6  | Breadcrumbs use the compact spacing.                                                                                              | settled                           |
-| N7  | The top header carries the breadcrumbs and the New button; the left sidebar starts beneath it.                                    | settled                           |
-| N8  | Scrolling down reduces the top chrome to give the list more height.                                                               | settled                           |
-| N9  | Carets in the left sidebar expand and collapse nesting.                                                                           | settled                           |
-| N10 | No reflow in the left sidebar when a folder is selected.                                                                          | settled                           |
-| N11 | Reserved, themed scrollbar space in the left sidebar; also on the right of the file list; the horizontal scrollbar is themed too. | settled                           |
-| N12 | Right-click works in the left sidebar, not only in the list.                                                                      | settled                           |
-| N13 | One button toggles expand-all / collapse-all, not two.                                                                            | **open** (R5)                     |
+| #   | Ruling                                                                                                                            | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N1  | The screen lives inside the existing app shell; it is not a full-page takeover.                                                   | settled |
+| N2  | Selecting a file does **not** darken the screen. It behaves like the workbench, not a modal.                                      | settled |
+| N3  | Back, forward and up buttons, all three, in the file-manager toolbar.                                                             | settled |
+| N4  | The breadcrumb root is a **home icon**, not the word "Files".                                                                     | settled |
+| N5  | Back/forward/up hovers say just "Back", "Forward", "Up" plus the shortcut. Not verbose.                                           | settled |
+| N6  | Breadcrumbs use the compact spacing.                                                                                              | settled |
+| N7  | The top header carries the breadcrumbs and the New button; the left sidebar starts beneath it.                                    | settled |
+| N8  | Scrolling down reduces the top chrome to give the list more height.                                                               | settled |
+| N9  | Carets in the left sidebar expand and collapse nesting.                                                                           | settled |
+| N10 | No reflow in the left sidebar when a folder is selected.                                                                          | settled |
+| N11 | Reserved, themed scrollbar space in the left sidebar; also on the right of the file list; the horizontal scrollbar is themed too. | settled |
+| N12 | Right-click works in the left sidebar, not only in the list.                                                                      | settled |
+| N13 | One button toggles expand-all / collapse-all, not two.                                                                            | settled |
 
 ## R2 — search
 
-| #   | Ruling                                                                                                                                                                                                         | Status                                            |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| S1  | The matter search sits **next to the matter status chip** (e.g. "Open"), not in the app header and not in the file-manager toolbar. It searches the whole matter — billing and time included — not just files. | **regressed** — it is in the file-manager toolbar |
-| S2  | It expands from an icon and collapses when unused.                                                                                                                                                             | settled                                           |
-| S3  | No `x` clear button in that field.                                                                                                                                                                             | settled                                           |
-| S4  | Scope is a dropdown, not oversized circular buttons; the dropdown aligns to the left edge of the field.                                                                                                        | settled                                           |
-| S5  | Search covers file **names and contents**.                                                                                                                                                                     | settled                                           |
-| S6  | Show search progress and status, not a prose explanation of how indexing works.                                                                                                                                | settled                                           |
-| S7  | A result names its full breadcrumb, not just the parent folder.                                                                                                                                                | settled                                           |
-| S8  | A full search results page, not only a hover — users may want to act on or download the whole result set.                                                                                                      | open                                              |
+| #   | Ruling                                                                                                                                                                                                         | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1  | The matter search sits **next to the matter status chip** (e.g. "Open"), not in the app header and not in the file-manager toolbar. It searches the whole matter — billing and time included — not just files. | settled |
+| S2  | It expands from an icon and collapses when unused.                                                                                                                                                             | settled |
+| S3  | No `x` clear button in that field.                                                                                                                                                                             | settled |
+| S4  | Scope is a dropdown, not oversized circular buttons; the dropdown aligns to the left edge of the field.                                                                                                        | settled |
+| S5  | Search covers file **names and contents**.                                                                                                                                                                     | settled |
+| S6  | Show search progress and status, not a prose explanation of how indexing works.                                                                                                                                | settled |
+| S7  | A result names its full breadcrumb, not just the parent folder.                                                                                                                                                | settled |
+| S8  | A full search results page, not only a hover — users may want to act on or download the whole result set.                                                                                                      | open    |
 
 ## R3 — the list
 
@@ -68,37 +76,37 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | #   | Ruling                                                                                                                                                   | Status                                                                     |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | A1  | Pin, rename, copy, download and delete are **right-click actions**. They are not buttons in a header bar and not buttons in the right sidebar.           | settled                                                                    |
-| A2  | Download, Open in Editor and Save New Version are removed from the right sidebar. Access is by right-click only.                                         | open (R5)                                                                  |
-| A3  | The right-click item is "Download". Not "Download (acknowledge first)" or similar — if an acknowledgement is needed, raise it **after** the click.       | open (R5)                                                                  |
+| A2  | Download, Open in Editor and Save New Version are removed from the right sidebar. Access is by right-click only.                                         | settled                                                                    |
+| A3  | The right-click item is "Download". Not "Download (acknowledge first)" or similar — if an acknowledgement is needed, raise it **after** the click.       | settled                                                                    |
 | A4  | Actions are icons, not text labels, wherever they repeat per row.                                                                                        | settled                                                                    |
-| A5  | Copy and cut. Plain copy — not "copy to another folder". Folders copy too.                                                                               | open — copy is still not built                                             |
+| A5  | Copy and cut. Plain copy — not "copy to another folder". Folders copy too.                                                                               | settled                                                                    |
 | A6  | "New folder", not "New subfolder".                                                                                                                       | settled                                                                    |
 | A7  | The New button is on the left. There is no second New button on the right.                                                                               | settled                                                                    |
 | A8  | Upload opens a real file picker.                                                                                                                         | settled                                                                    |
 | A9  | Renaming: when extensions are hidden, the rename field shows no extension. When they are shown, the selection covers the name only, never the extension. | **regressed** — still selects the extension and still shows it when hidden |
 | A10 | Template picking must scale to hundreds of templates — a plain dropdown does not. Stubbed for now.                                                       | open                                                                       |
-| A11 | Document type is a custom, firm-editable vocabulary, and there must be a way to set it.                                                                  | open                                                                       |
+| A11 | Document type is a custom, firm-editable vocabulary, and there must be a way to set it.                                                                  | settled                                                                    |
 
 ## R5 — the inspector, versions and safety
 
-| #   | Ruling                                                                                                                                                     | Status |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| I1  | The inspector is tabbed: Preview, Details, Version History, Hashes, Safety. Hashes is its own tab, not part of Versions. Preview is separate from Details. | open   |
-| I2  | The paste-a-hash field sits at the top of the Hashes tab and is collapsed until asked for.                                                                 | open   |
-| I3  | Hashes are recomputed when the tab is opened, not recited from storage.                                                                                    | open   |
-| I4  | Version rows do not reflow on hover; Open and Restore are icon buttons that are always present.                                                            | open   |
-| I5  | Version timestamps include the time of day.                                                                                                                | open   |
-| I6  | Show a diff between two versions.                                                                                                                          | open   |
-| I7  | Safety is its own tab, because safety has a history.                                                                                                       | open   |
-| I8  | In safety history, the engine version is its own labelled attribute on its own line, not inline prose.                                                     | open   |
-| I9  | A signature match is its own line, and clicking it opens a library explaining the finding.                                                                 | open   |
-| I10 | When claimed type and magic bytes disagree, say what the bytes actually read as.                                                                           | open   |
-| I11 | Do not restate the same fact three ways (File Type / Claimed Type / Actual Content). Consolidate.                                                          | open   |
-| I12 | Folders in the inspector show content statistics — counts by file type, number of folders — not an Open/Download/deletion-rules block.                     | open   |
-| I13 | Drop the "Folder · Discovery" line; the breadcrumb already says it, and it is incomplete.                                                                  | open   |
-| I14 | Left and right sidebar toggle buttons carry no shadow when active.                                                                                         | open   |
-| I15 | Real file-type icons, from a public, commonly used icon set — not letter tiles we drew ourselves.                                                          | open   |
-| I16 | `.docx` shows as "Word". `.doc` shows as the legacy name. They are different internals and must be told apart.                                             | open   |
+| #   | Ruling                                                                                                                                                     | Status            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| I1  | The inspector is tabbed: Preview, Details, Version History, Hashes, Safety. Hashes is its own tab, not part of Versions. Preview is separate from Details. | settled           |
+| I2  | The paste-a-hash field sits at the top of the Hashes tab and is collapsed until asked for.                                                                 | superseded by I22 |
+| I3  | Hashes are recomputed when the tab is opened, not recited from storage.                                                                                    | settled           |
+| I4  | Version rows do not reflow on hover; Open and Restore are icon buttons that are always present.                                                            | settled           |
+| I5  | Version timestamps include the time of day.                                                                                                                | settled           |
+| I6  | Show a diff between two versions.                                                                                                                          | settled           |
+| I7  | Safety is its own tab, because safety has a history.                                                                                                       | settled           |
+| I8  | In safety history, the engine version is its own labelled attribute on its own line, not inline prose.                                                     | settled           |
+| I9  | A signature match is its own line, and clicking it opens a library explaining the finding.                                                                 | settled           |
+| I10 | When claimed type and magic bytes disagree, say what the bytes actually read as.                                                                           | settled           |
+| I11 | Do not restate the same fact three ways (File Type / Claimed Type / Actual Content). Consolidate.                                                          | settled           |
+| I12 | Folders in the inspector show content statistics — counts by file type, number of folders — not an Open/Download/deletion-rules block.                     | settled           |
+| I13 | Drop the "Folder · Discovery" line; the breadcrumb already says it, and it is incomplete.                                                                  | settled           |
+| I14 | Left and right sidebar toggle buttons carry no shadow when active.                                                                                         | settled           |
+| I15 | Real file-type icons, from a public, commonly used icon set — not letter tiles we drew ourselves.                                                          | open              |
+| I16 | `.docx` shows as "Word". `.doc` shows as the legacy name. They are different internals and must be told apart.                                             | settled           |
 
 ## R6 — file analysis
 
@@ -107,9 +115,9 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | F1  | A file-analysis view listing every potential issue on the matter: safety findings, type mismatches, other errors.            | settled |
 | F2  | Analysis must let you **act on** the files from there, not only reveal them in the list. Reveal stays as one of the actions. | settled |
 | F3  | Analysis rows show location.                                                                                                 | settled |
-| F4  | No keyboard-hint text at the bottom of the analysis view.                                                                    | open    |
-| F5  | Drop the "Every open finding on this matter…" explanatory line.                                                              | open    |
-| F6  | Drop "View every finding on this matter" from the file list.                                                                 | open    |
+| F4  | No keyboard-hint text at the bottom of the analysis view.                                                                    | settled |
+| F5  | Drop the "Every open finding on this matter…" explanatory line.                                                              | settled |
+| F6  | Drop "View every finding on this matter" from the file list.                                                                 | settled |
 
 ## R7 — product rulings with backend consequences
 
