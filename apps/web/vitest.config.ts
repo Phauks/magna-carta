@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
@@ -13,6 +15,14 @@ import { defineConfig } from "vitest/config";
 // ERR_UNKNOWN_FILE_EXTENSION.
 export default defineConfig({
   plugins: [svelte()],
+  // `$lib` is SvelteKit's alias, and SvelteKit's plugin is deliberately absent here (see above), so
+  // nothing resolves it: any module under test that imports `$lib/...` fails to load with
+  // ERR_MODULE_NOT_FOUND. Thirty-six modules in src/lib use the alias, and the suite only noticed
+  // when one test finally reached one of them. Declaring it here keeps this config independent of
+  // SvelteKit while matching what `.svelte-kit/tsconfig.json` maps for the type-checker.
+  resolve: {
+    alias: { $lib: fileURLToPath(new URL("./src/lib", import.meta.url)) },
+  },
   test: {
     name: "web",
     root: import.meta.dirname,
