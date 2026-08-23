@@ -171,3 +171,78 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | P13 | File analysis gives more information and lets the files be acted on.                                                                                                         | open                       |
 | P14 | Where does signature-library content come from? Is there a public source to tie to?                                                                                          | open — owner question      |
 | P15 | Is a quarantine view worth having for matter viewing?                                                                                                                        | open — owner question      |
+
+## Answers owed on the open questions
+
+The three entries above marked _owner question_ asked for a recommendation rather than a guess.
+Here is each, with what was actually checked.
+
+### P14 — where the signature explanations come from, and whether a public source exists
+
+**Today they come from nowhere.** The entries in the mockup's signature library are written by hand.
+That is fine for a mockup and unacceptable shipped: a member reading "what this signature means"
+would be reading our paraphrase of a detection we did not make.
+
+**Two thirds of the answer is public, and the split matters.**
+
+1. **The name is decodable, publicly and mechanically.** Cisco Talos publishes signatures as
+   `{platform}.{category}.{name}-{signature id}-{revision}`, and both the platform list (Pdf, Doc,
+   Html, Js, Heuristics, Archive, …) and the category list (Exploit, Ransomware, Downloader,
+   Infostealer, Phishing, Macro, Packed, …) are enumerated in the ClamAV documentation. So
+   `Pdf.Exploit.CVE_2026_1173` decodes without anyone's help: a PDF-targeting exploit signature.
+   Rendering that decomposition is honest, costs one parser, and needs no external call.
+2. **When the name embeds a CVE, that CVE is a citable authority.** MITRE assigns the identifier and
+   NIST's National Vulnerability Database enriches it with a severity score, a weakness mapping and
+   affected-product data, reachable through a documented public API. A finding naming a CVE can link
+   to the public record for it instead of to our prose.
+3. **There is no public per-signature description feed.** No authoritative source maps
+   "Pdf.Exploit.CVE_2026_1173" to a paragraph. The signature database ships patterns, not
+   explanations, and the naming document is a taxonomy, not a dictionary.
+
+**Recommendation.** Build the panel out of (1) and (2) and drop our prose entirely. Show the decoded
+platform and category from the name, and where a CVE is present, its title and severity from the
+public record with a link. Where the name carries no CVE — heuristics especially — say plainly that
+the detection is a heuristic and what the category means, and stop there. What we must not do is
+keep a hand-written library that looks authoritative and is not; the honest failure is "this
+signature is not in the firm library yet", which the mockup already renders.
+
+### P15 — is a quarantine view worth having
+
+**No, and it would contradict a ruling you have already made.** The standing position is that a file
+the user uploads is always stored and committed, and that refusing to save is the greater hazard. A
+quarantine is the opposite gesture: it moves a file out of where it was filed into a holding pen,
+which is exactly the "the system took my document away" experience the ruling exists to prevent. It
+would also break the matter record — a file that is evidence does not stop being evidence because an
+engine disliked its bytes.
+
+**What the request is actually reaching for already exists in two places.** The File Analysis view is
+the list of everything with an open finding, and the Safety tab is the per-file history. Between them
+a member can see every flagged file on the matter and act on each. Adding quarantine would give a
+third place for the same facts and a fourth state for a file to be in.
+
+**One narrow piece is worth taking from the idea:** a saved filter on the file list for "has an open
+finding", so the flagged set is reachable from the list itself and not only from a separate view. The
+filter machinery is already built — Safety is a filterable column — so this is a preset, not a
+feature.
+
+### L27 — the columns that are missing
+
+Checked against the schema rather than invented.
+
+1. **Uploaded by.** The strongest gap: `file_version.uploaded_by` has existed since baseline and is
+   populated, and the list shows no author column at all. A ruling already settled that authorship
+   reads as the person's name; there is currently nowhere for that name to appear. **Add it, on by
+   default.**
+2. **Location.** Derivable from the folder, useless in a folder listing and necessary in the results
+   and analysis views. **Add it, off by default in browse, forced on in results and analysis.**
+3. **Pages.** Litigation asks for page counts constantly. `page_count` exists — but on the discovery
+   document table, recorded at extraction, not on the matter file. **Later**, when extraction writes
+   back to the file record; not a column we can fill today.
+4. **Bates / production number.** No column exists. The discovery schema's own comment says page
+   count was recorded because "Bates numbering will need it", so the numbering is planned and not
+   built. **Later**, and it belongs to the production slice, not to this screen.
+5. **Searchable.** Whether the text index can see a file is a real operational fact — it separates
+   "search found nothing" from "search cannot see this" — but no column on `file` carries it and the
+   search subsystem would have to expose it. **Worth doing, needs a seam first.**
+
+So: two now (Uploaded by, Location), three that want work elsewhere before they can be honest.
