@@ -10,7 +10,7 @@ Rust-only implementations trade peak throughput for complete memory safety on ad
 **White paper:** _Performance & concurrency model_ (sandbox-hardened processing). **Worker side:**
 `apps/convert-worker/src/raster-engine-container.ts` (the `RasterEngineContainer` Durable Object),
 `apps/convert-worker/src/forward-convert.ts` (the `/convert` proxy), and
-`apps/worker/src/conversions/conversion-engine.ts` (the app-worker `serviceBindingPort` adapter that
+`apps/api-worker/src/conversions/conversion-engine.ts` (the app-worker `serviceBindingPort` adapter that
 calls this engine over the `CONVERT` service binding). **Deploy:**
 [`docs/conventions/operations.md`](../../docs/conventions/operations.md).
 

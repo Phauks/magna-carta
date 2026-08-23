@@ -7,7 +7,7 @@
    * and email is forwarded, printed and left open, while two facts the firm already holds are free
    * to the right person and unavailable to the wrong one. What makes that safe is the storage shape
    * rather than this screen's manners: the invitation row holds ONE digest over all three facts
-   * (apps/worker/src/joining-secrets.ts), so there is no stored surname to compare and no stored
+   * (apps/api-worker/src/joining-secrets.ts), so there is no stored surname to compare and no stored
    * birthday, and the handler is structurally incapable of reporting which one was wrong.
    *
    * SO THIS SCREEN MUST NEVER GROW A PER-FIELD ERROR, and the temptation is real — "the code looks

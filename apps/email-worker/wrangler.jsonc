@@ -22,7 +22,7 @@
     },
   ],
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
-  // Producer only: the consumer for this queue lives in the main worker (apps/worker), which holds the
+  // Producer only: the consumer for this queue lives in the main worker (apps/api-worker), which holds the
   // per-firm database handle the capture job needs.
   "queues": {
     "producers": [

@@ -101,7 +101,7 @@ pnpm test                                                               # unit +
 pnpm check:scoped                                                       # INNER LOOP: fmt+lint on the diff, incremental tsc -b, svelte-check/Rust only if touched
 pnpm fix:scoped                                                         # apply fmt + lint autofixes to that SAME diff (markdown included) — never a bare repo-wide `vp check --fix`. Autofixes known to be wrong here (sort()->toSorted(), `=== false`->`!x`) still WARN but are never applied
 pnpm check                                                              # full quality gate (slow, exhaustive): every pass over the whole repo. The gate of record runs it in GitHub Actions (.github/workflows/gate.yml) — run it by hand only when you want the whole-repo answer before a push
-pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # validate deploy without pushing
+pnpm --filter @magna-carta/api-worker exec wrangler deploy --dry-run        # validate deploy without pushing
 cargo test  /  cargo clippy                                             # Rust
 ```
 

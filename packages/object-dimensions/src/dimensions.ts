@@ -40,7 +40,7 @@ export const RESERVED_DIMENSIONS: readonly string[] = ["client", "confidentialit
 // whether an object may ever be fed to anything.
 //
 // Every class below is stamped by exactly one write path, and the paths are enumerated by the source
-// scan in apps/worker/test, so this union and the writers cannot drift apart.
+// scan in apps/api-worker/test, so this union and the writers cannot drift apart.
 
 // Classes for objects that belong to exactly one matter.
 export type MatterScopedObjectClass =

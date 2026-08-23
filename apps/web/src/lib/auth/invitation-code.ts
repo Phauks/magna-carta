@@ -2,7 +2,7 @@
  * How an invitation code is shown while it is being typed, and what is sent when it is submitted.
  *
  * The code is generated as twelve unbroken characters over an alphabet with no confusable glyphs
- * (apps/worker/src/joining-secrets.ts). Two facts about the server side decide everything here:
+ * (apps/api-worker/src/joining-secrets.ts). Two facts about the server side decide everything here:
  *
  *   1. It NORMALIZES before it hashes — uppercased, and everything that is not a letter or a digit
  *      removed. So the surface is free to group the characters for the eye, and free to accept a
@@ -30,7 +30,7 @@ const SEPARATOR = "-";
 /**
  * A typed or pasted code reduced to the form the server hashes: uppercased, with everything that is
  * not a letter or a digit removed. Mirrors `normalizeInvitationCode` in
- * apps/worker/src/joining-secrets.ts — the two must agree, or a code the field accepted would be
+ * apps/api-worker/src/joining-secrets.ts — the two must agree, or a code the field accepted would be
  * refused by the comparison.
  */
 export function normalizeInvitationCode(code: string): string {

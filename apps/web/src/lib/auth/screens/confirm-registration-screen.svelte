@@ -10,7 +10,7 @@
    * link that will not open in the reader's mail client is never a dead end.
    *
    * THE TOKEN IS PASSED THROUGH UNTOUCHED except for trimming. Unlike the invitation code, the
-   * server does NOT normalize it — apps/worker/src/joining-secrets.ts hashes the trimmed string
+   * server does NOT normalize it — apps/api-worker/src/joining-secrets.ts hashes the trimmed string
    * exactly as given — so uppercasing it, grouping it, or stripping punctuation from it here would
    * quietly produce a digest that matches nothing, and the person would be told their link was bad
    * by the field that broke it.

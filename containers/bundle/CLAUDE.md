@@ -9,7 +9,7 @@ Workers) — the container holds no R2 credentials and does no general egress. T
 the plain-ZIP fast lane stays in the Worker (`client-zip`).
 
 **Design home:** `docs/specs/2026-06-25-enhanced-bundling-design.md`. **Worker side (the manifest sender,
-R2 mediation, coordinator/queue/routes):** `apps/worker/src/downloads/` and `apps/bundle-worker/`.
+R2 mediation, coordinator/queue/routes):** `apps/api-worker/src/downloads/` and `apps/bundle-worker/`.
 **Deploy:** [`docs/conventions/operations.md`](../../docs/conventions/operations.md).
 
 ## Key files
@@ -32,7 +32,7 @@ source:"r2", r2Key }` / `{ …, source:"inline", bytesBase64 }`) to byte-match t
 ## Local rules / invariants
 
 - **The manifest + result JSON is the Rust⇄TS boundary.** `contract.rs`'s `BuildRequest`/`BuildResponse`
-  must stay byte-compatible with the worker adapter (`apps/worker/src/downloads/bundle-container-adapter.ts`);
+  must stay byte-compatible with the worker adapter (`apps/api-worker/src/downloads/bundle-container-adapter.ts`);
   a change is a change on both sides. The flattened entry shape (not a nested `source` object) is load-bearing.
 - **Never buffer the whole archive in memory.** Inputs stream from R2 into a temp spill file; the encoded
   archive lives on ephemeral disk (`/tmp`); output streams back to R2 volume-by-volume. The deploy instance

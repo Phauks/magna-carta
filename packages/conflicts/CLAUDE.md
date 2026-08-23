@@ -199,7 +199,7 @@ and never calls external services.
   and run are separate consumers for a different reason and the same discipline: a slow check must not
   back-pressure the recording of causes, so the request consumer never imports `runConflictsCheck`.
 - **An automated run is nobody's act.** `actorUserId` is null and `effectivePermissions` is empty on
-  the context the worker builds for it (`apps/worker/src/conflicts/recheck-context.ts`). The matching
+  the context the worker builds for it (`apps/api-worker/src/conflicts/recheck-context.ts`). The matching
   channels compare sealed identifiers by blind index, which needs no permission and writes no decrypt
   audit; a path that needed a real decrypt would fail there, loudly, which is the correct outcome for
   machinery running under nobody's authority. `trigger_source` records what set the run going, kept
@@ -275,7 +275,7 @@ and never calls external services.
 - Pure and synchronous per operation except for its own database reads: produces statements for the
   caller to run via the data-access layer; holds no D1 binding of its own and calls no external
   service.
-- The worker routes (`apps/worker/src/routes/conflicts.ts`) are the only callers of
+- The worker routes (`apps/api-worker/src/routes/conflicts.ts`) are the only callers of
   `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` — they own threading `env`,
   the actor, and idempotency.
 

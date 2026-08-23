@@ -7,7 +7,7 @@
 //! **Axis two — split fan-out.** The same query against a corpus published the way the pipeline
 //! publishes it TODAY: one split per document version, because a split's object key is derived from
 //! `(document, version)` (`packages/search/src/split.ts`) and the query is handed every live split key
-//! the catalog holds (`apps/worker/src/search/keyword-search.ts`). Per-query cost on this axis grows
+//! the catalog holds (`apps/api-worker/src/search/keyword-search.ts`). Per-query cost on this axis grows
 //! with the NUMBER OF SPLITS rather than with the corpus, which is why it is measured separately —
 //! it is the axis that falls over first, and the gap between the two axes is what compaction is worth.
 

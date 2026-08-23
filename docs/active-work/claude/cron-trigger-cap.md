@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: the app Worker's Cron Trigger set — deploy-blocking
 status: building
-touches: apps/worker/wrangler.jsonc, changelog.d
+touches: apps/api-worker/wrangler.jsonc, changelog.d
 ---
 
 The first `main:release` deploy since 2026-07-04 failed at the trigger step on every attempt. The

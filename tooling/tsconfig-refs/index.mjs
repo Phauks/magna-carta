@@ -98,7 +98,7 @@ const HEADER =
 // with) the one inherited from the package's tsconfig.json, so a src-only include silently drops the
 // hand-written `*.d.ts` a package lists there — and an ambient `declare module` that is dropped does
 // not degrade gracefully: the modules it describes become unresolvable and the build fails with TS2307
-// on an import that is perfectly correct (apps/worker's wasm-modules.d.ts, which types the .wasm
+// on an import that is perfectly correct (apps/api-worker's wasm-modules.d.ts, which types the .wasm
 // imports wrangler bundles, is the worked example). They emit nothing, so they are exempt from the
 // rootDir constraint and safe to include alongside src/.
 function rootAmbientDeclarations(member) {

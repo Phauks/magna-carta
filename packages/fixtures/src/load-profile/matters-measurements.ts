@@ -42,7 +42,7 @@ function storageMeterSummaryStatement(snapshot: LoadedSnapshot): NodeSqlStatemen
 
 const STALE_CONSULTATION_DAYS = 30;
 
-// The weekly re-scan sweep's per-firm batch cap (apps/worker scheduled.ts) — the LIMIT the find-
+// The weekly re-scan sweep's per-firm batch cap (apps/api-worker scheduled.ts) — the LIMIT the find-
 // unscanned read draws, so the measured cost matches one real sweep batch.
 const RESCAN_SWEEP_BATCH = 100;
 

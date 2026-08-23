@@ -43,7 +43,7 @@ missing-module errors where a worker test project was never wired for `cloudflar
 heaviest are `@magna-carta/magnus` (10), `@magna-carta/email` (7), and `@magna-carta/conflicts` and
 `@magna-carta/document-assembly` (5 each).
 
-**That count is a floor, not a total.** `apps/worker` holds 240 of the 837 test files — 29 percent of
+**That count is a floor, not a total.** `apps/api-worker` holds 240 of the 837 test files — 29 percent of
 the corpus — and its type-check did not finish inside 18 minutes, so it is excluded from the 52
 outright. Whatever it holds is additional.
 

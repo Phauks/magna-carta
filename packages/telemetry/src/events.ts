@@ -33,7 +33,7 @@ export const outboxSwept = defineEvent("outbox.swept", [
 ] as const);
 
 // migration.applied — a per-database migration apply ({ database, tag }). DEFINED-FOR-WIRING seam:
-// the producer is the provisioning migrate-to-head path (apps/worker/src/firm-provisioner-wiring.ts).
+// the producer is the provisioning migrate-to-head path (apps/api-worker/src/firm-provisioner-wiring.ts).
 // The builder ships ahead of that wiring so the producer needs no catalog change. Not yet emitted.
 export const migrationApplied = defineEvent("migration.applied", ["database", "tag"] as const);
 

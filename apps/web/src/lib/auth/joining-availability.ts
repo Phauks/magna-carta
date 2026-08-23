@@ -9,8 +9,8 @@
  * expect them to end, and this module is where that is written down so the screens can say it
  * instead of leaving somebody waiting for an email that reads nothing like a link.
  *
- * Verified against apps/worker/src/routes/registrations.ts, apps/worker/src/routes/invitations.ts
- * and apps/worker/src/email-port.ts. Delete an entry, or move it to `live`, when the gap closes;
+ * Verified against apps/api-worker/src/routes/registrations.ts, apps/api-worker/src/routes/invitations.ts
+ * and apps/api-worker/src/email-port.ts. Delete an entry, or move it to `live`, when the gap closes;
  * every consumer follows from here rather than from a flag flipped in several screens.
  */
 

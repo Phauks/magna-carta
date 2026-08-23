@@ -4,7 +4,7 @@
  *
  * These are same-origin `fetch` calls against the relative `/api/v1` paths. `apps/web` does not
  * depend on @magna-carta/api-client, so the shapes below are hand-written mirrors of the contract in
- * apps/worker/openapi/openapi.json — the same arrangement the Documents surface uses
+ * apps/api-worker/openapi/openapi.json — the same arrangement the Documents surface uses
  * (apps/web/src/lib/documents/document-api.ts) and the WHOIS tool before it. The duplication of the
  * small request helper across those three is deliberate for now: this surface is reached with no
  * session at all, and pointing the signed-out screens at a module that belongs to a signed-in

@@ -10,8 +10,8 @@ single-page-application not-found handling — the handler never ran.**
 
 Workers Static Assets routes asset-server-first: the array is not a list of API prefixes, it is the
 list of every top-level family the Worker answers on. The two cookieless surfaces deliberately built
-outside `/api` — the editor's WOPI data plane (`apps/worker/src/editing/wopi-host.ts`) and the
-keyword engine's ranged-read host (`apps/worker/src/search/split-object-host.ts`) — sat outside it,
+outside `/api` — the editor's WOPI data plane (`apps/api-worker/src/editing/wopi-host.ts`) and the
+keyword engine's ranged-read host (`apps/api-worker/src/search/split-object-host.ts`) — sat outside it,
 as did the local tools demo page. The failure has no shape a caller can read: HTML with a success
 status where a document, a byte range or a page was expected.
 
@@ -19,7 +19,7 @@ status where a document, a byte range or a page was expected.
 `run_worker_first: true` with exceptions, because the SPA's own files must keep being served by the
 asset server — free, and off this Worker's CPU and invocation count.
 
-**The part that stops it recurring:** `apps/worker/test/worker-first-routing-scan.test.ts` derives
+**The part that stops it recurring:** `apps/api-worker/test/worker-first-routing-scan.test.ts` derives
 the families from `app.routes` — Hono's live dispatch table, so a family added by a route module, a
 plugin, or a bare `app.get` is seen the moment it exists — and fails any path the configured
 patterns do not cover. Nothing else could catch it: `SELF.fetch` in the local pool reaches the

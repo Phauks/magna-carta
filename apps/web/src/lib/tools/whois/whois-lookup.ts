@@ -80,7 +80,7 @@ export function classifyResult(result: WhoisResult): "rdap" | "raw" | "empty" {
 /**
  * Human guidance for a failed lookup, keyed by HTTP status. Deliberately never echoes the query or
  * any resolved address: the 400 is generic on purpose — the worker route
- * (apps/worker/src/routes/whois.ts) keeps it that way as an SSRF guard, and the UI must not undo
+ * (apps/api-worker/src/routes/whois.ts) keeps it that way as an SSRF guard, and the UI must not undo
  * that by reflecting the input back. A server fault (>= 500) is the case that carries an Error ID
  * for the member to quote.
  */

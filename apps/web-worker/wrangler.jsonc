@@ -2,7 +2,7 @@
   // The SvelteKit single-page application, deployed on its own. This Worker holds NO script: it is
   // an assets-only deployable, so a request for a page or a bundle is answered by Cloudflare's asset
   // server and invokes nothing. That is the whole point of separating it — the API Worker
-  // (apps/worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules and every runtime
+  // (apps/api-worker) carries D1, R2, Queues, Durable Objects, the WebAssembly modules and every runtime
   // secret, and a change to a button's label should not rebuild and redeploy any of that.
   //
   // Deliberately empty of bindings and secrets, and it must stay that way. The browser bundle this
@@ -10,7 +10,7 @@
   // surface is "hand back a file", and the isolation is what makes that safe to deploy on a UI
   // change alone.
   //
-  // This is ADDITIVE today: apps/worker still binds the same build output under its own `assets`
+  // This is ADDITIVE today: apps/api-worker still binds the same build output under its own `assets`
   // block, so the application keeps serving exactly as it does now from a single origin. Cutting
   // over means giving the two Workers route patterns on one hostname (the SPA everywhere, the API
   // Worker on its own paths), which needs a zone hostname the account does not have yet. Until then
@@ -27,7 +27,7 @@
     "not_found_handling": "single-page-application",
   },
   // workers.dev serving stays on: it is the only reachable URL until magnacarta.esq attaches.
-  // Per-version preview URLs stay off, matching apps/worker.
+  // Per-version preview URLs stay off, matching apps/api-worker.
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true, "head_sampling_rate": 1 },

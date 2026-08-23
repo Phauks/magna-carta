@@ -17,7 +17,7 @@ import {
 } from "../src/lib/auth/invitation-code.ts";
 
 /**
- * The server's own reduction, transcribed from apps/worker/src/joining-secrets.ts. Written out here
+ * The server's own reduction, transcribed from apps/api-worker/src/joining-secrets.ts. Written out here
  * rather than imported because the Worker is a different package and this is the assertion that the
  * two agree — importing the thing under comparison would assert nothing.
  */

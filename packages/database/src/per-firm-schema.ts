@@ -1194,7 +1194,7 @@ export const auditLog = sqliteTable(
 );
 
 // User-initiated incident reports — the row written by POST /api/v1/incidents. Structure only — the
-// route and its outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON
+// route and its outbox→Queue seam (`incident.created`, no consumer yet) live in apps/api-worker. JSON
 // columns are redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never
 // content. The `description` is the user's words — encrypted into description_ciphertext (access-gated,
 // audited reads) by the firm-scoped data-access chokepoint; the plaintext column is retained until a

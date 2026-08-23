@@ -8,7 +8,7 @@
  * machine. That distinction is what this module records, so the screen states it instead of showing
  * a blank frame and letting the person conclude the feature is broken.
  *
- * Verified against apps/worker/src/editing/CLAUDE.md, apps/worker/src/editing/edit-session-route.ts,
+ * Verified against apps/api-worker/src/editing/CLAUDE.md, apps/api-worker/src/editing/edit-session-route.ts,
  * and apps/edit-worker/. Delete an entry when its runtime lands; every consumer follows.
  */
 

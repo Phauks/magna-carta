@@ -18,7 +18,7 @@
 // correctness one, because the closure is re-walked in full before anything ships. Unbounded (the
 // default) is the complete answer. A cap of 1 — the changed packages plus their DIRECT dependents —
 // remains available, but the gate no longer uses it, because graph DISTANCE turned out to be a poor
-// proxy for lint COST here: `apps/worker` depends directly on 39 of the repository's 61 workspace
+// proxy for lint COST here: `apps/api-worker` depends directly on 39 of the repository's 61 workspace
 // packages, so it sits one hop from nearly every change and a one-hop cap saved almost nothing.
 // `--defer-fanout-sinks` below measures cost directly instead.
 //
@@ -162,7 +162,7 @@ export function computeTypeProgramWeights({ root, packages }) {
 // A package is a fan-out sink when its type program is at least this share of every lintable file in
 // the workspace. Expressed as a SHARE rather than a file count so it needs no re-tuning as the repo
 // grows: the point is "this package's lint is effectively a whole-repo lint", which is a ratio, not an
-// absolute. Measured 2026-08-05: apps/worker's closure is 1261 of 1669 lintable files (75.6%); the next
+// absolute. Measured 2026-08-05: apps/api-worker's closure is 1261 of 1669 lintable files (75.6%); the next
 // package down is 550 (33%) and the median is 34 (2%). At 0.5 the rule selects exactly the one genuine
 // outlier, with the next candidate at two thirds of the threshold. Raise or lower it only with the
 // measured distribution in hand — scope-fitness.mjs beside this file prints it and fails if the rule ever

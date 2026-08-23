@@ -8,7 +8,7 @@ against a random row, a cleaner whose merge test expired the day after each merg
 rebuild that deleted 942 lines of committed trunk history when run off `main`.**
 
 **The email-capture test picked its subject at random.** Two assertions in
-`apps/worker/test/emails-capture.test.ts` resolved the message they were about with
+`apps/api-worker/test/emails-capture.test.ts` resolved the message they were about with
 `SELECT id FROM email_message LIMIT 1`, against a table earlier tests in the same file had already
 filled. No `WHERE`, no `ORDER BY` — the row came back in primary-key index order, and that key is a
 randomly generated identifier, so which message the assertion checked changed from run to run. It

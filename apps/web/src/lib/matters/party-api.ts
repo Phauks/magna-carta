@@ -1,6 +1,6 @@
 /*
  * The matter Parties section's response shapes and calls. Mirrors the matter-party operations in
- * apps/worker/openapi/openapi.json; the transport envelope itself lives in $lib/api/request.ts.
+ * apps/api-worker/openapi/openapi.json; the transport envelope itself lives in $lib/api/request.ts.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 

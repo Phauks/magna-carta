@@ -4,7 +4,7 @@
 // levels above it. Under `vp` sits the Vitest CLI, and under that the esbuild services and (for the
 // worker suites) the workerd instances. Kill the direct child and the rest are orphaned, reparented to
 // init, and keep running with the CPU, the Vite transform cache and the Miniflare `.wrangler` state all
-// still in hand. Measured on this repository, interrupting `pnpm test apps/worker`: the guard exited
+// still in hand. Measured on this repository, interrupting `pnpm test apps/api-worker`: the guard exited
 // after 17 s and released the single-flight lock with **nine runner processes still alive**, which
 // stayed alive for a further **44 s**.
 //

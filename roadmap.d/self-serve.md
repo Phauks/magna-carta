@@ -9,7 +9,7 @@
   scope: A stranger founding a firm without a platform operator, the free evaluation tier and what it withholds, the entitlement mask that enforces it, the lifecycle of an abandoned tenant, and the seam a future payments integration fills.
   status: partial
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The provisioning half of the design is built — apps/worker/src/routes/registrations.ts and apps/worker/src/firm-provision-consumer.ts turn a confirmed registration into a real firm off the request path. The entitlement half is not: there is no tier catalog, no tier column, no quota ceiling and no upgrade-required refusal anywhere in the tree.
+  evidence: The provisioning half of the design is built — apps/api-worker/src/routes/registrations.ts and apps/api-worker/src/firm-provision-consumer.ts turn a confirmed registration into a real firm off the request path. The entitlement half is not: there is no tier catalog, no tier column, no quota ceiling and no upgrade-required refusal anywhere in the tree.
   audience: public
   public-name: Signing up and plans
   public-summary: Start a firm yourself, evaluate it free, and move to a paid plan later without any of your work moving anywhere.
@@ -23,8 +23,8 @@
   slices: 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0280
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: apps/worker/src/routes/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
-  notes: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/worker/src/routes/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.
+  evidence: apps/api-worker/src/routes/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/api-worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
+  notes: Reachable end to end — apps/web/src/routes/register forks on which door the visitor came through, register/firm runs the three-step founding form through startRegistration, and register/confirm spends the emailed token through confirmRegistration. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/api-worker/src/routes/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.
 
 - id: self-serve.firm-lifecycle
   name: Firm lifecycle states
@@ -40,7 +40,7 @@
   status: designed
   adrs: ADR-0049, ADR-0084
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The ladder, the split between a never-activated tenant and a used-then-abandoned one, and the three recorded acts of destruction are specified over the shipped crypto-shred mechanism in apps/worker/src/firm-key-shred.ts; no sweep, no destruction request and no notice exists.
+  evidence: The ladder, the split between a never-activated tenant and a used-then-abandoned one, and the three recorded acts of destruction are specified over the shipped crypto-shred mechanism in apps/api-worker/src/firm-key-shred.ts; no sweep, no destruction request and no notice exists.
   awaiting-owner: The clock. Notices, dormancy, suspension, an export window and only then a proposal to destroy — the design proposes a ladder measured in months from last human activity, with a much shorter one for a tenant that was provisioned and never used, and settles none of the numbers. What turns on them is how long the platform carries a stranger's abandoned workspace and how much warning a lawyer who went quiet actually receives; the design deliberately recovers the recurring cost early in the ladder so the platform is never under cost pressure to shorten the destruction end of it. Self-serve provisioning design flag F2.
   notes: A firm holding client money, any hold, or any custody packet out is never auto-proposed at all, and a final notice that was not delivered stops the clock rather than counting as a warning.
 
@@ -49,7 +49,7 @@
   scope: A tier catalog in code naming permission keys, a per-firm tier and its overrides in the control plane, and the mask that intersects a principal's permissions with what their firm's tier permits at the one existing chokepoint.
   status: designed
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The catalog module beside packages/access-control/src/registry.ts, the tier and verification columns, the override table and the isolate-local resolution on the pattern in apps/worker/src/usage/consent.ts are all specified and none is written; apps/worker/src/chokepoint/chokepoint.ts gains one denial branch rather than a step.
+  evidence: The catalog module beside packages/access-control/src/registry.ts, the tier and verification columns, the override table and the isolate-local resolution on the pattern in apps/api-worker/src/usage/consent.ts are all specified and none is written; apps/api-worker/src/chokepoint/chokepoint.ts gains one denial branch rather than a step.
   awaiting-owner: Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.
   notes: This is a mask over the existing permission vocabulary, not a second authorization system — no vocabulary of its own, no enforcement point of its own, no per-route declaration; the only new thing on the wire is which refusal a denial renders.
 
@@ -59,7 +59,7 @@
   status: designed
   adrs: ADR-0078
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The measurement is already built and reused rather than rebuilt — the incremental per-firm storage rollup behind apps/worker/src/routes/firm-usage.ts — and the checks at presign, at version commit and in each subsystem's create path are specified and unwritten.
+  evidence: The measurement is already built and reused rather than rebuilt — the incremental per-firm storage rollup behind apps/api-worker/src/routes/firm-usage.ts — and the checks at presign, at version commit and in each subsystem's create path are specified and unwritten.
   awaiting-owner: The free tier's actual numbers: the storage ceiling, the member ceiling and the matter ceiling. This is the flag the founding-a-firm screen is waiting on — it already tells a visitor their firm starts on the free tier while nothing in the tree defines what that tier is, and the registration screen, the upgrade panel, the refusal body and the enforcement are all meant to read the same catalog so a limit cannot be right in one place and stale in another. Two recommendations on shape rather than value: the member ceiling is the single most effective anti-abuse limit and should be small, and the storage ceiling should be small enough that an abandoned free tenant's bytes are never individually worth worrying about. Self-serve provisioning design flag F1.
   notes: An over-quota firm is never deleted down to fit — new writes are refused and everything it already holds stays.
 
@@ -85,5 +85,5 @@
   scope: The single writer that moves a firm's tier, what a future payments integration must supply to call it, and what happens to a paid firm whose subscription lapses.
   status: designed
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The design defines the seam and builds none of it: one internal writer that sets the column, records the act and invalidates the cached resolution, reachable today from an operator-guarded route on the working template in apps/worker/src/routes/platform-release-channel.ts and tomorrow from a payments integration. Nothing writes a tier because no tier column exists.
+  evidence: The design defines the seam and builds none of it: one internal writer that sets the column, records the act and invalidates the cached resolution, reachable today from an operator-guarded route on the working template in apps/api-worker/src/routes/platform-release-channel.ts and tomorrow from a payments integration. Nothing writes a tier because no tier column exists.
   notes: On upgrade nothing moves — the firm, its bucket, its database and every byte stay exactly where they are and one column changes, which is the property a shared workspace for free tenants would destroy. A lapsed paid firm is never reaped and is never downgraded to the free tier: it goes read-only with export open, indefinitely, because applying free-tier ceilings to a firm holding real matters means either destroying data to fit or leaving it permanently over-quota.
