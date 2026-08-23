@@ -360,6 +360,45 @@ await check("L26b", "A tile selects, and right-click on one opens the same menu"
   return await page.locator("#ctx").isVisible();
 });
 
+await check("P12", "A zip opens into itself and its members are browsable", async () => {
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.locator('.tnode[data-tree="discovery"]').first().click();
+  const zip = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: ".zip" }).first();
+  await zip.dblclick();
+  const bar = page.locator(".archbar");
+  if (!(await bar.isVisible())) return false;
+  // Reading the index is not extraction, and the page must say so.
+  if (!(await bar.innerText()).toLowerCase().includes("nothing is extracted")) return false;
+  const rows = page.locator(".archlist .archrow");
+  if ((await rows.count()) === 0) return false;
+  // Descend a directory inside the archive, then climb back out of the archive entirely.
+  await page.locator("[data-archdir]").first().click();
+  if ((await page.locator(".archlist .archrow").count()) === 0) return false;
+  await page.locator("#archLeave").click();
+  return (
+    !(await page.locator(".archbar").isVisible()) && (await page.locator("#tablewrap").isVisible())
+  );
+});
+
+await check(
+  "P12b",
+  "A never-scanned archive is still browsable, and says its contents are unchecked",
+  async () => {
+    const zip = page.locator('#rows tr[data-key^="d:"]').filter({ hasText: ".zip" }).first();
+    await zip.click({ button: "right" });
+    await page.locator('#ctx button[data-cmd="enterzip"]').click();
+    const text = await page.locator("#statePane").innerText();
+    if (!text.toLowerCase().includes("never scanned")) return false;
+    await page.locator("#archExtract").click();
+    const sheet = page.locator("#newDocWash");
+    const shown = await sheet.isVisible();
+    const body = await sheet.innerText();
+    await page.locator('[data-ex="no"]').click();
+    return shown && body.includes("Nothing is refused on the way in");
+  },
+);
+
 await check(
   "JS",
   "No page errors while exercising all of the above",

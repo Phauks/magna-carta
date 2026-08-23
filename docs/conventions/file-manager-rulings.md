@@ -167,7 +167,7 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 | I25 | Version comparison becomes a full modal for moving between versions, tied to the preview. Deferred, marked Soon.                                                             | open — deferred       |
 | I26 | Remove "— bytes agree". Agreement is the assumption; only disagreement is stated.                                                                                            | settled               |
 | I27 | **Regression:** document type can no longer be set.                                                                                                                          | settled               |
-| P12 | Enter zip files from the list.                                                                                                                                               | open                  |
+| P12 | Enter zip files from the list.                                                                                                                                               | settled               |
 | P13 | File analysis gives more information and lets the files be acted on.                                                                                                         | open                  |
 | P14 | Where does signature-library content come from? Is there a public source to tie to?                                                                                          | open — owner question |
 | P15 | Is a quarantine view worth having for matter viewing?                                                                                                                        | open — owner question |
