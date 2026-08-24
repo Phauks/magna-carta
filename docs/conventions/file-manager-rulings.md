@@ -126,7 +126,7 @@ harness does not cover are checked by hand and get a check added when they are n
 | P1  | **A file the user uploads is always stored and committed** — a suspected security issue or a type mismatch never blocks the write. The user deals with the file afterwards. Refusing to save is the greater hazard.       | open — spec written, not built |
 | P2  | Entry into archives, and extraction out of one into a matter.                                                                                                                                                             | open — spec written, not built |
 | P3  | Deleted files restore somewhere sane when their original folder is gone.                                                                                                                                                  | open                           |
-| P4  | A file-manager error must give a technical explanation, first steps (refresh, check connection), and a working report path through the standard in-house reporting pipeline. Retry and Report must actually do something. | open — both are inert          |
+| P4  | A file-manager error must give a technical explanation, first steps (refresh, check connection), and a working report path through the standard in-house reporting pipeline. Retry and Report must actually do something. | settled                        |
 | P5  | The error view must scroll.                                                                                                                                                                                               | settled                        |
 | P6  | "Save new version" as currently shaped is not wanted — replacing a document by uploading a copy over it is too easy to get wrong. Research the right workflow before building anything here.                              | answered — awaiting decision   |
 | P7  | Resolve the difference between "Open" and "Open in Editor", or drop one.                                                                                                                                                  | open                           |
@@ -278,6 +278,9 @@ very file while the screen still had the defect, because the harness asserted th
 | I32  | A digest can be verified by choosing a file from disk; it is hashed in the browser and never uploaded.                                                                       | settled |
 | F7   | A clean file gets no preamble explaining that it is clean.                                                                                                                   | settled |
 | P5   | A dialog is capped at the viewport and only its body scrolls, so a long one cannot push its own Close button off-screen.                                                     | settled |
+| P4   | The error view names the request, the status and the time, gives three first steps, and leads with the fact that the record is unaffected.                                   | settled |
+| P4b  | Report a Problem opens a real reporter: what is sent is listed, a screenshot is opt-in, and it states that no document, file name or matter content leaves the firm.         | settled |
+| P5b  | The error view is a PANE, not a dialog — it scrolls inside its own container. P5 had been marked settled off the dialog cap, which never applied here.                       | settled |
 | P12c | Archive members render on the matter's own table — same columns, same row height. Columns an archive member cannot answer are EMPTY, never invented.                         | settled |
 | I25  | Comparing versions is deferred. The affordance stays on every older row, disabled, and says it is not built.                                                                 | settled |
 
@@ -291,12 +294,10 @@ very file while the screen still had the defect, because the harness asserted th
 - **Litigation holds are out of scope here.** The hold table covers custody packets, not matter
   files, and our delete is a soft delete that destroys nothing.
 
-| #      | Still open                                                                                                                                                           | Status                       |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| S9–S14 | The results-page rebuild, including the defect where an existing query does not re-run.                                                                              | open                         |
-| I15    | Real file-type icons from a public set.                                                                                                                              | open — owner question        |
-| P4     | The error view: technical explanation, working Retry and Report.                                                                                                     | open                         |
-| P6     | "Save new version" — answered in [`docs/specs/2026-08-24-save-new-version-analysis.md`](../specs/2026-08-24-save-new-version-analysis.md); one owner question in it. | answered — awaiting decision |
-| P7     | Open vs Open in Editor.                                                                                                                                              | open — owner question        |
-| P8     | Concurrent authorship credit.                                                                                                                                        | open                         |
-| A10    | Template picking at scale.                                                                                                                                           | open — deferred              |
+| #   | Still open                                                                                                                                                           | Status                       |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| I15 | Real file-type icons from a public set.                                                                                                                              | open — owner question        |
+| P6  | "Save new version" — answered in [`docs/specs/2026-08-24-save-new-version-analysis.md`](../specs/2026-08-24-save-new-version-analysis.md); one owner question in it. | answered — awaiting decision |
+| P7  | Open vs Open in Editor.                                                                                                                                              | open — owner question        |
+| P8  | Concurrent authorship credit.                                                                                                                                        | open                         |
+| A10 | Template picking at scale.                                                                                                                                           | open — deferred              |
